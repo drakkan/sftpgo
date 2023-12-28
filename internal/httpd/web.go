@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/go-chi/render"
 	"github.com/unrolled/secure"
 
 	"github.com/drakkan/sftpgo/v2/internal/util"
@@ -147,4 +148,9 @@ func getI18NErrorString(err error, fallback string) string {
 		return errI18n.Message
 	}
 	return fallback
+}
+
+func handlePingRequest(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	render.PlainText(w, r, "PONG")
 }

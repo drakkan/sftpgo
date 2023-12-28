@@ -193,6 +193,7 @@ const (
 	webClientResetPwdPath          = "/web/client/reset-password"
 	webClientViewPDFPath           = "/web/client/viewpdf"
 	webClientGetPDFPath            = "/web/client/getpdf"
+	webClientExistPath             = "/web/client/exist"
 	httpBaseURL                    = "http://127.0.0.1:8081"
 	defaultRemoteAddr              = "127.0.0.1:1234"
 	sftpServerAddr                 = "127.0.0.1:8022"
@@ -13893,6 +13894,12 @@ func TestShareMaxSessions(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Contains(t, rr.Body.String(), util.I18nError429Message)
 
+	req, err = http.NewRequest(http.MethodPost, webClientPubSharesPath+"/"+objectID+"/browse/exist", nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "invalid share scope")
+
 	req, err = http.NewRequest(http.MethodGet, sharesPath+"/"+objectID+"/files?path=afile", nil)
 	assert.NoError(t, err)
 	rr = executeRequest(req)
@@ -13954,6 +13961,27 @@ func TestShareMaxSessions(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, sharesPath+"/"+objectID, reader)
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusTooManyRequests, rr)
+	assert.Contains(t, rr.Body.String(), "too many open sessions")
+
+	share = dataprovider.Share{
+		Name:  "test share max sessions read/write",
+		Scope: dataprovider.ShareScopeReadWrite,
+		Paths: []string{"/"},
+	}
+	asJSON, err = json.Marshal(share)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	objectID = rr.Header().Get("X-Object-ID")
+	assert.NotEmpty(t, objectID)
+
+	req, err = http.NewRequest(http.MethodPost, webClientPubSharesPath+"/"+objectID+"/browse/exist", nil)
+	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusTooManyRequests, rr)
 	assert.Contains(t, rr.Body.String(), "too many open sessions")
@@ -14088,6 +14116,21 @@ func TestShareReadWrite(t *testing.T) {
 	objectID := rr.Header().Get("X-Object-ID")
 	assert.NotEmpty(t, objectID)
 
+	filesToCheck := make(map[string]any)
+	filesToCheck["files"] = []string{testFileName}
+	asJSON, err = json.Marshal(filesToCheck)
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodPost, path.Join(webClientPubSharesPath, objectID, "/browse/exist?path=%2F"), bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	var fileList []any
+	err = json.Unmarshal(rr.Body.Bytes(), &fileList)
+	assert.NoError(t, err)
+	assert.Len(t, fileList, 0)
+
 	content := []byte("shared rw content")
 	req, err = http.NewRequest(http.MethodPost, path.Join(sharesPath, objectID, testFileName), bytes.NewBuffer(content))
 	assert.NoError(t, err)
@@ -14095,6 +14138,16 @@ func TestShareReadWrite(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusCreated, rr)
 	assert.FileExists(t, filepath.Join(user.GetHomeDir(), user.Filters.StartDirectory, testFileName))
+
+	req, err = http.NewRequest(http.MethodPost, path.Join(webClientPubSharesPath, objectID, "/browse/exist?path=%2F"), bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	fileList = nil
+	err = json.Unmarshal(rr.Body.Bytes(), &fileList)
+	assert.NoError(t, err)
+	assert.Len(t, fileList, 1)
 
 	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "browse?path=%2F"), nil)
 	assert.NoError(t, err)
@@ -14721,6 +14774,50 @@ func TestBrowseShares(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), util.I18nErrorShareBrowsePaths)
+
+	share = dataprovider.Share{
+		Name:      "test share rw",
+		Scope:     dataprovider.ShareScopeReadWrite,
+		Paths:     []string{"/missingdir"},
+		MaxTokens: 0,
+	}
+	asJSON, err = json.Marshal(share)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	objectID = rr.Header().Get("X-Object-ID")
+	assert.NotEmpty(t, objectID)
+	req, err = http.NewRequest(http.MethodPost, path.Join(webClientPubSharesPath, objectID, "/browse/exist?path=%2F"), nil)
+	assert.NoError(t, err)
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "unable to check the share directory")
+
+	share = dataprovider.Share{
+		Name:      "test share rw",
+		Scope:     dataprovider.ShareScopeReadWrite,
+		Paths:     []string{shareDir},
+		MaxTokens: 0,
+	}
+	asJSON, err = json.Marshal(share)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	objectID = rr.Header().Get("X-Object-ID")
+	assert.NotEmpty(t, objectID)
+	req, err = http.NewRequest(http.MethodPost, path.Join(webClientPubSharesPath, objectID, "/browse/exist?path=%2F.."), nil)
+	assert.NoError(t, err)
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "Invalid path")
 	// share the root path
 	share = dataprovider.Share{
 		Name:      "test share root",
@@ -15333,6 +15430,120 @@ func TestUserAPIKey(t *testing.T) {
 	assert.NoError(t, err)
 
 	_, err = httpdtest.RemoveAPIKey(adminAPIKey, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestWebClientExistenceCheck(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+
+	webToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	assert.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPost, webClientExistPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr) // no CSRF header
+
+	req, err = http.NewRequest(http.MethodPost, webClientExistPath, bytes.NewBuffer([]byte(`[]`)))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	setCSRFHeaderForReq(req, csrfToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	filesToCheck := make(map[string]any)
+	filesToCheck["files"] = nil
+	asJSON, err := json.Marshal(filesToCheck)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, webClientExistPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	setCSRFHeaderForReq(req, csrfToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "files to be checked are mandatory")
+
+	testFileName := "file.dat"
+	testDirName := "adirname"
+	filesToCheck["files"] = []string{testFileName}
+	asJSON, err = json.Marshal(filesToCheck)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, webClientExistPath+"?path=%2Fmissingdir", bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	setCSRFHeaderForReq(req, csrfToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodPost, webClientExistPath+"?path=%2F", bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	setCSRFHeaderForReq(req, csrfToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	var fileList []any
+	err = json.Unmarshal(rr.Body.Bytes(), &fileList)
+	assert.NoError(t, err)
+	assert.Len(t, fileList, 0)
+
+	err = createTestFile(filepath.Join(user.GetHomeDir(), testFileName), 100)
+	assert.NoError(t, err)
+	err = os.Mkdir(filepath.Join(user.GetHomeDir(), testDirName), 0755)
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodPost, webClientExistPath+"?path=%2F", bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	setCSRFHeaderForReq(req, csrfToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	fileList = nil
+	err = json.Unmarshal(rr.Body.Bytes(), &fileList)
+	assert.NoError(t, err)
+	assert.Len(t, fileList, 1)
+
+	filesToCheck["files"] = []string{testFileName, testDirName}
+	asJSON, err = json.Marshal(filesToCheck)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, webClientExistPath+"?path=%2F", bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	setCSRFHeaderForReq(req, csrfToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	fileList = nil
+	err = json.Unmarshal(rr.Body.Bytes(), &fileList)
+	assert.NoError(t, err)
+	assert.Len(t, fileList, 2)
+
+	req, err = http.NewRequest(http.MethodPost, webClientExistPath+"?path=%2F"+testDirName, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	setCSRFHeaderForReq(req, csrfToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	fileList = nil
+	err = json.Unmarshal(rr.Body.Bytes(), &fileList)
+	assert.NoError(t, err)
+	assert.Len(t, fileList, 0)
+
+	user.Filters.DeniedProtocols = []string{common.ProtocolHTTP}
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, webClientExistPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	setCSRFHeaderForReq(req, csrfToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 

@@ -131,6 +131,7 @@ type filesPage struct {
 	CurrentDir         string
 	DirsURL            string
 	FileActionsURL     string
+	CheckExistURL      string
 	DownloadURL        string
 	ViewPDFURL         string
 	FileURL            string
@@ -802,6 +803,7 @@ func (s *httpdServer) renderSharedFilesPage(w http.ResponseWriter, r *http.Reque
 		DirsURL:            path.Join(baseSharePath, "dirs"),
 		FileURL:            "",
 		FileActionsURL:     "",
+		CheckExistURL:      path.Join(baseSharePath, "browse", "exist"),
 		CanAddFiles:        share.Scope == dataprovider.ShareScopeReadWrite,
 		CanCreateDirs:      false,
 		CanRename:          false,
@@ -843,6 +845,7 @@ func (s *httpdServer) renderFilesPage(w http.ResponseWriter, r *http.Request, di
 		DirsURL:            webClientDirsPath,
 		FileURL:            webClientFilePath,
 		FileActionsURL:     webClientFileActionsPath,
+		CheckExistURL:      webClientExistPath,
 		CanAddFiles:        user.CanAddFilesFromWeb(dirName),
 		CanCreateDirs:      user.CanAddDirsFromWeb(dirName),
 		CanRename:          user.CanRenameFromWeb(dirName, dirName),
@@ -955,7 +958,7 @@ func (s *httpdServer) handleClientSharePartialDownload(w http.ResponseWriter, r 
 		s.renderClientMessagePage(w, r, util.I18nShareAccessErrorTitle, getRespStatus(err), err, "")
 		return
 	}
-	name, err := getBrowsableSharedPath(share, r)
+	name, err := getBrowsableSharedPath(share.Paths[0], r)
 	if err != nil {
 		s.renderClientMessagePage(w, r, util.I18nShareAccessErrorTitle, getRespStatus(err), err, "")
 		return
@@ -999,7 +1002,7 @@ func (s *httpdServer) handleShareGetDirContents(w http.ResponseWriter, r *http.R
 		sendAPIResponse(w, r, err, getI18NErrorString(err, util.I18nError500Message), getRespStatus(err))
 		return
 	}
-	name, err := getBrowsableSharedPath(share, r)
+	name, err := getBrowsableSharedPath(share.Paths[0], r)
 	if err != nil {
 		sendAPIResponse(w, r, err, getI18NErrorString(err, util.I18nError500Message), getRespStatus(err))
 		return
@@ -1064,7 +1067,7 @@ func (s *httpdServer) handleShareGetFiles(w http.ResponseWriter, r *http.Request
 		s.renderClientMessagePage(w, r, util.I18nShareAccessErrorTitle, getRespStatus(err), err, "")
 		return
 	}
-	name, err := getBrowsableSharedPath(share, r)
+	name, err := getBrowsableSharedPath(share.Paths[0], r)
 	if err != nil {
 		s.renderClientMessagePage(w, r, util.I18nShareAccessErrorTitle, getRespStatus(err), err, "")
 		return
@@ -1131,7 +1134,7 @@ func (s *httpdServer) handleShareGetPDF(w http.ResponseWriter, r *http.Request) 
 		s.renderClientMessagePage(w, r, util.I18nShareAccessErrorTitle, getRespStatus(err), err, "")
 		return
 	}
-	name, err := getBrowsableSharedPath(share, r)
+	name, err := getBrowsableSharedPath(share.Paths[0], r)
 	if err != nil {
 		s.renderClientMessagePage(w, r, util.I18nShareAccessErrorTitle, getRespStatus(err), err, "")
 		return
@@ -1919,9 +1922,82 @@ func (s *httpdServer) handleClientSharedFile(w http.ResponseWriter, r *http.Requ
 	s.renderShareDownloadPage(w, r, path.Join(webClientPubSharesPath, share.ShareID)+query)
 }
 
-func (s *httpdServer) handleClientPing(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleClientCheckExist(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	render.PlainText(w, r, "PONG")
+	connection, err := getUserConnection(w, r)
+	if err != nil {
+		return
+	}
+	defer common.Connections.Remove(connection.GetID())
+
+	name := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
+
+	doCheckExist(w, r, connection, name)
+}
+
+func (s *httpdServer) handleClientShareCheckExist(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	validScopes := []dataprovider.ShareScope{dataprovider.ShareScopeReadWrite}
+	share, connection, err := s.checkPublicShare(w, r, validScopes)
+	if err != nil {
+		return
+	}
+	if err := validateBrowsableShare(share, connection); err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
+	name, err := getBrowsableSharedPath(share.Paths[0], r)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
+		return
+	}
+
+	if err = common.Connections.Add(connection); err != nil {
+		sendAPIResponse(w, r, err, "Unable to add connection", http.StatusTooManyRequests)
+		return
+	}
+	defer common.Connections.Remove(connection.GetID())
+
+	doCheckExist(w, r, connection, name)
+}
+
+type filesToCheck struct {
+	Files []string `json:"files"`
+}
+
+func doCheckExist(w http.ResponseWriter, r *http.Request, connection *Connection, name string) {
+	var filesList filesToCheck
+	err := render.DecodeJSON(r.Body, &filesList)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
+		return
+	}
+	if len(filesList.Files) == 0 {
+		sendAPIResponse(w, r, errors.New("files to be checked are mandatory"), "", http.StatusBadRequest)
+		return
+	}
+
+	contents, err := connection.ListDir(name)
+	if err != nil {
+		sendAPIResponse(w, r, err, "Unable to get directory contents", getMappedStatusCode(err))
+		return
+	}
+	existing := make([]map[string]any, 0)
+	for _, info := range contents {
+		if util.Contains(filesList.Files, info.Name()) {
+			res := make(map[string]any)
+			res["name"] = info.Name()
+			if info.IsDir() {
+				res["type"] = "1"
+				res["size"] = ""
+			} else {
+				res["type"] = "2"
+				res["size"] = info.Size()
+			}
+			existing = append(existing, res)
+		}
+	}
+	render.JSON(w, r, existing)
 }
 
 func checkShareRedirectURL(next, base string) (bool, string) {

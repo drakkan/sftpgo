@@ -1233,7 +1233,6 @@ func (s *httpdServer) initializeRouter() {
 			ContentSecurityPolicy:   s.binding.Security.ContentSecurityPolicy,
 			PermissionsPolicy:       s.binding.Security.PermissionsPolicy,
 			CrossOriginOpenerPolicy: s.binding.Security.CrossOriginOpenerPolicy,
-			ExpectCTHeader:          s.binding.Security.ExpectCTHeader,
 		})
 		secureMiddleware.SetBadHostHandler(http.HandlerFunc(s.badHostHandler))
 		s.router.Use(secureMiddleware.Handler)
@@ -1541,6 +1540,7 @@ func (s *httpdServer) setupWebClientRoutes() {
 		s.router.Get(webClientPubSharesPath+"/{id}", s.downloadFromShare)
 		s.router.Post(webClientPubSharesPath+"/{id}/partial", s.handleClientSharePartialDownload)
 		s.router.Get(webClientPubSharesPath+"/{id}/browse", s.handleShareGetFiles)
+		s.router.Post(webClientPubSharesPath+"/{id}/browse/exist", s.handleClientShareCheckExist)
 		s.router.Get(webClientPubSharesPath+"/{id}/download", s.handleClientSharedFile)
 		s.router.Get(webClientPubSharesPath+"/{id}/upload", s.handleClientUploadToShare)
 		s.router.With(compressor.Handler).Get(webClientPubSharesPath+"/{id}/dirs", s.handleShareGetDirContents)
@@ -1563,6 +1563,8 @@ func (s *httpdServer) setupWebClientRoutes() {
 			router.With(s.checkAuthRequirements, s.refreshCookie, verifyCSRFHeader).Get(webClientFilePath, getUserFile)
 			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
 				Post(webClientFilePath, uploadUserFile)
+			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
+				Post(webClientExistPath, s.handleClientCheckExist)
 			router.With(s.checkAuthRequirements, s.refreshCookie).Get(webClientEditFilePath, s.handleClientEditFile)
 			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
 				Delete(webClientFilesPath, deleteUserFile)
@@ -1578,7 +1580,7 @@ func (s *httpdServer) setupWebClientRoutes() {
 				Post(webClientFileActionsPath+"/copy", copyUserFsEntry)
 			router.With(s.checkAuthRequirements, s.refreshCookie).
 				Post(webClientDownloadZipPath, s.handleWebClientDownloadZip)
-			router.With(s.checkAuthRequirements, s.refreshCookie).Get(webClientPingPath, s.handleClientPing)
+			router.With(s.checkAuthRequirements, s.refreshCookie).Get(webClientPingPath, handlePingRequest)
 			router.With(s.checkAuthRequirements, s.refreshCookie).Get(webClientProfilePath,
 				s.handleClientGetProfile)
 			router.With(s.checkAuthRequirements).Post(webClientProfilePath, s.handleWebClientProfilePost)

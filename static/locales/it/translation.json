@@ -171,6 +171,7 @@
         "err_429": "Troppe richieste contemporanee",
         "err_generic": "Impossibile accedere alla risorsa richiesta",
         "err_validation": "Configurazione del filesystem non valida",
+        "err_exists": "La destinazione esiste già",
         "dir_list": {
             "err_generic": "Impossibile ottenere l'elenco della directory",
             "err_403": "$t(fs.dir_list.err_generic). $t(fs.err_403)",
@@ -204,20 +205,23 @@
             "msg": "Copia",
             "err_generic": "Errore copia file/cartelle",
             "err_403": "$t(fs.copy.err_generic). $t(fs.err_403)",
-            "err_429": "$t(fs.copy.err_generic). $t(fs.err_429)"
+            "err_429": "$t(fs.copy.err_generic). $t(fs.err_429)",
+            "err_exists": "$t(fs.copy.err_generic). $t(fs.err_exists)"
         },
         "move": {
             "msg": "Sposta",
             "err_generic": "Errore nello spostamento di file/directory",
             "err_403": "$t(fs.move.err_generic). $t(fs.err_403)",
-            "err_429": "$t(fs.move.err_generic). $t(fs.err_429)"
+            "err_429": "$t(fs.move.err_generic). $t(fs.err_429)",
+            "err_exists": "$t(fs.move.err_generic). $t(fs.err_exists)"
         },
         "rename": {
             "title": "Rinomina \"{{- name}}\"",
             "new_name": "Nuovo nome",
             "err_generic": "Impossibile rinominare \"{{- name}}\"",
             "err_403": "$t(fs.rename.err_generic): $t(fs.err_403)",
-            "err_429": "$t(fs.rename.err_generic): $t(fs.err_429)"
+            "err_429": "$t(fs.rename.err_generic): $t(fs.err_429)",
+            "err_exists": "$t(fs.rename.err_generic). $t(fs.err_exists)"
         },
         "upload": {
             "text": "Carica file",
@@ -226,7 +230,9 @@
             "message_empty": "Questa cartella è vuota. $t(fs.upload.message)",
             "err_generic": "Errore caricamento file",
             "err_403": "$t(fs.upload.err_generic). $t(fs.err_403)",
-            "err_429": "$t(fs.upload.err_generic). $t(fs.err_429)"
+            "err_429": "$t(fs.upload.err_generic). $t(fs.err_429)",
+            "err_dir_overwrite": "$t(fs.upload.err_generic). Ci sono cartelle con lo stesso nome dei file: {{- val}}",
+            "overwrite_text": "Rilevato conflitto di file. Vuoi sovrascrivere i seguenti file?"
         },
         "quota_usage": {
             "title": "Utilizzo quota",
@@ -334,7 +340,8 @@
         "link_uncompressed_title": "File non compresso",
         "link_uncompressed_desc": "Se la condivisione è costituita da un unico file è possibile scaricarlo anche non compresso",
         "upload_desc": "È possibile caricare uno o più file nella directory condivisa",
-        "expired_desc": "Questa condivisione non è più accessibile perché è scaduta"
+        "expired_desc": "Questa condivisione non è più accessibile perché è scaduta",
+        "invalid_path": "La directory condivisa manca o non è accessibile"
     },
     "select2": {
         "no_results": "Nessun risultato trovato",

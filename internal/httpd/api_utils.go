@@ -112,11 +112,11 @@ func getRespStatus(err error) int {
 func getMappedStatusCode(err error) int {
 	var statusCode int
 	switch {
-	case errors.Is(err, os.ErrPermission):
+	case errors.Is(err, fs.ErrPermission):
 		statusCode = http.StatusForbidden
 	case errors.Is(err, common.ErrReadQuotaExceeded):
 		statusCode = http.StatusForbidden
-	case errors.Is(err, os.ErrNotExist):
+	case errors.Is(err, fs.ErrNotExist):
 		statusCode = http.StatusNotFound
 	case errors.Is(err, common.ErrQuotaExceeded):
 		statusCode = http.StatusRequestEntityTooLarge

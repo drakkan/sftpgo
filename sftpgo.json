@@ -309,8 +309,7 @@
           "content_type_nosniff": false,
           "content_security_policy": "",
           "permissions_policy": "",
-          "cross_origin_opener_policy": "",
-          "expect_ct_header": ""
+          "cross_origin_opener_policy": ""
         },
         "branding": {
           "web_admin": {

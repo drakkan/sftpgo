@@ -1168,6 +1168,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         }
 
         if ($('#move_copy_name_container').hasClass("d-none")){
+            // bulk action
             let dt = $('#file_manager_list').DataTable();
             dt.rows({ selected: true, search: 'applied' }).every(function (rowIdx, tableLoop, rowLoop){
                 let row = dt.row(rowIdx);
@@ -1283,7 +1284,27 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             });
         }
 
-        copyItem();
+        let filesArray = [];
+        for (let i = 0; i < items.length; i++){
+            filesArray.push({
+                name: items[i].targetName
+            });
+        }
+
+        CheckExist.fire({
+            operation: "copy",
+            files: filesArray,
+            path: items[0].targetDir
+        }).then((result)=>{
+            if (result.error) {
+                hasError = true;
+                showToast("fs.copy.err_generic");
+            } else if (result.data.length > 0){
+                hasError = true;
+                showToast("fs.copy.err_exists");
+            }
+            copyItem();
+        });
     }
 
     function doMove() {
@@ -1371,7 +1392,27 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             });
         }
 
-        moveItem();
+        let filesArray = [];
+        for (let i = 0; i < items.length; i++){
+            filesArray.push({
+                name: items[i].targetName
+            });
+        }
+
+        CheckExist.fire({
+            operation: "move",
+            files: filesArray,
+            path: items[0].targetDir
+        }).then((result)=>{
+            if (result.error) {
+                hasError = true;
+                showToast("fs.move.err_generic");
+            } else if (result.data.length > 0){
+                hasError = true;
+                showToast("fs.move.err_exists");
+            }
+            moveItem();
+        });
     }
 
     function getDeleteReqAttrs(meta) {
@@ -1476,34 +1517,59 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             showToast("fs.invalid_name");
             return;
         }
-        let path = '{{.FileActionsURL}}/move';
-        path+='?path={{.CurrentDir}}'+encodeURIComponent("/"+oldName)+'&target={{.CurrentDir}}'+encodeURIComponent("/"+newName);
-        axios.post(path, null, {
-            timeout: 15000,
-            headers: {
-                'X-CSRF-TOKEN': '{{.CSRFToken}}'
-            },
-            validateStatus: function (status) {
-                return status == 200;
-            }
-        }).then(function (response) {
-            location.reload();
-        }).catch(function (error) {
-            let errorMessage;
-            if (error && error.response) {
-                switch (error.response.status) {
-                    case 403:
-                        errorMessage = "fs.rename.err_403";
-                        break;
-                    case 429:
-                        errorMessage = "fs.rename.err_429";
-                        break;
+
+        $('#loading_message').text("");
+        KTApp.showPageLoading();
+
+        function executeRename() {
+            let path = '{{.FileActionsURL}}/move';
+            path += '?path={{.CurrentDir}}' + encodeURIComponent("/" + oldName) + '&target={{.CurrentDir}}' + encodeURIComponent("/" + newName);
+            axios.post(path, null, {
+                timeout: 15000,
+                headers: {
+                    'X-CSRF-TOKEN': '{{.CSRFToken}}'
+                },
+                validateStatus: function (status) {
+                    return status == 200;
                 }
+            }).then(function (response) {
+                location.reload();
+            }).catch(function (error) {
+                KTApp.hidePageLoading();
+                let errorMessage;
+                if (error && error.response) {
+                    switch (error.response.status) {
+                        case 403:
+                            errorMessage = "fs.rename.err_403";
+                            break;
+                        case 429:
+                            errorMessage = "fs.rename.err_429";
+                            break;
+                    }
+                }
+                if (!errorMessage) {
+                    errorMessage = "fs.rename.err_generic";
+                }
+                showToast(errorMessage, { name: oldName });
+            });
+        }
+
+        CheckExist.fire({
+            operation: "move",
+            files: [{name: newName}],
+            path: '{{.CurrentDir}}'
+        }).then((result)=>{
+            if (result.error) {
+                KTApp.hidePageLoading();
+                showToast("fs.rename.err_generic", { name: oldName });
+                return;
             }
-            if (!errorMessage){
-                errorMessage = "fs.rename.err_generic";
+            if (result.data.length > 0){
+                KTApp.hidePageLoading();
+                showToast("fs.rename.err_exists", { name: oldName });
+                return;
             }
-            showToast(errorMessage, {name: oldName});
+            executeRename();
         });
     }
 
@@ -1686,8 +1752,102 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             });
         }
 
-        uploadFile();
+        CheckExist.fire({
+            operation: "upload",
+            files: files,
+            path: "{{.CurrentDir}}"
+        }).then((result)=> {
+            if (result.error) {
+                has_errors = true;
+                setI18NData($('#errorTxt'), "fs.upload.err_generic");
+                $('#errorMsg').removeClass("d-none");
+                uploadFile();
+                return;
+            }
+            let existingFiles = [];
+            let existingDirs = [];
+            $.each(result.data, function (key, item) {
+                if (item.type === "1") {
+                    existingDirs.push(item.name);
+                } else {
+                    existingFiles.push(item.name);
+                }
+            });
+            if (existingDirs.length > 0) {
+                has_errors = true;
+                setI18NData($('#errorTxt'), "fs.upload.err_dir_overwrite", {val: existingDirs.join(", ")});
+                $('#errorMsg').removeClass("d-none");
+                uploadFile();
+                return;
+            }
+            if (existingFiles.length > 0) {
+                KTApp.hidePageLoading();
+                ModalAlert.fire({
+                    text: $.t('fs.upload.overwrite_text'),
+                    items: existingFiles,
+                    icon: "warning",
+                    confirmButtonText: $.t('general.confirm'),
+                    cancelButtonText: $.t('general.cancel'),
+                    customClass: {
+                        confirmButton: "btn btn-danger",
+                        cancelButton: 'btn btn-secondary'
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed){
+                        KTApp.showPageLoading();
+                    } else {
+                        has_errors = true;
+                    }
+                    uploadFile();
+                });
+                return;
+            }
+            uploadFile();
+        });
     }
+
+    var CheckExist = function () {
+            var promiseResolve;
+
+            function doCheck(operation, files, target) {
+                let filesArray = [];
+                if (files && files.length > 0){
+                    for (let i = 0; i < files.length; i++){
+                        filesArray.push(files[i].name);
+                    }
+                }
+                let path = '{{.CheckExistURL}}?op='+encodeURIComponent(operation)+"&path="+target;
+                axios.post(path, {
+                    files: filesArray
+                }, {
+                    headers: {
+                        timeout: 15000,
+                        'X-CSRF-TOKEN': '{{.CSRFToken}}'
+                    },
+                    validateStatus: function (status) {
+                        return status == 200;
+                    }
+                }).then(function(response){
+                    promiseResolve({
+                        error: false,
+                        data: response.data
+                    });
+                }).catch(function(error){
+                    promiseResolve({
+                        error: true
+                    });
+                });
+            }
+
+            return {
+                fire: function (params) {
+                    return new Promise(function (resolve, reject) {
+                        promiseResolve = resolve;
+                        doCheck(params.operation, params.files, params.path);
+                    });
+                }
+            }
+        }();
 
     function openMediaPlayer(name, url){
         $("#video_title").text(name);
@@ -1830,7 +1990,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 {{- define "additionalnavitems"}}
 {{- if .QuotaUsage.HasQuotaInfo}}
 <div class="d-flex align-items-center ms-2 ms-lg-3">
-    <div class="btn btn-icon btn-active-light-primary position-relative w-35px h-35px w-md-40px h-md-40px" data-kt-menu-trigger="{default:'click', lg: 'hover'}" data-kt-menu-attach="parent" data-kt-menu-placement="bottom-end">
+    <div class="btn btn-icon btn-active-light-primary position-relative w-35px h-35px w-md-40px h-md-40px" data-kt-menu-trigger="click" data-kt-menu-attach="parent" data-kt-menu-placement="bottom-end">
         <i class="ki-duotone {{if .QuotaUsage.IsQuotaLow}}ki-information-5 text-warning{{else}}ki-information-2{{end}} fs-2">
             <span class="path1"></span>
             <span class="path2"></span>

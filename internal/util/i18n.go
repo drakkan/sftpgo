@@ -131,6 +131,7 @@ const (
 	I18nErrorNoPermissions             = "general.no_permissions"
 	I18nErrorShareBrowsePaths          = "share.browsable_multiple_paths"
 	I18nErrorShareBrowseNoDir          = "share.browsable_non_dir"
+	I18nErrorShareInvalidPath          = "share.invalid_path"
 	I18nErrorPathInvalid               = "general.path_invalid"
 	I18nErrorQuotaRead                 = "general.err_quota_read"
 	I18nErrorEditDir                   = "general.error_edit_dir"

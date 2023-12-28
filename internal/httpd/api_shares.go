@@ -201,7 +201,7 @@ func (s *httpdServer) readBrowsableShareContents(w http.ResponseWriter, r *http.
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	name, err := getBrowsableSharedPath(share, r)
+	name, err := getBrowsableSharedPath(share.Paths[0], r)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -232,7 +232,7 @@ func (s *httpdServer) downloadBrowsableSharedFile(w http.ResponseWriter, r *http
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	name, err := getBrowsableSharedPath(share, r)
+	name, err := getBrowsableSharedPath(share.Paths[0], r)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -552,7 +552,10 @@ func validateBrowsableShare(share dataprovider.Share, connection *Connection) er
 	basePath := share.Paths[0]
 	info, err := connection.Stat(basePath, 0)
 	if err != nil {
-		return fmt.Errorf("unable to check the share directory: %w", err)
+		return util.NewI18nError(
+			fmt.Errorf("unable to check the share directory: %w", err),
+			util.I18nErrorShareInvalidPath,
+		)
 	}
 	if !info.IsDir() {
 		return util.NewI18nError(
@@ -563,12 +566,12 @@ func validateBrowsableShare(share dataprovider.Share, connection *Connection) er
 	return nil
 }
 
-func getBrowsableSharedPath(share dataprovider.Share, r *http.Request) (string, error) {
-	name := util.CleanPath(path.Join(share.Paths[0], r.URL.Query().Get("path")))
-	if share.Paths[0] == "/" {
+func getBrowsableSharedPath(shareBasePath string, r *http.Request) (string, error) {
+	name := util.CleanPath(path.Join(shareBasePath, r.URL.Query().Get("path")))
+	if shareBasePath == "/" {
 		return name, nil
 	}
-	if name != share.Paths[0] && !strings.HasPrefix(name, share.Paths[0]+"/") {
+	if name != shareBasePath && !strings.HasPrefix(name, shareBasePath+"/") {
 		return "", util.NewI18nError(
 			util.NewValidationError(fmt.Sprintf("Invalid path %q", r.URL.Query().Get("path"))),
 			util.I18nErrorPathInvalid,

@@ -171,6 +171,7 @@
         "err_429": "Too many concurrent requests",
         "err_generic": "Unable to access the requested resource",
         "err_validation": "Invalid filesystem configuration",
+        "err_exists": "The destination already exists",
         "dir_list": {
             "err_generic": "Failed to get directory listing",
             "err_403": "$t(fs.dir_list.err_generic). $t(fs.err_403)",
@@ -204,20 +205,23 @@
             "msg": "Copy",
             "err_generic": "Error copying files/directories",
             "err_403": "$t(fs.copy.err_generic). $t(fs.err_403)",
-            "err_429": "$t(fs.copy.err_generic). $t(fs.err_429)"
+            "err_429": "$t(fs.copy.err_generic). $t(fs.err_429)",
+            "err_exists": "$t(fs.copy.err_generic). $t(fs.err_exists)"
         },
         "move": {
             "msg": "Move",
             "err_generic": "Error moving files/directories",
             "err_403": "$t(fs.move.err_generic). $t(fs.err_403)",
-            "err_429": "$t(fs.move.err_generic). $t(fs.err_429)"
+            "err_429": "$t(fs.move.err_generic). $t(fs.err_429)",
+            "err_exists": "$t(fs.move.err_generic). $t(fs.err_exists)"
         },
         "rename": {
             "title": "Rename \"{{- name}}\"",
             "new_name": "New name",
             "err_generic": "Unable to rename \"{{- name}}\"",
             "err_403": "$t(fs.rename.err_generic). $t(fs.err_403)",
-            "err_429": "$t(fs.rename.err_generic). $t(fs.err_429)"
+            "err_429": "$t(fs.rename.err_generic). $t(fs.err_429)",
+            "err_exists": "$t(fs.rename.err_generic). $t(fs.err_exists)"
         },
         "upload": {
             "text": "Upload Files",
@@ -226,7 +230,9 @@
             "message_empty": "This directory is empty. $t(fs.upload.message)",
             "err_generic": "Error uploading files",
             "err_403": "$t(fs.upload.err_generic). $t(fs.err_403)",
-            "err_429": "$t(fs.upload.err_generic). $t(fs.err_429)"
+            "err_429": "$t(fs.upload.err_generic). $t(fs.err_429)",
+            "err_dir_overwrite": "$t(fs.upload.err_generic). There are directories with the same name as the files: {{- val}}",
+            "overwrite_text": "File conflict detected. Do you want to overwrite the following files?"
         },
         "quota_usage": {
             "title": "Quota usage",
@@ -334,7 +340,8 @@
         "link_uncompressed_title": "Uncompressed file",
         "link_uncompressed_desc": "If the share consists of a single file, it can also be downloaded uncompressed",
         "upload_desc": "You can upload one or more files to the shared directory",
-        "expired_desc": "This share is no longer accessible because it has expired"
+        "expired_desc": "This share is no longer accessible because it has expired",
+        "invalid_path": "The shared directory is missing or not accessible"
     },
     "select2": {
         "no_results": "No results found",

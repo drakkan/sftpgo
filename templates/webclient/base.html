@@ -64,7 +64,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 {{- block "additionalnavitems" .}}{{- end}}
 								{{- if ne .CurrentURL .EditURL }}
                                 <div class="d-flex align-items-center ms-2 ms-lg-3">
-									<a href="#" class="btn btn-icon btn-active-light-primary w-35px h-35px w-md-40px h-md-40px" data-kt-menu-trigger="{default:'click', lg: 'hover'}" data-kt-menu-attach="parent" data-kt-menu-placement="bottom-end">
+									<a href="#" class="btn btn-icon btn-active-light-primary w-35px h-35px w-md-40px h-md-40px" data-kt-menu-trigger="click" data-kt-menu-attach="parent" data-kt-menu-placement="bottom-end">
 										<i class="ki-duotone ki-night-day theme-light-show fs-2">
 											<span class="path1"></span>
 											<span class="path2"></span>
@@ -130,7 +130,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 								</div>
                                 {{- end}}
 								<div class="d-flex align-items-center ms-2 ms-lg-3">
-									<div class="btn btn-icon btn-active-light-primary w-35px h-35px w-md-40px h-md-40px" data-kt-menu-trigger="{default:'click', lg: 'hover'}" data-kt-menu-attach="parent" data-kt-menu-placement="bottom-end">
+									<div class="btn btn-icon btn-active-light-primary w-35px h-35px w-md-40px h-md-40px" data-kt-menu-trigger="click" data-kt-menu-attach="parent" data-kt-menu-placement="bottom-end">
 										<i class="ki-duotone ki-user fs-2">
                                             <i class="path1"></i>
                                             <i class="path2"></i>
@@ -285,6 +285,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 <span id="modal_alert_text" class="fs-6 text-gray-900 fw-semibold"></span>
                             </div>
                         </div>
+                        <div id="modal_alert_items" class="d-flex flex-column mt-5 d-none">
+                        </div>
                     </div>
                     <div class="modal-footer border-0 justify-content-center">
                         <button id="modal_alert_cancel" type="button" class="btn btn-secondary m-2"></button>
@@ -355,6 +357,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         let modalEl = $('#modal_alert');
                         let okBtn = $("#modal_alert_ok");
                         let cancelBtn = $("#modal_alert_cancel");
+                        let itemsList = $('#modal_alert_items');
 
                         modalEl.off('hide.bs.modal');
                         modalEl.on('hide.bs.modal', hideFn);
@@ -376,6 +379,15 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         }
 
                         $("#modal_alert_text").text(params.text);
+                        itemsList.empty();
+                        itemsList.addClass("d-none");
+                        if (params.items && params.items.length > 0){
+                            itemsList.removeClass("d-none");
+                            $.each(params.items, function(key, item) {
+                                itemText = escapeHTML(item);
+                                itemsList.append(`<li class="d-flex align-items-center py-2 fw-bold fs-6 text-gray-800"><span class="bullet bullet-dot me-5"></span>${itemText}</li>`);
+                            });
+                        }
 
                         switch (params.icon){
                             case "warning":

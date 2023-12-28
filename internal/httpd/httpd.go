@@ -178,6 +178,7 @@ const (
 	webClientResetPwdPathDefault          = "/web/client/reset-password"
 	webClientViewPDFPathDefault           = "/web/client/viewpdf"
 	webClientGetPDFPathDefault            = "/web/client/getpdf"
+	webClientExistPathDefault             = "/web/client/exist"
 	webStaticFilesPathDefault             = "/static"
 	webOpenAPIPathDefault                 = "/openapi"
 	// MaxRestoreSize defines the max size for the loaddata input file
@@ -278,6 +279,7 @@ var (
 	webClientResetPwdPath          string
 	webClientViewPDFPath           string
 	webClientGetPDFPath            string
+	webClientExistPath             string
 	webStaticFilesPath             string
 	webOpenAPIPath                 string
 	// max upload size for http clients, 1GB by default
@@ -341,9 +343,7 @@ type SecurityConf struct {
 	PermissionsPolicy string `json:"permissions_policy" mapstructure:"permissions_policy"`
 	// CrossOriginOpenerPolicy allows to set the `Cross-Origin-Opener-Policy` header value. Default is "".
 	CrossOriginOpenerPolicy string `json:"cross_origin_opener_policy" mapstructure:"cross_origin_opener_policy"`
-	// ExpectCTHeader allows to set the Expect-CT header value. Default is "".
-	ExpectCTHeader string `json:"expect_ct_header" mapstructure:"expect_ct_header"`
-	proxyHeaders   []string
+	proxyHeaders            []string
 }
 
 func (s *SecurityConf) updateProxyHeaders() {
@@ -1110,6 +1110,7 @@ func updateWebClientURLs(baseURL string) {
 	webClientResetPwdPath = path.Join(baseURL, webClientResetPwdPathDefault)
 	webClientViewPDFPath = path.Join(baseURL, webClientViewPDFPathDefault)
 	webClientGetPDFPath = path.Join(baseURL, webClientGetPDFPathDefault)
+	webClientExistPath = path.Join(baseURL, webClientExistPathDefault)
 }
 
 func updateWebAdminURLs(baseURL string) {

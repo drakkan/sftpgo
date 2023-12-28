@@ -1164,7 +1164,7 @@ func (c *BaseConnection) isRenamePermitted(fsSrc, fsDst vfs.Fs, fsSourcePath, fs
 	virtualTargetPath string, fi os.FileInfo,
 ) bool {
 	if !c.IsSameResource(virtualSourcePath, virtualTargetPath) {
-		c.Log(logger.LevelInfo, "rename %#q->%q is not allowed: the paths must be on the same resource",
+		c.Log(logger.LevelInfo, "rename %q->%q is not allowed: the paths must be on the same resource",
 			virtualSourcePath, virtualTargetPath)
 		return false
 	}
