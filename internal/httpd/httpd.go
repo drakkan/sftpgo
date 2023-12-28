@@ -405,7 +405,8 @@ type UIBranding struct {
 	FaviconPath string `json:"favicon_path" mapstructure:"favicon_path"`
 	// DisclaimerName defines the name for the link to your optional disclaimer
 	DisclaimerName string `json:"disclaimer_name" mapstructure:"disclaimer_name"`
-	// Path to the HTML page for your disclaimer relative to "static_files_path".
+	// Path to the HTML page for your disclaimer relative to "static_files_path"
+	// or an absolute http/https URL.
 	DisclaimerPath string `json:"disclaimer_path" mapstructure:"disclaimer_path"`
 	// Path to custom CSS files, relative to "static_files_path", which replaces
 	// the default CSS files
@@ -431,7 +432,9 @@ func (b *UIBranding) check(isWebClient bool) {
 		b.FaviconPath = "/favicon.ico"
 	}
 	if b.DisclaimerPath != "" {
-		b.DisclaimerPath = util.CleanPath(b.DisclaimerPath)
+		if !strings.HasPrefix(b.DisclaimerPath, "https://") && !strings.HasPrefix(b.DisclaimerPath, "http://") {
+			b.DisclaimerPath = path.Join(webStaticFilesPath, util.CleanPath(b.DisclaimerPath))
+		}
 	}
 	if len(b.DefaultCSS) > 0 {
 		for idx := range b.DefaultCSS {
@@ -1111,6 +1114,8 @@ func updateWebClientURLs(baseURL string) {
 	webClientViewPDFPath = path.Join(baseURL, webClientViewPDFPathDefault)
 	webClientGetPDFPath = path.Join(baseURL, webClientGetPDFPathDefault)
 	webClientExistPath = path.Join(baseURL, webClientExistPathDefault)
+	webStaticFilesPath = path.Join(baseURL, webStaticFilesPathDefault)
+	webOpenAPIPath = path.Join(baseURL, webOpenAPIPathDefault)
 }
 
 func updateWebAdminURLs(baseURL string) {

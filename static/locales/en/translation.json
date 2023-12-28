@@ -239,7 +239,7 @@
             "disk": "Disk quota",
             "size": "Size: {{- val}}",
             "size_percentage": "Size: {{- val}} ({{percentage}}%)",
-            "files": "Files: {{- num}}",
+            "files": "Files: {{- val}}",
             "files_percentage": "Files: {{- val}} ({{percentage}}%)",
             "transfer": "Transfer quota",
             "total": "Total: {{- val}}",

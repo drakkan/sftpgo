@@ -2029,7 +2029,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         {{- if $files}}
                         {{- $percentage := .QuotaUsage.GetQuotaFilesPercentage}}
                         <div class="{{if .QuotaUsage.IsQuotaFilesLow}}text-warning{{else}}text-gray-700{{end}} fw-semibold fs-6">
-                            <span {{if gt $percentage 0}}data-i18n="fs.quota_usage.files_percentage" data-i18n-options='{ "val": "{{$files}}", "percentage": {{$percentage}} }'{{else}}data-i18n="fs.quota_usage.files" data-i18n-options='{ "num": "{{$files}}" }'{{end}}></span>
+                            <span {{if gt $percentage 0}}data-i18n="fs.quota_usage.files_percentage" data-i18n-options='{ "val": "{{$files}}", "percentage": {{$percentage}} }'{{else}}data-i18n="fs.quota_usage.files" data-i18n-options='{ "val": "{{$files}}" }'{{end}}></span>
                         </div>
                         {{- end}}
                     </div>

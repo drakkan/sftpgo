@@ -348,11 +348,14 @@ func TestBrandingValidation(t *testing.T) {
 	assert.Equal(t, []string{"/my.css"}, b.Branding.WebAdmin.DefaultCSS)
 	assert.Len(t, b.Branding.WebAdmin.ExtraCSS, 0)
 	assert.Equal(t, "/favicon1.ico", b.Branding.WebClient.FaviconPath)
-	assert.Equal(t, "/path2", b.Branding.WebClient.DisclaimerPath)
+	assert.Equal(t, path.Join(webStaticFilesPath, "/path2"), b.Branding.WebClient.DisclaimerPath)
 	assert.Equal(t, "/img/login_image.png", b.Branding.WebClient.LoginImagePath)
 	if assert.Len(t, b.Branding.WebClient.ExtraCSS, 1) {
 		assert.Equal(t, "/1.css", b.Branding.WebClient.ExtraCSS[0])
 	}
+	b.Branding.WebAdmin.DisclaimerPath = "https://example.com"
+	b.checkBranding()
+	assert.Equal(t, "https://example.com", b.Branding.WebAdmin.DisclaimerPath)
 }
 
 func TestRedactedConf(t *testing.T) {
