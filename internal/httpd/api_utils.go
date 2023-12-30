@@ -721,7 +721,7 @@ func handleForgotPassword(r *http.Request, username string, isAdmin bool) error 
 	return resetCodesMgr.Add(c)
 }
 
-func handleResetPassword(r *http.Request, code, newPassword string, isAdmin bool) (
+func handleResetPassword(r *http.Request, code, newPassword, confirmPassword string, isAdmin bool) (
 	*dataprovider.Admin, *dataprovider.User, error,
 ) {
 	var admin dataprovider.Admin
@@ -734,6 +734,10 @@ func handleResetPassword(r *http.Request, code, newPassword string, isAdmin bool
 	if code == "" {
 		return &admin, &user, util.NewValidationError("please set a confirmation code")
 	}
+	if newPassword != confirmPassword {
+		return &admin, &user, util.NewI18nError(errors.New("the two password fields do not match"), util.I18nErrorChangePwdNoMatch)
+	}
+
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	resetCode, err := resetCodesMgr.Get(code)
 	if err != nil {

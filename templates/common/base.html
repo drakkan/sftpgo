@@ -128,6 +128,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     };
 
     const renderI18n = () => {
+        $('title').text('{{.Branding.Name}} - '+$.t('{{.Title}}'));
         $('body').localize();
         let select2elements = [].slice.call(document.querySelectorAll('[data-control="i18n-select2"]'));
         select2elements.map(function (element){
@@ -209,7 +210,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     }
 
                     renderI18n();
-                    $('title').text('{{.Branding.Name}} - '+$.t('{{.Title}}'));
                     $.event.trigger({
                         type: "i18nload"
                     });

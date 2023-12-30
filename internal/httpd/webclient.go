@@ -45,23 +45,20 @@ import (
 )
 
 const (
-	templateClientDir               = "webclient"
-	templateClientBase              = "base.html"
-	templateClientLogin             = "login.html"
-	templateClientFiles             = "files.html"
-	templateClientMessage           = "message.html"
-	templateClientProfile           = "profile.html"
-	templateClientChangePwd         = "changepassword.html"
-	templateClientTwoFactor         = "twofactor.html"
-	templateClientTwoFactorRecovery = "twofactor-recovery.html"
-	templateClientMFA               = "mfa.html"
-	templateClientEditFile          = "editfile.html"
-	templateClientShare             = "share.html"
-	templateClientShares            = "shares.html"
-	templateClientViewPDF           = "viewpdf.html"
-	templateShareLogin              = "sharelogin.html"
-	templateShareDownload           = "sharedownload.html"
-	templateUploadToShare           = "shareupload.html"
+	templateClientDir       = "webclient"
+	templateClientBase      = "base.html"
+	templateClientFiles     = "files.html"
+	templateClientMessage   = "message.html"
+	templateClientProfile   = "profile.html"
+	templateClientChangePwd = "changepassword.html"
+	templateClientMFA       = "mfa.html"
+	templateClientEditFile  = "editfile.html"
+	templateClientShare     = "share.html"
+	templateClientShares    = "shares.html"
+	templateClientViewPDF   = "viewpdf.html"
+	templateShareLogin      = "sharelogin.html"
+	templateShareDownload   = "sharedownload.html"
+	templateUploadToShare   = "shareupload.html"
 )
 
 // condResult is the result of an HTTP request precondition check.
@@ -210,51 +207,6 @@ type clientSharePage struct {
 	Share *dataprovider.Share
 	Error *util.I18nError
 	IsAdd bool
-}
-
-// TODO: merge with loginPage once the WebAdmin supports localization
-type clientLoginPage struct {
-	commonBasePage
-	CurrentURL     string
-	Error          *util.I18nError
-	CSRFToken      string
-	AltLoginURL    string
-	AltLoginName   string
-	ForgotPwdURL   string
-	OpenIDLoginURL string
-	Title          string
-	Branding       UIBranding
-	FormDisabled   bool
-}
-
-type clientResetPwdPage struct {
-	commonBasePage
-	CurrentURL string
-	Error      *util.I18nError
-	CSRFToken  string
-	LoginURL   string
-	Title      string
-	Branding   UIBranding
-}
-
-type clientTwoFactorPage struct {
-	commonBasePage
-	CurrentURL  string
-	Error       *util.I18nError
-	CSRFToken   string
-	RecoveryURL string
-	Title       string
-	Branding    UIBranding
-}
-
-type clientForgotPwdPage struct {
-	commonBasePage
-	CurrentURL string
-	Error      *util.I18nError
-	CSRFToken  string
-	LoginURL   string
-	Title      string
-	Branding   UIBranding
 }
 
 type userQuotaUsage struct {
@@ -478,40 +430,40 @@ func loadClientTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateClientDir, templateClientBase),
 		filepath.Join(templatesPath, templateClientDir, templateClientChangePwd),
 	}
-	loginPath := []string{
+	loginPaths := []string{
 		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateCommonDir, templateBaseLogin),
-		filepath.Join(templatesPath, templateClientDir, templateClientLogin),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBaseLogin),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonLogin),
 	}
-	messagePath := []string{
+	messagePaths := []string{
 		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
 		filepath.Join(templatesPath, templateClientDir, templateClientBase),
 		filepath.Join(templatesPath, templateClientDir, templateClientMessage),
 	}
-	mfaPath := []string{
+	mfaPaths := []string{
 		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
 		filepath.Join(templatesPath, templateClientDir, templateClientBase),
 		filepath.Join(templatesPath, templateClientDir, templateClientMFA),
 	}
-	twoFactorPath := []string{
+	twoFactorPaths := []string{
 		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateCommonDir, templateBaseLogin),
-		filepath.Join(templatesPath, templateClientDir, templateClientTwoFactor),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBaseLogin),
+		filepath.Join(templatesPath, templateCommonDir, templateTwoFactor),
 	}
-	twoFactorRecoveryPath := []string{
+	twoFactorRecoveryPaths := []string{
 		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateCommonDir, templateBaseLogin),
-		filepath.Join(templatesPath, templateClientDir, templateClientTwoFactorRecovery),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBaseLogin),
+		filepath.Join(templatesPath, templateCommonDir, templateTwoFactorRecovery),
 	}
 	forgotPwdPaths := []string{
 		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateCommonDir, templateBaseLogin),
-		filepath.Join(templatesPath, templateClientDir, templateForgotPassword),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBaseLogin),
+		filepath.Join(templatesPath, templateCommonDir, templateForgotPassword),
 	}
 	resetPwdPaths := []string{
 		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateCommonDir, templateBaseLogin),
-		filepath.Join(templatesPath, templateClientDir, templateResetPassword),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBaseLogin),
+		filepath.Join(templatesPath, templateCommonDir, templateResetPassword),
 	}
 	viewPDFPaths := []string{
 		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
@@ -519,7 +471,7 @@ func loadClientTemplates(templatesPath string) {
 	}
 	shareLoginPath := []string{
 		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateCommonDir, templateBaseLogin),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBaseLogin),
 		filepath.Join(templatesPath, templateClientDir, templateShareLogin),
 	}
 	shareUploadPath := []string{
@@ -536,11 +488,11 @@ func loadClientTemplates(templatesPath string) {
 	filesTmpl := util.LoadTemplate(nil, filesPaths...)
 	profileTmpl := util.LoadTemplate(nil, profilePaths...)
 	changePwdTmpl := util.LoadTemplate(nil, changePwdPaths...)
-	loginTmpl := util.LoadTemplate(nil, loginPath...)
-	messageTmpl := util.LoadTemplate(nil, messagePath...)
-	mfaTmpl := util.LoadTemplate(nil, mfaPath...)
-	twoFactorTmpl := util.LoadTemplate(nil, twoFactorPath...)
-	twoFactorRecoveryTmpl := util.LoadTemplate(nil, twoFactorRecoveryPath...)
+	loginTmpl := util.LoadTemplate(nil, loginPaths...)
+	messageTmpl := util.LoadTemplate(nil, messagePaths...)
+	mfaTmpl := util.LoadTemplate(nil, mfaPaths...)
+	twoFactorTmpl := util.LoadTemplate(nil, twoFactorPaths...)
+	twoFactorRecoveryTmpl := util.LoadTemplate(nil, twoFactorRecoveryPaths...)
 	editFileTmpl := util.LoadTemplate(nil, editFilePath...)
 	shareLoginTmpl := util.LoadTemplate(nil, shareLoginPath...)
 	sharesTmpl := util.LoadTemplate(nil, sharesPaths...)
@@ -554,11 +506,11 @@ func loadClientTemplates(templatesPath string) {
 	clientTemplates[templateClientFiles] = filesTmpl
 	clientTemplates[templateClientProfile] = profileTmpl
 	clientTemplates[templateClientChangePwd] = changePwdTmpl
-	clientTemplates[templateClientLogin] = loginTmpl
+	clientTemplates[templateCommonLogin] = loginTmpl
 	clientTemplates[templateClientMessage] = messageTmpl
 	clientTemplates[templateClientMFA] = mfaTmpl
-	clientTemplates[templateClientTwoFactor] = twoFactorTmpl
-	clientTemplates[templateClientTwoFactorRecovery] = twoFactorRecoveryTmpl
+	clientTemplates[templateTwoFactor] = twoFactorTmpl
+	clientTemplates[templateTwoFactorRecovery] = twoFactorRecoveryTmpl
 	clientTemplates[templateClientEditFile] = editFileTmpl
 	clientTemplates[templateClientShares] = sharesTmpl
 	clientTemplates[templateClientShare] = shareTmpl
@@ -600,7 +552,7 @@ func (s *httpdServer) getBaseClientPageData(title, currentURL string, r *http.Re
 }
 
 func (s *httpdServer) renderClientForgotPwdPage(w http.ResponseWriter, r *http.Request, err *util.I18nError, ip string) {
-	data := clientForgotPwdPage{
+	data := forgotPwdPage{
 		commonBasePage: getCommonBasePage(r),
 		CurrentURL:     webClientForgotPwdPath,
 		Error:          err,
@@ -613,7 +565,7 @@ func (s *httpdServer) renderClientForgotPwdPage(w http.ResponseWriter, r *http.R
 }
 
 func (s *httpdServer) renderClientResetPwdPage(w http.ResponseWriter, r *http.Request, err *util.I18nError, ip string) {
-	data := clientResetPwdPage{
+	data := resetPwdPage{
 		commonBasePage: getCommonBasePage(r),
 		CurrentURL:     webClientResetPwdPath,
 		Error:          err,
@@ -679,7 +631,7 @@ func (s *httpdServer) renderClientNotFoundPage(w http.ResponseWriter, r *http.Re
 }
 
 func (s *httpdServer) renderClientTwoFactorPage(w http.ResponseWriter, r *http.Request, err *util.I18nError, ip string) {
-	data := clientTwoFactorPage{
+	data := twoFactorPage{
 		commonBasePage: getCommonBasePage(r),
 		Title:          pageTwoFactorTitle,
 		CurrentURL:     webClientTwoFactorPath,
@@ -691,11 +643,11 @@ func (s *httpdServer) renderClientTwoFactorPage(w http.ResponseWriter, r *http.R
 	if next := r.URL.Query().Get("next"); strings.HasPrefix(next, webClientFilesPath) {
 		data.CurrentURL += "?next=" + url.QueryEscape(next)
 	}
-	renderClientTemplate(w, templateClientTwoFactor, data)
+	renderClientTemplate(w, templateTwoFactor, data)
 }
 
 func (s *httpdServer) renderClientTwoFactorRecoveryPage(w http.ResponseWriter, r *http.Request, err *util.I18nError, ip string) {
-	data := clientTwoFactorPage{
+	data := twoFactorPage{
 		commonBasePage: getCommonBasePage(r),
 		Title:          pageTwoFactorRecoveryTitle,
 		CurrentURL:     webClientTwoFactorRecoveryPath,
@@ -703,7 +655,7 @@ func (s *httpdServer) renderClientTwoFactorRecoveryPage(w http.ResponseWriter, r
 		CSRFToken:      createCSRFToken(ip),
 		Branding:       s.binding.Branding.WebClient,
 	}
-	renderClientTemplate(w, templateClientTwoFactorRecovery, data)
+	renderClientTemplate(w, templateTwoFactorRecovery, data)
 }
 
 func (s *httpdServer) renderClientMFAPage(w http.ResponseWriter, r *http.Request) {

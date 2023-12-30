@@ -1,5 +1,6 @@
 {
     "title": {
+        "setup": "Configurazione iniziale",
         "login": "Accedi",
         "share_login": "Accedi alla condivisione",
         "profile": "Profilo",
@@ -27,6 +28,12 @@
         "error500": "Errore interno del server",
         "errorPDF": "Impossibile mostrare il file PDF",
         "error_editor": "Impossibile aprire l'editor di file"
+    },
+    "setup": {
+        "desc": "Per iniziare a utilizzare SFTPGo devi creare un utente amministratore",
+        "submit": "Crea amministratore e accedi",
+        "install_code_mismatch": "Il codice di installazione non corrisponde",
+        "help_text": "SFTPGo ha bisogno del tuo aiuto"
     },
     "login": {
         "username": "Nome utente",
@@ -353,7 +360,7 @@
         "info": "Inserisci la password attuale, per ragioni di sicurezza, e poi la nuova password due volte, per verificare di averla scritta correttamente. Verrai disconnesso dopo aver modificato la tua password",
         "current": "Password attuale",
         "new": "Nuova password",
-        "confirm": "Conferma nuova password",
+        "confirm": "Conferma password",
         "save": "Modifica la mia password",
         "required_fields": "Si prega di fornire la password attuale e quella nuova due volte",
         "no_match": "I due campi della password non corrispondono",

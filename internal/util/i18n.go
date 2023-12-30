@@ -21,6 +21,7 @@ import (
 
 // localization id for the Web frontend
 const (
+	I18nSetupTitle                     = "title.setup"
 	I18nLoginTitle                     = "title.login"
 	I18nShareLoginTitle                = "title.share_login"
 	I18nFilesTitle                     = "title.files"
@@ -47,6 +48,7 @@ const (
 	I18nError500Title                  = "title.error500"
 	I18nErrorPDFTitle                  = "title.errorPDF"
 	I18nErrorEditorTitle               = "title.error_editor"
+	I18nErrorSetupInstallCode          = "setup.install_code_mismatch"
 	I18nInvalidAuth                    = "general.invalid_auth_request"
 	I18nError429Message                = "general.error429"
 	I18nError400Message                = "general.error400"

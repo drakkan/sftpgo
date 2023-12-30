@@ -72,7 +72,6 @@ const (
 const (
 	templateAdminDir         = "webadmin"
 	templateBase             = "base.html"
-	templateBaseLogin        = "baselogin.html"
 	templateFsConfig         = "fsconfig.html"
 	templateSharedComponents = "sharedcomponents.html"
 	templateUsers            = "users.html"
@@ -93,7 +92,6 @@ const (
 	templateEvents           = "events.html"
 	templateMessage          = "message.html"
 	templateStatus           = "status.html"
-	templateLogin            = "login.html"
 	templateDefender         = "defender.html"
 	templateIPLists          = "iplists.html"
 	templateIPList           = "iplist.html"
@@ -119,8 +117,6 @@ const (
 	pageIPListsTitle         = "IP Lists"
 	pageEventsTitle          = "Logs"
 	pageConfigsTitle         = "Configurations"
-	pageForgotPwdTitle       = "Forgot password"
-	pageResetPwdTitle        = "Reset password"
 	pageSetupTitle           = "Create first admin user"
 	defaultQueryLimit        = 1000
 	inversePatternType       = "inverse"
@@ -323,12 +319,16 @@ type ipListPage struct {
 }
 
 type setupPage struct {
-	basePage
+	commonBasePage
+	CurrentURL           string
+	Error                *util.I18nError
+	CSRFToken            string
 	Username             string
 	HasInstallationCode  bool
 	InstallationCodeHint string
 	HideSupportLink      bool
-	Error                string
+	Title                string
+	Branding             UIBranding
 }
 
 type folderPage struct {
@@ -506,9 +506,9 @@ func loadAdminTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateAdminDir, templateStatus),
 	}
 	loginPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
-		filepath.Join(templatesPath, templateAdminDir, templateBaseLogin),
-		filepath.Join(templatesPath, templateAdminDir, templateLogin),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBaseLogin),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonLogin),
 	}
 	maintenancePaths := []string{
 		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
@@ -536,26 +536,28 @@ func loadAdminTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateAdminDir, templateMFA),
 	}
 	twoFactorPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
-		filepath.Join(templatesPath, templateAdminDir, templateBaseLogin),
-		filepath.Join(templatesPath, templateAdminDir, templateTwoFactor),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBaseLogin),
+		filepath.Join(templatesPath, templateCommonDir, templateTwoFactor),
 	}
 	twoFactorRecoveryPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
-		filepath.Join(templatesPath, templateAdminDir, templateBaseLogin),
-		filepath.Join(templatesPath, templateAdminDir, templateTwoFactorRecovery),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBaseLogin),
+		filepath.Join(templatesPath, templateCommonDir, templateTwoFactorRecovery),
 	}
 	setupPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
-		filepath.Join(templatesPath, templateAdminDir, templateBaseLogin),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBaseLogin),
 		filepath.Join(templatesPath, templateAdminDir, templateSetup),
 	}
 	forgotPwdPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBaseLogin),
 		filepath.Join(templatesPath, templateCommonDir, templateForgotPassword),
 	}
 	resetPwdPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBaseLogin),
 		filepath.Join(templatesPath, templateCommonDir, templateResetPassword),
 	}
 	rolesPaths := []string{
@@ -636,7 +638,7 @@ func loadAdminTemplates(templatesPath string) {
 	adminTemplates[templateEventActions] = eventActionsTmpl
 	adminTemplates[templateEventAction] = eventActionTmpl
 	adminTemplates[templateStatus] = statusTmpl
-	adminTemplates[templateLogin] = loginTmpl
+	adminTemplates[templateCommonLogin] = loginTmpl
 	adminTemplates[templateProfile] = profileTmpl
 	adminTemplates[templateChangePwd] = changePwdTmpl
 	adminTemplates[templateMaintenance] = maintenanceTmpl
@@ -797,36 +799,38 @@ func (s *httpdServer) renderNotFoundPage(w http.ResponseWriter, r *http.Request,
 	s.renderMessagePage(w, r, page404Title, page404Body, http.StatusNotFound, err, "")
 }
 
-func (s *httpdServer) renderForgotPwdPage(w http.ResponseWriter, r *http.Request, error, ip string) {
+func (s *httpdServer) renderForgotPwdPage(w http.ResponseWriter, r *http.Request, err *util.I18nError, ip string) {
 	data := forgotPwdPage{
 		commonBasePage: getCommonBasePage(r),
 		CurrentURL:     webAdminForgotPwdPath,
-		Error:          error,
+		Error:          err,
 		CSRFToken:      createCSRFToken(ip),
-		Title:          pageForgotPwdTitle,
+		LoginURL:       webAdminLoginPath,
+		Title:          util.I18nForgotPwdTitle,
 		Branding:       s.binding.Branding.WebAdmin,
 	}
 	renderAdminTemplate(w, templateForgotPassword, data)
 }
 
-func (s *httpdServer) renderResetPwdPage(w http.ResponseWriter, r *http.Request, error, ip string) {
+func (s *httpdServer) renderResetPwdPage(w http.ResponseWriter, r *http.Request, err *util.I18nError, ip string) {
 	data := resetPwdPage{
 		commonBasePage: getCommonBasePage(r),
 		CurrentURL:     webAdminResetPwdPath,
-		Error:          error,
+		Error:          err,
 		CSRFToken:      createCSRFToken(ip),
-		Title:          pageResetPwdTitle,
+		LoginURL:       webAdminLoginPath,
+		Title:          util.I18nResetPwdTitle,
 		Branding:       s.binding.Branding.WebAdmin,
 	}
 	renderAdminTemplate(w, templateResetPassword, data)
 }
 
-func (s *httpdServer) renderTwoFactorPage(w http.ResponseWriter, r *http.Request, error, ip string) {
+func (s *httpdServer) renderTwoFactorPage(w http.ResponseWriter, r *http.Request, err *util.I18nError, ip string) {
 	data := twoFactorPage{
 		commonBasePage: getCommonBasePage(r),
 		Title:          pageTwoFactorTitle,
 		CurrentURL:     webAdminTwoFactorPath,
-		Error:          error,
+		Error:          err,
 		CSRFToken:      createCSRFToken(ip),
 		RecoveryURL:    webAdminTwoFactorRecoveryPath,
 		Branding:       s.binding.Branding.WebAdmin,
@@ -834,12 +838,12 @@ func (s *httpdServer) renderTwoFactorPage(w http.ResponseWriter, r *http.Request
 	renderAdminTemplate(w, templateTwoFactor, data)
 }
 
-func (s *httpdServer) renderTwoFactorRecoveryPage(w http.ResponseWriter, r *http.Request, error, ip string) {
+func (s *httpdServer) renderTwoFactorRecoveryPage(w http.ResponseWriter, r *http.Request, err *util.I18nError, ip string) {
 	data := twoFactorPage{
 		commonBasePage: getCommonBasePage(r),
 		Title:          pageTwoFactorRecoveryTitle,
 		CurrentURL:     webAdminTwoFactorRecoveryPath,
-		Error:          error,
+		Error:          err,
 		CSRFToken:      createCSRFToken(ip),
 		Branding:       s.binding.Branding.WebAdmin,
 	}
@@ -926,14 +930,18 @@ func (s *httpdServer) renderConfigsPage(w http.ResponseWriter, r *http.Request, 
 	renderAdminTemplate(w, templateConfigs, data)
 }
 
-func (s *httpdServer) renderAdminSetupPage(w http.ResponseWriter, r *http.Request, username, error string) {
+func (s *httpdServer) renderAdminSetupPage(w http.ResponseWriter, r *http.Request, username, ip string, err *util.I18nError) {
 	data := setupPage{
-		basePage:             s.getBasePageData(pageSetupTitle, webAdminSetupPath, r),
+		commonBasePage:       getCommonBasePage(r),
+		Title:                util.I18nSetupTitle,
+		CurrentURL:           webAdminSetupPath,
+		CSRFToken:            createCSRFToken(ip),
 		Username:             username,
 		HasInstallationCode:  installationCode != "",
 		InstallationCodeHint: installationCodeHint,
 		HideSupportLink:      hideSupportLink,
-		Error:                error,
+		Error:                err,
+		Branding:             s.binding.Branding.WebAdmin,
 	}
 
 	renderAdminTemplate(w, templateSetup, data)
@@ -2634,7 +2642,7 @@ func (s *httpdServer) handleWebAdminForgotPwd(w http.ResponseWriter, r *http.Req
 		s.renderNotFoundPage(w, r, errors.New("this page does not exist"))
 		return
 	}
-	s.renderForgotPwdPage(w, r, "", util.GetIPFromRemoteAddress(r.RemoteAddr))
+	s.renderForgotPwdPage(w, r, nil, util.GetIPFromRemoteAddress(r.RemoteAddr))
 }
 
 func (s *httpdServer) handleWebAdminForgotPwdPost(w http.ResponseWriter, r *http.Request) {
@@ -2643,7 +2651,7 @@ func (s *httpdServer) handleWebAdminForgotPwdPost(w http.ResponseWriter, r *http
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	err := r.ParseForm()
 	if err != nil {
-		s.renderForgotPwdPage(w, r, err.Error(), ipAddr)
+		s.renderForgotPwdPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidForm), ipAddr)
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
@@ -2652,12 +2660,7 @@ func (s *httpdServer) handleWebAdminForgotPwdPost(w http.ResponseWriter, r *http
 	}
 	err = handleForgotPassword(r, r.Form.Get("username"), true)
 	if err != nil {
-		var e *util.ValidationError
-		if errors.As(err, &e) {
-			s.renderForgotPwdPage(w, r, e.GetErrorString(), ipAddr)
-			return
-		}
-		s.renderForgotPwdPage(w, r, err.Error(), ipAddr)
+		s.renderForgotPwdPage(w, r, util.NewI18nError(err, util.I18nErrorPwdResetGeneric), ipAddr)
 		return
 	}
 	http.Redirect(w, r, webAdminResetPwdPath, http.StatusFound)
@@ -2669,17 +2672,17 @@ func (s *httpdServer) handleWebAdminPasswordReset(w http.ResponseWriter, r *http
 		s.renderNotFoundPage(w, r, errors.New("this page does not exist"))
 		return
 	}
-	s.renderResetPwdPage(w, r, "", util.GetIPFromRemoteAddress(r.RemoteAddr))
+	s.renderResetPwdPage(w, r, nil, util.GetIPFromRemoteAddress(r.RemoteAddr))
 }
 
 func (s *httpdServer) handleWebAdminTwoFactor(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	s.renderTwoFactorPage(w, r, "", util.GetIPFromRemoteAddress(r.RemoteAddr))
+	s.renderTwoFactorPage(w, r, nil, util.GetIPFromRemoteAddress(r.RemoteAddr))
 }
 
 func (s *httpdServer) handleWebAdminTwoFactorRecovery(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	s.renderTwoFactorRecoveryPage(w, r, "", util.GetIPFromRemoteAddress(r.RemoteAddr))
+	s.renderTwoFactorRecoveryPage(w, r, nil, util.GetIPFromRemoteAddress(r.RemoteAddr))
 }
 
 func (s *httpdServer) handleWebAdminMFA(w http.ResponseWriter, r *http.Request) {
@@ -2824,7 +2827,7 @@ func (s *httpdServer) handleWebAdminSetupGet(w http.ResponseWriter, r *http.Requ
 		http.Redirect(w, r, webAdminLoginPath, http.StatusFound)
 		return
 	}
-	s.renderAdminSetupPage(w, r, "", "")
+	s.renderAdminSetupPage(w, r, "", util.GetIPFromRemoteAddress(r.RemoteAddr), nil)
 }
 
 func (s *httpdServer) handleWebAddAdminGet(w http.ResponseWriter, r *http.Request) {

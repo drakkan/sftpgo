@@ -49,6 +49,7 @@ const (
 	templateCommonCSS          = "sftpgo.css"
 	templateCommonBase         = "base.html"
 	templateCommonBaseLogin    = "baselogin.html"
+	templateCommonLogin        = "login.html"
 )
 
 var (
@@ -64,7 +65,7 @@ type commonBasePage struct {
 type loginPage struct {
 	commonBasePage
 	CurrentURL     string
-	Error          string
+	Error          *util.I18nError
 	CSRFToken      string
 	AltLoginURL    string
 	AltLoginName   string
@@ -78,7 +79,7 @@ type loginPage struct {
 type twoFactorPage struct {
 	commonBasePage
 	CurrentURL  string
-	Error       string
+	Error       *util.I18nError
 	CSRFToken   string
 	RecoveryURL string
 	Title       string
@@ -88,7 +89,7 @@ type twoFactorPage struct {
 type forgotPwdPage struct {
 	commonBasePage
 	CurrentURL string
-	Error      string
+	Error      *util.I18nError
 	CSRFToken  string
 	LoginURL   string
 	Title      string
@@ -98,7 +99,7 @@ type forgotPwdPage struct {
 type resetPwdPage struct {
 	commonBasePage
 	CurrentURL string
-	Error      string
+	Error      *util.I18nError
 	CSRFToken  string
 	LoginURL   string
 	Title      string

@@ -1,5 +1,6 @@
 {
     "title": {
+        "setup": "Initial Setup",
         "login": "Login",
         "share_login": "Share Login",
         "profile": "Profile",
@@ -27,6 +28,12 @@
         "error500": "Internal Server Error",
         "errorPDF": "Unable to show PDF file",
         "error_editor": "Cannot open file editor"
+    },
+    "setup": {
+        "desc": "To start using SFTPGo you need to create an administrator user",
+        "submit": "Create admin and Sign in",
+        "install_code_mismatch": "The installation code does not match",
+        "help_text": "SFTPGo needs your help"
     },
     "login": {
         "username": "Username",

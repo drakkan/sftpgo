@@ -441,13 +441,9 @@ func (b *UIBranding) check(isWebClient bool) {
 			b.DefaultCSS[idx] = util.CleanPath(b.DefaultCSS[idx])
 		}
 	} else {
-		if isWebClient {
-			b.DefaultCSS = []string{
-				"/assets/plugins/global/plugins.bundle.css",
-				"/assets/css/style.bundle.css",
-			}
-		} else {
-			b.DefaultCSS = []string{"/css/sb-admin-2.min.css"}
+		b.DefaultCSS = []string{
+			"/assets/plugins/global/plugins.bundle.css",
+			"/assets/css/style.bundle.css",
 		}
 	}
 	for idx := range b.ExtraCSS {

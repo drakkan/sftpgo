@@ -262,7 +262,7 @@ func resetAdminPassword(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	_, _, err = handleResetPassword(r, req.Code, req.Password, true)
+	_, _, err = handleResetPassword(r, req.Code, req.Password, req.Password, true)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
