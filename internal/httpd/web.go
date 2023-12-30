@@ -48,6 +48,7 @@ const (
 	templateResetPassword      = "reset-password.html"
 	templateCommonCSS          = "sftpgo.css"
 	templateCommonBase         = "base.html"
+	templateCommonBaseLogin    = "baselogin.html"
 )
 
 var (

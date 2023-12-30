@@ -47,7 +47,6 @@ import (
 const (
 	templateClientDir               = "webclient"
 	templateClientBase              = "base.html"
-	templateClientBaseLogin         = "baselogin.html"
 	templateClientLogin             = "login.html"
 	templateClientFiles             = "files.html"
 	templateClientMessage           = "message.html"
@@ -481,7 +480,7 @@ func loadClientTemplates(templatesPath string) {
 	}
 	loginPath := []string{
 		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateClientDir, templateClientBaseLogin),
+		filepath.Join(templatesPath, templateCommonDir, templateBaseLogin),
 		filepath.Join(templatesPath, templateClientDir, templateClientLogin),
 	}
 	messagePath := []string{
@@ -496,22 +495,22 @@ func loadClientTemplates(templatesPath string) {
 	}
 	twoFactorPath := []string{
 		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateClientDir, templateClientBaseLogin),
+		filepath.Join(templatesPath, templateCommonDir, templateBaseLogin),
 		filepath.Join(templatesPath, templateClientDir, templateClientTwoFactor),
 	}
 	twoFactorRecoveryPath := []string{
 		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateClientDir, templateClientBaseLogin),
+		filepath.Join(templatesPath, templateCommonDir, templateBaseLogin),
 		filepath.Join(templatesPath, templateClientDir, templateClientTwoFactorRecovery),
 	}
 	forgotPwdPaths := []string{
 		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateClientDir, templateClientBaseLogin),
+		filepath.Join(templatesPath, templateCommonDir, templateBaseLogin),
 		filepath.Join(templatesPath, templateClientDir, templateForgotPassword),
 	}
 	resetPwdPaths := []string{
 		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateClientDir, templateClientBaseLogin),
+		filepath.Join(templatesPath, templateCommonDir, templateBaseLogin),
 		filepath.Join(templatesPath, templateClientDir, templateResetPassword),
 	}
 	viewPDFPaths := []string{
@@ -520,7 +519,7 @@ func loadClientTemplates(templatesPath string) {
 	}
 	shareLoginPath := []string{
 		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateClientDir, templateClientBaseLogin),
+		filepath.Join(templatesPath, templateCommonDir, templateBaseLogin),
 		filepath.Join(templatesPath, templateClientDir, templateShareLogin),
 	}
 	shareUploadPath := []string{
