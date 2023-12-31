@@ -578,7 +578,7 @@ func (s *httpdServer) handleWebAdminLoginPost(w http.ResponseWriter, r *http.Req
 	}
 	admin, err := dataprovider.CheckAdminAndPass(username, password, ipAddr)
 	if err != nil {
-		handleDefenderEventLoginFailed(ipAddr, err)
+		handleDefenderEventLoginFailed(ipAddr, err) //nolint:errcheck
 		s.renderAdminLoginPage(w, r, util.NewI18nError(dataprovider.ErrInvalidCredentials, util.I18nErrorInvalidCredentials),
 			ipAddr)
 		return

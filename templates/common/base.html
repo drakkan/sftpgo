@@ -629,3 +629,356 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     }
 </style>
 {{- end}}
+
+{{- define "theme-switcher"}}
+<div class="d-flex align-items-center ms-2 ms-lg-3">
+    <a href="#" class="btn btn-icon btn-active-light-primary w-35px h-35px w-md-40px h-md-40px" data-kt-menu-trigger="click" data-kt-menu-attach="parent" data-kt-menu-placement="bottom-end">
+        <i class="ki-duotone ki-night-day theme-light-show fs-2">
+            <span class="path1"></span>
+            <span class="path2"></span>
+            <span class="path3"></span>
+            <span class="path4"></span>
+            <span class="path5"></span>
+            <span class="path6"></span>
+            <span class="path7"></span>
+            <span class="path8"></span>
+            <span class="path9"></span>
+            <span class="path10"></span>
+        </i>
+        <i class="ki-duotone ki-moon theme-dark-show fs-2">
+            <span class="path1"></span>
+            <span class="path2"></span>
+        </i>
+    </a>
+    <div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-title-gray-700 menu-icon-gray-500 menu-active-bg menu-state-color fw-semibold py-4 fs-base w-150px" data-kt-menu="true" data-kt-element="theme-mode-menu">
+        <div class="menu-item px-3 my-0">
+            <a href="#" class="menu-link px-3 py-2" data-kt-element="mode" data-kt-value="light">
+                <span class="menu-icon" data-kt-element="icon">
+                    <i class="ki-duotone ki-night-day fs-2">
+                        <span class="path1"></span>
+                        <span class="path2"></span>
+                        <span class="path3"></span>
+                        <span class="path4"></span>
+                        <span class="path5"></span>
+                        <span class="path6"></span>
+                        <span class="path7"></span>
+                        <span class="path8"></span>
+                        <span class="path9"></span>
+                        <span class="path10"></span>
+                    </i>
+                </span>
+                <span data-i18n="theme.light" class="menu-title">Light</span>
+            </a>
+        </div>
+        <div class="menu-item px-3 my-0">
+            <a href="#" class="menu-link px-3 py-2" data-kt-element="mode" data-kt-value="dark">
+                <span class="menu-icon" data-kt-element="icon">
+                    <i class="ki-duotone ki-moon fs-2">
+                        <span class="path1"></span>
+                        <span class="path2"></span>
+                    </i>
+                </span>
+                <span data-i18n="theme.dark" class="menu-title">Dark</span>
+            </a>
+        </div>
+        <div class="menu-item px-3 my-0">
+            <a href="#" class="menu-link px-3 py-2" data-kt-element="mode" data-kt-value="system">
+                <span class="menu-icon" data-kt-element="icon">
+                    <i class="ki-duotone ki-screen fs-2">
+                        <span class="path1"></span>
+                        <span class="path2"></span>
+                        <span class="path3"></span>
+                        <span class="path4"></span>
+                    </i>
+                </span>
+                <span data-i18n="theme.system" class="menu-title">System</span>
+            </a>
+        </div>
+    </div>
+</div>
+{{- end}}
+
+{{- define "base"}}
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+		<title></title>
+		<meta charset="utf-8" />
+		<meta name="description" content="" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<link rel="shortcut icon" href="{{.StaticURL}}{{.Branding.FaviconPath}}" />
+		{{- template "fonts" . }}
+        {{- range .Branding.DefaultCSS}}
+        <link href="{{$.StaticURL}}{{.}}" rel="stylesheet" type="text/css">
+        {{- end}}
+		{{- template "globalstyle" .CSPNonce }}
+		{{- block "extra_css" .}}{{- end}}
+        {{- range .Branding.ExtraCSS}}
+        <link href="{{$.StaticURL}}{{.}}" rel="stylesheet" type="text/css">
+        {{- end}}
+        {{- template "commonjs" .CSPNonce }}
+    </head>
+
+    <body data-kt-app-header-fixed="true" data-kt-app-header-fixed-mobile="true" data-kt-app-toolbar-enabled="true" data-kt-app-sidebar-enabled="true" data-kt-app-sidebar-fixed="true" data-kt-app-sidebar-push-header="true" data-kt-app-sidebar-push-toolbar="true" data-kt-app-sidebar-push-footer="true"  class="app-default">
+        {{- template "theme-setup" .CSPNonce }}
+        <div id="app_loader" class="align-items-center text-center my-10">
+            <span class="spinner-border w-15px h-15px text-muted align-middle me-2"></span>
+        </div>
+        <div class="d-flex flex-column flex-root app-root d-none" id="app_root">
+            <div class="app-page  flex-column flex-column-fluid " id="kt_app_page">
+                {{- if .LoggedUser.Username}}
+                <div id="kt_app_header" class="app-header" data-kt-sticky="true" data-kt-sticky-activate="{default: true, lg: true}" data-kt-sticky-name="app-header-minimize" data-kt-sticky-offset="{default: '200px', lg: '300px'}" data-kt-sticky-animation="false">
+                    <div class="app-container  container-fluid d-flex align-items-stretch flex-stack " id="kt_app_header_container">
+                        <div class="d-flex align-items-center d-block d-lg-none ms-n3" title="Show sidebar menu">
+                            <div class="btn btn-icon btn-color-gray-800 btn-active-color-primary w-35px h-35px me-1" id="kt_app_sidebar_mobile_toggle">
+                                <i class="ki-duotone ki-abstract-14 fs-2">
+                                    <span class="path1"></span>
+                                    <span class="path2"></span>
+                                </i>
+                            </div>
+                            <span>
+                                <img alt="Logo" src="{{.StaticURL}}{{.Branding.LogoPath}}" class="h-30px" />
+                            </span>
+                        </div>
+                        <div class="app-navbar flex-lg-grow-1" id="kt_app_header_navbar">
+                            <div class="app-navbar-item d-flex align-items-center flex-lg-grow-1 me-2 me-lg-0">
+                            </div>
+                            <!-- <div class="d-flex align-self-center flex-center flex-shrink-0">
+                            </div> -->
+                            <div class="d-flex align-self-center flex-center flex-shrink-0">
+                                {{- template "navitems" .}}
+							</div>
+                        </div>
+                    </div>
+                </div>
+                {{- end}}
+                <div class="{{- if .LoggedUser.Username}}app-wrapper{{- end}} flex-column flex-row-fluid " id="kt_app_wrapper">
+                    {{- if .LoggedUser.Username}}
+                    <!-- <div id="kt_app_toolbar" class="app-toolbar">
+                        <div id="kt_app_toolbar_container" class="app-container  container-fluid d-flex flex-lg-column py-3 py-lg-6 ">
+
+                        </div>
+                    </div> -->
+                    <div id="kt_app_sidebar" class="app-sidebar flex-column" data-kt-drawer="true" data-kt-drawer-name="app-sidebar" data-kt-drawer-activate="{default: true, lg: false}" data-kt-drawer-overlay="true" data-kt-drawer-width="300px" data-kt-drawer-direction="start" data-kt-drawer-toggle="#kt_app_sidebar_mobile_toggle">
+                        <div class="app-sidebar-header flex-column mx-10 pt-8" id="kt_app_sidebar_header">
+                            <div class="d-flex flex-stack d-none d-lg-flex mb-13">
+                                <div class="app-sidebar-logo">
+									<img alt="Logo" src="{{.StaticURL}}{{.Branding.LogoPath}}" class="h-40px app-sidebar-logo-default" />
+									<span class="text-sidebar fs-4 fw-semibold ps-5">{{.Branding.ShortName}}</span>
+								</div>
+                            </div>
+                        </div>
+                        <div class="app-sidebar-navs flex-column-fluid pb-6" id="kt_app_sidebar_navs">
+                            <div id="kt_app_sidebar_navs_wrappers" class="hover-scroll-y my-2 mx-4" data-kt-scroll="true" data-kt-scroll-activate="true" data-kt-scroll-height="auto" data-kt-scroll-dependencies="#kt_app_sidebar_header" data-kt-scroll-wrappers="#kt_app_sidebar_navs" data-kt-scroll-offset="5px">
+                                <div id="#kt_app_sidebar_menu" data-kt-menu="true" data-kt-menu-expand="false" class="menu menu-column menu-rounded menu-sub-indention menu-active-bg mb-7">
+                                    {{- template "sidebaritems" .}}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {{- end}}
+                    <div class="app-main flex-column flex-row-fluid " id="kt_app_main">
+                        <div class="d-flex flex-column flex-column-fluid">
+                            <div id="kt_app_content" class="app-content flex-column-fluid">
+                                <div id="kt_app_content_container" class="app-container container-fluid">
+                                    {{- template "page_body" .}}
+                                </div>
+                            </div>
+                        </div>
+                        {{- if .LoggedUser.Username}}
+                        <div id="kt_app_footer" class="app-footer">
+                            <div class="app-container  container-fluid d-flex flex-column flex-md-row flex-center flex-md-stack py-3 align-items-center justify-content-center">
+                                <div class="text-gray-900 order-2 order-md-1">
+                                    <span class="text-gray-700 fw-semibold me-1">SFTPGo {{.Version}}</span>
+                                </div>
+                            </div>
+                        </div>
+                        {{- end}}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="kt_scrolltop" class="scrolltop" data-kt-scrolltop="true">
+            <i class="ki-duotone ki-arrow-up">
+                <span class="path1"></span>
+                <span class="path2"></span>
+            </i>
+        </div>
+        <div class="page-loader flex-column">
+			<span class="spinner-border text-primary" role="status"></span>
+			<span id="loading_message" class="text-muted fs-4 fw-semibold mt-5"></span>
+		</div>
+
+        <div class="modal fade" tabindex="-1" id="modal_alert">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-body">
+                        <div class="d-flex flex-center flex-column">
+                            <span id="modal_alert_icon">
+                            </span>
+                            <div class="mt-10 text-center">
+                                <span id="modal_alert_text" class="fs-6 text-gray-900 fw-semibold"></span>
+                            </div>
+                        </div>
+                        <div id="modal_alert_items" class="d-flex flex-column mt-5 d-none">
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0 justify-content-center">
+                        <button id="modal_alert_cancel" type="button" class="btn btn-secondary m-2"></button>
+                        <button id="modal_alert_ok" type="button" class="btn btn-primary m-2"></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="toast-container position-fixed top-0 end-0 p-3">
+            <div id="toast_container" class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="false">
+                <div class="toast-body border-0 d-flex align-items-center">
+                    <i class="ki-duotone ki-information-5 fs-3x text-warning me-5">
+                        <span class="path1"></span>
+                        <span class="path2"></span>
+                        <span class="path3"></span>
+                    </i>
+                    <span id="toast_msg" class="fs-5 fw-semibold text-gray-800 me-auto"></span>
+                    <button data-i18n="[aria-label]general.close" type="button" class="btn btn-icon btn-sm btn-active-light-primary position-absolute position-sm-relative m-2 m-sm-0 top-0 end-0 ms-sm-auto" data-bs-dismiss="toast" aria-label="Close">
+                        <i class="ki-solid ki-cross fs-2x text-gray-700"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        {{- block "modals" .}}{{- end}}
+		<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/plugins/global/plugins.bundle.js"></script>
+		<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/js/scripts.bundle.js"></script>
+        <script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/i18next/i18next.js"></script>
+		<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/i18next/jquery-i18next.js"></script>
+		<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/i18next/i18nextBrowserLanguageDetector.js"></script>
+		<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/i18next/i18nextChainedBackend.js"></script>
+        <script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/i18next/i18nextLocalStorageBackend.js"></script>
+        <script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/i18next/i18nextHttpBackend.js"></script>
+		{{- template "basejs" . }}
+        <script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
+            var ModalAlert = function () {
+                var modal;
+                var promiseResolve;
+                var isResolved;
+
+                function resolvePromise(result) {
+                    if (!isResolved) {
+                        isResolved = true;
+                        promiseResolve({
+                            isConfirmed: result
+                        });
+                    }
+                }
+
+                var cancelFn = function() {
+                    resolvePromise(false);
+                    modal.hide();
+                }
+
+                var okFn = function() {
+                    resolvePromise(true);
+                    modal.hide();
+                }
+
+                var hideFn = function() {
+                    resolvePromise(false);
+                }
+
+                return {
+                    fire: function (params) {
+                        modal = new bootstrap.Modal('#modal_alert');
+                        let modalEl = $('#modal_alert');
+                        let okBtn = $("#modal_alert_ok");
+                        let cancelBtn = $("#modal_alert_cancel");
+                        let itemsList = $('#modal_alert_items');
+
+                        modalEl.off('hide.bs.modal');
+                        modalEl.on('hide.bs.modal', hideFn);
+                        cancelBtn.off("click");
+                        okBtn.off("click");
+                        cancelBtn.on("click", cancelFn);
+                        okBtn.on("click", okFn);
+                        okBtn.removeClass();
+                        okBtn.addClass(params.customClass.confirmButton);
+                        okBtn.addClass("m-2");
+                        okBtn.text(params.confirmButtonText);
+                        if (params.cancelButtonText){
+                            cancelBtn.text(params.cancelButtonText);
+                            cancelBtn.removeClass();
+                            cancelBtn.addClass(params.customClass.cancelButton);
+                            cancelBtn.addClass("m-2");
+                        } else {
+                            cancelBtn.addClass("d-none");
+                        }
+
+                        $("#modal_alert_text").text(params.text);
+                        itemsList.empty();
+                        itemsList.addClass("d-none");
+                        if (params.items && params.items.length > 0){
+                            itemsList.removeClass("d-none");
+                            $.each(params.items, function(key, item) {
+                                itemText = escapeHTML(item);
+                                itemsList.append(`<li class="d-flex align-items-center py-2 fw-bold fs-6 text-gray-800"><span class="bullet bullet-dot me-5"></span>${itemText}</li>`);
+                            });
+                        }
+
+                        switch (params.icon){
+                            case "warning":
+                                $("#modal_alert_icon").html(`<i class="ki-duotone ki-information-5 fs-5x text-danger">
+                                                                <span class="path1"></span>
+                                                                <span class="path2"></span>
+                                                                <span class="path3"></span>
+                                                            </i>`);
+                                break;
+                            case "success":
+                                $("#modal_alert_icon").html(`<i class="ki-duotone ki-check-square fs-5x text-success">
+                                                                <span class="path1"></span>
+                                                                <span class="path2"></span>
+                                                            </i>`);
+                                break;
+                            default:
+                                $("#modal_alert_icon").html(`<i class="ki-duotone ki-question-2 fs-5x text-primary">
+                                                                <span class="path1"></span>
+                                                                <span class="path2"></span>
+                                                                <span class="path3"></span>
+                                                            </i>`);
+                        }
+
+                        return new Promise(function(resolve, reject) {
+                            promiseResolve = resolve;
+                            isResolved = false;
+                            modal.show();
+                        });
+                    }
+                }
+            }();
+
+            function showToast(msg, options) {
+                const toast = bootstrap.Toast.getOrCreateInstance(document.getElementById('toast_container'));
+                setI18NData($('#toast_msg'), msg, options)
+                toast.show();
+            }
+
+            function doLogout() {
+                ModalAlert.fire({
+                    text: $.t("general.confirm_logout"),
+                    icon: "question",
+                    confirmButtonText: $.t("login.signout"),
+                    cancelButtonText: $.t("general.cancel"),
+                    customClass: {
+                        confirmButton: "btn btn-primary",
+                        cancelButton: 'btn btn-secondary'
+                    }
+                }).then((result) =>{
+                    if (result.isConfirmed){
+                        window.location.replace('{{.LogoutURL}}');
+                    }
+                });
+            }
+        </script>
+		{{- block "extra_js" .}}{{- end}}
+    </body>
+</html>
+{{- end}}

@@ -415,7 +415,7 @@ type UIBranding struct {
 	ExtraCSS []string `json:"extra_css" mapstructure:"extra_css"`
 }
 
-func (b *UIBranding) check(isWebClient bool) {
+func (b *UIBranding) check() {
 	if b.LogoPath != "" {
 		b.LogoPath = util.CleanPath(b.LogoPath)
 	} else {
@@ -543,8 +543,8 @@ type Binding struct {
 }
 
 func (b *Binding) checkBranding() {
-	b.Branding.WebAdmin.check(false)
-	b.Branding.WebClient.check(true)
+	b.Branding.WebAdmin.check()
+	b.Branding.WebClient.check()
 	if b.Branding.WebAdmin.Name == "" {
 		b.Branding.WebAdmin.Name = "SFTPGo WebAdmin"
 	}
