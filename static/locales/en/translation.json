@@ -27,7 +27,24 @@
         "error429": "Too Many Requests",
         "error500": "Internal Server Error",
         "errorPDF": "Unable to show PDF file",
-        "error_editor": "Cannot open file editor"
+        "error_editor": "Cannot open file editor",
+        "users": "Users",
+        "groups": "Groups",
+        "folders": "Virtual folders",
+        "connections": "Active sessions",
+        "event_manager": "Event Manager",
+        "event_rules": "Rules",
+        "event_actions": "Actions",
+        "ip_manager": "IP Manager",
+        "ip_lists": "IP Lists",
+        "defender": "Auto Block List",
+        "admins": "Admins",
+        "roles": "Roles",
+        "server_manager": "Server Manager",
+        "configs": "Configurations",
+        "logs": "Logs",
+        "maintenance": "Maintenance",
+        "status": "Status"
     },
     "setup": {
         "desc": "To start using SFTPGo you need to create an administrator user",
@@ -370,6 +387,7 @@
         "required": "Password change is required. Set a new password to continue using your account"
     },
     "user": {
+        "view_manage": "View and manage users",
         "username_reserved": "The specified username is reserved",
         "username_invalid": "The specified username is not valid, the following characters are allowed: a-zA-Z0-9-_.~",
         "home_required": "The home directory is mandatory",

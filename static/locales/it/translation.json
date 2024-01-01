@@ -27,7 +27,24 @@
         "error429": "Troppe richieste",
         "error500": "Errore interno del server",
         "errorPDF": "Impossibile mostrare il file PDF",
-        "error_editor": "Impossibile aprire l'editor di file"
+        "error_editor": "Impossibile aprire l'editor di file",
+        "users": "Utenti",
+        "groups": "Gruppi",
+        "folders": "Cartelle virtuali",
+        "connections": "Sessioni attive",
+        "event_manager": "Gestione eventi",
+        "event_rules": "Regole",
+        "event_actions": "Azioni",
+        "ip_manager": "Gestione IP",
+        "ip_lists": "Liste IP",
+        "defender": "Blocchi automatici",
+        "admins": "Amministratori",
+        "roles": "Ruoli",
+        "server_manager": "Gestione server",
+        "configs": "Configurazioni",
+        "logs": "Registro eventi",
+        "maintenance": "Manutenzione",
+        "status": "Stato"
     },
     "setup": {
         "desc": "Per iniziare a utilizzare SFTPGo devi creare un utente amministratore",
@@ -370,6 +387,7 @@
         "required": "È richiesta la modifica della password. Imposta una nuova password per continuare a utilizzare il tuo account"
     },
     "user": {
+        "view_manage": "Visualizza e gestisci utenti",
         "username_reserved": "Il nome utente specificato è riservato",
         "username_invalid": "Il nome utente specificato non è valido, sono consentiti i seguenti caratteri: a-zA-Z0-9-_.~",
         "home_required": "La directory principale è obbligatoria",

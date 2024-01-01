@@ -1,345 +1,286 @@
 <!--
-Copyright (C) 2019 Nicola Murino
+Copyright (C) 2024 Nicola Murino
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as published
-by the Free Software Foundation, version 3.
+This WebUI uses the KeenThemes Mega Bundle, a proprietary theme:
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU Affero General Public License for more details.
+https://keenthemes.com/products/templates-mega-bundle
 
-You should have received a copy of the GNU Affero General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
+KeenThemes HTML/CSS/JS components are allowed for use only within the
+SFTPGo product and restricted to be used in a resealable HTML template
+that can compete with KeenThemes products anyhow.
+
+This WebUI is allowed for use only within the SFTPGo product and
+therefore cannot be used in derivative works/products without an
+explicit grant from the SFTPGo Team (support@sftpgo.com).
 -->
-{{define "base"}}
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="description" content="">
-    <meta name="author" content="">
-
-    <title>{{.Branding.Name}} - {{template "title" .}}</title>
-
-    <link rel="shortcut icon" href="{{.StaticURL}}{{.Branding.FaviconPath}}" />
-
-    <!-- Custom fonts for this template-->
-    <link href="{{.StaticURL}}/vendor/fontawesome-free/css/fontawesome.min.css" rel="stylesheet" type="text/css">
-    <link href="{{.StaticURL}}/vendor/fontawesome-free/css/solid.min.css" rel="stylesheet" type="text/css">
-    <link href="{{.StaticURL}}/vendor/fontawesome-free/css/regular.min.css" rel="stylesheet" type="text/css">
-
-    <!-- Custom styles for this template-->
-    {{- range .Branding.DefaultCSS}}
-    <link href="{{$.StaticURL}}{{.}}" rel="stylesheet" type="text/css">
-    {{- end}}
-    <style>
-        {{template "commoncss" .}}
-    </style>
-    {{block "extra_css" .}}{{end}}
-
-    {{range .Branding.ExtraCSS}}
-    <link href="{{$.StaticURL}}{{.}}" rel="stylesheet" type="text/css">
-    {{end}}
-
-</head>
-
-<body id="page-top">
-
-    <!-- Page Wrapper -->
-    <div id="wrapper">
-
-        {{if .LoggedAdmin.Username}}
-        <!-- Sidebar -->
-        <ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion" id="accordionSidebar">
-
-            <!-- Sidebar - Brand -->
-            <div class="sidebar-brand d-flex align-items-center justify-content-center">
-                <div class="sidebar-brand-icon">
-                    <img src="{{.StaticURL}}{{.Branding.LogoPath}}" alt="logo" style="width: 2rem; height: auto;">
-                </div>
-                <div class="sidebar-brand-text mx-3" style="text-transform: none;">{{.Branding.ShortName}}</div>
-            </div>
-
-            <!-- Divider -->
-            <hr class="sidebar-divider my-0">
-
-            {{ if .LoggedAdmin.HasPermission "view_users"}}
-            <li class="nav-item {{if eq .CurrentURL .UsersURL}}active{{end}}">
-                <a class="nav-link" href="{{.UsersURL}}">
-                    <i class="fas fa-users"></i>
-                    <span>{{.UsersTitle}}</span></a>
-            </li>
-            {{ end }}
-
-            {{ if .LoggedAdmin.HasPermission "manage_groups"}}
-            <li class="nav-item {{if eq .CurrentURL .GroupsURL}}active{{end}}">
-                <a class="nav-link" href="{{.GroupsURL}}">
-                    <i class="fas fa-user-friends"></i>
-                    <span>{{.GroupsTitle}}</span></a>
-            </li>
-            {{end}}
-
-            {{ if .LoggedAdmin.HasPermission "manage_folders"}}
-            <li class="nav-item {{if eq .CurrentURL .FoldersURL}}active{{end}}">
-                <a class="nav-link" href="{{.FoldersURL}}">
-                    <i class="fas fa-folder"></i>
-                    <span>{{.FoldersTitle}}</span></a>
-            </li>
-            {{end}}
-
-            {{ if .LoggedAdmin.HasPermission "view_conns"}}
-            <li class="nav-item {{if eq .CurrentURL .ConnectionsURL}}active{{end}}">
-                <a class="nav-link" href="{{.ConnectionsURL}}">
-                    <i class="fas fa-exchange-alt"></i>
-                    <span>{{.ConnectionsTitle}}</span></a>
-            </li>
-            {{end}}
-
-            {{ if .LoggedAdmin.HasPermission "manage_event_rules"}}
-            <li class="nav-item {{if .IsEventManagerPage}}active{{end}}">
-                <a class="nav-link {{if not .IsEventManagerPage}}collapsed{{end}}" href="#" data-toggle="collapse" data-target="#collapseEventManager"
-                    aria-expanded="true" aria-controls="collapseEventManager">
-                    <i class="fas fa-calendar-alt"></i>
-                    <span>Event Manager</span>
-                </a>
-                <div id="collapseEventManager" class="collapse {{if .IsEventManagerPage}}show{{end}}" aria-labelledby="headingEventManager" data-parent="#accordionSidebar">
-                    <div class="bg-white py-2 collapse-inner rounded">
-                        <a class="collapse-item {{if eq .CurrentURL .EventRulesURL}}active{{end}}" href="{{.EventRulesURL}}">{{.EventRulesTitle}}</a>
-                        <a class="collapse-item {{if eq .CurrentURL .EventActionsURL}}active{{end}}" href="{{.EventActionsURL}}">{{.EventActionsTitle}}</a>
-                    </div>
-                </div>
-            </li>
-            {{end}}
-
-            {{ if or (.LoggedAdmin.HasPermission "manage_ip_lists") (and .HasDefender (.LoggedAdmin.HasPermission "view_defender"))}}
-            <li class="nav-item {{if .IsIPManagerPage}}active{{end}}">
-                <a class="nav-link {{if not .IsIPManagerPage}}collapsed{{end}}" href="#" data-toggle="collapse" data-target="#collapseIPManager"
-                    aria-expanded="true" aria-controls="collapseIPManager">
-                    <i class="fas fa-shield-alt"></i>
-                    <span>IP Manager</span>
-                </a>
-                <div id="collapseIPManager" class="collapse {{if .IsIPManagerPage}}show{{end}}" aria-labelledby="headingIPManager" data-parent="#accordionSidebar">
-                    <div class="bg-white py-2 collapse-inner rounded">
-                        {{ if .LoggedAdmin.HasPermission "manage_ip_lists"}}
-                        <a class="collapse-item {{if eq .CurrentURL .IPListsURL}}active{{end}}" href="{{.IPListsURL}}">{{.IPListsTitle}}</a>
-                        {{end}}
-                        {{ if and .HasDefender (.LoggedAdmin.HasPermission "view_defender")}}
-                        <a class="collapse-item {{if eq .CurrentURL .DefenderURL}}active{{end}}" href="{{.DefenderURL}}">{{.DefenderTitle}}</a>
-                        {{end}}
-                    </div>
-                </div>
-            </li>
-            {{end}}
-
-            {{ if .LoggedAdmin.HasPermission "manage_admins"}}
-            <li class="nav-item {{if eq .CurrentURL .AdminsURL}}active{{end}}">
-                <a class="nav-link" href="{{.AdminsURL}}">
-                    <i class="fas fa-user-cog"></i>
-                    <span>{{.AdminsTitle}}</span></a>
-            </li>
-            {{end}}
-
-            {{ if .LoggedAdmin.HasPermission "manage_roles"}}
-            <li class="nav-item {{if eq .CurrentURL .RolesURL}}active{{end}}">
-                <a class="nav-link" href="{{.RolesURL}}">
-                    <i class="fas fa-user-lock"></i>
-                    <span>{{.RolesTitle}}</span></a>
-            </li>
-            {{end}}
-
-            {{ if or (.LoggedAdmin.HasPermission "manage_system") (.LoggedAdmin.HasPermission "view_status") (and .HasSearcher (.LoggedAdmin.HasPermission "view_events"))}}
-            <li class="nav-item {{if .IsServerManagerPage}}active{{end}}">
-                <a class="nav-link {{if not .IsServerManagerPage}}collapsed{{end}}" href="#" data-toggle="collapse" data-target="#collapseServerManager"
-                    aria-expanded="true" aria-controls="collapseServerManager">
-                    <i class="fas fa-tools"></i>
-                    <span>Server Manager</span>
-                </a>
-                <div id="collapseServerManager" class="collapse {{if .IsServerManagerPage}}show{{end}}" aria-labelledby="headingServerManager" data-parent="#accordionSidebar">
-                    <div class="bg-white py-2 collapse-inner rounded">
-                        {{ if .LoggedAdmin.HasPermission "manage_system"}}
-                        <a class="collapse-item {{if eq .CurrentURL .ConfigsURL}}active{{end}}" href="{{.ConfigsURL}}">{{.ConfigsTitle}}</a>
-                        {{end}}
-                        {{ if and .HasSearcher (.LoggedAdmin.HasPermission "view_events")}}
-                        <a class="collapse-item {{if eq .CurrentURL .EventsURL}}active{{end}}" href="{{.EventsURL}}">{{.EventsTitle}}</a>
-                        {{end}}
-                        {{ if .LoggedAdmin.HasPermission "manage_system"}}
-                        <a class="collapse-item {{if eq .CurrentURL .MaintenanceURL}}active{{end}}" href="{{.MaintenanceURL}}">{{.MaintenanceTitle}}</a>
-                        {{end}}
-                        {{ if .LoggedAdmin.HasPermission "view_status"}}
-                        <a class="collapse-item {{if eq .CurrentURL .StatusURL}}active{{end}}" href="{{.StatusURL}}">{{.StatusTitle}}</a>
-                        {{end}}
-                    </div>
-                </div>
-            </li>
-            {{end}}
-
-            <!-- Divider -->
-            <hr class="sidebar-divider d-none d-md-block">
-
-            <!-- Sidebar Toggler (Sidebar) -->
-            <div class="text-center d-none d-md-inline">
-                <button class="rounded-circle border-0" id="sidebarToggle"></button>
-            </div>
-
-        </ul>
-        <!-- End of Sidebar -->
-        {{end}}
-
-        <!-- Content Wrapper -->
-        <div id="content-wrapper" class="d-flex flex-column">
-
-            <!-- Main Content -->
-            <div id="content">
-
-                {{if .LoggedAdmin.Username}}
-                <!-- Topbar -->
-                <nav class="navbar navbar-expand navbar-light bg-white topbar mb-4 static-top shadow">
-
-                    <button id="sidebarToggleTop" class="btn btn-link d-md-none rounded-circle mr-3">
-                        <i class="fa fa-bars"></i>
-                    </button>
-
-                    <!-- Topbar Navbar -->
-                    <ul class="navbar-nav ml-auto">
-                        {{block "additionalnavitems" .}}{{end}}
-
-                        <!-- Nav Item - User Information -->
-                        <li class="nav-item dropdown no-arrow">
-                            <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-toggle="dropdown"
-                                aria-haspopup="true" aria-expanded="false">
-                                <span class="mr-2 d-none d-lg-inline text-gray-600 small">{{.LoggedAdmin.Username}}</span>
-                                <i class="fas fa-user fa-fw"></i>
-                            </a>
-                            <!-- Dropdown - User Information -->
-                            <div class="dropdown-menu dropdown-menu-right shadow animated--grow-in" aria-labelledby="userDropdown">
-                                {{if not .HasExternalLogin}}
-                                <a class="dropdown-item" href="{{.ProfileURL}}">
-                                    <i class="fas fa-user fa-sm fa-fw mr-2 text-gray-400"></i>
-                                    Profile
-                                </a>
-                                <a class="dropdown-item" href="{{.ChangePwdURL}}">
-                                    <i class="fas fa-key fa-sm fa-fw mr-2 text-gray-400"></i>
-                                    Change password
-                                </a>
-                                {{if .LoggedAdmin.CanManageMFA}}
-                                <a class="dropdown-item" href="{{.MFAURL}}">
-                                    <i class="fas fa-user-lock fa-sm fa-fw mr-2 text-gray-400"></i>
-                                    Two-Factor Auth
-                                </a>
-                                {{end}}
-                                <div class="dropdown-divider"></div>
-                                {{end}}
-                                <a class="dropdown-item" href="#" data-toggle="modal" data-target="#logoutModal">
-                                    <i class="fas fa-sign-out-alt fa-sm fa-fw mr-2 text-gray-400"></i>
-                                    Logout
-                                </a>
-                            </div>
-                        </li>
-
-                    </ul>
-
-                </nav>
-                <!-- End of Topbar -->
-                {{end}}
-
-                <!-- Begin Page Content -->
-                <div class="container-fluid">
-
-                    {{template "page_body" .}}
-
-                </div>
-                <!-- /.container-fluid -->
-
-            </div>
-            <!-- End of Main Content -->
-            {{if .LoggedAdmin.Username}}
-            <!-- Footer -->
-            <footer class="sticky-footer bg-white">
-                <div class="container my-auto">
-                    <div class="copyright text-center my-auto">
-                        <span>SFTPGo {{.Version}}</span>
-                    </div>
-                </div>
-            </footer>
-            <!-- End of Footer -->
-            {{end}}
-
-        </div>
-        <!-- End of Content Wrapper -->
-
+{{- define "navitems"}}
+{{- block "additionalnavitems" .}}{{- end}}
+{{- template "theme-switcher"}}
+<div class="d-flex align-items-center ms-2 ms-lg-3">
+    <div class="btn btn-icon btn-active-light-primary w-35px h-35px w-md-40px h-md-40px" data-kt-menu-trigger="click" data-kt-menu-attach="parent" data-kt-menu-placement="bottom-end">
+        <i class="ki-duotone ki-user fs-2">
+            <i class="path1"></i>
+            <i class="path2"></i>
+        </i>
     </div>
-    <!-- End of Page Wrapper -->
+    <div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-title-gray-700 menu-icon-gray-500 menu-active-bg menu-state-color fw-semibold py-4 w-250px" data-kt-menu="true">
+        <div class="menu-item px-3 my-0">
+            <div class="menu-content d-flex align-items-center px-3 py-2">
+                <div class="me-5">
+                    <i class="ki-duotone ki-user fs-2">
+                        <i class="path1"></i>
+                        <i class="path2"></i>
+                    </i>
+                </div>
+                <div class="d-flex flex-column">
+                    <div class="fw-semibold d-flex align-items-center fs-5">
+                        <span class="w-175px wrap-word">{{.LoggedUser.Username}}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="separator my-2"></div>
+        {{if not .HasExternalLogin}}
+        <div class="menu-item px-3 my-0">
+            <a href="{{.ProfileURL}}" class="menu-link px-3 py-2">
+                <span data-i18n="title.profile" class="menu-title">Profile</span>
+            </a>
+        </div>
+        <div class="menu-item px-3 my-0">
+            <a href="{{.ChangePwdURL}}" class="menu-link px-3 py-2">
+                <span data-i18n="title.change_password" class="menu-title">Change password</span>
+            </a>
+        </div>
+        {{if .LoggedUser.CanManageMFA}}
+        <div class="menu-item px-3 my-0">
+            <a href="{{.MFAURL}}" class="menu-link px-3 py-2">
+                <span data-i18n="title.two_factor_auth" class="menu-title">Two-factor authentication</span>
+            </a>
+        </div>
+        {{- end}}
+        {{- end}}
+        <div class="menu-item px-3 my-0">
+            <a id="id_logout_link" href="#" class="menu-link px-3 py-2">
+                <span data-i18n="login.signout" class="menu-title">Sign out</span>
+            </a>
+        </div>
+    </div>
+</div>
+{{- end}}
 
-    <!-- Scroll to Top Button-->
-    <a class="scroll-to-top rounded" href="#page-top">
-        <i class="fas fa-angle-up"></i>
+{{- define "sidebaritems"}}
+{{- if .LoggedUser.HasPermission "view_users"}}
+<div class="menu-item">
+    <a class="menu-link {{- if eq .CurrentURL .UsersURL}} active{{- end}}" href="{{.UsersURL}}">
+        <span class="menu-icon">
+            <i class="ki-duotone ki-people fs-1">
+                <span class="path1"></span>
+                <span class="path2"></span>
+                <span class="path3"></span>
+                <span class="path4"></span>
+                <span class="path5"></span>
+            </i>
+        </span>
+        <span data-i18n="title.users" class="menu-title">Users</span>
     </a>
-
-    {{if .LoggedAdmin.Username}}
-    <!-- Logout Modal-->
-    <div class="modal fade" id="logoutModal" tabindex="-1" role="dialog" aria-labelledby="modalLabel"
-        aria-hidden="true">
-        <div class="modal-dialog" role="document">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="modalLabel">Ready to Leave?</h5>
-                    <button class="close" type="button" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-                <div class="modal-body">Select "Logout" below if you are ready to end your current session.</div>
-                <div class="modal-footer">
-                    <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancel</button>
-                    <a class="btn btn-primary" href="{{.LogoutURL}}">Logout</a>
-                </div>
-            </div>
+</div>
+{{- end}}
+{{- if .LoggedUser.HasPermission "manage_groups"}}
+<div class="menu-item">
+    <a class="menu-link {{- if eq .CurrentURL .GroupsURL}} active{{- end}}" href="{{.GroupsURL}}">
+        <span class="menu-icon">
+            <i class="ki-duotone ki-profile-user fs-1">
+                <span class="path1"></span>
+                <span class="path2"></span>
+                <span class="path3"></span>
+                <span class="path4"></span>
+            </i>
+        </span>
+        <span data-i18n="title.groups" class="menu-title">Groups</span>
+    </a>
+</div>
+{{- end}}
+{{- if .LoggedUser.HasPermission "manage_folders"}}
+<div class="menu-item">
+    <a class="menu-link {{- if eq .CurrentURL .FoldersURL}} active{{- end}}" href="{{.FoldersURL}}">
+        <span class="menu-icon">
+            <i class="ki-duotone ki-folder fs-1">
+                <span class="path1"></span>
+                <span class="path2"></span>
+            </i>
+        </span>
+        <span data-i18n="title.folders" class="menu-title">Folders</span>
+    </a>
+</div>
+{{- end}}
+{{- if .LoggedUser.HasPermission "view_conns"}}
+<div class="menu-item">
+    <a class="menu-link {{- if eq .CurrentURL .ConnectionsURL}} active{{- end}}" href="{{.ConnectionsURL}}">
+        <span class="menu-icon">
+            <i class="ki-duotone ki-arrow-up-down fs-1">
+                <span class="path1"></span>
+                <span class="path2"></span>
+            </i>
+        </span>
+        <span data-i18n="title.connections" class="menu-title">Connections</span>
+    </a>
+</div>
+{{- end}}
+{{ if .LoggedUser.HasPermission "manage_event_rules"}}
+<div data-kt-menu-trigger="click" class="menu-item menu-accordion {{- if .IsEventManagerPage}} here show{{- end}}">
+    <span class="menu-link">
+        <span class="menu-icon">
+            <i class="ki-duotone ki-calendar fs-1">
+                <span class="path1"></span>
+                <span class="path2"></span>
+            </i>
+        </span>
+        <span data-i18n="title.event_manager" class="menu-title">Event Manager</span>
+        <span class="menu-arrow"></span>
+    </span>
+    <div class="menu-sub menu-sub-accordion">
+        <div class="menu-item">
+            <a class="menu-link {{- if eq .CurrentURL .EventRulesURL}} active{{- end}}" href="{{.EventRulesURL}}">
+                <span class="menu-bullet">
+                    <span class="bullet bullet-dot"></span>
+                </span>
+                <span data-i18n="title.event_rules" class="menu-title fs-5 fw-semibold">Rules</span>
+            </a>
+        </div>
+        <div class="menu-item">
+            <a class="menu-link {{- if eq .CurrentURL .EventActionsURL}} active{{- end}}" href="{{.EventActionsURL}}">
+                <span class="menu-bullet">
+                    <span class="bullet bullet-dot"></span>
+                </span>
+                <span data-i18n="title.event_actions" class="menu-title fs-5 fw-semibold">Actions</span>
+            </a>
         </div>
     </div>
-    {{end}}
+</div>
+{{- end}}
+{{- if or (.LoggedUser.HasPermission "manage_ip_lists") (and .HasDefender (.LoggedUser.HasPermission "view_defender"))}}
+<div data-kt-menu-trigger="click" class="menu-item menu-accordion {{- if .IsIPManagerPage}} here show{{- end}}">
+    <span class="menu-link">
+        <span class="menu-icon">
+            <i class="ki-duotone ki-security-check fs-1">
+                <span class="path1"></span>
+                <span class="path2"></span>
+                <span class="path3"></span>
+                <span class="path4"></span>
+            </i>
+        </span>
+        <span data-i18n="title.ip_manager" class="menu-title">IP Manager</span>
+        <span class="menu-arrow"></span>
+    </span>
+    <div class="menu-sub menu-sub-accordion">
+        {{- if .LoggedUser.HasPermission "manage_ip_lists"}}
+        <div class="menu-item">
+            <a class="menu-link {{- if eq .CurrentURL .IPListsURL}} active{{- end}}" href="{{.IPListsURL}}">
+                <span class="menu-bullet">
+                    <span class="bullet bullet-dot"></span>
+                </span>
+                <span data-i18n="title.ip_lists" class="menu-title fs-5 fw-semibold">IP lists</span>
+            </a>
+        </div>
+        {{- end}}
+        {{- if and .HasDefender (.LoggedUser.HasPermission "view_defender")}}
+        <div class="menu-item">
+            <a class="menu-link {{- if eq .CurrentURL .DefenderURL}} active{{- end}}" href="{{.DefenderURL}}">
+                <span class="menu-bullet">
+                    <span class="bullet bullet-dot"></span>
+                </span>
+                <span data-i18n="title.defender" class="menu-title fs-5 fw-semibold">Auto Blocklist</span>
+            </a>
+        </div>
+        {{- end}}
+    </div>
+</div>
+{{- end}}
+{{- if .LoggedUser.HasPermission "manage_admins"}}
+<div class="menu-item">
+    <a class="menu-link {{- if eq .CurrentURL .AdminsURL}} active{{- end}}" href="{{.AdminsURL}}">
+        <span class="menu-icon">
+            <i class="ki-duotone ki-security-user fs-1">
+                <span class="path1"></span>
+                <span class="path2"></span>
+            </i>
+        </span>
+        <span data-i18n="title.admins" class="menu-title">Admins</span>
+    </a>
+</div>
+{{- end}}
+{{- if .LoggedUser.HasPermission "manage_roles"}}
+<div class="menu-item">
+    <a class="menu-link {{- if eq .CurrentURL .RolesURL}} active{{- end}}" href="{{.RolesURL}}">
+        <span class="menu-icon">
+            <i class="ki-duotone ki-user-tick fs-1">
+                <span class="path1"></span>
+                <span class="path2"></span>
+                <span class="path3"></span>
+            </i>
+        </span>
+        <span data-i18n="title.roles" class="menu-title">Roles</span>
+    </a>
+</div>
+{{- end}}
+{{- if or (.LoggedUser.HasPermission "manage_system") (.LoggedUser.HasPermission "view_status") (and .HasSearcher (.LoggedUser.HasPermission "view_events"))}}
+<div data-kt-menu-trigger="click" class="menu-item menu-accordion {{- if .IsServerManagerPage}} here show{{- end}}">
+    <span class="menu-link">
+        <span class="menu-icon">
+            <i class="ki-duotone ki-setting-3 fs-1">
+                <span class="path1"></span>
+                <span class="path2"></span>
+                <span class="path3"></span>
+                <span class="path4"></span>
+                <span class="path5"></span>
+            </i>
+        </span>
+        <span data-i18n="title.server_manager" class="menu-title">Server Manager</span>
+        <span class="menu-arrow"></span>
+    </span>
+    <div class="menu-sub menu-sub-accordion">
+        {{- if .LoggedUser.HasPermission "manage_system"}}
+        <div class="menu-item">
+            <a class="menu-link {{- if eq .CurrentURL .ConfigsURL}} active{{- end}}" href="{{.ConfigsURL}}">
+                <span class="menu-bullet">
+                    <span class="bullet bullet-dot"></span>
+                </span>
+                <span data-i18n="title.configs" class="menu-title fs-5 fw-semibold">Configurations</span>
+            </a>
+        </div>
+        {{- end}}
+        {{ if and .HasSearcher (.LoggedUser.HasPermission "view_events")}}
+        <div class="menu-item">
+            <a class="menu-link {{- if eq .CurrentURL .EventsURL}} active{{- end}}" href="{{.EventsURL}}">
+                <span class="menu-bullet">
+                    <span class="bullet bullet-dot"></span>
+                </span>
+                <span data-i18n="title.logs" class="menu-title fs-5 fw-semibold">Logs</span>
+            </a>
+        </div>
+        {{- end}}
+        {{- if .LoggedUser.HasPermission "manage_system"}}
+        <div class="menu-item">
+            <a class="menu-link {{- if eq .CurrentURL .MaintenanceURL}} active{{- end}}" href="{{.MaintenanceURL}}">
+                <span class="menu-bullet">
+                    <span class="bullet bullet-dot"></span>
+                </span>
+                <span data-i18n="title.maintenance" class="menu-title fs-5 fw-semibold">Maintenance</span>
+            </a>
+        </div>
+        {{- end}}
+        {{- if .LoggedUser.HasPermission "view_status"}}
+        <div class="menu-item">
+            <a class="menu-link {{- if eq .CurrentURL .StatusURL}} active{{- end}}" href="{{.StatusURL}}">
+                <span class="menu-bullet">
+                    <span class="bullet bullet-dot"></span>
+                </span>
+                <span data-i18n="title.status" class="menu-title fs-5 fw-semibold">Status</span>
+            </a>
+        </div>
+        {{- end}}
+    </div>
+</div>
+{{- end}}
 
-    {{block "dialog" .}}{{end}}
-
-    <!-- Bootstrap core JavaScript-->
-    <script src="{{.StaticURL}}/vendor/jquery/jquery.min.js"></script>
-    <script src="{{.StaticURL}}/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
-
-    <!-- Core plugin JavaScript-->
-    <script src="{{.StaticURL}}/vendor/jquery-easing/jquery.easing.min.js"></script>
-
-    <!-- Custom scripts for all pages-->
-    <script src="{{.StaticURL}}/js/sb-admin-2.min.js"></script>
-
-    <script type="text/javascript">
-        function escapeHTML(str) {
-            var div = document.createElement('div');
-            div.appendChild(document.createTextNode(str));
-            return div.innerHTML;
-        }
-
-        function unescapeHTML(escapedStr) {
-            var div = document.createElement('div');
-            div.innerHTML = escapedStr;
-            var child = div.childNodes[0];
-            return child ? child.nodeValue : '';
-        }
-
-        function fixedEncodeURIComponent(str) {
-            return encodeURIComponent(unescapeHTML(str)).replace(/[!'()*]/g, function (c) {
-                return '%' + c.charCodeAt(0).toString(16);
-            });
-        }
-    </script>
-
-    <!-- Page level plugins -->
-    {{block "extra_js" .}}{{end}}
-
-</body>
-
-</html>
-{{end}}
+{{- end}}

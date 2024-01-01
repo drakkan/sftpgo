@@ -13,15 +13,13 @@ This WebUI is allowed for use only within the SFTPGo product and
 therefore cannot be used in derivative works/products without an
 explicit grant from the SFTPGo Team (support@sftpgo.com).
 -->
-{{template "base" .}}
+{{- template "base" .}}
 
 {{- define "extra_css"}}
 <link href="{{.StaticURL}}/assets/plugins/custom/datatables/datatables.bundle.css" rel="stylesheet" type="text/css"/>
 {{- end}}
 
-
-{{define "page_body"}}
-
+{{- define "page_body"}}
 <div class="card shadow-sm">
     <div class="card-header bg-light">
         <h3 data-i18n="share.view_manage" class="card-title section-title">View and manage shares</h3>
@@ -29,23 +27,22 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     <div id="card_body" class="card-body">
         <div id="loader" class="align-items-center text-center my-10">
             <span class="spinner-border w-15px h-15px text-muted align-middle me-2"></span>
-            <span data-i18n="general.loading" class="text-gray-600">Loading...</span>
+            <span data-i18n="general.loading" class="text-gray-700">Loading...</span>
         </div>
         <div id="card_content" class="d-none">
-            <div class="d-flex flex-stack mb-5">
+            <div class="d-flex flex-stack flex-wrap mb-5">
                 <div class="d-flex align-items-center position-relative my-1">
                     <i class="ki-duotone ki-magnifier fs-1 position-absolute ms-6">
                         <span class="path1"></span>
                         <span class="path2"></span>
                     </i>
-                    <input name="search" data-i18n="[placeholder]general.search" type="text" data-share-table-filter="search"
+                    <input name="search" data-i18n="[placeholder]general.search" type="text" data-table-filter="search"
                         class="form-control rounded-1 w-250px ps-15 me-5" placeholder="Search" />
                 </div>
-
-                <div class="d-flex justify-content-end" data-share-table-toolbar="base">
-                    <a data-i18n="general.add" href="{{.ShareURL}}" class="btn btn-primary">
+                <div class="d-flex justify-content-end" data-table-toolbar="base">
+                    <a href="{{.ShareURL}}" class="btn btn-primary">
                         <i class="ki-duotone ki-plus fs-2"></i>
-                        Add
+                        <span data-i18n="general.add">Add</span>
                     </a>
                 </div>
             </div>
@@ -372,7 +369,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 stateDuration: 0,
                 stateLoadParams: function (settings, data) {
                         if (data.search.search){
-                            const filterSearch = document.querySelector('[data-share-table-filter="search"]');
+                            const filterSearch = document.querySelector('[data-table-filter="search"]');
                             filterSearch.value = data.search.search;
                         }
                     },
@@ -405,7 +402,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         }
 
         var handleSearchDatatable = function () {
-            const filterSearch = document.querySelector('[data-share-table-filter="search"]');
+            const filterSearch = document.querySelector('[data-table-filter="search"]');
             filterSearch.addEventListener('keyup', function (e) {
                 dt.rows().deselect();
                 dt.search(e.target.value, true, false).draw();

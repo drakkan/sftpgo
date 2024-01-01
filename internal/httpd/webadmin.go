@@ -42,7 +42,6 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/plugin"
 	"github.com/drakkan/sftpgo/v2/internal/smtp"
 	"github.com/drakkan/sftpgo/v2/internal/util"
-	"github.com/drakkan/sftpgo/v2/internal/version"
 	"github.com/drakkan/sftpgo/v2/internal/vfs"
 )
 
@@ -160,21 +159,6 @@ type basePage struct {
 	FolderQuotaScanURL  string
 	StatusURL           string
 	MaintenanceURL      string
-	UsersTitle          string
-	AdminsTitle         string
-	ConnectionsTitle    string
-	FoldersTitle        string
-	GroupsTitle         string
-	EventRulesTitle     string
-	EventActionsTitle   string
-	RolesTitle          string
-	StatusTitle         string
-	MaintenanceTitle    string
-	DefenderTitle       string
-	IPListsTitle        string
-	EventsTitle         string
-	ConfigsTitle        string
-	Version             string
 	CSRFToken           string
 	IsEventManagerPage  bool
 	IsIPManagerPage     bool
@@ -182,7 +166,7 @@ type basePage struct {
 	HasDefender         bool
 	HasSearcher         bool
 	HasExternalLogin    bool
-	LoggedAdmin         *dataprovider.Admin
+	LoggedUser          *dataprovider.Admin
 	Branding            UIBranding
 }
 
@@ -416,7 +400,7 @@ type userTemplateFields struct {
 
 func loadAdminTemplates(templatesPath string) {
 	usersPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateUsers),
 	}
@@ -730,22 +714,7 @@ func (s *httpdServer) getBasePageData(title, currentURL string, r *http.Request)
 		StatusURL:           webStatusPath,
 		FolderQuotaScanURL:  webScanVFolderPath,
 		MaintenanceURL:      webMaintenancePath,
-		UsersTitle:          pageUsersTitle,
-		AdminsTitle:         pageAdminsTitle,
-		ConnectionsTitle:    pageConnectionsTitle,
-		FoldersTitle:        pageFoldersTitle,
-		GroupsTitle:         pageGroupsTitle,
-		EventRulesTitle:     pageEventRulesTitle,
-		EventActionsTitle:   pageEventActionsTitle,
-		RolesTitle:          pageRolesTitle,
-		StatusTitle:         pageStatusTitle,
-		MaintenanceTitle:    pageMaintenanceTitle,
-		DefenderTitle:       pageDefenderTitle,
-		IPListsTitle:        pageIPListsTitle,
-		EventsTitle:         pageEventsTitle,
-		ConfigsTitle:        pageConfigsTitle,
-		Version:             version.GetAsString(),
-		LoggedAdmin:         getAdminFromToken(r),
+		LoggedUser:          getAdminFromToken(r),
 		IsEventManagerPage:  isEventManagerResource(currentURL),
 		IsIPManagerPage:     isIPListsResource(currentURL),
 		IsServerManagerPage: isServerManagerResource(currentURL),
@@ -859,7 +828,7 @@ func (s *httpdServer) renderMFAPage(w http.ResponseWriter, r *http.Request) {
 		SaveTOTPURL:     webAdminTOTPSavePath,
 		RecCodesURL:     webAdminRecoveryCodesPath,
 	}
-	admin, err := dataprovider.AdminExists(data.LoggedAdmin.Username)
+	admin, err := dataprovider.AdminExists(data.LoggedUser.Username)
 	if err != nil {
 		s.renderInternalServerErrorPage(w, r, err)
 		return
@@ -873,7 +842,7 @@ func (s *httpdServer) renderProfilePage(w http.ResponseWriter, r *http.Request, 
 		basePage: s.getBasePageData(pageProfileTitle, webAdminProfilePath, r),
 		Error:    error,
 	}
-	admin, err := dataprovider.AdminExists(data.LoggedAdmin.Username)
+	admin, err := dataprovider.AdminExists(data.LoggedUser.Username)
 	if err != nil {
 		s.renderInternalServerErrorPage(w, r, err)
 		return
@@ -1015,7 +984,7 @@ func (s *httpdServer) renderUserPage(w http.ResponseWriter, r *http.Request, use
 		}
 	}
 	var roles []dataprovider.Role
-	if basePage.LoggedAdmin.Role == "" {
+	if basePage.LoggedUser.Role == "" {
 		var err error
 		roles, err = s.getWebRoles(w, r, 10, true)
 		if err != nil {
@@ -1049,7 +1018,7 @@ func (s *httpdServer) renderUserPage(w http.ResponseWriter, r *http.Request, use
 			Filesystem:      user.FsConfig,
 			IsUserPage:      true,
 			IsGroupPage:     false,
-			IsHidden:        basePage.LoggedAdmin.Filters.Preferences.HideFilesystem(),
+			IsHidden:        basePage.LoggedUser.Filters.Preferences.HideFilesystem(),
 			HasUsersBaseDir: dataprovider.HasUsersBaseDir(),
 			DirPath:         user.HomeDir,
 		},

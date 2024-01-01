@@ -182,7 +182,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         expirationTime: 7 * 24 * 60 * 60 * 1000, // 7 days
                         defaultVersion: '{{.Version}}'
                     }, {
-                        loadPath: '{{.StaticURL}}/locales/{{"{{lng}}"}}/{{"{{ns}}"}}.json'
+                        loadPath: '{{.StaticURL}}/locales/{{"{{lng}}"}}/{{"{{ns}}"}}.json?_='+new Date().getTime().toString()
                     }
                     ]
                 }

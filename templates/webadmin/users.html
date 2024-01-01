@@ -1,386 +1,65 @@
 <!--
-Copyright (C) 2019 Nicola Murino
+Copyright (C) 2024 Nicola Murino
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as published
-by the Free Software Foundation, version 3.
+This WebUI uses the KeenThemes Mega Bundle, a proprietary theme:
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU Affero General Public License for more details.
+https://keenthemes.com/products/templates-mega-bundle
 
-You should have received a copy of the GNU Affero General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
+KeenThemes HTML/CSS/JS components are allowed for use only within the
+SFTPGo product and restricted to be used in a resealable HTML template
+that can compete with KeenThemes products anyhow.
+
+This WebUI is allowed for use only within the SFTPGo product and
+therefore cannot be used in derivative works/products without an
+explicit grant from the SFTPGo Team (support@sftpgo.com).
 -->
 {{template "base" .}}
 
-{{define "title"}}{{.Title}}{{end}}
+{{- define "extra_css"}}
+<link href="{{.StaticURL}}/assets/plugins/custom/datatables/datatables.bundle.css" rel="stylesheet" type="text/css"/>
+{{- end}}
 
-{{define "extra_css"}}
-<link href="{{.StaticURL}}/vendor/datatables/dataTables.bootstrap4.min.css" rel="stylesheet">
-<link href="{{.StaticURL}}/vendor/datatables/buttons.bootstrap4.min.css" rel="stylesheet">
-<link href="{{.StaticURL}}/vendor/datatables/fixedHeader.bootstrap4.min.css" rel="stylesheet">
-<link href="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.css" rel="stylesheet">
-<link href="{{.StaticURL}}/vendor/datatables/select.bootstrap4.min.css" rel="stylesheet">
-<link href="{{.StaticURL}}/vendor/datatables/colReorder.bootstrap4.min.css" rel="stylesheet">
-{{end}}
-
-{{define "page_body"}}
-
-<div id="errorMsg" class="alert alert-warning fade show" style="display: none;" role="alert">
-    <span id="errorTxt"></span>
-    <button type="button" class="close" aria-label="Close" onclick="dismissErrorMsg();">
-      <span aria-hidden="true">&times;</span>
-    </button>
-</div>
-<script type="text/javascript">
-    function dismissErrorMsg(){
-        $('#errorMsg').hide();
-    }
-</script>
-
-<div id="successMsg" class="card mb-4 border-left-success" style="display: none;">
-    <div id="successTxt" class="card-body"></div>
-</div>
-
-<div class="card shadow mb-4">
-    <div class="card-header py-3">
-        <h6 class="m-0 font-weight-bold text-primary">View and manage users</h6>
+{{- define "page_body"}}
+<div class="card shadow-sm">
+    <div class="card-header bg-light">
+        <h3 data-i18n="user.view_manage" class="card-title section-title">View and manage users</h3>
     </div>
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-hover nowrap" id="dataTable" width="100%" cellspacing="0">
+    <div id="card_body" class="card-body">
+        <div id="loader" class="align-items-center text-center my-10">
+            <span class="spinner-border w-15px h-15px text-muted align-middle me-2"></span>
+            <span data-i18n="general.loading" class="text-gray-700">Loading...</span>
+        </div>
+        <div id="card_content" class="d-none">
+            <div class="d-flex flex-stack flex-wrap mb-5">
+                <div class="d-flex align-items-center position-relative my-1">
+                    <i class="ki-duotone ki-magnifier fs-1 position-absolute ms-6">
+                        <span class="path1"></span>
+                        <span class="path2"></span>
+                    </i>
+                    <input name="search" data-i18n="[placeholder]general.search" type="text" data-table-filter="search"
+                        class="form-control rounded-1 w-250px ps-15 me-5" placeholder="Search" />
+                </div>
+
+                <div class="d-flex justify-content-end" data-table-toolbar="base">
+                    <a href="{{.UserURL}}" class="btn btn-primary">
+                        <i class="ki-duotone ki-plus fs-2"></i>
+                        <span data-i18n="general.add">Add</span>
+                    </a>
+                </div>
+            </div>
+
+            <table id="dataTable" class="table align-middle table-row-dashed fs-6 gy-5">
                 <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Username</th>
-                        <th>Status</th>
-                        <th>Last login</th>
-                        <th>Description</th>
-                        <th>Email</th>
-                        <th>Storage</th>
-                        <th>Groups</th>
-                        <th>MFA</th>
-                        <th>Bandwidth</th>
-                        <th>Quota</th>
-                        <th>Role</th>
-                        <th>Other</th>
-                        <th></th>
+                    <tr class="text-start text-muted fw-bold fs-6 gs-0">
+                        <th data-i18n="general.name">Name</th>
+                        <th data-i18n="share.scope">Scope</th>
+                        <th data-i18n="general.info">Info</th>
+                        <th class="min-w-100px"></th>
                     </tr>
                 </thead>
-                <tbody>
-                    {{range .Users}}
-                    <tr>
-                        <td>{{.ID}}</td>
-                        <td>{{.Username}}</td>
-                        <td>{{.GetStatusAsString}}</td>
-                        <td>{{.GetLastLoginAsString}}</td>
-                        <td>{{.Description}}</td>
-                        <td>{{.Email}}</td>
-                        <td>{{.GetStorageDescrition}}</td>
-                        <td>{{.GetGroupsAsString}}</td>
-                        <td>{{.GetMFAStatusAsString}}</td>
-                        <td>{{.GetBandwidthAsString}}</td>
-                        <td>{{.GetQuotaSummary}}</td>
-                        <td>{{.Role}}</td>
-                        <td>{{.GetInfoString}}</td>
-                        <td>{{.GetLastQuotaUpdateAsString}}</td>
-                    </tr>
-                    {{end}}
-                </tbody>
+                <tbody id="table_body" class="text-gray-800 fw-semibold"></tbody>
             </table>
         </div>
     </div>
 </div>
-
-{{end}}
-
-{{define "dialog"}}
-<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="deleteModalLabel"
-    aria-hidden="true">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="deleteModalLabel">
-                    Confirmation required
-                </h5>
-                <button class="close" type="button" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <div class="modal-body">Do you want to delete the selected user?</div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" type="button" data-dismiss="modal">
-                    Cancel
-                </button>
-                <a class="btn btn-warning" href="#" onclick="deleteAction()">
-                    Delete
-                </a>
-            </div>
-        </div>
-    </div>
-</div>
-{{end}}
-
-{{define "extra_js"}}
-<script src="{{.StaticURL}}/vendor/datatables/jquery.dataTables.min.js"></script>
-<script src="{{.StaticURL}}/vendor/datatables/dataTables.bootstrap4.min.js"></script>
-<script src="{{.StaticURL}}/vendor/datatables/dataTables.buttons.min.js"></script>
-<script src="{{.StaticURL}}/vendor/datatables/buttons.bootstrap4.min.js"></script>
-<script src="{{.StaticURL}}/vendor/datatables/buttons.colVis.min.js"></script>
-<script src="{{.StaticURL}}/vendor/datatables/dataTables.fixedHeader.min.js"></script>
-<script src="{{.StaticURL}}/vendor/datatables/dataTables.responsive.min.js"></script>
-<script src="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.js"></script>
-<script src="{{.StaticURL}}/vendor/datatables/dataTables.select.min.js"></script>
-<script src="{{.StaticURL}}/vendor/datatables/ellipsis.js"></script>
-<script src="{{.StaticURL}}/vendor/datatables/dataTables.colReorder.min.js"></script>
-<script type="text/javascript">
-
-    function deleteAction() {
-        let table = $('#dataTable').DataTable();
-        table.button('delete:name').enable(false);
-        let username = table.row({ selected: true }).data()[1];
-        let path = '{{.UserURL}}' + "/" + fixedEncodeURIComponent(username);
-        $('#deleteModal').modal('hide');
-        $('#errorMsg').hide();
-
-        $.ajax({
-            url: path,
-            type: 'DELETE',
-            dataType: 'json',
-            headers: {'X-CSRF-TOKEN' : '{{.CSRFToken}}'},
-            timeout: 15000,
-            success: function (result) {
-                window.location.href = '{{.UsersURL}}';
-            },
-            error: function ($xhr, textStatus, errorThrown) {
-                var txt = "Unable to delete the selected user";
-                if ($xhr) {
-                    var json = $xhr.responseJSON;
-                    if (json) {
-                        if (json.message){
-                            txt += ": " + json.message;
-                        } else {
-                            txt += ": " + json.error;
-                        }
-                    }
-                }
-                $('#errorTxt').text(txt);
-                $('#errorMsg').show();
-            }
-        });
-    }
-
-    $(document).ready(function () {
-        $.fn.dataTable.ext.buttons.add = {
-            text: '<i class="fas fa-plus"></i>',
-            name: 'add',
-            titleAttr: "Add",
-            action: function (e, dt, node, config) {
-                window.location.href = '{{.UserURL}}';
-            }
-        };
-
-        $.fn.dataTable.ext.buttons.edit = {
-            text: '<i class="fas fa-pen"></i>',
-            name: 'edit',
-            titleAttr: "Edit",
-            action: function (e, dt, node, config) {
-                var username = dt.row({ selected: true }).data()[1];
-                var path = '{{.UserURL}}' + "/" + fixedEncodeURIComponent(username);
-                window.location.href = path;
-            },
-            enabled: false
-        };
-
-        $.fn.dataTable.ext.buttons.template = {
-            text: '<i class="fas fa-clone"></i>',
-            name: 'template',
-            titleAttr: "Template",
-            action: function (e, dt, node, config) {
-                var selectedRows = table.rows({ selected: true }).count();
-                if (selectedRows == 1){
-                    var username = dt.row({ selected: true }).data()[1];
-                    var path = '{{.UserTemplateURL}}' + "?from=" + encodeURIComponent(username);
-                    window.location.href = path;
-                } else {
-                    window.location.href = '{{.UserTemplateURL}}';
-                }
-            }
-        };
-
-        $.fn.dataTable.ext.buttons.delete = {
-            text: '<i class="fas fa-trash"></i>',
-            name: 'delete',
-            titleAttr: "Delete",
-            action: function (e, dt, node, config) {
-                /*console.log("delete clicked, num row selected: " + dt.rows({ selected: true }).count());
-                var data = dt.rows({ selected: true }).data();
-                for (var i = 0; i < data.length; i++) {
-                    console.log("selected row data: " + JSON.stringify(data[i]));
-                }*/
-                $('#deleteModal').modal('show');
-            },
-            enabled: false
-        };
-
-        $.fn.dataTable.ext.buttons.quota_scan = {
-            text: '<i class="fas fa-redo-alt"></i>',
-            name: 'quota_scan',
-            titleAttr: 'Quota Scan',
-            action: function (e, dt, node, config) {
-                dt.button('quota_scan:name').enable(false);
-                var username = dt.row({ selected: true }).data()[1];
-                var path = '{{.QuotaScanURL}}'+ "/" + fixedEncodeURIComponent(username);
-                $.ajax({
-                    url: path,
-                    type: 'POST',
-                    headers: {'X-CSRF-TOKEN' : '{{.CSRFToken}}'},
-                    timeout: 15000,
-                    success: function (result) {
-                        dt.button('quota_scan:name').enable(true);
-                        $('#successTxt').text("Quota scan started for the selected user. Please reload the user's page to check when the scan ends");
-                        $('#successMsg').show();
-                        setTimeout(function () {
-                            $('#successMsg').hide();
-                        }, 15000);
-                    },
-                    error: function ($xhr, textStatus, errorThrown) {
-                        dt.button('quota_scan:name').enable(true);
-                        var txt = "Unable to update quota for the selected user";
-                        if ($xhr) {
-                            var json = $xhr.responseJSON;
-                            if (json) {
-                                if (json.message) {
-                                    txt += ": " + json.message;
-                                } else if (json.error) {
-                                    txt += ": " + json.error;
-                                }
-                            }
-                        }
-                        $('#errorTxt').text(txt);
-                        $('#errorMsg').show();
-                    }
-                });
-            },
-            enabled: false
-        };
-
-        let dateFn = $.fn.dataTable.render.datetime();
-        let table = $('#dataTable').DataTable({
-            "select": {
-                "style": "single",
-                "blurable": true
-            },
-            "colReorder": {
-                "enable": true,
-                "fixedColumnsLeft": 2
-            },
-            "stateSave": true,
-            "stateDuration": 0,
-            "buttons": [
-                {
-                    "text": "Column visibility",
-                    "extend": "colvis",
-                    "columns": ":not(.noVis)"
-                }
-            ],
-            "columnDefs": [
-                {
-                    "targets": [0,13],
-                    "visible": false,
-                    "searchable": false,
-                    "className": "noVis"
-                },
-                {
-                    "targets": [1],
-                    "className": "noVis"
-                },
-                {
-                    "targets": [3],
-                    "render": $.fn.dataTable.render.datetime()
-                },
-                {
-                    "targets": [4,5,8,11],
-                    "visible": false
-                },
-                {
-                    "targets": [6,7],
-                    "visible": false,
-                    "render": $.fn.dataTable.render.ellipsis(50, true)
-                },
-                {
-                    "targets": [9],
-                    "visible": false,
-                    "render": $.fn.dataTable.render.ellipsis(40, true)
-                },
-                {
-                    "targets": [10],
-                    "visible": false,
-                    "render": function ( data, type, row, meta ) {
-                        if (type !== 'display') {
-			                return data;
-		                }
-                        if (row[13] !== ""){
-                            var formattedDate = dateFn(row[13], type);
-                            data = `${data}. Updated at: ${formattedDate}`;
-                        }
-                        let ellipsisFn = $.fn.dataTable.render.ellipsis(70, true);
-                        return ellipsisFn(data, type);
-                    }
-                },
-                {
-                    "targets": [12],
-                    "visible": false,
-                    "render": $.fn.dataTable.render.ellipsis(100, true)
-                }
-            ],
-            "scrollX": false,
-            "scrollY": false,
-            "responsive": true,
-            "language": {
-                "emptyTable": "No user defined"
-            },
-            "order": [[1, 'asc']]
-        });
-
-        new $.fn.dataTable.FixedHeader( table );
-
-        {{if .LoggedAdmin.HasPermission "quota_scans"}}
-        table.button().add(0,'quota_scan');
-        {{end}}
-
-        {{if .LoggedAdmin.HasPermission "del_users"}}
-        table.button().add(0,'delete');
-        {{end}}
-
-        {{if .LoggedAdmin.HasPermission "manage_system"}}
-        table.button().add(0,'template');
-        {{end}}
-
-        {{if .LoggedAdmin.HasPermission "edit_users"}}
-        table.button().add(0,'edit');
-        {{end}}
-
-        {{if .LoggedAdmin.HasPermission "add_users"}}
-        table.button().add(0,'add');
-        {{end}}
-
-        table.buttons().container().appendTo('.col-md-6:eq(0)', table.table().container());
-
-        table.on('select deselect', function () {
-            var selectedRows = table.rows({ selected: true }).count();
-            {{if .LoggedAdmin.HasPermission "edit_users"}}
-            table.button('edit:name').enable(selectedRows == 1);
-            {{end}}
-            {{if .LoggedAdmin.HasPermission "del_users"}}
-            table.button('delete:name').enable(selectedRows == 1);
-            {{end}}
-            {{if .LoggedAdmin.HasPermission "quota_scans"}}
-            table.button('quota_scan:name').enable(selectedRows == 1);
-            {{end}}
-        });
-    });
-</script>
-{{end}}
+{{- end}}
