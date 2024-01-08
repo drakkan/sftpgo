@@ -90,8 +90,6 @@ type DefenderConfig struct {
 	// to return when you request for the entire host list from the defender
 	EntriesSoftLimit int `json:"entries_soft_limit" mapstructure:"entries_soft_limit"`
 	EntriesHardLimit int `json:"entries_hard_limit" mapstructure:"entries_hard_limit"`
-	// LogEvents controls if Defender events should be logged
-	LogEvents bool `json:"log_events" mapstructure:"log_events"`
 }
 
 type baseDefender struct {
@@ -135,18 +133,15 @@ func (d *baseDefender) getScore(event HostEvent) int {
 	return score
 }
 
+// logEvent do log an defender event which modifies the score of an host
 func (d *baseDefender) logEvent(ip, protocol string, event HostEvent, totalScore int) {
-	if !d.config.LogEvents {
-		return
-	}
-
 	// ignore events which do not change the host score
 	eventScore := d.getScore(event)
 	if eventScore == 0 {
 		return
 	}
 
-	logger.GetLogger().Info().
+	logger.GetLogger().Debug().
 		Timestamp().
 		Str("sender", "defender").
 		Str("client_ip", ip).
@@ -157,11 +152,8 @@ func (d *baseDefender) logEvent(ip, protocol string, event HostEvent, totalScore
 		Send()
 }
 
+// logBan do log a ban of an host due to a too high host score
 func (d *baseDefender) logBan(ip, protocol string) {
-	if !d.config.LogEvents {
-		return
-	}
-
 	logger.GetLogger().Info().
 		Timestamp().
 		Str("sender", "defender").
