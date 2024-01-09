@@ -17,7 +17,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 {{- block "additionalnavitems" .}}{{- end}}
 {{- template "theme-switcher"}}
 <div class="d-flex align-items-center ms-2 ms-lg-3">
-    <div class="btn btn-icon btn-active-light-primary w-35px h-35px w-md-40px h-md-40px" data-kt-menu-trigger="click" data-kt-menu-attach="parent" data-kt-menu-placement="bottom-end">
+    <div class="btn btn-icon btn-active-light-primary w-35px h-35px w-md-40px h-md-40px" data-kt-menu-trigger="{default:'click', lg: 'hover'}" data-kt-menu-attach="parent" data-kt-menu-placement="bottom-end">
         <i class="ki-duotone ki-user fs-2">
             <i class="path1"></i>
             <i class="path2"></i>
@@ -162,12 +162,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 <div data-kt-menu-trigger="click" class="menu-item menu-accordion {{- if .IsIPManagerPage}} here show{{- end}}">
     <span class="menu-link">
         <span class="menu-icon">
-            <i class="ki-duotone ki-security-check fs-1">
-                <span class="path1"></span>
-                <span class="path2"></span>
-                <span class="path3"></span>
-                <span class="path4"></span>
-            </i>
+            <i class="ki-solid ki-shield fs-1"></i>
         </span>
         <span data-i18n="title.ip_manager" class="menu-title">IP Manager</span>
         <span class="menu-arrow"></span>
@@ -200,10 +195,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 <div class="menu-item">
     <a class="menu-link {{- if eq .CurrentURL .AdminsURL}} active{{- end}}" href="{{.AdminsURL}}">
         <span class="menu-icon">
-            <i class="ki-duotone ki-security-user fs-1">
-                <span class="path1"></span>
-                <span class="path2"></span>
-            </i>
+            <i class="ki-solid ki-security-user fs-1"></i>
         </span>
         <span data-i18n="title.admins" class="menu-title">Admins</span>
     </a>

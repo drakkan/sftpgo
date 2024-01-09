@@ -1682,6 +1682,8 @@ func (s *httpdServer) setupWebAdminRoutes() {
 
 			router.With(s.checkPerm(dataprovider.PermAdminViewUsers), s.refreshCookie).
 				Get(webUsersPath, s.handleGetWebUsers)
+			router.With(s.checkPerm(dataprovider.PermAdminViewUsers), s.refreshCookie).
+				Get(webUsersPath+"/json", getAllUsers)
 			router.With(s.checkPerm(dataprovider.PermAdminAddUsers), s.refreshCookie).
 				Get(webUserPath, s.handleWebAddUserGet)
 			router.With(s.checkPerm(dataprovider.PermAdminChangeUsers), s.refreshCookie).

@@ -307,6 +307,32 @@ type PasswordValidation struct {
 	Users PasswordValidationRules `json:"users" mapstructure:"users"`
 }
 
+// FilesystemProvider defines the supported storage filesystems
+type FilesystemProvider struct {
+	sdk.FilesystemProvider
+}
+
+// I18nString returns the translation key
+func (p FilesystemProvider) I18nString() string {
+	switch p.FilesystemProvider {
+	case sdk.LocalFilesystemProvider:
+		return util.I18nStorageLocal
+	case sdk.S3FilesystemProvider:
+		return util.I18nStorageS3
+	case sdk.GCSFilesystemProvider:
+		return util.I18nStorageGCS
+	case sdk.AzureBlobFilesystemProvider:
+		return util.I18nStorageAzureBlob
+	case sdk.CryptedFilesystemProvider:
+		return util.I18nStorageLocalEncrypted
+	case sdk.SFTPFilesystemProvider:
+		return util.I18nStorageSFTP
+	case sdk.HTTPFilesystemProvider:
+		return util.I18nStorageHTTP
+	}
+	return ""
+}
+
 type wrappedFolder struct {
 	Folder vfs.BaseVirtualFolder
 }

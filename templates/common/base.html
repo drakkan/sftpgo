@@ -103,6 +103,14 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             initEmpty: false,
 
             show: function () {
+                $(this).find('.select-repetear').each(function(){
+                    initializeSelect2El(this);
+                    let el = $(this);
+                    if (el.hasClass('select-first')){
+                        let firstVal = el.find("option:first-child").val();
+                        el.val(firstVal).trigger('change');
+                    }
+                });
                 $(this).localize();
                 $(this).slideDown();
                 $(this).find('[data-repeater-delete]').on("click", function(e){
@@ -114,12 +122,49 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 $(this).slideUp(deleteElement);
             }
         });
+
+        $(selector).find('.select-repetear').each(function(){
+            initializeSelect2El(this);
+        });
     }
 
     function clearChilds(el) {
         while (el.firstChild) {
             el.removeChild(el.firstChild);
         }
+    }
+
+    function initializeSelect2El(element) {
+        if (element.getAttribute("data-kt-initialized") === "1") {
+            return;
+        }
+        let options = {
+            dir: document.body.getAttribute('direction'),
+            language: {
+                noResults: function () {
+                    return $.t('select2.no_results');
+                },
+                searching: function () {
+                    return $.t('select2.searching');
+                },
+                removeAllItems: function () {
+                    return $.t('select2.removeall');
+                },
+                removeItem: function () {
+                    return $.t('select2.remove');
+                },
+                search: function() {
+                    return $.t('general.search');
+                }
+            }
+        };
+
+        if (element.getAttribute('data-hide-search') == 'true') {
+            options.minimumResultsForSearch = Infinity;
+        }
+
+        $(element).select2(options);
+        element.setAttribute("data-kt-initialized", "1");
     }
 
     const lngs = {
@@ -132,36 +177,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         $('body').localize();
         let select2elements = [].slice.call(document.querySelectorAll('[data-control="i18n-select2"]'));
         select2elements.map(function (element){
-            if (element.getAttribute("data-kt-initialized") === "1") {
-                return;
-            }
-            let options = {
-                dir: document.body.getAttribute('direction'),
-                language: {
-                    noResults: function () {
-                        return $.t('select2.no_results');
-                    },
-                    searching: function () {
-                        return $.t('select2.searching');
-                    },
-                    removeAllItems: function () {
-                        return $.t('select2.removeall');
-                    },
-                    removeItem: function () {
-                        return $.t('select2.remove');
-                    },
-                    search: function() {
-                        return $.t('general.search');
-                    }
-                }
-            };
-
-            if (element.getAttribute('data-hide-search') == 'true') {
-                options.minimumResultsForSearch = Infinity;
-            }
-
-            $(element).select2(options);
-            element.setAttribute("data-kt-initialized", "1");
+            initializeSelect2El(element);
         });
     }
 
@@ -229,9 +245,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     }
 
     function handlePasswordInputVisibility(el) {
-		let pwdVisibility = el.querySelector('[data-password-control="visibility"]');
+		let pwdVisibility = $(el.querySelector('[data-password-control="visibility"]'));
 		let passwordInput = el.querySelector('[data-password-control="input"]');
-		pwdVisibility.addEventListener('click', function(){
+        pwdVisibility.off("click");
+		pwdVisibility.on('click', function(){
 			let visibleIcon = this.querySelector(':scope > i:not(.d-none)');
             let hiddenIcon = this.querySelector(':scope > i.d-none');
             visibleIcon.classList.add('d-none');
@@ -632,7 +649,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
 {{- define "theme-switcher"}}
 <div class="d-flex align-items-center ms-2 ms-lg-3">
-    <a href="#" class="btn btn-icon btn-active-light-primary w-35px h-35px w-md-40px h-md-40px" data-kt-menu-trigger="click" data-kt-menu-attach="parent" data-kt-menu-placement="bottom-end">
+    <a href="#" class="btn btn-icon btn-active-light-primary w-35px h-35px w-md-40px h-md-40px" data-kt-menu-trigger="{default:'click', lg: 'hover'}" data-kt-menu-attach="parent" data-kt-menu-placement="bottom-end">
         <i class="ki-duotone ki-night-day theme-light-show fs-2">
             <span class="path1"></span>
             <span class="path2"></span>
@@ -834,11 +851,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <div class="toast-container position-fixed top-0 end-0 p-3">
             <div id="toast_container" class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="false">
                 <div class="toast-body border-0 d-flex align-items-center">
-                    <i class="ki-duotone ki-information-5 fs-3x text-warning me-5">
-                        <span class="path1"></span>
-                        <span class="path2"></span>
-                        <span class="path3"></span>
-                    </i>
+                    <span id="toast_icon"></span>
                     <span id="toast_msg" class="fs-5 fw-semibold text-gray-800 me-auto"></span>
                     <button data-i18n="[aria-label]general.close" type="button" class="btn btn-icon btn-sm btn-active-light-primary position-absolute position-sm-relative m-2 m-sm-0 top-0 end-0 ms-sm-auto" data-bs-dismiss="toast" aria-label="Close">
                         <i class="ki-solid ki-cross fs-2x text-gray-700"></i>
@@ -955,8 +968,20 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 }
             }();
 
-            function showToast(msg, options) {
+            function showToast(status, msg, options) {
                 const toast = bootstrap.Toast.getOrCreateInstance(document.getElementById('toast_container'));
+                if (status === 1){
+                    $("#toast_icon").html(`<i class="ki-duotone ki-check-square fs-3x text-success me-5">
+                                            <span class="path1"></span>
+                                            <span class="path2"></span>
+                                        </i>`);
+                } else {
+                    $("#toast_icon").html(`<i class="ki-duotone ki-information-5 fs-3x text-warning me-5">
+                                            <span class="path1"></span>
+                                            <span class="path2"></span>
+                                            <span class="path3"></span>
+                                        </i>`);
+                }
                 setI18NData($('#toast_msg'), msg, options)
                 toast.show();
             }

@@ -80,7 +80,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 {{- if or .CanDownload .CanDelete}}
                 <div>
                     <button type="button" class="btn btn-light-primary rotate" data-kt-menu-trigger="click" data-kt-menu-placement="bottom">
-                        <span data-i18n="fs.actions">Actions</span>
+                        <span data-i18n="general.actions">Actions</span>
                         <i class="ki-duotone ki-down fs-3 rotate-180 ms-3 me-0"></i>
                     </button>
                     <div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-800 menu-state-bg-light-primary fw-semibold w-auto min-w-200 mw-300px py-4" data-kt-menu="true">
@@ -431,7 +431,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             const openLinks = document.querySelectorAll('[data-dirbrowser-table-row="open"]');
 
             openLinks.forEach(d => {
-                d.addEventListener("click", function(e){
+                let el = $(d);
+                el.off("click");
+                el.on("click", function(e){
                     e.preventDefault();
                     const parent = e.target.closest('tr');
                     onDirBrowserClick(dt.row(parent).data()['dir_path']);
@@ -457,7 +459,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 <script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
     var KTDatatablesServerSide = function () {
         // Shared variables
-        //var table;
         var dt;
         var lightbox;
 
@@ -598,7 +599,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                             let desc = escapeHTML(filename).replace(/"/g, '&quot;');
                                             previewDiv = `<div class="ms-2" data-kt-filemanger-table="view_item">
 												    <a href="${row['url']}" data-gallery="gallery" data-glightbox="description: &lt;span class=&quot;fs-5 fw-bold&quot;&gt;${desc}&lt;/span&gt;" class="btn btn-sm btn-icon btn-light btn-active-light-primary glightbox">
-													    <i class="ki-duotone ki-eye fs-5 m-0">
+													    <i class="ki-duotone ki-eye fs-6 m-0">
 														    <span class="path1"></span>
 														    <span class="path2"></span>
                                                             <span class="path3"></span>
@@ -615,7 +616,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                         case "wav":
                                             previewDiv = `<div class="ms-2" data-kt-filemanger-table="view_item">
 												    <a href="#" class="btn btn-sm btn-icon btn-light btn-active-light-primary" data-kt-filemanager-table-action="view_media">
-													    <i class="ki-duotone ki-eye fs-5 m-0">
+													    <i class="ki-duotone ki-eye fs-6 m-0">
 														    <span class="path1"></span>
 														    <span class="path2"></span>
                                                             <span class="path3"></span>
@@ -629,7 +630,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                                 view_url = view_url.replace('{{.FilesURL}}','{{.ViewPDFURL}}');
                                                 previewDiv = `<div class="ms-2" data-kt-filemanger-table="view_item">
 												    <a href="${view_url}" target="_blank" class="btn btn-sm btn-icon btn-light btn-active-light-primary">
-													    <i class="ki-duotone ki-eye fs-5 m-0">
+													    <i class="ki-duotone ki-eye fs-6 m-0">
 														    <span class="path1"></span>
 														    <span class="path2"></span>
                                                             <span class="path3"></span>
@@ -643,7 +644,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                             if (data && (supportedEditExtensions.includes(extension) || supportedEditFilenames.includes(filename.toLowerCase()))){
                                                 previewDiv = `<div class="ms-2" data-kt-filemanger-table="view_item">
 												    <a href="${data}" target="_blank" class="btn btn-sm btn-icon btn-light btn-active-light-primary">
-													    <i class="ki-duotone ki-eye fs-5 m-0">
+													    <i class="ki-duotone ki-eye fs-6 m-0">
 														    <span class="path1"></span>
 														    <span class="path2"></span>
                                                             <span class="path3"></span>
@@ -665,7 +666,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 														<span class="path4"></span>
 													</i>
 												</button>
-												<div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-700 menu-state-bg-light-primary fw-semibold fs-7 w-150px py-4" data-kt-menu="true">
+												<div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-700 menu-state-bg-light-primary fw-semibold fs-6 w-150px py-4" data-kt-menu="true">
 													{{- if .CanRename}}
                                                     <div class="menu-item px-3">
 														<a data-i18n="general.rename" href="#" class="menu-link px-3" data-kt-filemanager-table-action="rename">Rename</a>
@@ -739,8 +740,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 orderFixed: [1, 'asc'],
                 order: [2, 'asc']
             });
-
-            //table = dt.$;
 
             dt.on('draw', function () {
                 //{{- if .CanAddFiles}}
@@ -847,7 +846,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             const renameButtons = document.querySelectorAll('[data-kt-filemanager-table-action="rename"]');
 
             renameButtons.forEach(d => {
-                d.addEventListener("click", function(e){
+                let el = $(d);
+                el.off("click");
+                el.on("click", function(e){
                     e.preventDefault();
                     const parent = e.target.closest('tr');
                     renameItem(dt.row(parent).data()["meta"]);
@@ -857,7 +858,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             const moveCopyButtons = document.querySelectorAll('[data-kt-filemanager-table-action="move_or_copy"]');
 
             moveCopyButtons.forEach(d => {
-                d.addEventListener("click", function(e){
+                let el = $(d);
+                el.off("click");
+                el.on("click", function(e){
                     e.preventDefault();
                     const parent = e.target.closest('tr');
                     moveOrCopyItem(dt.row(parent).data()["meta"]);
@@ -867,7 +870,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             const shareButtons = document.querySelectorAll('[data-kt-filemanager-table-action="share"]');
 
             shareButtons.forEach(d => {
-                d.addEventListener("click", function(e){
+                let el = $(d);
+                el.off("click");
+                el.on("click", function(e){
                     e.preventDefault();
                     const parent = e.target.closest('tr');
                     shareItem(dt.row(parent).data()["meta"]);
@@ -877,7 +882,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             const deleteButtons = document.querySelectorAll('[data-kt-filemanager-table-action="delete"]');
 
             deleteButtons.forEach(d => {
-                d.addEventListener("click", function(e){
+                let el = $(d);
+                el.off("click");
+                el.on("click", function(e){
                     e.preventDefault();
                     const parent = e.target.closest('tr');
                     deleteItem(dt.row(parent).data()["meta"]);
@@ -887,7 +894,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             const viewMediaLinks = document.querySelectorAll('[data-kt-filemanager-table-action="view_media"]');
 
             viewMediaLinks.forEach(d => {
-                d.addEventListener("click", function(e){
+                let el = $(d);
+                el.off("click");
+                el.on("click", function(e){
                     e.preventDefault();
                     const parent = e.target.closest('tr');
                     let rowData = dt.row(parent).data();
@@ -918,8 +927,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         }
 
         var handleSearchDatatable = function () {
-            const filterSearch = document.querySelector('[data-kt-filemanager-table-filter="search"]');
-            filterSearch.addEventListener('keyup', function (e) {
+            const filterSearch = $(document.querySelector('[data-kt-filemanager-table-filter="search"]'));
+            filterSearch.off("keyup");
+            filterSearch.on('keyup', function (e) {
                 dt.rows().deselect();
                 dt.search(e.target.value, true, false).draw();
             });
@@ -928,7 +938,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         var initToggleToolbar = function () {
             const selectAllCheck = document.querySelector('[data-kt-filemanager-table-select="select_all_pages"]');
             if (selectAllCheck){
-                selectAllCheck.addEventListener('change', function(e){
+                let el = $(selectAllCheck);
+                el.off("change");
+                el.on('change', function(e){
                     if (this.checked){
                         dt.rows({ search: 'applied' }).select();
                     } else {
@@ -946,7 +958,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             }
             const downloadButton = document.querySelector('[data-kt-filemanager-table-select="download_selected"]');
             if (downloadButton){
-                downloadButton.addEventListener('click', function(e){
+                let el = $(downloadButton);
+                el.off("click");
+                el.on('click', function(e){
                     let filesArray = [];
                     dt.rows({ selected: true, search: 'applied' }).every(function (rowIdx, tableLoop, rowLoop){
                         let row = dt.row(rowIdx);
@@ -966,7 +980,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
             const moveOrCopyButton = document.querySelector('[data-kt-filemanager-table-select="move_or_copy_selected"]');
             if (moveOrCopyButton){
-                moveOrCopyButton.addEventListener('click', function(e){
+                let el = $(moveOrCopyButton);
+                el.off("click");
+                el.on('click', function(e){
                     $('#errorMsg').addClass("d-none");
                     $('#move_copy_name_container').addClass("d-none");
                     $('#move_copy_source').val("");
@@ -977,7 +993,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
             const shareButton = document.querySelector('[data-kt-filemanager-table-select="share_selected"]');
             if (shareButton){
-                shareButton.addEventListener('click', function(e){
+                let el = $(shareButton);
+                el.off("click");
+                el.on('click', function(e){
                     let filesArray = [];
                     dt.rows({ selected: true, search: 'applied' }).every(function (rowIdx, tableLoop, rowLoop){
                         let row = dt.row(rowIdx);
@@ -993,7 +1011,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
             const deleteButton = document.querySelector('[data-kt-filemanager-table-select="delete_selected"]');
             if (deleteButton) {
-                deleteButton.addEventListener('click', function(e){
+                let el = $(deleteButton);
+                el.off("click");
+                el.on('click', function(e){
                     ModalAlert.fire({
                         text: $.t('general.delete_multi_confirm'),
                         icon: "warning",
@@ -1207,7 +1227,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         }
         items = checkMoveCopyItems(items)
         if (items.length == 0){
-            showToast("fs.invalid_name");
+            showToast(2, "fs.invalid_name");
             return;
         }
         keepAlive();
@@ -1279,7 +1299,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 if (!errorMessage){
                     errorMessage = "fs.copy.err_generic";
                 }
-                showToast(errorMessage);
+                showToast(2, errorMessage);
                 copyItem();
             });
         }
@@ -1298,10 +1318,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         }).then((result)=>{
             if (result.error) {
                 hasError = true;
-                showToast("fs.copy.err_generic");
+                showToast(2, "fs.copy.err_generic");
             } else if (result.data.length > 0){
                 hasError = true;
-                showToast("fs.copy.err_exists");
+                showToast(2, "fs.copy.err_exists");
             }
             copyItem();
         });
@@ -1315,7 +1335,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         }
         items = checkMoveCopyItems(items)
         if (items.length == 0){
-            showToast("fs.invalid_name");
+            showToast(2, "fs.invalid_name");
             return;
         }
         keepAlive();
@@ -1387,7 +1407,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 if (!errorMessage){
                     errorMessage = "fs.move.err_generic";
                 }
-                showToast(errorMessage);
+                showToast(2, errorMessage);
                 moveItem();
             });
         }
@@ -1406,10 +1426,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         }).then((result)=>{
             if (result.error) {
                 hasError = true;
-                showToast("fs.move.err_generic");
+                showToast(2, "fs.move.err_generic");
             } else if (result.data.length > 0){
                 hasError = true;
-                showToast("fs.move.err_exists");
+                showToast(2, "fs.move.err_exists");
             }
             moveItem();
         });
@@ -1476,7 +1496,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     if (!errorMessage){
                         errorMessage = "fs.delete.err_generic";
                     }
-                    showToast(errorMessage, {name: itemName});
+                    showToast(2, errorMessage, {name: itemName});
                 });
             }
         });
@@ -1506,15 +1526,15 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         let oldName = getNameFromMeta(meta);
         let newName = $('#rename_new_name').val();
         if (!newName){
-            showToast("general.name_required");
+            showToast(2, "general.name_required");
             return;
         }
         if (newName == oldName){
-            showToast("general.name_different");
+            showToast(2, "general.name_different");
             return;
         }
         if (newName.includes("/")){
-            showToast("fs.invalid_name");
+            showToast(2, "fs.invalid_name");
             return;
         }
 
@@ -1550,7 +1570,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 if (!errorMessage) {
                     errorMessage = "fs.rename.err_generic";
                 }
-                showToast(errorMessage, { name: oldName });
+                showToast(2, errorMessage, { name: oldName });
             });
         }
 
@@ -1561,12 +1581,12 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         }).then((result)=>{
             if (result.error) {
                 KTApp.hidePageLoading();
-                showToast("fs.rename.err_generic", { name: oldName });
+                showToast(2, "fs.rename.err_generic", { name: oldName });
                 return;
             }
             if (result.data.length > 0){
                 KTApp.hidePageLoading();
-                showToast("fs.rename.err_exists", { name: oldName });
+                showToast(2, "fs.rename.err_exists", { name: oldName });
                 return;
             }
             executeRename();
@@ -1990,7 +2010,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 {{- define "additionalnavitems"}}
 {{- if .QuotaUsage.HasQuotaInfo}}
 <div class="d-flex align-items-center ms-2 ms-lg-3">
-    <div class="btn btn-icon btn-active-light-primary position-relative w-35px h-35px w-md-40px h-md-40px" data-kt-menu-trigger="click" data-kt-menu-attach="parent" data-kt-menu-placement="bottom-end">
+    <div class="btn btn-icon btn-active-light-primary position-relative w-35px h-35px w-md-40px h-md-40px" data-kt-menu-trigger="{default:'click', lg: 'hover'}" data-kt-menu-attach="parent" data-kt-menu-placement="bottom-end">
         <i class="ki-duotone {{if .QuotaUsage.IsQuotaLow}}ki-information-5 text-warning{{else}}ki-information-2{{end}} fs-2">
             <span class="path1"></span>
             <span class="path2"></span>

@@ -73,7 +73,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             <label for="id_config" data-i18n="general.configuration" class="col-md-3 col-form-label">Configuration</label>
             <div class="col-md-9">
                 <select id="id_config" name="config_name" class="form-select" data-control="i18n-select2" data-hide-search="true">
-                    <option data-i18n="general.none" value="">None</option>
+                    <option value="">---</option>
                     {{range .TOTPConfigs}}
                     <option value="{{.}}" {{if eq . $.TOTPConfig.ConfigName}}selected{{end}}>{{.}}</option>
                     {{end}}

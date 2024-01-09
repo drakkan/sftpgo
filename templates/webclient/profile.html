@@ -24,15 +24,15 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         {{- template "errmsg" .Error}}
         <form id="page_form" action="{{.CurrentURL}}" method="POST">
             <div class="form-group row">
-                <label data-i18n="general.email" class="col-md-3 col-form-label">Email</label>
+                <label for="idEmail" data-i18n="general.email" class="col-md-3 col-form-label">Email</label>
                 <div class="col-md-9">
                     <input type="text" class="form-control" id="idEmail" name="email" placeholder="" spellcheck="false"
-                        value="{{.Email}}" maxlength="255" autocomplete="nope" {{if not .LoggedUser.CanChangeInfo}}readonly{{end}}>
+                        value="{{.Email}}" maxlength="255" autocomplete="off" {{if not .LoggedUser.CanChangeInfo}}readonly{{end}}>
                 </div>
             </div>
 
             <div class="form-group row mt-10">
-                <label data-i18n="general.description" class="col-md-3 col-form-label">Description</label>
+                <label for="idDescription" data-i18n="general.description" class="col-md-3 col-form-label">Description</label>
                 <div class="col-md-9">
                     <input type="text" class="form-control" id="idDescription" name="description" placeholder=""
                         value="{{.Description}}" maxlength="255" {{if not .LoggedUser.CanChangeInfo}}readonly{{end}}>
@@ -40,7 +40,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
 
             <div class="form-group row align-items-center mt-10">
-                <label data-i18n="general.api_key_auth" class="col-md-3 col-form-label">API key authentication</label>
+                <label data-i18n="general.api_key_auth" class="col-md-3 col-form-label" for="idAllowAPIKeyAuth">API key authentication</label>
                 <div class="col-md-9">
                     <div class="form-check form-switch form-check-custom form-check-solid">
                         <input class="form-check-input" type="checkbox" id="idAllowAPIKeyAuth" name="allow_api_key_auth" {{if not .LoggedUser.CanChangeAPIKeyAuth}}disabled="disabled"{{end}} {{if .AllowAPIKeyAuth}}checked="checked"{{end}}/>
@@ -52,7 +52,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
 
             {{- if .LoggedUser.CanManagePublicKeys}}
-            <div class="card card-rounded mt-10">
+            <div class="card mt-10">
                 <div class="card-header bg-light">
                     <h3 data-i18n="general.pub_keys" class="card-title section-title-inner">Public keys</h3>
                 </div>
@@ -63,13 +63,13 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 {{- range $idx, $val := .PublicKeys}}
                                 <div data-repeater-item>
                                     <div class="form-group row">
-                                        <div class="col-md-9">
-                                            <textarea data-i18n="[placeholder]general.pub_key_placeholder" class="form-control mt-3 mt-md-8" name="public_key" rows="4"
+                                        <div class="col-md-9 mt-3 mt-md-8">
+                                            <textarea data-i18n="[placeholder]general.pub_key_placeholder" class="form-control" name="public_key" rows="4"
                                                 placeholder="Paste your public key here">{{$val}}</textarea>
                                         </div>
-                                        <div class="col-md-3">
+                                        <div class="col-md-3 mt-3 mt-md-8">
                                             <a href="#" data-repeater-delete
-                                                class="btn btn-light-danger mt-3 mt-md-8">
+                                                class="btn btn-light-danger">
                                                 <i class="ki-duotone ki-trash fs-5">
                                                     <span class="path1"></span>
                                                     <span class="path2"></span>
@@ -85,13 +85,13 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 {{- else}}
                                 <div data-repeater-item>
                                     <div class="form-group row">
-                                        <div class="col-md-9">
-                                            <textarea data-i18n="[placeholder]general.pub_key_placeholder" class="form-control mt-3 mt-md-8" name="public_key" rows="4"
+                                        <div class="col-md-9 mt-3 mt-md-8">
+                                            <textarea data-i18n="[placeholder]general.pub_key_placeholder" class="form-control" name="public_key" rows="4"
                                                 placeholder="Paste your public key here"></textarea>
                                         </div>
-                                        <div class="col-md-3">
+                                        <div class="col-md-3 mt-3 mt-md-8">
                                             <a href="#" data-repeater-delete
-                                                class="btn btn-light-danger mt-3 mt-md-8">
+                                                class="btn btn-light-danger">
                                                 <i class="ki-duotone ki-trash fs-5">
                                                     <span class="path1"></span>
                                                     <span class="path2"></span>

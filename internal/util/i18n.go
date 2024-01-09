@@ -48,6 +48,9 @@ const (
 	I18nError500Title                  = "title.error500"
 	I18nErrorPDFTitle                  = "title.errorPDF"
 	I18nErrorEditorTitle               = "title.error_editor"
+	I18nAddUserTitle                   = "title.add_user"
+	I18nUpdateUserTitle                = "title.update_user"
+	I18nTemplateUserTitle              = "title.template_user"
 	I18nErrorSetupInstallCode          = "setup.install_code_mismatch"
 	I18nInvalidAuth                    = "general.invalid_auth_request"
 	I18nError429Message                = "general.error429"
@@ -149,6 +152,15 @@ const (
 	I18nOIDCTokenInvalidRoleAdmin      = "oidc.role_admin_err"
 	I18nOIDCTokenInvalidRoleUser       = "oidc.role_user_err"
 	I18nOIDCErrGetUser                 = "oidc.get_user_err"
+	I18nStorageLocal                   = "storage.local"
+	I18nStorageLocalEncrypted          = "storage.encrypted"
+	I18nStorageS3                      = "storage.s3"
+	I18nStorageGCS                     = "storage.gcs"
+	I18nStorageAzureBlob               = "storage.azblob"
+	I18nStorageSFTP                    = "storage.sftp"
+	I18nStorageHTTP                    = "storage.http"
+	I18nErrorInvalidQuotaSize          = "user.invalid_quota_size"
+	I18nErrorInvalidMaxFilesize        = "filters.max_upload_size_invalid"
 )
 
 // NewI18nError returns a I18nError wrappring the provided error

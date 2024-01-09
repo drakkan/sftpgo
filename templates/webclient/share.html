@@ -27,25 +27,25 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 <label for="name" data-i18n="general.name" class="col-md-3 col-form-label">Name</label>
                 <div class="col-md-9">
                     <input id="name" type="text" class="form-control" placeholder="" name="name" value="{{.Share.Name}}"
-                        maxlength="255" autocomplete="nope" required {{if not .IsAdd}}readonly{{end}} />
+                        maxlength="255" autocomplete="off" required {{if not .IsAdd}}readonly{{end}} />
                 </div>
             </div>
 
             <div class="form-group row mt-10">
                 <label for="scope" data-i18n="share.scope" class="col-md-3 col-form-label">Scope</label>
                 <div class="col-md-9">
-                    <select id="scope" name="scope" class="form-select" data-control="i18n-select2" data-hide-search="true">
+                    <select id="scope" name="scope" class="form-select" data-control="i18n-select2" data-hide-search="true" aria-describedby="scopeHelp">
                         <option data-i18n="share.scope_read" value="1" {{if eq .Share.Scope 1 }}selected{{end}}>Read</option>
                         <option data-i18n="share.scope_write" value="2" {{if eq .Share.Scope 2 }}selected{{end}}>Write</option>
                         <option data-i18n="share.scope_read_write" value="3" {{if eq .Share.Scope 3 }}selected{{end}}>Read/Write</option>
                     </select>
-                    <div data-i18n="share.scope_help" class="form-text">
+                    <div id="scopeHelp" data-i18n="share.scope_help" class="form-text">
                         For scope "Write" and "Read/Write" you have to define one path and it must be a directory
                     </div>
                 </div>
             </div>
 
-            <div class="card card-rounded mt-10">
+            <div class="card mt-10">
                 <div class="card-header bg-light">
                     <h3 data-i18n="share.paths" class="card-title section-title-inner">Paths</h3>
                 </div>
@@ -56,13 +56,13 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 {{- range $idx, $val := .Share.Paths}}
                                 <div data-repeater-item>
                                     <div class="form-group row">
-                                        <div class="col-md-9">
-                                            <input data-i18n="[placeholder]share.path_help" type="text" class="form-control mt-3 mt-md-8"
+                                        <div class="col-md-9 mt-3 mt-md-8">
+                                            <input data-i18n="[placeholder]share.path_help" type="text" class="form-control"
                                                 name="path" value="{{$val}}" />
                                         </div>
-                                        <div class="col-md-3">
+                                        <div class="col-md-3 mt-3 mt-md-8">
                                             <a href="#" data-repeater-delete
-                                                class="btn btn-light-danger mt-3 mt-md-8">
+                                                class="btn btn-light-danger">
                                                 <i class="ki-duotone ki-trash fs-5">
                                                     <span class="path1"></span>
                                                     <span class="path2"></span>
@@ -78,13 +78,13 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 {{- else}}
                                 <div data-repeater-item>
                                     <div class="form-group row">
-                                        <div class="col-md-9">
-                                            <input data-i18n="[placeholder]share.path_help" type="text" class="form-control mt-3 mt-md-8"
+                                        <div class="col-md-9 mt-3 mt-md-8">
+                                            <input data-i18n="[placeholder]share.path_help" type="text" class="form-control"
                                                 name="path" value="" />
                                         </div>
-                                        <div class="col-md-3">
+                                        <div class="col-md-3 mt-3 mt-md-8">
                                             <a href="#" data-repeater-delete
-                                                class="btn btn-light-danger mt-3 mt-md-8">
+                                                class="btn btn-light-danger">
                                                 <i class="ki-duotone ki-trash fs-5">
                                                     <span class="path1"></span>
                                                     <span class="path2"></span>
@@ -114,18 +114,18 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             <div class="form-group row mt-10">
                 <label for="password" data-i18n="login.password" class="col-md-3 col-form-label">Password</label>
                 <div class="col-md-9">
-                    <input id="password" type="password" class="form-control" name="password" autocomplete="new-password"
-                        placeholder="" spellcheck="false" value="{{.Share.Password}}" />
-                    <div data-i18n="share.password_help" class="form-text">
+                    <input id="password" type="password" class="form-control" name="password" autocomplete="off"
+                        placeholder="" spellcheck="false" value="{{.Share.Password}}" aria-describedby="passwordHelp" />
+                    <div id="passwordHelp" data-i18n="share.password_help" class="form-text">
                         If set the share will be password-protected
                     </div>
                 </div>
             </div>
 
             <div class="form-group row mt-10">
-                <label for="id_expiration" data-i18n="share.expiration" class="col-md-3 col-form-label">Expiration</label>
+                <label for="id_expiration" data-i18n="general.expiration" class="col-md-3 col-form-label">Expiration</label>
                 <div class="col-md-9 d-flex">
-                    <input data-i18n="[placeholder]share.expiration_help" id="id_expiration" class="form-control" placeholder="Pick an expiration date" />
+                    <input data-i18n="[placeholder]general.expiration_help" id="id_expiration" class="form-control" placeholder="Pick an expiration date" />
                     <button class="btn btn-icon btn-light-danger ms-2 d-none" id="id_expiration_clear">
                         <i class="ki-solid ki-cross fs-1"></i>
                     </button>
@@ -135,8 +135,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             <div class="form-group row mt-10">
                 <label for="max_tokens" data-i18n="share.max_tokens" class="col-md-3 col-form-label">Max tokens</label>
                 <div class="col-md-9">
-                    <input id="max_tokens" type="number" min="0" class="form-control" name="max_tokens" value="{{.Share.MaxTokens}}" />
-                    <div data-i18n="share.max_tokens_help" class="form-text">
+                    <input id="max_tokens" type="number" min="0" class="form-control" name="max_tokens" value="{{.Share.MaxTokens}}" aria-describedby="max_tokens_help" />
+                    <div id="max_tokens_help" data-i18n="share.max_tokens_help" class="form-text">
                         Maximum number of times this share can be accessed. 0 means no limit
                     </div>
                 </div>
@@ -145,9 +145,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             <div class="form-group row mt-10">
                 <label for="allowed_ip" data-i18n="general.allowed_ip_mask" class="col-md-3 col-form-label">Allowed IP/Mask</label>
                 <div class="col-md-9">
-                    <textarea id="allowed_ip" class="form-control" name="allowed_ip" rows="3"
+                    <textarea id="allowed_ip" class="form-control" name="allowed_ip" rows="3" aria-describedby="allowed_ip_help"
                         placeholder="">{{.Share.GetAllowedFromAsString}}</textarea>
-                    <div data-i18n="general.allowed_ip_mask_help" class="form-text">
+                    <div id="allowed_ip_help" data-i18n="general.ip_mask_help" class="form-text">
                         Comma separated IP/Mask in CIDR format, for example "192.168.1.0/24,10.8.0.100/32"
                     </div>
                 </div>

@@ -1,203 +1,229 @@
 <!--
-Copyright (C) 2019 Nicola Murino
+Copyright (C) 2024 Nicola Murino
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as published
-by the Free Software Foundation, version 3.
+This WebUI uses the KeenThemes Mega Bundle, a proprietary theme:
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU Affero General Public License for more details.
+https://keenthemes.com/products/templates-mega-bundle
 
-You should have received a copy of the GNU Affero General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
+KeenThemes HTML/CSS/JS components are allowed for use only within the
+SFTPGo product and restricted to be used in a resealable HTML template
+that can compete with KeenThemes products anyhow.
+
+This WebUI is allowed for use only within the SFTPGo product and
+therefore cannot be used in derivative works/products without an
+explicit grant from the SFTPGo Team (support@sftpgo.com).
 -->
 {{template "base" .}}
 
-{{define "title"}}{{.Title}}{{end}}
-
-{{define "extra_css"}}
-<link href="{{.StaticURL}}/vendor/tempusdominus/css/tempusdominus-bootstrap-4.min.css" rel="stylesheet">
-<link href="{{.StaticURL}}/vendor/bootstrap-select/css/bootstrap-select.min.css" rel="stylesheet">
-{{end}}
-
-{{define "page_body"}}
-
-<!-- Page Heading -->
-<div class="card shadow mb-4">
-    <div class="card-header py-3">
-        <h6 class="m-0 font-weight-bold text-primary">{{.Title}}</h6>
+{{- define "page_body"}}
+<div class="card shadow-sm">
+    <div class="card-header bg-light">
+        <h3 data-i18n="{{.Title}}" class="card-title section-title"></h3>
     </div>
     <div class="card-body">
-        {{if .Error}}
-        <div class="alert alert-warning alert-dismissible fade show" role="alert">
-            {{.Error}}
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
-            </button>
-        </div>
-        {{end}}
-        {{if eq .Mode 3}}
-        <div class="card mb-4 border-left-info">
-            <div class="card-body">
-                Create and save one or more new users or generate a data provider independent JSON file to import.
-                <br>
-                The following placeholders are supported:
-                <br><br>
-                <ul>
-                    <li><span class="text-success">%username%</span> will be replaced with the specified username</li>
-                    <li><span class="text-success">%password%</span> will be replaced with the specified password</li>
-                </ul>
-                They will be replaced, with the specified username and password, in the paths and credentials of the configured storage backend.
-                <br>
-                The generated users can be saved or exported. Exported users can be imported from the "Maintenance" section of this SFTPGo instance or another.
-                {{if .User.Username}}
-                <br>
-                Please note that no credentials were copied from user "{{.User.Username}}", you have to set them explicitly.
-                {{end}}
+        {{- if eq .Mode 3}}
+        <div class="notice d-flex bg-light-primary rounded border-primary border border-dashed p-6 mb-5">
+            <i class="ki-duotone ki-shield-tick fs-2tx text-primary me-4">
+                <span class="path1"></span>
+                <span class="path2"></span>
+            </i>
+            <div class="d-flex flex-stack flex-grow-1 flex-wrap flex-md-nowrap">
+                <div class="mb-3 mb-md-0 fw-semibold">
+                    <h4 class="text-gray-900 fw-bold">
+                        <span data-i18n="">Create one or more new users from this template</span>
+                    </h4>
+                    <div class="fs-6 text-gray-800 pe-7">
+                        <p class="mt-5">The following placeholders are supported:</p>
+                        <ul>
+                            <li><span class="text-info">%username%</span> will be replaced with the specified username</li>
+                            <li><span class="text-info">%password%</span> will be replaced with the specified password</li>
+                        </ul>
+                        <p>They will be replaced, with the specified username and password, in the paths and credentials of the configured storage backend.</p>
+                        <p>The generated users can be saved or exported. Exported users can be imported from the "Maintenance" section of this SFTPGo instance or another.</p>
+                        {{if .User.Username}}
+                        <p>Please note that no credentials were copied from user "{{.User.Username}}", you have to set them explicitly.</p>
+                        {{end}}
+                    </div>
+                </div>
             </div>
         </div>
-        {{end}}
+        {{- end}}
+        {{- template "errmsg" .Error}}
         <form id="user_form" enctype="multipart/form-data" action="{{.CurrentURL}}" method="POST" autocomplete="off" {{if eq .Mode 3}}target="_blank"{{end}}>
-            {{if eq .Mode 3}}
-            <div class="card bg-light mb-3">
-                <div class="card-header">
-                   <b>Users</b>
+            {{- if eq .Mode 3}}
+            <div class="card mt-10">
+                <div class="card-header bg-light">
+                    <h3 data-i18n="title.users" class="card-title section-title-inner">Users</h3>
                 </div>
                 <div class="card-body">
-                    <h6 class="card-title mb-4">For each user set the username and at least one of the password and public key</h6>
-                    <div class="form-group row">
-                        <div class="col-md-12 form_field_tpl_users_outer">
-                            <div class="row form_field_tpl_user_outer_row">
-                                <div class="form-group col-md-3">
-                                    <input type="text" class="form-control" id="idTplUsername0" name="tpl_username" placeholder="Username" maxlength="255" spellcheck="false">
-                                </div>
-                                <div class="form-group col-md-3">
-                                    <input type="password" class="form-control" id="idTplPassword0" name="tpl_password" placeholder="Password" autocomplete="new-password" spellcheck="false">
-                                </div>
-                                <div class="form-group col-md-5">
-                                    <textarea class="form-control" id="idTplPublicKey0" name="tpl_public_keys" rows="5"
-                                        placeholder="Paste your public key here"></textarea>
-                                </div>
-                                <div class="form-group col-md-1">
-                                    <button class="btn btn-circle btn-danger remove_tpl_user_btn_frm_field">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
+                    <div id="template_users">
+                        <p class="fs-5 fw-semibold mb-4" data-i18n="user.template_help">For each user set the username and at least one of the password and public key</p>
+                        <div class="form-group">
+                            <div data-repeater-list="template_users">
+                                <div data-repeater-item>
+                                    <div class="form-group row">
+                                        <div class="col-md-3 mt-3 mt-md-8">
+                                            <input data-i18n="[placeholder]login.username" type="text" class="form-control" name="tpl_username" autocomplete="nope" spellcheck="false" value="" />
+                                        </div>
+                                        <div class="col-md-3 mt-3 mt-md-8">
+                                            <input data-i18n="[placeholder]login.password" type="password" class="form-control" name="tpl_password" autocomplete="nope" spellcheck="false" value="" />
+                                        </div>
+                                        <div class="col-md-5 mt-3 mt-md-8">
+                                            <textarea class="form-control" name="tpl_public_keys" rows="5" placeholder="Paste your public key here"></textarea>
+                                        </div>
+                                        <div class="col-md-1 mt-3 mt-md-8">
+                                            <a href="#" data-repeater-delete
+                                                class="btn btn-light-danger ps-5 pe-4">
+                                                <i class="ki-duotone ki-trash fs-2">
+                                                    <span class="path1"></span>
+                                                    <span class="path2"></span>
+                                                    <span class="path3"></span>
+                                                    <span class="path4"></span>
+                                                    <span class="path5"></span>
+                                                </i>
+                                            </a>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="row mx-1">
-                        <button type="button" class="btn btn-secondary add_new_tpl_user_field_btn">
-                            <i class="fas fa-plus"></i> Add new user
-                        </button>
+                        <div class="form-group mt-5">
+                            <a href="#" data-repeater-create class="btn btn-light-primary">
+                                <i class="ki-duotone ki-plus fs-3"></i>
+                                <span data-i18n="general.add">Add</span>
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
             <input type="hidden" name="username" id="idUsername" value="{{.User.Username}}">
-            {{else}}
+            {{- else}}
             <div class="form-group row">
-                <label for="idUsername" class="col-sm-2 col-form-label">Username</label>
-                <div class="col-sm-10">
-                    <input type="text" class="form-control" id="idUsername" name="username" placeholder=""
-                        value="{{.User.Username}}" maxlength="255" autocomplete="nope" spellcheck="false" required {{if ge .Mode 2}}readonly{{end}}>
+                <label for="idUsername" data-i18n="login.username" class="col-md-3 col-form-label">Username</label>
+                <div class="col-md-9">
+                    <input id="idUsername" type="text" class="form-control" placeholder="" name="username" value="{{.User.Username}}"
+                        maxlength="255" autocomplete="nope" spellcheck="false" required {{if ge .Mode 2}}readonly{{end}} />
                 </div>
             </div>
-            {{end}}
+            {{- end}}
 
-            {{if .Roles}}
-            <div class="form-group row">
-                <label for="idRole" class="col-sm-2 col-form-label">Role</label>
-                <div class="col-sm-10">
-                    <select class="form-control selectpicker" data-live-search="true" id="idRole" name="role" aria-describedby="roleHelpBlock">
+            {{- if .Roles}}
+            <div class="form-group row mt-10">
+                <label for="idRole" data-i18n="general.role" class="col-md-3 col-form-label">Role</label>
+                <div class="col-md-9">
+                    <select id="idRole" name="role" data-i18n="[data-placeholder]general.role_placeholder" class="form-select" data-control="i18n-select2" data-placeholder="Select a role" data-allow-clear="true" aria-describedby="idRoleHelp">
                         <option value=""></option>
                         {{- range .Roles}}
                         <option value="{{.Name}}" {{if eq $.User.Role .Name}}selected{{end}}>{{.Name}}</option>
                         {{- end}}
                     </select>
-                    <small id="roleHelpBlock" class="form-text text-muted">
+                    <div id="idRoleHelp" data-i18n="user.role_help" class="form-text">
                         Users with a role can be managed by global administrators and administrators with the same role
-                    </small>
+                    </div>
                 </div>
             </div>
-            {{end}}
+            {{- end}}
 
-            {{if ne .Mode 3}}
-            <div class="form-group row">
-                <label for="idPassword" class="col-sm-2 col-form-label">Password</label>
-                <div class="col-sm-10">
-                    <input type="password" class="form-control" id="idPassword" name="password" value="{{.User.Password}}" placeholder="" autocomplete="new-password" spellcheck="false">
-                </div>
-            </div>
-
-            <div class="form-group">
-                <div class="form-check">
-                    <input type="checkbox" class="form-check-input" id="idRequirePasswordChange" name="require_password_change"
-                    {{if .User.Filters.RequirePasswordChange}}checked{{end}} aria-describedby="requireChangePwdHelpBlock">
-                    <label for="idRequirePasswordChange" class="form-check-label">Require password change</label>
-                    <small id="requireChangePwdHelpBlock" class="form-text text-muted">
-                        User must change password from WebClient/REST API at next login
-                    </small>
+            {{- if ne .Mode 3}}
+            <div class="form-group row mt-10">
+                <label for="idPassword" data-i18n="login.password" class="col-md-3 col-form-label">Password</label>
+                <div class="col-md-9">
+                    <input id="idPassword" type="password" class="form-control" name="password" autocomplete="off"
+                        spellcheck="false" value="{{.User.Password}}" />
                 </div>
             </div>
 
-            <div class="card bg-light mb-3">
-                <div class="card-header">
-                    <b>Public keys</b>
+            <div class="form-group row align-items-center mt-10">
+                <label data-i18n="user.require_pwd_change" class="col-md-3 col-form-label" for="idRequirePasswordChange">Require password change</label>
+                <div class="col-md-9">
+                    <div class="form-check form-switch form-check-custom form-check-solid">
+                        <input class="form-check-input" type="checkbox" id="idRequirePasswordChange" name="require_password_change" {{if .User.Filters.RequirePasswordChange}}checked="checked"{{end}}/>
+                        <label data-i18n="user.require_pwd_change_help" class="form-check-label fw-semibold text-gray-800" for="idRequirePasswordChange">
+                            User must change password from the WebClient at next login
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mt-10">
+                <div class="card-header bg-light">
+                    <h3 data-i18n="general.pub_keys" class="card-title section-title-inner">Public keys</h3>
                 </div>
                 <div class="card-body">
-                    <div class="form-group row">
-                        <div class="col-md-12 form_field_pk_outer">
-                            {{range $idx, $val := .User.PublicKeys}}
-                            <div class="row form_field_pk_outer_row">
-                                <div class="form-group col-md-11">
-                                    <textarea class="form-control" id="idPublicKey{{$idx}}" name="public_keys" rows="3"
-                                        placeholder="Paste your public key here">{{$val}}</textarea>
+                    <div id="public_keys">
+                        <div class="form-group">
+                            <div data-repeater-list="public_keys">
+                                {{- range $idx, $val := .User.PublicKeys}}
+                                <div data-repeater-item>
+                                    <div class="form-group row">
+                                        <div class="col-md-9 mt-3 mt-md-8">
+                                            <textarea data-i18n="[placeholder]general.pub_key_placeholder" class="form-control" name="public_key" rows="4"
+                                                placeholder="Paste your public key here">{{$val}}</textarea>
+                                        </div>
+                                        <div class="col-md-3 mt-3 mt-md-8">
+                                            <a href="#" data-repeater-delete
+                                                class="btn btn-light-danger">
+                                                <i class="ki-duotone ki-trash fs-5">
+                                                    <span class="path1"></span>
+                                                    <span class="path2"></span>
+                                                    <span class="path3"></span>
+                                                    <span class="path4"></span>
+                                                    <span class="path5"></span>
+                                                </i>
+                                                <span data-i18n="general.delete">Delete</span>
+                                            </a>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="form-group col-md-1">
-                                    <button class="btn btn-circle btn-danger remove_pk_btn_frm_field">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
+                                {{- else}}
+                                <div data-repeater-item>
+                                    <div class="form-group row">
+                                        <div class="col-md-9 mt-3 mt-md-8">
+                                            <textarea data-i18n="[placeholder]general.pub_key_placeholder" class="form-control" name="public_key" rows="4"
+                                                placeholder="Paste your public key here"></textarea>
+                                        </div>
+                                        <div class="col-md-3 mt-3 mt-md-8">
+                                            <a href="#" data-repeater-delete
+                                                class="btn btn-light-danger">
+                                                <i class="ki-duotone ki-trash fs-5">
+                                                    <span class="path1"></span>
+                                                    <span class="path2"></span>
+                                                    <span class="path3"></span>
+                                                    <span class="path4"></span>
+                                                    <span class="path5"></span>
+                                                </i>
+                                                <span data-i18n="general.delete">Delete</span>
+                                            </a>
+                                        </div>
+                                    </div>
                                 </div>
+                                {{- end}}
                             </div>
-                            {{else}}
-                            <div class="row form_field_pk_outer_row">
-                                <div class="form-group col-md-11">
-                                    <textarea class="form-control" id="idPublicKey0" name="public_keys" rows="3"
-                                        placeholder="Paste your public key here"></textarea>
-                                </div>
-                                <div class="form-group col-md-1">
-                                    <button class="btn btn-circle btn-danger remove_pk_btn_frm_field">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            {{end}}
+                        </div>
+
+                        <div class="form-group mt-5">
+                            <a href="#" data-repeater-create class="btn btn-light-primary">
+                                <i class="ki-duotone ki-plus fs-3"></i>
+                                <span data-i18n="general.add">Add</span>
+                            </a>
                         </div>
                     </div>
-
-                    <div class="row mx-1">
-                        <button type="button" class="btn btn-secondary add_new_pk_field_btn">
-                            <i class="fas fa-plus"></i> Add new public key
-                        </button>
-                    </div>
                 </div>
             </div>
-            {{end}}
+            {{- end}}
 
-            {{if .Groups}}
-            <div class="card bg-light mb-3 {{if .LoggedAdmin.Filters.Preferences.HideGroups}}d-none{{end}}">
-                <div class="card-header">
-                    <b>Groups</b>
+            {{- if .Groups}}
+            <div class="card mt-10 {{if .LoggedUser.Filters.Preferences.HideGroups}}d-none{{end}}">
+                <div class="card-header bg-light">
+                    <h3 data-i18n="title.groups" class="card-title section-title-inner">Groups</h3>
                 </div>
                 <div class="card-body">
-                    <h6 class="card-title mb-4">Group membership impart the group settings (with the exception of membership only groups) if no override exists</h6>
-                    <div class="form-group row">
-                        <label for="idPrimaryGroup" class="col-sm-2 col-form-label">Primary group</label>
-                        <div class="col-sm-10">
-                            <select class="form-control selectpicker" data-live-search="true" id="idPrimaryGroup" name="primary_group">
+                    <p data-i18n="user.groups_help" class="fs-5 fw-semibold mb-4"></p>
+                    <div class="form-group row mt-10">
+                        <label for="idPrimaryGroup" data-i18n="user.primary_group" class="col-md-3 col-form-label">Primary group</label>
+                        <div class="col-md-9">
+                            <select id="idPrimaryGroup" name="primary_group" data-i18n="[data-placeholder]general.group_placeholder" class="form-select" data-control="i18n-select2" data-placeholder="Select a group" data-allow-clear="true">
                                 <option value=""></option>
                                 {{- range .Groups}}
                                 <option value="{{.Name}}" {{if $.User.HasPrimaryGroup .Name}}selected{{end}}>{{.Name}}</option>
@@ -205,20 +231,24 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                             </select>
                         </div>
                     </div>
-                    <div class="form-group row">
-                        <label for="idSecondaryGroup" class="col-sm-2 col-form-label">Secondary groups</label>
-                        <div class="col-sm-10">
-                            <select class="form-control selectpicker" data-live-search="true" id="idSecondaryGroup" name="secondary_groups" multiple>
+                    <div class="form-group row mt-10">
+                        <label for="idSecondaryGroup" data-i18n="user.secondary_groups" class="col-md-3 col-form-label">
+                            Secondary groups
+                        </label>
+                        <div class="col-md-9">
+                            <select id="idSecondaryGroup" name="secondary_groups" class="form-select" data-control="i18n-select2" data-close-on-select="false" multiple>
                                 {{- range .Groups}}
                                 <option value="{{.Name}}" {{if $.User.HasSecondaryGroup .Name}}selected{{end}}>{{.Name}}</option>
                                 {{- end}}
                             </select>
                         </div>
                     </div>
-                    <div class="form-group row">
-                        <label for="idMembershipGroup" class="col-sm-2 col-form-label">Membership groups</label>
-                        <div class="col-sm-10">
-                            <select class="form-control selectpicker" data-live-search="true" id="idMembershipGroup" name="membership_groups" multiple>
+                    <div class="form-group row mt-10">
+                        <label for="idMembershipGroup" data-i18n="user.membership_groups" class="col-md-3 col-form-label">
+                            Membership groups
+                        </label>
+                        <div class="col-md-9">
+                            <select id="idMembershipGroup" name="membership_groups" class="form-select" data-control="i18n-select2" data-close-on-select="false" multiple>
                                 {{- range .Groups}}
                                 <option value="{{.Name}}" {{if $.User.HasMembershipGroup .Name}}selected{{end}}>{{.Name}}</option>
                                 {{- end}}
@@ -227,621 +257,193 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                     </div>
                 </div>
             </div>
-            {{end}}
+            {{- end}}
 
-            {{template "fshtml" .FsWrapper}}
-            {{if .VirtualFolders}}
-            <div class="card bg-light mb-3 {{if .LoggedAdmin.Filters.Preferences.HideVirtualFolders}}d-none{{end}}">
-                <div class="card-header">
-                    <b>Virtual folders</b>
+            {{- template "fshtml" .FsWrapper}}
+            {{- if .VirtualFolders}}
+            <div class="card mt-10 {{if .LoggedUser.Filters.Preferences.HideVirtualFolders}}d-none{{end}}">
+                <div class="card-header bg-light">
+                    <h3 data-i18n="title.folders" class="card-title section-title-inner">Virtual folders</h3>
                 </div>
                 <div class="card-body">
-                    <h6 class="card-title mb-4">Quota size -1 means included within user quota, 0 unlimited. Don't set -1 for shared folders. You can use MB/GB/TB suffix. With no suffix we assume bytes</h6>
-                    <div class="form-group row">
-                        <div class="col-md-12 form_field_vfolders_outer">
-                            {{range $idx, $val := .User.VirtualFolders}}
-                            <div class="row form_field_vfolder_outer_row">
-                                <div class="form-group col-md-3">
-                                    <input type="text" class="form-control" id="idVolderPath{{$idx}}" name="vfolder_path" placeholder="mount path, i.e. /vfolder" value="{{$val.VirtualPath}}" maxlength="255">
+                    <div id="virtual_folders">
+                        <p class="fs-5 fw-semibold mb-4" data-i18n="user.virtual_folders_help">
+                            Quota size/files -1 means included within user quota, 0 unlimited. Don't set -1 for shared folders. You can use MB/GB/TB suffix. Without suffix we assume bytes
+                        </p>
+                        <div class="form-group">
+                            <div data-repeater-list="virtual_folders">
+                                {{- range $idx, $val := .User.VirtualFolders}}
+                                <div data-repeater-item>
+                                    <div data-repeater-item>
+                                        <div class="form-group row">
+                                            <div class="col-md-3 mt-3 mt-md-8">
+                                                <input data-i18n="[placeholder]virtual_folders.mount_path" type="text" class="form-control" name="vfolder_path" value="{{$val.VirtualPath}}" />
+                                            </div>
+                                            <div class="col-md-3 mt-3 mt-md-8">
+                                                <select name="vfolder_name" data-i18n="[data-placeholder]general.folder_placeholder" class="form-select select-repetear" data-placeholder="Select a folder" data-allow-clear="true">
+                                                    <option value=""></option>
+                                                    {{- range $.VirtualFolders}}
+                                                    <option value="{{.Name}}" {{- if eq $val.Name .Name}} selected{{- end}}>{{.Name}}</option>
+                                                    {{- end}}
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3 mt-3 mt-md-8">
+                                                <input type="text" class="form-control" name="vfolder_quota_size" value="{{HumanizeBytes $val.QuotaSize}}" />
+                                                <div class="form-text" data-i18n="virtual_folders.quota_size"></div>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <input type="number" min="-1" class="form-control" name="vfolder_quota_files" value="{{$val.QuotaFiles}}" />
+                                                <div class="form-text" data-i18n="virtual_folders.quota_files"></div>
+                                            </div>
+                                            <div class="col-md-1 mt-3 mt-md-8">
+                                                <a href="#" data-repeater-delete
+                                                    class="btn btn-light-danger ps-5 pe-4">
+                                                    <i class="ki-duotone ki-trash fs-2">
+                                                        <span class="path1"></span>
+                                                        <span class="path2"></span>
+                                                        <span class="path3"></span>
+                                                        <span class="path4"></span>
+                                                        <span class="path5"></span>
+                                                    </i>
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="form-group col-md-3">
-                                    <select class="form-control selectpicker" data-live-search="true" id="idVfolderName{{$idx}}" name="vfolder_name">
-                                        <option value=""></option>
-                                        {{range $.VirtualFolders}}
-                                        <option value="{{.Name}}" {{if eq $val.Name .Name}}selected{{end}}>{{.Name}}</option>
-                                        {{end}}
-                                    </select>
+                                {{- else}}
+                                <div data-repeater-item>
+                                    <div class="form-group row">
+                                        <div class="col-md-3 mt-3 mt-md-8">
+                                            <input data-i18n="[placeholder]virtual_folders.mount_path" type="text" class="form-control" name="vfolder_path" value="" />
+                                        </div>
+                                        <div class="col-md-3 mt-3 mt-md-8">
+                                            <select name="vfolder_name" data-i18n="[data-placeholder]general.folder_placeholder" class="form-select select-repetear" data-placeholder="Select a folder" data-allow-clear="true">
+                                                <option value=""></option>
+                                                {{- range .VirtualFolders}}
+                                                <option value="{{.Name}}">{{.Name}}</option>
+                                                {{- end}}
+                                            </select>
+                                        </div>
+                                        <div class="col-md-3 mt-3 mt-md-8">
+                                            <input type="text" class="form-control" name="vfolder_quota_size" value="" />
+                                            <div class="form-text" data-i18n="virtual_folders.quota_size"></div>
+                                        </div>
+                                        <div class="col-md-2 mt-3 mt-md-8">
+                                            <input type="number" min="-1" class="form-control" name="vfolder_quota_files" value="" />
+                                            <div class="form-text" data-i18n="virtual_folders.quota_files"></div>
+                                        </div>
+                                        <div class="col-md-1 mt-3 mt-md-8">
+                                            <a href="#" data-repeater-delete
+                                                class="btn btn-light-danger ps-5 pe-4">
+                                                <i class="ki-duotone ki-trash fs-2">
+                                                    <span class="path1"></span>
+                                                    <span class="path2"></span>
+                                                    <span class="path3"></span>
+                                                    <span class="path4"></span>
+                                                    <span class="path5"></span>
+                                                </i>
+                                            </a>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="form-group col-md-3">
-                                    <input type="text" class="form-control" id="idVfolderQuotaSize{{$idx}}" name="vfolder_quota_size"
-                                        value="{{HumanizeBytes $val.QuotaSize}}" aria-describedby="vqsHelpBlock{{$idx}}">
-                                    <small id="vqsHelpBlock{{$idx}}" class="form-text text-muted">
-                                        Quota size
-                                    </small>
-                                </div>
-                                <div class="form-group col-md-2">
-                                    <input type="number" class="form-control" id="idVfolderQuotaFiles{{$idx}}" name="vfolder_quota_files"
-                                        value="{{$val.QuotaFiles}}" min="-1" aria-describedby="vqfHelpBlock{{$idx}}">
-                                        <small id="vqfHelpBlock{{$idx}}" class="form-text text-muted">
-                                            Quota files
-                                        </small>
-                                </div>
-                                <div class="form-group col-md-1">
-                                    <button class="btn btn-circle btn-danger remove_vfolder_btn_frm_field">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
+                                {{- end}}
                             </div>
-                            {{else}}
-                            <div class="row form_field_vfolder_outer_row">
-                                <div class="form-group col-md-3">
-                                    <input type="text" class="form-control" id="idVolderPath0" name="vfolder_path" placeholder="mount path, i.e. /vfolder" value="" maxlength="255">
-                                </div>
-                                <div class="form-group col-md-3">
-                                    <select class="form-control selectpicker" data-live-search="true" id="idVfolderName0" name="vfolder_name">
-                                        <option value=""></option>
-                                        {{range .VirtualFolders}}
-                                        <option value="{{.Name}}">{{.Name}}</option>
-                                        {{end}}
-                                    </select>
-                                </div>
-                                <div class="form-group col-md-3">
-                                    <input type="text" class="form-control" id="idVfolderQuotaSize0" name="vfolder_quota_size"
-                                        value="" aria-describedby="vqsHelpBlock0">
-                                    <small id="vqsHelpBlock0" class="form-text text-muted">
-                                        Quota size
-                                    </small>
-                                </div>
-                                <div class="form-group col-md-2">
-                                    <input type="number" class="form-control" id="idVfolderQuotaFiles0" name="vfolder_quota_files"
-                                        value="" min="-1" aria-describedby="vqfHelpBlock0">
-                                        <small id="vqfHelpBlock0" class="form-text text-muted">
-                                            Quota files
-                                        </small>
-                                </div>
-                                <div class="form-group col-md-1">
-                                    <button class="btn btn-circle btn-danger remove_vfolder_btn_frm_field">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            {{end}}
                         </div>
-                    </div>
 
-                    <div class="row mx-1">
-                        <button type="button" class="btn btn-secondary add_new_vfolder_field_btn">
-                            <i class="fas fa-plus"></i> Add new virtual folder
-                        </button>
+                        <div class="form-group mt-5">
+                            <a href="#" data-repeater-create class="btn btn-light-primary">
+                                <i class="ki-duotone ki-plus fs-3"></i>
+                                <span data-i18n="general.add">Add</span>
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
-            {{end}}
+            {{- end}}
 
-            <div class="accordion {{if eq .LoggedAdmin.Filters.Preferences.VisibleUserPageSections 0}}d-none{{end}}" id="accordionUser">
-                <div class="card {{if .LoggedAdmin.Filters.Preferences.HideProfile}}d-none{{end}}">
-                    <div class="card-header" id="headingProfile">
-                        <h2 class="mb-0">
-                            <button class="btn btn-link btn-block text-left" type="button" data-toggle="collapse"
-                                data-target="#collapseProfile" aria-expanded="true" aria-controls="collapseProfile">
-                                <h6 class="m-0 font-weight-bold text-primary">Profile</h6>
-                            </button>
-                        </h2>
-                    </div>
+            <div class="accordion shadow-sm mt-10 {{- if eq .LoggedUser.Filters.Preferences.VisibleUserPageSections 0}} d-none{{- end}}" id="accordionUser">
 
-                    <div id="collapseProfile" class="collapse" aria-labelledby="headingProfile" data-parent="#accordionUser">
-                        <div class="card-body">
+                <div class="accordion-item {{- if .LoggedUser.Filters.Preferences.HideProfile}} d-none{{- end}}">
+                    <h2 class="accordion-header" id="headingProfile">
+                        <button class="accordion-button section-title-inner text-primary collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseProfile" aria-expanded="true" aria-controls="collapseProfile">
+                            <span data-i18n="title.profile">Profile</span>
+                        </button>
+                    </h2>
+                    <div id="collapseProfile" class="accordion-collapse collapse" aria-labelledby="headingProfile" data-bs-parent="#accordionUser">
+                        <div class="accordion-body">
+
                             <div class="form-group row">
-                                <label for="idStatus" class="col-sm-2 col-form-label">Status</label>
-                                <div class="col-sm-10">
-                                    <select class="form-control selectpicker" id="idStatus" name="status">
-                                        <option value="1" {{if eq .User.Status 1 }}selected{{end}}>Active</option>
-                                        <option value="0" {{if eq .User.Status 0 }}selected{{end}}>Inactive</option>
+                                <label for="idStatus" data-i18n="user.status" class="col-md-3 col-form-label">Status</label>
+                                <div class="col-md-9">
+                                    <select id="idStatus" name="status" class="form-select" data-control="i18n-select2" data-hide-search="true">
+                                        <option data-i18n="general.active" value="1" {{- if eq .User.Status 1 }} selected{{- end}}>Active</option>
+                                        <option data-i18n="general.inactive" value="0" {{- if eq .User.Status 0 }} selected{{- end}}>Inactive</option>
                                     </select>
                                 </div>
                             </div>
 
-                            <div class="form-group row">
-                                <label for="idExpirationDate" class="col-sm-2 col-form-label">Expiration Date</label>
-                                <div class="col-sm-10 input-group date" id="expirationDatePicker" data-target-input="nearest">
-                                    <input type="text" class="form-control datetimepicker-input" id="idExpirationDate"
-                                        data-target="#expirationDatePicker">
-                                    <div class="input-group-append" data-target="#expirationDatePicker" data-toggle="datetimepicker">
-                                        <div class="input-group-text"><i class="fas fa-calendar"></i></div>
-                                    </div>
+                            <div class="form-group row mt-10">
+                                <label for="id_expiration" data-i18n="general.expiration" class="col-md-3 col-form-label">Expiration</label>
+                                <div class="col-md-9 d-flex">
+                                    <input data-i18n="[placeholder]general.expiration_help" id="id_expiration" class="form-control" placeholder="Pick an expiration date" />
+                                    <button class="btn btn-icon btn-light-danger ms-2 d-none" id="id_expiration_clear">
+                                        <i class="ki-solid ki-cross fs-1"></i>
+                                    </button>
                                 </div>
                             </div>
 
-                            <div class="form-group row">
-                                <label for="idEmail" class="col-sm-2 col-form-label">Email</label>
-                                <div class="col-sm-10">
-                                    <input type="text" class="form-control" id="idEmail" name="email" placeholder=""
-                                        value="{{.User.Email}}" maxlength="255" autocomplete="nope" spellcheck="false">
+                            <div class="form-group row mt-10">
+                                <label for="idEmail" data-i18n="general.email" class="col-md-3 col-form-label">Email</label>
+                                <div class="col-md-9">
+                                    <input id="idEmail" type="text" class="form-control" placeholder="" name="email" value="{{.User.Email}}"
+                                        maxlength="255" autocomplete="nope" spellcheck="false" />
                                 </div>
                             </div>
 
-                            <div class="form-group row">
-                                <label for="idPasswordStrength" class="col-sm-2 col-form-label">Password strength</label>
-                                <div class="col-sm-10">
-                                    <input type="number" class="form-control" id="idPasswordStrength" name="password_strength"
-                                        value="{{.User.Filters.PasswordStrength}}" min="0" max="100" aria-describedby="passwordStrengthHelpBlock">
-                                    <small id="passwordStrengthHelpBlock" class="form-text text-muted">
-                                        Values in the 50-70 range are suggested for common use cases. 0 means disabled, any password will be accepted
-                                    </small>
+                            <div class="form-group row mt-10">
+                                <label for="idPasswordStrength" data-i18n="filters.password_strength" class="col-md-3 col-form-label">Password strength</label>
+                                <div class="col-md-9">
+                                    <input id="idPasswordStrength" type="number" min="0" max="100" class="form-control" name="password_strength" value="{{.User.Filters.PasswordStrength}}" aria-describedby="idPasswordStrengthHelp"/>
+                                    <div id="idPasswordStrengthHelp" class="form-text" data-i18n="filters.password_strength_help"></div>
                                 </div>
                             </div>
 
-                            <div class="form-group row">
-                                <label for="idPasswordExpiration" class="col-sm-2 col-form-label">Password expiration</label>
-                                <div class="col-sm-10">
-                                    <input type="number" class="form-control" id="idPasswordExpiration" name="password_expiration"
-                                        value="{{.User.Filters.PasswordExpiration}}" min="0" aria-describedby="passwordExpirationHelpBlock">
-                                    <small id="passwordExpirationHelpBlock" class="form-text text-muted">
-                                        Password expiration as number of days. 0 means no expiration
-                                    </small>
+                            <div class="form-group row mt-10">
+                                <label for="idPasswordExpiration" data-i18n="filters.password_expiration" class="col-md-3 col-form-label">Password expiration</label>
+                                <div class="col-md-9">
+                                    <input id="idPasswordExpiration" type="number" min="0" class="form-control" name="password_expiration" value="{{.User.Filters.PasswordExpiration}}" aria-describedby="idPasswordExpirationHelp"/>
+                                    <div id="idPasswordExpirationHelp" class="form-text" data-i18n="filters.password_expiration_help"></div>
                                 </div>
                             </div>
 
-                            <div class="form-group row">
-                                <label for="idDefaultSharesExpiration" class="col-sm-2 col-form-label">Default shares expiration</label>
-                                <div class="col-sm-10">
-                                    <input type="number" class="form-control" id="idDefaultSharesExpiration" name="default_shares_expiration"
-                                        value="{{.User.Filters.DefaultSharesExpiration}}" min="0" aria-describedby="defaultSharesExpirationHelpBlock">
-                                    <small id="defaultSharesExpirationHelpBlock" class="form-text text-muted">
-                                        Default expiration for newly created shares as number of days
-                                    </small>
+                            <div class="form-group row mt-10">
+                                <label for="idDefaultSharesExpiration" data-i18n="filters.default_shares_expiration" class="col-md-3 col-form-label">Default shares expiration</label>
+                                <div class="col-md-9">
+                                    <input id="idDefaultSharesExpiration" type="number" min="0" class="form-control" name="default_shares_expiration" value="{{.User.Filters.DefaultSharesExpiration}}" aria-describedby="idDefaultSharesExpirationHelp"/>
+                                    <div id="idDefaultSharesExpirationHelp" class="form-text" data-i18n="filters.default_shares_expiration_help"></div>
                                 </div>
                             </div>
 
-                            <div class="form-group row">
-                                <label for="idMaxSharesExpiration" class="col-sm-2 col-form-label">Max shares expiration</label>
-                                <div class="col-sm-10">
-                                    <input type="number" class="form-control" id="idMaxSharesExpiration" name="max_shares_expiration"
-                                        value="{{.User.Filters.MaxSharesExpiration}}" min="0" aria-describedby="maxSharesExpirationHelpBlock">
-                                    <small id="maxSharesExpirationHelpBlock" class="form-text text-muted">
-                                        Maximum allowed expiration, as number of days, when a user creates or updates a share
-                                    </small>
+                            <div class="form-group row mt-10">
+                                <label for="idMaxSharesExpiration" data-i18n="filters.max_shares_expiration" class="col-md-3 col-form-label">Max shares expiration</label>
+                                <div class="col-md-9">
+                                    <input id="idMaxSharesExpiration" type="number" min="0" class="form-control" name="max_shares_expiration" value="{{.User.Filters.MaxSharesExpiration}}" aria-describedby="idMaxSharesExpirationHelp"/>
+                                    <div id="idMaxSharesExpirationHelp" class="form-text" data-i18n="filters.max_shares_expiration_help"></div>
                                 </div>
                             </div>
 
-                            <div class="form-group row">
-                                <label for="idDescription" class="col-sm-2 col-form-label">Description</label>
-                                <div class="col-sm-10">
-                                    <input type="text" class="form-control" id="idDescription" name="description" placeholder=""
-                                        value="{{.User.Description}}" maxlength="255" aria-describedby="descriptionHelpBlock">
-                                    <small id="descriptionHelpBlock" class="form-text text-muted">
-                                        Optional description, for example the user full name
-                                    </small>
+                            <div class="form-group row mt-10">
+                                <label for="idDescription" data-i18n="general.description" class="col-md-3 col-form-label">Description</label>
+                                <div class="col-md-9">
+                                    <input id="idDescription" type="text" class="form-control" name="description" maxlength="255"
+                                        placeholder="">{{.User.Description}}</textarea>
                                 </div>
                             </div>
 
-                            <div class="form-group row">
-                                <label for="idAdditionalInfo" class="col-sm-2 col-form-label">Additional info</label>
-                                <div class="col-sm-10">
-                                    <textarea class="form-control" id="idAdditionalInfo" name="additional_info" rows="3"
-                                        aria-describedby="additionalInfoHelpBlock">{{.User.AdditionalInfo}}</textarea>
-                                    <small id="additionalInfoHelpBlock" class="form-text text-muted">
-                                        Free form text field
-                                    </small>
-                                </div>
-                            </div>
-
-                        </div>
-                    </div>
-                </div>
-                <div class="card {{if .LoggedAdmin.Filters.Preferences.HideACLs}}d-none{{end}}">
-                    <div class="card-header" id="headingPermissions">
-                        <h2 class="mb-0">
-                            <button class="btn btn-link btn-block text-left" type="button" data-toggle="collapse"
-                                data-target="#collapsePermissions" aria-expanded="true" aria-controls="collapsePermissions">
-                                <h6 class="m-0 font-weight-bold text-primary">ACLs</h6>
-                            </button>
-                        </h2>
-                    </div>
-
-                    <div id="collapsePermissions" class="collapse" aria-labelledby="headingPermissions" data-parent="#accordionUser">
-                        <div class="card-body">
-                            <div class="form-group row">
-                                <label for="idPermissions" class="col-sm-2 col-form-label">Permissions</label>
-                                <div class="col-sm-10">
-                                    <select class="form-control selectpicker" id="idPermissions" name="permissions" required multiple>
-                                        {{range $validPerm := .ValidPerms}}
-                                        <option value="{{$validPerm}}" {{range $perm :=$.RootDirPerms }}{{if eq $perm $validPerm}}selected{{end}}{{end}}>{{$validPerm}}</option>
-                                        {{end}}
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div class="card bg-light mb-3">
-                                <div class="card-header">
-                                    <b>Per-directory permissions. Wildcards are supported in paths, for example "/incoming/*" matches any directory within "/incoming"</b>
-                                </div>
-                                <div class="card-body">
-                                    <div class="form-group row">
-                                        <div class="col-md-12 form_field_dirperms_outer">
-                                            {{range $idx, $dirPerms := .User.GetSubDirPermissions -}}
-                                            <div class="row form_field_dirperms_outer_row">
-                                                <div class="form-group col-md-8">
-                                                    <input type="text" class="form-control" id="idSubDirPermsPath{{$idx}}" name="sub_perm_path{{$idx}}" placeholder="directory path, i.e. /dir" value="{{$dirPerms.Path}}" maxlength="255">
-                                                </div>
-                                                <div class="form-group col-md-3">
-                                                    <select class="form-control selectpicker" id="idSubDirPermissions{{$idx}}" name="sub_perm_permissions{{$idx}}" multiple>
-                                                        {{range $validPerm := $.ValidPerms}}
-                                                        <option value="{{$validPerm}}" {{range $perm := $dirPerms.Permissions }}{{if eq $perm $validPerm}}selected{{end}}{{end}}>{{$validPerm}}</option>
-                                                        {{end}}
-                                                    </select>
-                                                </div>
-                                                <div class="form-group col-md-1">
-                                                    <button class="btn btn-circle btn-danger remove_dirperms_btn_frm_field">
-                                                        <i class="fas fa-trash"></i>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            {{else}}
-                                            <div class="row form_field_dirperms_outer_row">
-                                                <div class="form-group col-md-8">
-                                                    <input type="text" class="form-control" id="idSubDirPermsPath0" name="sub_perm_path0" placeholder="directory path, i.e. /dir" value="" maxlength="255">
-                                                </div>
-                                                <div class="form-group col-md-3">
-                                                    <select class="form-control selectpicker" id="idSubDirPermissions0" name="sub_perm_permissions0" multiple>
-                                                        {{range $validPerm := .ValidPerms}}
-                                                        <option value="{{$validPerm}}">{{$validPerm}}</option>
-                                                        {{end}}
-                                                    </select>
-                                                </div>
-                                                <div class="form-group col-md-1">
-                                                    <button class="btn btn-circle btn-danger remove_dirperms_btn_frm_field">
-                                                        <i class="fas fa-trash"></i>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            {{end}}
-                                        </div>
-                                    </div>
-
-                                    <div class="row mx-1">
-                                        <button type="button" class="btn btn-secondary add_new_dirperms_field_btn">
-                                            <i class="fas fa-plus"></i> Add new directory permissions
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="card bg-light mb-3">
-                                <div class="card-header">
-                                    <b>Per-directory pattern restrictions</b>
-                                </div>
-                                <div class="card-body">
-                                    <h6 class="card-title mb-4">Comma separated denied or allowed files/directories, based on shell patterns.</h6>
-                                    <p class="card-text">Match is case insensitive, set you patterns as lowercase. Denied entries are visible in directory listing by default, you can hide them by setting the "Hidden" policy, but please be aware that this may cause performance issues for large directories. Setting a denied pattern as "*" and allowed pattern/s for the same directory you can create denied except rules, but note that if you allow a directory, everything in it will be allowed unless more specific patterns/permissions are defined.</p>
-                                    <div class="form-group row">
-                                        <div class="col-md-12 form_field_patterns_outer">
-                                            {{range $idx, $pattern := .User.Filters.GetFlatFilePatterns -}}
-                                            <div class="row form_field_patterns_outer_row">
-                                                <div class="form-group col-md-3">
-                                                    <input type="text" class="form-control" id="idPatternPath{{$idx}}" name="pattern_path{{$idx}}" placeholder="directory path, i.e. /dir" value="{{$pattern.Path}}" maxlength="255">
-                                                </div>
-                                                <div class="form-group col-md-4">
-                                                    <input type="text" class="form-control" id="idPatterns{{$idx}}" name="patterns{{$idx}}" placeholder="*.zip,?.txt" value="{{$pattern.GetCommaSeparatedPatterns}}" maxlength="255">
-                                                </div>
-                                                <div class="form-group col-md-2">
-                                                    <select class="form-control selectpicker" id="idPatternType{{$idx}}" name="pattern_type{{$idx}}">
-                                                        <option value="denied" {{if $pattern.IsDenied}}selected{{end}}>Denied</option>
-                                                        <option value="allowed" {{if $pattern.IsAllowed}}selected{{end}}>Allowed</option>
-                                                    </select>
-                                                </div>
-                                                <div class="form-group col-md-2">
-                                                    <select class="form-control selectpicker" id="idPatternPolicy{{$idx}}" name="pattern_policy{{$idx}}">
-                                                        <option value="0" {{if eq $pattern.DenyPolicy 0}}selected{{end}}>Visible</option>
-                                                        <option value="1" {{if eq $pattern.DenyPolicy 1}}selected{{end}}>Hidden</option>
-                                                    </select>
-                                                </div>
-                                                <div class="form-group col-md-1">
-                                                    <button class="btn btn-circle btn-danger remove_pattern_btn_frm_field">
-                                                        <i class="fas fa-trash"></i>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            {{else}}
-                                            <div class="row form_field_patterns_outer_row">
-                                                <div class="form-group col-md-3">
-                                                    <input type="text" class="form-control" id="idPatternPath0" name="pattern_path0" placeholder="directory path, i.e. /dir" value="" maxlength="255">
-                                                </div>
-                                                <div class="form-group col-md-4">
-                                                    <input type="text" class="form-control" id="idPatterns0" name="patterns0" placeholder="*.zip,?.txt" value="" maxlength="255">
-                                                </div>
-                                                <div class="form-group col-md-2">
-                                                    <select class="form-control selectpicker" id="idPatternType0" name="pattern_type0">
-                                                        <option value="denied">Denied</option>
-                                                        <option value="allowed">Allowed</option>
-                                                    </select>
-                                                </div>
-                                                <div class="form-group col-md-2">
-                                                    <select class="form-control selectpicker" id="idPatternPolicy0" name="pattern_policy0">
-                                                        <option value="0">Visible</option>
-                                                        <option value="1">Hidden</option>
-                                                    </select>
-                                                </div>
-                                                <div class="form-group col-md-1">
-                                                    <button class="btn btn-circle btn-danger remove_pattern_btn_frm_field">
-                                                        <i class="fas fa-trash"></i>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            {{end}}
-                                        </div>
-                                    </div>
-
-                                    <div class="row mx-1">
-                                        <button type="button" class="btn btn-secondary add_new_pattern_field_btn">
-                                            <i class="fas fa-plus"></i> Add new file pattern
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="form-group row">
-                                <label for="idMaxSessions" class="col-sm-2 col-form-label">Max sessions</label>
-                                <div class="col-sm-10">
-                                    <input type="number" class="form-control" id="idMaxSessions" name="max_sessions" placeholder=""
-                                        value="{{.User.MaxSessions}}" min="0" aria-describedby="sessionsHelpBlock">
-                                    <small id="sessionsHelpBlock" class="form-text text-muted">
-                                        Maximun number of concurrent sessions. 0 means no limit
-                                    </small>
-                                </div>
-                            </div>
-
-                            <div class="form-group row">
-                                <label for="idProtocols" class="col-sm-2 col-form-label">Denied protocols</label>
-                                <div class="col-sm-10">
-                                    <select class="form-control selectpicker" id="idProtocols" name="denied_protocols" multiple>
-                                        {{range $protocol := .ValidProtocols}}
-                                        <option value="{{$protocol}}" {{range $p :=$.User.Filters.DeniedProtocols }}{{if eq $p $protocol}}selected{{end}}{{end}}>{{$protocol}}
-                                        </option>
-                                        {{end}}
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div class="form-group row">
-                                <label for="idLoginMethods" class="col-sm-2 col-form-label">Denied login methods</label>
-                                <div class="col-sm-10">
-                                    <select class="form-control selectpicker" id="idLoginMethods" name="denied_login_methods" multiple aria-describedby="deniedLoginMethodsHelpBlock">
-                                        {{range $method := .ValidLoginMethods}}
-                                        <option value="{{$method}}" {{range $m :=$.User.Filters.DeniedLoginMethods }}{{if eq $m $method}}selected{{end}}{{end}}>{{$method}}
-                                        </option>
-                                        {{end}}
-                                    </select>
-                                    <small id="deniedLoginMethodsHelpBlock" class="form-text text-muted">
-                                        "password" is valid for all supported protocols, "password-over-SSH" only for SSH/SFTP/SCP
-                                    </small>
-                                </div>
-                            </div>
-
-                            <div class="form-group row">
-                                <label for="idTwoFactorProtocols" class="col-sm-2 col-form-label">Require two-factor auth for</label>
-                                <div class="col-sm-10">
-                                    <select class="form-control selectpicker" id="idTwoFactorProtocols" name="required_two_factor_protocols" multiple>
-                                        {{range $protocol := .TwoFactorProtocols}}
-                                        <option value="{{$protocol}}" {{range $p :=$.User.Filters.TwoFactorAuthProtocols }}{{if eq $p $protocol}}selected{{end}}{{end}}>{{$protocol}}
-                                        </option>
-                                        {{end}}
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div class="form-group row">
-                                <label for="idWebClient" class="col-sm-2 col-form-label">Web client/REST API</label>
-                                <div class="col-sm-10">
-                                    <select class="form-control selectpicker" id="idWebClient" name="web_client_options" multiple>
-                                        {{range $option := .WebClientOptions}}
-                                        <option value="{{$option}}" {{range $p :=$.User.Filters.WebClient }}{{if eq $p $option}}selected{{end}}{{end}}>{{$option}}
-                                        </option>
-                                        {{end}}
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div class="form-group row">
-                                <label for="idDeniedIP" class="col-sm-2 col-form-label">Denied IP/Mask</label>
-                                <div class="col-sm-10">
-                                    <textarea class="form-control" id="idDeniedIP" name="denied_ip" rows="3" placeholder=""
-                                        aria-describedby="deniedIPHelpBlock">{{.User.GetDeniedIPAsString}}</textarea>
-                                    <small id="deniedIPHelpBlock" class="form-text text-muted">
-                                        Comma separated IP/Mask in CIDR format, example: "192.168.1.0/24,10.8.0.100/32"
-                                    </small>
-                                </div>
-                            </div>
-
-                            <div class="form-group row">
-                                <label for="idAllowedIP" class="col-sm-2 col-form-label">Allowed IP/Mask</label>
-                                <div class="col-sm-10">
-                                    <textarea class="form-control" id="idAllowedIP" name="allowed_ip" rows="3" placeholder=""
-                                        aria-describedby="allowedIPHelpBlock">{{.User.GetAllowedIPAsString}}</textarea>
-                                    <small id="allowedIPHelpBlock" class="form-text text-muted">
-                                        Comma separated IP/Mask in CIDR format, example: "192.168.1.0/24,10.8.0.100/32"
-                                    </small>
-                                </div>
-                            </div>
-
-                        </div>
-                    </div>
-                </div>
-                <div class="card {{if .LoggedAdmin.Filters.Preferences.HideDiskQuotaAndBandwidthLimits}}d-none{{end}}">
-                    <div class="card-header" id="headingQuota">
-                        <h2 class="mb-0">
-                            <button class="btn btn-link btn-block text-left collapsed" type="button" data-toggle="collapse"
-                                data-target="#collapseQuota" aria-expanded="false" aria-controls="collapseQuota">
-                                <h6 class="m-0 font-weight-bold text-primary">Disk quota and bandwidth limits</h6>
-                            </button>
-                        </h2>
-                    </div>
-                    <div id="collapseQuota" class="collapse" aria-labelledby="headingQuota" data-parent="#accordionUser">
-                        <div class="card-body">
-
-                            <div class="form-group row">
-                                <label for="idQuotaSize" class="col-sm-2 col-form-label">Quota size</label>
-                                <div class="col-sm-3">
-                                    <input type="text" class="form-control" id="idQuotaSize" name="quota_size" placeholder=""
-                                        value="{{HumanizeBytes .User.QuotaSize}}" aria-describedby="qsHelpBlock">
-                                    <small id="qsHelpBlock" class="form-text text-muted">
-                                        0 means no limit. You can use MB/GB/TB suffix
-                                    </small>
-                                </div>
-                                <div class="col-sm-2"></div>
-                                <label for="idQuotaFiles" class="col-sm-2 col-form-label">Quota files</label>
-                                <div class="col-sm-3">
-                                    <input type="number" class="form-control" id="idQuotaFiles" name="quota_files" placeholder=""
-                                        value="{{.User.QuotaFiles}}" min="0" aria-describedby="qfHelpBlock">
-                                    <small id="qfHelpBlock" class="form-text text-muted">
-                                        0 means no limit
-                                    </small>
-                                </div>
-                            </div>
-
-                            <div class="form-group row">
-                                <label for="idMaxUploadSize" class="col-sm-2 col-form-label">Max file upload size</label>
-                                <div class="col-sm-10">
-                                    <input type="text" class="form-control" id="idMaxUploadSize" name="max_upload_file_size"
-                                        placeholder="" value="{{HumanizeBytes .User.Filters.MaxUploadFileSize}}"
-                                        aria-describedby="fqsHelpBlock">
-                                    <small id="fqsHelpBlock" class="form-text text-muted">
-                                        Maximum upload size for a single file. 0 means no limit. You can use MB/GB/TB suffix
-                                    </small>
-                                </div>
-                            </div>
-
-                            <div class="form-group row">
-                                <label for="idUploadBandwidth" class="col-sm-2 col-form-label">Bandwidth UL (KB/s)</label>
-                                <div class="col-sm-3">
-                                    <input type="number" class="form-control" id="idUploadBandwidth" name="upload_bandwidth"
-                                        placeholder="" value="{{.User.UploadBandwidth}}" min="0" aria-describedby="ulHelpBlock">
-                                    <small id="ulHelpBlock" class="form-text text-muted">
-                                        0 means no limit
-                                    </small>
-                                </div>
-                                <div class="col-sm-2"></div>
-                                <label for="idDownloadBandwidth" class="col-sm-2 col-form-label">Bandwidth DL (KB/s)</label>
-                                <div class="col-sm-3">
-                                    <input type="number" class="form-control" id="idDownloadBandwidth" name="download_bandwidth"
-                                        placeholder="" value="{{.User.DownloadBandwidth}}" min="0" aria-describedby="dlHelpBlock">
-                                    <small id="dlHelpBlock" class="form-text text-muted">
-                                        0 means no limit
-                                    </small>
-                                </div>
-                            </div>
-
-                            <div class="card bg-light mb-3">
-                                <div class="card-header">
-                                    <b>Per-source bandwidth speed limits</b>
-                                </div>
-                                <div class="card-body">
-                                    <div class="form-group row">
-                                        <div class="col-md-12 form_field_bwlimits_outer">
-                                            {{range $idx, $bwLimit := .User.Filters.BandwidthLimits -}}
-                                            <div class="row form_field_bwlimits_outer_row">
-                                                <div class="form-group col-md-8">
-                                                    <textarea class="form-control" id="idBandwidthLimitSources{{$idx}}" name="bandwidth_limit_sources{{$idx}}" rows="4" placeholder=""
-                                                            aria-describedby="bwLimitSourcesHelpBlock{{$idx}}">{{$bwLimit.GetSourcesAsString}}</textarea>
-                                                    <small id="bwLimitSourcesHelpBlock{{$idx}}" class="form-text text-muted">
-                                                        Comma separated IP/Mask in CIDR format, example: "192.168.1.0/24,10.8.0.100/32"
-                                                    </small>
-                                                </div>
-                                                <div class="col-md-3">
-                                                    <div class="form-group">
-                                                        <input type="number" class="form-control" id="idUploadBandwidthSource{{$idx}}" name="upload_bandwidth_source{{$idx}}"
-                                                            placeholder="" value="{{$bwLimit.UploadBandwidth}}" min="0" aria-describedby="ulHelpBlock{{$idx}}">
-                                                        <small id="ulHelpBlock{{$idx}}" class="form-text text-muted">
-                                                            UL (KB/s). 0 means no limit
-                                                        </small>
-                                                    </div>
-                                                    <div class="form-group">
-                                                        <input type="number" class="form-control" id="idDownloadBandwidthSource{{$idx}}" name="download_bandwidth_source{{$idx}}"
-                                                            placeholder="" value="{{$bwLimit.DownloadBandwidth}}" min="0" aria-describedby="dlHelpBlock{{$idx}}">
-                                                        <small id="dlHelpBlock{{$idx}}" class="form-text text-muted">
-                                                            DL (KB/s). 0 means no limit
-                                                        </small>
-                                                    </div>
-                                                </div>
-
-                                                <div class="form-group col-md-1">
-                                                    <button class="btn btn-circle btn-danger remove_bwlimit_btn_frm_field">
-                                                        <i class="fas fa-trash"></i>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            {{else}}
-                                            <div class="row form_field_bwlimits_outer_row">
-                                                <div class="form-group col-md-8">
-                                                    <textarea class="form-control" id="idBandwidthLimitSources0" name="bandwidth_limit_sources0" rows="4" placeholder=""
-                                                            aria-describedby="bwLimitSourcesHelpBlock0"></textarea>
-                                                    <small id="bwLimitSourcesHelpBlock0" class="form-text text-muted">
-                                                        Comma separated IP/Mask in CIDR format, example: "192.168.1.0/24,10.8.0.100/32"
-                                                    </small>
-                                                </div>
-                                                <div class="col-md-3">
-                                                    <div class="form-group">
-                                                        <input type="number" class="form-control" id="idUploadBandwidthSource0" name="upload_bandwidth_source0"
-                                                            placeholder="" value="" min="0" aria-describedby="ulHelpBlock0">
-                                                        <small id="ulHelpBlock0" class="form-text text-muted">
-                                                            UL (KB/s). 0 means no limit
-                                                        </small>
-                                                    </div>
-                                                    <div class="form-group">
-                                                        <input type="number" class="form-control" id="idDownloadBandwidthSource0" name="download_bandwidth_source0"
-                                                            placeholder="" value="" min="0" aria-describedby="dlHelpBlock0">
-                                                        <small id="dlHelpBlock0" class="form-text text-muted">
-                                                            DL (KB/s). 0 means no limit
-                                                        </small>
-                                                    </div>
-                                                </div>
-                                                <div class="form-group col-md-1">
-                                                    <button class="btn btn-circle btn-danger remove_bwlimit_btn_frm_field">
-                                                        <i class="fas fa-trash"></i>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            {{end}}
-                                        </div>
-                                    </div>
-
-                                    <div class="row mx-1">
-                                        <button type="button" class="btn btn-secondary add_new_bwlimit_field_btn">
-                                            <i class="fas fa-plus"></i> Add new speed limit
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="form-group row">
-                                <label for="idTransferUL" class="col-sm-2 col-form-label">Upload data transfer (MB)</label>
-                                <div class="col-sm-3">
-                                    <input type="number" class="form-control" id="idTransferUL" name="upload_data_transfer" placeholder=""
-                                        value="{{.User.UploadDataTransfer}}" min="0" aria-describedby="ulTransferHelpBlock">
-                                    <small id="ulTransferHelpBlock" class="form-text text-muted">
-                                        Maximum data transfer allowed for uploads. 0 means no limit
-                                    </small>
-                                </div>
-                                <div class="col-sm-2"></div>
-                                <label for="idTransferDL" class="col-sm-2 col-form-label">Download data transfer (MB)</label>
-                                <div class="col-sm-3">
-                                    <input type="number" class="form-control" id="idTransferDL" name="download_data_transfer" placeholder=""
-                                        value="{{.User.DownloadDataTransfer}}" min="0" aria-describedby="dlTransferHelpBlock">
-                                    <small id="dlTransferHelpBlock" class="form-text text-muted">
-                                        Maximum data transfer allowed for downloads. 0 means no limit
-                                    </small>
-                                </div>
-                            </div>
-
-                            <div class="form-group row">
-                                <label for="idTransferTotal" class="col-sm-2 col-form-label">Total data transfer (MB)</label>
-                                <div class="col-sm-10">
-                                    <input type="number" class="form-control" id="idTransferTotal" name="total_data_transfer"
-                                        placeholder="" value="{{.User.TotalDataTransfer}}" min="0"
-                                        aria-describedby="totalTransferHelpBlock">
-                                    <small id="totalTransferHelpBlock" class="form-text text-muted">
-                                        Maximum data transfer allowed for uploads + downloads. Replace the individual limits. 0 means no limit
-                                    </small>
+                            <div class="form-group row mt-10">
+                                <label for="idAdditionalInfo" data-i18n="general.additional_info" class="col-md-3 col-form-label">Additional info</label>
+                                <div class="col-md-9">
+                                    <textarea id="idAdditionalInfo" class="form-control" name="additional_info" rows="3">{{.User.AdditionalInfo}}</textarea>
                                 </div>
                             </div>
 
@@ -849,265 +451,680 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                     </div>
                 </div>
 
-                <div class="card {{if .LoggedAdmin.Filters.Preferences.HideAdvancedSettings}}d-none{{end}}">
-                    <div class="card-header" id="headingAdvanced">
-                        <h2 class="mb-0">
-                            <button class="btn btn-link btn-block text-left collapsed" type="button" data-toggle="collapse"
-                                data-target="#collapseAdvanced" aria-expanded="false" aria-controls="collapseAdvanced">
-                                <h6 class="m-0 font-weight-bold text-primary">More</h6>
-                            </button>
-                        </h2>
-                    </div>
-                    <div id="collapseAdvanced" class="collapse" aria-labelledby="headingAdvanced" data-parent="#accordionUser">
-                        <div class="card-body">
+                <div class="accordion-item {{- if .LoggedUser.Filters.Preferences.HideACLs}} d-none{{- end}}">
+                    <h2 class="accordion-header" id="headingPermissions">
+                        <button class="accordion-button section-title-inner text-primary collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapsePermissions" aria-expanded="true" aria-controls="collapsePermissions">
+                            <span data-i18n="general.acls">ACLs</span>
+                        </button>
+                    </h2>
+                    <div id="collapsePermissions" class="accordion-collapse collapse" aria-labelledby="headingPermissions" data-bs-parent="#accordionUser">
+                        <div class="accordion-body">
 
                             <div class="form-group row">
-                                <label for="idStartDirectory" class="col-sm-2 col-form-label">Start directory</label>
-                                <div class="col-sm-10">
-                                    <input type="text" class="form-control" id="idStartDirectory" name="start_directory" placeholder=""
-                                        value="{{.User.Filters.StartDirectory}}" aria-describedby="startDirHelpBlock">
-                                    <small id="startDirHelpBlock" class="form-text text-muted">
-                                        Alternate start directory to use instead of "/". Supported for SFTP/FTP/HTTP
-                                    </small>
+                                <label for="idPermissions" data-i18n="general.permissions" class="col-md-3 col-form-label">
+                                    Permissions
+                                </label>
+                                <div class="col-md-9">
+                                    <select id="idPermissions" name="permissions" class="form-select" data-control="i18n-select2" data-hide-search="true" data-close-on-select="false" multiple>
+                                        {{- range $validPerm := .ValidPerms}}
+                                        <option value="{{$validPerm}}" {{- range $perm :=$.RootDirPerms }}{{- if eq $perm $validPerm}} selected{{- end}}{{- end}}>{{$validPerm}}</option>
+                                        {{- end}}
+                                    </select>
                                 </div>
                             </div>
 
-                            <div class="form-group row">
-                                <label for="idTLSUsername" class="col-sm-2 col-form-label">TLS username</label>
-                                <div class="col-sm-10">
-                                    <select class="form-control selectpicker" id="idTLSUsername" name="tls_username" aria-describedby="tlsUsernameHelpBlock">
-                                        <option value="" {{if or (eq .User.Filters.TLSUsername "None") (eq .User.Filters.TLSUsername "") }}selected{{end}}>None</option>
+                            <div class="card mt-10">
+                                <div class="card-header bg-light">
+                                    <h3 data-i18n="filters.directory_permissions" class="card-title section-title-inner">Per-directory permissions</h3>
+                                </div>
+                                <div class="card-body">
+                                    <div id="directory_permissions">
+                                        <p class="fs-5 fw-semibold mb-4" data-i18n="filters.directory_permissions_help"></p>
+                                        <div class="form-group">
+                                            <div data-repeater-list="directory_permissions">
+                                                {{- range $idx, $dirPerms := .User.GetSubDirPermissions -}}
+                                                <div data-repeater-item>
+                                                    <div class="form-group row">
+                                                        <div class="col-md-6 mt-3 mt-md-8">
+                                                            <input data-i18n="[placeholder]filters.directory_path_help" type="text" class="form-control" name="sub_perm_path" value="{{$dirPerms.Path}}" />
+                                                        </div>
+                                                        <div class="col-md-5 mt-3 mt-md-8">
+                                                            <select name="sub_perm_permissions" data-i18n="[data-placeholder]general.permissions" class="form-select select-repetear" data-hide-search="true" data-close-on-select="false" multiple>
+                                                                {{- range $validPerm := $.ValidPerms}}
+                                                                <option value="{{$validPerm}}" {{- range $perm := $dirPerms.Permissions }}{{- if eq $perm $validPerm}} selected{{- end}}{{- end}}>{{$validPerm}}</option>
+                                                                {{- end}}
+                                                            </select>
+                                                        </div>
+                                                        <div class="col-md-1 mt-3 mt-md-8">
+                                                            <a href="#" data-repeater-delete
+                                                                class="btn btn-light-danger ps-5 pe-4">
+                                                                <i class="ki-duotone ki-trash fs-2">
+                                                                    <span class="path1"></span>
+                                                                    <span class="path2"></span>
+                                                                    <span class="path3"></span>
+                                                                    <span class="path4"></span>
+                                                                    <span class="path5"></span>
+                                                                </i>
+                                                            </a>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                {{- else}}
+                                                <div data-repeater-item>
+                                                    <div class="form-group row">
+                                                        <div class="col-md-6 mt-3 mt-md-8">
+                                                            <input data-i18n="[placeholder]filters.directory_path_help" type="text" class="form-control" name="sub_perm_path" value="" />
+                                                        </div>
+                                                        <div class="col-md-5 mt-3 mt-md-8">
+                                                            <select name="sub_perm_permissions" data-i18n="[data-placeholder]general.permissions" class="form-select select-repetear" data-hide-search="true" data-close-on-select="false" multiple>
+                                                                {{- range $validPerm := .ValidPerms}}
+                                                                <option value="{{$validPerm}}">{{$validPerm}}</option>
+                                                                {{- end}}
+                                                            </select>
+                                                        </div>
+                                                        <div class="col-md-1 mt-3 mt-md-8">
+                                                            <a href="#" data-repeater-delete
+                                                                class="btn btn-light-danger ps-5 pe-4">
+                                                                <i class="ki-duotone ki-trash fs-2">
+                                                                    <span class="path1"></span>
+                                                                    <span class="path2"></span>
+                                                                    <span class="path3"></span>
+                                                                    <span class="path4"></span>
+                                                                    <span class="path5"></span>
+                                                                </i>
+                                                            </a>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                {{- end}}
+                                            </div>
+                                        </div>
+
+                                        <div class="form-group mt-5">
+                                            <a href="#" data-repeater-create class="btn btn-light-primary">
+                                                <i class="ki-duotone ki-plus fs-3"></i>
+                                                <span data-i18n="general.add">Add</span>
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card mt-10">
+                                <div class="card-header bg-light">
+                                    <h3 data-i18n="filters.directory_patterns" class="card-title section-title-inner">Per-directory name patterns restrictions</h3>
+                                </div>
+                                <div class="card-body">
+                                    <div id="directory_patterns">
+                                        <p class="fs-5 fw-semibold mb-4" data-i18n="filters.directory_patterns_help"></p>
+                                        <div class="form-group">
+                                            <div data-repeater-list="directory_patterns">
+                                                {{- range $idx, $pattern := .User.Filters.GetFlatFilePatterns -}}
+                                                <div data-repeater-item>
+                                                    <div class="form-group row">
+                                                        <div class="col-md-4 mt-3 mt-md-8">
+                                                            <input data-i18n="[placeholder]filters.directory_path_help" type="text" class="form-control" name="pattern_path" value="{{$pattern.Path}}" />
+                                                        </div>
+                                                        <div class="col-md-3 mt-3 mt-md-8">
+                                                            <input type="text" class="form-control" name="patterns" placeholder="*.png,*.zip" value="{{$pattern.GetCommaSeparatedPatterns}}" />
+                                                        </div>
+                                                        <div class="col-md-2 mt-3 mt-md-8">
+                                                            <select name="pattern_type" class="form-select select-repetear select-first" data-hide-search="true">
+                                                                <option value="denied" data-i18n="general.denied" {{- if $pattern.IsDenied}} selected{{- end}}>Denied</option>
+                                                                <option value="allowed" data-i18n="general.allowed" {{- if $pattern.IsAllowed}} selected{{- end}}>Allowed</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="col-md-2 mt-3 mt-md-8">
+                                                            <select name="pattern_policy" class="form-select select-repetear select-first" data-hide-search="true">
+                                                                <option value="0" data-i18n="general.visible" {{- if eq $pattern.DenyPolicy 0}} selected{{- end}}>Visible</option>
+                                                                <option value="1" data-i18n="general.hidden" {{- if eq $pattern.DenyPolicy 1}} selected{{- end}}>Hidden</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="col-md-1 mt-3 mt-md-8">
+                                                            <a href="#" data-repeater-delete
+                                                                class="btn btn-light-danger ps-5 pe-4">
+                                                                <i class="ki-duotone ki-trash fs-2">
+                                                                    <span class="path1"></span>
+                                                                    <span class="path2"></span>
+                                                                    <span class="path3"></span>
+                                                                    <span class="path4"></span>
+                                                                    <span class="path5"></span>
+                                                                </i>
+                                                            </a>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                {{- else}}
+                                                <div data-repeater-item>
+                                                    <div class="form-group row">
+                                                        <div class="col-md-4 mt-3 mt-md-8">
+                                                            <input data-i18n="[placeholder]filters.directory_path_help" type="text" class="form-control" name="pattern_path" value="" />
+                                                        </div>
+                                                        <div class="col-md-3 mt-3 mt-md-8">
+                                                            <input type="text" class="form-control" name="patterns" placeholder="*.png,*.zip" value="" />
+                                                        </div>
+                                                        <div class="col-md-2 mt-3 mt-md-8">
+                                                            <select name="pattern_type" class="form-select select-repetear select-first" data-hide-search="true">
+                                                                <option value="denied" data-i18n="general.denied">Denied</option>
+                                                                <option value="allowed" data-i18n="general.allowed">Allowed</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="col-md-2 mt-3 mt-md-8">
+                                                            <select name="pattern_policy" class="form-select select-repetear select-first" data-hide-search="true">
+                                                                <option value="0" data-i18n="general.visible">Visible</option>
+                                                                <option value="1" data-i18n="general.hidden">Hidden</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="col-md-1 mt-3 mt-md-8">
+                                                            <a href="#" data-repeater-delete
+                                                                class="btn btn-light-danger ps-5 pe-4">
+                                                                <i class="ki-duotone ki-trash fs-2">
+                                                                    <span class="path1"></span>
+                                                                    <span class="path2"></span>
+                                                                    <span class="path3"></span>
+                                                                    <span class="path4"></span>
+                                                                    <span class="path5"></span>
+                                                                </i>
+                                                            </a>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                {{- end}}
+                                            </div>
+                                        </div>
+
+                                        <div class="form-group mt-5">
+                                            <a href="#" data-repeater-create class="btn btn-light-primary">
+                                                <i class="ki-duotone ki-plus fs-3"></i>
+                                                <span data-i18n="general.add">Add</span>
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-group row mt-10">
+                                <label for="idMaxSessions" data-i18n="filters.max_sessions" class="col-md-3 col-form-label">Max sessions</label>
+                                <div class="col-md-9">
+                                    <input id="idMaxSessions" type="number" min="0" class="form-control" name="max_sessions" value="{{.User.MaxSessions}}" aria-describedby="idMaxSessionsHelp" />
+                                    <div id="idMaxSessionsHelp" class="form-text" data-i18n="filters.max_sessions_help"></div>
+                                </div>
+                            </div>
+
+                            <div class="form-group row mt-10">
+                                <label for="idProtocols" data-i18n="filters.denied_protocols" class="col-md-3 col-form-label">
+                                    Denied protocols
+                                </label>
+                                <div class="col-md-9">
+                                    <select id="idProtocols" name="denied_protocols" class="form-select" data-control="i18n-select2" data-close-on-select="false" multiple>
+                                        {{- range $protocol := .ValidProtocols}}
+                                        <option value="{{$protocol}}" {{- range $p :=$.User.Filters.DeniedProtocols }}{{- if eq $p $protocol}} selected{{- end}}{{- end}}>{{$protocol}}</option>
+                                        {{- end}}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-group row mt-10">
+                                <label for="idLoginMethods" data-i18n="filters.denied_login_methods" class="col-md-3 col-form-label">
+                                    Denied protocols
+                                </label>
+                                <div class="col-md-9">
+                                    <select id="idLoginMethods" name="denied_login_methods" class="form-select" data-control="i18n-select2" data-close-on-select="false" multiple aria-describedby="idLoginMethodsHelp">
+                                        {{- range $method := .ValidLoginMethods}}
+                                        <option value="{{$method}}" {{- range $m :=$.User.Filters.DeniedLoginMethods }}{{- if eq $m $method}} selected{{- end}}{{- end}}>{{$method}}</option>
+                                        {{- end}}
+                                    </select>
+                                    <div id="idLoginMethodsHelp" data-i18n="filters.denied_login_methods_help" class="form-text">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-group row mt-10">
+                                <label for="idTwoFactorProtocols" data-i18n="2fa.require_for" class="col-md-3 col-form-label">
+                                    Require 2FA for
+                                </label>
+                                <div class="col-md-9">
+                                    <select id="idTwoFactorProtocols" name="required_two_factor_protocols" class="form-select" data-control="i18n-select2" data-close-on-select="false" multiple>
+                                        {{- range $protocol := .TwoFactorProtocols}}
+                                        <option value="{{$protocol}}" {{- range $p :=$.User.Filters.TwoFactorAuthProtocols }}{{- if eq $p $protocol}} selected{{- end}}{{- end}}>{{$protocol}}</option>
+                                        {{end}}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-group row mt-10">
+                                <label for="idWebClient" data-i18n="filters.web_client_options" class="col-md-3 col-form-label">
+                                    Web client/REST API
+                                </label>
+                                <div class="col-md-9">
+                                    <select id="idWebClient" name="web_client_options" class="form-select" data-control="i18n-select2" data-close-on-select="false" multiple>
+                                        {{- range $option := .WebClientOptions}}
+                                        <option value="{{$option}}" {{- range $p :=$.User.Filters.WebClient }}{{- if eq $p $option}}selected{{- end}}{{- end}}>{{$option}}</option>
+                                        {{- end}}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-group row mt-10">
+                                <label for="idDeniedIP" data-i18n="general.denied_ip_mask" class="col-md-3 col-form-label">Denied IP/Mask</label>
+                                <div class="col-md-9">
+                                    <textarea class="form-control" id="idDeniedIP" name="denied_ip" aria-describedby="idDeniedIPHelp"
+                                        rows="3">{{.User.GetDeniedIPAsString}}</textarea>
+                                    <div id="idDeniedIPHelp" class="form-text" data-i18n="general.ip_mask_help"></div>
+                                </div>
+                            </div>
+
+                            <div class="form-group row mt-10">
+                                <label for="idAllowedIP" data-i18n="general.allowed_ip_mask" class="col-md-3 col-form-label">Allowed IP/Mask</label>
+                                <div class="col-md-9">
+                                    <textarea class="form-control" id="idAllowedIP" name="allowed_ip" aria-describedby="idAllowedIPHelp"
+                                        rows="3">{{.User.GetDeniedIPAsString}}</textarea>
+                                    <div id="idAllowedIPHelp" class="form-text" data-i18n="general.ip_mask_help"></div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item {{- if .LoggedUser.Filters.Preferences.HideDiskQuotaAndBandwidthLimits}} d-none{{- end}}">
+                    <h2 class="accordion-header" id="headingQuota">
+                        <button class="accordion-button section-title-inner text-primary collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseQuota" aria-expanded="true" aria-controls="collapseQuota">
+                            <span data-i18n="general.quota_limits">Disk quota and bandwidth limits</span>
+                        </button>
+                    </h2>
+                    <div id="collapseQuota" class="accordion-collapse collapse" aria-labelledby="headingQuota" data-bs-parent="#accordionUser">
+                        <div class="accordion-body">
+
+                            <div class="form-group row mt-10">
+                                <label for="idQuotaSize" data-i18n="virtual_folders.quota_size" class="col-md-3 col-form-label">Quota size</label>
+                                <div class="col-md-3">
+                                    <input id="idQuotaSize" type="text" class="form-control" name="quota_size" value="{{HumanizeBytes .User.QuotaSize}}" aria-describedby="idQuotaSizeHelp" />
+                                    <div id="idQuotaSizeHelp" class="form-text" data-i18n="virtual_folders.quota_size_help"></div>
+                                </div>
+                                <div class="col-md-1"></div>
+                                <label for="idQuotaFiles" data-i18n="virtual_folders.quota_files" class="col-md-2 col-form-label">Quota files</label>
+                                <div class="col-md-3">
+                                    <input id="idQuotaFiles" type="number" min="0" class="form-control" name="quota_files" value="{{.User.QuotaFiles}}" aria-describedby="idQuotaFilesHelp" />
+                                    <div id="idQuotaFilesHelp" class="form-text" data-i18n="general.zero_no_limit_help"></div>
+                                </div>
+                            </div>
+
+                            <div class="form-group row mt-10">
+                                <label for="idMaxUploadSize" data-i18n="filters.max_upload_size" class="col-md-3 col-form-label">Max file upload size</label>
+                                <div class="col-md-9">
+                                    <input id="idMaxUploadSize" type="text" class="form-control" name="max_upload_file_size" value="{{HumanizeBytes .User.Filters.MaxUploadFileSize}}" aria-describedby="idMaxUploadSizeHelp" />
+                                    <div id="idMaxUploadSizeHelp" class="form-text" data-i18n="filters.max_upload_size_help"></div>
+                                </div>
+                            </div>
+
+                            <div class="form-group row mt-10">
+                                <label for="idUploadBandwidth" data-i18n="filters.upload_bandwidth" class="col-md-3 col-form-label">Bandwidth UL (KB/s)</label>
+                                <div class="col-md-3">
+                                    <input id="idUploadBandwidth" type="number" min="0" class="form-control" name="upload_bandwidth" value="{{.User.UploadBandwidth}}" aria-describedby="idUploadBandwidthHelp" />
+                                    <div id="idUploadBandwidthHelp" class="form-text" data-i18n="general.zero_no_limit_help"></div>
+                                </div>
+                                <div class="col-md-1"></div>
+                                <label for="idDownloadBandwidth" data-i18n="filters.download_bandwidth" class="col-md-2 col-form-label">Bandwidth DL (KB/s)</label>
+                                <div class="col-md-3">
+                                    <input id="idDownloadBandwidth" type="number" min="0" class="form-control" name="download_bandwidth" value="{{.User.DownloadBandwidth}}" aria-describedby="idDownloadBandwidthHelp" />
+                                    <div id="idDownloadBandwidthHelp" class="form-text" data-i18n="general.zero_no_limit_help"></div>
+                                </div>
+                            </div>
+
+                            <div class="card mt-10">
+                                <div class="card-header bg-light">
+                                    <h3 data-i18n="filters.src_bandwidth_limit" class="card-title section-title-inner">Per-source bandwidth speed limits</h3>
+                                </div>
+                                <div class="card-body">
+                                    <div id="src_bandwidth_limits">
+                                        <div class="form-group">
+                                            <div data-repeater-list="src_bandwidth_limits">
+                                                {{- range $idx, $bwLimit := .User.Filters.BandwidthLimits -}}
+                                                <div data-repeater-item>
+                                                    <div class="form-group row">
+                                                        <div class="col-md-7 mt-3 mt-md-8">
+                                                            <textarea class="form-control" name="bandwidth_limit_sources" rows="4">{{$bwLimit.GetSourcesAsString}}</textarea>
+                                                            <div class="form-text" data-i18n="general.ip_mask_help"></div>
+                                                        </div>
+                                                        <div class="col-md-2 mt-3 mt-md-8">
+                                                            <input type="number" min="0" class="form-control" name="upload_bandwidth_source" value="{{$bwLimit.UploadBandwidth}}" />
+                                                            <div class="form-text" data-i18n="filters.upload_bandwidth_help"></div>
+                                                        </div>
+                                                        <div class="col-md-2 mt-3 mt-md-8">
+                                                            <input type="number" min="0" class="form-control" name="download_bandwidth_source" value="{{$bwLimit.DownloadBandwidth}}" />
+                                                            <div class="form-text" data-i18n="filters.download_bandwidth_help"></div>
+                                                        </div>
+                                                        <div class="col-md-1 mt-3 mt-md-8">
+                                                            <a href="#" data-repeater-delete
+                                                                class="btn btn-light-danger ps-5 pe-4">
+                                                                <i class="ki-duotone ki-trash fs-2">
+                                                                    <span class="path1"></span>
+                                                                    <span class="path2"></span>
+                                                                    <span class="path3"></span>
+                                                                    <span class="path4"></span>
+                                                                    <span class="path5"></span>
+                                                                </i>
+                                                            </a>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                {{- else}}
+                                                <div data-repeater-item>
+                                                    <div class="form-group row">
+                                                        <div class="col-md-7 mt-3 mt-md-8">
+                                                            <textarea class="form-control" name="bandwidth_limit_sources" rows="4"></textarea>
+                                                            <div class="form-text" data-i18n="general.ip_mask_help"></div>
+                                                        </div>
+                                                        <div class="col-md-2 mt-3 mt-md-8">
+                                                            <input type="number" min="0" class="form-control" name="upload_bandwidth_source" value="" />
+                                                            <div class="form-text" data-i18n="filters.upload_bandwidth_help"></div>
+                                                        </div>
+                                                        <div class="col-md-2 mt-3 mt-md-8">
+                                                            <input type="number" min="0" class="form-control" name="download_bandwidth_source" value="" />
+                                                            <div class="form-text" data-i18n="filters.download_bandwidth_help"></div>
+                                                        </div>
+                                                        <div class="col-md-1 mt-3 mt-md-8">
+                                                            <a href="#" data-repeater-delete
+                                                                class="btn btn-light-danger ps-5 pe-4">
+                                                                <i class="ki-duotone ki-trash fs-2">
+                                                                    <span class="path1"></span>
+                                                                    <span class="path2"></span>
+                                                                    <span class="path3"></span>
+                                                                    <span class="path4"></span>
+                                                                    <span class="path5"></span>
+                                                                </i>
+                                                            </a>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                {{- end}}
+                                            </div>
+                                        </div>
+
+                                        <div class="form-group mt-5">
+                                            <a href="#" data-repeater-create class="btn btn-light-primary">
+                                                <i class="ki-duotone ki-plus fs-3"></i>
+                                                <span data-i18n="general.add">Add</span>
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-group row mt-10">
+                                <label for="idTransferUL" data-i18n="filters.upload_data_transfer" class="col-md-3 col-form-label">Upload data transfer (MB)</label>
+                                <div class="col-md-3">
+                                    <input id="idTransferUL" type="number" min="0" class="form-control" name="upload_data_transfer" value="{{.User.UploadDataTransfer}}" aria-describedby="idTransferULHelp" />
+                                    <div id="idTransferULHelp" class="form-text" data-i18n="filters.upload_data_transfer_help"></div>
+                                </div>
+                                <div class="col-md-1"></div>
+                                <label for="idTransferDL" data-i18n="filters.download_data_transfer" class="col-md-2 col-form-label">Download data transfer (MB)</label>
+                                <div class="col-md-3">
+                                    <input id="idTransferDL" type="number" min="0" class="form-control" name="download_data_transfer" value="{{.User.DownloadDataTransfer}}" aria-describedby="idTransferDLhHelp" />
+                                    <div id="idTransferDLhHelp" class="form-text" data-i18n="filters.download_data_transfer_help"></div>
+                                </div>
+                            </div>
+
+                            <div class="form-group row mt-10">
+                                <label for="idTransferTotal" data-i18n="filters.total_data_transfer" class="col-md-3 col-form-label">Total data transfer (MB)</label>
+                                <div class="col-md-9">
+                                    <input id="idTransferTotal" type="number" min="0" class="form-control" name="total_data_transfer" value="{{.User.TotalDataTransfer}}" aria-describedby="idTransferTotalHelp" />
+                                    <div id="idTransferTotalHelp" class="form-text" data-i18n="filters.total_data_transfer_help"></div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item {{- if .LoggedUser.Filters.Preferences.HideAdvancedSettings}} d-none{{- end}}">
+                    <h2 class="accordion-header" id="headingAdvanced">
+                        <button class="accordion-button section-title-inner text-primary collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAdvanced" aria-expanded="true" aria-controls="collapseAdvanced">
+                            <span data-i18n="general.advanced_settings">Advanced settings</span>
+                        </button>
+                    </h2>
+                    <div id="collapseAdvanced" class="accordion-collapse collapse" aria-labelledby="headingAdvanced" data-bs-parent="#accordionUser">
+                        <div class="accordion-body">
+
+                            <div class="form-group row mt-10">
+                                <label for="idStartDirectory" data-i18n="filters.start_directory" class="col-md-3 col-form-label">Start directory</label>
+                                <div class="col-md-9">
+                                    <input id="idStartDirectory" type="text" class="form-control" name="start_directory" value="{{.User.Filters.StartDirectory}}" aria-describedby="idStartDirectoryHelp" />
+                                    <div id="idStartDirectoryHelp" class="form-text" data-i18n="filters.start_directory_help"></div>
+                                </div>
+                            </div>
+
+                            <div class="form-group row mt-10">
+                                <label for="idTLSUsername" data-i18n="filters.tls_username" class="col-md-3 col-form-label">TLS username</label>
+                                <div class="col-md-9">
+                                    <select id="idTLSUsername" name="tls_username" class="form-select" data-control="i18n-select2" data-hide-search="true" aria-describedby="idTLSUsernameHelp">
+                                        <option value="" {{if or (eq .User.Filters.TLSUsername "None") (eq .User.Filters.TLSUsername "") }}selected{{end}}>---</option>
                                         <option value="CommonName" {{if eq .User.Filters.TLSUsername "CommonName" }}selected{{end}}>Common Name</option>
                                     </select>
-                                    <small id="tlsUsernameHelpBlock" class="form-text text-muted">
-                                        Defines the TLS certificate field to use as username. Ignored if mutual TLS is disabled
-                                    </small>
+                                    <div id="idTLSUsernameHelp" class="form-text" data-i18n="filters.tls_username_help"></div>
                                 </div>
                             </div>
 
-                            <div class="form-group row">
-                                <label for="idFTPSecurity" class="col-sm-2 col-form-label">FTP security</label>
-                                <div class="col-sm-10">
-                                    <select class="form-control selectpicker" id="idFTPSecurity" name="ftp_security" aria-describedby="ftpSecurityHelpBlock">
-                                        <option value="" {{if eq .User.Filters.FTPSecurity 0 }}selected{{end}}>Server settings</option>
-                                        <option value="1" {{if eq .User.Filters.FTPSecurity 1 }}selected{{end}}>Mandatory encryption</option>
+                            <div class="form-group row mt-10">
+                                <label for="idFTPSecurity" data-i18n="filters.ftp_security" class="col-md-3 col-form-label">FTP security</label>
+                                <div class="col-md-9">
+                                    <select id="idFTPSecurity" name="tls_username" class="form-select" data-control="i18n-select2" data-hide-search="true" aria-describedby="idFTPSecurityHelp">
+                                        <option value="" data-i18n="general.global_settings" {{if eq .User.Filters.FTPSecurity 0 }}selected{{end}}>Server settings</option>
+                                        <option value="1" data-i18n="general.mandatory_encryption" {{if eq .User.Filters.FTPSecurity 1 }}selected{{end}}>Mandatory encryption</option>
                                     </select>
-                                    <small id="ftpSecurityHelpBlock" class="form-text text-muted">
-                                        Ignored if TLS is globally required for all FTP users
-                                    </small>
+                                    <div id="idFTPSecurityHelp" class="form-text" data-i18n="filters.ftp_security_help"></div>
                                 </div>
                             </div>
 
-                            <div class="form-group row">
-                                <label for="idHooks" class="col-sm-2 col-form-label">Hooks</label>
-                                <div class="col-sm-10">
-                                    <select class="form-control selectpicker" id="idHooks" name="hooks" multiple>
-                                        <option value="external_auth_disabled" {{if .User.Filters.Hooks.ExternalAuthDisabled}}selected{{end}}>
+                            <div class="form-group row mt-10">
+                                <label for="idHooks" data-i18n="filters.hooks" class="col-md-3 col-form-label">Hooks</label>
+                                <div class="col-md-9">
+                                    <select id="idHooks" name="hooks" class="form-select" data-control="i18n-select2" data-hide-search="true" data-close-on-select="false" multiple>
+                                        <option value="external_auth_disabled" data-i18n="filters.hook_ext_auth_disabled" {{if .User.Filters.Hooks.ExternalAuthDisabled}}selected{{end}}>
                                             External auth disabled
                                         </option>
-                                        <option value="pre_login_disabled" {{if .User.Filters.Hooks.PreLoginDisabled}}selected{{end}}>
+                                        <option value="pre_login_disabled" data-i18n="filters.hook_pre_login_disabled" {{if .User.Filters.Hooks.PreLoginDisabled}}selected{{end}}>
                                             Pre-login disabled
                                         </option>
-                                        <option value="check_password_disabled" {{if .User.Filters.Hooks.CheckPasswordDisabled}}selected{{end}}>
+                                        <option value="check_password_disabled" data-i18n="filters.hook_check_password_disabled" {{if .User.Filters.Hooks.CheckPasswordDisabled}}selected{{end}}>
                                             Check password disabled
                                         </option>
                                     </select>
                                 </div>
                             </div>
 
-                            <div class="form-group row {{if not .CanImpersonate}}d-none{{end}}">
-                                <label for="idUID" class="col-sm-2 col-form-label">UID</label>
-                                <div class="col-sm-3">
-                                    <input type="number" class="form-control" id="idUID" name="uid" placeholder="" value="{{.User.UID}}"
-                                        min="0" max="2147483647">
+                            <div class="form-group row mt-10 {{if not .CanImpersonate}}d-none{{end}}">
+                                <label for="idUID" class="col-md-3 col-form-label">UID</label>
+                                <div class="col-md-3">
+                                    <input id="idUID" type="number" min="0" max="2147483647" class="form-control" name="uid" value="{{.User.UID}}" />
                                 </div>
-                                <div class="col-sm-2"></div>
-                                <label for="idGID" class="col-sm-2 col-form-label">GID</label>
-                                <div class="col-sm-3">
-                                    <input type="number" class="form-control" id="idGID" name="gid" placeholder="" value="{{.User.GID}}"
-                                        min="0" max="2147483647">
+                                <div class="col-md-1"></div>
+                                <label for="idGID" class="col-md-2 col-form-label">GID</label>
+                                <div class="col-md-3">
+                                    <input id="idGID" type="number" min="0" max="2147483647" class="form-control" name="gid" value="{{.User.GID}}" />
                                 </div>
                             </div>
 
-                            <div class="form-group">
-                                <div class="form-check">
-                                    <input type="checkbox" class="form-check-input" id="idAnonymous" name="is_anonymous"
-                                    {{if .User.Filters.IsAnonymous}}checked{{end}} aria-describedby="anonymousHelpBlock">
-                                    <label for="idAnonymous" class="form-check-label">Is Anonymous</label>
-                                    <small id="anonymousHelpBlock" class="form-text text-muted">
-                                        Anonymous users are supported for FTP and WebDAV protocols and have read-only access
-                                    </small>
+                            <div class="form-group row align-items-center mt-10">
+                                <label data-i18n="filters.is_anonymous" class="col-md-3 col-form-label" for="idAnonymous">Is Anonymous</label>
+                                <div class="col-md-9">
+                                    <div class="form-check form-switch form-check-custom form-check-solid">
+                                        <input class="form-check-input" type="checkbox" id="idAnonymous" name="is_anonymous" {{if .User.Filters.IsAnonymous}}checked{{end}}/>
+                                        <label data-i18n="filters.is_anonymous_help" class="form-check-label fw-semibold text-gray-800" for="idAnonymous">
+                                            Anonymous users are supported for FTP and WebDAV protocols and have read-only access
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div class="form-group">
-                                <div class="form-check">
-                                    <input type="checkbox" class="form-check-input" id="idDisableFsChecks" name="disable_fs_checks"
-                                    {{if .User.Filters.DisableFsChecks}}checked{{end}} aria-describedby="disableFsChecksHelpBlock">
-                                    <label for="idDisableFsChecks" class="form-check-label">Disable filesystem checks</label>
-                                    <small id="disableFsChecksHelpBlock" class="form-text text-muted">
-                                        Disable checks for existence and automatic creation of home directory and virtual folders
-                                    </small>
+                            <div class="form-group row align-items-center mt-10">
+                                <label data-i18n="filters.disable_fs_checks" class="col-md-3 col-form-label" for="idDisableFsChecks">Disable filesystem checks</label>
+                                <div class="col-md-9">
+                                    <div class="form-check form-switch form-check-custom form-check-solid">
+                                        <input class="form-check-input" type="checkbox" id="idDisableFsChecks" name="disable_fs_checks" {{if .User.Filters.DisableFsChecks}}checked{{end}}/>
+                                        <label data-i18n="filters.disable_fs_checks_help" class="form-check-label fw-semibold text-gray-800" for="idDisableFsChecks">
+                                            Disable checks for existence and automatic creation of home directory and virtual folders
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div class="form-group">
-                                <div class="form-check">
-                                    <input type="checkbox" class="form-check-input" id="idAllowAPIKeyAuth" name="allow_api_key_auth"
-                                    {{if .User.Filters.AllowAPIKeyAuth}}checked{{end}} aria-describedby="allowAPIKeyAuthHelpBlock">
-                                    <label for="idAllowAPIKeyAuth" class="form-check-label">Allow API key authentication</label>
-                                    <small id="allowAPIKeyAuthHelpBlock" class="form-text text-muted">
-                                        Allow to impersonate this user, in REST API, with an API key
-                                    </small>
+                            <div class="form-group row align-items-center mt-10">
+                                <label data-i18n="general.api_key_auth" class="col-md-3 col-form-label" for="idAllowAPIKeyAuth">API key authentication</label>
+                                <div class="col-md-9">
+                                    <div class="form-check form-switch form-check-custom form-check-solid">
+                                        <input class="form-check-input" type="checkbox" id="idAllowAPIKeyAuth" name="allow_api_key_auth" {{if .User.Filters.AllowAPIKeyAuth}}checked{{end}}/>
+                                        <label data-i18n="filters.api_key_auth_help" class="form-check-label fw-semibold text-gray-800" for="idAllowAPIKeyAuth">
+                                            Allow to impersonate this user, in REST API, with an API key
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div class="form-group row {{if not .User.HasExternalAuth}}d-none{{end}}">
-                                <label for="idExtAuthCacheTime" class="col-sm-2 col-form-label">External auth cache time</label>
-                                <div class="col-sm-10">
-                                    <input type="number" min="0" class="form-control" id="idExtAuthCacheTime" name="external_auth_cache_time" placeholder=""
-                                        value="{{.User.Filters.ExternalAuthCacheTime}}" aria-describedby="extAuthCacheHelpBlock">
-                                    <small id="extAuthCacheHelpBlock" class="form-text text-muted">
-                                        Cache time, in seconds, for users authenticated using an external auth hook. 0 means no cache
-                                    </small>
+                            <div class="form-group row mt-10 {{if not .User.HasExternalAuth}}d-none{{end}}">
+                                <label for="idExtAuthCacheTime" data-i18n="filters.external_auth_cache_time" class="col-md-3 col-form-label">External auth cache time</label>
+                                <div class="col-md-9">
+                                    <input id="idExtAuthCacheTime" type="number" min="0" class="form-control" name="external_auth_cache_time" value="{{.User.Filters.ExternalAuthCacheTime}}" aria-describedby="idExtAuthCacheTimeHelp" />
+                                    <div id="idExtAuthCacheTimeHelp" class="form-text" data-i18n="filters.external_auth_cache_time_help"></div>
                                 </div>
                             </div>
 
                         </div>
                     </div>
                 </div>
-            </div>
-            <br>
 
-            {{if eq .Mode 2}}
-            <div class="form-group">
-                <div class="form-check">
-                    <input type="checkbox" class="form-check-input" id="idDisconnect" name="disconnect"
-                        aria-describedby="disconnectHelpBlock">
-                    <label for="idDisconnect" class="form-check-label">Disconnect the user after the update</label>
-                    <small id="disconnectHelpBlock" class="form-text text-muted">
-                        This way you force the user to login again, if connected, and so to use the new configuration
-                    </small>
+            </div>
+
+            {{- if eq .Mode 2}}
+            <div class="form-group row align-items-center mt-10">
+                <label data-i18n="user.disconnect" class="col-md-3 col-form-label" for="idDisconnect">Disconnect the user after the update</label>
+                <div class="col-md-9">
+                    <div class="form-check form-switch form-check-custom form-check-solid">
+                        <input class="form-check-input" type="checkbox" id="idDisconnect" name="disconnect"/>
+                        <label data-i18n="user.disconnect_help" class="form-check-label fw-semibold text-gray-800" for="idDisconnect">
+                            This way you force the user to login again, if connected, and so to use the new configuration
+                        </label>
+                    </div>
                 </div>
             </div>
-            {{end}}
+            {{- end}}
 
-            <input type="hidden" name="expiration_date" id="hidden_start_datetime" value="">
-            <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
-            <div class="col-sm-12 text-right px-0">
-                {{if eq .Mode 3}}
-                <button type="submit" class="btn btn-secondary mt-3 px-5" name="form_action" value="export_from_template">Generate and export users</button>
-                {{end}}
-                <button type="submit" class="btn btn-primary mt-3 ml-3 px-5" name="form_action" value="submit">{{if eq .Mode 3}}Generate and save new users{{else}}Submit{{end}}</button>
+            <div class="d-flex justify-content-end mt-12">
+                <input type="hidden" name="expiration_date" id="hidden_start_datetime" value="">
+                <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
+                {{- if eq .Mode 3}}
+                <button type="submit" id="form_generate_submit" class="btn btn-primary px-10 me-10" name="form_action" value="export_from_template">
+                    <span data-i18n="user.submit_export" class="indicator-label">
+                        Generate and export users
+                    </span>
+                    <span data-i18n="general.wait" class="indicator-progress">
+                        Please wait...
+                        <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
+                    </span>
+                </button>
+                {{- end}}
+                <button type="submit" id="form_submit" class="btn btn-primary px-10" name="form_action" value="submit">
+                    <span {{if eq .Mode 3}}data-i18n="user.submit_generate"{{else}}data-i18n="general.submit"{{end}} class="indicator-label">
+                        Submit
+                    </span>
+                    <span data-i18n="general.wait" class="indicator-progress">
+                        Please wait...
+                        <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
+                    </span>
+                </button>
             </div>
         </form>
+
     </div>
 </div>
-{{end}}
+{{- end}}
 
-{{define "extra_js"}}
-<script src="{{.StaticURL}}/vendor/moment/js/moment.min.js"></script>
-<script src="{{.StaticURL}}/vendor/tempusdominus/js/tempusdominus-bootstrap-4.min.js"></script>
-<script src="{{.StaticURL}}/vendor/bootstrap-select/js/bootstrap-select.min.js"></script>
-<script type="text/javascript">
-    $(document).ready(function () {
-        {{if .Error}}
-        {{if ne .LoggedAdmin.Filters.Preferences.VisibleUserPageSections 0}}
-        $('#accordionUser .collapse').removeAttr("data-parent").collapse('show');
-        {{end}}
-        {{end}}
-        $('#expirationDatePicker').datetimepicker({
-            format: 'YYYY-MM-DD',
-            buttons: {
-                showClear: false,
-                showClose: true,
-                showToday: false
-            },
-            widgetPositioning: {
-                horizontal: 'auto',
-                vertical: 'bottom'
-            }
-        });
+{{- define "extra_js"}}
+<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/plugins/custom/formrepeater/formrepeater.bundle.js"></script>
+<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/plugins/custom/flatpickr/l10n/it.js"></script>
+<script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
+    function onFilesystemChanged(val){
+        $('.form-group.fsconfig').hide();
+        $('.form-group.fsconfig-'+val).show();
+    }
 
-        {{ if gt .User.ExpirationDate 0 }}
-        var input_dt = moment({{.User.ExpirationDate }}).format('YYYY-MM-DD');
-        $('#idExpirationDate').val(input_dt);
-        $('#expirationDatePicker').datetimepicker('viewDate', input_dt);
-        {{ end }}
-
-        $("#user_form").submit(function (event) {
-            var dt = $('#idExpirationDate').val();
-            if (dt) {
-                var d = $('#expirationDatePicker').datetimepicker('viewDate');
-                if (d) {
-                    var dateString = moment(d).format('YYYY-MM-DD HH:mm:ss');
-                    $('#hidden_start_datetime').val(dateString);
-                } else {
-                    $('#hidden_start_datetime').val("");
-                }
-            } else {
-                $('#hidden_start_datetime').val("");
-            }
-            return true;
-        });
-
+    $(document).on("i18nload", function(){
         onFilesystemChanged('{{.User.FsConfig.Provider.Name}}');
+
+        $('#idFilesystem').on("change", function(){
+            onFilesystemChanged(this.value);
+        });
     });
 
-    $("body").on("click", ".add_new_pk_field_btn", function () {
-        let index = $(".form_field_pk_outer").find(".form_field_pk_outer_row").length;
-        while (document.getElementById("idPublicKey"+index) != null){
-            index++;
-        }
-        $(".form_field_pk_outer").append(`
-                <div class="row form_field_pk_outer_row">
-                    <div class="form-group col-md-11">
-                        <textarea class="form-control" id="idPublicKey${index}" name="public_keys" rows="3"
-                            placeholder="Paste your public key here"></textarea>
-                    </div>
-                    <div class="form-group col-md-1">
-                        <button class="btn btn-circle btn-danger remove_pk_btn_frm_field">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                </div>
-            `);
-    });
+    $(document).on("i18nshow", function(){
+            //{{- if eq .Mode 3}}
+            initRepeater('#template_users');
+            //{{- else}}
+            initRepeater('#public_keys');
+            //{{- end}}
+            initRepeater('#virtual_folders');
+            initRepeater('#directory_permissions');
+            initRepeater('#directory_patterns');
+            initRepeater('#src_bandwidth_limits');
+            initRepeaterItems();
+            //{{- if .Error}}
+            //{{- if ne .LoggedUser.Filters.Preferences.VisibleUserPageSections 0}}
+            $('#accordionUser .collapse').removeAttr("data-bs-parent").collapse('show');
+            //{{- end}}
+            //{{- end}}
+            const picker = $('#id_expiration').flatpickr({
+                enableTime: false,
+                time_24hr: true,
+                formatDate: (date, format, locale) => {
+                    return $.t('general.datetime', {
+                                val: new Date(date),
+                                formatParams: {
+                                    val: { year: 'numeric', month: 'numeric', day: 'numeric' },
+                                }
+                            });
+                },
+                defaultHour: 23,
+                defaultMinute: 59,
+                locale: i18next.resolvedLanguage,
+                onChange: function(selectedDates, dateStr, instance) {
+                    if (selectedDates.length > 0){
+                        $('#id_expiration_clear').removeClass("d-none");
+                    } else {
+                        $('#id_expiration_clear').addClass("d-none");
+                    }
+                }
+            });
+            //{{ if gt .User.ExpirationDate 0 }}
+            let input_dt = moment('{{.User.ExpirationDate }}', 'x').format('YYYY-MM-DD');
+            picker.setDate(input_dt, true);
+            //{{ end }}
 
-    $("body").on("click", ".remove_pk_btn_frm_field", function () {
-        $(this).closest(".form_field_pk_outer_row").remove();
-    });
+            $('#id_expiration_clear').on("click", function(e){
+                e.preventDefault();
+                picker.clear();
+            });
 
-    $("body").on("click", ".add_new_tpl_user_field_btn", function () {
-        let index = $(".form_field_tpl_users_outer").find(".form_field_tpl_user_outer_row").length;
-        while (document.getElementById("idTplUsername"+index) != null){
-            index++;
-        }
-        $(".form_field_tpl_users_outer").append(`
-                <div class="row form_field_tpl_user_outer_row">
-                    <div class="form-group col-md-3">
-                        <input type="text" class="form-control" id="idTplUsername${index}" name="tpl_username" placeholder="Username" maxlength="255" spellcheck="false">
-                    </div>
-                    <div class="form-group col-md-3">
-                        <input type="password" class="form-control" id="idTplPassword${index}" name="tpl_password" placeholder="Password" autocomplete="new-password" spellcheck="false">
-                    </div>
-                    <div class="form-group col-md-5">
-                        <textarea class="form-control" id="idTplPublicKey${index}" name="tpl_public_keys" rows="5"
-                            placeholder="Paste your public key here"></textarea>
-                    </div>
-                    <div class="form-group col-md-1">
-                        <button class="btn btn-circle btn-danger remove_tpl_user_btn_frm_field">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                </div>
-            `);
-    });
+            $("#user_form").submit(function (event) {
+                $('#hidden_start_datetime').val("");
+                let dt = picker.selectedDates;
+                if (dt.length > 0) {
+                    let d = dt[0];
+                    if (d) {
+                        let dateString = moment.utc(d).format('YYYY-MM-DD HH:mm:ss');
+                        $('#hidden_start_datetime').val(dateString);
+                    }
+                }
+                let submitButton = document.querySelector('#form_submit');
+                submitButton.setAttribute('data-kt-indicator', 'on');
+                submitButton.disabled = true;
+                //{{- if eq .Mode 3}}
+                let generateButton = document.querySelector('#form_generate_submit');
+                generateButton.setAttribute('data-kt-indicator', 'on');
+                generateButton.disabled = true;
+                //{{- end}}
+            });
 
-    $("body").on("click", ".remove_tpl_user_btn_frm_field", function () {
-        $(this).closest(".form_field_tpl_user_outer_row").remove();
-    });
+        });
 </script>
-{{template "fsjs"}}
-{{template "shared_user_group" .}}
-{{end}}
+{{- end}}
