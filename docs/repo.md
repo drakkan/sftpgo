@@ -75,7 +75,7 @@ Add the SFTPGo repository:
 
 ```shell
 ARCH=`uname -m`
-sudo zypper addrepo "https://ftp.osuosl.org/pub/sftpgo/yum/${ARCH}" sftpgo
+sudo zypper addrepo -f "https://ftp.osuosl.org/pub/sftpgo/yum/${ARCH}" sftpgo
 ```
 
 Reload the package database and install SFTPGo:
