@@ -28,9 +28,9 @@ type HostEvent string
 // Supported host events
 const (
 	HostEventLoginFailed   HostEvent = "LoginFailed"
-	HostEventUserNotFound            = "UserNotFound"
-	HostEventNoLoginTried            = "NoLoginTried"
-	HostEventLimitExceeded           = "LimitExceeded"
+	HostEventUserNotFound  HostEvent = "UserNotFound"
+	HostEventNoLoginTried  HostEvent = "NoLoginTried"
+	HostEventLimitExceeded HostEvent = "LimitExceeded"
 )
 
 // Supported defender drivers
@@ -133,7 +133,7 @@ func (d *baseDefender) getScore(event HostEvent) int {
 	return score
 }
 
-// logEvent do log an defender event which modifies the score of an host
+// logEvent logs a defender event that changes a host's score
 func (d *baseDefender) logEvent(ip, protocol string, event HostEvent, totalScore int) {
 	// ignore events which do not change the host score
 	eventScore := d.getScore(event)
@@ -152,7 +152,7 @@ func (d *baseDefender) logEvent(ip, protocol string, event HostEvent, totalScore
 		Send()
 }
 
-// logBan do log a ban of an host due to a too high host score
+// logBan logs a host's ban due to a too high host score
 func (d *baseDefender) logBan(ip, protocol string) {
 	logger.GetLogger().Info().
 		Timestamp().
