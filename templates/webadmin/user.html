@@ -291,7 +291,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                                 <input type="text" class="form-control" name="vfolder_quota_size" value="{{HumanizeBytes $val.QuotaSize}}" />
                                                 <div class="form-text" data-i18n="virtual_folders.quota_size"></div>
                                             </div>
-                                            <div class="col-md-2">
+                                            <div class="col-md-2 mt-3 mt-md-8">
                                                 <input type="number" min="-1" class="form-control" name="vfolder_quota_files" value="{{$val.QuotaFiles}}" />
                                                 <div class="form-text" data-i18n="virtual_folders.quota_files"></div>
                                             </div>
@@ -435,8 +435,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                             <div class="form-group row mt-10">
                                 <label for="idDescription" data-i18n="general.description" class="col-md-3 col-form-label">Description</label>
                                 <div class="col-md-9">
-                                    <input id="idDescription" type="text" class="form-control" name="description" maxlength="255"
-                                        placeholder="">{{.User.Description}}</textarea>
+                                    <input id="idDescription" type="text" class="form-control" name="description" value="{{.User.Description}}" maxlength="255">
                                 </div>
                             </div>
 
@@ -909,7 +908,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                             <div class="form-group row mt-10">
                                 <label for="idFTPSecurity" data-i18n="filters.ftp_security" class="col-md-3 col-form-label">FTP security</label>
                                 <div class="col-md-9">
-                                    <select id="idFTPSecurity" name="tls_username" class="form-select" data-control="i18n-select2" data-hide-search="true" aria-describedby="idFTPSecurityHelp">
+                                    <select id="idFTPSecurity" name="ftp_security" class="form-select" data-control="i18n-select2" data-hide-search="true" aria-describedby="idFTPSecurityHelp">
                                         <option value="" data-i18n="general.global_settings" {{if eq .User.Filters.FTPSecurity 0 }}selected{{end}}>Server settings</option>
                                         <option value="1" data-i18n="general.mandatory_encryption" {{if eq .User.Filters.FTPSecurity 1 }}selected{{end}}>Mandatory encryption</option>
                                     </select>

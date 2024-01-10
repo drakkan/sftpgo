@@ -158,13 +158,13 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <div class="form-group row mt-10 fsconfig fsconfig-s3fs">
             <label for="idS3UploadTimeout" data-i18n="storage.ul_part_timeout" class="col-md-3 col-form-label">UL Part Timeout (secs)</label>
             <div class="col-md-3">
-                <input id="idS3UploadTimeout" type="number" min="0" class="form-control" name="s3_upload_part_max_time" value="{{.S3Config.DownloadPartSize}}" aria-describedby="idS3UploadTimeoutHelp" />
+                <input id="idS3UploadTimeout" type="number" min="0" class="form-control" name="s3_upload_part_max_time" value="{{.S3Config.UploadPartMaxTime}}" aria-describedby="idS3UploadTimeoutHelp" />
                 <div id="idS3UploadTimeoutHelp" class="form-text" data-i18n="storage.ul_part_timeout_help"></div>
             </div>
             <div class="col-md-1"></div>
             <label for="idS3DownloadTimeout" data-i18n="storage.dl_part_timeout" class="col-md-2 col-form-label">DL Part Timeout (secs)</label>
             <div class="col-md-3">
-                <input id="idS3DownloadTimeout" type="number" min="0" class="form-control" name="s3_download_part_max_time" value="{{.S3Config.DownloadConcurrency}}" aria-describedby="idS3DownloadTimeoutHelp" />
+                <input id="idS3DownloadTimeout" type="number" min="0" class="form-control" name="s3_download_part_max_time" value="{{.S3Config.DownloadPartMaxTime}}" aria-describedby="idS3DownloadTimeoutHelp" />
                 <div id="idS3DownloadTimeoutHelp" class="form-text" data-i18n="storage.dl_part_timeout_help"></div>
             </div>
         </div>

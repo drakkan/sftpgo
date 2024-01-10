@@ -1242,8 +1242,8 @@ func getUsersForTemplate(r *http.Request) []userTemplateFields {
 	tplPublicKeys := r.Form["tpl_public_keys"]
 
 	users := make(map[string]bool)
-	for idx, username := range tplUsernames {
-		username = strings.TrimSpace(username)
+	for idx := range tplUsernames {
+		username := tplUsernames[idx]
 		password := ""
 		publicKey := ""
 		if len(tplPasswords) > idx {
@@ -1277,7 +1277,6 @@ func getVirtualFoldersFromPostFields(r *http.Request) []vfs.VirtualFolder {
 	folderQuotaSizes := r.Form["vfolder_quota_size"]
 	folderQuotaFiles := r.Form["vfolder_quota_files"]
 	for idx, p := range folderPaths {
-		p = strings.TrimSpace(p)
 		name := ""
 		if len(folderNames) > idx {
 			name = folderNames[idx]
@@ -1298,7 +1297,7 @@ func getVirtualFoldersFromPostFields(r *http.Request) []vfs.VirtualFolder {
 				}
 			}
 			if len(folderQuotaFiles) > idx {
-				quotaFiles, err := strconv.Atoi(strings.TrimSpace(folderQuotaFiles[idx]))
+				quotaFiles, err := strconv.Atoi(folderQuotaFiles[idx])
 				if err == nil {
 					vfolder.QuotaFiles = quotaFiles
 				}
@@ -1313,13 +1312,9 @@ func getVirtualFoldersFromPostFields(r *http.Request) []vfs.VirtualFolder {
 func getSubDirPermissionsFromPostFields(r *http.Request) map[string][]string {
 	permissions := make(map[string][]string)
 
-	for k := range r.Form {
-		if strings.HasPrefix(k, "sub_perm_path") {
-			p := strings.TrimSpace(r.Form.Get(k))
-			if p != "" {
-				idx := strings.TrimPrefix(k, "sub_perm_path")
-				permissions[p] = r.Form[fmt.Sprintf("sub_perm_permissions%v", idx)]
-			}
+	for idx, p := range r.Form["sub_perm_path"] {
+		if p != "" {
+			permissions[p] = r.Form["sub_perm_permissions"+strconv.Itoa(idx)]
 		}
 	}
 
@@ -1335,33 +1330,39 @@ func getUserPermissionsFromPostFields(r *http.Request) map[string][]string {
 
 func getBandwidthLimitsFromPostFields(r *http.Request) ([]sdk.BandwidthLimit, error) {
 	var result []sdk.BandwidthLimit
+	bwSources := r.Form["bandwidth_limit_sources"]
+	uploadSources := r.Form["upload_bandwidth_source"]
+	downloadSources := r.Form["download_bandwidth_source"]
 
-	for k := range r.Form {
-		if strings.HasPrefix(k, "bandwidth_limit_sources") {
-			sources := getSliceFromDelimitedValues(r.Form.Get(k), ",")
-			if len(sources) > 0 {
-				bwLimit := sdk.BandwidthLimit{
-					Sources: sources,
-				}
-				idx := strings.TrimPrefix(k, "bandwidth_limit_sources")
-				ul := r.Form.Get(fmt.Sprintf("upload_bandwidth_source%v", idx))
-				dl := r.Form.Get(fmt.Sprintf("download_bandwidth_source%v", idx))
-				if ul != "" {
-					bandwidthUL, err := strconv.ParseInt(ul, 10, 64)
-					if err != nil {
-						return result, fmt.Errorf("invalid upload_bandwidth_source%v %q: %w", idx, ul, err)
-					}
-					bwLimit.UploadBandwidth = bandwidthUL
-				}
-				if dl != "" {
-					bandwidthDL, err := strconv.ParseInt(dl, 10, 64)
-					if err != nil {
-						return result, fmt.Errorf("invalid download_bandwidth_source%v %q: %w", idx, ul, err)
-					}
-					bwLimit.DownloadBandwidth = bandwidthDL
-				}
-				result = append(result, bwLimit)
+	for idx, bwSource := range bwSources {
+		sources := getSliceFromDelimitedValues(bwSource, ",")
+		if len(sources) > 0 {
+			bwLimit := sdk.BandwidthLimit{
+				Sources: sources,
 			}
+			ul := ""
+			dl := ""
+			if len(uploadSources) > idx {
+				ul = uploadSources[idx]
+			}
+			if len(downloadSources) > idx {
+				dl = downloadSources[idx]
+			}
+			if ul != "" {
+				bandwidthUL, err := strconv.ParseInt(ul, 10, 64)
+				if err != nil {
+					return result, fmt.Errorf("invalid upload_bandwidth_source%v %q: %w", idx, ul, err)
+				}
+				bwLimit.UploadBandwidth = bandwidthUL
+			}
+			if dl != "" {
+				bandwidthDL, err := strconv.ParseInt(dl, 10, 64)
+				if err != nil {
+					return result, fmt.Errorf("invalid download_bandwidth_source%v %q: %w", idx, ul, err)
+				}
+				bwLimit.DownloadBandwidth = bandwidthDL
+			}
+			result = append(result, bwLimit)
 		}
 	}
 
@@ -1378,28 +1379,37 @@ func getPatterDenyPolicyFromString(policy string) int {
 
 func getFilePatternsFromPostField(r *http.Request) []sdk.PatternsFilter {
 	var result []sdk.PatternsFilter
+	patternPaths := r.Form["pattern_path"]
+	patterns := r.Form["patterns"]
+	patternTypes := r.Form["pattern_type"]
+	policies := r.Form["pattern_policy"]
 
 	allowedPatterns := make(map[string][]string)
 	deniedPatterns := make(map[string][]string)
 	patternPolicies := make(map[string]string)
 
-	for k := range r.Form {
-		if strings.HasPrefix(k, "pattern_path") {
-			p := strings.TrimSpace(r.Form.Get(k))
-			idx := strings.TrimPrefix(k, "pattern_path")
-			filters := strings.TrimSpace(r.Form.Get(fmt.Sprintf("patterns%v", idx)))
-			filters = strings.ReplaceAll(filters, " ", "")
-			patternType := r.Form.Get(fmt.Sprintf("pattern_type%v", idx))
-			patternPolicy := r.Form.Get(fmt.Sprintf("pattern_policy%v", idx))
-			if p != "" && filters != "" {
-				if patternType == "allowed" {
-					allowedPatterns[p] = append(allowedPatterns[p], strings.Split(filters, ",")...)
-				} else {
-					deniedPatterns[p] = append(deniedPatterns[p], strings.Split(filters, ",")...)
-				}
-				if patternPolicy != "" && patternPolicy != "0" {
-					patternPolicies[p] = patternPolicy
-				}
+	for idx := range patternPaths {
+		p := patternPaths[idx]
+		filters := ""
+		patternType := ""
+		patternPolicy := ""
+		if len(patterns) > idx {
+			filters = strings.ReplaceAll(patterns[idx], " ", "")
+		}
+		if len(patternTypes) > idx {
+			patternType = patternTypes[idx]
+		}
+		if len(patternPolicies) > idx {
+			patternPolicy = policies[idx]
+		}
+		if p != "" && filters != "" {
+			if patternType == "allowed" {
+				allowedPatterns[p] = append(allowedPatterns[p], strings.Split(filters, ",")...)
+			} else {
+				deniedPatterns[p] = append(deniedPatterns[p], strings.Split(filters, ",")...)
+			}
+			if patternPolicy != "" && patternPolicy != "0" {
+				patternPolicies[p] = patternPolicy
 			}
 		}
 	}
@@ -1972,6 +1982,51 @@ func getQuotaLimits(r *http.Request) (int64, int, error) {
 	return quotaSize, quotaFiles, nil
 }
 
+func updateUserFormFields(r *http.Request) {
+	for k := range r.Form {
+		if hasPrefixAndSuffix(k, "public_keys[", "][public_key]") {
+			r.Form.Add("public_keys", r.Form.Get(k))
+			continue
+		}
+		if hasPrefixAndSuffix(k, "virtual_folders[", "][vfolder_path]") {
+			base, _ := strings.CutSuffix(k, "[vfolder_path]")
+			r.Form.Add("vfolder_path", strings.TrimSpace(r.Form.Get(k)))
+			r.Form.Add("vfolder_name", strings.TrimSpace(r.Form.Get(base+"[vfolder_name]")))
+			r.Form.Add("vfolder_quota_files", strings.TrimSpace(r.Form.Get(base+"[vfolder_quota_files]")))
+			r.Form.Add("vfolder_quota_size", strings.TrimSpace(r.Form.Get(base+"[vfolder_quota_size]")))
+			continue
+		}
+		if hasPrefixAndSuffix(k, "directory_permissions[", "][sub_perm_path]") {
+			base, _ := strings.CutSuffix(k, "[sub_perm_path]")
+			r.Form.Add("sub_perm_path", strings.TrimSpace(r.Form.Get(k)))
+			r.Form["sub_perm_permissions"+strconv.Itoa(len(r.Form["sub_perm_path"])-1)] = r.Form[base+"[sub_perm_permissions][]"]
+			continue
+		}
+		if hasPrefixAndSuffix(k, "directory_patterns[", "][pattern_path]") {
+			base, _ := strings.CutSuffix(k, "[pattern_path]")
+			r.Form.Add("pattern_path", strings.TrimSpace(r.Form.Get(k)))
+			r.Form.Add("patterns", strings.TrimSpace(r.Form.Get(base+"[patterns]")))
+			r.Form.Add("pattern_type", strings.TrimSpace(r.Form.Get(base+"[pattern_type]")))
+			r.Form.Add("pattern_policy", strings.TrimSpace(r.Form.Get(base+"[pattern_policy]")))
+			continue
+		}
+		if hasPrefixAndSuffix(k, "src_bandwidth_limits[", "][bandwidth_limit_sources]") {
+			base, _ := strings.CutSuffix(k, "[bandwidth_limit_sources]")
+			r.Form.Add("bandwidth_limit_sources", r.Form.Get(k))
+			r.Form.Add("upload_bandwidth_source", strings.TrimSpace(r.Form.Get(base+"[upload_bandwidth_source]")))
+			r.Form.Add("download_bandwidth_source", strings.TrimSpace(r.Form.Get(base+"[download_bandwidth_source]")))
+			continue
+		}
+		if hasPrefixAndSuffix(k, "template_users[", "][tpl_username]") {
+			base, _ := strings.CutSuffix(k, "[tpl_username]")
+			r.Form.Add("tpl_username", strings.TrimSpace(r.Form.Get(k)))
+			r.Form.Add("tpl_password", strings.TrimSpace(r.Form.Get(base+"[tpl_password]")))
+			r.Form.Add("tpl_public_keys", strings.TrimSpace(r.Form.Get(base+"[tpl_public_keys]")))
+			continue
+		}
+	}
+}
+
 func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 	user := dataprovider.User{}
 	err := r.ParseMultipartForm(maxRequestSize)
@@ -1979,6 +2034,7 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 		return user, util.NewI18nError(err, util.I18nErrorInvalidForm)
 	}
 	defer r.MultipartForm.RemoveAll() //nolint:errcheck
+	updateUserFormFields(r)
 	uid, err := strconv.Atoi(r.Form.Get("uid"))
 	if err != nil {
 		return user, fmt.Errorf("invalid uid: %w", err)
