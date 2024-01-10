@@ -206,9 +206,11 @@ func (d *memoryDefender) AddEvent(ip, protocol string, event HostEvent) {
 				idx++
 			}
 		}
+		d.baseDefender.logEvent(ip, protocol, event, hs.TotalScore)
 
 		hs.Events = hs.Events[:idx]
 		if hs.TotalScore >= d.config.Threshold {
+			d.baseDefender.logBan(ip, protocol)
 			d.banned[ip] = time.Now().Add(time.Duration(d.config.BanTime) * time.Minute)
 			delete(d.hosts, ip)
 			d.cleanupBanned()
@@ -222,6 +224,7 @@ func (d *memoryDefender) AddEvent(ip, protocol string, event HostEvent) {
 			d.hosts[ip] = hs
 		}
 	} else {
+		d.baseDefender.logEvent(ip, protocol, event, ev.score)
 		d.hosts[ip] = hostScore{
 			TotalScore: ev.score,
 			Events:     []hostEvent{ev},
