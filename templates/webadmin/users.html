@@ -33,10 +33,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <div id="card_content" class="d-none">
             <div class="d-flex flex-stack flex-wrap mb-5">
                 <div class="d-flex align-items-center position-relative my-2">
-                    <i class="ki-duotone ki-magnifier fs-1 position-absolute ms-6">
-                        <span class="path1"></span>
-                        <span class="path2"></span>
-                    </i>
+                    <i class="ki-solid ki-magnifier fs-1 position-absolute ms-6"></i>
                     <input name="search" data-i18n="[placeholder]general.search" type="text" data-table-filter="search"
                         class="form-control rounded-1 w-250px ps-15 me-5" placeholder="Search" />
                 </div>
@@ -48,8 +45,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     </button>
                     <div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-800 menu-state-bg-light-primary fw-semibold w-auto min-w-200 mw-300px py-4" data-kt-menu="true">
                         <div class="menu-item px-3 py-2 form-check form-check-sm form-check-custom form-check-solid">
-                            <input type="checkbox" class="form-check-input" value="" id="checkColStatus" />
-                            <label class="form-check-label" for="checkColStatus">
+                            <input type="checkbox" class="form-check-input" value="" id="checkColMembers" />
+                            <label class="form-check-label" for="checkColMembers">
                                 <span data-i18n="user.status" class="text-gray-800 fs-6">Status</span>
                             </label>
                         </div>
@@ -510,7 +507,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     loadingRecords: "",
                     processing: $.t('datatable.processing'),
                     zeroRecords: "",
-                    emptyTable: $.t('share.no_share')
+                    emptyTable: $.t('datatable.no_records')
                 },
                 order: [[0, 'asc']],
                 initComplete: function(settings, json) {

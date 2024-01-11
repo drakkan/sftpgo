@@ -153,17 +153,17 @@ func (c *SFTPFsConfig) isSameResource(other SFTPFsConfig) bool {
 func (c *SFTPFsConfig) validate() error {
 	c.setEmptyCredentialsIfNil()
 	if c.Endpoint == "" {
-		return errors.New("endpoint cannot be empty")
+		return util.NewI18nError(errors.New("endpoint cannot be empty"), util.I18nErrorEndpointRequired)
 	}
 	if !strings.Contains(c.Endpoint, ":") {
 		c.Endpoint += ":22"
 	}
 	_, _, err := net.SplitHostPort(c.Endpoint)
 	if err != nil {
-		return fmt.Errorf("invalid endpoint: %v", err)
+		return util.NewI18nError(fmt.Errorf("invalid endpoint: %v", err), util.I18nErrorEndpointInvalid)
 	}
 	if c.Username == "" {
-		return errors.New("username cannot be empty")
+		return util.NewI18nError(errors.New("username cannot be empty"), util.I18nErrorFsUsernameRequired)
 	}
 	if c.BufferSize < 0 || c.BufferSize > 16 {
 		return errors.New("invalid buffer_size, valid range is 0-16")
@@ -184,7 +184,7 @@ func (c *SFTPFsConfig) validate() error {
 
 func (c *SFTPFsConfig) validateCredentials() error {
 	if c.Password.IsEmpty() && c.PrivateKey.IsEmpty() {
-		return errors.New("credentials cannot be empty")
+		return util.NewI18nError(errors.New("credentials cannot be empty"), util.I18nErrorFsCredentialsRequired)
 	}
 	if c.Password.IsEncrypted() && !c.Password.IsValid() {
 		return errors.New("invalid encrypted password")
@@ -210,24 +210,38 @@ func (c *SFTPFsConfig) validateCredentials() error {
 // ValidateAndEncryptCredentials validates the config and encrypts credentials if they are in plain text
 func (c *SFTPFsConfig) ValidateAndEncryptCredentials(additionalData string) error {
 	if err := c.validate(); err != nil {
-		return util.NewValidationError(fmt.Sprintf("could not validate SFTP fs config: %v", err))
+		var errI18n *util.I18nError
+		errValidation := util.NewValidationError(fmt.Sprintf("could not validate SFTP fs config: %v", err))
+		if errors.As(err, &errI18n) {
+			return util.NewI18nError(errValidation, errI18n.Message)
+		}
+		return util.NewI18nError(errValidation, util.I18nErrorFsValidation)
 	}
 	if c.Password.IsPlain() {
 		c.Password.SetAdditionalData(additionalData)
 		if err := c.Password.Encrypt(); err != nil {
-			return util.NewValidationError(fmt.Sprintf("could not encrypt SFTP fs password: %v", err))
+			return util.NewI18nError(
+				util.NewValidationError(fmt.Sprintf("could not encrypt SFTP fs password: %v", err)),
+				util.I18nErrorFsValidation,
+			)
 		}
 	}
 	if c.PrivateKey.IsPlain() {
 		c.PrivateKey.SetAdditionalData(additionalData)
 		if err := c.PrivateKey.Encrypt(); err != nil {
-			return util.NewValidationError(fmt.Sprintf("could not encrypt SFTP fs private key: %v", err))
+			return util.NewI18nError(
+				util.NewValidationError(fmt.Sprintf("could not encrypt SFTP fs private key: %v", err)),
+				util.I18nErrorFsValidation,
+			)
 		}
 	}
 	if c.KeyPassphrase.IsPlain() {
 		c.KeyPassphrase.SetAdditionalData(additionalData)
 		if err := c.KeyPassphrase.Encrypt(); err != nil {
-			return util.NewValidationError(fmt.Sprintf("could not encrypt SFTP fs private key passphrase: %v", err))
+			return util.NewI18nError(
+				util.NewValidationError(fmt.Sprintf("could not encrypt SFTP fs private key passphrase: %v", err)),
+				util.I18nErrorFsValidation,
+			)
 		}
 	}
 	return nil

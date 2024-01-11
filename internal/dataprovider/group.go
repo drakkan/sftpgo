@@ -135,13 +135,16 @@ func (g *Group) hasRedactedSecret() bool {
 func (g *Group) validate() error {
 	g.SetEmptySecretsIfNil()
 	if g.Name == "" {
-		return util.NewValidationError("name is mandatory")
+		return util.NewI18nError(util.NewValidationError("name is mandatory"), util.I18nErrorNameRequired)
 	}
 	if config.NamingRules&1 == 0 && !usernameRegex.MatchString(g.Name) {
-		return util.NewValidationError(fmt.Sprintf("name %q is not valid, the following characters are allowed: a-zA-Z0-9-_.~", g.Name))
+		return util.NewI18nError(
+			util.NewValidationError(fmt.Sprintf("name %q is not valid, the following characters are allowed: a-zA-Z0-9-_.~", g.Name)),
+			util.I18nErrorInvalidName,
+		)
 	}
 	if g.hasRedactedSecret() {
-		return util.NewValidationError("cannot save a user with a redacted secret")
+		return util.NewValidationError("cannot save a group with a redacted secret")
 	}
 	vfolders, err := validateAssociatedVirtualFolders(g.VirtualFolders)
 	if err != nil {
@@ -155,8 +158,10 @@ func (g *Group) validateUserSettings() error {
 	if g.UserSettings.HomeDir != "" {
 		g.UserSettings.HomeDir = filepath.Clean(g.UserSettings.HomeDir)
 		if !filepath.IsAbs(g.UserSettings.HomeDir) {
-			return util.NewValidationError(fmt.Sprintf("home_dir must be an absolute path, actual value: %v",
-				g.UserSettings.HomeDir))
+			return util.NewI18nError(
+				util.NewValidationError(fmt.Sprintf("home_dir must be an absolute path, actual value: %v", g.UserSettings.HomeDir)),
+				util.I18nErrorInvalidHomeDir,
+			)
 		}
 	}
 	if err := g.UserSettings.FsConfig.Validate(g.GetEncryptionAdditionalData()); err != nil {
@@ -170,7 +175,7 @@ func (g *Group) validateUserSettings() error {
 	if len(g.UserSettings.Permissions) > 0 {
 		permissions, err := validateUserPermissions(g.UserSettings.Permissions)
 		if err != nil {
-			return err
+			return util.NewI18nError(err, util.I18nErrorGenericPermission)
 		}
 		g.UserSettings.Permissions = permissions
 	}

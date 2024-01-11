@@ -122,20 +122,26 @@ func (c *HTTPFsConfig) isSameResource(other HTTPFsConfig) bool {
 func (c *HTTPFsConfig) validate() error {
 	c.setEmptyCredentialsIfNil()
 	if c.Endpoint == "" {
-		return errors.New("httpfs: endpoint cannot be empty")
+		return util.NewI18nError(errors.New("httpfs: endpoint cannot be empty"), util.I18nErrorEndpointRequired)
 	}
 	c.Endpoint = strings.TrimRight(c.Endpoint, "/")
 	endpointURL, err := url.Parse(c.Endpoint)
 	if err != nil {
-		return fmt.Errorf("httpfs: invalid endpoint: %w", err)
+		return util.NewI18nError(fmt.Errorf("httpfs: invalid endpoint: %w", err), util.I18nErrorEndpointInvalid)
 	}
 	if !util.IsStringPrefixInSlice(c.Endpoint, supportedEndpointSchema) {
-		return errors.New("httpfs: invalid endpoint schema: http and https are supported")
+		return util.NewI18nError(
+			errors.New("httpfs: invalid endpoint schema: http and https are supported"),
+			util.I18nErrorEndpointInvalid,
+		)
 	}
 	if endpointURL.Host == "unix" {
 		socketPath := endpointURL.Query().Get("socket_path")
 		if !filepath.IsAbs(socketPath) {
-			return fmt.Errorf("httpfs: invalid unix domain socket path: %q", socketPath)
+			return util.NewI18nError(
+				fmt.Errorf("httpfs: invalid unix domain socket path: %q", socketPath),
+				util.I18nErrorEndpointInvalid,
+			)
 		}
 	}
 	if !isEqualityCheckModeValid(c.EqualityCheckMode) {
@@ -159,18 +165,29 @@ func (c *HTTPFsConfig) validate() error {
 // ValidateAndEncryptCredentials validates the config and encrypts credentials if they are in plain text
 func (c *HTTPFsConfig) ValidateAndEncryptCredentials(additionalData string) error {
 	if err := c.validate(); err != nil {
-		return util.NewValidationError(fmt.Sprintf("could not validate HTTP fs config: %v", err))
+		var errI18n *util.I18nError
+		errValidation := util.NewValidationError(fmt.Sprintf("could not validate HTTP fs config: %v", err))
+		if errors.As(err, &errI18n) {
+			return util.NewI18nError(errValidation, errI18n.Message)
+		}
+		return util.NewI18nError(errValidation, util.I18nErrorFsValidation)
 	}
 	if c.Password.IsPlain() {
 		c.Password.SetAdditionalData(additionalData)
 		if err := c.Password.Encrypt(); err != nil {
-			return util.NewValidationError(fmt.Sprintf("could not encrypt HTTP fs password: %v", err))
+			return util.NewI18nError(
+				util.NewValidationError(fmt.Sprintf("could not encrypt HTTP fs password: %v", err)),
+				util.I18nErrorFsValidation,
+			)
 		}
 	}
 	if c.APIKey.IsPlain() {
 		c.APIKey.SetAdditionalData(additionalData)
 		if err := c.APIKey.Encrypt(); err != nil {
-			return util.NewValidationError(fmt.Sprintf("could not encrypt HTTP fs API key: %v", err))
+			return util.NewI18nError(
+				util.NewValidationError(fmt.Sprintf("could not encrypt HTTP fs API key: %v", err)),
+				util.I18nErrorFsValidation,
+			)
 		}
 	}
 	return nil

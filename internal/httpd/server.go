@@ -1694,6 +1694,8 @@ func (s *httpdServer) setupWebAdminRoutes() {
 			router.With(s.checkPerm(dataprovider.PermAdminManageGroups), s.refreshCookie).
 				Get(webGroupsPath, s.handleWebGetGroups)
 			router.With(s.checkPerm(dataprovider.PermAdminManageGroups), s.refreshCookie).
+				Get(webGroupsPath+"/json", getAllGroups)
+			router.With(s.checkPerm(dataprovider.PermAdminManageGroups), s.refreshCookie).
 				Get(webGroupPath, s.handleWebAddGroupGet)
 			router.With(s.checkPerm(dataprovider.PermAdminManageGroups)).Post(webGroupPath, s.handleWebAddGroupPost)
 			router.With(s.checkPerm(dataprovider.PermAdminManageGroups), s.refreshCookie).

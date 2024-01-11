@@ -203,7 +203,8 @@
         "denied": "Negato",
         "zero_no_limit_help": "0 significa nessun limite",
         "global_settings": "Impostazioni globali",
-        "mandatory_encryption": "Crittografia obbligatoria"
+        "mandatory_encryption": "Crittografia obbligatoria",
+        "name_invalid": "Il nome specificato non è valido, sono consentiti i seguenti caratteri: a-zA-Z0-9-_.~"
     },
     "fs": {
         "view_file": "Visualizza file \"{{- path}}\"",
@@ -309,9 +310,10 @@
     },
     "datatable": {
         "info": "Risultati da _START_ a _END_ di _TOTAL_ elementi",
-        "info_empty": "Nessun risultato",
+        "info_empty": "Nulla da mostrare",
         "info_filtered": "(filtrati da _MAX_ elementi totali)",
-        "processing": "Elaborazione..."
+        "processing": "Elaborazione...",
+        "no_records": "Nessun risultato"
     },
     "editor": {
         "keybinding": "Combinazioni di tasti dell'editor",
@@ -462,6 +464,11 @@
         "submit_export": "Genera ed esporta utenti",
         "invalid_quota_size": "Quota (dimensione) non valida"
     },
+    "group": {
+        "view_manage": "Visualizza e gestisci gruppi",
+        "members": "Membri",
+        "members_summary": "Utenti: {{users}}. Amministratori: {{admins}}"
+    },
     "virtual_folders": {
         "mount_path": "percorso, es. /vfolder",
         "quota_size": "Quota (dimensione)",
@@ -483,6 +490,7 @@
         "home_dir_help1": "Lasciare vuoto per un valore predefinito appropriato",
         "home_dir_help2": "Lascia vuoto e archiviazione su \"Disco locale\" per non sovrascrivere la directory principale",
         "home_dir_help3": "Obbligatorio per i provider di archiviazione su disco locale. Per gli altri provider di archiviazione questa cartella sarà usata per i file temporanei, puoi lasciare vuoto per un valore predefinito appropriato",
+        "home_dir_invalid": "Cartella principale non valida, assicurati che sia un path assoluto",
         "sftp_home_dir": "Cartella principale SFTP",
         "sftp_home_help": "Limitare l'accesso a questo percorso SFTP. Esempio: \"/somedir/subdir\"",
         "os_read_buffer": "Buffer download (MB)",
@@ -495,12 +503,12 @@
         "endpoint": "Endpoint",
         "endpoint_help": "Per AWS S3, lasciare vuoto per utilizzare l'endpoint predefinito per la regione specificata",
         "sftp_endpoint_help": "Endpoint come host:porta. La porta è sempre richiesta",
-        "ul_part_size": "Dimensioni parte per upload (MB)",
+        "ul_part_size": "Dimensione parte per upload (MB)",
         "part_size_help": "0 significa il default (5 MB). Il minimo è 5",
         "gcs_part_size_help": "0 significa il default (16 MB)",
         "ul_concurrency": "Concorrenza upload",
         "ul_concurrency_help": "Numero di parti caricate in parallelo. 0 significa il default (5)",
-        "dl_part_size": "Dimensioni parte per download (MB)",
+        "dl_part_size": "Dimensione parte per download (MB)",
         "dl_concurrency": "Concorrenza download",
         "dl_concurrency_help": "Numero di parti scaricate in parallelo. 0 significa il default (5)",
         "ul_part_timeout": "Timeout per upload parte",
@@ -535,7 +543,25 @@
         "sftp_concurrent_reads": "Disabilitare letture concorrenti",
         "relaxed_equality_check": "Controllo di uguaglianza non rigoroso",
         "relaxed_equality_check_help": "Abilitare per considerare solo l'endpoint per determinare se diverse configurazioni puntano allo stesso server. Per impostazione predefinita, sia l'endpoint che il nome utente devono corrispondere",
-        "api_key": "Chiave API"
+        "api_key": "Chiave API",
+        "fs_error": "Errore configurazione filesystem",
+        "bucket_required": "$t(storage.fs_error): il bucket è obbligatorio",
+        "region_required": "$t(storage.fs_error): la regione è obbligatoria",
+        "key_prefix_invalid": "$t(storage.fs_error): prefisso chiave non valido, non può iniziare con \"/\"",
+        "ul_part_size_invalid": "$t(storage.fs_error): dimensione parte per upload non valida",
+        "ul_concurrency_invalid": "$t(storage.fs_error): concorrenza upload non valida",
+        "dl_part_size_invalid": "$t(storage.fs_error): dimensione parte per download non valida",
+        "dl_concurrency_invalid": "$t(storage.fs_error): concorrenza download non valida",
+        "access_key_required": "$t(storage.fs_error): la chiave di accesso è obbligatoria",
+        "access_secret_required": "$t(storage.fs_error): la chiave di accesso segreta è obbligatoria",
+        "credentials_required": "$t(storage.fs_error): le credenziali per il filesystem sono obbligatorie",
+        "container_required": "$t(storage.fs_error): il contenitore è obbligatorio",
+        "account_name_required": "$t(storage.fs_error): il nome account è obbligatorio",
+        "sas_url_invalid": "$t(storage.fs_error): SAS URL non valido",
+        "passphrase_required": "$t(storage.fs_error): la passphrase è obbligatoria",
+        "endpoint_invalid": "$t(storage.fs_error): endpoint non valido",
+        "endpoint_required": "$t(storage.fs_error): endpoint è obbligatorio",
+        "username_required": "$t(storage.fs_error): nome utente è obbligatorio"
     },
     "oidc": {
         "token_expired": "Il tuo token OpenID è scaduto, effettua nuovamente l'accesso",

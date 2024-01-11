@@ -305,10 +305,16 @@ func (c *S3FsConfig) isSecretEqual(other S3FsConfig) bool {
 
 func (c *S3FsConfig) checkCredentials() error {
 	if c.AccessKey == "" && !c.AccessSecret.IsEmpty() {
-		return errors.New("access_key cannot be empty with access_secret not empty")
+		return util.NewI18nError(
+			errors.New("access_key cannot be empty with access_secret not empty"),
+			util.I18nErrorAccessKeyRequired,
+		)
 	}
 	if c.AccessSecret.IsEmpty() && c.AccessKey != "" {
-		return errors.New("access_secret cannot be empty with access_key not empty")
+		return util.NewI18nError(
+			errors.New("access_secret cannot be empty with access_key not empty"),
+			util.I18nErrorAccessSecretRequired,
+		)
 	}
 	if c.AccessSecret.IsEncrypted() && !c.AccessSecret.IsValid() {
 		return errors.New("invalid encrypted access_secret")
@@ -322,13 +328,21 @@ func (c *S3FsConfig) checkCredentials() error {
 // ValidateAndEncryptCredentials validates the configuration and encrypts access secret if it is in plain text
 func (c *S3FsConfig) ValidateAndEncryptCredentials(additionalData string) error {
 	if err := c.validate(); err != nil {
-		return util.NewValidationError(fmt.Sprintf("could not validate s3config: %v", err))
+		var errI18n *util.I18nError
+		errValidation := util.NewValidationError(fmt.Sprintf("could not validate s3config: %v", err))
+		if errors.As(err, &errI18n) {
+			return util.NewI18nError(errValidation, errI18n.Message)
+		}
+		return util.NewI18nError(errValidation, util.I18nErrorFsValidation)
 	}
 	if c.AccessSecret.IsPlain() {
 		c.AccessSecret.SetAdditionalData(additionalData)
 		err := c.AccessSecret.Encrypt()
 		if err != nil {
-			return util.NewValidationError(fmt.Sprintf("could not encrypt s3 access secret: %v", err))
+			return util.NewI18nError(
+				util.NewValidationError(fmt.Sprintf("could not encrypt s3 access secret: %v", err)),
+				util.I18nErrorFsValidation,
+			)
 		}
 	}
 	return nil
@@ -336,16 +350,28 @@ func (c *S3FsConfig) ValidateAndEncryptCredentials(additionalData string) error 
 
 func (c *S3FsConfig) checkPartSizeAndConcurrency() error {
 	if c.UploadPartSize != 0 && (c.UploadPartSize < 5 || c.UploadPartSize > 5000) {
-		return errors.New("upload_part_size cannot be != 0, lower than 5 (MB) or greater than 5000 (MB)")
+		return util.NewI18nError(
+			errors.New("upload_part_size cannot be != 0, lower than 5 (MB) or greater than 5000 (MB)"),
+			util.I18nErrorULPartSizeInvalid,
+		)
 	}
 	if c.UploadConcurrency < 0 || c.UploadConcurrency > 64 {
-		return fmt.Errorf("invalid upload concurrency: %v", c.UploadConcurrency)
+		return util.NewI18nError(
+			fmt.Errorf("invalid upload concurrency: %v", c.UploadConcurrency),
+			util.I18nErrorULConcurrencyInvalid,
+		)
 	}
 	if c.DownloadPartSize != 0 && (c.DownloadPartSize < 5 || c.DownloadPartSize > 5000) {
-		return errors.New("download_part_size cannot be != 0, lower than 5 (MB) or greater than 5000 (MB)")
+		return util.NewI18nError(
+			errors.New("download_part_size cannot be != 0, lower than 5 (MB) or greater than 5000 (MB)"),
+			util.I18nErrorDLPartSizeInvalid,
+		)
 	}
 	if c.DownloadConcurrency < 0 || c.DownloadConcurrency > 64 {
-		return fmt.Errorf("invalid download concurrency: %v", c.DownloadConcurrency)
+		return util.NewI18nError(
+			fmt.Errorf("invalid download concurrency: %v", c.DownloadConcurrency),
+			util.I18nErrorDLConcurrencyInvalid,
+		)
 	}
 	return nil
 }
@@ -366,19 +392,19 @@ func (c *S3FsConfig) validate() error {
 		c.AccessSecret = kms.NewEmptySecret()
 	}
 	if c.Bucket == "" {
-		return errors.New("bucket cannot be empty")
+		return util.NewI18nError(errors.New("bucket cannot be empty"), util.I18nErrorBucketRequired)
 	}
 	// the region may be embedded within the endpoint for some S3 compatible
 	// object storage, for example B2
 	if c.Endpoint == "" && c.Region == "" {
-		return errors.New("region cannot be empty")
+		return util.NewI18nError(errors.New("region cannot be empty"), util.I18nErrorRegionRequired)
 	}
 	if err := c.checkCredentials(); err != nil {
 		return err
 	}
 	if c.KeyPrefix != "" {
 		if strings.HasPrefix(c.KeyPrefix, "/") {
-			return errors.New("key_prefix cannot start with /")
+			return util.NewI18nError(errors.New("key_prefix cannot start with /"), util.I18nErrorKeyPrefixInvalid)
 		}
 		c.KeyPrefix = path.Clean(c.KeyPrefix)
 		if !strings.HasSuffix(c.KeyPrefix, "/") {
@@ -406,13 +432,21 @@ func (c *GCSFsConfig) HideConfidentialData() {
 // ValidateAndEncryptCredentials validates the configuration and encrypts credentials if they are in plain text
 func (c *GCSFsConfig) ValidateAndEncryptCredentials(additionalData string) error {
 	if err := c.validate(); err != nil {
-		return util.NewValidationError(fmt.Sprintf("could not validate GCS config: %v", err))
+		var errI18n *util.I18nError
+		errValidation := util.NewValidationError(fmt.Sprintf("could not validate GCS config: %v", err))
+		if errors.As(err, &errI18n) {
+			return util.NewI18nError(errValidation, errI18n.Message)
+		}
+		return util.NewI18nError(errValidation, util.I18nErrorFsValidation)
 	}
 	if c.Credentials.IsPlain() {
 		c.Credentials.SetAdditionalData(additionalData)
 		err := c.Credentials.Encrypt()
 		if err != nil {
-			return util.NewValidationError(fmt.Sprintf("could not encrypt GCS credentials: %v", err))
+			return util.NewI18nError(
+				util.NewValidationError(fmt.Sprintf("could not encrypt GCS credentials: %v", err)),
+				util.I18nErrorFsValidation,
+			)
 		}
 	}
 	return nil
@@ -459,11 +493,11 @@ func (c *GCSFsConfig) validate() error {
 		c.Credentials = kms.NewEmptySecret()
 	}
 	if c.Bucket == "" {
-		return errors.New("bucket cannot be empty")
+		return util.NewI18nError(errors.New("bucket cannot be empty"), util.I18nErrorBucketRequired)
 	}
 	if c.KeyPrefix != "" {
 		if strings.HasPrefix(c.KeyPrefix, "/") {
-			return errors.New("key_prefix cannot start with /")
+			return util.NewI18nError(errors.New("key_prefix cannot start with /"), util.I18nErrorKeyPrefixInvalid)
 		}
 		c.KeyPrefix = path.Clean(c.KeyPrefix)
 		if !strings.HasSuffix(c.KeyPrefix, "/") {
@@ -474,7 +508,7 @@ func (c *GCSFsConfig) validate() error {
 		return errors.New("invalid encrypted credentials")
 	}
 	if c.AutomaticCredentials == 0 && !c.Credentials.IsValidInput() {
-		return errors.New("invalid credentials")
+		return util.NewI18nError(errors.New("invalid credentials"), util.I18nErrorFsCredentialsRequired)
 	}
 	c.StorageClass = strings.TrimSpace(c.StorageClass)
 	c.ACL = strings.TrimSpace(c.ACL)
@@ -563,18 +597,29 @@ func (c *AzBlobFsConfig) isSecretEqual(other AzBlobFsConfig) bool {
 // ValidateAndEncryptCredentials validates the configuration and  encrypts access secret if it is in plain text
 func (c *AzBlobFsConfig) ValidateAndEncryptCredentials(additionalData string) error {
 	if err := c.validate(); err != nil {
-		return util.NewValidationError(fmt.Sprintf("could not validate Azure Blob config: %v", err))
+		var errI18n *util.I18nError
+		errValidation := util.NewValidationError(fmt.Sprintf("could not validate Azure Blob config: %v", err))
+		if errors.As(err, &errI18n) {
+			return util.NewI18nError(errValidation, errI18n.Message)
+		}
+		return util.NewI18nError(errValidation, util.I18nErrorFsValidation)
 	}
 	if c.AccountKey.IsPlain() {
 		c.AccountKey.SetAdditionalData(additionalData)
 		if err := c.AccountKey.Encrypt(); err != nil {
-			return util.NewValidationError(fmt.Sprintf("could not encrypt Azure blob account key: %v", err))
+			return util.NewI18nError(
+				util.NewValidationError(fmt.Sprintf("could not encrypt Azure blob account key: %v", err)),
+				util.I18nErrorFsValidation,
+			)
 		}
 	}
 	if c.SASURL.IsPlain() {
 		c.SASURL.SetAdditionalData(additionalData)
 		if err := c.SASURL.Encrypt(); err != nil {
-			return util.NewValidationError(fmt.Sprintf("could not encrypt Azure blob SAS URL: %v", err))
+			return util.NewI18nError(
+				util.NewValidationError(fmt.Sprintf("could not encrypt Azure blob SAS URL: %v", err)),
+				util.I18nErrorFsValidation,
+			)
 		}
 	}
 	return nil
@@ -583,7 +628,7 @@ func (c *AzBlobFsConfig) ValidateAndEncryptCredentials(additionalData string) er
 func (c *AzBlobFsConfig) checkCredentials() error {
 	if c.SASURL.IsPlain() {
 		_, err := url.Parse(c.SASURL.GetPayload())
-		return err
+		return util.NewI18nError(err, util.I18nErrorSASURLInvalid)
 	}
 	if c.SASURL.IsEncrypted() && !c.SASURL.IsValid() {
 		return errors.New("invalid encrypted sas_url")
@@ -592,7 +637,7 @@ func (c *AzBlobFsConfig) checkCredentials() error {
 		return nil
 	}
 	if c.AccountName == "" || !c.AccountKey.IsValidInput() {
-		return errors.New("credentials cannot be empty or invalid")
+		return util.NewI18nError(errors.New("credentials cannot be empty or invalid"), util.I18nErrorAccountNameRequired)
 	}
 	if c.AccountKey.IsEncrypted() && !c.AccountKey.IsValid() {
 		return errors.New("invalid encrypted account_key")
@@ -602,16 +647,28 @@ func (c *AzBlobFsConfig) checkCredentials() error {
 
 func (c *AzBlobFsConfig) checkPartSizeAndConcurrency() error {
 	if c.UploadPartSize < 0 || c.UploadPartSize > 100 {
-		return fmt.Errorf("invalid upload part size: %v", c.UploadPartSize)
+		return util.NewI18nError(
+			fmt.Errorf("invalid upload part size: %v", c.UploadPartSize),
+			util.I18nErrorULPartSizeInvalid,
+		)
 	}
 	if c.UploadConcurrency < 0 || c.UploadConcurrency > 64 {
-		return fmt.Errorf("invalid upload concurrency: %v", c.UploadConcurrency)
+		return util.NewI18nError(
+			fmt.Errorf("invalid upload concurrency: %v", c.UploadConcurrency),
+			util.I18nErrorULConcurrencyInvalid,
+		)
 	}
 	if c.DownloadPartSize < 0 || c.DownloadPartSize > 100 {
-		return fmt.Errorf("invalid download part size: %v", c.DownloadPartSize)
+		return util.NewI18nError(
+			fmt.Errorf("invalid download part size: %v", c.DownloadPartSize),
+			util.I18nErrorDLPartSizeInvalid,
+		)
 	}
 	if c.DownloadConcurrency < 0 || c.DownloadConcurrency > 64 {
-		return fmt.Errorf("invalid upload concurrency: %v", c.DownloadConcurrency)
+		return util.NewI18nError(
+			fmt.Errorf("invalid upload concurrency: %v", c.DownloadConcurrency),
+			util.I18nErrorDLConcurrencyInvalid,
+		)
 	}
 	return nil
 }
@@ -646,14 +703,14 @@ func (c *AzBlobFsConfig) validate() error {
 	}
 	// container could be embedded within SAS URL we check this at runtime
 	if c.SASURL.IsEmpty() && c.Container == "" {
-		return errors.New("container cannot be empty")
+		return util.NewI18nError(errors.New("container cannot be empty"), util.I18nErrorContainerRequired)
 	}
 	if err := c.checkCredentials(); err != nil {
 		return err
 	}
 	if c.KeyPrefix != "" {
 		if strings.HasPrefix(c.KeyPrefix, "/") {
-			return errors.New("key_prefix cannot start with /")
+			return util.NewI18nError(errors.New("key_prefix cannot start with /"), util.I18nErrorKeyPrefixInvalid)
 		}
 		c.KeyPrefix = path.Clean(c.KeyPrefix)
 		if !strings.HasSuffix(c.KeyPrefix, "/") {
@@ -695,12 +752,20 @@ func (c *CryptFsConfig) isEqual(other CryptFsConfig) bool {
 // ValidateAndEncryptCredentials validates the configuration and encrypts the passphrase if it is in plain text
 func (c *CryptFsConfig) ValidateAndEncryptCredentials(additionalData string) error {
 	if err := c.validate(); err != nil {
-		return util.NewValidationError(fmt.Sprintf("could not validate Crypt fs config: %v", err))
+		var errI18n *util.I18nError
+		errValidation := util.NewValidationError(fmt.Sprintf("could not validate crypt fs config: %v", err))
+		if errors.As(err, &errI18n) {
+			return util.NewI18nError(errValidation, errI18n.Message)
+		}
+		return util.NewI18nError(errValidation, util.I18nErrorFsValidation)
 	}
 	if c.Passphrase.IsPlain() {
 		c.Passphrase.SetAdditionalData(additionalData)
 		if err := c.Passphrase.Encrypt(); err != nil {
-			return util.NewValidationError(fmt.Sprintf("could not encrypt Crypt fs passphrase: %v", err))
+			return util.NewI18nError(
+				util.NewValidationError(fmt.Sprintf("could not encrypt Crypt fs passphrase: %v", err)),
+				util.I18nErrorFsValidation,
+			)
 		}
 	}
 	return nil
@@ -713,10 +778,10 @@ func (c *CryptFsConfig) isSameResource(other CryptFsConfig) bool {
 // validate returns an error if the configuration is not valid
 func (c *CryptFsConfig) validate() error {
 	if c.Passphrase == nil || c.Passphrase.IsEmpty() {
-		return errors.New("invalid passphrase")
+		return util.NewI18nError(errors.New("invalid passphrase"), util.I18nErrorPassphraseRequired)
 	}
 	if !c.Passphrase.IsValidInput() {
-		return errors.New("passphrase cannot be empty or invalid")
+		return util.NewI18nError(errors.New("passphrase cannot be empty or invalid"), util.I18nErrorPassphraseRequired)
 	}
 	if c.Passphrase.IsEncrypted() && !c.Passphrase.IsValid() {
 		return errors.New("invalid encrypted passphrase")

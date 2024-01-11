@@ -203,7 +203,8 @@
         "denied": "Denied",
         "zero_no_limit_help": "0 means no limit",
         "global_settings": "Global settings",
-        "mandatory_encryption": "Mandatory encryption"
+        "mandatory_encryption": "Mandatory encryption",
+        "name_invalid": "The specified username is not valid, the following characters are allowed: a-zA-Z0-9-_.~"
     },
     "fs": {
         "view_file": "View file \"{{- path}}\"",
@@ -311,7 +312,8 @@
         "info": "Showing _START_ to _END_ of _TOTAL_ records",
         "info_empty": "Showing no record",
         "info_filtered": "(filtered from _MAX_ total records)",
-        "processing": "Processing..."
+        "processing": "Processing...",
+        "no_records": "No records found"
     },
     "editor": {
         "keybinding": "Editor keybindings",
@@ -462,6 +464,11 @@
         "submit_export": "Generate and export users",
         "invalid_quota_size": "Invalid quota size"
     },
+    "group": {
+        "view_manage": "View and manage groups",
+        "members": "Members",
+        "members_summary": "Users: {{users}}. Admins: {{admins}}"
+    },
     "virtual_folders": {
         "mount_path": "mount path, i.e. /vfolder",
         "quota_size": "Quota size",
@@ -483,6 +490,7 @@
         "home_dir_help1": "Leave blank for an appropriate default",
         "home_dir_help2": "Leave blank and storage to \"Local disk\" to not override the root directory",
         "home_dir_help3": "Required for local disk storage providers. For other storage providers this folder will be used for temporary files, you can leave it blank for an appropriate default",
+        "home_dir_invalid": "Invalid root directory, make sure it is an absolute path",
         "sftp_home_dir": "SFTP root directory",
         "sftp_home_help": "Restrict access to this SFTP path. Example: \"/somedir/subdir\"",
         "os_read_buffer": "Download buffer (MB)",
@@ -535,7 +543,25 @@
         "sftp_concurrent_reads": "Disable concurrent reads",
         "relaxed_equality_check": "Relaxed equality check",
         "relaxed_equality_check_help": "Enable to consider only the endpoint to determine if different configurations point to the same server. By default, both the endpoint and username must match",
-        "api_key": "API key"
+        "api_key": "API key",
+        "fs_error": "Filesystem configuration error",
+        "bucket_required": "$t(storage.fs_error): bucket is required",
+        "region_required": "$t(storage.fs_error): region is required",
+        "key_prefix_invalid": "$t(storage.fs_error): invalid key prefix, cannot start with \"/\"",
+        "ul_part_size_invalid": "$t(storage.fs_error): invalid upload part size",
+        "ul_concurrency_invalid": "$t(storage.fs_error): invalid upload concurrency",
+        "dl_part_size_invalid": "$t(storage.fs_error): invalid download part size",
+        "dl_concurrency_invalid": "$t(storage.fs_error): invalid download concurrency",
+        "access_key_required": "$t(storage.fs_error): access Key is required",
+        "access_secret_required": "$t(storage.fs_error): access Secret is required",
+        "credentials_required": "$t(storage.fs_error): credentials are required",
+        "container_required": "$t(storage.fs_error): container is required",
+        "account_name_required": "$t(storage.fs_error): account name is required",
+        "sas_url_invalid": "$t(storage.fs_error): invalid SAS URL",
+        "passphrase_required": "$t(storage.fs_error): passphrase is required",
+        "endpoint_invalid": "$t(storage.fs_error): endpoint is invalid",
+        "endpoint_required": "$t(storage.fs_error): endpoint is required",
+        "username_required": "$t(storage.fs_error): username is required"
     },
     "oidc": {
         "token_expired": "Your OpenID token has expired, please log in again",

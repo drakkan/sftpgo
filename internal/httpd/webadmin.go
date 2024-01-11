@@ -180,11 +180,6 @@ type foldersPage struct {
 	Folders []vfs.BaseVirtualFolder
 }
 
-type groupsPage struct {
-	basePage
-	Groups []dataprovider.Group
-}
-
 type rolesPage struct {
 	basePage
 	Roles []dataprovider.Role
@@ -447,7 +442,7 @@ func loadAdminTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateAdminDir, templateFolder),
 	}
 	groupsPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateGroups),
 	}
@@ -2982,7 +2977,7 @@ func getAllUsers(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, nil, util.I18nErrorDirList403, http.StatusForbidden)
 		return
 	}
-	users := make([]dataprovider.User, 0, defaultQueryLimit)
+	users := make([]dataprovider.User, 0, 100)
 	for {
 		u, err := dataprovider.GetUsers(defaultQueryLimit, len(users), dataprovider.OrderASC, claims.Role)
 		if err != nil {
@@ -3500,7 +3495,7 @@ func (s *httpdServer) handleWebGetFolders(w http.ResponseWriter, r *http.Request
 }
 
 func (s *httpdServer) getWebGroups(w http.ResponseWriter, r *http.Request, limit int, minimal bool) ([]dataprovider.Group, error) {
-	groups := make([]dataprovider.Group, 0, limit)
+	groups := make([]dataprovider.Group, 0, 50)
 	for {
 		f, err := dataprovider.GetGroups(limit, len(groups), dataprovider.OrderASC, minimal)
 		if err != nil {
@@ -3515,25 +3510,27 @@ func (s *httpdServer) getWebGroups(w http.ResponseWriter, r *http.Request, limit
 	return groups, nil
 }
 
-func (s *httpdServer) handleWebGetGroups(w http.ResponseWriter, r *http.Request) {
+func getAllGroups(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	limit := defaultQueryLimit
-	if _, ok := r.URL.Query()["qlimit"]; ok {
-		var err error
-		limit, err = strconv.Atoi(r.URL.Query().Get("qlimit"))
+	groups := make([]dataprovider.Group, 0, 50)
+	for {
+		f, err := dataprovider.GetGroups(defaultQueryLimit, len(groups), dataprovider.OrderASC, false)
 		if err != nil {
-			limit = defaultQueryLimit
+			sendAPIResponse(w, r, err, getI18NErrorString(err, util.I18nError500Message), http.StatusInternalServerError)
+			return
+		}
+		groups = append(groups, f...)
+		if len(f) < defaultQueryLimit {
+			break
 		}
 	}
-	groups, err := s.getWebGroups(w, r, limit, false)
-	if err != nil {
-		return
-	}
+	render.JSON(w, r, groups)
+}
 
-	data := groupsPage{
-		basePage: s.getBasePageData(pageGroupsTitle, webGroupsPath, r),
-		Groups:   groups,
-	}
+func (s *httpdServer) handleWebGetGroups(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+
+	data := s.getBasePageData(pageGroupsTitle, webGroupsPath, r)
 	renderAdminTemplate(w, templateGroups, data)
 }
 

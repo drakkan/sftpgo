@@ -130,13 +130,13 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <div class="form-group row mt-10 fsconfig fsconfig-s3fs">
             <label for="idS3PartSize" data-i18n="storage.ul_part_size" class="col-md-3 col-form-label">Upload Part Size (MB)</label>
             <div class="col-md-3">
-                <input id="idS3PartSize" type="number" min="0" class="form-control" name="s3_upload_part_size" value="{{.S3Config.UploadPartSize}}" aria-describedby="idS3PartSizeHelp" />
+                <input id="idS3PartSize" type="number" min="0" max="5000" class="form-control" name="s3_upload_part_size" value="{{.S3Config.UploadPartSize}}" aria-describedby="idS3PartSizeHelp" />
                 <div id="idS3PartSizeHelp" class="form-text" data-i18n="storage.part_size_help"></div>
             </div>
             <div class="col-md-1"></div>
             <label for="idS3UploadConcurrency" data-i18n="storage.ul_concurrency" class="col-md-2 col-form-label">Upload concurrency</label>
             <div class="col-md-3">
-                <input id="idS3UploadConcurrency" type="number" min="0" class="form-control" name="s3_upload_concurrency" value="{{.S3Config.UploadConcurrency}}" aria-describedby="idS3UploadConcurrencyHelp" />
+                <input id="idS3UploadConcurrency" type="number" min="0" max="64" class="form-control" name="s3_upload_concurrency" value="{{.S3Config.UploadConcurrency}}" aria-describedby="idS3UploadConcurrencyHelp" />
                 <div id="idS3UploadConcurrencyHelp" class="form-text" data-i18n="storage.ul_concurrency_help"></div>
             </div>
         </div>
@@ -144,13 +144,13 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <div class="form-group row mt-10 fsconfig fsconfig-s3fs">
             <label for="idS3DLPartSize" data-i18n="storage.dl_part_size" class="col-md-3 col-form-label">Download Part Size (MB)</label>
             <div class="col-md-3">
-                <input id="idS3DLPartSize" type="number" min="0" class="form-control" name="s3_download_part_size" value="{{.S3Config.DownloadPartSize}}" aria-describedby="idS3DLPartSizeHelp" />
+                <input id="idS3DLPartSize" type="number" min="0" max="5000" class="form-control" name="s3_download_part_size" value="{{.S3Config.DownloadPartSize}}" aria-describedby="idS3DLPartSizeHelp" />
                 <div id="idS3DLPartSizeHelp" class="form-text" data-i18n="storage.part_size_help"></div>
             </div>
             <div class="col-md-1"></div>
             <label for="idS3DownloadConcurrency" data-i18n="storage.dl_concurrency" class="col-md-2 col-form-label">Download concurrency</label>
             <div class="col-md-3">
-                <input id="idS3DownloadConcurrency" type="number" min="0" class="form-control" name="s3_download_concurrency" value="{{.S3Config.DownloadConcurrency}}" aria-describedby="idS3DownloadConcurrencyHelp" />
+                <input id="idS3DownloadConcurrency" type="number" min="0" max="64" class="form-control" name="s3_download_concurrency" value="{{.S3Config.DownloadConcurrency}}" aria-describedby="idS3DownloadConcurrencyHelp" />
                 <div id="idS3DownloadConcurrencyHelp" class="form-text" data-i18n="storage.dl_concurrency_help"></div>
             </div>
         </div>
@@ -306,13 +306,13 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <div class="form-group row mt-10 fsconfig fsconfig-azblobfs">
             <label for="idAzUploadPartSize" data-i18n="storage.ul_part_size" class="col-md-3 col-form-label">Upload Part Size (MB)</label>
             <div class="col-md-3">
-                <input id="idAzUploadPartSize" type="number" min="0" class="form-control" name="az_upload_part_size" value="{{.AzBlobConfig.UploadPartSize}}" aria-describedby="idAzUploadPartSizeHelp" />
+                <input id="idAzUploadPartSize" type="number" min="0" max="100" class="form-control" name="az_upload_part_size" value="{{.AzBlobConfig.UploadPartSize}}" aria-describedby="idAzUploadPartSizeHelp" />
                 <div id="idAzUploadPartSizeHelp" class="form-text" data-i18n="storage.part_size_help"></div>
             </div>
             <div class="col-md-1"></div>
             <label for="idAzUploadConcurrency" data-i18n="storage.ul_concurrency" class="col-md-2 col-form-label">Upload concurrency</label>
             <div class="col-md-3">
-                <input id="idAzUploadConcurrency" type="number" min="0" class="form-control" name="az_upload_concurrency" value="{{.AzBlobConfig.UploadConcurrency}}" aria-describedby="idAzUploadConcurrencyHelp" />
+                <input id="idAzUploadConcurrency" type="number" min="0" max="64" class="form-control" name="az_upload_concurrency" value="{{.AzBlobConfig.UploadConcurrency}}" aria-describedby="idAzUploadConcurrencyHelp" />
                 <div id="idAzUploadConcurrencyHelp" class="form-text" data-i18n="storage.ul_concurrency_help"></div>
             </div>
         </div>
@@ -320,13 +320,13 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <div class="form-group row mt-10 fsconfig fsconfig-azblobfs">
             <label for="idAzDownloadPartSize" data-i18n="storage.dl_part_size" class="col-md-3 col-form-label">Download Part Size (MB)</label>
             <div class="col-md-3">
-                <input id="idAzDownloadPartSize" type="number" min="0" class="form-control" name="az_download_part_size" value="{{.AzBlobConfig.DownloadPartSize}}" aria-describedby="idAzDownloadPartSizeHelp" />
+                <input id="idAzDownloadPartSize" type="number" min="0" max="100" class="form-control" name="az_download_part_size" value="{{.AzBlobConfig.DownloadPartSize}}" aria-describedby="idAzDownloadPartSizeHelp" />
                 <div id="idAzDownloadPartSizeHelp" class="form-text" data-i18n="storage.part_size_help"></div>
             </div>
             <div class="col-md-1"></div>
             <label for="idAzDownloadConcurrency" data-i18n="storage.dl_concurrency" class="col-md-2 col-form-label">Download concurrency</label>
             <div class="col-md-3">
-                <input id="idAzDownloadConcurrency" type="number" min="0" class="form-control" name="az_download_concurrency" value="{{.AzBlobConfig.DownloadConcurrency}}" aria-describedby="idAzDownloadConcurrencyHelp"/>
+                <input id="idAzDownloadConcurrency" type="number" min="0" max="64" class="form-control" name="az_download_concurrency" value="{{.AzBlobConfig.DownloadConcurrency}}" aria-describedby="idAzDownloadConcurrencyHelp"/>
                 <div id="idAzDownloadConcurrencyHelp" class="form-text" data-i18n="storage.dl_concurrency_help"></div>
             </div>
         </div>

@@ -3131,7 +3131,7 @@ func validateBaseParams(user *User) error {
 	}
 	err := user.FsConfig.Validate(user.GetEncryptionAdditionalData())
 	if err != nil {
-		return util.NewI18nError(err, util.I18nErrorFsValidation)
+		return err
 	}
 	return nil
 }
@@ -3173,17 +3173,22 @@ func createUserPasswordHash(user *User) error {
 func ValidateFolder(folder *vfs.BaseVirtualFolder) error {
 	folder.FsConfig.SetEmptySecretsIfNil()
 	if folder.Name == "" {
-		return util.NewValidationError("folder name is mandatory")
+		return util.NewI18nError(util.NewValidationError("folder name is mandatory"), util.I18nErrorNameRequired)
 	}
 	if config.NamingRules&1 == 0 && !usernameRegex.MatchString(folder.Name) {
-		return util.NewValidationError(fmt.Sprintf("folder name %q is not valid, the following characters are allowed: a-zA-Z0-9-_.~",
-			folder.Name))
+		return util.NewI18nError(
+			util.NewValidationError(fmt.Sprintf("folder name %q is not valid, the following characters are allowed: a-zA-Z0-9-_.~", folder.Name)),
+			util.I18nErrorInvalidName,
+		)
 	}
 	if folder.FsConfig.Provider == sdk.LocalFilesystemProvider || folder.FsConfig.Provider == sdk.CryptedFilesystemProvider ||
 		folder.MappedPath != "" {
 		cleanedMPath := filepath.Clean(folder.MappedPath)
 		if !filepath.IsAbs(cleanedMPath) {
-			return util.NewValidationError(fmt.Sprintf("invalid folder mapped path %q", folder.MappedPath))
+			return util.NewI18nError(
+				util.NewValidationError(fmt.Sprintf("invalid folder mapped path %q", folder.MappedPath)),
+				util.I18nErrorInvalidHomeDir,
+			)
 		}
 		folder.MappedPath = cleanedMPath
 	}
