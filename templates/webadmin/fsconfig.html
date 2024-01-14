@@ -747,14 +747,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
 {{- define "user_group_advanced"}}
 <div class="form-group row mt-10">
-    <label for="idStartDirectory" data-i18n="filters.start_directory" class="col-md-3 col-form-label">Start directory</label>
-    <div class="col-md-9">
-        <input id="idStartDirectory" type="text" class="form-control" name="start_directory" value="{{.StartDirectory}}" aria-describedby="idStartDirectoryHelp" />
-        <div id="idStartDirectoryHelp" class="form-text" data-i18n="filters.start_directory_help"></div>
-    </div>
-</div>
-
-<div class="form-group row mt-10">
     <label for="idTLSUsername" data-i18n="filters.tls_username" class="col-md-3 col-form-label">TLS username</label>
     <div class="col-md-9">
         <select id="idTLSUsername" name="tls_username" class="form-select" data-control="i18n-select2" data-hide-search="true" aria-describedby="idTLSUsernameHelp">
@@ -773,6 +765,14 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             <option value="1" data-i18n="general.mandatory_encryption" {{if eq .FTPSecurity 1 }}selected{{end}}>Mandatory encryption</option>
         </select>
         <div id="idFTPSecurityHelp" class="form-text" data-i18n="filters.ftp_security_help"></div>
+    </div>
+</div>
+
+<div class="form-group row mt-10">
+    <label for="idStartDirectory" data-i18n="filters.start_directory" class="col-md-3 col-form-label">Start directory</label>
+    <div class="col-md-9">
+        <input id="idStartDirectory" type="text" class="form-control" name="start_directory" value="{{.StartDirectory}}" aria-describedby="idStartDirectoryHelp" />
+        <div id="idStartDirectoryHelp" class="form-text" data-i18n="filters.start_directory_help"></div>
     </div>
 </div>
 

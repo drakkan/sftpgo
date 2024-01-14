@@ -468,9 +468,11 @@ func (u *User) IsPasswordHashed() bool {
 	return util.IsStringPrefixInSlice(u.Password, hashPwdPrefixes)
 }
 
-// IsTLSUsernameVerificationEnabled returns true if we need to extract the username
-// from the client TLS certificate
-func (u *User) IsTLSUsernameVerificationEnabled() bool {
+// IsTLSVerificationEnabled returns true if we need to check the TLS authentication
+func (u *User) IsTLSVerificationEnabled() bool {
+	if len(u.Filters.TLSCerts) > 0 {
+		return true
+	}
 	if u.Filters.TLSUsername != "" {
 		return u.Filters.TLSUsername != sdk.TLSUsernameNone
 	}
@@ -1757,7 +1759,7 @@ func (u *User) mergePrimaryGroupFilters(filters *sdk.BaseUserFilters, replacer *
 	if u.Filters.MaxUploadFileSize == 0 {
 		u.Filters.MaxUploadFileSize = filters.MaxUploadFileSize
 	}
-	if !u.IsTLSUsernameVerificationEnabled() {
+	if !u.IsTLSVerificationEnabled() {
 		u.Filters.TLSUsername = filters.TLSUsername
 	}
 	if !u.Filters.Hooks.CheckPasswordDisabled {

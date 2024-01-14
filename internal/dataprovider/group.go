@@ -179,6 +179,7 @@ func (g *Group) validateUserSettings() error {
 		}
 		g.UserSettings.Permissions = permissions
 	}
+	g.UserSettings.Filters.TLSCerts = nil
 	if err := validateBaseFilters(&g.UserSettings.Filters); err != nil {
 		return err
 	}

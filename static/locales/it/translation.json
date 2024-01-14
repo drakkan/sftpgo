@@ -467,7 +467,10 @@
         "submit_export": "Genera ed esporta utenti",
         "invalid_quota_size": "Quota (dimensione) non valida",
         "expires_in": "Scadenza",
-        "expires_in_help": "Scadenza dell'account espressa in numero di giorni dalla creazione. 0 significa nessuna scadenza"
+        "expires_in_help": "Scadenza dell'account espressa in numero di giorni dalla creazione. 0 significa nessuna scadenza",
+        "tls_certs": "Certificati TLS",
+        "tls_cert_help": "Incolla qui il tuo certificato TLS codificato PEM",
+        "tls_cert_invalid": "Certificato TLS non valido"
     },
     "group": {
         "view_manage": "Visualizza e gestisci gruppi",

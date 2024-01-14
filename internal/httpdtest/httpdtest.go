@@ -283,6 +283,7 @@ func AddGroup(group dataprovider.Group, expectedStatusCode int) (dataprovider.Gr
 		body, _ = getResponseBody(resp)
 	}
 	if err == nil {
+		group.UserSettings.Filters.TLSCerts = nil
 		err = checkGroup(group, newGroup)
 	}
 	return newGroup, body, err
@@ -2412,6 +2413,16 @@ func compareUserFilterSubStructs(expected sdk.BaseUserFilters, actual sdk.BaseUs
 			return errors.New("web client options contents mismatch")
 		}
 	}
+
+	if len(expected.TLSCerts) != len(actual.TLSCerts) {
+		return errors.New("TLS certs mismatch")
+	}
+	for _, cert := range expected.TLSCerts {
+		if !util.Contains(actual.TLSCerts, cert) {
+			return errors.New("TLS certs content mismatch")
+		}
+	}
+
 	return compareUserFiltersEqualFields(expected, actual)
 }
 

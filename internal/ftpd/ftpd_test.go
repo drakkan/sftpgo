@@ -3519,6 +3519,25 @@ func TestClientCertificateAuth(t *testing.T) {
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "does not match username")
 	}
+	// add the certs to the user
+	user2.Filters.TLSUsername = sdk.TLSUsernameNone
+	user2.Filters.TLSCerts = []string{client2Crt, client1Crt}
+	user2, _, err = httpdtest.UpdateUser(user2, http.StatusOK, "")
+	assert.NoError(t, err)
+	client, err = getFTPClient(user2, true, tlsConfig)
+	if assert.NoError(t, err) {
+		err = checkBasicFTP(client)
+		assert.NoError(t, err)
+		err = client.Quit()
+		assert.NoError(t, err)
+	}
+	user2.Filters.TLSCerts = []string{client2Crt}
+	user2, _, err = httpdtest.UpdateUser(user2, http.StatusOK, "")
+	assert.NoError(t, err)
+	_, err = getFTPClient(user2, true, tlsConfig)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "TLS certificate is not valid")
+	}
 
 	// now disable certificate authentication
 	user.Filters.DeniedLoginMethods = append(user.Filters.DeniedLoginMethods, dataprovider.LoginMethodTLSCertificate,

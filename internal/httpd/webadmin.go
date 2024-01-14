@@ -1961,6 +1961,10 @@ func updateRepeaterFormFields(r *http.Request) {
 			r.Form.Add("public_keys", r.Form.Get(k))
 			continue
 		}
+		if hasPrefixAndSuffix(k, "tls_certs[", "][tls_cert]") {
+			r.Form.Add("tls_certs", strings.TrimSpace(r.Form.Get(k)))
+			continue
+		}
 		if hasPrefixAndSuffix(k, "virtual_folders[", "][vfolder_path]") {
 			base, _ := strings.CutSuffix(k, "[vfolder_path]")
 			r.Form.Add("vfolder_path", strings.TrimSpace(r.Form.Get(k)))
@@ -2059,6 +2063,7 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 	if err != nil {
 		return user, err
 	}
+	filters.TLSCerts = r.Form["tls_certs"]
 	user = dataprovider.User{
 		BaseUser: sdk.BaseUser{
 			Username:             strings.TrimSpace(r.Form.Get("username")),

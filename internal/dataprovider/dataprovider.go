@@ -29,6 +29,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"hash"
@@ -1212,7 +1213,7 @@ func CheckCompositeCredentials(username, password, ip, loginMethod, protocol str
 	if err != nil {
 		return user, loginMethod, err
 	}
-	if !user.IsTLSUsernameVerificationEnabled() {
+	if !user.IsTLSVerificationEnabled() {
 		// for backward compatibility with 2.0.x we only check the password and change the login method here
 		// in future updates we have to return an error
 		user, err := CheckUserAndPass(username, password, ip, protocol)
@@ -2623,6 +2624,8 @@ func copyBaseUserFilters(in sdk.BaseUserFilters) sdk.BaseUserFilters {
 	filters.PasswordStrength = in.PasswordStrength
 	filters.WebClient = make([]string, len(in.WebClient))
 	copy(filters.WebClient, in.WebClient)
+	filters.TLSCerts = make([]string, len(in.TLSCerts))
+	copy(filters.TLSCerts, in.TLSCerts)
 	filters.BandwidthLimits = make([]sdk.BandwidthLimit, 0, len(in.BandwidthLimits))
 	for _, limit := range in.BandwidthLimits {
 		bwLimit := sdk.BandwidthLimit{
@@ -3023,6 +3026,25 @@ func validateFilterProtocols(filters *sdk.BaseUserFilters) error {
 	return nil
 }
 
+func validateTLSCerts(certs []string) error {
+	for idx, cert := range certs {
+		derBlock, _ := pem.Decode([]byte(cert))
+		if derBlock == nil {
+			return util.NewI18nError(
+				util.NewValidationError(fmt.Sprintf("invalid TLS certificate %d", idx)),
+				util.I18nErrorInvalidTLSCert,
+			)
+		}
+		if _, err := x509.ParseCertificate(derBlock.Bytes); err != nil {
+			return util.NewI18nError(
+				util.NewValidationError(fmt.Sprintf("error parsing TLS certificate %d", idx)),
+				util.I18nErrorInvalidTLSCert,
+			)
+		}
+	}
+	return nil
+}
+
 func validateBaseFilters(filters *sdk.BaseUserFilters) error {
 	checkEmptyFiltersStruct(filters)
 	if err := validateIPFilters(filters); err != nil {
@@ -3046,6 +3068,9 @@ func validateBaseFilters(filters *sdk.BaseUserFilters) error {
 		if !util.Contains(validTLSUsernames, string(filters.TLSUsername)) {
 			return util.NewValidationError(fmt.Sprintf("invalid TLS username: %q", filters.TLSUsername))
 		}
+	}
+	if err := validateTLSCerts(filters.TLSCerts); err != nil {
+		return err
 	}
 	for _, opts := range filters.WebClient {
 		if !util.Contains(sdk.WebClientOptions, opts) {
@@ -3312,6 +3337,12 @@ func checkUserAndTLSCertificate(user *User, protocol string, tlsCert *x509.Certi
 	}
 	switch protocol {
 	case protocolFTP, protocolWebDAV:
+		for _, cert := range user.Filters.TLSCerts {
+			derBlock, _ := pem.Decode([]byte(cert))
+			if derBlock != nil && bytes.Equal(derBlock.Bytes, tlsCert.Raw) {
+				return *user, nil
+			}
+		}
 		if user.Filters.TLSUsername == sdk.TLSUsernameCN {
 			if user.Username == tlsCert.Subject.CommonName {
 				return *user, nil

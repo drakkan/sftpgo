@@ -245,7 +245,7 @@ func (s *Server) VerifyConnection(cc ftpserver.ClientContext, user string, tlsCo
 				updateLoginMetrics(&dbUser, ipAddr, dataprovider.LoginMethodTLSCertificate, err)
 				return nil, dataprovider.ErrInvalidCredentials
 			}
-			if dbUser.IsTLSUsernameVerificationEnabled() {
+			if dbUser.IsTLSVerificationEnabled() {
 				dbUser, err = dataprovider.CheckUserAndTLSCert(user, ipAddr, common.ProtocolFTP, state.PeerCertificates[0])
 				if err != nil {
 					return nil, err

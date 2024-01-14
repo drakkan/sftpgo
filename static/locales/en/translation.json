@@ -467,7 +467,10 @@
         "submit_export": "Generate and export users",
         "invalid_quota_size": "Invalid quota size",
         "expires_in": "Expires in",
-        "expires_in_help": "Account expiration as number of days from the creation. 0 means no expiration"
+        "expires_in_help": "Account expiration as number of days from the creation. 0 means no expiration",
+        "tls_certs": "TLS certificates",
+        "tls_cert_help": "Paste your PEM encoded TLS certificate here",
+        "tls_cert_invalid": "Invalid TLS certificate"
     },
     "group": {
         "view_manage": "View and manage groups",

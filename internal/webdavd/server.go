@@ -293,7 +293,7 @@ func (s *webDavServer) authenticate(r *http.Request, ip string) (dataprovider.Us
 		if cachedUser.IsExpired() {
 			dataprovider.RemoveCachedWebDAVUser(username)
 		} else {
-			if !cachedUser.User.IsTLSUsernameVerificationEnabled() {
+			if !cachedUser.User.IsTLSVerificationEnabled() {
 				// for backward compatibility with 2.0.x we only check the password
 				tlsCert = nil
 				loginMethod = dataprovider.LoginMethodPassword

@@ -2800,6 +2800,13 @@ func TestClientCertificateAuth(t *testing.T) {
 	client := getWebDavClient(user, true, tlsConfig)
 	err = checkBasicFunc(client)
 	assert.NoError(t, err)
+	user.Filters.TLSUsername = sdk.TLSUsernameNone
+	user.Filters.TLSCerts = []string{client1Crt}
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	client = getWebDavClient(user, true, tlsConfig)
+	err = checkBasicFunc(client)
+	assert.NoError(t, err)
 
 	user.Filters.DeniedLoginMethods = []string{dataprovider.LoginMethodPassword, dataprovider.LoginMethodTLSCertificate}
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")

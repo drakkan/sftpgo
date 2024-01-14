@@ -185,6 +185,7 @@ const (
 	I18nErrorFsUsernameRequired        = "storage.username_required"
 	I18nAddGroupTitle                  = "title.add_group"
 	I18nUpdateGroupTitle               = "title.update_group"
+	I18nErrorInvalidTLSCert            = "user.tls_cert_invalid"
 )
 
 // NewI18nError returns a I18nError wrappring the provided error

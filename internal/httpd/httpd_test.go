@@ -821,12 +821,32 @@ func TestRoleRelations(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestTLSCert(t *testing.T) {
+	u := getTestUser()
+	u.Filters.TLSCerts = []string{"not a cert"}
+	_, resp, err := httpdtest.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err, string(resp))
+	assert.Contains(t, string(resp), "invalid TLS certificate")
+
+	u.Filters.TLSCerts = []string{httpsCert}
+	user, resp, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	if assert.Len(t, user.Filters.TLSCerts, 1) {
+		assert.Equal(t, httpsCert, user.Filters.TLSCerts[0])
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+}
+
 func TestBasicGroupHandling(t *testing.T) {
 	g := getTestGroup()
+	g.UserSettings.Filters.TLSCerts = []string{"invalid cert"} // ignored for groups
 	group, _, err := httpdtest.AddGroup(g, http.StatusCreated)
 	assert.NoError(t, err)
 	assert.Greater(t, group.CreatedAt, int64(0))
 	assert.Greater(t, group.UpdatedAt, int64(0))
+	assert.Len(t, group.UserSettings.Filters.TLSCerts, 0)
 	groupGet, _, err := httpdtest.GetGroupByName(group.Name, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Equal(t, group, groupGet)

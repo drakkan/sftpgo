@@ -48,6 +48,10 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/version"
 )
 
+const (
+	jsonAPISuffix = "/json"
+)
+
 var (
 	compressor      = middleware.NewCompressor(5)
 	xForwardedProto = http.CanonicalHeaderKey("X-Forwarded-Proto")
@@ -1683,7 +1687,7 @@ func (s *httpdServer) setupWebAdminRoutes() {
 			router.With(s.checkPerm(dataprovider.PermAdminViewUsers), s.refreshCookie).
 				Get(webUsersPath, s.handleGetWebUsers)
 			router.With(s.checkPerm(dataprovider.PermAdminViewUsers), compressor.Handler, s.refreshCookie).
-				Get(webUsersPath+"/json", getAllUsers)
+				Get(webUsersPath+jsonAPISuffix, getAllUsers)
 			router.With(s.checkPerm(dataprovider.PermAdminAddUsers), s.refreshCookie).
 				Get(webUserPath, s.handleWebAddUserGet)
 			router.With(s.checkPerm(dataprovider.PermAdminChangeUsers), s.refreshCookie).
@@ -1694,7 +1698,7 @@ func (s *httpdServer) setupWebAdminRoutes() {
 			router.With(s.checkPerm(dataprovider.PermAdminManageGroups), s.refreshCookie).
 				Get(webGroupsPath, s.handleWebGetGroups)
 			router.With(s.checkPerm(dataprovider.PermAdminManageGroups), compressor.Handler, s.refreshCookie).
-				Get(webGroupsPath+"/json", getAllGroups)
+				Get(webGroupsPath+jsonAPISuffix, getAllGroups)
 			router.With(s.checkPerm(dataprovider.PermAdminManageGroups), s.refreshCookie).
 				Get(webGroupPath, s.handleWebAddGroupGet)
 			router.With(s.checkPerm(dataprovider.PermAdminManageGroups)).Post(webGroupPath, s.handleWebAddGroupPost)
@@ -1709,7 +1713,7 @@ func (s *httpdServer) setupWebAdminRoutes() {
 			router.With(s.checkPerm(dataprovider.PermAdminManageFolders), s.refreshCookie).
 				Get(webFoldersPath, s.handleWebGetFolders)
 			router.With(s.checkPerm(dataprovider.PermAdminManageFolders), compressor.Handler, s.refreshCookie).
-				Get(webFoldersPath+"/json", getAllFolders)
+				Get(webFoldersPath+jsonAPISuffix, getAllFolders)
 			router.With(s.checkPerm(dataprovider.PermAdminManageFolders), s.refreshCookie).
 				Get(webFolderPath, s.handleWebAddFolderGet)
 			router.With(s.checkPerm(dataprovider.PermAdminManageFolders)).Post(webFolderPath, s.handleWebAddFolderPost)

@@ -390,6 +390,10 @@ func (c *Configuration) loadPrivateKey() (crypto.PrivateKey, error) {
 	}
 
 	keyBlock, _ := pem.Decode(keyBytes)
+	if keyBlock == nil {
+		acmeLog(logger.LevelError, "unable to parse private key from file %q: pem decoding failed", c.accountKeyPath)
+		return nil, errors.New("pem decoding failed")
+	}
 
 	var privateKey crypto.PrivateKey
 	switch keyBlock.Type {
