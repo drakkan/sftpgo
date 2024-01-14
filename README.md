@@ -370,6 +370,8 @@ Thank you to [ysura](https://www.ysura.com/) for granting us stable access to a 
 
 Thank you to [KeenThemes](https://keenthemes.com/) for granting us a custom license to use their amazing [Mega Bundle](https://keenthemes.com/products/templates-mega-bundle) for SFTPGo UI.
 
+Thank you to [Incode](https://www.incode.it/) for helping us to improve the UI/UX.
+
 ## License
 
 GNU AGPL-3.0-only

@@ -180,6 +180,8 @@ const (
 	I18nErrorEndpointInvalid           = "storage.endpoint_invalid"
 	I18nErrorEndpointRequired          = "storage.endpoint_required"
 	I18nErrorFsUsernameRequired        = "storage.username_required"
+	I18nAddGroupTitle                  = "title.add_group"
+	I18nUpdateGroupTitle               = "title.update_group"
 )
 
 // NewI18nError returns a I18nError wrappring the provided error

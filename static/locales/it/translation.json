@@ -47,7 +47,9 @@
         "status": "Stato",
         "add_user": "Aggiungi utente",
         "update_user": "Aggiorna utente",
-        "template_user": "Modello utente"
+        "template_user": "Modello utente",
+        "add_group": "Aggiungi gruppo",
+        "update_group": "Aggiorna gruppo"
     },
     "setup": {
         "desc": "Per iniziare a utilizzare SFTPGo devi creare un utente amministratore",
@@ -462,7 +464,9 @@
         "disconnect_help": "In questo modo si obbliga l'utente a effettuare nuovamente il login, se connesso, e quindi ad utilizzare la nuova configurazione",
         "submit_generate": "Genera e salva utenti",
         "submit_export": "Genera ed esporta utenti",
-        "invalid_quota_size": "Quota (dimensione) non valida"
+        "invalid_quota_size": "Quota (dimensione) non valida",
+        "expires_in": "Scadenza",
+        "expires_in_help": "Scadenza dell'account espressa in numero di giorni dalla creazione. 0 significa nessuna scadenza"
     },
     "group": {
         "view_manage": "Visualizza e gestisci gruppi",
@@ -621,7 +625,7 @@
         "is_anonymous_help": "Gli utenti anonimi sono supportati per i protocolli FTP e WebDAV e hanno accesso di sola lettura",
         "disable_fs_checks": "Disabilita i controlli del filesystem",
         "disable_fs_checks_help": "Disabilita i controlli sull'esistenza e la creazione automatica della directory home e delle cartelle virtuali",
-        "api_key_auth_help": "Permetti di impersonare questo utente nelle API REST utilizzando una chiave API",
+        "api_key_auth_help": "Permetti di impersonare l'utente nelle API REST utilizzando una chiave API",
         "external_auth_cache_time": "Cache per autenticazione esterna",
         "external_auth_cache_time_help": "Tempo di memorizzazione nella cache, in secondi, per gli utenti autenticati utilizzando un hook di autenticazione esterno. 0 significa nessuna cache"
     }

@@ -47,7 +47,9 @@
         "status": "Status",
         "add_user": "Add user",
         "update_user": "Update user",
-        "template_user": "User template"
+        "template_user": "User template",
+        "add_group": "Add group",
+        "update_group": "Update group"
     },
     "setup": {
         "desc": "To start using SFTPGo you need to create an administrator user",
@@ -462,7 +464,9 @@
         "disconnect_help": "This way you force the user to login again, if connected, and so to use the new configuration",
         "submit_generate": "Generate and save users",
         "submit_export": "Generate and export users",
-        "invalid_quota_size": "Invalid quota size"
+        "invalid_quota_size": "Invalid quota size",
+        "expires_in": "Expires in",
+        "expires_in_help": "Account expiration as number of days from the creation. 0 means no expiration"
     },
     "group": {
         "view_manage": "View and manage groups",
@@ -621,7 +625,7 @@
         "is_anonymous_help": "Anonymous users are supported for FTP and WebDAV protocols and have read-only access",
         "disable_fs_checks": "Disable filesystem checks",
         "disable_fs_checks_help": "Disable checks for existence and automatic creation of home directory and virtual folders",
-        "api_key_auth_help": "Allow to impersonate this user, in REST API, with an API key",
+        "api_key_auth_help": "Allow to impersonate the user, in REST API, with an API key",
         "external_auth_cache_time": "External auth cache time",
         "external_auth_cache_time_help": "Cache time, in seconds, for users authenticated using an external auth hook. 0 means no cache"
     }

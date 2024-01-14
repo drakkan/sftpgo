@@ -152,6 +152,14 @@ func getI18NErrorString(err error, fallback string) string {
 	return fallback
 }
 
+func getI18nError(err error) *util.I18nError {
+	var errI18n *util.I18nError
+	if err != nil {
+		errI18n = util.NewI18nError(err, util.I18nError500Message)
+	}
+	return errI18n
+}
+
 func handlePingRequest(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	render.PlainText(w, r, "PONG")

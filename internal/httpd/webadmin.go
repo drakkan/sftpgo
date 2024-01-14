@@ -316,7 +316,7 @@ type folderPage struct {
 type groupPage struct {
 	basePage
 	Group              *dataprovider.Group
-	Error              string
+	Error              *util.I18nError
 	Mode               genericPageMode
 	ValidPerms         []string
 	ValidLoginMethods  []string
@@ -447,10 +447,9 @@ func loadAdminTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateAdminDir, templateGroups),
 	}
 	groupPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateFsConfig),
-		filepath.Join(templatesPath, templateAdminDir, templateSharedComponents),
 		filepath.Join(templatesPath, templateAdminDir, templateGroup),
 	}
 	eventRulesPaths := []string{
@@ -993,14 +992,10 @@ func (s *httpdServer) renderUserPage(w http.ResponseWriter, r *http.Request, use
 	if errGroups != nil {
 		return
 	}
-	var errI18n *util.I18nError
-	if err != nil {
-		errI18n = util.NewI18nError(err, util.I18nError500Message)
-	}
 	data := userPage{
 		basePage:           basePage,
 		Mode:               mode,
-		Error:              errI18n,
+		Error:              getI18nError(err),
 		User:               user,
 		ValidPerms:         dataprovider.ValidPerms,
 		ValidLoginMethods:  dataprovider.ValidLoginMethods,
@@ -1067,10 +1062,10 @@ func (s *httpdServer) renderRolePage(w http.ResponseWriter, r *http.Request, rol
 }
 
 func (s *httpdServer) renderGroupPage(w http.ResponseWriter, r *http.Request, group dataprovider.Group,
-	mode genericPageMode, error string,
+	mode genericPageMode, err error,
 ) {
-	folders, err := s.getWebVirtualFolders(w, r, defaultQueryLimit, true)
-	if err != nil {
+	folders, errFolders := s.getWebVirtualFolders(w, r, defaultQueryLimit, true)
+	if errFolders != nil {
 		return
 	}
 	group.SetEmptySecretsIfNil()
@@ -1078,10 +1073,10 @@ func (s *httpdServer) renderGroupPage(w http.ResponseWriter, r *http.Request, gr
 	var title, currentURL string
 	switch mode {
 	case genericPageModeAdd:
-		title = "Add a new group"
+		title = util.I18nAddGroupTitle
 		currentURL = webGroupPath
 	case genericPageModeUpdate:
-		title = "Update group"
+		title = util.I18nUpdateGroupTitle
 		currentURL = fmt.Sprintf("%v/%v", webGroupPath, url.PathEscape(group.Name))
 	}
 	group.UserSettings.FsConfig.RedactedSecret = redactedSecret
@@ -1089,7 +1084,7 @@ func (s *httpdServer) renderGroupPage(w http.ResponseWriter, r *http.Request, gr
 
 	data := groupPage{
 		basePage:           s.getBasePageData(title, currentURL, r),
-		Error:              error,
+		Error:              getI18nError(err),
 		Group:              &group,
 		Mode:               mode,
 		ValidPerms:         dataprovider.ValidPerms,
@@ -1977,7 +1972,7 @@ func getQuotaLimits(r *http.Request) (int64, int, error) {
 	return quotaSize, quotaFiles, nil
 }
 
-func updateUserFormFields(r *http.Request) {
+func updateRepeaterFormFields(r *http.Request) {
 	for k := range r.Form {
 		if hasPrefixAndSuffix(k, "public_keys[", "][public_key]") {
 			r.Form.Add("public_keys", r.Form.Get(k))
@@ -2029,7 +2024,9 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 		return user, util.NewI18nError(err, util.I18nErrorInvalidForm)
 	}
 	defer r.MultipartForm.RemoveAll() //nolint:errcheck
-	updateUserFormFields(r)
+
+	updateRepeaterFormFields(r)
+
 	uid, err := strconv.Atoi(r.Form.Get("uid"))
 	if err != nil {
 		return user, fmt.Errorf("invalid uid: %w", err)
@@ -2118,9 +2115,11 @@ func getGroupFromPostFields(r *http.Request) (dataprovider.Group, error) {
 	group := dataprovider.Group{}
 	err := r.ParseMultipartForm(maxRequestSize)
 	if err != nil {
-		return group, err
+		return group, util.NewI18nError(err, util.I18nErrorInvalidForm)
 	}
 	defer r.MultipartForm.RemoveAll() //nolint:errcheck
+
+	updateRepeaterFormFields(r)
 
 	maxSessions, err := strconv.Atoi(r.Form.Get("max_sessions"))
 	if err != nil {
@@ -3536,7 +3535,7 @@ func (s *httpdServer) handleWebGetGroups(w http.ResponseWriter, r *http.Request)
 
 func (s *httpdServer) handleWebAddGroupGet(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	s.renderGroupPage(w, r, dataprovider.Group{}, genericPageModeAdd, "")
+	s.renderGroupPage(w, r, dataprovider.Group{}, genericPageModeAdd, nil)
 }
 
 func (s *httpdServer) handleWebAddGroupPost(w http.ResponseWriter, r *http.Request) {
@@ -3548,7 +3547,7 @@ func (s *httpdServer) handleWebAddGroupPost(w http.ResponseWriter, r *http.Reque
 	}
 	group, err := getGroupFromPostFields(r)
 	if err != nil {
-		s.renderGroupPage(w, r, group, genericPageModeAdd, err.Error())
+		s.renderGroupPage(w, r, group, genericPageModeAdd, err)
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
@@ -3558,7 +3557,7 @@ func (s *httpdServer) handleWebAddGroupPost(w http.ResponseWriter, r *http.Reque
 	}
 	err = dataprovider.AddGroup(&group, claims.Username, ipAddr, claims.Role)
 	if err != nil {
-		s.renderGroupPage(w, r, group, genericPageModeAdd, err.Error())
+		s.renderGroupPage(w, r, group, genericPageModeAdd, err)
 		return
 	}
 	http.Redirect(w, r, webGroupsPath, http.StatusSeeOther)
@@ -3569,7 +3568,7 @@ func (s *httpdServer) handleWebUpdateGroupGet(w http.ResponseWriter, r *http.Req
 	name := getURLParam(r, "name")
 	group, err := dataprovider.GroupExists(name)
 	if err == nil {
-		s.renderGroupPage(w, r, group, genericPageModeUpdate, "")
+		s.renderGroupPage(w, r, group, genericPageModeUpdate, nil)
 	} else if errors.Is(err, util.ErrNotFound) {
 		s.renderNotFoundPage(w, r, err)
 	} else {
@@ -3595,7 +3594,7 @@ func (s *httpdServer) handleWebUpdateGroupPost(w http.ResponseWriter, r *http.Re
 	}
 	updatedGroup, err := getGroupFromPostFields(r)
 	if err != nil {
-		s.renderGroupPage(w, r, group, genericPageModeUpdate, err.Error())
+		s.renderGroupPage(w, r, group, genericPageModeUpdate, err)
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
@@ -3616,7 +3615,7 @@ func (s *httpdServer) handleWebUpdateGroupPost(w http.ResponseWriter, r *http.Re
 
 	err = dataprovider.UpdateGroup(&updatedGroup, group.Users, claims.Username, ipAddr, claims.Role)
 	if err != nil {
-		s.renderGroupPage(w, r, updatedGroup, genericPageModeUpdate, err.Error())
+		s.renderGroupPage(w, r, updatedGroup, genericPageModeUpdate, err)
 		return
 	}
 	http.Redirect(w, r, webGroupsPath, http.StatusSeeOther)
