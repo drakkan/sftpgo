@@ -175,7 +175,14 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     if (!errorMessage){
                         errorMessage = "general.delete_error_generic";
                     }
-                    showToast(2, errorMessage);
+                    ModalAlert.fire({
+                        text: $.t(errorMessage),
+                        icon: "warning",
+                        confirmButtonText: $.t('general.ok'),
+                        customClass: {
+                            confirmButton: "btn btn-primary"
+                        }
+                    });
                 });
             }
         });
@@ -209,7 +216,14 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 if (!errorMessage) {
                     errorMessage = "general.quota_scan_error";
                 }
-                showToast(2, errorMessage);
+                ModalAlert.fire({
+                    text: $.t(errorMessage),
+                    icon: "warning",
+                    confirmButtonText: $.t('general.ok'),
+                    customClass: {
+                        confirmButton: "btn btn-primary"
+                    }
+                });
             });
         }
 
@@ -364,7 +378,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                     if (!used){
                                         used = 0;
                                     }
-                                    let usage = fileSizeIEC(used)+"/"+fileSizeIEC(row.quota_size)
+                                    let usage = fileSizeIEC(used)+"/"+fileSizeIEC(row.quota_size);
                                     val += $.t('fs.quota_usage.size', {val: usage})+". ";
                                 } else if (row.used_quota_size && row.used_quota_size > 0) {
                                     val += $.t('fs.quota_usage.size', {val: fileSizeIEC(row.used_quota_size)})+". ";

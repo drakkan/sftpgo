@@ -206,7 +206,8 @@
         "zero_no_limit_help": "0 means no limit",
         "global_settings": "Global settings",
         "mandatory_encryption": "Mandatory encryption",
-        "name_invalid": "The specified username is not valid, the following characters are allowed: a-zA-Z0-9-_.~"
+        "name_invalid": "The specified username is not valid, the following characters are allowed: a-zA-Z0-9-_.~",
+        "associations": "Associations"
     },
     "fs": {
         "view_file": "View file \"{{- path}}\"",
@@ -474,10 +475,12 @@
         "members_summary": "Users: {{users}}. Admins: {{admins}}"
     },
     "virtual_folders": {
+        "view_manage": "View and manage virtual folders",
         "mount_path": "mount path, i.e. /vfolder",
         "quota_size": "Quota size",
         "quota_size_help": "0 means no limit. You can use MB/GB/TB suffix",
-        "quota_files": "Quota files"
+        "quota_files": "Quota files",
+        "associations_summary": "Users: {{users}}. Groups: {{groups}}"
     },
     "storage": {
         "title": "File system",

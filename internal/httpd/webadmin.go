@@ -172,11 +172,6 @@ type adminsPage struct {
 	Admins []dataprovider.Admin
 }
 
-type foldersPage struct {
-	basePage
-	Folders []vfs.BaseVirtualFolder
-}
-
 type rolesPage struct {
 	basePage
 	Roles []dataprovider.Role
@@ -428,7 +423,7 @@ func loadAdminTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateAdminDir, templateMessage),
 	}
 	foldersPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateFolders),
 	}
@@ -3444,7 +3439,7 @@ func (s *httpdServer) handleWebUpdateFolderPost(w http.ResponseWriter, r *http.R
 }
 
 func (s *httpdServer) getWebVirtualFolders(w http.ResponseWriter, r *http.Request, limit int, minimal bool) ([]vfs.BaseVirtualFolder, error) {
-	folders := make([]vfs.BaseVirtualFolder, 0, limit)
+	folders := make([]vfs.BaseVirtualFolder, 0, 50)
 	for {
 		f, err := dataprovider.GetFolders(limit, len(folders), dataprovider.OrderASC, minimal)
 		if err != nil {
@@ -3459,25 +3454,27 @@ func (s *httpdServer) getWebVirtualFolders(w http.ResponseWriter, r *http.Reques
 	return folders, nil
 }
 
-func (s *httpdServer) handleWebGetFolders(w http.ResponseWriter, r *http.Request) {
+func getAllFolders(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	limit := defaultQueryLimit
-	if _, ok := r.URL.Query()["qlimit"]; ok {
-		var err error
-		limit, err = strconv.Atoi(r.URL.Query().Get("qlimit"))
+	folders := make([]vfs.BaseVirtualFolder, 0, 50)
+	for {
+		f, err := dataprovider.GetFolders(defaultQueryLimit, len(folders), dataprovider.OrderASC, false)
 		if err != nil {
-			limit = defaultQueryLimit
+			sendAPIResponse(w, r, err, getI18NErrorString(err, util.I18nError500Message), http.StatusInternalServerError)
+			return
+		}
+		folders = append(folders, f...)
+		if len(f) < defaultQueryLimit {
+			break
 		}
 	}
-	folders, err := s.getWebVirtualFolders(w, r, limit, false)
-	if err != nil {
-		return
-	}
+	render.JSON(w, r, folders)
+}
 
-	data := foldersPage{
-		basePage: s.getBasePageData(util.I18nFoldersTitle, webFoldersPath, r),
-		Folders:  folders,
-	}
+func (s *httpdServer) handleWebGetFolders(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+
+	data := s.getBasePageData(util.I18nFoldersTitle, webFoldersPath, r)
 	renderAdminTemplate(w, templateFolders, data)
 }
 

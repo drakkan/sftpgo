@@ -206,7 +206,8 @@
         "zero_no_limit_help": "0 significa nessun limite",
         "global_settings": "Impostazioni globali",
         "mandatory_encryption": "Crittografia obbligatoria",
-        "name_invalid": "Il nome specificato non è valido, sono consentiti i seguenti caratteri: a-zA-Z0-9-_.~"
+        "name_invalid": "Il nome specificato non è valido, sono consentiti i seguenti caratteri: a-zA-Z0-9-_.~",
+        "associations": "Associazioni"
     },
     "fs": {
         "view_file": "Visualizza file \"{{- path}}\"",
@@ -474,10 +475,12 @@
         "members_summary": "Utenti: {{users}}. Amministratori: {{admins}}"
     },
     "virtual_folders": {
+        "view_manage": "Visualizza e gestisci cartelle virtuali",
         "mount_path": "percorso, es. /vfolder",
         "quota_size": "Quota (dimensione)",
         "quota_size_help": "0 significa nessun limite. E' possibile utilizzare il suffisso MB/GB/TB",
-        "quota_files": "Quota (numero file)"
+        "quota_files": "Quota (numero file)",
+        "associations_summary": "Utenti: {{users}}. Gruppi: {{groups}}"
     },
     "storage": {
         "title": "File system",

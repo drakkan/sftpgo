@@ -1682,7 +1682,7 @@ func (s *httpdServer) setupWebAdminRoutes() {
 
 			router.With(s.checkPerm(dataprovider.PermAdminViewUsers), s.refreshCookie).
 				Get(webUsersPath, s.handleGetWebUsers)
-			router.With(s.checkPerm(dataprovider.PermAdminViewUsers), s.refreshCookie).
+			router.With(s.checkPerm(dataprovider.PermAdminViewUsers), compressor.Handler, s.refreshCookie).
 				Get(webUsersPath+"/json", getAllUsers)
 			router.With(s.checkPerm(dataprovider.PermAdminAddUsers), s.refreshCookie).
 				Get(webUserPath, s.handleWebAddUserGet)
@@ -1693,7 +1693,7 @@ func (s *httpdServer) setupWebAdminRoutes() {
 				s.handleWebUpdateUserPost)
 			router.With(s.checkPerm(dataprovider.PermAdminManageGroups), s.refreshCookie).
 				Get(webGroupsPath, s.handleWebGetGroups)
-			router.With(s.checkPerm(dataprovider.PermAdminManageGroups), s.refreshCookie).
+			router.With(s.checkPerm(dataprovider.PermAdminManageGroups), compressor.Handler, s.refreshCookie).
 				Get(webGroupsPath+"/json", getAllGroups)
 			router.With(s.checkPerm(dataprovider.PermAdminManageGroups), s.refreshCookie).
 				Get(webGroupPath, s.handleWebAddGroupGet)
@@ -1708,6 +1708,8 @@ func (s *httpdServer) setupWebAdminRoutes() {
 				Get(webConnectionsPath, s.handleWebGetConnections)
 			router.With(s.checkPerm(dataprovider.PermAdminManageFolders), s.refreshCookie).
 				Get(webFoldersPath, s.handleWebGetFolders)
+			router.With(s.checkPerm(dataprovider.PermAdminManageFolders), compressor.Handler, s.refreshCookie).
+				Get(webFoldersPath+"/json", getAllFolders)
 			router.With(s.checkPerm(dataprovider.PermAdminManageFolders), s.refreshCookie).
 				Get(webFolderPath, s.handleWebAddFolderGet)
 			router.With(s.checkPerm(dataprovider.PermAdminManageFolders)).Post(webFolderPath, s.handleWebAddFolderPost)

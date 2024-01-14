@@ -1224,7 +1224,14 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         }
         items = checkMoveCopyItems(items)
         if (items.length == 0){
-            showToast(2, "fs.invalid_name");
+            ModalAlert.fire({
+                text: $.t('fs.invalid_name'),
+                icon: "warning",
+                confirmButtonText: $.t('general.ok'),
+                customClass: {
+                    confirmButton: "btn btn-primary"
+                }
+            });
             return;
         }
         keepAlive();
@@ -1296,7 +1303,14 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 if (!errorMessage){
                     errorMessage = "fs.copy.err_generic";
                 }
-                showToast(2, errorMessage);
+                ModalAlert.fire({
+                    text: $.t(errorMessage),
+                    icon: "warning",
+                    confirmButtonText: $.t('general.ok'),
+                    customClass: {
+                        confirmButton: "btn btn-primary"
+                    }
+                });
                 copyItem();
             });
         }
@@ -1315,10 +1329,24 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         }).then((result)=>{
             if (result.error) {
                 hasError = true;
-                showToast(2, "fs.copy.err_generic");
+                ModalAlert.fire({
+                    text: $.t("fs.copy.err_generic"),
+                    icon: "warning",
+                    confirmButtonText: $.t('general.ok'),
+                    customClass: {
+                        confirmButton: "btn btn-primary"
+                    }
+                });
             } else if (result.data.length > 0){
                 hasError = true;
-                showToast(2, "fs.copy.err_exists");
+                ModalAlert.fire({
+                    text: $.t("fs.copy.err_exists"),
+                    icon: "warning",
+                    confirmButtonText: $.t('general.ok'),
+                    customClass: {
+                        confirmButton: "btn btn-primary"
+                    }
+                });
             }
             copyItem();
         });
@@ -1332,7 +1360,14 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         }
         items = checkMoveCopyItems(items)
         if (items.length == 0){
-            showToast(2, "fs.invalid_name");
+            ModalAlert.fire({
+                text: $.t("fs.invalid_name"),
+                icon: "warning",
+                confirmButtonText: $.t('general.ok'),
+                customClass: {
+                    confirmButton: "btn btn-primary"
+                }
+            });
             return;
         }
         keepAlive();
@@ -1404,7 +1439,14 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 if (!errorMessage){
                     errorMessage = "fs.move.err_generic";
                 }
-                showToast(2, errorMessage);
+                ModalAlert.fire({
+                    text: $.t(errorMessage),
+                    icon: "warning",
+                    confirmButtonText: $.t('general.ok'),
+                    customClass: {
+                        confirmButton: "btn btn-primary"
+                    }
+                });
                 moveItem();
             });
         }
@@ -1423,10 +1465,24 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         }).then((result)=>{
             if (result.error) {
                 hasError = true;
-                showToast(2, "fs.move.err_generic");
+                ModalAlert.fire({
+                text: $.t("fs.move.err_generic"),
+                icon: "warning",
+                confirmButtonText: $.t('general.ok'),
+                customClass: {
+                    confirmButton: "btn btn-primary"
+                }
+            });
             } else if (result.data.length > 0){
                 hasError = true;
-                showToast(2, "fs.move.err_exists");
+                ModalAlert.fire({
+                text: $.t("fs.move.err_exists"),
+                icon: "warning",
+                confirmButtonText: $.t('general.ok'),
+                customClass: {
+                    confirmButton: "btn btn-primary"
+                }
+            });
             }
             moveItem();
         });
@@ -1493,7 +1549,14 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     if (!errorMessage){
                         errorMessage = "fs.delete.err_generic";
                     }
-                    showToast(2, errorMessage, {name: itemName});
+                    ModalAlert.fire({
+                        text: $.t(errorMessage, {name: itemName}),
+                        icon: "warning",
+                        confirmButtonText: $.t('general.ok'),
+                        customClass: {
+                            confirmButton: "btn btn-primary"
+                        }
+                    });
                 });
             }
         });
@@ -1523,15 +1586,36 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         let oldName = getNameFromMeta(meta);
         let newName = $('#rename_new_name').val();
         if (!newName){
-            showToast(2, "general.name_required");
+            ModalAlert.fire({
+                text: $.t('general.name_required'),
+                icon: "warning",
+                confirmButtonText: $.t('general.ok'),
+                customClass: {
+                    confirmButton: "btn btn-primary"
+                }
+            });
             return;
         }
         if (newName == oldName){
-            showToast(2, "general.name_different");
+            ModalAlert.fire({
+                text: $.t('general.name_different'),
+                icon: "warning",
+                confirmButtonText: $.t('general.ok'),
+                customClass: {
+                    confirmButton: "btn btn-primary"
+                }
+            });
             return;
         }
         if (newName.includes("/")){
-            showToast(2, "fs.invalid_name");
+            ModalAlert.fire({
+                text: $.t('fs.invalid_name'),
+                icon: "warning",
+                confirmButtonText: $.t('general.ok'),
+                customClass: {
+                    confirmButton: "btn btn-primary"
+                }
+            });
             return;
         }
 
@@ -1567,7 +1651,14 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 if (!errorMessage) {
                     errorMessage = "fs.rename.err_generic";
                 }
-                showToast(2, errorMessage, { name: oldName });
+                ModalAlert.fire({
+                        text: $.t(errorMessage, {name: oldName}),
+                        icon: "warning",
+                        confirmButtonText: $.t('general.ok'),
+                        customClass: {
+                            confirmButton: "btn btn-primary"
+                        }
+                    });
             });
         }
 
@@ -1578,12 +1669,26 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         }).then((result)=>{
             if (result.error) {
                 KTApp.hidePageLoading();
-                showToast(2, "fs.rename.err_generic", { name: oldName });
+                ModalAlert.fire({
+                    text: $.t('fs.rename.err_generic', { name: oldName }),
+                    icon: "warning",
+                    confirmButtonText: $.t('general.ok'),
+                    customClass: {
+                        confirmButton: "btn btn-primary"
+                    }
+                });
                 return;
             }
             if (result.data.length > 0){
                 KTApp.hidePageLoading();
-                showToast(2, "fs.rename.err_exists", { name: oldName });
+                ModalAlert.fire({
+                    text: $.t('fs.rename.err_exists', { name: oldName }),
+                    icon: "warning",
+                    confirmButtonText: $.t('general.ok'),
+                    customClass: {
+                        confirmButton: "btn btn-primary"
+                    }
+                });
                 return;
             }
             executeRename();

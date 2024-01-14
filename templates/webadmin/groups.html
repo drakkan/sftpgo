@@ -126,7 +126,14 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     if (!errorMessage){
                         errorMessage = "general.delete_error_generic";
                     }
-                    showToast(2, errorMessage);
+                    ModalAlert.fire({
+                        text: $.t(errorMessage),
+                        icon: "warning",
+                        confirmButtonText: $.t('general.ok'),
+                        customClass: {
+                            confirmButton: "btn btn-primary"
+                        }
+                    });
                 });
             }
         });
