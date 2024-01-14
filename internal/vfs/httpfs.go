@@ -164,7 +164,8 @@ func (c *HTTPFsConfig) validate() error {
 
 // ValidateAndEncryptCredentials validates the config and encrypts credentials if they are in plain text
 func (c *HTTPFsConfig) ValidateAndEncryptCredentials(additionalData string) error {
-	if err := c.validate(); err != nil {
+	err := c.validate()
+	if err != nil {
 		var errI18n *util.I18nError
 		errValidation := util.NewValidationError(fmt.Sprintf("could not validate HTTP fs config: %v", err))
 		if errors.As(err, &errI18n) {

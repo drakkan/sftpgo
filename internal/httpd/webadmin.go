@@ -100,12 +100,9 @@ const (
 	templateMaintenance      = "maintenance.html"
 	templateMFA              = "mfa.html"
 	templateSetup            = "adminsetup.html"
-	pageUsersTitle           = "Users"
 	pageAdminsTitle          = "Admins"
 	pageConnectionsTitle     = "Connections"
 	pageStatusTitle          = "Status"
-	pageFoldersTitle         = "Folders"
-	pageGroupsTitle          = "Groups"
 	pageEventRulesTitle      = "Event rules"
 	pageEventActionsTitle    = "Event actions"
 	pageRolesTitle           = "Roles"
@@ -1380,18 +1377,9 @@ func getFilePatternsFromPostField(r *http.Request) []sdk.PatternsFilter {
 
 	for idx := range patternPaths {
 		p := patternPaths[idx]
-		filters := ""
-		patternType := ""
-		patternPolicy := ""
-		if len(patterns) > idx {
-			filters = strings.ReplaceAll(patterns[idx], " ", "")
-		}
-		if len(patternTypes) > idx {
-			patternType = patternTypes[idx]
-		}
-		if len(patternPolicies) > idx {
-			patternPolicy = policies[idx]
-		}
+		filters := strings.ReplaceAll(patterns[idx], " ", "")
+		patternType := patternTypes[idx]
+		patternPolicy := policies[idx]
 		if p != "" && filters != "" {
 			if patternType == "allowed" {
 				allowedPatterns[p] = append(allowedPatterns[p], strings.Split(filters, ",")...)
@@ -2998,7 +2986,7 @@ func (s *httpdServer) handleGetWebUsers(w http.ResponseWriter, r *http.Request) 
 		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
 		return
 	}
-	data := s.getBasePageData(pageUsersTitle, webUsersPath, r)
+	data := s.getBasePageData(util.I18nUsersTitle, webUsersPath, r)
 	renderAdminTemplate(w, templateUsers, data)
 }
 
@@ -3487,7 +3475,7 @@ func (s *httpdServer) handleWebGetFolders(w http.ResponseWriter, r *http.Request
 	}
 
 	data := foldersPage{
-		basePage: s.getBasePageData(pageFoldersTitle, webFoldersPath, r),
+		basePage: s.getBasePageData(util.I18nFoldersTitle, webFoldersPath, r),
 		Folders:  folders,
 	}
 	renderAdminTemplate(w, templateFolders, data)
@@ -3529,7 +3517,7 @@ func getAllGroups(w http.ResponseWriter, r *http.Request) {
 func (s *httpdServer) handleWebGetGroups(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 
-	data := s.getBasePageData(pageGroupsTitle, webGroupsPath, r)
+	data := s.getBasePageData(util.I18nGroupsTitle, webGroupsPath, r)
 	renderAdminTemplate(w, templateGroups, data)
 }
 
