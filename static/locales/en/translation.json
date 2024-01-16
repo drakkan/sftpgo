@@ -49,7 +49,10 @@
         "update_user": "Update user",
         "template_user": "User template",
         "add_group": "Add group",
-        "update_group": "Update group"
+        "update_group": "Update group",
+        "add_folder": "Add virtual folder",
+        "update_folder": "Update virtual folder",
+        "template_folder": "Virtual folder template"
     },
     "setup": {
         "desc": "To start using SFTPGo you need to create an administrator user",
@@ -207,7 +210,8 @@
         "global_settings": "Global settings",
         "mandatory_encryption": "Mandatory encryption",
         "name_invalid": "The specified username is not valid, the following characters are allowed: a-zA-Z0-9-_.~",
-        "associations": "Associations"
+        "associations": "Associations",
+        "template_placeholders": "The following placeholders are supported"
     },
     "fs": {
         "view_file": "View file \"{{- path}}\"",
@@ -470,7 +474,12 @@
         "expires_in_help": "Account expiration as number of days from the creation. 0 means no expiration",
         "tls_certs": "TLS certificates",
         "tls_cert_help": "Paste your PEM encoded TLS certificate here",
-        "tls_cert_invalid": "Invalid TLS certificate"
+        "tls_cert_invalid": "Invalid TLS certificate",
+        "template_title": "Create one or more new users from this template",
+        "template_username_placeholder": "replaced with the specified username",
+        "template_password_placeholder": "replaced with the specified password",
+        "template_help1": "Placeholders will be replaced in paths and credentials of the configured storage backend.",
+        "template_help2": "The generated users can be saved or exported. Exported users can be imported from the \"Maintenance\" section of this SFTPGo instance or another."
     },
     "group": {
         "view_manage": "View and manage groups",
@@ -483,7 +492,13 @@
         "quota_size": "Quota size",
         "quota_size_help": "0 means no limit. You can use MB/GB/TB suffix",
         "quota_files": "Quota files",
-        "associations_summary": "Users: {{users}}. Groups: {{groups}}"
+        "associations_summary": "Users: {{users}}. Groups: {{groups}}",
+        "template_title": "Create one or more new virtual folders from this template",
+        "template_name_placeholder": "replaced with the name of the specified virtual folder",
+        "template_help": "The generated virtual folders can be saved or exported. Exported folders can be imported from the \"Maintenance\" section of this SFTPGo instance or another.",
+        "name": "Virtual folder name",
+        "submit_generate": "Generate and save folders",
+        "submit_export": "Generate and export folder"
     },
     "storage": {
         "title": "File system",

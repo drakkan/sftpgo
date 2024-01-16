@@ -30,19 +30,16 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             <div class="d-flex flex-stack flex-grow-1 flex-wrap flex-md-nowrap">
                 <div class="mb-3 mb-md-0 fw-semibold">
                     <h4 class="text-gray-900 fw-bold">
-                        <span data-i18n="">Create one or more new users from this template</span>
+                        <span data-i18n="user.template_title">Create one or more new users from this template</span>
                     </h4>
                     <div class="fs-6 text-gray-800 pe-7">
-                        <p class="mt-5">The following placeholders are supported:</p>
+                        <p data-i18n="general.template_placeholders" class="mt-5">The following placeholders are supported</p>
                         <ul>
-                            <li><span class="text-info">%username%</span> will be replaced with the specified username</li>
-                            <li><span class="text-info">%password%</span> will be replaced with the specified password</li>
+                            <li><span class="text-info">%username%</span>, <span data-i18n="user.template_username_placeholder">replaced with the specified username</span></li>
+                            <li><span class="text-info">%password%</span>, <span data-i18n="user.template_password_placeholder">replaced with the specified password</span></li>
                         </ul>
-                        <p>They will be replaced, with the specified username and password, in the paths and credentials of the configured storage backend.</p>
-                        <p>The generated users can be saved or exported. Exported users can be imported from the "Maintenance" section of this SFTPGo instance or another.</p>
-                        {{if .User.Username}}
-                        <p>Please note that no credentials were copied from user "{{.User.Username}}", you have to set them explicitly.</p>
-                        {{end}}
+                        <p data-i18n="user.template_help1">Placeholders will be replaced in paths and credentials of the configured storage backend.</p>
+                        <p data-i18n="user.template_help2">The generated users can be saved or exported. Exported users can be imported from the "Maintenance" section of this SFTPGo instance or another.</p>
                     </div>
                 </div>
             </div>
@@ -739,7 +736,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 <input type="hidden" name="expiration_date" id="hidden_start_datetime" value="">
                 <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
                 {{- if eq .Mode 3}}
-                <button type="submit" id="form_generate_submit" class="btn btn-primary px-10 me-10" name="form_action" value="export_from_template">
+                <button type="submit" id="form_generate_submit" class="btn btn-secondary px-10 me-10" name="form_action" value="export_from_template">
                     <span data-i18n="user.submit_export" class="indicator-label">
                         Generate and export users
                     </span>
@@ -841,13 +838,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         $('#hidden_start_datetime').val(dateString);
                     }
                 }
+                //{{- if ne .Mode 3}}
                 let submitButton = document.querySelector('#form_submit');
                 submitButton.setAttribute('data-kt-indicator', 'on');
                 submitButton.disabled = true;
-                //{{- if eq .Mode 3}}
-                let generateButton = document.querySelector('#form_generate_submit');
-                generateButton.setAttribute('data-kt-indicator', 'on');
-                generateButton.disabled = true;
                 //{{- end}}
             });
 

@@ -49,7 +49,10 @@
         "update_user": "Aggiorna utente",
         "template_user": "Modello utente",
         "add_group": "Aggiungi gruppo",
-        "update_group": "Aggiorna gruppo"
+        "update_group": "Aggiorna gruppo",
+        "add_folder": "Aggiungi cartella virtuale",
+        "update_folder": "Aggiorna cartella virtuale",
+        "template_folder": "Modello cartella virtuale"
     },
     "setup": {
         "desc": "Per iniziare a utilizzare SFTPGo devi creare un utente amministratore",
@@ -207,7 +210,8 @@
         "global_settings": "Impostazioni globali",
         "mandatory_encryption": "Crittografia obbligatoria",
         "name_invalid": "Il nome specificato non è valido, sono consentiti i seguenti caratteri: a-zA-Z0-9-_.~",
-        "associations": "Associazioni"
+        "associations": "Associazioni",
+        "template_placeholders": "Sono supportati i seguenti segnaposto"
     },
     "fs": {
         "view_file": "Visualizza file \"{{- path}}\"",
@@ -470,7 +474,12 @@
         "expires_in_help": "Scadenza dell'account espressa in numero di giorni dalla creazione. 0 significa nessuna scadenza",
         "tls_certs": "Certificati TLS",
         "tls_cert_help": "Incolla qui il tuo certificato TLS codificato PEM",
-        "tls_cert_invalid": "Certificato TLS non valido"
+        "tls_cert_invalid": "Certificato TLS non valido",
+        "template_title": "Crea uno o più nuovi utenti da questo modello",
+        "template_username_placeholder": "sostituito con il nome utente specificato",
+        "template_password_placeholder": "sostituito con la password specificata",
+        "template_help1": "I segnaposto verranno sostituiti nei percorsi e nelle credenziali del backend di archiviazione configurato.",
+        "template_help2": "Gli utenti generati possono essere salvati o esportati. Gli utenti esportati possono essere importati dalla sezione \"Manutenzione\" di questa istanza SFTPGo o di un'altra."
     },
     "group": {
         "view_manage": "Visualizza e gestisci gruppi",
@@ -483,7 +492,13 @@
         "quota_size": "Quota (dimensione)",
         "quota_size_help": "0 significa nessun limite. E' possibile utilizzare il suffisso MB/GB/TB",
         "quota_files": "Quota (numero file)",
-        "associations_summary": "Utenti: {{users}}. Gruppi: {{groups}}"
+        "associations_summary": "Utenti: {{users}}. Gruppi: {{groups}}",
+        "template_title": "Crea una o più nuove cartelle virtuali da questo modello",
+        "template_name_placeholder": "sostituito con il nome della cartella virtuale specificata",
+        "template_help": "Le cartelle virtuali generate possono essere salvate o esportate. Le cartelle esportate possono essere importate dalla sezione \"Manutenzione\" di questa istanza SFTPGo o di un'altra.",
+        "name": "Nome cartella virtuale",
+        "submit_generate": "Genera e salva cartelle",
+        "submit_export": "Genera e esporta cartelle"
     },
     "storage": {
         "title": "File system",

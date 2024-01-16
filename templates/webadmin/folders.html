@@ -290,6 +290,14 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 actions+=`<div class="menu-item px-3">
 										      <a data-i18n="general.edit" href="#" class="menu-link px-3" data-share-table-action="edit_row">Edit</a>
 										  </div>`
+                                //{{- end}}
+                                //{{- if .LoggedUser.HasPermission "manage_system"}}
+                                numActions++;
+                                actions+=`<div class="menu-item px-3">
+										      <a data-i18n="general.template" href="#" class="menu-link px-3" data-share-table-action="template_row">Template</a>
+										  </div>`
+                                //{{- end}}
+                                //{{- if .LoggedUser.HasPermission "manage_folders"}}
                                 numActions++;
                                 actions+=`<div class="menu-item px-3">
                                              <a data-i18n="general.delete" href="#" class="menu-link text-danger px-3" data-share-table-action="delete_row">Delete</a>
@@ -379,6 +387,17 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     e.preventDefault();
                     let rowData = dt.row(e.target.closest('tr')).data();
                     window.location.replace('{{.FolderURL}}' + "/" + encodeURIComponent(rowData['name']));
+                });
+            });
+
+            const templateButtons = document.querySelectorAll('[data-share-table-action="template_row"]');
+            templateButtons.forEach(d => {
+                let el = $(d);
+                el.off("click");
+                el.on("click", function(e){
+                    e.preventDefault();
+                    let rowData = dt.row(e.target.closest('tr')).data();
+                    window.location.replace('{{.FolderTemplateURL}}' + "?from=" + encodeURIComponent(rowData['name']));
                 });
             });
 

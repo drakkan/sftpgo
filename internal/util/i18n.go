@@ -186,6 +186,9 @@ const (
 	I18nAddGroupTitle                  = "title.add_group"
 	I18nUpdateGroupTitle               = "title.update_group"
 	I18nErrorInvalidTLSCert            = "user.tls_cert_invalid"
+	I18nAddFolderTitle                 = "title.add_folder"
+	I18nUpdateFolderTitle              = "title.update_folder"
+	I18nTemplateFolderTitle            = "title.template_folder"
 )
 
 // NewI18nError returns a I18nError wrappring the provided error

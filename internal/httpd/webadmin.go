@@ -428,7 +428,7 @@ func loadAdminTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateAdminDir, templateFolders),
 	}
 	folderPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateFsConfig),
 		filepath.Join(templatesPath, templateAdminDir, templateFolder),
@@ -1171,13 +1171,13 @@ func (s *httpdServer) renderFolderPage(w http.ResponseWriter, r *http.Request, f
 	var title, currentURL string
 	switch mode {
 	case folderPageModeAdd:
-		title = "Add a new folder"
+		title = util.I18nAddFolderTitle
 		currentURL = webFolderPath
 	case folderPageModeUpdate:
-		title = "Update folder"
+		title = util.I18nUpdateFolderTitle
 		currentURL = fmt.Sprintf("%v/%v", webFolderPath, url.PathEscape(folder.Name))
 	case folderPageModeTemplate:
-		title = "Folder template"
+		title = util.I18nTemplateFolderTitle
 		currentURL = webTemplateFolder
 	}
 	folder.FsConfig.RedactedSecret = redactedSecret
@@ -1201,6 +1201,11 @@ func (s *httpdServer) renderFolderPage(w http.ResponseWriter, r *http.Request, f
 
 func getFoldersForTemplate(r *http.Request) []string {
 	var res []string
+	for k := range r.Form {
+		if hasPrefixAndSuffix(k, "template_folders[", "][tpl_foldername]") {
+			r.Form.Add("tpl_foldername", r.Form.Get(k))
+		}
+	}
 	folderNames := r.Form["tpl_foldername"]
 	folders := make(map[string]bool)
 	for _, name := range folderNames {
@@ -1958,11 +1963,17 @@ func getQuotaLimits(r *http.Request) (int64, int, error) {
 func updateRepeaterFormFields(r *http.Request) {
 	for k := range r.Form {
 		if hasPrefixAndSuffix(k, "public_keys[", "][public_key]") {
-			r.Form.Add("public_keys", r.Form.Get(k))
+			key := r.Form.Get(k)
+			if strings.TrimSpace(key) != "" {
+				r.Form.Add("public_keys", key)
+			}
 			continue
 		}
 		if hasPrefixAndSuffix(k, "tls_certs[", "][tls_cert]") {
-			r.Form.Add("tls_certs", strings.TrimSpace(r.Form.Get(k)))
+			cert := strings.TrimSpace(r.Form.Get(k))
+			if cert != "" {
+				r.Form.Add("tls_certs", cert)
+			}
 			continue
 		}
 		if hasPrefixAndSuffix(k, "virtual_folders[", "][vfolder_path]") {
