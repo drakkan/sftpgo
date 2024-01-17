@@ -387,7 +387,10 @@ func (p *BoltProvider) addAdmin(admin *Admin) error {
 			return err
 		}
 		if a := bucket.Get([]byte(admin.Username)); a != nil {
-			return fmt.Errorf("admin %q already exists", admin.Username)
+			return util.NewI18nError(
+				fmt.Errorf("%w: admin %q already exists", ErrDuplicatedKey, admin.Username),
+				util.I18nErrorDuplicatedUsername,
+			)
 		}
 		id, err := bucket.NextSequence()
 		if err != nil {
@@ -649,7 +652,10 @@ func (p *BoltProvider) addUser(user *User) error {
 			return err
 		}
 		if u := bucket.Get([]byte(user.Username)); u != nil {
-			return fmt.Errorf("username %v already exists", user.Username)
+			return util.NewI18nError(
+				fmt.Errorf("%w: username %v already exists", ErrDuplicatedKey, user.Username),
+				util.I18nErrorDuplicatedUsername,
+			)
 		}
 		id, err := bucket.NextSequence()
 		if err != nil {
@@ -1121,7 +1127,10 @@ func (p *BoltProvider) addFolder(folder *vfs.BaseVirtualFolder) error {
 			return err
 		}
 		if f := bucket.Get([]byte(folder.Name)); f != nil {
-			return fmt.Errorf("folder %v already exists", folder.Name)
+			return util.NewI18nError(
+				fmt.Errorf("%w: folder %q already exists", ErrDuplicatedKey, folder.Name),
+				util.I18nErrorDuplicatedUsername,
+			)
 		}
 		folder.Users = nil
 		folder.Groups = nil
@@ -1435,7 +1444,10 @@ func (p *BoltProvider) addGroup(group *Group) error {
 			return err
 		}
 		if u := bucket.Get([]byte(group.Name)); u != nil {
-			return fmt.Errorf("group %v already exists", group.Name)
+			return util.NewI18nError(
+				fmt.Errorf("%w: group %q already exists", ErrDuplicatedKey, group.Name),
+				util.I18nErrorDuplicatedUsername,
+			)
 		}
 		id, err := bucket.NextSequence()
 		if err != nil {
@@ -1808,7 +1820,7 @@ func (p *BoltProvider) addShare(share *Share) error {
 			return err
 		}
 		if a := bucket.Get([]byte(share.ShareID)); a != nil {
-			return fmt.Errorf("share %v already exists", share.ShareID)
+			return fmt.Errorf("share %q already exists", share.ShareID)
 		}
 		id, err := bucket.NextSequence()
 		if err != nil {
@@ -2188,7 +2200,10 @@ func (p *BoltProvider) addEventAction(action *BaseEventAction) error {
 			return err
 		}
 		if a := bucket.Get([]byte(action.Name)); a != nil {
-			return fmt.Errorf("event action %s already exists", action.Name)
+			return util.NewI18nError(
+				fmt.Errorf("%w: event action %q already exists", ErrDuplicatedKey, action.Name),
+				util.I18nErrorDuplicatedName,
+			)
 		}
 		id, err := bucket.NextSequence()
 		if err != nil {
@@ -2449,7 +2464,10 @@ func (p *BoltProvider) addEventRule(rule *EventRule) error {
 			return err
 		}
 		if r := bucket.Get([]byte(rule.Name)); r != nil {
-			return fmt.Errorf("event rule %q already exists", rule.Name)
+			return util.NewI18nError(
+				fmt.Errorf("%w: event rule %q already exists", ErrDuplicatedKey, rule.Name),
+				util.I18nErrorDuplicatedName,
+			)
 		}
 		id, err := bucket.NextSequence()
 		if err != nil {
@@ -2618,7 +2636,10 @@ func (p *BoltProvider) addRole(role *Role) error {
 			return err
 		}
 		if r := bucket.Get([]byte(role.Name)); r != nil {
-			return fmt.Errorf("role %q already exists", role.Name)
+			return util.NewI18nError(
+				fmt.Errorf("%w: role %q already exists", ErrDuplicatedKey, role.Name),
+				util.I18nErrorDuplicatedName,
+			)
 		}
 		id, err := bucket.NextSequence()
 		if err != nil {

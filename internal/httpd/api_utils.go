@@ -105,6 +105,9 @@ func getRespStatus(err error) int {
 	if errors.Is(err, plugin.ErrNoSearcher) || errors.Is(err, dataprovider.ErrNotImplemented) {
 		return http.StatusNotImplemented
 	}
+	if errors.Is(err, dataprovider.ErrDuplicatedKey) || errors.Is(err, dataprovider.ErrForeignKeyViolated) {
+		return http.StatusConflict
+	}
 	return http.StatusInternalServerError
 }
 

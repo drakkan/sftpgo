@@ -32,6 +32,7 @@ import (
 	"github.com/go-sql-driver/mysql"
 
 	"github.com/drakkan/sftpgo/v2/internal/logger"
+	"github.com/drakkan/sftpgo/v2/internal/util"
 	"github.com/drakkan/sftpgo/v2/internal/version"
 	"github.com/drakkan/sftpgo/v2/internal/vfs"
 )
@@ -341,7 +342,7 @@ func (p *MySQLProvider) userExists(username, role string) (User, error) {
 }
 
 func (p *MySQLProvider) addUser(user *User) error {
-	return sqlCommonAddUser(user, p.dbHandle)
+	return p.normalizeError(sqlCommonAddUser(user, p.dbHandle), fieldUsername)
 }
 
 func (p *MySQLProvider) updateUser(user *User) error {
@@ -387,7 +388,7 @@ func (p *MySQLProvider) getFolderByName(name string) (vfs.BaseVirtualFolder, err
 }
 
 func (p *MySQLProvider) addFolder(folder *vfs.BaseVirtualFolder) error {
-	return sqlCommonAddFolder(folder, p.dbHandle)
+	return p.normalizeError(sqlCommonAddFolder(folder, p.dbHandle), fieldName)
 }
 
 func (p *MySQLProvider) updateFolder(folder *vfs.BaseVirtualFolder) error {
@@ -423,7 +424,7 @@ func (p *MySQLProvider) groupExists(name string) (Group, error) {
 }
 
 func (p *MySQLProvider) addGroup(group *Group) error {
-	return sqlCommonAddGroup(group, p.dbHandle)
+	return p.normalizeError(sqlCommonAddGroup(group, p.dbHandle), fieldName)
 }
 
 func (p *MySQLProvider) updateGroup(group *Group) error {
@@ -443,7 +444,7 @@ func (p *MySQLProvider) adminExists(username string) (Admin, error) {
 }
 
 func (p *MySQLProvider) addAdmin(admin *Admin) error {
-	return sqlCommonAddAdmin(admin, p.dbHandle)
+	return p.normalizeError(sqlCommonAddAdmin(admin, p.dbHandle), fieldUsername)
 }
 
 func (p *MySQLProvider) updateAdmin(admin *Admin) error {
@@ -603,7 +604,7 @@ func (p *MySQLProvider) eventActionExists(name string) (BaseEventAction, error) 
 }
 
 func (p *MySQLProvider) addEventAction(action *BaseEventAction) error {
-	return sqlCommonAddEventAction(action, p.dbHandle)
+	return p.normalizeError(sqlCommonAddEventAction(action, p.dbHandle), fieldName)
 }
 
 func (p *MySQLProvider) updateEventAction(action *BaseEventAction) error {
@@ -631,7 +632,7 @@ func (p *MySQLProvider) eventRuleExists(name string) (EventRule, error) {
 }
 
 func (p *MySQLProvider) addEventRule(rule *EventRule) error {
-	return sqlCommonAddEventRule(rule, p.dbHandle)
+	return p.normalizeError(sqlCommonAddEventRule(rule, p.dbHandle), fieldName)
 }
 
 func (p *MySQLProvider) updateEventRule(rule *EventRule) error {
@@ -683,7 +684,7 @@ func (p *MySQLProvider) roleExists(name string) (Role, error) {
 }
 
 func (p *MySQLProvider) addRole(role *Role) error {
-	return sqlCommonAddRole(role, p.dbHandle)
+	return p.normalizeError(sqlCommonAddRole(role, p.dbHandle), fieldName)
 }
 
 func (p *MySQLProvider) updateRole(role *Role) error {
@@ -823,4 +824,27 @@ func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 func (p *MySQLProvider) resetDatabase() error {
 	sql := sqlReplaceAll(mysqlResetSQL)
 	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, strings.Split(sql, ";"), 0, false)
+}
+
+func (p *MySQLProvider) normalizeError(err error, fieldType int) error {
+	if err == nil {
+		return nil
+	}
+	var mysqlErr *mysql.MySQLError
+	if errors.As(err, &mysqlErr) {
+		switch mysqlErr.Number {
+		case 1062:
+			message := util.I18nErrorDuplicatedName
+			if fieldType == fieldUsername {
+				message = util.I18nErrorDuplicatedUsername
+			}
+			return util.NewI18nError(
+				fmt.Errorf("%w: %s", ErrDuplicatedKey, err.Error()),
+				message,
+			)
+		case 1452:
+			return fmt.Errorf("%w: %s", ErrForeignKeyViolated, err.Error())
+		}
+	}
+	return err
 }

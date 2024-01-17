@@ -211,7 +211,9 @@
         "mandatory_encryption": "Crittografia obbligatoria",
         "name_invalid": "Il nome specificato non è valido, sono consentiti i seguenti caratteri: a-zA-Z0-9-_.~",
         "associations": "Associazioni",
-        "template_placeholders": "Sono supportati i seguenti segnaposto"
+        "template_placeholders": "Sono supportati i seguenti segnaposto",
+        "duplicated_username": "Il nome utente specificato esiste già",
+        "duplicated_name": "Il nome specificato esiste già"
     },
     "fs": {
         "view_file": "Visualizza file \"{{- path}}\"",

@@ -189,6 +189,8 @@ const (
 	I18nAddFolderTitle                 = "title.add_folder"
 	I18nUpdateFolderTitle              = "title.update_folder"
 	I18nTemplateFolderTitle            = "title.template_folder"
+	I18nErrorDuplicatedUsername        = "general.duplicated_username"
+	I18nErrorDuplicatedName            = "general.duplicated_name"
 )
 
 // NewI18nError returns a I18nError wrappring the provided error

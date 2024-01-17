@@ -148,6 +148,11 @@ const (
 	DumpScopeConfigs = "configs"
 )
 
+const (
+	fieldUsername = 1
+	fieldName     = 2
+)
+
 var (
 	// SupportedProviders defines the supported data providers
 	SupportedProviders = []string{SQLiteDataProviderName, PGSQLDataProviderName, MySQLDataProviderName,
@@ -176,13 +181,17 @@ var (
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	// ErrLoginNotAllowedFromIP defines the error to return if login is denied from the current IP
 	ErrLoginNotAllowedFromIP = errors.New("login is not allowed from this IP")
-	isAdminCreated           atomic.Bool
-	validTLSUsernames        = []string{string(sdk.TLSUsernameNone), string(sdk.TLSUsernameCN)}
-	config                   Config
-	provider                 Provider
-	sqlPlaceholders          []string
-	internalHashPwdPrefixes  = []string{argonPwdPrefix, bcryptPwdPrefix}
-	hashPwdPrefixes          = []string{argonPwdPrefix, bcryptPwdPrefix, pbkdf2SHA1Prefix, pbkdf2SHA256Prefix,
+	// ErrDuplicatedKey occurs when there is a unique key constraint violation
+	ErrDuplicatedKey = errors.New("duplicated key not allowed")
+	// ErrForeignKeyViolated occurs when there is a foreign key constraint violation
+	ErrForeignKeyViolated   = errors.New("violates foreign key constraint")
+	isAdminCreated          atomic.Bool
+	validTLSUsernames       = []string{string(sdk.TLSUsernameNone), string(sdk.TLSUsernameCN)}
+	config                  Config
+	provider                Provider
+	sqlPlaceholders         []string
+	internalHashPwdPrefixes = []string{argonPwdPrefix, bcryptPwdPrefix}
+	hashPwdPrefixes         = []string{argonPwdPrefix, bcryptPwdPrefix, pbkdf2SHA1Prefix, pbkdf2SHA256Prefix,
 		pbkdf2SHA512Prefix, pbkdf2SHA256B64SaltPrefix, md5cryptPwdPrefix, md5cryptApr1PwdPrefix, md5DigestPwdPrefix,
 		sha256DigestPwdPrefix, sha512DigestPwdPrefix, sha256cryptPwdPrefix, sha512cryptPwdPrefix, yescryptPwdPrefix}
 	pbkdfPwdPrefixes        = []string{pbkdf2SHA1Prefix, pbkdf2SHA256Prefix, pbkdf2SHA512Prefix, pbkdf2SHA256B64SaltPrefix}

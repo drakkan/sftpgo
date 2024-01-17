@@ -29,9 +29,11 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/drakkan/sftpgo/v2/internal/logger"
+	"github.com/drakkan/sftpgo/v2/internal/util"
 	"github.com/drakkan/sftpgo/v2/internal/version"
 	"github.com/drakkan/sftpgo/v2/internal/vfs"
 )
@@ -353,7 +355,7 @@ func (p *PGSQLProvider) userExists(username, role string) (User, error) {
 }
 
 func (p *PGSQLProvider) addUser(user *User) error {
-	return sqlCommonAddUser(user, p.dbHandle)
+	return p.normalizeError(sqlCommonAddUser(user, p.dbHandle), fieldUsername)
 }
 
 func (p *PGSQLProvider) updateUser(user *User) error {
@@ -399,7 +401,7 @@ func (p *PGSQLProvider) getFolderByName(name string) (vfs.BaseVirtualFolder, err
 }
 
 func (p *PGSQLProvider) addFolder(folder *vfs.BaseVirtualFolder) error {
-	return sqlCommonAddFolder(folder, p.dbHandle)
+	return p.normalizeError(sqlCommonAddFolder(folder, p.dbHandle), fieldName)
 }
 
 func (p *PGSQLProvider) updateFolder(folder *vfs.BaseVirtualFolder) error {
@@ -435,7 +437,7 @@ func (p *PGSQLProvider) groupExists(name string) (Group, error) {
 }
 
 func (p *PGSQLProvider) addGroup(group *Group) error {
-	return sqlCommonAddGroup(group, p.dbHandle)
+	return p.normalizeError(sqlCommonAddGroup(group, p.dbHandle), fieldName)
 }
 
 func (p *PGSQLProvider) updateGroup(group *Group) error {
@@ -455,7 +457,7 @@ func (p *PGSQLProvider) adminExists(username string) (Admin, error) {
 }
 
 func (p *PGSQLProvider) addAdmin(admin *Admin) error {
-	return sqlCommonAddAdmin(admin, p.dbHandle)
+	return p.normalizeError(sqlCommonAddAdmin(admin, p.dbHandle), fieldUsername)
 }
 
 func (p *PGSQLProvider) updateAdmin(admin *Admin) error {
@@ -615,7 +617,7 @@ func (p *PGSQLProvider) eventActionExists(name string) (BaseEventAction, error) 
 }
 
 func (p *PGSQLProvider) addEventAction(action *BaseEventAction) error {
-	return sqlCommonAddEventAction(action, p.dbHandle)
+	return p.normalizeError(sqlCommonAddEventAction(action, p.dbHandle), fieldName)
 }
 
 func (p *PGSQLProvider) updateEventAction(action *BaseEventAction) error {
@@ -643,7 +645,7 @@ func (p *PGSQLProvider) eventRuleExists(name string) (EventRule, error) {
 }
 
 func (p *PGSQLProvider) addEventRule(rule *EventRule) error {
-	return sqlCommonAddEventRule(rule, p.dbHandle)
+	return p.normalizeError(sqlCommonAddEventRule(rule, p.dbHandle), fieldName)
 }
 
 func (p *PGSQLProvider) updateEventRule(rule *EventRule) error {
@@ -695,7 +697,7 @@ func (p *PGSQLProvider) roleExists(name string) (Role, error) {
 }
 
 func (p *PGSQLProvider) addRole(role *Role) error {
-	return sqlCommonAddRole(role, p.dbHandle)
+	return p.normalizeError(sqlCommonAddRole(role, p.dbHandle), fieldName)
 }
 
 func (p *PGSQLProvider) updateRole(role *Role) error {
@@ -841,4 +843,27 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 func (p *PGSQLProvider) resetDatabase() error {
 	sql := sqlReplaceAll(pgsqlResetSQL)
 	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{sql}, 0, false)
+}
+
+func (p *PGSQLProvider) normalizeError(err error, fieldType int) error {
+	if err == nil {
+		return nil
+	}
+	var pgsqlErr *pgconn.PgError
+	if errors.As(err, &pgsqlErr) {
+		switch pgsqlErr.Code {
+		case "23505":
+			message := util.I18nErrorDuplicatedName
+			if fieldType == fieldUsername {
+				message = util.I18nErrorDuplicatedUsername
+			}
+			return util.NewI18nError(
+				fmt.Errorf("%w: %s", ErrDuplicatedKey, err.Error()),
+				message,
+			)
+		case "23503":
+			return fmt.Errorf("%w: %s", ErrForeignKeyViolated, err.Error())
+		}
+	}
+	return err
 }

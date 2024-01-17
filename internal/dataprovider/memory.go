@@ -332,7 +332,10 @@ func (p *MemoryProvider) addUser(user *User) error {
 
 	_, err = p.userExistsInternal(user.Username)
 	if err == nil {
-		return fmt.Errorf("username %q already exists", user.Username)
+		return util.NewI18nError(
+			fmt.Errorf("%w: username %v already exists", ErrDuplicatedKey, user.Username),
+			util.I18nErrorDuplicatedUsername,
+		)
 	}
 	user.ID = p.getNextID()
 	user.LastQuotaUpdate = 0
@@ -730,7 +733,10 @@ func (p *MemoryProvider) addAdmin(admin *Admin) error {
 	}
 	_, err = p.adminExistsInternal(admin.Username)
 	if err == nil {
-		return fmt.Errorf("admin %q already exists", admin.Username)
+		return util.NewI18nError(
+			fmt.Errorf("%w: admin %q already exists", ErrDuplicatedKey, admin.Username),
+			util.I18nErrorDuplicatedUsername,
+		)
 	}
 	admin.ID = p.getNextAdminID()
 	admin.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
@@ -1041,7 +1047,10 @@ func (p *MemoryProvider) addGroup(group *Group) error {
 
 	_, err := p.groupExistsInternal(group.Name)
 	if err == nil {
-		return fmt.Errorf("group %q already exists", group.Name)
+		return util.NewI18nError(
+			fmt.Errorf("%w: group %q already exists", ErrDuplicatedKey, group.Name),
+			util.I18nErrorDuplicatedUsername,
+		)
 	}
 	group.ID = p.getNextGroupID()
 	group.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
@@ -1512,7 +1521,10 @@ func (p *MemoryProvider) addFolder(folder *vfs.BaseVirtualFolder) error {
 
 	_, err = p.folderExistsInternal(folder.Name)
 	if err == nil {
-		return fmt.Errorf("folder %q already exists", folder.Name)
+		return util.NewI18nError(
+			fmt.Errorf("%w: folder %q already exists", ErrDuplicatedKey, folder.Name),
+			util.I18nErrorDuplicatedUsername,
+		)
 	}
 	folder.ID = p.getNextFolderID()
 	folder.Users = nil
@@ -2172,7 +2184,10 @@ func (p *MemoryProvider) addEventAction(action *BaseEventAction) error {
 	}
 	_, err = p.actionExistsInternal(action.Name)
 	if err == nil {
-		return fmt.Errorf("event action %q already exists", action.Name)
+		return util.NewI18nError(
+			fmt.Errorf("%w: event action %q already exists", ErrDuplicatedKey, action.Name),
+			util.I18nErrorDuplicatedName,
+		)
 	}
 	action.ID = p.getNextActionID()
 	action.Rules = nil
@@ -2348,7 +2363,10 @@ func (p *MemoryProvider) addEventRule(rule *EventRule) error {
 	}
 	_, err := p.ruleExistsInternal(rule.Name)
 	if err == nil {
-		return fmt.Errorf("event rule %q already exists", rule.Name)
+		return util.NewI18nError(
+			fmt.Errorf("%w: event rule %q already exists", ErrDuplicatedKey, rule.Name),
+			util.I18nErrorDuplicatedName,
+		)
 	}
 	rule.ID = p.getNextRuleID()
 	rule.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
@@ -2499,7 +2517,10 @@ func (p *MemoryProvider) addRole(role *Role) error {
 
 	_, err := p.roleExistsInternal(role.Name)
 	if err == nil {
-		return fmt.Errorf("role %q already exists", role.Name)
+		return util.NewI18nError(
+			fmt.Errorf("%w: role %q already exists", ErrDuplicatedKey, role.Name),
+			util.I18nErrorDuplicatedName,
+		)
 	}
 	role.ID = p.getNextRoleID()
 	role.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())

@@ -211,7 +211,9 @@
         "mandatory_encryption": "Mandatory encryption",
         "name_invalid": "The specified username is not valid, the following characters are allowed: a-zA-Z0-9-_.~",
         "associations": "Associations",
-        "template_placeholders": "The following placeholders are supported"
+        "template_placeholders": "The following placeholders are supported",
+        "duplicated_username": "The specified username already exists",
+        "duplicated_name": "The specified name already exists"
     },
     "fs": {
         "view_file": "View file \"{{- path}}\"",

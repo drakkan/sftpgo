@@ -26,8 +26,7 @@ import (
 	"path/filepath"
 	"time"
 
-	// we import go-sqlite3 here to be able to disable SQLite support using a build tag
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/mattn/go-sqlite3"
 
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/util"
@@ -264,7 +263,7 @@ func (p *SQLiteProvider) userExists(username, role string) (User, error) {
 }
 
 func (p *SQLiteProvider) addUser(user *User) error {
-	return sqlCommonAddUser(user, p.dbHandle)
+	return p.normalizeError(sqlCommonAddUser(user, p.dbHandle), fieldUsername)
 }
 
 func (p *SQLiteProvider) updateUser(user *User) error {
@@ -310,7 +309,7 @@ func (p *SQLiteProvider) getFolderByName(name string) (vfs.BaseVirtualFolder, er
 }
 
 func (p *SQLiteProvider) addFolder(folder *vfs.BaseVirtualFolder) error {
-	return sqlCommonAddFolder(folder, p.dbHandle)
+	return p.normalizeError(sqlCommonAddFolder(folder, p.dbHandle), fieldName)
 }
 
 func (p *SQLiteProvider) updateFolder(folder *vfs.BaseVirtualFolder) error {
@@ -346,7 +345,7 @@ func (p *SQLiteProvider) groupExists(name string) (Group, error) {
 }
 
 func (p *SQLiteProvider) addGroup(group *Group) error {
-	return sqlCommonAddGroup(group, p.dbHandle)
+	return p.normalizeError(sqlCommonAddGroup(group, p.dbHandle), fieldName)
 }
 
 func (p *SQLiteProvider) updateGroup(group *Group) error {
@@ -366,7 +365,7 @@ func (p *SQLiteProvider) adminExists(username string) (Admin, error) {
 }
 
 func (p *SQLiteProvider) addAdmin(admin *Admin) error {
-	return sqlCommonAddAdmin(admin, p.dbHandle)
+	return p.normalizeError(sqlCommonAddAdmin(admin, p.dbHandle), fieldUsername)
 }
 
 func (p *SQLiteProvider) updateAdmin(admin *Admin) error {
@@ -526,7 +525,7 @@ func (p *SQLiteProvider) eventActionExists(name string) (BaseEventAction, error)
 }
 
 func (p *SQLiteProvider) addEventAction(action *BaseEventAction) error {
-	return sqlCommonAddEventAction(action, p.dbHandle)
+	return p.normalizeError(sqlCommonAddEventAction(action, p.dbHandle), fieldName)
 }
 
 func (p *SQLiteProvider) updateEventAction(action *BaseEventAction) error {
@@ -554,7 +553,7 @@ func (p *SQLiteProvider) eventRuleExists(name string) (EventRule, error) {
 }
 
 func (p *SQLiteProvider) addEventRule(rule *EventRule) error {
-	return sqlCommonAddEventRule(rule, p.dbHandle)
+	return p.normalizeError(sqlCommonAddEventRule(rule, p.dbHandle), fieldName)
 }
 
 func (p *SQLiteProvider) updateEventRule(rule *EventRule) error {
@@ -606,7 +605,7 @@ func (p *SQLiteProvider) roleExists(name string) (Role, error) {
 }
 
 func (p *SQLiteProvider) addRole(role *Role) error {
-	return sqlCommonAddRole(role, p.dbHandle)
+	return p.normalizeError(sqlCommonAddRole(role, p.dbHandle), fieldName)
 }
 
 func (p *SQLiteProvider) updateRole(role *Role) error {
@@ -745,6 +744,28 @@ func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 func (p *SQLiteProvider) resetDatabase() error {
 	sql := sqlReplaceAll(sqliteResetSQL)
 	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{sql}, 0, false)
+}
+
+func (p *SQLiteProvider) normalizeError(err error, fieldType int) error {
+	if err == nil {
+		return nil
+	}
+	if e, ok := err.(sqlite3.Error); ok {
+		switch e.ExtendedCode {
+		case 1555, 2067:
+			message := util.I18nErrorDuplicatedName
+			if fieldType == fieldUsername {
+				message = util.I18nErrorDuplicatedUsername
+			}
+			return util.NewI18nError(
+				fmt.Errorf("%w: %s", ErrDuplicatedKey, err.Error()),
+				message,
+			)
+		case 787:
+			return fmt.Errorf("%w: %s", ErrForeignKeyViolated, err.Error())
+		}
+	}
+	return err
 }
 
 /*func setPragmaFK(dbHandle *sql.DB, value string) error {

@@ -600,6 +600,8 @@ func TestBasicUserHandling(t *testing.T) {
 	u.Email = "user@user.com"
 	user, resp, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err, string(resp))
+	_, resp, err = httpdtest.AddUser(u, http.StatusConflict)
+	assert.NoError(t, err, string(resp))
 	lastPwdChange := user.LastPasswordChange
 	assert.Greater(t, lastPwdChange, int64(0))
 	user.MaxSessions = 10
