@@ -45,20 +45,18 @@ import (
 )
 
 const (
-	templateClientDir       = "webclient"
-	templateClientBase      = "base.html"
-	templateClientFiles     = "files.html"
-	templateClientMessage   = "message.html"
-	templateClientProfile   = "profile.html"
-	templateClientChangePwd = "changepassword.html"
-	templateClientMFA       = "mfa.html"
-	templateClientEditFile  = "editfile.html"
-	templateClientShare     = "share.html"
-	templateClientShares    = "shares.html"
-	templateClientViewPDF   = "viewpdf.html"
-	templateShareLogin      = "sharelogin.html"
-	templateShareDownload   = "sharedownload.html"
-	templateUploadToShare   = "shareupload.html"
+	templateClientDir      = "webclient"
+	templateClientBase     = "base.html"
+	templateClientFiles    = "files.html"
+	templateClientProfile  = "profile.html"
+	templateClientMFA      = "mfa.html"
+	templateClientEditFile = "editfile.html"
+	templateClientShare    = "share.html"
+	templateClientShares   = "shares.html"
+	templateClientViewPDF  = "viewpdf.html"
+	templateShareLogin     = "sharelogin.html"
+	templateShareDownload  = "sharedownload.html"
+	templateUploadToShare  = "shareupload.html"
 )
 
 // condResult is the result of an HTTP request precondition check.
@@ -167,6 +165,7 @@ type clientMessagePage struct {
 	baseClientPage
 	Error   *util.I18nError
 	Success string
+	Text    string
 }
 
 type clientProfilePage struct {
@@ -428,7 +427,7 @@ func loadClientTemplates(templatesPath string) {
 	changePwdPaths := []string{
 		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
 		filepath.Join(templatesPath, templateClientDir, templateClientBase),
-		filepath.Join(templatesPath, templateClientDir, templateClientChangePwd),
+		filepath.Join(templatesPath, templateCommonDir, templateChangePwd),
 	}
 	loginPaths := []string{
 		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
@@ -438,7 +437,7 @@ func loadClientTemplates(templatesPath string) {
 	messagePaths := []string{
 		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
 		filepath.Join(templatesPath, templateClientDir, templateClientBase),
-		filepath.Join(templatesPath, templateClientDir, templateClientMessage),
+		filepath.Join(templatesPath, templateCommonDir, templateMessage),
 	}
 	mfaPaths := []string{
 		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
@@ -505,9 +504,9 @@ func loadClientTemplates(templatesPath string) {
 
 	clientTemplates[templateClientFiles] = filesTmpl
 	clientTemplates[templateClientProfile] = profileTmpl
-	clientTemplates[templateClientChangePwd] = changePwdTmpl
+	clientTemplates[templateChangePwd] = changePwdTmpl
 	clientTemplates[templateCommonLogin] = loginTmpl
-	clientTemplates[templateClientMessage] = messageTmpl
+	clientTemplates[templateMessage] = messageTmpl
 	clientTemplates[templateClientMFA] = mfaTmpl
 	clientTemplates[templateTwoFactor] = twoFactorTmpl
 	clientTemplates[templateTwoFactorRecovery] = twoFactorRecoveryTmpl
@@ -597,17 +596,13 @@ func renderClientTemplate(w http.ResponseWriter, tmplName string, data any) {
 }
 
 func (s *httpdServer) renderClientMessagePage(w http.ResponseWriter, r *http.Request, title string, statusCode int, err error, message string) {
-	var i18nErr *util.I18nError
-	if err != nil {
-		i18nErr = util.NewI18nError(err, util.I18nError500Message)
-	}
 	data := clientMessagePage{
 		baseClientPage: s.getBaseClientPageData(title, "", r),
-		Error:          i18nErr,
+		Error:          getI18nError(err),
 		Success:        message,
 	}
 	w.WriteHeader(statusCode)
-	renderClientTemplate(w, templateClientMessage, data)
+	renderClientTemplate(w, templateMessage, data)
 }
 
 func (s *httpdServer) renderClientInternalServerErrorPage(w http.ResponseWriter, r *http.Request, err error) {
@@ -834,7 +829,7 @@ func (s *httpdServer) renderClientChangePasswordPage(w http.ResponseWriter, r *h
 		Error:          err,
 	}
 
-	renderClientTemplate(w, templateClientChangePwd, data)
+	renderClientTemplate(w, templateChangePwd, data)
 }
 
 func (s *httpdServer) handleWebClientDownloadZip(w http.ResponseWriter, r *http.Request) {

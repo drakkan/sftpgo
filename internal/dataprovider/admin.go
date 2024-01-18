@@ -329,7 +329,10 @@ func (a *Admin) validateRecoveryCodes() error {
 func (a *Admin) validatePermissions() error {
 	a.Permissions = util.RemoveDuplicates(a.Permissions, false)
 	if len(a.Permissions) == 0 {
-		return util.NewValidationError("please grant some permissions to this admin")
+		return util.NewI18nError(
+			util.NewValidationError("please grant some permissions to this admin"),
+			util.I18nErrorPermissionsRequired,
+		)
 	}
 	if util.Contains(a.Permissions, PermAdminAny) {
 		a.Permissions = []string{PermAdminAny}
@@ -340,8 +343,14 @@ func (a *Admin) validatePermissions() error {
 		}
 		if a.Role != "" {
 			if util.Contains(forbiddenPermsForRoleAdmins, perm) {
-				return util.NewValidationError(fmt.Sprintf("a role admin cannot have the following permissions: %q",
-					strings.Join(forbiddenPermsForRoleAdmins, ",")))
+				deniedPerms := strings.Join(forbiddenPermsForRoleAdmins, ",")
+				return util.NewI18nError(
+					util.NewValidationError(fmt.Sprintf("a role admin cannot have the following permissions: %q", deniedPerms)),
+					util.I18nErrorRoleAdminPerms,
+					util.I18nErrorArgs(map[string]any{
+						"val": deniedPerms,
+					}),
+				)
 			}
 		}
 	}
@@ -359,7 +368,10 @@ func (a *Admin) validateGroups() error {
 		}
 		if g.Options.AddToUsersAs == GroupAddToUsersAsPrimary {
 			if hasPrimary {
-				return util.NewValidationError("only one primary group is allowed")
+				return util.NewI18nError(
+					util.NewValidationError("only one primary group is allowed"),
+					util.I18nErrorPrimaryGroup,
+				)
 			}
 			hasPrimary = true
 		}
@@ -370,25 +382,28 @@ func (a *Admin) validateGroups() error {
 func (a *Admin) validate() error {
 	a.SetEmptySecretsIfNil()
 	if a.Username == "" {
-		return util.NewValidationError("username is mandatory")
+		return util.NewI18nError(util.NewValidationError("username is mandatory"), util.I18nErrorUsernameRequired)
 	}
 	if err := checkReservedUsernames(a.Username); err != nil {
-		return err
+		return util.NewI18nError(err, util.I18nErrorReservedUsername)
 	}
 	if a.Password == "" {
-		return util.NewValidationError("please set a password")
+		return util.NewI18nError(util.NewValidationError("please set a password"), util.I18nErrorPasswordRequired)
 	}
 	if a.hasRedactedSecret() {
 		return util.NewValidationError("cannot save an admin with a redacted secret")
 	}
 	if err := a.Filters.TOTPConfig.validate(a.Username); err != nil {
-		return err
+		return util.NewI18nError(err, util.I18nError2FAInvalid)
 	}
 	if err := a.validateRecoveryCodes(); err != nil {
 		return err
 	}
 	if config.NamingRules&1 == 0 && !usernameRegex.MatchString(a.Username) {
-		return util.NewValidationError(fmt.Sprintf("username %q is not valid, the following characters are allowed: a-zA-Z0-9-_.~", a.Username))
+		return util.NewI18nError(
+			util.NewValidationError(fmt.Sprintf("username %q is not valid, the following characters are allowed: a-zA-Z0-9-_.~", a.Username)),
+			util.I18nErrorInvalidUser,
+		)
 	}
 	if err := a.hashPassword(); err != nil {
 		return err
@@ -397,13 +412,19 @@ func (a *Admin) validate() error {
 		return err
 	}
 	if a.Email != "" && !util.IsEmailValid(a.Email) {
-		return util.NewValidationError(fmt.Sprintf("email %q is not valid", a.Email))
+		return util.NewI18nError(
+			util.NewValidationError(fmt.Sprintf("email %q is not valid", a.Email)),
+			util.I18nErrorInvalidEmail,
+		)
 	}
 	a.Filters.AllowList = util.RemoveDuplicates(a.Filters.AllowList, false)
 	for _, IPMask := range a.Filters.AllowList {
 		_, _, err := net.ParseCIDR(IPMask)
 		if err != nil {
-			return util.NewValidationError(fmt.Sprintf("could not parse allow list entry %q : %v", IPMask, err))
+			return util.NewI18nError(
+				util.NewValidationError(fmt.Sprintf("could not parse allow list entry %q : %v", IPMask, err)),
+				util.I18nErrorInvalidIPMask,
+			)
 		}
 	}
 

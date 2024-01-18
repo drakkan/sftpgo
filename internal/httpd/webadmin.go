@@ -89,14 +89,12 @@ const (
 	templateRoles            = "roles.html"
 	templateRole             = "role.html"
 	templateEvents           = "events.html"
-	templateMessage          = "message.html"
 	templateStatus           = "status.html"
 	templateDefender         = "defender.html"
 	templateIPLists          = "iplists.html"
 	templateIPList           = "iplist.html"
 	templateConfigs          = "configs.html"
 	templateProfile          = "profile.html"
-	templateChangePwd        = "changepassword.html"
 	templateMaintenance      = "maintenance.html"
 	templateMFA              = "mfa.html"
 	templateSetup            = "adminsetup.html"
@@ -106,7 +104,6 @@ const (
 	pageEventRulesTitle      = "Event rules"
 	pageEventActionsTitle    = "Event actions"
 	pageRolesTitle           = "Roles"
-	pageProfileTitle         = "My profile"
 	pageChangePwdTitle       = "Change password"
 	pageMaintenanceTitle     = "Maintenance"
 	pageDefenderTitle        = "Auto Blocklist"
@@ -144,6 +141,7 @@ type basePage struct {
 	EventsURL           string
 	ConfigsURL          string
 	LogoutURL           string
+	LoginURL            string
 	ProfileURL          string
 	ChangePwdURL        string
 	MFAURL              string
@@ -236,7 +234,7 @@ type adminPage struct {
 
 type profilePage struct {
 	basePage
-	Error           string
+	Error           *util.I18nError
 	AllowAPIKeyAuth bool
 	Email           string
 	Description     string
@@ -244,7 +242,7 @@ type profilePage struct {
 
 type changePasswordPage struct {
 	basePage
-	Error string
+	Error *util.I18nError
 }
 
 type mfaPage struct {
@@ -300,7 +298,7 @@ type setupPage struct {
 type folderPage struct {
 	basePage
 	Folder    vfs.BaseVirtualFolder
-	Error     string
+	Error     *util.I18nError
 	Mode      folderPageMode
 	FsWrapper fsWrapper
 }
@@ -370,8 +368,9 @@ type configsPage struct {
 
 type messagePage struct {
 	basePage
-	Error   string
+	Error   *util.I18nError
 	Success string
+	Text    string
 }
 
 type userTemplateFields struct {
@@ -403,14 +402,14 @@ func loadAdminTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateAdminDir, templateAdmin),
 	}
 	profilePaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateProfile),
 	}
 	changePwdPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
-		filepath.Join(templatesPath, templateAdminDir, templateChangePwd),
+		filepath.Join(templatesPath, templateCommonDir, templateChangePwd),
 	}
 	connectionsPaths := []string{
 		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
@@ -418,9 +417,9 @@ func loadAdminTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateAdminDir, templateConnections),
 	}
 	messagePaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
-		filepath.Join(templatesPath, templateAdminDir, templateMessage),
+		filepath.Join(templatesPath, templateCommonDir, templateMessage),
 	}
 	foldersPaths := []string{
 		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
@@ -685,6 +684,7 @@ func (s *httpdServer) getBasePageData(title, currentURL string, r *http.Request)
 		EventsURL:           webEventsPath,
 		ConfigsURL:          webConfigsPath,
 		LogoutURL:           webLogoutPath,
+		LoginURL:            webAdminLoginPath,
 		ProfileURL:          webAdminProfilePath,
 		ChangePwdURL:        webChangeAdminPwdPath,
 		MFAURL:              webAdminMFAPath,
@@ -718,39 +718,43 @@ func renderAdminTemplate(w http.ResponseWriter, tmplName string, data any) {
 	}
 }
 
-func (s *httpdServer) renderMessagePage(w http.ResponseWriter, r *http.Request, title, body string, statusCode int,
-	err error, message string,
+func (s *httpdServer) renderMessagePageWithString(w http.ResponseWriter, r *http.Request, title string, statusCode int,
+	err error, message, text string,
 ) {
-	var errorString string
-	if body != "" {
-		errorString = body + " "
-	}
-	if err != nil {
-		errorString += err.Error()
-	}
 	data := messagePage{
 		basePage: s.getBasePageData(title, "", r),
-		Error:    errorString,
+		Error:    getI18nError(err),
 		Success:  message,
+		Text:     text,
 	}
 	w.WriteHeader(statusCode)
 	renderAdminTemplate(w, templateMessage, data)
 }
 
+func (s *httpdServer) renderMessagePage(w http.ResponseWriter, r *http.Request, title string, statusCode int,
+	err error, message string,
+) {
+	s.renderMessagePageWithString(w, r, title, statusCode, err, message, "")
+}
+
 func (s *httpdServer) renderInternalServerErrorPage(w http.ResponseWriter, r *http.Request, err error) {
-	s.renderMessagePage(w, r, page500Title, page500Body, http.StatusInternalServerError, err, "")
+	s.renderMessagePage(w, r, util.I18nError500Title, http.StatusInternalServerError,
+		util.NewI18nError(err, util.I18nError500Message), "")
 }
 
 func (s *httpdServer) renderBadRequestPage(w http.ResponseWriter, r *http.Request, err error) {
-	s.renderMessagePage(w, r, page400Title, "", http.StatusBadRequest, err, "")
+	s.renderMessagePage(w, r, util.I18nError400Title, http.StatusBadRequest,
+		util.NewI18nError(err, util.I18nError400Message), "")
 }
 
-func (s *httpdServer) renderForbiddenPage(w http.ResponseWriter, r *http.Request, body string) {
-	s.renderMessagePage(w, r, page403Title, "", http.StatusForbidden, nil, body)
+func (s *httpdServer) renderForbiddenPage(w http.ResponseWriter, r *http.Request, err error) {
+	s.renderMessagePage(w, r, util.I18nError403Title, http.StatusForbidden,
+		util.NewI18nError(err, util.I18nError403Message), "")
 }
 
 func (s *httpdServer) renderNotFoundPage(w http.ResponseWriter, r *http.Request, err error) {
-	s.renderMessagePage(w, r, page404Title, page404Body, http.StatusNotFound, err, "")
+	s.renderMessagePage(w, r, util.I18nError404Title, http.StatusNotFound,
+		util.NewI18nError(err, util.I18nError404Message), "")
 }
 
 func (s *httpdServer) renderForgotPwdPage(w http.ResponseWriter, r *http.Request, err *util.I18nError, ip string) {
@@ -822,10 +826,10 @@ func (s *httpdServer) renderMFAPage(w http.ResponseWriter, r *http.Request) {
 	renderAdminTemplate(w, templateMFA, data)
 }
 
-func (s *httpdServer) renderProfilePage(w http.ResponseWriter, r *http.Request, error string) {
+func (s *httpdServer) renderProfilePage(w http.ResponseWriter, r *http.Request, err error) {
 	data := profilePage{
-		basePage: s.getBasePageData(pageProfileTitle, webAdminProfilePath, r),
-		Error:    error,
+		basePage: s.getBasePageData(util.I18nProfileTitle, webAdminProfilePath, r),
+		Error:    getI18nError(err),
 	}
 	admin, err := dataprovider.AdminExists(data.LoggedUser.Username)
 	if err != nil {
@@ -839,10 +843,10 @@ func (s *httpdServer) renderProfilePage(w http.ResponseWriter, r *http.Request, 
 	renderAdminTemplate(w, templateProfile, data)
 }
 
-func (s *httpdServer) renderChangePasswordPage(w http.ResponseWriter, r *http.Request, error string) {
+func (s *httpdServer) renderChangePasswordPage(w http.ResponseWriter, r *http.Request, err *util.I18nError) {
 	data := changePasswordPage{
 		basePage: s.getBasePageData(pageChangePwdTitle, webChangeAdminPwdPath, r),
-		Error:    error,
+		Error:    err,
 	}
 
 	renderAdminTemplate(w, templateChangePwd, data)
@@ -1166,7 +1170,7 @@ func (s *httpdServer) renderEventRulePage(w http.ResponseWriter, r *http.Request
 }
 
 func (s *httpdServer) renderFolderPage(w http.ResponseWriter, r *http.Request, folder vfs.BaseVirtualFolder,
-	mode folderPageMode, error string,
+	mode folderPageMode, err error,
 ) {
 	var title, currentURL string
 	switch mode {
@@ -1185,7 +1189,7 @@ func (s *httpdServer) renderFolderPage(w http.ResponseWriter, r *http.Request, f
 
 	data := folderPage{
 		basePage: s.getBasePageData(title, currentURL, r),
-		Error:    error,
+		Error:    getI18nError(err),
 		Folder:   folder,
 		Mode:     mode,
 		FsWrapper: fsWrapper{
@@ -2676,7 +2680,7 @@ func (s *httpdServer) handleWebAdminForgotPwdPost(w http.ResponseWriter, r *http
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
-		s.renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
 	err = handleForgotPassword(r, r.Form.Get("username"), true)
@@ -2713,34 +2717,34 @@ func (s *httpdServer) handleWebAdminMFA(w http.ResponseWriter, r *http.Request) 
 
 func (s *httpdServer) handleWebAdminProfile(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	s.renderProfilePage(w, r, "")
+	s.renderProfilePage(w, r, nil)
 }
 
 func (s *httpdServer) handleWebAdminChangePwd(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	s.renderChangePasswordPage(w, r, "")
+	s.renderChangePasswordPage(w, r, nil)
 }
 
 func (s *httpdServer) handleWebAdminProfilePost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	err := r.ParseForm()
 	if err != nil {
-		s.renderProfilePage(w, r, err.Error())
+		s.renderProfilePage(w, r, util.NewI18nError(err, util.I18nErrorInvalidForm))
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
-		s.renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		s.renderProfilePage(w, r, "Invalid token claims")
+		s.renderProfilePage(w, r, util.NewI18nError(err, util.I18nErrorInvalidToken))
 		return
 	}
 	admin, err := dataprovider.AdminExists(claims.Username)
 	if err != nil {
-		s.renderProfilePage(w, r, err.Error())
+		s.renderProfilePage(w, r, err)
 		return
 	}
 	admin.Filters.AllowAPIKeyAuth = r.Form.Get("allow_api_key_auth") != ""
@@ -2748,11 +2752,10 @@ func (s *httpdServer) handleWebAdminProfilePost(w http.ResponseWriter, r *http.R
 	admin.Description = r.Form.Get("description")
 	err = dataprovider.UpdateAdmin(&admin, dataprovider.ActionExecutorSelf, ipAddr, admin.Role)
 	if err != nil {
-		s.renderProfilePage(w, r, err.Error())
+		s.renderProfilePage(w, r, err)
 		return
 	}
-	s.renderMessagePage(w, r, "Profile updated", "", http.StatusOK, nil,
-		"Your profile has been successfully updated")
+	s.renderMessagePage(w, r, util.I18nProfileTitle, http.StatusOK, nil, util.I18nProfileUpdated)
 }
 
 func (s *httpdServer) handleWebMaintenance(w http.ResponseWriter, r *http.Request) {
@@ -2764,7 +2767,7 @@ func (s *httpdServer) handleWebRestore(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, MaxRestoreSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
 	}
 	err = r.ParseMultipartForm(MaxRestoreSize)
@@ -2776,7 +2779,7 @@ func (s *httpdServer) handleWebRestore(w http.ResponseWriter, r *http.Request) {
 
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
-		s.renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
 	restoreMode, err := strconv.Atoi(r.Form.Get("mode"))
@@ -2810,7 +2813,7 @@ func (s *httpdServer) handleWebRestore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.renderMessagePage(w, r, "Data restored", "", http.StatusOK, nil, "Your backup was successfully restored")
+	s.renderMessagePage(w, r, util.I18nMaintenanceTitle, http.StatusOK, nil, util.I18nBackupOK)
 }
 
 func (s *httpdServer) handleGetWebAdmins(w http.ResponseWriter, r *http.Request) {
@@ -2877,7 +2880,7 @@ func (s *httpdServer) handleWebAddAdminPost(w http.ResponseWriter, r *http.Reque
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
 	}
 	admin, err := getAdminFromPostFields(r)
@@ -2890,7 +2893,7 @@ func (s *httpdServer) handleWebAddAdminPost(w http.ResponseWriter, r *http.Reque
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
-		s.renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
 	err = dataprovider.AddAdmin(&admin, claims.Username, ipAddr, claims.Role)
@@ -2921,7 +2924,7 @@ func (s *httpdServer) handleWebUpdateAdminPost(w http.ResponseWriter, r *http.Re
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
-		s.renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
 	updatedAdmin.ID = admin.ID
@@ -2994,7 +2997,7 @@ func (s *httpdServer) handleGetWebUsers(w http.ResponseWriter, r *http.Request) 
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
 	}
 	data := s.getBasePageData(util.I18nUsersTitle, webUsersPath, r)
@@ -3008,7 +3011,7 @@ func (s *httpdServer) handleWebTemplateFolderGet(w http.ResponseWriter, r *http.
 		folder, err := dataprovider.GetFolderByName(name)
 		if err == nil {
 			folder.FsConfig.SetEmptySecrets()
-			s.renderFolderPage(w, r, folder, folderPageModeTemplate, "")
+			s.renderFolderPage(w, r, folder, folderPageModeTemplate, nil)
 		} else if errors.Is(err, util.ErrNotFound) {
 			s.renderNotFoundPage(w, r, err)
 		} else {
@@ -3016,7 +3019,7 @@ func (s *httpdServer) handleWebTemplateFolderGet(w http.ResponseWriter, r *http.
 		}
 	} else {
 		folder := vfs.BaseVirtualFolder{}
-		s.renderFolderPage(w, r, folder, folderPageModeTemplate, "")
+		s.renderFolderPage(w, r, folder, folderPageModeTemplate, nil)
 	}
 }
 
@@ -3024,20 +3027,20 @@ func (s *httpdServer) handleWebTemplateFolderPost(w http.ResponseWriter, r *http
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
 	}
 	templateFolder := vfs.BaseVirtualFolder{}
 	err = r.ParseMultipartForm(maxRequestSize)
 	if err != nil {
-		s.renderMessagePage(w, r, "Error parsing folders fields", "", http.StatusBadRequest, err, "")
+		s.renderMessagePage(w, r, util.I18nTemplateFolderTitle, http.StatusBadRequest, util.NewI18nError(err, util.I18nErrorInvalidForm), "")
 		return
 	}
 	defer r.MultipartForm.RemoveAll() //nolint:errcheck
 
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
-		s.renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
 
@@ -3045,7 +3048,7 @@ func (s *httpdServer) handleWebTemplateFolderPost(w http.ResponseWriter, r *http
 	templateFolder.Description = r.Form.Get("description")
 	fsConfig, err := getFsConfigFromPostFields(r)
 	if err != nil {
-		s.renderMessagePage(w, r, "Error parsing folders fields", "", http.StatusBadRequest, err, "")
+		s.renderMessagePage(w, r, util.I18nTemplateFolderTitle, http.StatusBadRequest, err, "")
 		return
 	}
 	templateFolder.FsConfig = fsConfig
@@ -3057,16 +3060,18 @@ func (s *httpdServer) handleWebTemplateFolderPost(w http.ResponseWriter, r *http
 	for _, tmpl := range foldersFields {
 		f := getFolderFromTemplate(templateFolder, tmpl)
 		if err := dataprovider.ValidateFolder(&f); err != nil {
-			s.renderMessagePage(w, r, "Folder validation error", fmt.Sprintf("Error validating folder %q", f.Name),
-				http.StatusBadRequest, err, "")
+			s.renderMessagePage(w, r, util.I18nTemplateFolderTitle, http.StatusBadRequest, err, "")
 			return
 		}
 		dump.Folders = append(dump.Folders, f)
 	}
 
 	if len(dump.Folders) == 0 {
-		s.renderMessagePage(w, r, "No folders defined", "No valid folders defined, unable to complete the requested action",
-			http.StatusBadRequest, nil, "")
+		s.renderMessagePage(w, r, util.I18nTemplateFolderTitle, http.StatusBadRequest,
+			util.NewI18nError(
+				errors.New("no valid folder defined, unable to complete the requested action"),
+				util.I18nErrorFolderTemplate,
+			), "")
 		return
 	}
 	if r.Form.Get("form_action") == "export_from_template" {
@@ -3076,8 +3081,7 @@ func (s *httpdServer) handleWebTemplateFolderPost(w http.ResponseWriter, r *http
 		return
 	}
 	if err = RestoreFolders(dump.Folders, "", 1, 0, claims.Username, ipAddr, claims.Role); err != nil {
-		s.renderMessagePage(w, r, "Unable to save folders", "Cannot save the defined folders:",
-			getRespStatus(err), err, "")
+		s.renderMessagePage(w, r, util.I18nTemplateFolderTitle, getRespStatus(err), err, "")
 		return
 	}
 	http.Redirect(w, r, webFoldersPath, http.StatusSeeOther)
@@ -3126,17 +3130,17 @@ func (s *httpdServer) handleWebTemplateUserPost(w http.ResponseWriter, r *http.R
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
 	}
 	templateUser, err := getUserFromPostFields(r)
 	if err != nil {
-		s.renderMessagePage(w, r, "Error parsing user fields", "", http.StatusBadRequest, err, "")
+		s.renderMessagePage(w, r, util.I18nTemplateUserTitle, http.StatusBadRequest, err, "")
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
-		s.renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
 
@@ -3147,8 +3151,7 @@ func (s *httpdServer) handleWebTemplateUserPost(w http.ResponseWriter, r *http.R
 	for _, tmpl := range userTmplFields {
 		u := getUserFromTemplate(templateUser, tmpl)
 		if err := dataprovider.ValidateUser(&u); err != nil {
-			s.renderMessagePage(w, r, "User validation error", fmt.Sprintf("Error validating user %q", u.Username),
-				http.StatusBadRequest, err, "")
+			s.renderMessagePage(w, r, util.I18nTemplateUserTitle, http.StatusBadRequest, err, "")
 			return
 		}
 		// to create a template the "manage_system" permission is required, so role admins cannot use
@@ -3162,8 +3165,11 @@ func (s *httpdServer) handleWebTemplateUserPost(w http.ResponseWriter, r *http.R
 	}
 
 	if len(dump.Users) == 0 {
-		s.renderMessagePage(w, r, "No users defined", "No valid users defined, unable to complete the requested action",
-			http.StatusBadRequest, nil, "")
+		s.renderMessagePage(w, r, util.I18nTemplateUserTitle,
+			http.StatusBadRequest, util.NewI18nError(
+				errors.New("no valid user defined, unable to complete the requested action"),
+				util.I18nErrorUserTemplate,
+			), "")
 		return
 	}
 	if r.Form.Get("form_action") == "export_from_template" {
@@ -3173,8 +3179,7 @@ func (s *httpdServer) handleWebTemplateUserPost(w http.ResponseWriter, r *http.R
 		return
 	}
 	if err = RestoreUsers(dump.Users, "", 1, 0, claims.Username, ipAddr, claims.Role); err != nil {
-		s.renderMessagePage(w, r, "Unable to save users", "Cannot save the defined users:",
-			getRespStatus(err), err, "")
+		s.renderMessagePage(w, r, util.I18nTemplateUserTitle, getRespStatus(err), err, "")
 		return
 	}
 	http.Redirect(w, r, webUsersPath, http.StatusSeeOther)
@@ -3204,7 +3209,7 @@ func (s *httpdServer) handleWebUpdateUserGet(w http.ResponseWriter, r *http.Requ
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
 	}
 	username := getURLParam(r, "username")
@@ -3222,7 +3227,7 @@ func (s *httpdServer) handleWebAddUserPost(w http.ResponseWriter, r *http.Reques
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
 	}
 	user, err := getUserFromPostFields(r)
@@ -3232,7 +3237,7 @@ func (s *httpdServer) handleWebAddUserPost(w http.ResponseWriter, r *http.Reques
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
-		s.renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
 	user = getUserFromTemplate(user, userTemplateFields{
@@ -3259,7 +3264,7 @@ func (s *httpdServer) handleWebUpdateUserPost(w http.ResponseWriter, r *http.Req
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
 	}
 	username := getURLParam(r, "username")
@@ -3278,7 +3283,7 @@ func (s *httpdServer) handleWebUpdateUserPost(w http.ResponseWriter, r *http.Req
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
-		s.renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
 	updatedUser.ID = user.ID
@@ -3328,7 +3333,7 @@ func (s *httpdServer) handleWebGetConnections(w http.ResponseWriter, r *http.Req
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
 	}
 	connectionStats := common.Connections.GetStats(claims.Role)
@@ -3342,27 +3347,27 @@ func (s *httpdServer) handleWebGetConnections(w http.ResponseWriter, r *http.Req
 
 func (s *httpdServer) handleWebAddFolderGet(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	s.renderFolderPage(w, r, vfs.BaseVirtualFolder{}, folderPageModeAdd, "")
+	s.renderFolderPage(w, r, vfs.BaseVirtualFolder{}, folderPageModeAdd, nil)
 }
 
 func (s *httpdServer) handleWebAddFolderPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
 	}
 	folder := vfs.BaseVirtualFolder{}
 	err = r.ParseMultipartForm(maxRequestSize)
 	if err != nil {
-		s.renderFolderPage(w, r, folder, folderPageModeAdd, err.Error())
+		s.renderFolderPage(w, r, folder, folderPageModeAdd, util.NewI18nError(err, util.I18nErrorInvalidForm))
 		return
 	}
 	defer r.MultipartForm.RemoveAll() //nolint:errcheck
 
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
-		s.renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
 	folder.MappedPath = strings.TrimSpace(r.Form.Get("mapped_path"))
@@ -3370,7 +3375,7 @@ func (s *httpdServer) handleWebAddFolderPost(w http.ResponseWriter, r *http.Requ
 	folder.Description = r.Form.Get("description")
 	fsConfig, err := getFsConfigFromPostFields(r)
 	if err != nil {
-		s.renderFolderPage(w, r, folder, folderPageModeAdd, err.Error())
+		s.renderFolderPage(w, r, folder, folderPageModeAdd, err)
 		return
 	}
 	folder.FsConfig = fsConfig
@@ -3380,7 +3385,7 @@ func (s *httpdServer) handleWebAddFolderPost(w http.ResponseWriter, r *http.Requ
 	if err == nil {
 		http.Redirect(w, r, webFoldersPath, http.StatusSeeOther)
 	} else {
-		s.renderFolderPage(w, r, folder, folderPageModeAdd, err.Error())
+		s.renderFolderPage(w, r, folder, folderPageModeAdd, err)
 	}
 }
 
@@ -3389,7 +3394,7 @@ func (s *httpdServer) handleWebUpdateFolderGet(w http.ResponseWriter, r *http.Re
 	name := getURLParam(r, "name")
 	folder, err := dataprovider.GetFolderByName(name)
 	if err == nil {
-		s.renderFolderPage(w, r, folder, folderPageModeUpdate, "")
+		s.renderFolderPage(w, r, folder, folderPageModeUpdate, nil)
 	} else if errors.Is(err, util.ErrNotFound) {
 		s.renderNotFoundPage(w, r, err)
 	} else {
@@ -3401,7 +3406,7 @@ func (s *httpdServer) handleWebUpdateFolderPost(w http.ResponseWriter, r *http.R
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
 	}
 	name := getURLParam(r, "name")
@@ -3416,19 +3421,19 @@ func (s *httpdServer) handleWebUpdateFolderPost(w http.ResponseWriter, r *http.R
 
 	err = r.ParseMultipartForm(maxRequestSize)
 	if err != nil {
-		s.renderFolderPage(w, r, folder, folderPageModeUpdate, err.Error())
+		s.renderFolderPage(w, r, folder, folderPageModeUpdate, util.NewI18nError(err, util.I18nErrorInvalidForm))
 		return
 	}
 	defer r.MultipartForm.RemoveAll() //nolint:errcheck
 
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
-		s.renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
 	fsConfig, err := getFsConfigFromPostFields(r)
 	if err != nil {
-		s.renderFolderPage(w, r, folder, folderPageModeUpdate, err.Error())
+		s.renderFolderPage(w, r, folder, folderPageModeUpdate, err)
 		return
 	}
 	updatedFolder := vfs.BaseVirtualFolder{
@@ -3448,7 +3453,7 @@ func (s *httpdServer) handleWebUpdateFolderPost(w http.ResponseWriter, r *http.R
 
 	err = dataprovider.UpdateFolder(&updatedFolder, folder.Users, folder.Groups, claims.Username, ipAddr, claims.Role)
 	if err != nil {
-		s.renderFolderPage(w, r, updatedFolder, folderPageModeUpdate, err.Error())
+		s.renderFolderPage(w, r, updatedFolder, folderPageModeUpdate, err)
 		return
 	}
 	http.Redirect(w, r, webFoldersPath, http.StatusSeeOther)
@@ -3543,7 +3548,7 @@ func (s *httpdServer) handleWebAddGroupPost(w http.ResponseWriter, r *http.Reque
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
 	}
 	group, err := getGroupFromPostFields(r)
@@ -3553,7 +3558,7 @@ func (s *httpdServer) handleWebAddGroupPost(w http.ResponseWriter, r *http.Reque
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
-		s.renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
 	err = dataprovider.AddGroup(&group, claims.Username, ipAddr, claims.Role)
@@ -3581,7 +3586,7 @@ func (s *httpdServer) handleWebUpdateGroupPost(w http.ResponseWriter, r *http.Re
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
 	}
 	name := getURLParam(r, "name")
@@ -3600,7 +3605,7 @@ func (s *httpdServer) handleWebUpdateGroupPost(w http.ResponseWriter, r *http.Re
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
-		s.renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
 	updatedGroup.ID = group.ID
@@ -3673,7 +3678,7 @@ func (s *httpdServer) handleWebAddEventActionPost(w http.ResponseWriter, r *http
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
 	}
 	action, err := getEventActionFromPostFields(r)
@@ -3683,7 +3688,7 @@ func (s *httpdServer) handleWebAddEventActionPost(w http.ResponseWriter, r *http
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
-		s.renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
 	if err = dataprovider.AddEventAction(&action, claims.Username, ipAddr, claims.Role); err != nil {
@@ -3710,7 +3715,7 @@ func (s *httpdServer) handleWebUpdateEventActionPost(w http.ResponseWriter, r *h
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
 	}
 	name := getURLParam(r, "name")
@@ -3729,7 +3734,7 @@ func (s *httpdServer) handleWebUpdateEventActionPost(w http.ResponseWriter, r *h
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
-		s.renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
 	updatedAction.ID = action.ID
@@ -3790,7 +3795,7 @@ func (s *httpdServer) handleWebAddEventRulePost(w http.ResponseWriter, r *http.R
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
 	}
 	rule, err := getEventRuleFromPostFields(r)
@@ -3801,7 +3806,7 @@ func (s *httpdServer) handleWebAddEventRulePost(w http.ResponseWriter, r *http.R
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	err = verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr)
 	if err != nil {
-		s.renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
 	if err = dataprovider.AddEventRule(&rule, claims.Username, ipAddr, claims.Role); err != nil {
@@ -3828,7 +3833,7 @@ func (s *httpdServer) handleWebUpdateEventRulePost(w http.ResponseWriter, r *htt
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
 	}
 	name := getURLParam(r, "name")
@@ -3847,7 +3852,7 @@ func (s *httpdServer) handleWebUpdateEventRulePost(w http.ResponseWriter, r *htt
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
-		s.renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
 	updatedRule.ID = rule.ID
@@ -3903,12 +3908,12 @@ func (s *httpdServer) handleWebAddRolePost(w http.ResponseWriter, r *http.Reques
 	}
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
-		s.renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
 	err = dataprovider.AddRole(&role, claims.Username, ipAddr, claims.Role)
@@ -3935,7 +3940,7 @@ func (s *httpdServer) handleWebUpdateRolePost(w http.ResponseWriter, r *http.Req
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
 	}
 	role, err := dataprovider.RoleExists(getURLParam(r, "name"))
@@ -3954,7 +3959,7 @@ func (s *httpdServer) handleWebUpdateRolePost(w http.ResponseWriter, r *http.Req
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
-		s.renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
 	updatedRole.ID = role.ID
@@ -4017,12 +4022,12 @@ func (s *httpdServer) handleWebAddIPListEntryPost(w http.ResponseWriter, r *http
 	entry.Type = listType
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
-		s.renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
 	err = dataprovider.AddIPListEntry(&entry, claims.Username, ipAddr, claims.Role)
@@ -4054,7 +4059,7 @@ func (s *httpdServer) handleWebUpdateIPListEntryPost(w http.ResponseWriter, r *h
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
 	}
 	listType, ipOrNet, err := getIPListPathParams(r)
@@ -4077,7 +4082,7 @@ func (s *httpdServer) handleWebUpdateIPListEntryPost(w http.ResponseWriter, r *h
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
-		s.renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
 	updatedEntry.Type = listType
@@ -4104,7 +4109,7 @@ func (s *httpdServer) handleWebConfigsPost(w http.ResponseWriter, r *http.Reques
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
 	}
 	configs, err := dataprovider.GetConfigs()
@@ -4119,7 +4124,7 @@ func (s *httpdServer) handleWebConfigsPost(w http.ResponseWriter, r *http.Reques
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
-		s.renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
 	var configSection int
@@ -4159,20 +4164,17 @@ func (s *httpdServer) handleWebConfigsPost(w http.ResponseWriter, r *http.Reques
 			logger.Error(logSender, "", "unable to decrypt SMTP configuration, cannot activate configuration: %v", err)
 		}
 	}
-	s.renderMessagePage(w, r, "Configurations updated", "", http.StatusOK, nil,
-		"Configurations has been successfully updated")
+	s.renderMessagePage(w, r, util.I18nConfigsTitle, http.StatusOK, nil, util.I18nConfigsOK)
 }
 
 func (s *httpdServer) handleOAuth2TokenRedirect(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 
 	stateToken := r.URL.Query().Get("state")
-	errorTitle := "Unable to complete OAuth2 flow"
-	successTitle := "OAuth2 flow completed"
 
 	state, err := verifyOAuth2Token(stateToken, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err != nil {
-		s.renderMessagePage(w, r, errorTitle, "Invalid auth request:", http.StatusBadRequest, err, "")
+		s.renderMessagePage(w, r, util.I18nOAuth2ErrorTitle, http.StatusBadRequest, err, "")
 		return
 	}
 
@@ -4180,7 +4182,8 @@ func (s *httpdServer) handleOAuth2TokenRedirect(w http.ResponseWriter, r *http.R
 
 	pendingAuth, err := oauth2Mgr.getPendingAuth(state)
 	if err != nil {
-		s.renderMessagePage(w, r, errorTitle, "Unable to validate auth request:", http.StatusInternalServerError, err, "")
+		s.renderMessagePage(w, r, util.I18nOAuth2ErrorTitle, http.StatusInternalServerError,
+			util.NewI18nError(err, util.I18nOAuth2ErrorValidateState), "")
 		return
 	}
 	oauth2Config := smtp.OAuth2Config{
@@ -4195,7 +4198,8 @@ func (s *httpdServer) handleOAuth2TokenRedirect(w http.ResponseWriter, r *http.R
 	cfg.RedirectURL = pendingAuth.RedirectURL
 	token, err := cfg.Exchange(ctx, r.URL.Query().Get("code"))
 	if err != nil {
-		s.renderMessagePage(w, r, errorTitle, "Unable to get token:", http.StatusInternalServerError, err, "")
+		s.renderMessagePage(w, r, util.I18nOAuth2ErrorTitle, http.StatusInternalServerError,
+			util.NewI18nError(err, util.I18nOAuth2ErrTokenExchange), "")
 		return
 	}
 	if token.RefreshToken == "" {
@@ -4203,11 +4207,12 @@ func (s *httpdServer) handleOAuth2TokenRedirect(w http.ResponseWriter, r *http.R
 			"Some providers only return the token when the user first authorizes. " +
 			"If you have already registered SFTPGo with this user in the past, revoke access and try again. " +
 			"This way you will invalidate the previous token"
-		s.renderMessagePage(w, r, errorTitle, "Unable to get token:", http.StatusBadRequest, errors.New(errTxt), "")
+		s.renderMessagePage(w, r, util.I18nOAuth2ErrorTitle, http.StatusBadRequest,
+			util.NewI18nError(errors.New(errTxt), util.I18nOAuth2ErrNoRefreshToken), "")
 		return
 	}
-	s.renderMessagePage(w, r, successTitle, "", http.StatusOK, nil,
-		fmt.Sprintf("Copy the following string, without the quotes, into SMTP OAuth2 Token configuration field: %q", token.RefreshToken))
+	s.renderMessagePageWithString(w, r, util.I18nOAuth2Title, http.StatusOK, nil, util.I18nOAuth2OK,
+		fmt.Sprintf("%q", token.RefreshToken))
 }
 
 func updateSMTPSecrets(newConfigs, currentConfigs *dataprovider.SMTPConfigs) {

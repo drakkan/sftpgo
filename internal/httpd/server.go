@@ -636,17 +636,17 @@ func (s *httpdServer) handleWebAdminChangePwdPost(w http.ResponseWriter, r *http
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	err := r.ParseForm()
 	if err != nil {
-		s.renderChangePasswordPage(w, r, err.Error())
+		s.renderChangePasswordPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidForm))
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
-		s.renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
 	err = doChangeAdminPassword(r, strings.TrimSpace(r.Form.Get("current_password")),
 		strings.TrimSpace(r.Form.Get("new_password1")), strings.TrimSpace(r.Form.Get("new_password2")))
 	if err != nil {
-		s.renderChangePasswordPage(w, r, err.Error())
+		s.renderChangePasswordPage(w, r, util.NewI18nError(err, util.I18nErrorChangePwdGeneric))
 		return
 	}
 	s.handleWebAdminLogout(w, r)
@@ -662,7 +662,7 @@ func (s *httpdServer) handleWebAdminPasswordResetPost(w http.ResponseWriter, r *
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
-		s.renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
 	newPassword := strings.TrimSpace(r.Form.Get("password"))
@@ -690,7 +690,7 @@ func (s *httpdServer) handleWebAdminSetupPost(w http.ResponseWriter, r *http.Req
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
-		s.renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
 	username := strings.TrimSpace(r.Form.Get("username"))
@@ -1149,8 +1149,8 @@ func (s *httpdServer) sendTooManyRequestResponse(w http.ResponseWriter, r *http.
 				util.NewI18nError(errors.New(http.StatusText(http.StatusTooManyRequests)), util.I18nError429Message), "")
 			return
 		}
-		s.renderMessagePage(w, r, http.StatusText(http.StatusTooManyRequests), "Rate limit exceeded", http.StatusTooManyRequests,
-			err, "")
+		s.renderMessagePage(w, r, util.I18nError429Title, http.StatusTooManyRequests,
+			util.NewI18nError(errors.New(http.StatusText(http.StatusTooManyRequests)), util.I18nError429Message), "")
 		return
 	}
 	sendAPIResponse(w, r, err, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
@@ -1163,7 +1163,7 @@ func (s *httpdServer) sendForbiddenResponse(w http.ResponseWriter, r *http.Reque
 			s.renderClientForbiddenPage(w, r, err)
 			return
 		}
-		s.renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, err)
 		return
 	}
 	sendAPIResponse(w, r, err, "", http.StatusForbidden)

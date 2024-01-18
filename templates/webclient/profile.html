@@ -138,10 +138,13 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 {{- define "extra_js"}}
 {{- if .LoggedUser.CanManagePublicKeys}}
 <script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/plugins/custom/formrepeater/formrepeater.bundle.js"></script>
+{{- end}}
 <script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
     KTUtil.onDOMContentLoaded(function () {
+        //{{- if .LoggedUser.CanManagePublicKeys}}
         initRepeater('#public_keys');
         initRepeaterItems();
+        //{{- end}}
 
         $("#page_form").submit(function (event) {
             let submitButton = document.querySelector('#form_submit');
@@ -150,5 +153,4 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         });
     });
 </script>
-{{- end}}
 {{- end}}

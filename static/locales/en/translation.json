@@ -52,7 +52,9 @@
         "update_group": "Update group",
         "add_folder": "Add virtual folder",
         "update_folder": "Update virtual folder",
-        "template_folder": "Virtual folder template"
+        "template_folder": "Virtual folder template",
+        "oauth2_error": "Unable to complete OAuth2 flow",
+        "oauth2_success": "OAuth2 flow completed"
     },
     "setup": {
         "desc": "To start using SFTPGo you need to create an administrator user",
@@ -161,6 +163,7 @@
         "ip_mask_help": "Comma separated IP/Mask in CIDR format, for example \"192.168.1.0/24,10.8.0.100/32\"",
         "allowed_ip_mask_invalid": "Invalid allowed IP/Mask",
         "username_required": "The username is required",
+        "password_required": "The password is required",
         "foldername_required": "The folder name is required",
         "err_user": "Unable to validate your user",
         "err_protocol_forbidden": "HTTP protocol is not allowed for your user",
@@ -213,7 +216,10 @@
         "associations": "Associations",
         "template_placeholders": "The following placeholders are supported",
         "duplicated_username": "The specified username already exists",
-        "duplicated_name": "The specified name already exists"
+        "duplicated_name": "The specified name already exists",
+        "permissions_required": "Permissions are required",
+        "backup_ok": "Backup successfully restored",
+        "configs_saved": "Configurations has been successfully updated"
     },
     "fs": {
         "view_file": "View file \"{{- path}}\"",
@@ -481,7 +487,8 @@
         "template_username_placeholder": "replaced with the specified username",
         "template_password_placeholder": "replaced with the specified password",
         "template_help1": "Placeholders will be replaced in paths and credentials of the configured storage backend.",
-        "template_help2": "The generated users can be saved or exported. Exported users can be imported from the \"Maintenance\" section of this SFTPGo instance or another."
+        "template_help2": "The generated users can be saved or exported. Exported users can be imported from the \"Maintenance\" section of this SFTPGo instance or another.",
+        "template_no_user": "No valid user defined, unable to complete the requested action"
     },
     "group": {
         "view_manage": "View and manage groups",
@@ -500,7 +507,8 @@
         "template_help": "The generated virtual folders can be saved or exported. Exported folders can be imported from the \"Maintenance\" section of this SFTPGo instance or another.",
         "name": "Virtual folder name",
         "submit_generate": "Generate and save folders",
-        "submit_export": "Generate and export folder"
+        "submit_export": "Generate and export folder",
+        "template_no_folder": "No valid virtual folder defined, unable to complete the requested action"
     },
     "storage": {
         "title": "File system",
@@ -600,6 +608,14 @@
         "role_user_err": "Incorrect OpenID role, logged in user is an administrator",
         "get_user_err": "Failed to get user associated with OpenID token"
     },
+    "oauth2": {
+        "auth_verify_error": "Unable to verify OAuth2 code",
+        "auth_validation_error": "Unable to verify OAuth2 code",
+        "auth_invalid": "Invalid OAuth2 code",
+        "token_exchange_err": "Unable to get OAuth2 token from authorization code",
+        "no_refresh_token": "The OAuth2 provider returned an empty token. Some providers only return the token when the user first authorizes. If you have already registered SFTPGo with this user in the past, revoke access and try again. This way you will invalidate the previous token",
+        "success": "Copy the following string, without the quotes, into SMTP OAuth2 Token configuration field:"
+    },
     "filters": {
         "password_strength": "Password strength",
         "password_strength_help": "Values in the 50-70 range are suggested for common use cases. 0 means disabled, any password will be accepted",
@@ -651,5 +667,8 @@
         "api_key_auth_help": "Allow to impersonate the user, in REST API, with an API key",
         "external_auth_cache_time": "External auth cache time",
         "external_auth_cache_time_help": "Cache time, in seconds, for users authenticated using an external auth hook. 0 means no cache"
+    },
+    "admin": {
+        "role_permissions": "A role admin cannot have the following permissions: {{val}}"
     }
 }

@@ -289,17 +289,23 @@ func changeAdminPassword(w http.ResponseWriter, r *http.Request) {
 
 func doChangeAdminPassword(r *http.Request, currentPassword, newPassword, confirmNewPassword string) error {
 	if currentPassword == "" || newPassword == "" || confirmNewPassword == "" {
-		return util.NewValidationError("please provide the current password and the new one two times")
+		return util.NewI18nError(
+			util.NewValidationError("please provide the current password and the new one two times"),
+			util.I18nErrorChangePwdRequiredFields,
+		)
 	}
 	if newPassword != confirmNewPassword {
-		return util.NewValidationError("the two password fields do not match")
+		return util.NewI18nError(util.NewValidationError("the two password fields do not match"), util.I18nErrorChangePwdNoMatch)
 	}
 	if currentPassword == newPassword {
-		return util.NewValidationError("the new password must be different from the current one")
+		return util.NewI18nError(
+			util.NewValidationError("the new password must be different from the current one"),
+			util.I18nErrorChangePwdNoDifferent,
+		)
 	}
 	claims, err := getTokenClaims(r)
 	if err != nil {
-		return err
+		return util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken)
 	}
 	admin, err := dataprovider.AdminExists(claims.Username)
 	if err != nil {
@@ -307,7 +313,7 @@ func doChangeAdminPassword(r *http.Request, currentPassword, newPassword, confir
 	}
 	match, err := admin.CheckPassword(currentPassword)
 	if !match || err != nil {
-		return util.NewValidationError("current password does not match")
+		return util.NewI18nError(util.NewValidationError("current password does not match"), util.I18nErrorChangePwdCurrentNoMatch)
 	}
 
 	admin.Password = newPassword

@@ -70,6 +70,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     <div class=" fw-semibold">
                         <div class="fs-4 text-gray-800">
                             <span data-i18n="{{.Success}}"></span>
+                            {{- if .Text}}
+                            {{.Text}}
+                            {{- end}}
                         </div>
                     </div>
                 </div>

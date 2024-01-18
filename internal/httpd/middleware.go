@@ -17,6 +17,7 @@ package httpd
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"net/url"
 	"strings"
@@ -264,13 +265,14 @@ func (s *httpdServer) checkAuthRequirements(next http.Handler) http.Handler {
 func (s *httpdServer) requireBuiltinLogin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if isLoggedInWithOIDC(r) {
+			err := util.NewI18nError(
+				util.NewGenericError("This feature is not available if you are logged in with OpenID"),
+				util.I18nErrorNoOIDCFeature,
+			)
 			if isWebClientRequest(r) {
-				s.renderClientForbiddenPage(w, r, util.NewI18nError(
-					util.NewGenericError("This feature is not available if you are logged in with OpenID"),
-					util.I18nErrorNoOIDCFeature,
-				))
+				s.renderClientForbiddenPage(w, r, err)
 			} else {
-				s.renderForbiddenPage(w, r, "This feature is not available if you are logged in with OpenID")
+				s.renderForbiddenPage(w, r, err)
 			}
 			return
 		}
@@ -295,7 +297,7 @@ func (s *httpdServer) checkPerm(perm string) func(next http.Handler) http.Handle
 
 			if !tokenClaims.hasPerm(perm) {
 				if isWebRequest(r) {
-					s.renderForbiddenPage(w, r, "You don't have permission for this action")
+					s.renderForbiddenPage(w, r, util.NewI18nError(fs.ErrPermission, util.I18nError403Message))
 				} else {
 					sendAPIResponse(w, r, nil, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 				}

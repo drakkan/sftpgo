@@ -440,18 +440,21 @@ func verifyOAuth2Token(tokenString, ip string) (string, error) {
 	token, err := jwtauth.VerifyToken(csrfTokenAuth, tokenString)
 	if err != nil || token == nil {
 		logger.Debug(logSender, "", "error validating OAuth2 token %q: %v", tokenString, err)
-		return "", fmt.Errorf("unable to verify OAuth2 state: %v", err)
+		return "", util.NewI18nError(
+			fmt.Errorf("unable to verify OAuth2 state: %v", err),
+			util.I18nOAuth2ErrorVerifyState,
+		)
 	}
 
 	if !util.Contains(token.Audience(), tokenAudienceOAuth2) {
 		logger.Debug(logSender, "", "error validating OAuth2 token audience")
-		return "", errors.New("invalid OAuth2 state")
+		return "", util.NewI18nError(errors.New("invalid OAuth2 state"), util.I18nOAuth2InvalidState)
 	}
 
 	if tokenValidationMode != tokenValidationNoIPMatch {
 		if !util.Contains(token.Audience(), ip) {
 			logger.Debug(logSender, "", "error validating OAuth2 token IP audience")
-			return "", errors.New("invalid OAuth2 state")
+			return "", util.NewI18nError(errors.New("invalid OAuth2 state"), util.I18nOAuth2InvalidState)
 		}
 	}
 	if val, ok := token.Get(jwt.JwtIDKey); ok {
@@ -460,5 +463,5 @@ func verifyOAuth2Token(tokenString, ip string) (string, error) {
 		}
 	}
 	logger.Debug(logSender, "", "jti not found in OAuth2 token")
-	return "", errors.New("invalid OAuth2 state")
+	return "", util.NewI18nError(errors.New("invalid OAuth2 state"), util.I18nOAuth2InvalidState)
 }

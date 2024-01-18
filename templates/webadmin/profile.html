@@ -1,68 +1,82 @@
 <!--
-Copyright (C) 2019 Nicola Murino
+Copyright (C) 2023 Nicola Murino
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as published
-by the Free Software Foundation, version 3.
+This WebUI uses the KeenThemes Mega Bundle, a proprietary theme:
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU Affero General Public License for more details.
+https://keenthemes.com/products/templates-mega-bundle
 
-You should have received a copy of the GNU Affero General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
+KeenThemes HTML/CSS/JS components are allowed for use only within the
+SFTPGo product and restricted to be used in a resealable HTML template
+that can compete with KeenThemes products anyhow.
+
+This WebUI is allowed for use only within the SFTPGo product and
+therefore cannot be used in derivative works/products without an
+explicit grant from the SFTPGo Team (support@sftpgo.com).
 -->
 {{template "base" .}}
 
-{{define "title"}}{{.Title}}{{end}}
-
-{{define "page_body"}}
-
-<div class="card shadow mb-4">
-    <div class="card-header py-3">
-        <h6 class="m-0 font-weight-bold text-primary">My profile - {{.LoggedAdmin.Username}}</h6>
+{{- define "page_body"}}
+<div class="card shadow-sm">
+    <div class="card-header bg-light">
+        <h3 data-i18n="general.my_profile" class="card-title section-title">My profile</h3>
     </div>
     <div class="card-body">
-        {{if .Error}}
-        <div class="alert alert-warning alert-dismissible fade show" role="alert">
-            {{.Error}}
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
-            </button>
-        </div>
-        {{end}}
-        <form id="profile_form" action="{{.CurrentURL}}" method="POST">
+        {{- template "errmsg" .Error}}
+        <form id="page_form" action="{{.CurrentURL}}" method="POST">
             <div class="form-group row">
-                <label for="idEmail" class="col-sm-2 col-form-label">Email</label>
-                <div class="col-sm-10">
+                <label for="idEmail" data-i18n="general.email" class="col-md-3 col-form-label">Email</label>
+                <div class="col-md-9">
                     <input type="text" class="form-control" id="idEmail" name="email" placeholder="" spellcheck="false"
-                        value="{{.Email}}" maxlength="255">
+                        value="{{.Email}}" maxlength="255" autocomplete="off">
                 </div>
             </div>
 
-            <div class="form-group row">
-                <label for="idDescription" class="col-sm-2 col-form-label">Description</label>
-                <div class="col-sm-10">
+            <div class="form-group row mt-10">
+                <label for="idDescription" data-i18n="general.description" class="col-md-3 col-form-label">Description</label>
+                <div class="col-md-9">
                     <input type="text" class="form-control" id="idDescription" name="description" placeholder=""
                         value="{{.Description}}" maxlength="255">
                 </div>
             </div>
 
-            <div class="form-group">
-                <div class="form-check">
-                    <input type="checkbox" class="form-check-input" id="idAllowAPIKeyAuth" name="allow_api_key_auth"
-                    {{if .AllowAPIKeyAuth}}checked{{end}} aria-describedby="allowAPIKeyAuthHelpBlock">
-                    <label for="idAllowAPIKeyAuth" class="form-check-label">Allow API key authentication</label>
-                    <small id="allowAPIKeyAuthHelpBlock" class="form-text text-muted">
-                        Allow to impersonate yourself, in REST API, with an API key. If this permission is not granted, your credentials are required to use the REST API on your behalf
-                    </small>
+            <div class="form-group row align-items-center mt-10">
+                <label data-i18n="general.api_key_auth" class="col-md-3 col-form-label" for="idAllowAPIKeyAuth">API key authentication</label>
+                <div class="col-md-9">
+                    <div class="form-check form-switch form-check-custom form-check-solid">
+                        <input class="form-check-input" type="checkbox" id="idAllowAPIKeyAuth" name="allow_api_key_auth" {{if .AllowAPIKeyAuth}}checked="checked"{{end}}/>
+                        <label data-i18n="general.api_key_auth_help" class="form-check-label fw-semibold text-gray-800" for="idAllowAPIKeyAuth">
+                            Allow to impersonate yourself, in REST API, using an API key
+                        </label>
+                    </div>
                 </div>
             </div>
 
-            <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
-            <button type="submit" class="btn btn-primary float-right mt-3 px-5">Submit</button>
+            <div class="d-flex justify-content-end mt-12">
+                <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
+                <button type="submit" id="form_submit" class="btn btn-primary px-10">
+                    <span data-i18n="general.submit" class="indicator-label">
+                        Submit
+                    </span>
+                    <span data-i18n="general.wait" class="indicator-progress">
+                        Please wait...
+                        <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
+                    </span>
+                </button>
+            </div>
+
         </form>
     </div>
 </div>
-{{end}}
+{{- end}}
+
+{{- define "extra_js"}}
+<script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
+    KTUtil.onDOMContentLoaded(function () {
+        $("#page_form").submit(function (event) {
+            let submitButton = document.querySelector('#form_submit');
+            submitButton.setAttribute('data-kt-indicator', 'on');
+            submitButton.disabled = true;
+        });
+    });
+</script>
+{{- end}}

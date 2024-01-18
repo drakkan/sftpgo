@@ -52,7 +52,9 @@
         "update_group": "Aggiorna gruppo",
         "add_folder": "Aggiungi cartella virtuale",
         "update_folder": "Aggiorna cartella virtuale",
-        "template_folder": "Modello cartella virtuale"
+        "template_folder": "Modello cartella virtuale",
+        "oauth2_error": "Impossibile completare il flusso OAuth2",
+        "oauth2_success": "OAuth2 completato"
     },
     "setup": {
         "desc": "Per iniziare a utilizzare SFTPGo devi creare un utente amministratore",
@@ -161,6 +163,7 @@
         "ip_mask_help": "IP/reti separate da virgola in formato CIDR, ad esempio \"192.168.1.0/24,10.8.0.100/32\"",
         "allowed_ip_mask_invalid": "IP/reti permesse non valide",
         "username_required": "Il nome utente è obbligatorio",
+        "password_required": "La password è obbligatoria",
         "foldername_required": "Il nome della cartella è obbligatorio",
         "err_user": "Errore validazione utente",
         "err_protocol_forbidden": "Il protocollo HTTP non è consentito per il tuo utente",
@@ -213,7 +216,10 @@
         "associations": "Associazioni",
         "template_placeholders": "Sono supportati i seguenti segnaposto",
         "duplicated_username": "Il nome utente specificato esiste già",
-        "duplicated_name": "Il nome specificato esiste già"
+        "duplicated_name": "Il nome specificato esiste già",
+        "permissions_required": "I permessi sono obbligatori",
+        "backup_ok": "Backup ripristinato correttamente",
+        "configs_saved": "Configurazioni aggiornate"
     },
     "fs": {
         "view_file": "Visualizza file \"{{- path}}\"",
@@ -481,7 +487,8 @@
         "template_username_placeholder": "sostituito con il nome utente specificato",
         "template_password_placeholder": "sostituito con la password specificata",
         "template_help1": "I segnaposto verranno sostituiti nei percorsi e nelle credenziali del backend di archiviazione configurato.",
-        "template_help2": "Gli utenti generati possono essere salvati o esportati. Gli utenti esportati possono essere importati dalla sezione \"Manutenzione\" di questa istanza SFTPGo o di un'altra."
+        "template_help2": "Gli utenti generati possono essere salvati o esportati. Gli utenti esportati possono essere importati dalla sezione \"Manutenzione\" di questa istanza SFTPGo o di un'altra.",
+        "template_no_user": "Nessun utente valido definito. Impossibile completare l'azione richiesta"
     },
     "group": {
         "view_manage": "Visualizza e gestisci gruppi",
@@ -500,7 +507,8 @@
         "template_help": "Le cartelle virtuali generate possono essere salvate o esportate. Le cartelle esportate possono essere importate dalla sezione \"Manutenzione\" di questa istanza SFTPGo o di un'altra.",
         "name": "Nome cartella virtuale",
         "submit_generate": "Genera e salva cartelle",
-        "submit_export": "Genera e esporta cartelle"
+        "submit_export": "Genera e esporta cartelle",
+        "template_no_folder": "Nessuna cartella virtuale valida definita. Impossibile completare l'azione richiesta"
     },
     "storage": {
         "title": "File system",
@@ -600,6 +608,14 @@
         "role_user_err": "Ruolo OpenID errato, l'utente che ha effettuato l'accesso è un amministratore",
         "get_user_err": "Impossibile ottenere l'utente associato al token OpenID"
     },
+    "oauth2": {
+        "auth_verify_error": "Impossibile verificare il codice OAuth2",
+        "auth_validation_error": "Impossibile validare il codice OAuth2",
+        "auth_invalid": "Codice OAuth2 non valido",
+        "token_exchange_err": "Impossibile ottenere il token OAuth2 dal codice di autorizzazione",
+        "no_refresh_token": "Il provider OAuth2 ha restituito un token vuoto. Alcuni provider restituiscono il token solo dopo la prima autorizzazione dell'utente. Se hai già registrato SFTPGo con questo utente in passato, revoca l'accesso e riprova. In questo modo invaliderai il token precedente",
+        "success": "Copia la seguente stringa, senza virgolette, nel campo di configurazione del token SMTP OAuth2:"
+    },
     "filters": {
         "password_strength": "Sicurezza password",
         "password_strength_help": "I valori nell'intervallo 50-70 sono suggeriti per i casi d'uso comuni. 0 significa disabilitato, verrà accettata qualsiasi password",
@@ -651,5 +667,8 @@
         "api_key_auth_help": "Permetti di impersonare l'utente nelle API REST utilizzando una chiave API",
         "external_auth_cache_time": "Cache per autenticazione esterna",
         "external_auth_cache_time_help": "Tempo di memorizzazione nella cache, in secondi, per gli utenti autenticati utilizzando un hook di autenticazione esterno. 0 significa nessuna cache"
+    },
+    "admin": {
+        "role_permissions": "Un amministratore di ruolo non può avere le seguenti autorizzazioni: {{val}}"
     }
 }
