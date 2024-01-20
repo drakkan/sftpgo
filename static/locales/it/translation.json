@@ -31,7 +31,7 @@
         "users": "Utenti",
         "groups": "Gruppi",
         "folders": "Cartelle virtuali",
-        "connections": "Sessioni attive",
+        "connections": "Connessioni attive",
         "event_manager": "Gestione eventi",
         "event_rules": "Regole",
         "event_actions": "Azioni",
@@ -219,7 +219,9 @@
         "duplicated_name": "Il nome specificato esiste già",
         "permissions_required": "I permessi sono obbligatori",
         "backup_ok": "Backup ripristinato correttamente",
-        "configs_saved": "Configurazioni aggiornate"
+        "configs_saved": "Configurazioni aggiornate",
+        "protocol": "Protocollo",
+        "refresh": "Aggiorna"
     },
     "fs": {
         "view_file": "Visualizza file \"{{- path}}\"",
@@ -670,5 +672,19 @@
     },
     "admin": {
         "role_permissions": "Un amministratore di ruolo non può avere le seguenti autorizzazioni: {{val}}"
+    },
+    "connections": {
+        "view_manage": "Visualizza e gestisci connessioni attive",
+        "started": "Iniziata",
+        "remote_address": "Indirizzo remoto",
+        "last_activity": "Ultima attività",
+        "disconnect_confirm_btn": "Si, disconnetti",
+        "disconnect_confirm": "Vuoi disconnettere la connessione selezionata? Questa azione è irreversibile",
+        "disconnect_ko": "Impossibile disconnettere la connessione selezionata",
+        "upload": "UL: \"{{- path}}\"",
+        "download": "DL: \"{{- path}}\"",
+        "upload_info": "$t(connections.upload). Dimensione: {{- size}}. Velocità: {{- speed}}",
+        "download_info": "$t(connections.download). Dimensione: {{- size}}. Velocità: {{- speed}}",
+        "client": "Client: {{- val}}"
     }
 }

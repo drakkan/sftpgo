@@ -1710,6 +1710,8 @@ func (s *httpdServer) setupWebAdminRoutes() {
 				Delete(webGroupPath+"/{name}", deleteGroup)
 			router.With(s.checkPerm(dataprovider.PermAdminViewConnections), s.refreshCookie).
 				Get(webConnectionsPath, s.handleWebGetConnections)
+			router.With(s.checkPerm(dataprovider.PermAdminViewConnections), s.refreshCookie).
+				Get(webConnectionsPath+jsonAPISuffix, getActiveConnections)
 			router.With(s.checkPerm(dataprovider.PermAdminManageFolders), s.refreshCookie).
 				Get(webFoldersPath, s.handleWebGetFolders)
 			router.With(s.checkPerm(dataprovider.PermAdminManageFolders), compressor.Handler, s.refreshCookie).

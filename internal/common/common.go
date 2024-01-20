@@ -475,24 +475,6 @@ type ConnectionTransfer struct {
 	DLSize        int64  `json:"-"`
 }
 
-func (t *ConnectionTransfer) getConnectionTransferAsString() string {
-	result := ""
-	switch t.OperationType {
-	case operationUpload:
-		result += "UL "
-	case operationDownload:
-		result += "DL "
-	}
-	result += fmt.Sprintf("%q ", t.VirtualPath)
-	if t.Size > 0 {
-		elapsed := time.Since(util.GetTimeFromMsecSinceEpoch(t.StartTime))
-		speed := float64(t.Size) / float64(util.GetTimeAsMsSinceEpoch(time.Now())-t.StartTime)
-		result += fmt.Sprintf("Size: %s Elapsed: %s Speed: \"%.1f KB/s\"", util.ByteCountIEC(t.Size),
-			util.GetDurationAsString(elapsed), speed)
-	}
-	return result
-}
-
 // MetadataConfig defines how to handle metadata for cloud storage backends
 type MetadataConfig struct {
 	// If not zero the metadata will be read before downloads and will be
@@ -1254,6 +1236,7 @@ func (conns *ActiveConnections) GetStats(role string) []ConnectionStatus {
 				RemoteAddress:  c.GetRemoteAddress(),
 				ConnectionTime: util.GetTimeAsMsSinceEpoch(c.GetConnectionTime()),
 				LastActivity:   util.GetTimeAsMsSinceEpoch(c.GetLastActivity()),
+				CurrentTime:    util.GetTimeAsMsSinceEpoch(time.Now()),
 				Protocol:       c.GetProtocol(),
 				Command:        c.GetCommand(),
 				Transfers:      c.GetTransfers(),
@@ -1279,6 +1262,8 @@ type ConnectionStatus struct {
 	ConnectionTime int64 `json:"connection_time"`
 	// Last activity as unix timestamp in milliseconds
 	LastActivity int64 `json:"last_activity"`
+	// Current time as unix timestamp in milliseconds
+	CurrentTime int64 `json:"current_time"`
 	// Protocol for this connection
 	Protocol string `json:"protocol"`
 	// active uploads/downloads
@@ -1287,45 +1272,6 @@ type ConnectionStatus struct {
 	Command string `json:"command,omitempty"`
 	// Node identifier, omitted for single node installations
 	Node string `json:"node,omitempty"`
-}
-
-// GetConnectionDuration returns the connection duration as string
-func (c *ConnectionStatus) GetConnectionDuration() string {
-	elapsed := time.Since(util.GetTimeFromMsecSinceEpoch(c.ConnectionTime))
-	return util.GetDurationAsString(elapsed)
-}
-
-// GetConnectionInfo returns connection info.
-// Protocol,Client Version and RemoteAddress are returned.
-func (c *ConnectionStatus) GetConnectionInfo() string {
-	var result strings.Builder
-
-	result.WriteString(fmt.Sprintf("%v. Client: %q From: %q", c.Protocol, c.ClientVersion, c.RemoteAddress))
-
-	if c.Command == "" {
-		return result.String()
-	}
-
-	switch c.Protocol {
-	case ProtocolSSH, ProtocolFTP:
-		result.WriteString(fmt.Sprintf(". Command: %q", c.Command))
-	case ProtocolWebDAV:
-		result.WriteString(fmt.Sprintf(". Method: %q", c.Command))
-	}
-
-	return result.String()
-}
-
-// GetTransfersAsString returns the active transfers as string
-func (c *ConnectionStatus) GetTransfersAsString() string {
-	result := ""
-	for _, t := range c.Transfers {
-		if result != "" {
-			result += ". "
-		}
-		result += t.getConnectionTransferAsString()
-	}
-	return result
 }
 
 // ActiveQuotaScan defines an active quota scan for a user

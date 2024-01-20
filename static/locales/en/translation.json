@@ -31,7 +31,7 @@
         "users": "Users",
         "groups": "Groups",
         "folders": "Virtual folders",
-        "connections": "Active sessions",
+        "connections": "Active connections",
         "event_manager": "Event Manager",
         "event_rules": "Rules",
         "event_actions": "Actions",
@@ -219,7 +219,9 @@
         "duplicated_name": "The specified name already exists",
         "permissions_required": "Permissions are required",
         "backup_ok": "Backup successfully restored",
-        "configs_saved": "Configurations has been successfully updated"
+        "configs_saved": "Configurations has been successfully updated",
+        "protocol": "Protocol",
+        "refresh": "Refresh"
     },
     "fs": {
         "view_file": "View file \"{{- path}}\"",
@@ -670,5 +672,19 @@
     },
     "admin": {
         "role_permissions": "A role admin cannot have the following permissions: {{val}}"
+    },
+    "connections": {
+        "view_manage": "View and manage connections",
+        "started": "Started",
+        "remote_address": "Remote address",
+        "last_activity": "Last activity",
+        "disconnect_confirm_btn": "Yes, disconnect",
+        "disconnect_confirm": "Do you want to disconnect the selected connection? This action is irreversible",
+        "disconnect_ko": "Unable to disconnect the selected connection",
+        "upload": "UL: \"{{- path}}\"",
+        "download": "DL: \"{{- path}}\"",
+        "upload_info": "$t(connections.upload). Size: {{- size}}. Speed: {{- speed}}",
+        "download_info": "$t(connections.download). Size: {{- size}}. Speed: {{- speed}}",
+        "client": "Client: {{- val}}"
     }
 }

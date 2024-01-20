@@ -81,6 +81,11 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             +' '+(e?'KMGTPEZY'[--e]+'iB':'Bytes')
     }
 
+    function humanizeSpeed(a,b,c,d,e){
+        return (b=Math,c=b.log,d=1024,e=c(a)/c(d)|0,a/b.pow(d,e)).toFixed(1)
+            +' '+(e?'KMGTPEZY'[--e]+'B/s':'Bytes/s')
+    }
+
     function initRepeaterItems() {
         let repeaterDeleteButtons = document.querySelectorAll('[data-repeater-delete]');
         let repeaterCreateButtons = document.querySelectorAll('[data-repeater-create]');

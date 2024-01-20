@@ -99,7 +99,6 @@ const (
 	templateMFA              = "mfa.html"
 	templateSetup            = "adminsetup.html"
 	pageAdminsTitle          = "Admins"
-	pageConnectionsTitle     = "Connections"
 	pageStatusTitle          = "Status"
 	pageEventRulesTitle      = "Event rules"
 	pageEventActionsTitle    = "Event actions"
@@ -183,11 +182,6 @@ type eventRulesPage struct {
 type eventActionsPage struct {
 	basePage
 	Actions []dataprovider.BaseEventAction
-}
-
-type connectionsPage struct {
-	basePage
-	Connections []common.ConnectionStatus
 }
 
 type statusPage struct {
@@ -412,7 +406,7 @@ func loadAdminTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateCommonDir, templateChangePwd),
 	}
 	connectionsPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateConnections),
 	}
@@ -3336,12 +3330,8 @@ func (s *httpdServer) handleWebGetConnections(w http.ResponseWriter, r *http.Req
 		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
 	}
-	connectionStats := common.Connections.GetStats(claims.Role)
-	connectionStats = append(connectionStats, getNodesConnections(claims.Username, claims.Role)...)
-	data := connectionsPage{
-		basePage:    s.getBasePageData(pageConnectionsTitle, webConnectionsPath, r),
-		Connections: connectionStats,
-	}
+
+	data := s.getBasePageData(util.I18nSessionsTitle, webConnectionsPath, r)
 	renderAdminTemplate(w, templateConnections, data)
 }
 

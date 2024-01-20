@@ -23,7 +23,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -892,23 +891,10 @@ func TestConnectionStatus(t *testing.T) {
 	assert.Len(t, stats, 3)
 	for _, stat := range stats {
 		assert.Equal(t, stat.Username, username)
-		assert.True(t, strings.HasPrefix(stat.GetConnectionInfo(), stat.Protocol))
-		assert.True(t, strings.HasPrefix(stat.GetConnectionDuration(), "00:"))
 		if stat.ConnectionID == "SFTP_id1" {
 			assert.Len(t, stat.Transfers, 2)
-			assert.Greater(t, len(stat.GetTransfersAsString()), 0)
-			for _, tr := range stat.Transfers {
-				if tr.OperationType == operationDownload {
-					assert.True(t, strings.HasPrefix(tr.getConnectionTransferAsString(), "DL"))
-				} else if tr.OperationType == operationUpload {
-					assert.True(t, strings.HasPrefix(tr.getConnectionTransferAsString(), "UL"))
-				}
-			}
 		} else if stat.ConnectionID == "DAV_id3" {
 			assert.Len(t, stat.Transfers, 1)
-			assert.Greater(t, len(stat.GetTransfersAsString()), 0)
-		} else {
-			assert.Equal(t, 0, len(stat.GetTransfersAsString()))
 		}
 	}
 

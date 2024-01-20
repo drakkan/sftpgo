@@ -1077,19 +1077,6 @@ func TestCommandGetFsError(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestGetConnectionInfo(t *testing.T) {
-	c := common.ConnectionStatus{
-		Username:      "test_user",
-		ConnectionID:  "123",
-		ClientVersion: "client",
-		RemoteAddress: "127.0.0.1:1234",
-		Protocol:      common.ProtocolSSH,
-		Command:       "sha1sum /test_file_ftp.dat",
-	}
-	info := c.GetConnectionInfo()
-	assert.Contains(t, info, "sha1sum /test_file_ftp.dat")
-}
-
 func TestSCPFileMode(t *testing.T) {
 	mode := getFileModeAsString(0, true)
 	assert.Equal(t, "0755", mode)
@@ -1830,42 +1817,6 @@ func TestTransferFailingReader(t *testing.T) {
 	err = os.Remove(fsPath)
 	assert.NoError(t, err)
 	assert.Len(t, connection.GetTransfers(), 0)
-}
-
-func TestConnectionStatusStruct(t *testing.T) {
-	var transfers []common.ConnectionTransfer
-	transferUL := common.ConnectionTransfer{
-		OperationType: "upload",
-		StartTime:     util.GetTimeAsMsSinceEpoch(time.Now()),
-		Size:          123,
-		VirtualPath:   "/test.upload",
-	}
-	transferDL := common.ConnectionTransfer{
-		OperationType: "download",
-		StartTime:     util.GetTimeAsMsSinceEpoch(time.Now()),
-		Size:          123,
-		VirtualPath:   "/test.download",
-	}
-	transfers = append(transfers, transferUL)
-	transfers = append(transfers, transferDL)
-	c := common.ConnectionStatus{
-		Username:       "test",
-		ConnectionID:   "123",
-		ClientVersion:  "fakeClient-1.0.0",
-		RemoteAddress:  "127.0.0.1:1234",
-		ConnectionTime: util.GetTimeAsMsSinceEpoch(time.Now()),
-		LastActivity:   util.GetTimeAsMsSinceEpoch(time.Now()),
-		Protocol:       "SFTP",
-		Transfers:      transfers,
-	}
-	durationString := c.GetConnectionDuration()
-	assert.NotEqual(t, 0, len(durationString))
-
-	transfersString := c.GetTransfersAsString()
-	assert.NotEqual(t, 0, len(transfersString))
-
-	connInfo := c.GetConnectionInfo()
-	assert.NotEqual(t, 0, len(connInfo))
 }
 
 func TestConfigsFromProvider(t *testing.T) {
