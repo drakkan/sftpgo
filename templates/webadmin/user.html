@@ -99,8 +99,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             <div class="form-group row">
                 <label for="idUsername" data-i18n="login.username" class="col-md-3 col-form-label">Username</label>
                 <div class="col-md-9">
-                    <input id="idUsername" type="text" class="form-control" placeholder="" name="username" value="{{.User.Username}}"
-                        maxlength="255" autocomplete="off" spellcheck="false" required {{if ge .Mode 2}}readonly{{end}} />
+                    <input id="idUsername" type="text" placeholder="" name="username" value="{{.User.Username}}" maxlength="255" autocomplete="off"
+                        spellcheck="false" required {{if ge .Mode 2}}class="form-control-plaintext readonly-input" readonly{{else}}class="form-control"{{end}} />
                 </div>
             </div>
             {{- end}}

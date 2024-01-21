@@ -91,8 +91,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             <div class="form-group row">
                 <label for="idFolderName" data-i18n="general.name" class="col-md-3 col-form-label">Name</label>
                 <div class="col-md-9">
-                    <input id="idFolderName" type="text" class="form-control" placeholder="" name="name" value="{{.Folder.Name}}"
-                        maxlength="255" autocomplete="off" spellcheck="false" required {{if ge .Mode 2}}readonly{{end}} />
+                    <input id="idFolderName" type="text" placeholder="" name="name" value="{{.Folder.Name}}" maxlength="255" autocomplete="off"
+                        spellcheck="false" required {{if ge .Mode 2}}class="form-control-plaintext readonly-input" readonly{{else}}class="form-control"{{end}} />
                 </div>
             </div>
             {{- end}}

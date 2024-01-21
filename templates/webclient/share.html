@@ -26,8 +26,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             <div class="form-group row">
                 <label for="name" data-i18n="general.name" class="col-md-3 col-form-label">Name</label>
                 <div class="col-md-9">
-                    <input id="name" type="text" class="form-control" placeholder="" name="name" value="{{.Share.Name}}"
-                        maxlength="255" autocomplete="off" required {{if not .IsAdd}}readonly{{end}} />
+                    <input id="name" type="text" placeholder="" name="name" value="{{.Share.Name}}" maxlength="255" autocomplete="off"
+                        required {{if not .IsAdd}}class="form-control-plaintext readonly-input" readonly{{else}}class="form-control"{{end}} />
                 </div>
             </div>
 
