@@ -221,7 +221,9 @@
         "backup_ok": "Backup ripristinato correttamente",
         "configs_saved": "Configurazioni aggiornate",
         "protocol": "Protocollo",
-        "refresh": "Aggiorna"
+        "refresh": "Aggiorna",
+        "members": "Membri",
+        "members_summary": "Utenti: {{users}}. Amministratori: {{admins}}"
     },
     "fs": {
         "view_file": "Visualizza file \"{{- path}}\"",
@@ -493,9 +495,7 @@
         "template_no_user": "Nessun utente valido definito. Impossibile completare l'azione richiesta"
     },
     "group": {
-        "view_manage": "Visualizza e gestisci gruppi",
-        "members": "Membri",
-        "members_summary": "Utenti: {{users}}. Amministratori: {{admins}}"
+        "view_manage": "Visualizza e gestisci gruppi"
     },
     "virtual_folders": {
         "view_manage": "Visualizza e gestisci cartelle virtuali",
@@ -686,5 +686,8 @@
         "upload_info": "$t(connections.upload). Dimensione: {{- size}}. Velocità: {{- speed}}",
         "download_info": "$t(connections.download). Dimensione: {{- size}}. Velocità: {{- speed}}",
         "client": "Client: {{- val}}"
+    },
+    "role": {
+        "view_manage": "Visualizza e gestisci ruoli"
     }
 }

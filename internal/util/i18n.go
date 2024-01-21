@@ -59,6 +59,7 @@ const (
 	I18nOAuth2Title                    = "title.oauth2_success"
 	I18nOAuth2ErrorTitle               = "title.oauth2_error"
 	I18nSessionsTitle                  = "title.connections"
+	I18nRolesTitle                     = "title.roles"
 	I18nErrorSetupInstallCode          = "setup.install_code_mismatch"
 	I18nInvalidAuth                    = "general.invalid_auth_request"
 	I18nError429Message                = "general.error429"

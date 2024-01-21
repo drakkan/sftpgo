@@ -221,7 +221,9 @@
         "backup_ok": "Backup successfully restored",
         "configs_saved": "Configurations has been successfully updated",
         "protocol": "Protocol",
-        "refresh": "Refresh"
+        "refresh": "Refresh",
+        "members": "Members",
+        "members_summary": "Users: {{users}}. Admins: {{admins}}"
     },
     "fs": {
         "view_file": "View file \"{{- path}}\"",
@@ -493,9 +495,7 @@
         "template_no_user": "No valid user defined, unable to complete the requested action"
     },
     "group": {
-        "view_manage": "View and manage groups",
-        "members": "Members",
-        "members_summary": "Users: {{users}}. Admins: {{admins}}"
+        "view_manage": "View and manage groups"
     },
     "virtual_folders": {
         "view_manage": "View and manage virtual folders",
@@ -686,5 +686,8 @@
         "upload_info": "$t(connections.upload). Size: {{- size}}. Speed: {{- speed}}",
         "download_info": "$t(connections.download). Size: {{- size}}. Speed: {{- speed}}",
         "client": "Client: {{- val}}"
+    },
+    "role": {
+        "view_manage": "View and manage roles"
     }
 }

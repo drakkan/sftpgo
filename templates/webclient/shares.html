@@ -336,7 +336,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                             if (type === 'display') {
                                 return `<div class="d-flex justify-content-end">
                                     <div class="ms-2">
-                                        <a href="#" class="btn btn-sm btn-icon btn-light btn-active-light-primary" data-share-table-action="show_link">
+                                        <a href="#" class="btn btn-sm btn-icon btn-light btn-active-light-primary" data-table-action="show_link">
                                             <i class="ki-duotone ki-fasten fs-5 m-0">
                                                 <span class="path1"></span>
                                                 <span class="path2"></span>
@@ -355,10 +355,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                         </button>
                                         <div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-700 menu-state-bg-light-primary fw-semibold fs-6 w-150px py-4" data-kt-menu="true">
                                             <div class="menu-item px-3">
-                                                <a data-i18n="general.edit" href="#" class="menu-link px-3" data-share-table-action="edit_row">Edit</a>
+                                                <a data-i18n="general.edit" href="#" class="menu-link px-3" data-table-action="edit_row">Edit</a>
                                             </div>
                                             <div class="menu-item px-3">
-                                                <a data-i18n="general.delete" href="#" class="menu-link text-danger px-3" data-share-table-action="delete_row">Delete</a>
+                                                <a data-i18n="general.delete" href="#" class="menu-link text-danger px-3" data-table-action="delete_row">Delete</a>
                                             </div>
                                         </div>
                                     </div>
@@ -415,7 +415,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         }
 
         function handleRowActions() {
-            const editButtons = document.querySelectorAll('[data-share-table-action="edit_row"]');
+            const editButtons = document.querySelectorAll('[data-table-action="edit_row"]');
 
             editButtons.forEach(d => {
                 let el = $(d);
@@ -427,7 +427,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 });
             });
 
-            const deleteButtons = document.querySelectorAll('[data-share-table-action="delete_row"]');
+            const deleteButtons = document.querySelectorAll('[data-table-action="delete_row"]');
 
             deleteButtons.forEach(d => {
                 let el = $(d);
@@ -439,7 +439,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 });
             });
 
-            const showLinkButtons = document.querySelectorAll('[data-share-table-action="show_link"]');
+            const showLinkButtons = document.querySelectorAll('[data-table-action="show_link"]');
 
             showLinkButtons.forEach(d => {
                 let el = $(d);

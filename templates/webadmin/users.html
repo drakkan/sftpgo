@@ -471,25 +471,25 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 //{{- if .LoggedUser.HasPermission "edit_users"}}
                                 numActions++;
                                 actions+=`<div class="menu-item px-3">
-										      <a data-i18n="general.edit" href="#" class="menu-link px-3" data-share-table-action="edit_row">Edit</a>
+										      <a data-i18n="general.edit" href="#" class="menu-link px-3" data-table-action="edit_row">Edit</a>
 										  </div>`
                                 //{{- end}}
                                 //{{- if .LoggedUser.HasPermission "manage_system"}}
                                 numActions++;
                                 actions+=`<div class="menu-item px-3">
-										      <a data-i18n="general.template" href="#" class="menu-link px-3" data-share-table-action="template_row">Template</a>
+										      <a data-i18n="general.template" href="#" class="menu-link px-3" data-table-action="template_row">Template</a>
 										  </div>`
                                 //{{- end}}
                                 //{{- if .LoggedUser.HasPermission "quota_scans"}}
                                 numActions++;
                                 actions+=`<div class="menu-item px-3">
-										      <a data-i18n="general.quota_scan" href="#" class="menu-link px-3" data-share-table-action="quota_scan_row">Quota scan</a>
+										      <a data-i18n="general.quota_scan" href="#" class="menu-link px-3" data-table-action="quota_scan_row">Quota scan</a>
 										  </div>`
                                 //{{- end}}
                                 //{{- if .LoggedUser.HasPermission "del_users"}}
                                 numActions++;
                                 actions+=`<div class="menu-item px-3">
-                                             <a data-i18n="general.delete" href="#" class="menu-link text-danger px-3" data-share-table-action="delete_row">Delete</a>
+                                             <a data-i18n="general.delete" href="#" class="menu-link text-danger px-3" data-table-action="delete_row">Delete</a>
 										  </div>`
                                 //{{- end}}
                                 if (numActions > 0){
@@ -573,7 +573,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         }
 
         function handleRowActions() {
-            const editButtons = document.querySelectorAll('[data-share-table-action="edit_row"]');
+            const editButtons = document.querySelectorAll('[data-table-action="edit_row"]');
             editButtons.forEach(d => {
                 let el = $(d);
                 el.off("click");
@@ -584,7 +584,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 });
             });
 
-            const templateButtons = document.querySelectorAll('[data-share-table-action="template_row"]');
+            const templateButtons = document.querySelectorAll('[data-table-action="template_row"]');
             templateButtons.forEach(d => {
                 let el = $(d);
                 el.off("click");
@@ -595,7 +595,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 });
             });
 
-            const quotaScanButtons = document.querySelectorAll('[data-share-table-action="quota_scan_row"]');
+            const quotaScanButtons = document.querySelectorAll('[data-table-action="quota_scan_row"]');
             quotaScanButtons.forEach(d => {
                 let el = $(d);
                 el.off("click");
@@ -606,7 +606,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 });
             });
 
-            const deleteButtons = document.querySelectorAll('[data-share-table-action="delete_row"]');
+            const deleteButtons = document.querySelectorAll('[data-table-action="delete_row"]');
             deleteButtons.forEach(d => {
                 let el = $(d);
                 el.off("click");

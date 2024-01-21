@@ -102,8 +102,6 @@ const (
 	pageStatusTitle          = "Status"
 	pageEventRulesTitle      = "Event rules"
 	pageEventActionsTitle    = "Event actions"
-	pageRolesTitle           = "Roles"
-	pageChangePwdTitle       = "Change password"
 	pageMaintenanceTitle     = "Maintenance"
 	pageDefenderTitle        = "Auto Blocklist"
 	pageIPListsTitle         = "IP Lists"
@@ -167,11 +165,6 @@ type basePage struct {
 type adminsPage struct {
 	basePage
 	Admins []dataprovider.Admin
-}
-
-type rolesPage struct {
-	basePage
-	Roles []dataprovider.Role
 }
 
 type eventRulesPage struct {
@@ -518,7 +511,7 @@ func loadAdminTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateCommonDir, templateResetPassword),
 	}
 	rolesPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateRoles),
 	}
@@ -839,7 +832,7 @@ func (s *httpdServer) renderProfilePage(w http.ResponseWriter, r *http.Request, 
 
 func (s *httpdServer) renderChangePasswordPage(w http.ResponseWriter, r *http.Request, err *util.I18nError) {
 	data := changePasswordPage{
-		basePage: s.getBasePageData(pageChangePwdTitle, webChangeAdminPwdPath, r),
+		basePage: s.getBasePageData(util.I18nChangePwdTitle, webChangeAdminPwdPath, r),
 		Error:    err,
 	}
 
@@ -3856,7 +3849,7 @@ func (s *httpdServer) handleWebUpdateEventRulePost(w http.ResponseWriter, r *htt
 }
 
 func (s *httpdServer) getWebRoles(w http.ResponseWriter, r *http.Request, limit int, minimal bool) ([]dataprovider.Role, error) {
-	roles := make([]dataprovider.Role, 0, limit)
+	roles := make([]dataprovider.Role, 0, 10)
 	for {
 		res, err := dataprovider.GetRoles(limit, len(roles), dataprovider.OrderASC, minimal)
 		if err != nil {
@@ -3871,16 +3864,27 @@ func (s *httpdServer) getWebRoles(w http.ResponseWriter, r *http.Request, limit 
 	return roles, nil
 }
 
+func getAllRoles(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	roles := make([]dataprovider.Role, 0, 10)
+	for {
+		res, err := dataprovider.GetRoles(defaultQueryLimit, len(roles), dataprovider.OrderASC, false)
+		if err != nil {
+			sendAPIResponse(w, r, err, getI18NErrorString(err, util.I18nError500Message), http.StatusInternalServerError)
+			return
+		}
+		roles = append(roles, res...)
+		if len(res) < defaultQueryLimit {
+			break
+		}
+	}
+	render.JSON(w, r, roles)
+}
+
 func (s *httpdServer) handleWebGetRoles(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	roles, err := s.getWebRoles(w, r, 10, false)
-	if err != nil {
-		return
-	}
-	data := rolesPage{
-		basePage: s.getBasePageData(pageRolesTitle, webAdminRolesPath, r),
-		Roles:    roles,
-	}
+	data := s.getBasePageData(util.I18nRolesTitle, webAdminRolesPath, r)
+
 	renderAdminTemplate(w, templateRoles, data)
 }
 

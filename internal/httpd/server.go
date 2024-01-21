@@ -1787,6 +1787,8 @@ func (s *httpdServer) setupWebAdminRoutes() {
 				Post(webAdminEventRulePath+"/run/{name}", runOnDemandRule)
 			router.With(s.checkPerm(dataprovider.PermAdminManageRoles), s.refreshCookie).
 				Get(webAdminRolesPath, s.handleWebGetRoles)
+			router.With(s.checkPerm(dataprovider.PermAdminManageRoles), compressor.Handler, s.refreshCookie).
+				Get(webAdminRolesPath+jsonAPISuffix, getAllRoles)
 			router.With(s.checkPerm(dataprovider.PermAdminManageRoles), s.refreshCookie).
 				Get(webAdminRolePath, s.handleWebAddRoleGet)
 			router.With(s.checkPerm(dataprovider.PermAdminManageRoles)).Post(webAdminRolePath, s.handleWebAddRolePost)

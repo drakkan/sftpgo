@@ -191,30 +191,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     </div>
 </div>
 {{- end}}
-{{- if .LoggedUser.HasPermission "manage_admins"}}
-<div class="menu-item">
-    <a class="menu-link {{- if eq .CurrentURL .AdminsURL}} active{{- end}}" href="{{.AdminsURL}}">
-        <span class="menu-icon">
-            <i class="ki-solid ki-security-user fs-1"></i>
-        </span>
-        <span data-i18n="title.admins" class="menu-title">Admins</span>
-    </a>
-</div>
-{{- end}}
-{{- if .LoggedUser.HasPermission "manage_roles"}}
-<div class="menu-item">
-    <a class="menu-link {{- if eq .CurrentURL .RolesURL}} active{{- end}}" href="{{.RolesURL}}">
-        <span class="menu-icon">
-            <i class="ki-duotone ki-user-tick fs-1">
-                <span class="path1"></span>
-                <span class="path2"></span>
-                <span class="path3"></span>
-            </i>
-        </span>
-        <span data-i18n="title.roles" class="menu-title">Roles</span>
-    </a>
-</div>
-{{- end}}
 {{- if or (.LoggedUser.HasPermission "manage_system") (.LoggedUser.HasPermission "view_status") (and .HasSearcher (.LoggedUser.HasPermission "view_events"))}}
 <div data-kt-menu-trigger="click" class="menu-item menu-accordion {{- if .IsServerManagerPage}} here show{{- end}}">
     <span class="menu-link">
@@ -272,6 +248,30 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         </div>
         {{- end}}
     </div>
+</div>
+{{- end}}
+{{- if .LoggedUser.HasPermission "manage_admins"}}
+<div class="menu-item">
+    <a class="menu-link {{- if eq .CurrentURL .AdminsURL}} active{{- end}}" href="{{.AdminsURL}}">
+        <span class="menu-icon">
+            <i class="ki-solid ki-security-user fs-1"></i>
+        </span>
+        <span data-i18n="title.admins" class="menu-title">Admins</span>
+    </a>
+</div>
+{{- end}}
+{{- if .LoggedUser.HasPermission "manage_roles"}}
+<div class="menu-item">
+    <a class="menu-link {{- if eq .CurrentURL .RolesURL}} active{{- end}}" href="{{.RolesURL}}">
+        <span class="menu-icon">
+            <i class="ki-duotone ki-user-tick fs-1">
+                <span class="path1"></span>
+                <span class="path2"></span>
+                <span class="path3"></span>
+            </i>
+        </span>
+        <span data-i18n="title.roles" class="menu-title">Roles</span>
+    </a>
 </div>
 {{- end}}
 

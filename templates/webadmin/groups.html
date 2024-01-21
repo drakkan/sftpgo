@@ -47,7 +47,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         <div class="menu-item px-3 py-2 form-check form-check-sm form-check-custom form-check-solid">
                             <input type="checkbox" class="form-check-input" value="" id="checkColMembers" />
                             <label class="form-check-label" for="checkColMembers">
-                                <span data-i18n="group.members" class="text-gray-800 fs-6">Members</span>
+                                <span data-i18n="general.members" class="text-gray-800 fs-6">Members</span>
                             </label>
                         </div>
                         <div class="menu-item px-3 py-2 form-check form-check-sm form-check-custom form-check-solid">
@@ -70,7 +70,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 <thead>
                     <tr class="text-start text-muted fw-bold fs-6 gs-0">
                         <th data-i18n="general.name">Name</th>
-                        <th data-i18n="group.members">Members</th>
+                        <th data-i18n="general.members">Members</th>
                         <th data-i18n="general.description">Description</th>
                         <th class="min-w-100px"></th>
                     </tr>
@@ -84,7 +84,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 {{- define "extra_js"}}
 <script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/plugins/custom/datatables/datatables.bundle.js"></script>
 <script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
-    function deleteAction(username) {
+    function deleteAction(name) {
         ModalAlert.fire({
             text: $.t('general.delete_confirm_generic'),
             icon: "warning",
@@ -98,7 +98,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             if (result.isConfirmed){
                 $('#loading_message').text("");
                 KTApp.showPageLoading();
-                let path = '{{.GroupURL}}' + "/" + encodeURIComponent(username);
+                let path = '{{.GroupURL}}' + "/" + encodeURIComponent(name);
 
                 axios.delete(path, {
                     timeout: 15000,
@@ -191,7 +191,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 if (row.admins){
                                     admins = row.admins.length;
                                 }
-                                return $.t('group.members_summary', {users: users, admins: admins});
+                                return $.t('general.members_summary', {users: users, admins: admins});
                             }
                             return "";
                         }
@@ -227,11 +227,11 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 //{{- if .LoggedUser.HasPermission "manage_groups"}}
                                 numActions++;
                                 actions+=`<div class="menu-item px-3">
-										      <a data-i18n="general.edit" href="#" class="menu-link px-3" data-share-table-action="edit_row">Edit</a>
+										      <a data-i18n="general.edit" href="#" class="menu-link px-3" data-table-action="edit_row">Edit</a>
 										  </div>`
                                 numActions++;
                                 actions+=`<div class="menu-item px-3">
-                                             <a data-i18n="general.delete" href="#" class="menu-link text-danger px-3" data-share-table-action="delete_row">Delete</a>
+                                             <a data-i18n="general.delete" href="#" class="menu-link text-danger px-3" data-table-action="delete_row">Delete</a>
 										  </div>`
                                 //{{- end}}
                                 if (numActions > 0){
@@ -308,7 +308,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         }
 
         function handleRowActions() {
-            const editButtons = document.querySelectorAll('[data-share-table-action="edit_row"]');
+            const editButtons = document.querySelectorAll('[data-table-action="edit_row"]');
             editButtons.forEach(d => {
                 let el = $(d);
                 el.off("click");
@@ -319,7 +319,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 });
             });
 
-            const deleteButtons = document.querySelectorAll('[data-share-table-action="delete_row"]');
+            const deleteButtons = document.querySelectorAll('[data-table-action="delete_row"]');
             deleteButtons.forEach(d => {
                 let el = $(d);
                 el.off("click");
