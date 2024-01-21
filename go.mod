@@ -42,7 +42,7 @@ require (
 	github.com/lestrrat-go/jwx/v2 v2.0.19
 	github.com/lithammer/shortuuid/v3 v3.0.7
 	github.com/mattn/go-sqlite3 v1.14.19
-	github.com/mhale/smtpd v0.8.1
+	github.com/mhale/smtpd v0.8.2
 	github.com/minio/sio v0.3.1
 	github.com/otiai10/copy v1.14.0
 	github.com/pires/go-proxyproto v0.7.0

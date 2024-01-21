@@ -288,8 +288,8 @@ github.com/mattn/go-isatty v0.0.20 h1:xfD0iDuEKnDkl03q4limB+vH+GxLEtL/jb4xVJSWWE
 github.com/mattn/go-isatty v0.0.20/go.mod h1:W+V8PltTTMOvKvAeJH7IuucS94S2C6jfK/D7dTCTo3Y=
 github.com/mattn/go-sqlite3 v1.14.19 h1:fhGleo2h1p8tVChob4I9HpmVFIAkKGpiukdrgQbWfGI=
 github.com/mattn/go-sqlite3 v1.14.19/go.mod h1:2eHXhiwb8IkHr+BDWZGa96P6+rkvnG63S2DGjv9HUNg=
-github.com/mhale/smtpd v0.8.1 h1:O02u8O3eYAGxZCGf4E98WjyB+rA3DVFZtchEialjX4s=
-github.com/mhale/smtpd v0.8.1/go.mod h1:MQl+y2hwIEQCXtNhe5+55n0GZOjSmeqORDIXbqUL3x4=
+github.com/mhale/smtpd v0.8.2 h1:rHKOMHeFoDvcq8Na9ErCbNcjlWTSyGtznOmJpWsOzuc=
+github.com/mhale/smtpd v0.8.2/go.mod h1:MQl+y2hwIEQCXtNhe5+55n0GZOjSmeqORDIXbqUL3x4=
 github.com/miekg/dns v1.1.58 h1:ca2Hdkz+cDg/7eNF6V56jjzuZ4aCAE+DbVkILdQWG/4=
 github.com/miekg/dns v1.1.58/go.mod h1:Ypv+3b/KadlvW9vJfXOTf300O4UqaHFzFCuHz+rPkBY=
 github.com/minio/sio v0.3.1 h1:d59r5RTHb1OsQaSl1EaTWurzMMDRLA5fgNmjzD4eVu4=

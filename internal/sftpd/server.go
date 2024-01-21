@@ -283,7 +283,8 @@ func (c *Configuration) getServerConfig() *ssh.ServerConfig {
 		MaxAuthTries: c.MaxAuthTries,
 		PublicKeyCallback: func(conn ssh.ConnMetadata, pubKey ssh.PublicKey) (*ssh.Permissions, error) {
 			sp, err := c.validatePublicKeyCredentials(conn, pubKey)
-			if errors.Is(err, &ssh.PartialSuccessError{}) {
+			var partialSuccess *ssh.PartialSuccessError
+			if errors.As(err, &partialSuccess) {
 				return sp, err
 			}
 			if err != nil {
