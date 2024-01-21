@@ -237,15 +237,3 @@ func (g *Group) getACopy() Group {
 		VirtualFolders: virtualFolders,
 	}
 }
-
-// GetMembersAsString returns a string representation for the group members
-func (g *Group) GetMembersAsString() string {
-	var sb strings.Builder
-	if len(g.Users) > 0 {
-		sb.WriteString(fmt.Sprintf("Users: %d. ", len(g.Users)))
-	}
-	if len(g.Admins) > 0 {
-		sb.WriteString(fmt.Sprintf("Admins: %d. ", len(g.Admins)))
-	}
-	return sb.String()
-}

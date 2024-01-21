@@ -54,7 +54,9 @@
         "update_folder": "Aggiorna cartella virtuale",
         "template_folder": "Modello cartella virtuale",
         "oauth2_error": "Impossibile completare il flusso OAuth2",
-        "oauth2_success": "OAuth2 completato"
+        "oauth2_success": "OAuth2 completato",
+        "add_role": "Aggiungi ruolo",
+        "update_role": "Aggiorna ruolo"
     },
     "setup": {
         "desc": "Per iniziare a utilizzare SFTPGo devi creare un utente amministratore",

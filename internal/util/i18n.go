@@ -193,6 +193,8 @@ const (
 	I18nErrorFsUsernameRequired        = "storage.username_required"
 	I18nAddGroupTitle                  = "title.add_group"
 	I18nUpdateGroupTitle               = "title.update_group"
+	I18nRoleAddTitle                   = "title.add_role"
+	I18nRoleUpdateTitle                = "title.update_role"
 	I18nErrorInvalidTLSCert            = "user.tls_cert_invalid"
 	I18nAddFolderTitle                 = "title.add_folder"
 	I18nUpdateFolderTitle              = "title.update_folder"

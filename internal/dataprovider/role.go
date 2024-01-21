@@ -17,7 +17,6 @@ package dataprovider
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/util"
@@ -56,13 +55,16 @@ func (r *Role) RenderAsJSON(reload bool) ([]byte, error) {
 
 func (r *Role) validate() error {
 	if r.Name == "" {
-		return util.NewValidationError("name is mandatory")
+		return util.NewI18nError(util.NewValidationError("name is mandatory"), util.I18nErrorNameRequired)
 	}
 	if len(r.Name) > 255 {
 		return util.NewValidationError("name is too long, 255 is the maximum length allowed")
 	}
 	if config.NamingRules&1 == 0 && !usernameRegex.MatchString(r.Name) {
-		return util.NewValidationError(fmt.Sprintf("name %q is not valid, the following characters are allowed: a-zA-Z0-9-_.~", r.Name))
+		return util.NewI18nError(
+			util.NewValidationError(fmt.Sprintf("name %q is not valid, the following characters are allowed: a-zA-Z0-9-_.~", r.Name)),
+			util.I18nErrorInvalidName,
+		)
 	}
 	return nil
 }
@@ -82,16 +84,4 @@ func (r *Role) getACopy() Role {
 		Users:       users,
 		Admins:      admins,
 	}
-}
-
-// GetMembersAsString returns a string representation for the role members
-func (r *Role) GetMembersAsString() string {
-	var sb strings.Builder
-	if len(r.Users) > 0 {
-		sb.WriteString(fmt.Sprintf("Users: %d. ", len(r.Users)))
-	}
-	if len(r.Admins) > 0 {
-		sb.WriteString(fmt.Sprintf("Admins: %d. ", len(r.Admins)))
-	}
-	return sb.String()
 }

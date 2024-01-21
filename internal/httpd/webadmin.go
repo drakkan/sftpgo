@@ -307,7 +307,7 @@ type groupPage struct {
 type rolePage struct {
 	basePage
 	Role  *dataprovider.Role
-	Error string
+	Error *util.I18nError
 	Mode  genericPageMode
 }
 
@@ -516,7 +516,7 @@ func loadAdminTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateAdminDir, templateRoles),
 	}
 	rolePaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateRole),
 	}
@@ -1024,20 +1024,20 @@ func (s *httpdServer) renderIPListPage(w http.ResponseWriter, r *http.Request, e
 }
 
 func (s *httpdServer) renderRolePage(w http.ResponseWriter, r *http.Request, role dataprovider.Role,
-	mode genericPageMode, error string,
+	mode genericPageMode, err error,
 ) {
 	var title, currentURL string
 	switch mode {
 	case genericPageModeAdd:
-		title = "Add a new role"
+		title = util.I18nRoleAddTitle
 		currentURL = webAdminRolePath
 	case genericPageModeUpdate:
-		title = "Update role"
+		title = util.I18nRoleUpdateTitle
 		currentURL = fmt.Sprintf("%s/%s", webAdminRolePath, url.PathEscape(role.Name))
 	}
 	data := rolePage{
 		basePage: s.getBasePageData(title, currentURL, r),
-		Error:    error,
+		Error:    getI18nError(err),
 		Role:     &role,
 		Mode:     mode,
 	}
@@ -1751,7 +1751,7 @@ func getAdminFromPostFields(r *http.Request) (dataprovider.Admin, error) {
 	var admin dataprovider.Admin
 	err := r.ParseForm()
 	if err != nil {
-		return admin, err
+		return admin, util.NewI18nError(err, util.I18nErrorInvalidForm)
 	}
 	status, err := strconv.Atoi(r.Form.Get("status"))
 	if err != nil {
@@ -2346,7 +2346,7 @@ func getEventActionOptionsFromPostFields(r *http.Request) (dataprovider.BaseEven
 func getEventActionFromPostFields(r *http.Request) (dataprovider.BaseEventAction, error) {
 	err := r.ParseForm()
 	if err != nil {
-		return dataprovider.BaseEventAction{}, err
+		return dataprovider.BaseEventAction{}, util.NewI18nError(err, util.I18nErrorInvalidForm)
 	}
 	actionType, err := strconv.Atoi(r.Form.Get("type"))
 	if err != nil {
@@ -2500,7 +2500,7 @@ func getEventRuleActionsFromPostFields(r *http.Request) ([]dataprovider.EventAct
 func getEventRuleFromPostFields(r *http.Request) (dataprovider.EventRule, error) {
 	err := r.ParseForm()
 	if err != nil {
-		return dataprovider.EventRule{}, err
+		return dataprovider.EventRule{}, util.NewI18nError(err, util.I18nErrorInvalidForm)
 	}
 	status, err := strconv.Atoi(r.Form.Get("status"))
 	if err != nil {
@@ -2532,7 +2532,7 @@ func getEventRuleFromPostFields(r *http.Request) (dataprovider.EventRule, error)
 func getRoleFromPostFields(r *http.Request) (dataprovider.Role, error) {
 	err := r.ParseForm()
 	if err != nil {
-		return dataprovider.Role{}, err
+		return dataprovider.Role{}, util.NewI18nError(err, util.I18nErrorInvalidForm)
 	}
 
 	return dataprovider.Role{
@@ -2544,7 +2544,7 @@ func getRoleFromPostFields(r *http.Request) (dataprovider.Role, error) {
 func getIPListEntryFromPostFields(r *http.Request, listType dataprovider.IPListType) (dataprovider.IPListEntry, error) {
 	err := r.ParseForm()
 	if err != nil {
-		return dataprovider.IPListEntry{}, err
+		return dataprovider.IPListEntry{}, util.NewI18nError(err, util.I18nErrorInvalidForm)
 	}
 	var mode int
 	if listType == dataprovider.IPListTypeDefender {
@@ -3890,14 +3890,14 @@ func (s *httpdServer) handleWebGetRoles(w http.ResponseWriter, r *http.Request) 
 
 func (s *httpdServer) handleWebAddRoleGet(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	s.renderRolePage(w, r, dataprovider.Role{}, genericPageModeAdd, "")
+	s.renderRolePage(w, r, dataprovider.Role{}, genericPageModeAdd, nil)
 }
 
 func (s *httpdServer) handleWebAddRolePost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	role, err := getRoleFromPostFields(r)
 	if err != nil {
-		s.renderRolePage(w, r, role, genericPageModeAdd, err.Error())
+		s.renderRolePage(w, r, role, genericPageModeAdd, err)
 		return
 	}
 	claims, err := getTokenClaims(r)
@@ -3912,7 +3912,7 @@ func (s *httpdServer) handleWebAddRolePost(w http.ResponseWriter, r *http.Reques
 	}
 	err = dataprovider.AddRole(&role, claims.Username, ipAddr, claims.Role)
 	if err != nil {
-		s.renderRolePage(w, r, role, genericPageModeAdd, err.Error())
+		s.renderRolePage(w, r, role, genericPageModeAdd, err)
 		return
 	}
 	http.Redirect(w, r, webAdminRolesPath, http.StatusSeeOther)
@@ -3922,7 +3922,7 @@ func (s *httpdServer) handleWebUpdateRoleGet(w http.ResponseWriter, r *http.Requ
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	role, err := dataprovider.RoleExists(getURLParam(r, "name"))
 	if err == nil {
-		s.renderRolePage(w, r, role, genericPageModeUpdate, "")
+		s.renderRolePage(w, r, role, genericPageModeUpdate, nil)
 	} else if errors.Is(err, util.ErrNotFound) {
 		s.renderNotFoundPage(w, r, err)
 	} else {
@@ -3948,7 +3948,7 @@ func (s *httpdServer) handleWebUpdateRolePost(w http.ResponseWriter, r *http.Req
 
 	updatedRole, err := getRoleFromPostFields(r)
 	if err != nil {
-		s.renderRolePage(w, r, role, genericPageModeUpdate, err.Error())
+		s.renderRolePage(w, r, role, genericPageModeUpdate, err)
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
@@ -3960,7 +3960,7 @@ func (s *httpdServer) handleWebUpdateRolePost(w http.ResponseWriter, r *http.Req
 	updatedRole.Name = role.Name
 	err = dataprovider.UpdateRole(&updatedRole, claims.Username, ipAddr, claims.Role)
 	if err != nil {
-		s.renderRolePage(w, r, updatedRole, genericPageModeUpdate, err.Error())
+		s.renderRolePage(w, r, updatedRole, genericPageModeUpdate, err)
 		return
 	}
 	http.Redirect(w, r, webAdminRolesPath, http.StatusSeeOther)
@@ -4113,7 +4113,7 @@ func (s *httpdServer) handleWebConfigsPost(w http.ResponseWriter, r *http.Reques
 	}
 	err = r.ParseForm()
 	if err != nil {
-		s.renderBadRequestPage(w, r, err)
+		s.renderBadRequestPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidForm))
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)

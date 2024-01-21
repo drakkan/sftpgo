@@ -54,7 +54,9 @@
         "update_folder": "Update virtual folder",
         "template_folder": "Virtual folder template",
         "oauth2_error": "Unable to complete OAuth2 flow",
-        "oauth2_success": "OAuth2 flow completed"
+        "oauth2_success": "OAuth2 flow completed",
+        "add_role": "Add role",
+        "update_role": "Update role"
     },
     "setup": {
         "desc": "To start using SFTPGo you need to create an administrator user",
