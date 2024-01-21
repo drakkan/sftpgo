@@ -60,10 +60,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 <div data-repeater-item>
                                     <div class="form-group row">
                                         <div class="col-md-3 mt-3 mt-md-8">
-                                            <input data-i18n="[placeholder]login.username" type="text" class="form-control" name="tpl_username" autocomplete="nope" spellcheck="false" value="" />
+                                            <input data-i18n="[placeholder]login.username" type="text" class="form-control" name="tpl_username" autocomplete="off" spellcheck="false" value="" />
                                         </div>
                                         <div class="col-md-3 mt-3 mt-md-8">
-                                            <input data-i18n="[placeholder]login.password" type="password" class="form-control" name="tpl_password" autocomplete="nope" spellcheck="false" value="" />
+                                            <input data-i18n="[placeholder]login.password" type="password" class="form-control" name="tpl_password" autocomplete="new-password" spellcheck="false" value="" />
                                         </div>
                                         <div class="col-md-5 mt-3 mt-md-8">
                                             <textarea class="form-control" name="tpl_public_keys" rows="5" placeholder="Paste your public key here"></textarea>
@@ -100,7 +100,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 <label for="idUsername" data-i18n="login.username" class="col-md-3 col-form-label">Username</label>
                 <div class="col-md-9">
                     <input id="idUsername" type="text" class="form-control" placeholder="" name="username" value="{{.User.Username}}"
-                        maxlength="255" autocomplete="nope" spellcheck="false" required {{if ge .Mode 2}}readonly{{end}} />
+                        maxlength="255" autocomplete="off" spellcheck="false" required {{if ge .Mode 2}}readonly{{end}} />
                 </div>
             </div>
             {{- end}}
@@ -126,7 +126,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             <div class="form-group row mt-10">
                 <label for="idPassword" data-i18n="login.password" class="col-md-3 col-form-label">Password</label>
                 <div class="col-md-9">
-                    <input id="idPassword" type="password" class="form-control" name="password" autocomplete="off"
+                    <input id="idPassword" type="password" class="form-control" name="password" autocomplete="new-password"
                         spellcheck="false" value="{{.User.Password}}" />
                 </div>
             </div>
@@ -393,7 +393,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 <label for="idEmail" data-i18n="general.email" class="col-md-3 col-form-label">Email</label>
                                 <div class="col-md-9">
                                     <input id="idEmail" type="text" class="form-control" placeholder="" name="email" value="{{.User.Email}}"
-                                        maxlength="255" autocomplete="nope" spellcheck="false" />
+                                        maxlength="255" autocomplete="off" spellcheck="false" />
                                 </div>
                             </div>
 

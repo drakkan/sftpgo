@@ -57,7 +57,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 <div data-repeater-item>
                                     <div class="form-group row">
                                         <div class="col-md-9 mt-3 mt-md-8">
-                                            <input data-i18n="[placeholder]virtual_folders.name" type="text" class="form-control" name="tpl_foldername" autocomplete="nope" spellcheck="false" value="" />
+                                            <input data-i18n="[placeholder]virtual_folders.name" type="text" class="form-control" name="tpl_foldername" autocomplete="off" spellcheck="false" value="" />
                                         </div>
                                         <div class="col-md-3 mt-3 mt-md-8">
                                             <a href="#" data-repeater-delete
@@ -92,7 +92,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 <label for="idFolderName" data-i18n="general.name" class="col-md-3 col-form-label">Name</label>
                 <div class="col-md-9">
                     <input id="idFolderName" type="text" class="form-control" placeholder="" name="name" value="{{.Folder.Name}}"
-                        maxlength="255" autocomplete="nope" spellcheck="false" required {{if ge .Mode 2}}readonly{{end}} />
+                        maxlength="255" autocomplete="off" spellcheck="false" required {{if ge .Mode 2}}readonly{{end}} />
                 </div>
             </div>
             {{- end}}

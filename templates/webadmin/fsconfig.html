@@ -84,7 +84,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <div class="form-group row mt-10 fsconfig fsconfig-s3fs">
             <label for="idS3AccessSecret" data-i18n="storage.access_secret" class="col-md-3 col-form-label">Access Secret</label>
             <div class="col-md-9">
-                <input id="idS3AccessSecret" type="password" class="form-control" name="s3_access_secret" autocomplete="off" spellcheck="false"
+                <input id="idS3AccessSecret" type="password" class="form-control" name="s3_access_secret" autocomplete="new-password" spellcheck="false"
                     value="{{if .S3Config.AccessSecret.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.S3Config.AccessSecret.GetPayload}}{{end}}"/>
             </div>
         </div>
@@ -269,7 +269,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <div class="form-group row mt-10 fsconfig fsconfig-azblobfs">
             <label for="idAzAccountKey" data-i18n="storage.account_key" class="col-md-3 col-form-label">Account Key</label>
             <div class="col-md-9">
-                <input id="idAzAccountKey" type="password" class="form-control" name="az_account_key" autocomplete="off" spellcheck="false"
+                <input id="idAzAccountKey" type="password" class="form-control" name="az_account_key" autocomplete="new-password" spellcheck="false"
                     value="{{if .AzBlobConfig.AccountKey.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.AzBlobConfig.AccountKey.GetPayload}}{{end}}"/>
             </div>
         </div>
@@ -277,7 +277,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <div class="form-group row mt-10 fsconfig fsconfig-azblobfs">
             <label for="idAzSASURL" data-i18n="storage.sas_url" class="col-md-3 col-form-label">SAS URL</label>
             <div class="col-md-9">
-                <input id="idAzSASURL" type="password" class="form-control" name="az_sas_url" autocomplete="off" spellcheck="false" aria-describedby="idAzSASURLHelp"
+                <input id="idAzSASURL" type="password" class="form-control" name="az_sas_url" autocomplete="new-password" spellcheck="false" aria-describedby="idAzSASURLHelp"
                     value="{{if .AzBlobConfig.SASURL.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.AzBlobConfig.SASURL.GetPayload}}{{end}}"/>
                 <div id="idAzSASURLHelp" class="form-text" data-i18n="storage.sas_url_help"></div>
             </div>
@@ -351,7 +351,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <div class="form-group row mt-10 fsconfig fsconfig-cryptfs">
             <label for="idCryptPassphrase" data-i18n="storage.passphrase" class="col-md-3 col-form-label">Passphrase</label>
             <div class="col-md-9">
-                <input id="idCryptPassphrase" type="password" class="form-control" name="crypt_passphrase" autocomplete="off" spellcheck="false" aria-describedby="idCryptPassphraseHelp"
+                <input id="idCryptPassphrase" type="password" class="form-control" name="crypt_passphrase" autocomplete="new-password" spellcheck="false" aria-describedby="idCryptPassphraseHelp"
                     value="{{if .CryptConfig.Passphrase.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.CryptConfig.Passphrase.GetPayload}}{{end}}"/>
                 <div id="idCryptPassphraseHelp" class="form-text" data-i18n="storage.passphrase_help"></div>
             </div>
@@ -389,7 +389,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <div class="form-group row mt-10 fsconfig fsconfig-sftpfs">
             <label for="idSFTPPassword" data-i18n="login.password" class="col-md-3 col-form-label">Password</label>
             <div class="col-md-9">
-                <input id="idSFTPPassword" type="password" class="form-control" name="sftp_password" autocomplete="off" spellcheck="false"
+                <input id="idSFTPPassword" type="password" class="form-control" name="sftp_password" autocomplete="new-password" spellcheck="false"
                     value="{{if .SFTPConfig.Password.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.SFTPConfig.Password.GetPayload}}{{end}}" />
             </div>
         </div>
@@ -405,7 +405,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <div class="form-group row mt-10 fsconfig fsconfig-sftpfs">
             <label for="idSFTPPassphrase" data-i18n="storage.passphrase" class="col-md-3 col-form-label">Passphrase</label>
             <div class="col-md-9">
-                <input id="idSFTPPassphrase" type="password" class="form-control" name="sftp_key_passphrase" autocomplete="off" spellcheck="false" aria-describedby="idSFTPPassphraseHelp"
+                <input id="idSFTPPassphrase" type="password" class="form-control" name="sftp_key_passphrase" autocomplete="new-password" spellcheck="false" aria-describedby="idSFTPPassphraseHelp"
                     value="{{if .SFTPConfig.KeyPassphrase.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.SFTPConfig.KeyPassphrase.GetPayload}}{{end}}" />
                 <div id="idSFTPPassphraseHelp" class="form-text" data-i18n="storage.passphrase_key_help"></div>
             </div>
@@ -473,7 +473,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <div class="form-group row mt-10 fsconfig fsconfig-httpfs">
             <label for="idHTTPPassword" data-i18n="login.password" class="col-md-3 col-form-label">Password</label>
             <div class="col-md-9">
-                <input id="idHTTPPassword" type="password" class="form-control" name="http_password" autocomplete="off" spellcheck="false"
+                <input id="idHTTPPassword" type="password" class="form-control" name="http_password" autocomplete="new-password" spellcheck="false"
                     value="{{if .HTTPConfig.Password.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.HTTPConfig.Password.GetPayload}}{{end}}" />
             </div>
         </div>
@@ -481,7 +481,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <div class="form-group row mt-10 fsconfig fsconfig-httpfs">
             <label for="idHTTPAPIKey" data-i18n="storage.api_key" class="col-md-3 col-form-label">API Key</label>
             <div class="col-md-9">
-                <input id="idHTTPAPIKey" type="password" class="form-control" name="http_api_key" autocomplete="off" spellcheck="false"
+                <input id="idHTTPAPIKey" type="password" class="form-control" name="http_api_key" autocomplete="new-password" spellcheck="false"
                     value="{{if .HTTPConfig.APIKey.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.HTTPConfig.APIKey.GetPayload}}{{end}}" />
             </div>
         </div>

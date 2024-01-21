@@ -28,7 +28,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 <label for="idGroupName" data-i18n="general.name" class="col-md-3 col-form-label">Name</label>
                 <div class="col-md-9">
                     <input id="idGroupName" type="text" class="form-control" placeholder="" name="name" value="{{.Group.Name}}"
-                        maxlength="255" autocomplete="nope" spellcheck="false" required {{if eq .Mode 2}}readonly{{end}} />
+                        maxlength="255" autocomplete="off" spellcheck="false" required {{if eq .Mode 2}}readonly{{end}} />
                 </div>
             </div>
 
