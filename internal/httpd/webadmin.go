@@ -98,7 +98,6 @@ const (
 	templateMaintenance      = "maintenance.html"
 	templateMFA              = "mfa.html"
 	templateSetup            = "adminsetup.html"
-	pageAdminsTitle          = "Admins"
 	pageStatusTitle          = "Status"
 	pageEventRulesTitle      = "Event rules"
 	pageEventActionsTitle    = "Event actions"
@@ -162,11 +161,6 @@ type basePage struct {
 	Branding            UIBranding
 }
 
-type adminsPage struct {
-	basePage
-	Admins []dataprovider.Admin
-}
-
 type eventRulesPage struct {
 	basePage
 	Rules []dataprovider.EventRule
@@ -215,7 +209,7 @@ type adminPage struct {
 	Admin  *dataprovider.Admin
 	Groups []dataprovider.Group
 	Roles  []dataprovider.Role
-	Error  string
+	Error  *util.I18nError
 	IsAdd  bool
 }
 
@@ -379,12 +373,12 @@ func loadAdminTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateAdminDir, templateUser),
 	}
 	adminsPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateAdmins),
 	}
 	adminPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateAdmin),
 	}
@@ -893,27 +887,27 @@ func (s *httpdServer) renderAdminSetupPage(w http.ResponseWriter, r *http.Reques
 }
 
 func (s *httpdServer) renderAddUpdateAdminPage(w http.ResponseWriter, r *http.Request, admin *dataprovider.Admin,
-	error string, isAdd bool) {
-	groups, err := s.getWebGroups(w, r, defaultQueryLimit, true)
-	if err != nil {
+	err error, isAdd bool) {
+	groups, errGroups := s.getWebGroups(w, r, defaultQueryLimit, true)
+	if errGroups != nil {
 		return
 	}
-	roles, err := s.getWebRoles(w, r, 10, true)
-	if err != nil {
+	roles, errRoles := s.getWebRoles(w, r, 10, true)
+	if errRoles != nil {
 		return
 	}
 	currentURL := webAdminPath
-	title := "Add a new admin"
+	title := util.I18nAddAdminTitle
 	if !isAdd {
 		currentURL = fmt.Sprintf("%v/%v", webAdminPath, url.PathEscape(admin.Username))
-		title = "Update admin"
+		title = util.I18nUpdateAdminTitle
 	}
 	data := adminPage{
 		basePage: s.getBasePageData(title, currentURL, r),
 		Admin:    admin,
 		Groups:   groups,
 		Roles:    roles,
-		Error:    error,
+		Error:    getI18nError(err),
 		IsAdd:    isAdd,
 	}
 
@@ -1777,14 +1771,14 @@ func getAdminFromPostFields(r *http.Request) (dataprovider.Admin, error) {
 		admin.Filters.Preferences.DefaultUsersExpiration = defaultUsersExpiration
 	}
 	for k := range r.Form {
-		if strings.HasPrefix(k, "group") {
+		if hasPrefixAndSuffix(k, "groups[", "][group]") {
 			groupName := strings.TrimSpace(r.Form.Get(k))
 			if groupName != "" {
-				idx := strings.TrimPrefix(k, "group")
-				addAsGroupType := r.Form.Get(fmt.Sprintf("add_as_group_type%s", idx))
 				group := dataprovider.AdminGroupMapping{
 					Name: groupName,
 				}
+				base, _ := strings.CutSuffix(k, "[group]")
+				addAsGroupType := strings.TrimSpace(r.Form.Get(base + "[group_type]"))
 				switch addAsGroupType {
 				case "1":
 					group.Options.AddToUsersAs = dataprovider.GroupAddToUsersAsPrimary
@@ -2803,32 +2797,32 @@ func (s *httpdServer) handleWebRestore(w http.ResponseWriter, r *http.Request) {
 	s.renderMessagePage(w, r, util.I18nMaintenanceTitle, http.StatusOK, nil, util.I18nBackupOK)
 }
 
-func (s *httpdServer) handleGetWebAdmins(w http.ResponseWriter, r *http.Request) {
+func getAllAdmins(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	limit := defaultQueryLimit
-	if _, ok := r.URL.Query()["qlimit"]; ok {
-		var err error
-		limit, err = strconv.Atoi(r.URL.Query().Get("qlimit"))
-		if err != nil {
-			limit = defaultQueryLimit
-		}
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, nil, util.I18nErrorDirList403, http.StatusForbidden)
+		return
 	}
-	admins := make([]dataprovider.Admin, 0, limit)
+	admins := make([]dataprovider.Admin, 0, 50)
 	for {
-		a, err := dataprovider.GetAdmins(limit, len(admins), dataprovider.OrderASC)
+		a, err := dataprovider.GetAdmins(defaultQueryLimit, len(admins), dataprovider.OrderASC)
 		if err != nil {
-			s.renderInternalServerErrorPage(w, r, err)
+			sendAPIResponse(w, r, err, getI18NErrorString(err, util.I18nError500Message), http.StatusInternalServerError)
 			return
 		}
 		admins = append(admins, a...)
-		if len(a) < limit {
+		if len(a) < defaultQueryLimit {
 			break
 		}
 	}
-	data := adminsPage{
-		basePage: s.getBasePageData(pageAdminsTitle, webAdminsPath, r),
-		Admins:   admins,
-	}
+	render.JSON(w, r, admins)
+}
+
+func (s *httpdServer) handleGetWebAdmins(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+
+	data := s.getBasePageData(util.I18nAdminsTitle, webAdminsPath, r)
 	renderAdminTemplate(w, templateAdmins, data)
 }
 
@@ -2847,7 +2841,7 @@ func (s *httpdServer) handleWebAddAdminGet(w http.ResponseWriter, r *http.Reques
 		Status:      1,
 		Permissions: []string{dataprovider.PermAdminAny},
 	}
-	s.renderAddUpdateAdminPage(w, r, admin, "", true)
+	s.renderAddUpdateAdminPage(w, r, admin, nil, true)
 }
 
 func (s *httpdServer) handleWebUpdateAdminGet(w http.ResponseWriter, r *http.Request) {
@@ -2855,7 +2849,7 @@ func (s *httpdServer) handleWebUpdateAdminGet(w http.ResponseWriter, r *http.Req
 	username := getURLParam(r, "username")
 	admin, err := dataprovider.AdminExists(username)
 	if err == nil {
-		s.renderAddUpdateAdminPage(w, r, &admin, "", false)
+		s.renderAddUpdateAdminPage(w, r, &admin, nil, false)
 	} else if errors.Is(err, util.ErrNotFound) {
 		s.renderNotFoundPage(w, r, err)
 	} else {
@@ -2872,7 +2866,7 @@ func (s *httpdServer) handleWebAddAdminPost(w http.ResponseWriter, r *http.Reque
 	}
 	admin, err := getAdminFromPostFields(r)
 	if err != nil {
-		s.renderAddUpdateAdminPage(w, r, &admin, err.Error(), true)
+		s.renderAddUpdateAdminPage(w, r, &admin, err, true)
 		return
 	}
 	if admin.Password == "" && s.binding.isWebAdminLoginFormDisabled() {
@@ -2885,7 +2879,7 @@ func (s *httpdServer) handleWebAddAdminPost(w http.ResponseWriter, r *http.Reque
 	}
 	err = dataprovider.AddAdmin(&admin, claims.Username, ipAddr, claims.Role)
 	if err != nil {
-		s.renderAddUpdateAdminPage(w, r, &admin, err.Error(), true)
+		s.renderAddUpdateAdminPage(w, r, &admin, err, true)
 		return
 	}
 	http.Redirect(w, r, webAdminsPath, http.StatusSeeOther)
@@ -2906,7 +2900,7 @@ func (s *httpdServer) handleWebUpdateAdminPost(w http.ResponseWriter, r *http.Re
 
 	updatedAdmin, err := getAdminFromPostFields(r)
 	if err != nil {
-		s.renderAddUpdateAdminPage(w, r, &updatedAdmin, err.Error(), false)
+		s.renderAddUpdateAdminPage(w, r, &updatedAdmin, err, false)
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
@@ -2923,26 +2917,36 @@ func (s *httpdServer) handleWebUpdateAdminPost(w http.ResponseWriter, r *http.Re
 	updatedAdmin.Filters.RecoveryCodes = admin.Filters.RecoveryCodes
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		s.renderAddUpdateAdminPage(w, r, &updatedAdmin, "Invalid token claims", false)
+		s.renderAddUpdateAdminPage(w, r, &updatedAdmin, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken), false)
 		return
 	}
 	if username == claims.Username {
 		if claims.isCriticalPermRemoved(updatedAdmin.Permissions) {
-			s.renderAddUpdateAdminPage(w, r, &updatedAdmin, "You cannot remove these permissions to yourself", false)
+			s.renderAddUpdateAdminPage(w, r, &updatedAdmin,
+				util.NewI18nError(errors.New("you cannot remove these permissions to yourself"),
+					util.I18nErrorAdminSelfPerms,
+				), false)
 			return
 		}
 		if updatedAdmin.Status == 0 {
-			s.renderAddUpdateAdminPage(w, r, &updatedAdmin, "You cannot disable yourself", false)
+			s.renderAddUpdateAdminPage(w, r, &updatedAdmin,
+				util.NewI18nError(errors.New("you cannot disable yourself"),
+					util.I18nErrorAdminSelfDisable,
+				), false)
 			return
 		}
 		if updatedAdmin.Role != claims.Role {
-			s.renderAddUpdateAdminPage(w, r, &updatedAdmin, "You cannot add/change your role", false)
+			s.renderAddUpdateAdminPage(w, r, &updatedAdmin,
+				util.NewI18nError(
+					errors.New("you cannot add/change your role"),
+					util.I18nErrorAdminSelfRole,
+				), false)
 			return
 		}
 	}
 	err = dataprovider.UpdateAdmin(&updatedAdmin, claims.Username, ipAddr, claims.Role)
 	if err != nil {
-		s.renderAddUpdateAdminPage(w, r, &updatedAdmin, err.Error(), false)
+		s.renderAddUpdateAdminPage(w, r, &updatedAdmin, err, false)
 		return
 	}
 	http.Redirect(w, r, webAdminsPath, http.StatusSeeOther)

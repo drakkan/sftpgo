@@ -53,6 +53,8 @@ const (
 	I18nErrorEditorTitle               = "title.error_editor"
 	I18nAddUserTitle                   = "title.add_user"
 	I18nUpdateUserTitle                = "title.update_user"
+	I18nAddAdminTitle                  = "title.add_admin"
+	I18nUpdateAdminTitle               = "title.update_admin"
 	I18nTemplateUserTitle              = "title.template_user"
 	I18nMaintenanceTitle               = "title.maintenance"
 	I18nConfigsTitle                   = "title.configs"
@@ -60,6 +62,7 @@ const (
 	I18nOAuth2ErrorTitle               = "title.oauth2_error"
 	I18nSessionsTitle                  = "title.connections"
 	I18nRolesTitle                     = "title.roles"
+	I18nAdminsTitle                    = "title.admins"
 	I18nErrorSetupInstallCode          = "setup.install_code_mismatch"
 	I18nInvalidAuth                    = "general.invalid_auth_request"
 	I18nError429Message                = "general.error429"
@@ -212,6 +215,9 @@ const (
 	I18nOAuth2ErrTokenExchange         = "oauth2.token_exchange_err"
 	I18nOAuth2ErrNoRefreshToken        = "oauth2.no_refresh_token"
 	I18nOAuth2OK                       = "oauth2.success"
+	I18nErrorAdminSelfPerms            = "admin.self_permissions"
+	I18nErrorAdminSelfDisable          = "admin.self_disable"
+	I18nErrorAdminSelfRole             = "admin.self_role"
 )
 
 // NewI18nError returns a I18nError wrappring the provided error

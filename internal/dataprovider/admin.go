@@ -286,7 +286,7 @@ func (a *Admin) hashPassword() error {
 	if a.Password != "" && !util.IsStringPrefixInSlice(a.Password, internalHashPwdPrefixes) {
 		if config.PasswordValidation.Admins.MinEntropy > 0 {
 			if err := passwordvalidator.Validate(a.Password, config.PasswordValidation.Admins.MinEntropy); err != nil {
-				return util.NewValidationError(err.Error())
+				return util.NewI18nError(util.NewValidationError(err.Error()), util.I18nErrorPasswordComplexity)
 			}
 		}
 		if config.PasswordHashing.Algo == HashingAlgoBcrypt {
@@ -397,7 +397,7 @@ func (a *Admin) validate() error {
 		return util.NewI18nError(err, util.I18nError2FAInvalid)
 	}
 	if err := a.validateRecoveryCodes(); err != nil {
-		return err
+		return util.NewI18nError(err, util.I18nErrorRecoveryCodesInvalid)
 	}
 	if config.NamingRules&1 == 0 && !usernameRegex.MatchString(a.Username) {
 		return util.NewI18nError(

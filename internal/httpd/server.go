@@ -1723,6 +1723,8 @@ func (s *httpdServer) setupWebAdminRoutes() {
 				Get(webStatusPath, s.handleWebGetStatus)
 			router.With(s.checkPerm(dataprovider.PermAdminManageAdmins), s.refreshCookie).
 				Get(webAdminsPath, s.handleGetWebAdmins)
+			router.With(s.checkPerm(dataprovider.PermAdminManageAdmins), compressor.Handler, s.refreshCookie).
+				Get(webAdminsPath+jsonAPISuffix, getAllAdmins)
 			router.With(s.checkPerm(dataprovider.PermAdminManageAdmins), s.refreshCookie).
 				Get(webAdminPath, s.handleWebAddAdminGet)
 			router.With(s.checkPerm(dataprovider.PermAdminManageAdmins), s.refreshCookie).

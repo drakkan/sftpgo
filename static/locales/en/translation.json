@@ -56,7 +56,9 @@
         "oauth2_error": "Unable to complete OAuth2 flow",
         "oauth2_success": "OAuth2 flow completed",
         "add_role": "Add role",
-        "update_role": "Update role"
+        "update_role": "Update role",
+        "add_admin": "Add admin",
+        "update_admin": "Update admin"
     },
     "setup": {
         "desc": "To start using SFTPGo you need to create an administrator user",
@@ -225,7 +227,9 @@
         "protocol": "Protocol",
         "refresh": "Refresh",
         "members": "Members",
-        "members_summary": "Users: {{users}}. Admins: {{admins}}"
+        "members_summary": "Users: {{users}}. Admins: {{admins}}",
+        "status": "Status",
+        "last_login": "Last login"
     },
     "fs": {
         "view_file": "View file \"{{- path}}\"",
@@ -468,8 +472,6 @@
         "file_pattern_invalid": "Invalid file name pattern filters",
         "disable_active_2fa": "Two-factor authentication cannot be disabled for a user with an active configuration",
         "pwd_change_conflict": "It is not possible to request a password change and at the same time prevent the password from being changed",
-        "status": "Status",
-        "last_login": "Last login",
         "role_help": "Users with a role can be managed by global administrators and administrators with the same role",
         "require_pwd_change": "Require password change",
         "require_pwd_change_help": "The user will need to change the password from WebClient to activate the account",
@@ -673,7 +675,24 @@
         "external_auth_cache_time_help": "Cache time, in seconds, for users authenticated using an external auth hook. 0 means no cache"
     },
     "admin": {
-        "role_permissions": "A role admin cannot have the following permissions: {{val}}"
+        "role_permissions": "A role admin cannot have the following permissions: {{val}}",
+        "view_manage": "View and manage admins",
+        "self_delete": "You cannot delete yourself",
+        "self_permissions": "You cannot remove these permissions to yourself",
+        "self_disable": "You cannot disable yourself",
+        "self_role": "You cannot add/change your role",
+        "password_help": "If blank the current password will not be changed",
+        "role_help": "Setting a role limit the administrator to only manage users with the same role. Administrators with a role cannot have the following permissions: \"manage_admins\", \"manage_roles\", \"manage_event_rules\", \"manage_apikeys\", \"manage_system\", \"manage_ip_lists\"",
+        "users_groups": "Groups for users",
+        "users_groups_help": "Groups automatically selected for new users created by this admin. The admin will still be able to choose different groups. These settings are only used for this admin UI and they will be ignored in REST API/hooks",
+        "group_membership": "Add as membership",
+        "group_primary": "Add as primary",
+        "group_secondary": "Add as secondary",
+        "user_page_pref": "User page preferences",
+        "user_page_pref_help": "You can hide some sections from the user page. These are not security settings and are not enforced server side in any way. They are only intended to simplify the add/update user page",
+        "hide_sections": "Hide sections",
+        "default_users_expiration": "Default users expiration",
+        "default_users_expiration_help": "Default expiration for new users as number of days"
     },
     "connections": {
         "view_manage": "View and manage connections",

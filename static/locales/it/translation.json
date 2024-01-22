@@ -56,7 +56,9 @@
         "oauth2_error": "Impossibile completare il flusso OAuth2",
         "oauth2_success": "OAuth2 completato",
         "add_role": "Aggiungi ruolo",
-        "update_role": "Aggiorna ruolo"
+        "update_role": "Aggiorna ruolo",
+        "add_admin": "Aggiungi amministratore",
+        "update_admin": "Aggiorna amministratore"
     },
     "setup": {
         "desc": "Per iniziare a utilizzare SFTPGo devi creare un utente amministratore",
@@ -225,7 +227,9 @@
         "protocol": "Protocollo",
         "refresh": "Aggiorna",
         "members": "Membri",
-        "members_summary": "Utenti: {{users}}. Amministratori: {{admins}}"
+        "members_summary": "Utenti: {{users}}. Amministratori: {{admins}}",
+        "status": "Stato",
+        "last_login": "Ultimo accesso"
     },
     "fs": {
         "view_file": "Visualizza file \"{{- path}}\"",
@@ -468,8 +472,6 @@
         "file_pattern_invalid": "Filtri su modelli di nome file non validi",
         "disable_active_2fa": "L'autenticazione a due fattori non può essere disabilitata per un utente con una configurazione attiva",
         "pwd_change_conflict": "Non è possibile richiedere la modifica della password e allo stesso tempo impedire la modifica della password",
-        "status": "Stato",
-        "last_login": "Ultimo accesso",
         "role_help": "Gli utenti con un ruolo possono essere gestiti da amministratori globali e amministratori con lo stesso ruolo",
         "require_pwd_change": "Richiedi modifica password",
         "require_pwd_change_help": "L'utente dovrà modificare la password dal WebClient per attivare l'account",
@@ -673,7 +675,24 @@
         "external_auth_cache_time_help": "Tempo di memorizzazione nella cache, in secondi, per gli utenti autenticati utilizzando un hook di autenticazione esterno. 0 significa nessuna cache"
     },
     "admin": {
-        "role_permissions": "Un amministratore di ruolo non può avere le seguenti autorizzazioni: {{val}}"
+        "role_permissions": "Un amministratore di ruolo non può avere le seguenti autorizzazioni: {{val}}",
+        "view_manage": "Visualizza e gestisci amministratori",
+        "self_delete": "Non puoi eliminare te stesso",
+        "self_permissions": "Non puoi rimuovere questi permessi a te stesso",
+        "self_disable": "Non puoi disabilitare te stesso",
+        "self_role": "Non puoi aggiungere/modificare il tuo ruolo",
+        "password_help": "Se vuoto la password corrente non verrà modificata",
+        "role_help": "L'impostazione di un ruolo limita l'amministratore a gestire solo gli utenti con lo stesso ruolo. Gli amministratori con un ruolo non possono avere le seguenti autorizzazioni: \"manage_admins\", \"manage_roles\", \"manage_event_rules\", \"manage_apikeys\", \"manage_system\", \"manage_ip_lists\"",
+        "users_groups": "Gruppi per gli utenti",
+        "users_groups_help": "Gruppi selezionati automaticamente per i nuovi utenti creati da questo amministratore. L'amministratore potrà comunque scegliere gruppi differenti. Queste impostazioni vengono utilizzate solo per questa interfaccia utente di amministrazione e verranno ignorate negli hook/API REST",
+        "group_membership": "Aggiungi come di appartenenza",
+        "group_primary": "Aggiungi come primario",
+        "group_secondary": "Aggiungi come secondario",
+        "user_page_pref": "Preferenze della pagina utente",
+        "user_page_pref_help": "Puoi nascondere alcune sezioni dalla pagina utente. Queste non sono impostazioni di sicurezza e non vengono verificate lato server. Hanno il solo scopo di semplificare la pagina di creazione/modifica utenti",
+        "hide_sections": "Nascondi sezioni",
+        "default_users_expiration": "Scadenza predefinita utenti",
+        "default_users_expiration_help": "Scadenza predefinita per i nuovi utenti espressa in numero di giorni"
     },
     "connections": {
         "view_manage": "Visualizza e gestisci connessioni attive",
