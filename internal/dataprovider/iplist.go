@@ -214,7 +214,7 @@ func (e *IPListEntry) validate() error {
 		// parse as IP
 		parsed, err := netip.ParseAddr(e.IPOrNet)
 		if err != nil {
-			return util.NewValidationError(fmt.Sprintf("invalid IP %q", e.IPOrNet))
+			return util.NewI18nError(util.NewValidationError(fmt.Sprintf("invalid IP %q", e.IPOrNet)), util.I18nErrorIpInvalid)
 		}
 		if parsed.Is4() {
 			e.IPOrNet += "/32"
@@ -226,7 +226,7 @@ func (e *IPListEntry) validate() error {
 	}
 	prefix, err := netip.ParsePrefix(e.IPOrNet)
 	if err != nil {
-		return util.NewValidationError(fmt.Sprintf("invalid network %q: %v", e.IPOrNet, err))
+		return util.NewI18nError(util.NewValidationError(fmt.Sprintf("invalid network %q: %v", e.IPOrNet, err)), util.I18nErrorNetInvalid)
 	}
 	prefix = prefix.Masked()
 	if prefix.Addr().Is4In6() {
@@ -235,7 +235,7 @@ func (e *IPListEntry) validate() error {
 	// TODO: to remove when the in memory ranger switch to netip
 	_, _, err = net.ParseCIDR(e.IPOrNet)
 	if err != nil {
-		return util.NewValidationError(fmt.Sprintf("invalid network: %v", err))
+		return util.NewI18nError(util.NewValidationError(fmt.Sprintf("invalid network: %v", err)), util.I18nErrorNetInvalid)
 	}
 	if prefix.Addr().Is4() || prefix.Addr().Is4In6() {
 		e.IPType = ipTypeV4

@@ -629,7 +629,7 @@ func (p *SQLiteProvider) ipListEntryExists(ipOrNet string, listType IPListType) 
 }
 
 func (p *SQLiteProvider) addIPListEntry(entry *IPListEntry) error {
-	return sqlCommonAddIPListEntry(entry, p.dbHandle)
+	return p.normalizeError(sqlCommonAddIPListEntry(entry, p.dbHandle), fieldIPNet)
 }
 
 func (p *SQLiteProvider) updateIPListEntry(entry *IPListEntry) error {
@@ -753,9 +753,14 @@ func (p *SQLiteProvider) normalizeError(err error, fieldType int) error {
 	if e, ok := err.(sqlite3.Error); ok {
 		switch e.ExtendedCode {
 		case 1555, 2067:
-			message := util.I18nErrorDuplicatedName
-			if fieldType == fieldUsername {
+			var message string
+			switch fieldType {
+			case fieldUsername:
 				message = util.I18nErrorDuplicatedUsername
+			case fieldIPNet:
+				message = util.I18nErrorDuplicatedIPNet
+			default:
+				message = util.I18nErrorDuplicatedName
 			}
 			return util.NewI18nError(
 				fmt.Errorf("%w: %s", ErrDuplicatedKey, err.Error()),

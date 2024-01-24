@@ -102,11 +102,8 @@ const (
 	pageEventRulesTitle      = "Event rules"
 	pageEventActionsTitle    = "Event actions"
 	pageMaintenanceTitle     = "Maintenance"
-	pageDefenderTitle        = "Auto Blocklist"
-	pageIPListsTitle         = "IP Lists"
 	pageEventsTitle          = "Logs"
 	pageConfigsTitle         = "Configurations"
-	pageSetupTitle           = "Create first admin user"
 	defaultQueryLimit        = 1000
 	inversePatternType       = "inverse"
 )
@@ -259,7 +256,7 @@ type ipListsPage struct {
 type ipListPage struct {
 	basePage
 	Entry *dataprovider.IPListEntry
-	Error string
+	Error *util.I18nError
 	Mode  genericPageMode
 }
 
@@ -460,17 +457,17 @@ func loadAdminTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateAdminDir, templateMaintenance),
 	}
 	defenderPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateDefender),
 	}
 	ipListsPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateIPLists),
 	}
 	ipListPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateIPList),
 	}
@@ -997,20 +994,20 @@ func (s *httpdServer) renderUserPage(w http.ResponseWriter, r *http.Request, use
 }
 
 func (s *httpdServer) renderIPListPage(w http.ResponseWriter, r *http.Request, entry dataprovider.IPListEntry,
-	mode genericPageMode, error string,
+	mode genericPageMode, err error,
 ) {
 	var title, currentURL string
 	switch mode {
 	case genericPageModeAdd:
-		title = "Add a new IP List entry"
+		title = util.I18nAddIPListTitle
 		currentURL = fmt.Sprintf("%s/%d", webIPListPath, entry.Type)
 	case genericPageModeUpdate:
-		title = "Update IP List entry"
+		title = util.I18nUpdateIPListTitle
 		currentURL = fmt.Sprintf("%s/%d/%s", webIPListPath, entry.Type, url.PathEscape(entry.IPOrNet))
 	}
 	data := ipListPage{
 		basePage: s.getBasePageData(title, currentURL, r),
-		Error:    error,
+		Error:    getI18nError(err),
 		Entry:    &entry,
 		Mode:     mode,
 	}
@@ -2955,7 +2952,7 @@ func (s *httpdServer) handleWebUpdateAdminPost(w http.ResponseWriter, r *http.Re
 func (s *httpdServer) handleWebDefenderPage(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	data := defenderHostsPage{
-		basePage:         s.getBasePageData(pageDefenderTitle, webDefenderPath, r),
+		basePage:         s.getBasePageData(util.I18nDefenderTitle, webDefenderPath, r),
 		DefenderHostsURL: webDefenderHostsPath,
 	}
 
@@ -3986,7 +3983,7 @@ func (s *httpdServer) handleWebIPListsPage(w http.ResponseWriter, r *http.Reques
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	rtlStatus, rtlProtocols := common.Config.GetRateLimitersStatus()
 	data := ipListsPage{
-		basePage:              s.getBasePageData(pageIPListsTitle, webIPListsPath, r),
+		basePage:              s.getBasePageData(util.I18nIPListsTitle, webIPListsPath, r),
 		RateLimitersStatus:    rtlStatus,
 		RateLimitersProtocols: strings.Join(rtlProtocols, ", "),
 		IsAllowListEnabled:    common.Config.IsAllowListEnabled(),
@@ -4002,7 +3999,7 @@ func (s *httpdServer) handleWebAddIPListEntryGet(w http.ResponseWriter, r *http.
 		s.renderBadRequestPage(w, r, err)
 		return
 	}
-	s.renderIPListPage(w, r, dataprovider.IPListEntry{Type: listType}, genericPageModeAdd, "")
+	s.renderIPListPage(w, r, dataprovider.IPListEntry{Type: listType}, genericPageModeAdd, nil)
 }
 
 func (s *httpdServer) handleWebAddIPListEntryPost(w http.ResponseWriter, r *http.Request) {
@@ -4014,7 +4011,7 @@ func (s *httpdServer) handleWebAddIPListEntryPost(w http.ResponseWriter, r *http
 	}
 	entry, err := getIPListEntryFromPostFields(r, listType)
 	if err != nil {
-		s.renderIPListPage(w, r, entry, genericPageModeAdd, err.Error())
+		s.renderIPListPage(w, r, entry, genericPageModeAdd, err)
 		return
 	}
 	entry.Type = listType
@@ -4030,7 +4027,7 @@ func (s *httpdServer) handleWebAddIPListEntryPost(w http.ResponseWriter, r *http
 	}
 	err = dataprovider.AddIPListEntry(&entry, claims.Username, ipAddr, claims.Role)
 	if err != nil {
-		s.renderIPListPage(w, r, entry, genericPageModeAdd, err.Error())
+		s.renderIPListPage(w, r, entry, genericPageModeAdd, err)
 		return
 	}
 	http.Redirect(w, r, webIPListsPath, http.StatusSeeOther)
@@ -4045,7 +4042,7 @@ func (s *httpdServer) handleWebUpdateIPListEntryGet(w http.ResponseWriter, r *ht
 	}
 	entry, err := dataprovider.IPListEntryExists(ipOrNet, listType)
 	if err == nil {
-		s.renderIPListPage(w, r, entry, genericPageModeUpdate, "")
+		s.renderIPListPage(w, r, entry, genericPageModeUpdate, nil)
 	} else if errors.Is(err, util.ErrNotFound) {
 		s.renderNotFoundPage(w, r, err)
 	} else {
@@ -4075,7 +4072,7 @@ func (s *httpdServer) handleWebUpdateIPListEntryPost(w http.ResponseWriter, r *h
 	}
 	updatedEntry, err := getIPListEntryFromPostFields(r, listType)
 	if err != nil {
-		s.renderIPListPage(w, r, entry, genericPageModeUpdate, err.Error())
+		s.renderIPListPage(w, r, entry, genericPageModeUpdate, err)
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
@@ -4087,7 +4084,7 @@ func (s *httpdServer) handleWebUpdateIPListEntryPost(w http.ResponseWriter, r *h
 	updatedEntry.IPOrNet = ipOrNet
 	err = dataprovider.UpdateIPListEntry(&updatedEntry, claims.Username, ipAddr, claims.Role)
 	if err != nil {
-		s.renderIPListPage(w, r, entry, genericPageModeUpdate, err.Error())
+		s.renderIPListPage(w, r, entry, genericPageModeUpdate, err)
 		return
 	}
 	http.Redirect(w, r, webIPListsPath, http.StatusSeeOther)

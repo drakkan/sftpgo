@@ -63,6 +63,10 @@ const (
 	I18nSessionsTitle                  = "title.connections"
 	I18nRolesTitle                     = "title.roles"
 	I18nAdminsTitle                    = "title.admins"
+	I18nIPListsTitle                   = "title.ip_lists"
+	I18nAddIPListTitle                 = "title.add_ip_list"
+	I18nUpdateIPListTitle              = "title.update_ip_list"
+	I18nDefenderTitle                  = "title.defender"
 	I18nErrorSetupInstallCode          = "setup.install_code_mismatch"
 	I18nInvalidAuth                    = "general.invalid_auth_request"
 	I18nError429Message                = "general.error429"
@@ -204,6 +208,7 @@ const (
 	I18nTemplateFolderTitle            = "title.template_folder"
 	I18nErrorDuplicatedUsername        = "general.duplicated_username"
 	I18nErrorDuplicatedName            = "general.duplicated_name"
+	I18nErrorDuplicatedIPNet           = "ip_list.duplicated"
 	I18nErrorRoleAdminPerms            = "admin.role_permissions"
 	I18nBackupOK                       = "general.backup_ok"
 	I18nErrorFolderTemplate            = "virtual_folders.template_no_folder"
@@ -218,6 +223,8 @@ const (
 	I18nErrorAdminSelfPerms            = "admin.self_permissions"
 	I18nErrorAdminSelfDisable          = "admin.self_disable"
 	I18nErrorAdminSelfRole             = "admin.self_role"
+	I18nErrorIpInvalid                 = "ip_list.ip_invalid"
+	I18nErrorNetInvalid                = "ip_list.net_invalid"
 )
 
 // NewI18nError returns a I18nError wrappring the provided error

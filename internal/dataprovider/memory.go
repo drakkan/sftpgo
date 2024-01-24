@@ -2672,7 +2672,10 @@ func (p *MemoryProvider) addIPListEntry(entry *IPListEntry) error {
 	}
 	_, err := p.ipListEntryExistsInternal(entry)
 	if err == nil {
-		return fmt.Errorf("entry %q already exists", entry.IPOrNet)
+		return util.NewI18nError(
+			fmt.Errorf("entry %q already exists", entry.IPOrNet),
+			util.I18nErrorDuplicatedIPNet,
+		)
 	}
 	entry.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 	entry.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())

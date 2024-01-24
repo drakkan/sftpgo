@@ -58,7 +58,9 @@
         "add_role": "Add role",
         "update_role": "Update role",
         "add_admin": "Add admin",
-        "update_admin": "Update admin"
+        "update_admin": "Update admin",
+        "add_ip_list": "Add IP list entry",
+        "update_ip_list": "Update IP list entry"
     },
     "setup": {
         "desc": "To start using SFTPGo you need to create an administrator user",
@@ -229,7 +231,10 @@
         "members": "Members",
         "members_summary": "Users: {{users}}. Admins: {{admins}}",
         "status": "Status",
-        "last_login": "Last login"
+        "last_login": "Last login",
+        "previous": "Previous",
+        "next": "Next",
+        "type": "Type"
     },
     "fs": {
         "view_file": "View file \"{{- path}}\"",
@@ -710,5 +715,31 @@
     },
     "role": {
         "view_manage": "View and manage roles"
+    },
+    "ip_list": {
+        "view_manage": "View and manage IP lists",
+        "defender_list": "Defender",
+        "allow_list": "Allow list",
+        "ratelimiters_safe_list": "Rate limiters safe list",
+        "ip_net": "IP/Network",
+        "protocols": "Protocols",
+        "mode": "Mode",
+        "any": "Any",
+        "allow": "Allow",
+        "deny": "Deny",
+        "ip_net_help": "IP address or network in CIDR format, example: \"192.168.1.1 or 10.8.0.100/32 or 2001:db8:1234::/48\"",
+        "ip_invalid": "Invalid IP address",
+        "net_invalid": "Invalid network",
+        "duplicated": "The specified IP/network already exists",
+        "search": "IP/Network or initial part",
+        "defender_disabled": "Defender disabled in your configuration",
+        "allow_list_disabled": "Allow list disabled in your configuration",
+        "ratelimiters_disabled": "Rate limiters disabled in your configuration"
+    },
+    "defender": {
+        "view_manage": "View and manage auto blocklist",
+        "ip": "IP address",
+        "ban_time": "Blocked until",
+        "score": "Score"
     }
 }

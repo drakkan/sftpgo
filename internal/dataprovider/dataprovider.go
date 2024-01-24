@@ -151,6 +151,7 @@ const (
 const (
 	fieldUsername = 1
 	fieldName     = 2
+	fieldIPNet    = 3
 )
 
 var (

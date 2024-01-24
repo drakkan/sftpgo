@@ -70,7 +70,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 <script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/plugins/custom/datatables/datatables.bundle.js"></script>
 <script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
 
-function disconnectAction(connectionID, node) {
+    function disconnectAction(connectionID, node) {
         ModalAlert.fire({
             text: $.t('connections.disconnect_confirm'),
             icon: "warning",

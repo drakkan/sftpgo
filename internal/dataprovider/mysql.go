@@ -708,7 +708,7 @@ func (p *MySQLProvider) ipListEntryExists(ipOrNet string, listType IPListType) (
 }
 
 func (p *MySQLProvider) addIPListEntry(entry *IPListEntry) error {
-	return sqlCommonAddIPListEntry(entry, p.dbHandle)
+	return p.normalizeError(sqlCommonAddIPListEntry(entry, p.dbHandle), fieldIPNet)
 }
 
 func (p *MySQLProvider) updateIPListEntry(entry *IPListEntry) error {
@@ -834,9 +834,14 @@ func (p *MySQLProvider) normalizeError(err error, fieldType int) error {
 	if errors.As(err, &mysqlErr) {
 		switch mysqlErr.Number {
 		case 1062:
-			message := util.I18nErrorDuplicatedName
-			if fieldType == fieldUsername {
+			var message string
+			switch fieldType {
+			case fieldUsername:
 				message = util.I18nErrorDuplicatedUsername
+			case fieldIPNet:
+				message = util.I18nErrorDuplicatedIPNet
+			default:
+				message = util.I18nErrorDuplicatedName
 			}
 			return util.NewI18nError(
 				fmt.Errorf("%w: %s", ErrDuplicatedKey, err.Error()),

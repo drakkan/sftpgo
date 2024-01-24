@@ -58,7 +58,9 @@
         "add_role": "Aggiungi ruolo",
         "update_role": "Aggiorna ruolo",
         "add_admin": "Aggiungi amministratore",
-        "update_admin": "Aggiorna amministratore"
+        "update_admin": "Aggiorna amministratore",
+        "add_ip_list": "Aggiungi elemento a lista IP",
+        "update_ip_list": "Aggiorna elemento lista IP"
     },
     "setup": {
         "desc": "Per iniziare a utilizzare SFTPGo devi creare un utente amministratore",
@@ -229,7 +231,10 @@
         "members": "Membri",
         "members_summary": "Utenti: {{users}}. Amministratori: {{admins}}",
         "status": "Stato",
-        "last_login": "Ultimo accesso"
+        "last_login": "Ultimo accesso",
+        "previous": "Precedente",
+        "next": "Successivo",
+        "type": "Tipo"
     },
     "fs": {
         "view_file": "Visualizza file \"{{- path}}\"",
@@ -710,5 +715,31 @@
     },
     "role": {
         "view_manage": "Visualizza e gestisci ruoli"
+    },
+    "ip_list": {
+        "view_manage": "Visualizza e gestisci liste IP",
+        "defender_list": "Defender",
+        "allow_list": "Lista IP consentiti",
+        "ratelimiters_safe_list": "Lista IP esclusi dai rate limiters",
+        "ip_net": "IP/Rete",
+        "protocols": "Protocolli",
+        "mode": "Modalità",
+        "any": "Qualunque",
+        "allow": "Permesso",
+        "deny": "Non permesso",
+        "ip_net_help": "Indirizzo IP o rete in formato CIDR, ad esempio: \"192.168.1.1 o 10.8.0.100/32 o 2001:db8:1234::/48\"",
+        "ip_invalid": "Indirizzo IP non valido",
+        "net_invalid": "Rete non valida",
+        "duplicated": "L'IP/Rete specificato esiste già",
+        "search": "IP/Rete o parte iniziale",
+        "defender_disabled": "Defender disabilitato in configurazione",
+        "allow_list_disabled": "Lista IP consentiti disabilitata in configurazione",
+        "ratelimiters_disabled": "Rate limiters disabilitati in configurazione"
+    },
+    "defender": {
+        "view_manage": "Visualizza e gestisci la blocklist automatica",
+        "ip": "Indirizzo IP",
+        "ban_time": "Bloccato fino a",
+        "score": "Punteggio"
     }
 }

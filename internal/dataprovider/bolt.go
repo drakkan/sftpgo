@@ -2827,7 +2827,10 @@ func (p *BoltProvider) addIPListEntry(entry *IPListEntry) error {
 			return err
 		}
 		if e := bucket.Get([]byte(entry.getKey())); e != nil {
-			return fmt.Errorf("entry %q already exists", entry.IPOrNet)
+			return util.NewI18nError(
+				fmt.Errorf("entry %q already exists", entry.IPOrNet),
+				util.I18nErrorDuplicatedIPNet,
+			)
 		}
 		entry.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 		entry.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
