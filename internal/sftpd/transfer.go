@@ -58,7 +58,7 @@ type transfer struct {
 	isFinished bool
 }
 
-func newTransfer(baseTransfer *common.BaseTransfer, pipeWriter vfs.PipeWriter, pipeReader *vfs.PipeReader,
+func newTransfer(baseTransfer *common.BaseTransfer, pipeWriter vfs.PipeWriter, pipeReader vfs.PipeReader,
 	errForRead error) *transfer {
 	var writer writerAtCloser
 	var reader readerAtCloser

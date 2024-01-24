@@ -286,7 +286,7 @@ func (fs *MockOsFs) Name() string {
 }
 
 // Open returns nil
-func (fs *MockOsFs) Open(name string, offset int64) (vfs.File, *vfs.PipeReader, func(), error) {
+func (fs *MockOsFs) Open(name string, offset int64) (vfs.File, vfs.PipeReader, func(), error) {
 	if fs.reader != nil {
 		return nil, vfs.NewPipeReader(fs.reader), nil, nil
 	}

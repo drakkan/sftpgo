@@ -202,7 +202,7 @@ func (fs *AzureBlobFs) Lstat(name string) (os.FileInfo, error) {
 }
 
 // Open opens the named file for reading
-func (fs *AzureBlobFs) Open(name string, offset int64) (File, *PipeReader, func(), error) {
+func (fs *AzureBlobFs) Open(name string, offset int64) (File, PipeReader, func(), error) {
 	r, w, err := pipeat.PipeInDir(fs.localTempDir)
 	if err != nil {
 		return nil, nil, nil, err
@@ -991,7 +991,7 @@ func (fs *AzureBlobFs) downloadPart(ctx context.Context, blockBlob *blockblob.Cl
 }
 
 func (fs *AzureBlobFs) handleMultipartDownload(ctx context.Context, blockBlob *blockblob.Client,
-	offset int64, writer io.WriterAt, pipeReader *PipeReader,
+	offset int64, writer io.WriterAt, pipeReader PipeReader,
 ) error {
 	props, err := blockBlob.GetProperties(ctx, &blob.GetPropertiesOptions{})
 	metric.AZHeadObjectCompleted(err)

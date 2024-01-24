@@ -346,7 +346,7 @@ func (fs *SFTPFs) Lstat(name string) (os.FileInfo, error) {
 }
 
 // Open opens the named file for reading
-func (fs *SFTPFs) Open(name string, offset int64) (File, *PipeReader, func(), error) {
+func (fs *SFTPFs) Open(name string, offset int64) (File, PipeReader, func(), error) {
 	client, err := fs.conn.getClient()
 	if err != nil {
 		return nil, nil, nil, err

@@ -115,7 +115,7 @@ type Fs interface {
 	ConnectionID() string
 	Stat(name string) (os.FileInfo, error)
 	Lstat(name string) (os.FileInfo, error)
-	Open(name string, offset int64) (File, *PipeReader, func(), error)
+	Open(name string, offset int64) (File, PipeReader, func(), error)
 	Create(name string, flag, checks int) (File, PipeWriter, func(), error)
 	Rename(source, target string) (int, int64, error)
 	Remove(name string, isDir bool) error
@@ -187,6 +187,16 @@ type PipeWriter interface {
 	io.Closer
 	Done(err error)
 	GetWrittenBytes() int64
+}
+
+// PipeReader defines an interface representing a SFTPGo pipe writer
+type PipeReader interface {
+	io.Reader
+	io.ReaderAt
+	io.Closer
+	setMetadata(value map[string]string)
+	setMetadataFromPointerVal(value map[string]*string)
+	Metadata() map[string]string
 }
 
 // Metadater defines an interface to implement to return metadata for a file
@@ -628,7 +638,10 @@ func (c *AzBlobFsConfig) ValidateAndEncryptCredentials(additionalData string) er
 func (c *AzBlobFsConfig) checkCredentials() error {
 	if c.SASURL.IsPlain() {
 		_, err := url.Parse(c.SASURL.GetPayload())
-		return util.NewI18nError(err, util.I18nErrorSASURLInvalid)
+		if err != nil {
+			return util.NewI18nError(err, util.I18nErrorSASURLInvalid)
+		}
+		return nil
 	}
 	if c.SASURL.IsEncrypted() && !c.SASURL.IsValid() {
 		return errors.New("invalid encrypted sas_url")
@@ -851,27 +864,27 @@ func (p *pipeWriterAtOffset) Write(buf []byte) (int, error) {
 }
 
 // NewPipeReader initializes a new PipeReader
-func NewPipeReader(r *pipeat.PipeReaderAt) *PipeReader {
-	return &PipeReader{
+func NewPipeReader(r *pipeat.PipeReaderAt) PipeReader {
+	return &pipeReader{
 		PipeReaderAt: r,
 	}
 }
 
-// PipeReader defines a wrapper for pipeat.PipeReaderAt.
-type PipeReader struct {
+// pipeReader defines a wrapper for pipeat.PipeReaderAt.
+type pipeReader struct {
 	*pipeat.PipeReaderAt
 	mu       sync.RWMutex
 	metadata map[string]string
 }
 
-func (p *PipeReader) setMetadata(value map[string]string) {
+func (p *pipeReader) setMetadata(value map[string]string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
 	p.metadata = value
 }
 
-func (p *PipeReader) setMetadataFromPointerVal(value map[string]*string) {
+func (p *pipeReader) setMetadataFromPointerVal(value map[string]*string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -890,7 +903,7 @@ func (p *PipeReader) setMetadataFromPointerVal(value map[string]*string) {
 }
 
 // Metadata implements the Metadater interface
-func (p *PipeReader) Metadata() map[string]string {
+func (p *pipeReader) Metadata() map[string]string {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 

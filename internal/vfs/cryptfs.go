@@ -79,7 +79,7 @@ func (fs *CryptFs) Name() string {
 }
 
 // Open opens the named file for reading
-func (fs *CryptFs) Open(name string, offset int64) (File, *PipeReader, func(), error) {
+func (fs *CryptFs) Open(name string, offset int64) (File, PipeReader, func(), error) {
 	f, key, err := fs.getFileAndEncryptionKey(name)
 	if err != nil {
 		return nil, nil, nil, err

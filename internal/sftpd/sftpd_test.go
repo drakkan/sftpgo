@@ -8939,8 +8939,8 @@ func TestStatVFSCloudBackend(t *testing.T) {
 	u := getTestUser(usePubKey)
 	u.FsConfig.Provider = sdk.AzureBlobFilesystemProvider
 	u.FsConfig.AzBlobConfig.SASURL = kms.NewPlainSecret("https://myaccount.blob.core.windows.net/sasurl")
-	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
-	assert.NoError(t, err)
+	user, resp, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
 	conn, client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
 		defer conn.Close()

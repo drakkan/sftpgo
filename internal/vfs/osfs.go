@@ -101,7 +101,7 @@ func (fs *OsFs) Lstat(name string) (os.FileInfo, error) {
 }
 
 // Open opens the named file for reading
-func (fs *OsFs) Open(name string, offset int64) (File, *PipeReader, func(), error) {
+func (fs *OsFs) Open(name string, offset int64) (File, PipeReader, func(), error) {
 	f, err := os.Open(name)
 	if err != nil {
 		return nil, nil, nil, err

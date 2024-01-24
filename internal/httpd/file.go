@@ -28,7 +28,7 @@ type httpdFile struct {
 	isFinished bool
 }
 
-func newHTTPDFile(baseTransfer *common.BaseTransfer, pipeWriter vfs.PipeWriter, pipeReader *vfs.PipeReader) *httpdFile {
+func newHTTPDFile(baseTransfer *common.BaseTransfer, pipeWriter vfs.PipeWriter, pipeReader vfs.PipeReader) *httpdFile {
 	var writer io.WriteCloser
 	var reader io.ReadCloser
 	if baseTransfer.File != nil {

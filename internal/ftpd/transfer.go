@@ -32,7 +32,7 @@ type transfer struct {
 	expectedOffset int64
 }
 
-func newTransfer(baseTransfer *common.BaseTransfer, pipeWriter vfs.PipeWriter, pipeReader *vfs.PipeReader,
+func newTransfer(baseTransfer *common.BaseTransfer, pipeWriter vfs.PipeWriter, pipeReader vfs.PipeReader,
 	expectedOffset int64) *transfer {
 	var writer io.WriteCloser
 	var reader io.ReadCloser

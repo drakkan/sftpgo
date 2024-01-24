@@ -196,7 +196,7 @@ func (fs *S3Fs) Lstat(name string) (os.FileInfo, error) {
 }
 
 // Open opens the named file for reading
-func (fs *S3Fs) Open(name string, offset int64) (File, *PipeReader, func(), error) {
+func (fs *S3Fs) Open(name string, offset int64) (File, PipeReader, func(), error) {
 	r, w, err := pipeat.PipeInDir(fs.localTempDir)
 	if err != nil {
 		return nil, nil, nil, err
