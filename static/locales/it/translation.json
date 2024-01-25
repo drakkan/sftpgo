@@ -234,7 +234,10 @@
         "last_login": "Ultimo accesso",
         "previous": "Precedente",
         "next": "Successivo",
-        "type": "Tipo"
+        "type": "Tipo",
+        "issuer": "Emittente",
+        "data_provider": "Database",
+        "driver": "Driver"
     },
     "fs": {
         "view_file": "Visualizza file \"{{- path}}\"",
@@ -741,5 +744,33 @@
         "ip": "Indirizzo IP",
         "ban_time": "Bloccato fino a",
         "score": "Punteggio"
+    },
+    "status": {
+        "desc": "Stato dei servizi",
+        "ssh": "Server SSH/SFTP",
+        "active": "Stato: attivo",
+        "disabled": "Stato: disabilitato",
+        "proxy_on": "Protocollo PROXY abilitato",
+        "address": "Indirizzo",
+        "ssh_auths": "Metodi di autenticazione",
+        "ssh_commands": "Comandi accettati",
+        "host_key": "Chiave host",
+        "fingeprint": "Impronta",
+        "algorithms": "Algoritmi",
+        "algorithm": "Algoritmo",
+        "ssh_pub_key_algo": "Algoritmi per l'autenticazione con chiave pubblica",
+        "ssh_mac_algo": "Algoritmi MAC",
+        "ssh_kex_algo": "Algoritmi KEX",
+        "ssh_cipher_algo": "Cifrari",
+        "ftp": "Server FTP",
+        "ftp_passive_range": "Intervallo di porte in modalità passiva",
+        "ftp_passive_ip": "IP per FTP passivo",
+        "tls": "TLS",
+        "tls_disabled": "Disabilitato",
+        "tls_explicit": "Modalità esplicita richiesta (FTPES)",
+        "tls_implicit": "Modalità implicita (FTPS), sconsigliato, FTPES è preferibile",
+        "tls_mixed": "In chiaro e modalità esplicita (FTPES)",
+        "webdav": "Server WebDAV",
+        "rate_limiters": "Rate limiters"
     }
 }

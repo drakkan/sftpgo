@@ -234,7 +234,10 @@
         "last_login": "Last login",
         "previous": "Previous",
         "next": "Next",
-        "type": "Type"
+        "type": "Type",
+        "issuer": "Issuer",
+        "data_provider": "Database",
+        "driver": "Driver"
     },
     "fs": {
         "view_file": "View file \"{{- path}}\"",
@@ -741,5 +744,33 @@
         "ip": "IP address",
         "ban_time": "Blocked until",
         "score": "Score"
+    },
+    "status": {
+        "desc": "Status of services",
+        "ssh": "SSH/SFTP server",
+        "active": "Status: active",
+        "disabled": "Status: disabled",
+        "proxy_on": "PROXY protocol enabled",
+        "address": "Address",
+        "ssh_auths": "Authentication methods",
+        "ssh_commands": "Accepted commands",
+        "host_key": "Host key",
+        "fingeprint": "Fingerprint",
+        "algorithms": "Algorithms",
+        "algorithm": "Algorithm",
+        "ssh_pub_key_algo": "Public key authentication algorithms",
+        "ssh_mac_algo": "Message authentication code (MAC) algorithms",
+        "ssh_kex_algo": "Key exchange (KEX) algorithms",
+        "ssh_cipher_algo": "Ciphers",
+        "ftp": "FTP server",
+        "ftp_passive_range": "Passive mode port range",
+        "ftp_passive_ip": "Passive IP",
+        "tls": "TLS",
+        "tls_disabled": "Disabled",
+        "tls_explicit": "Explicit mode required (FTPES)",
+        "tls_implicit": "Implicit mode (FTPS), deprecated, prefer FTPES",
+        "tls_mixed": "Plain and explicit (FTPES) mode",
+        "webdav": "WebDAV server",
+        "rate_limiters": "Rate limiters"
     }
 }

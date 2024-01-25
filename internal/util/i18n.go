@@ -67,6 +67,7 @@ const (
 	I18nAddIPListTitle                 = "title.add_ip_list"
 	I18nUpdateIPListTitle              = "title.update_ip_list"
 	I18nDefenderTitle                  = "title.defender"
+	I18nStatusTitle                    = "status.desc"
 	I18nErrorSetupInstallCode          = "setup.install_code_mismatch"
 	I18nInvalidAuth                    = "general.invalid_auth_request"
 	I18nError429Message                = "general.error429"
@@ -225,6 +226,10 @@ const (
 	I18nErrorAdminSelfRole             = "admin.self_role"
 	I18nErrorIpInvalid                 = "ip_list.ip_invalid"
 	I18nErrorNetInvalid                = "ip_list.net_invalid"
+	I18nFTPTLSDisabled                 = "status.tls_disabled"
+	I18nFTPTLSExplicit                 = "status.tls_explicit"
+	I18nFTPTLSImplicit                 = "status.tls_implicit"
+	I18nFTPTLSMixed                    = "status.tls_mixed"
 )
 
 // NewI18nError returns a I18nError wrappring the provided error

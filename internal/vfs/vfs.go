@@ -189,7 +189,7 @@ type PipeWriter interface {
 	GetWrittenBytes() int64
 }
 
-// PipeReader defines an interface representing a SFTPGo pipe writer
+// PipeReader defines an interface representing a SFTPGo pipe reader
 type PipeReader interface {
 	io.Reader
 	io.ReaderAt

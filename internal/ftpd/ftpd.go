@@ -228,19 +228,19 @@ func (b *Binding) HasProxy() bool {
 // GetTLSDescription returns the TLS mode as string
 func (b *Binding) GetTLSDescription() string {
 	if certMgr == nil {
-		return "Disabled"
+		return util.I18nFTPTLSDisabled
 	}
 	switch b.TLSMode {
 	case 1:
-		return "Explicit required"
+		return util.I18nFTPTLSExplicit
 	case 2:
-		return "Implicit"
+		return util.I18nFTPTLSImplicit
 	}
 
 	if certMgr.HasCertificate(common.DefaultTLSKeyPaidID) || certMgr.HasCertificate(b.GetAddress()) {
-		return "Plain and explicit"
+		return util.I18nFTPTLSMixed
 	}
-	return "Disabled"
+	return util.I18nFTPTLSDisabled
 }
 
 // PortRange defines a port range

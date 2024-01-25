@@ -98,7 +98,6 @@ const (
 	templateMaintenance      = "maintenance.html"
 	templateMFA              = "mfa.html"
 	templateSetup            = "adminsetup.html"
-	pageStatusTitle          = "Status"
 	pageEventRulesTitle      = "Event rules"
 	pageEventActionsTitle    = "Event actions"
 	pageMaintenanceTitle     = "Maintenance"
@@ -442,7 +441,7 @@ func loadAdminTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateAdminDir, templateEventAction),
 	}
 	statusPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateStatus),
 	}
@@ -3311,7 +3310,7 @@ func (s *httpdServer) handleWebUpdateUserPost(w http.ResponseWriter, r *http.Req
 func (s *httpdServer) handleWebGetStatus(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	data := statusPage{
-		basePage: s.getBasePageData(pageStatusTitle, webStatusPath, r),
+		basePage: s.getBasePageData(util.I18nStatusTitle, webStatusPath, r),
 		Status:   getServicesStatus(),
 	}
 	renderAdminTemplate(w, templateStatus, data)

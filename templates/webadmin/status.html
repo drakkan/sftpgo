@@ -1,178 +1,217 @@
 <!--
-Copyright (C) 2019 Nicola Murino
+Copyright (C) 2024 Nicola Murino
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as published
-by the Free Software Foundation, version 3.
+This WebUI uses the KeenThemes Mega Bundle, a proprietary theme:
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU Affero General Public License for more details.
+https://keenthemes.com/products/templates-mega-bundle
 
-You should have received a copy of the GNU Affero General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
+KeenThemes HTML/CSS/JS components are allowed for use only within the
+SFTPGo product and restricted to be used in a resealable HTML template
+that can compete with KeenThemes products anyhow.
+
+This WebUI is allowed for use only within the SFTPGo product and
+therefore cannot be used in derivative works/products without an
+explicit grant from the SFTPGo Team (support@sftpgo.com).
 -->
 {{template "base" .}}
 
-{{define "title"}}{{.Title}}{{end}}
-
-{{define "page_body"}}
-
-<div class="card shadow mb-4">
-    <div class="card-header py-3">
-        <h6 class="m-0 font-weight-bold text-primary">Services</h6>
+{{- define "page_body"}}
+<div class="card shadow-sm">
+    <div class="card-header bg-light">
+        <h3 data-i18n="{{.Title}}" class="card-title section-title"></h3>
     </div>
     <div class="card-body">
-        <div class="card mb-4 {{ if .Status.SSH.IsActive}}border-left-success{{else}}border-left-info{{end}}">
+
+        <div class="card">
+            <div class="card-header bg-light">
+                <h3 data-i18n="status.ssh" class="card-title section-title-inner">SSH/SFTP server</h3>
+            </div>
             <div class="card-body">
-                <h6 class="card-title font-weight-bold">SFTP/SSH server</h6>
-                <p class="card-text">
-                    Status: {{ if .Status.SSH.IsActive}}"Started"{{else}}"Stopped"{{end}}
-                    {{if .Status.SSH.IsActive}}
-                    <br>
-                    {{range .Status.SSH.Bindings}}
-                    <br>
-                    Address: "{{.GetAddress}}" {{if .HasProxy}}Proxy: ON{{end}}
-                    <br>
-                    {{end}}
-                    Accepted authentications: "{{.Status.SSH.GetSupportedAuthsAsString}}"
-                    <br>
-                    Accepted commands: "{{.Status.SSH.GetSSHCommandsAsString}}"
-                    <br>
-                    {{range .Status.SSH.HostKeys}}
-                    <br>
-                    Host Key: "{{.Path}}"
-                    <br>
-                    Fingerprint: "{{.Fingerprint}}"
-                    <br>
-                    Algorithms: "{{.GetAlgosAsString}}"
-                    <br>
-                    {{end}}
-                    <br>
-                    Public key authentication algorithms: "{{.Status.SSH.GetPublicKeysAlgosAsString}}"
-                    <br><br>
-                    Message authentication algorithms: "{{.Status.SSH.GetMACsAsString}}"
-                    <br><br>
-                    Key exchange algorithms: "{{.Status.SSH.GetKEXsAsString}}"
-                    <br><br>
-                    Ciphers: "{{.Status.SSH.GetCiphersAsString}}"
-                    <br>
-                    {{end}}
-                </p>
+                <p class="fs-3 fw-semibold mb-4" {{if .Status.SSH.IsActive}}data-i18n="status.active"{{else}}data-i18n="status.disabled"{{end}}></p>
+                {{- if .Status.SSH.IsActive}}
+                <div class="d-flex flex-column">
+                    {{- range .Status.SSH.Bindings}}
+                    <p class="fs-5 fw-semibold">
+                        <span class="text-success" data-i18n="status.address"></span> "{{.GetAddress}}"
+                    </p>
+                    {{- if .HasProxy}}
+                    <p class="fs-5 fw-semibold">
+                        <span class="text-success" data-i18n="status.proxy_on"></span>
+                    </p>
+                    {{- end}}
+                    {{- end}}
+                </div>
+                {{- range .Status.SSH.HostKeys}}
+                <div class="d-flex flex-column mt-10">
+                    <p class="fs-5 fw-semibold">
+                        <span class="text-success" data-i18n="status.host_key"></span> "{{.Path}}"
+                    </p>
+                    <p class="fs-5 fw-semibold">
+                        <span class="text-success" data-i18n="status.fingeprint"></span> "{{.Fingerprint}}"
+                    </p>
+                    <p class="fs-5 fw-semibold">
+                        <span class="text-success" data-i18n="status.algorithms"></span> "{{.GetAlgosAsString}}"
+                    </p>
+                </div>
+                {{- end}}
+                <div class="d-flex flex-column mt-10">
+                    <p class="fs-5 fw-semibold">
+                        <span class="text-success" data-i18n="status.ssh_commands"></span> "{{.Status.SSH.GetSSHCommandsAsString}}"
+                    </p>
+                    <p class="fs-5 fw-semibold">
+                        <span class="text-success" data-i18n="status.ssh_auths"></span> "{{.Status.SSH.GetSupportedAuthsAsString}}"
+                    </p>
+                    <p class="fs-5 fw-semibold">
+                        <span class="text-success" data-i18n="status.ssh_pub_key_algo"></span> "{{.Status.SSH.GetPublicKeysAlgosAsString}}"
+                    </p>
+                    <p class="fs-5 fw-semibold">
+                        <span class="text-success" data-i18n="status.ssh_mac_algo"></span> "{{.Status.SSH.GetMACsAsString}}"
+                    </p>
+                    <p class="fs-5 fw-semibold">
+                        <span class="text-success" data-i18n="status.ssh_kex_algo"></span> "{{.Status.SSH.GetKEXsAsString}}"
+                    </p>
+                    <p class="fs-5 fw-semibold">
+                        <span class="text-success" data-i18n="status.ssh_cipher_algo"></span> "{{.Status.SSH.GetCiphersAsString}}"
+                    </p>
+                </div>
+                {{- end}}
             </div>
         </div>
 
-        <div class="card mb-4 {{ if .Status.FTP.IsActive}}border-left-success{{else}}border-left-info{{end}}">
+        <div class="card mt-10">
+            <div class="card-header bg-light">
+                <h3 data-i18n="status.ftp" class="card-title section-title-inner">FTP server</h3>
+            </div>
             <div class="card-body">
-                <h6 class="card-title font-weight-bold">FTP server</h6>
-                <p class="card-text">
-                    Status: {{ if .Status.FTP.IsActive}}"Started"{{else}}"Stopped"{{end}}
-                    {{if .Status.FTP.IsActive}}
-                    <br>
-                    {{range .Status.FTP.Bindings}}
-                    <br>
-                    Address: "{{.GetAddress}}" {{if .HasProxy}}Proxy: ON{{end}}
-                    <br>
-                    TLS: "{{.GetTLSDescription}}"
-                    {{if .ForcePassiveIP}}
-                    <br>
-                    Passive IP: {{.ForcePassiveIP}}
-                    {{end}}
-                    <br>
-                    {{range .PassiveIPOverrides}}
-                    Passive IP: {{.IP}} for networks: {{.GetNetworksAsString}}
-                    <br>
-                    {{end}}
-                    {{end}}
-                    <br>
-                    Passive port range: "{{.Status.FTP.PassivePortRange.Start}}-{{.Status.FTP.PassivePortRange.End}}"
-                    {{end}}
-                </p>
+                <p class="fs-3 fw-semibold mb-4" {{if .Status.FTP.IsActive}}data-i18n="status.active"{{else}}data-i18n="status.disabled"{{end}}></p>
+                {{- if .Status.FTP.IsActive}}
+                <div class="d-flex flex-column">
+                    {{- range .Status.FTP.Bindings}}
+                    <p class="fs-5 fw-semibold">
+                        <span class="text-success" data-i18n="status.address"></span> "{{.GetAddress}}"
+                    </p>
+                    {{- if .HasProxy}}
+                    <p class="fs-5 fw-semibold">
+                        <span class="text-success" data-i18n="status.proxy_on"></span>
+                    </p>
+                    {{- end}}
+                    <p class="fs-5 fw-semibold">
+                        <span class="text-success" data-i18n="status.tls"></span>&nbsp;<span data-i18n="{{.GetTLSDescription}}"></span>
+                    </p>
+                    {{- if .ForcePassiveIP}}
+                    <p class="fs-5 fw-semibold">
+                        <span class="text-success" data-i18n="status.ftp_passive_ip"></span> "{{.ForcePassiveIP}}"
+                    </p>
+                    {{- end}}
+                    {{- range .PassiveIPOverrides}}
+                    <p class="fs-5 fw-semibold">
+                        <span class="text-success" data-i18n="status.ftp_passive_ip"></span> "{{.IP}} ({{.GetNetworksAsString}})"
+                    </p>
+                    {{- end}}
+                    {{- end}}
+                </div>
+                <div class="d-flex flex-column mt-10">
+                    <p class="fs-5 fw-semibold">
+                        <span class="text-success" data-i18n="status.ftp_passive_range"></span> "{{.Status.FTP.PassivePortRange.Start}}-{{.Status.FTP.PassivePortRange.End}}"
+                    </p>
+                </div>
+                {{- end}}
             </div>
         </div>
 
-        <div class="card mb-4 {{ if .Status.WebDAV.IsActive}}border-left-success{{else}}border-left-info{{end}}">
+        <div class="card mt-10">
+            <div class="card-header bg-light">
+                <h3 data-i18n="status.webdav" class="card-title section-title-inner">WebDAV server</h3>
+            </div>
             <div class="card-body">
-                <h6 class="card-title font-weight-bold">WebDAV server</h6>
-                <p class="card-text">
-                    Status: {{ if .Status.WebDAV.IsActive}}"Started"{{else}}"Stopped"{{end}}
-                    {{if .Status.WebDAV.IsActive}}
-                    <br>
-                    {{range .Status.WebDAV.Bindings}}
-                    <br>
-                    Address: "{{.GetAddress}}"
-                    <br>
-                    Protocol: {{if .EnableHTTPS}} HTTPS {{else}} HTTP {{end}}
-                    <br>
-                    {{end}}
-                    {{end}}
-                </p>
+                <p class="fs-3 fw-semibold mb-4" {{if .Status.WebDAV.IsActive}}data-i18n="status.active"{{else}}data-i18n="status.disabled"{{end}}></p>
+                {{- if .Status.WebDAV.IsActive}}
+                <div class="d-flex flex-column">
+                    {{- range .Status.WebDAV.Bindings}}
+                    <p class="fs-5 fw-semibold">
+                        <span class="text-success" data-i18n="status.address"></span> "{{.GetAddress}}"
+                    </p>
+                    <p class="fs-5 fw-semibold">
+                        <span class="text-success" data-i18n="general.protocol"></span> {{if .EnableHTTPS}} HTTPS {{else}} HTTP {{end}}
+                    </p>
+                    {{- end}}
+                </div>
+                {{- end}}
             </div>
         </div>
 
-        <div class="card mb-4 {{ if .Status.AllowList.IsActive}}border-left-success{{else}}border-left-info{{end}}">
+        <div class="card mt-10">
+            <div class="card-header bg-light">
+                <h3 data-i18n="iplist.allow_list" class="card-title section-title-inner">Allow list</h3>
+            </div>
             <div class="card-body">
-                <h6 class="card-title font-weight-bold">Allow list</h6>
-                <p class="card-text">
-                    Status: {{ if .Status.AllowList.IsActive}}"Enabled"{{else}}"Disabled"{{end}}
-                </p>
+                <p class="fs-3 fw-semibold mb-4" {{if .Status.AllowList.IsActive}}data-i18n="status.active"{{else}}data-i18n="status.disabled"{{end}}></p>
             </div>
         </div>
 
-        <div class="card mb-4 {{ if .Status.Defender.IsActive}}border-left-success{{else}}border-left-info{{end}}">
+        <div class="card mt-10">
+            <div class="card-header bg-light">
+                <h3 data-i18n="iplist.defender_list" class="card-title section-title-inner">Defender</h3>
+            </div>
             <div class="card-body">
-                <h6 class="card-title font-weight-bold">Defender</h6>
-                <p class="card-text">
-                    Status: {{ if .Status.Defender.IsActive}}"Enabled"{{else}}"Disabled"{{end}}
-                </p>
+                <p class="fs-3 fw-semibold mb-4" {{if .Status.Defender.IsActive}}data-i18n="status.active"{{else}}data-i18n="status.disabled"{{end}}></p>
             </div>
         </div>
 
-        <div class="card mb-4 {{ if .Status.RateLimiters.IsActive}}border-left-success{{else}}border-left-info{{end}}">
+        <div class="card mt-10">
+            <div class="card-header bg-light">
+                <h3 data-i18n="status.rate_limiters" class="card-title section-title-inner">Rate limiters</h3>
+            </div>
             <div class="card-body">
-                <h6 class="card-title font-weight-bold">Rate limiters</h6>
-                <p class="card-text">
-                    Status: {{ if .Status.RateLimiters.IsActive}}"Enabled"{{else}}"Disabled"{{end}}
-                    {{if .Status.RateLimiters.IsActive}}
-                    <br>
-                    Protocols: {{.Status.RateLimiters.GetProtocolsAsString}}
-                    {{end}}
-                </p>
+                <p class="fs-3 fw-semibold mb-4" {{if .Status.RateLimiters.IsActive}}data-i18n="status.active"{{else}}data-i18n="status.disabled"{{end}}></p>
+                {{- if .Status.RateLimiters.IsActive}}
+                <div class="d-flex flex-column">
+                    <p class="fs-5 fw-semibold">
+                        <span class="text-success" data-i18n="iplist.protocols"></span> "{{.Status.RateLimiters.GetProtocolsAsString}}"
+                    </p>
+                </div>
+                {{- end}}
             </div>
         </div>
 
-        <div class="card mb-4 {{ if .Status.MFA.IsActive}}border-left-success{{else}}border-left-info{{end}}">
+        <div class="card mt-10">
+            <div class="card-header bg-light">
+                <h3 data-i18n="title.two_factor_auth" class="card-title section-title-inner">Two-factor authentication</h3>
+            </div>
             <div class="card-body">
-                <h6 class="card-title font-weight-bold">Multi-factor authentication</h6>
-                <p class="card-text">
-                    Status: {{ if .Status.MFA.IsActive}}"Enabled"{{else}}"Disabled"{{end}}
-                    {{ if .Status.MFA.IsActive}}
-                    <br>
-                    Time-based one time passwords (RFC 6238) configurations:
-                    <br>
-                    <ul>
-                    {{range .Status.MFA.TOTPConfigs}}
-                    <li>Name: "{{.Name}}", issuer: "{{.Issuer}}", HMAC algorithm: "{{.Algo}}"</li>
-                    {{end}}
-                    </ul>
-                    {{end}}
-                </p>
+                <p class="fs-3 fw-semibold mb-4" {{if .Status.MFA.IsActive}}data-i18n="status.active"{{else}}data-i18n="status.disabled"{{end}}></p>
+                {{- if .Status.MFA.IsActive}}
+                {{range .Status.MFA.TOTPConfigs}}
+                <div class="d-flex flex-column">
+                    <p class="fs-5 fw-semibold">
+                        <span class="text-success" data-i18n="general.configuration"></span> "{{.Name}}"
+                    </p>
+                    <p class="fs-5 fw-semibold">
+                        <span class="text-success" data-i18n="general.issuer"></span> "{{.Issuer}}"
+                    </p>
+                    <p class="fs-5 fw-semibold">
+                        <span class="text-success" data-i18n="status.algorithm"></span> "{{.Algo}}"
+                    </p>
+                </div>
+                {{- end}}
+                {{- end}}
             </div>
         </div>
 
-        <div class="card mb-2 {{ if .Status.DataProvider.IsActive}}border-left-success{{else}}border-left-warning{{end}}">
+        <div class="card mt-10">
+            <div class="card-header bg-light">
+                <h3 data-i18n="general.data_provider" class="card-title section-title-inner">Database</h3>
+            </div>
             <div class="card-body">
-                <h6 class="card-title font-weight-bold">Data provider</h6>
-                <p class="card-text">
-                    Status: {{ if .Status.DataProvider.IsActive}}"OK"{{else}}"{{.Status.DataProvider.Error}}"{{end}}
-                    <br>
-                    Driver: "{{.Status.DataProvider.Driver}}"
-                </p>
+                <p class="fs-3 fw-semibold mb-4" {{if .Status.DataProvider.IsActive}}data-i18n="status.active"{{else}}{{.Status.DataProvider.Error}}{{end}}></p>
+                <div class="d-flex flex-column">
+                    <p class="fs-5 fw-semibold">
+                        <span class="text-success" data-i18n="general.driver"></span> "{{.Status.DataProvider.Driver}}"
+                    </p>
+                </div>
             </div>
         </div>
 
     </div>
 </div>
-
-{{end}}
+{{- end}}
