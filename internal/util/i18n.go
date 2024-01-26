@@ -211,7 +211,7 @@ const (
 	I18nErrorDuplicatedName            = "general.duplicated_name"
 	I18nErrorDuplicatedIPNet           = "ip_list.duplicated"
 	I18nErrorRoleAdminPerms            = "admin.role_permissions"
-	I18nBackupOK                       = "general.backup_ok"
+	I18nBackupOK                       = "maintenance.backup_ok"
 	I18nErrorFolderTemplate            = "virtual_folders.template_no_folder"
 	I18nErrorUserTemplate              = "user.template_no_user"
 	I18nConfigsOK                      = "general.configs_saved"
@@ -230,6 +230,8 @@ const (
 	I18nFTPTLSExplicit                 = "status.tls_explicit"
 	I18nFTPTLSImplicit                 = "status.tls_implicit"
 	I18nFTPTLSMixed                    = "status.tls_mixed"
+	I18nErrorBackupFile                = "maintenance.backup_invalid_file"
+	I18nErrorRestore                   = "maintenance.restore_error"
 )
 
 // NewI18nError returns a I18nError wrappring the provided error

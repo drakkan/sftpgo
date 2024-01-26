@@ -184,7 +184,10 @@ func loadData(w http.ResponseWriter, r *http.Request) {
 func restoreBackup(content []byte, inputFile string, scanQuota, mode int, executor, ipAddress, role string) error {
 	dump, err := dataprovider.ParseDumpData(content)
 	if err != nil {
-		return util.NewValidationError(fmt.Sprintf("invalid input_file %q", inputFile))
+		return util.NewI18nError(
+			util.NewValidationError(fmt.Sprintf("invalid input_file %q", inputFile)),
+			util.I18nErrorBackupFile,
+		)
 	}
 
 	if err = RestoreConfigs(dump.Configs, mode, executor, ipAddress, role); err != nil {

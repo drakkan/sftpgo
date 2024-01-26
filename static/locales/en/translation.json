@@ -224,7 +224,6 @@
         "duplicated_username": "The specified username already exists",
         "duplicated_name": "The specified name already exists",
         "permissions_required": "Permissions are required",
-        "backup_ok": "Backup successfully restored",
         "configs_saved": "Configurations has been successfully updated",
         "protocol": "Protocol",
         "refresh": "Refresh",
@@ -237,7 +236,8 @@
         "type": "Type",
         "issuer": "Issuer",
         "data_provider": "Database",
-        "driver": "Driver"
+        "driver": "Driver",
+        "mode": "Mode"
     },
     "fs": {
         "view_file": "View file \"{{- path}}\"",
@@ -726,7 +726,6 @@
         "ratelimiters_safe_list": "Rate limiters safe list",
         "ip_net": "IP/Network",
         "protocols": "Protocols",
-        "mode": "Mode",
         "any": "Any",
         "allow": "Allow",
         "deny": "Deny",
@@ -746,10 +745,11 @@
         "score": "Score"
     },
     "status": {
-        "desc": "Status of services",
+        "desc": "Server status",
         "ssh": "SSH/SFTP server",
         "active": "Status: active",
         "disabled": "Status: disabled",
+        "error": "Status: error",
         "proxy_on": "PROXY protocol enabled",
         "address": "Address",
         "ssh_auths": "Authentication methods",
@@ -772,5 +772,22 @@
         "tls_mixed": "Plain and explicit (FTPES) mode",
         "webdav": "WebDAV server",
         "rate_limiters": "Rate limiters"
+    },
+    "maintenance": {
+        "backup": "Backup",
+        "backup_do": "Backup your data",
+        "backup_ok": "Backup successfully restored",
+        "backup_invalid_file": "Invalid backup file, make sure it is a JSON file with valid content",
+        "restore_error": "Unable to restore your backup, check the server logs for more details",
+        "restore": "Restore",
+        "backup_file": "Backup file",
+        "backup_file_help": "Import data from a JSON backup file",
+        "restore_mode0": "Add and update",
+        "restore_mode1": "Add only",
+        "restore_mode2": "Add, update and disconnect",
+        "after_restore": "After restore",
+        "quota_mode0": "No quota update",
+        "quota_mode1": "Update quota",
+        "quota_mode2": "Update quota for users with quota limits"
     }
 }

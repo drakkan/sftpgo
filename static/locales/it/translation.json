@@ -224,7 +224,6 @@
         "duplicated_username": "Il nome utente specificato esiste già",
         "duplicated_name": "Il nome specificato esiste già",
         "permissions_required": "I permessi sono obbligatori",
-        "backup_ok": "Backup ripristinato correttamente",
         "configs_saved": "Configurazioni aggiornate",
         "protocol": "Protocollo",
         "refresh": "Aggiorna",
@@ -237,7 +236,8 @@
         "type": "Tipo",
         "issuer": "Emittente",
         "data_provider": "Database",
-        "driver": "Driver"
+        "driver": "Driver",
+        "mode": "Modalità"
     },
     "fs": {
         "view_file": "Visualizza file \"{{- path}}\"",
@@ -726,7 +726,6 @@
         "ratelimiters_safe_list": "Lista IP esclusi dai rate limiters",
         "ip_net": "IP/Rete",
         "protocols": "Protocolli",
-        "mode": "Modalità",
         "any": "Qualunque",
         "allow": "Permesso",
         "deny": "Non permesso",
@@ -746,10 +745,11 @@
         "score": "Punteggio"
     },
     "status": {
-        "desc": "Stato dei servizi",
+        "desc": "Stato del server",
         "ssh": "Server SSH/SFTP",
         "active": "Stato: attivo",
         "disabled": "Stato: disabilitato",
+        "error": "Stato: errore",
         "proxy_on": "Protocollo PROXY abilitato",
         "address": "Indirizzo",
         "ssh_auths": "Metodi di autenticazione",
@@ -772,5 +772,22 @@
         "tls_mixed": "In chiaro e modalità esplicita (FTPES)",
         "webdav": "Server WebDAV",
         "rate_limiters": "Rate limiters"
+    },
+    "maintenance": {
+        "backup": "Backup",
+        "backup_do": "Effettua il backup dei tuoi dati",
+        "backup_ok": "Backup ripristinato correttamente",
+        "backup_invalid_file": "File di backup non valido, assicurati che sia un file JSON con contenuto valido",
+        "restore_error": "Impossibile ripristinare il backup, controlla i log del server per maggiori dettagli",
+        "restore": "Ripristino",
+        "backup_file": "File di backup",
+        "backup_file_help": "Importa i dati da un file di backup in formato JSON",
+        "restore_mode0": "Aggiungi e aggiorna",
+        "restore_mode1": "Aggiungi",
+        "restore_mode2": "Aggiungi, aggiorna e disconnetti",
+        "after_restore": "Dopo il ripristino",
+        "quota_mode0": "Non aggiornare quota",
+        "quota_mode1": "Aggiorna quota",
+        "quota_mode2": "Aggiorna quota per gli utenti con limiti di quota"
     }
 }

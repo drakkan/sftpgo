@@ -142,19 +142,36 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
         <div class="card mt-10">
             <div class="card-header bg-light">
-                <h3 data-i18n="iplist.allow_list" class="card-title section-title-inner">Allow list</h3>
+                <h3 data-i18n="general.data_provider" class="card-title section-title-inner">Database</h3>
             </div>
             <div class="card-body">
-                <p class="fs-3 fw-semibold mb-4" {{if .Status.AllowList.IsActive}}data-i18n="status.active"{{else}}data-i18n="status.disabled"{{end}}></p>
+                <p class="fs-3 fw-semibold mb-4">
+                    <span {{if .Status.DataProvider.IsActive}}data-i18n="status.active"{{else}}data-i18n="status.error" class="text-warning"{{end}}></span>
+                    {{if .Status.DataProvider.Error}}&nbsp;<span class="text-warning">"{{.Status.DataProvider.Error}}"</span>{{end}}
+                </p>
+                <div class="d-flex flex-column">
+                    <p class="fs-5 fw-semibold">
+                        <span class="text-success" data-i18n="general.driver"></span> "{{.Status.DataProvider.Driver}}"
+                    </p>
+                </div>
             </div>
         </div>
 
         <div class="card mt-10">
             <div class="card-header bg-light">
-                <h3 data-i18n="iplist.defender_list" class="card-title section-title-inner">Defender</h3>
+                <h3 data-i18n="ip_list.defender_list" class="card-title section-title-inner">Defender</h3>
             </div>
             <div class="card-body">
                 <p class="fs-3 fw-semibold mb-4" {{if .Status.Defender.IsActive}}data-i18n="status.active"{{else}}data-i18n="status.disabled"{{end}}></p>
+            </div>
+        </div>
+
+        <div class="card mt-10">
+            <div class="card-header bg-light">
+                <h3 data-i18n="ip_list.allow_list" class="card-title section-title-inner">Allow list</h3>
+            </div>
+            <div class="card-body">
+                <p class="fs-3 fw-semibold mb-4" {{if .Status.AllowList.IsActive}}data-i18n="status.active"{{else}}data-i18n="status.disabled"{{end}}></p>
             </div>
         </div>
 
@@ -167,7 +184,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 {{- if .Status.RateLimiters.IsActive}}
                 <div class="d-flex flex-column">
                     <p class="fs-5 fw-semibold">
-                        <span class="text-success" data-i18n="iplist.protocols"></span> "{{.Status.RateLimiters.GetProtocolsAsString}}"
+                        <span class="text-success" data-i18n="ip_list.protocols"></span> "{{.Status.RateLimiters.GetProtocolsAsString}}"
                     </p>
                 </div>
                 {{- end}}
@@ -195,20 +212,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </div>
                 {{- end}}
                 {{- end}}
-            </div>
-        </div>
-
-        <div class="card mt-10">
-            <div class="card-header bg-light">
-                <h3 data-i18n="general.data_provider" class="card-title section-title-inner">Database</h3>
-            </div>
-            <div class="card-body">
-                <p class="fs-3 fw-semibold mb-4" {{if .Status.DataProvider.IsActive}}data-i18n="status.active"{{else}}{{.Status.DataProvider.Error}}{{end}}></p>
-                <div class="d-flex flex-column">
-                    <p class="fs-5 fw-semibold">
-                        <span class="text-success" data-i18n="general.driver"></span> "{{.Status.DataProvider.Driver}}"
-                    </p>
-                </div>
             </div>
         </div>
 

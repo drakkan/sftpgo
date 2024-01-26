@@ -100,7 +100,6 @@ const (
 	templateSetup            = "adminsetup.html"
 	pageEventRulesTitle      = "Event rules"
 	pageEventActionsTitle    = "Event actions"
-	pageMaintenanceTitle     = "Maintenance"
 	pageEventsTitle          = "Logs"
 	pageConfigsTitle         = "Configurations"
 	defaultQueryLimit        = 1000
@@ -236,7 +235,7 @@ type maintenancePage struct {
 	basePage
 	BackupPath  string
 	RestorePath string
-	Error       string
+	Error       *util.I18nError
 }
 
 type defenderHostsPage struct {
@@ -451,7 +450,7 @@ func loadAdminTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateCommonDir, templateCommonLogin),
 	}
 	maintenancePaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateMaintenance),
 	}
@@ -829,12 +828,12 @@ func (s *httpdServer) renderChangePasswordPage(w http.ResponseWriter, r *http.Re
 	renderAdminTemplate(w, templateChangePwd, data)
 }
 
-func (s *httpdServer) renderMaintenancePage(w http.ResponseWriter, r *http.Request, error string) {
+func (s *httpdServer) renderMaintenancePage(w http.ResponseWriter, r *http.Request, err error) {
 	data := maintenancePage{
-		basePage:    s.getBasePageData(pageMaintenanceTitle, webMaintenancePath, r),
+		basePage:    s.getBasePageData(util.I18nMaintenanceTitle, webMaintenancePath, r),
 		BackupPath:  webBackupPath,
 		RestorePath: webRestorePath,
-		Error:       error,
+		Error:       getI18nError(err),
 	}
 
 	renderAdminTemplate(w, templateMaintenance, data)
@@ -2737,7 +2736,7 @@ func (s *httpdServer) handleWebAdminProfilePost(w http.ResponseWriter, r *http.R
 
 func (s *httpdServer) handleWebMaintenance(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	s.renderMaintenancePage(w, r, "")
+	s.renderMaintenancePage(w, r, nil)
 }
 
 func (s *httpdServer) handleWebRestore(w http.ResponseWriter, r *http.Request) {
@@ -2749,7 +2748,7 @@ func (s *httpdServer) handleWebRestore(w http.ResponseWriter, r *http.Request) {
 	}
 	err = r.ParseMultipartForm(MaxRestoreSize)
 	if err != nil {
-		s.renderMaintenancePage(w, r, err.Error())
+		s.renderMaintenancePage(w, r, util.NewI18nError(err, util.I18nErrorInvalidForm))
 		return
 	}
 	defer r.MultipartForm.RemoveAll() //nolint:errcheck
@@ -2761,17 +2760,17 @@ func (s *httpdServer) handleWebRestore(w http.ResponseWriter, r *http.Request) {
 	}
 	restoreMode, err := strconv.Atoi(r.Form.Get("mode"))
 	if err != nil {
-		s.renderMaintenancePage(w, r, err.Error())
+		s.renderMaintenancePage(w, r, err)
 		return
 	}
 	scanQuota, err := strconv.Atoi(r.Form.Get("quota"))
 	if err != nil {
-		s.renderMaintenancePage(w, r, err.Error())
+		s.renderMaintenancePage(w, r, err)
 		return
 	}
 	backupFile, _, err := r.FormFile("backup_file")
 	if err != nil {
-		s.renderMaintenancePage(w, r, err.Error())
+		s.renderMaintenancePage(w, r, util.NewI18nError(err, util.I18nErrorBackupFile))
 		return
 	}
 	defer backupFile.Close()
@@ -2781,12 +2780,12 @@ func (s *httpdServer) handleWebRestore(w http.ResponseWriter, r *http.Request) {
 		if len(backupContent) == 0 {
 			err = errors.New("backup file size must be greater than 0")
 		}
-		s.renderMaintenancePage(w, r, err.Error())
+		s.renderMaintenancePage(w, r, util.NewI18nError(err, util.I18nErrorBackupFile))
 		return
 	}
 
 	if err := restoreBackup(backupContent, "", scanQuota, restoreMode, claims.Username, ipAddr, claims.Role); err != nil {
-		s.renderMaintenancePage(w, r, err.Error())
+		s.renderMaintenancePage(w, r, util.NewI18nError(err, util.I18nErrorRestore))
 		return
 	}
 
