@@ -101,7 +101,6 @@ const (
 	pageEventRulesTitle      = "Event rules"
 	pageEventActionsTitle    = "Event actions"
 	pageEventsTitle          = "Logs"
-	pageConfigsTitle         = "Configurations"
 	defaultQueryLimit        = 1000
 	inversePatternType       = "inverse"
 )
@@ -339,7 +338,7 @@ type configsPage struct {
 	RedactedSecret    string
 	OAuth2TokenURL    string
 	OAuth2RedirectURL string
-	Error             string
+	Error             *util.I18nError
 }
 
 type messagePage struct {
@@ -515,7 +514,7 @@ func loadAdminTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateAdminDir, templateEvents),
 	}
 	configsPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateConfigs),
 	}
@@ -840,7 +839,7 @@ func (s *httpdServer) renderMaintenancePage(w http.ResponseWriter, r *http.Reque
 }
 
 func (s *httpdServer) renderConfigsPage(w http.ResponseWriter, r *http.Request, configs dataprovider.Configs,
-	error string, section int,
+	err error, section int,
 ) {
 	configs.SetNilsToEmpty()
 	if configs.SMTP.Port == 0 {
@@ -852,13 +851,13 @@ func (s *httpdServer) renderConfigsPage(w http.ResponseWriter, r *http.Request, 
 		configs.ACME.HTTP01Challenge.Port = 80
 	}
 	data := configsPage{
-		basePage:          s.getBasePageData(pageConfigsTitle, webConfigsPath, r),
+		basePage:          s.getBasePageData(util.I18nConfigsTitle, webConfigsPath, r),
 		Configs:           configs,
 		ConfigSection:     section,
 		RedactedSecret:    redactedSecret,
 		OAuth2TokenURL:    webOAuth2TokenPath,
 		OAuth2RedirectURL: webOAuth2RedirectPath,
-		Error:             error,
+		Error:             getI18nError(err),
 	}
 
 	renderAdminTemplate(w, templateConfigs, data)
@@ -2564,7 +2563,6 @@ func getSFTPConfigsFromPostFields(r *http.Request) *dataprovider.SFTPDConfigs {
 	return &dataprovider.SFTPDConfigs{
 		HostKeyAlgos:   r.Form["sftp_host_key_algos"],
 		PublicKeyAlgos: r.Form["sftp_pub_key_algos"],
-		Moduli:         getSliceFromDelimitedValues(r.Form.Get("sftp_moduli"), ","),
 		KexAlgorithms:  r.Form["sftp_kex_algos"],
 		Ciphers:        r.Form["sftp_ciphers"],
 		MACs:           r.Form["sftp_macs"],
@@ -4095,7 +4093,7 @@ func (s *httpdServer) handleWebConfigs(w http.ResponseWriter, r *http.Request) {
 		s.renderInternalServerErrorPage(w, r, err)
 		return
 	}
-	s.renderConfigsPage(w, r, configs, "", 0)
+	s.renderConfigsPage(w, r, configs, nil, 0)
 }
 
 func (s *httpdServer) handleWebConfigsPost(w http.ResponseWriter, r *http.Request) {
@@ -4131,7 +4129,8 @@ func (s *httpdServer) handleWebConfigsPost(w http.ResponseWriter, r *http.Reques
 		acmeConfigs := getACMEConfigsFromPostFields(r)
 		configs.ACME = acmeConfigs
 		if err := acme.GetCertificatesForConfig(acmeConfigs, configurationDir); err != nil {
-			s.renderConfigsPage(w, r, configs, err.Error(), configSection)
+			logger.Info(logSender, "", "unable to get ACME certificates: %v", err)
+			s.renderConfigsPage(w, r, configs, util.NewI18nError(err, util.I18nErrorACMEGeneric), configSection)
 			return
 		}
 	case "smtp_submit":
@@ -4146,7 +4145,7 @@ func (s *httpdServer) handleWebConfigsPost(w http.ResponseWriter, r *http.Reques
 
 	err = dataprovider.UpdateConfigs(&configs, claims.Username, ipAddr, claims.Role)
 	if err != nil {
-		s.renderConfigsPage(w, r, configs, err.Error(), configSection)
+		s.renderConfigsPage(w, r, configs, err, configSection)
 		return
 	}
 	if configSection == 3 {

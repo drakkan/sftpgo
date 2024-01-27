@@ -17,7 +17,6 @@ package dataprovider
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"golang.org/x/crypto/ssh"
 
@@ -48,7 +47,6 @@ var (
 type SFTPDConfigs struct {
 	HostKeyAlgos   []string `json:"host_key_algos,omitempty"`
 	PublicKeyAlgos []string `json:"public_key_algos,omitempty"`
-	Moduli         []string `json:"moduli,omitempty"`
 	KexAlgorithms  []string `json:"kex_algorithms,omitempty"`
 	Ciphers        []string `json:"ciphers,omitempty"`
 	MACs           []string `json:"macs,omitempty"`
@@ -59,9 +57,6 @@ func (c *SFTPDConfigs) isEmpty() bool {
 		return false
 	}
 	if len(c.PublicKeyAlgos) > 0 {
-		return false
-	}
-	if len(c.Moduli) > 0 {
 		return false
 	}
 	if len(c.KexAlgorithms) > 0 {
@@ -99,11 +94,6 @@ func (*SFTPDConfigs) GetSupportedCiphers() []string {
 // GetSupportedMACs returns the supported MACs algos
 func (*SFTPDConfigs) GetSupportedMACs() []string {
 	return supportedMACs
-}
-
-// GetModuliAsString returns moduli files as comma separated string
-func (c *SFTPDConfigs) GetModuliAsString() string {
-	return strings.Join(c.Moduli, ",")
 }
 
 func (c *SFTPDConfigs) validate() error {
@@ -152,8 +142,6 @@ func (c *SFTPDConfigs) getACopy() *SFTPDConfigs {
 	copy(hostKeys, c.HostKeyAlgos)
 	publicKeys := make([]string, len(c.PublicKeyAlgos))
 	copy(publicKeys, c.PublicKeyAlgos)
-	moduli := make([]string, len(c.Moduli))
-	copy(moduli, c.Moduli)
 	kexs := make([]string, len(c.KexAlgorithms))
 	copy(kexs, c.KexAlgorithms)
 	ciphers := make([]string, len(c.Ciphers))
@@ -164,7 +152,6 @@ func (c *SFTPDConfigs) getACopy() *SFTPDConfigs {
 	return &SFTPDConfigs{
 		HostKeyAlgos:   hostKeys,
 		PublicKeyAlgos: publicKeys,
-		Moduli:         moduli,
 		KexAlgorithms:  kexs,
 		Ciphers:        ciphers,
 		MACs:           macs,
@@ -204,13 +191,22 @@ func (c *SMTPOAuth2) validate() error {
 		return util.NewValidationError("smtp oauth2: unsupported provider")
 	}
 	if c.ClientID == "" {
-		return util.NewValidationError("smtp oauth2: client id is required")
+		return util.NewI18nError(
+			util.NewValidationError("smtp oauth2: client id is required"),
+			util.I18nErrorSMTPClientIDRequired,
+		)
 	}
 	if c.ClientSecret == nil {
-		return util.NewValidationError("smtp oauth2: client secret is required")
+		return util.NewI18nError(
+			util.NewValidationError("smtp oauth2: client secret is required"),
+			util.I18nErrorSMTPClientSecretRequired,
+		)
 	}
 	if c.RefreshToken == nil {
-		return util.NewValidationError("smtp oauth2: refresh token is required")
+		return util.NewI18nError(
+			util.NewValidationError("smtp oauth2: refresh token is required"),
+			util.I18nErrorSMTPRefreshTokenRequired,
+		)
 	}
 	if err := validateSMTPSecret(c.ClientSecret, "oauth2 client secret"); err != nil {
 		return err
@@ -267,7 +263,10 @@ func (c *SMTPConfigs) validate() error {
 		}
 	}
 	if c.User == "" && c.From == "" {
-		return util.NewValidationError("smtp: from address and user cannot both be empty")
+		return util.NewI18nError(
+			util.NewValidationError("smtp: from address and user cannot both be empty"),
+			util.I18nErrorSMTPRequiredFields,
+		)
 	}
 	if c.AuthType < 0 || c.AuthType > 3 {
 		return util.NewValidationError(fmt.Sprintf("smtp: invalid auth type %d", c.AuthType))
@@ -354,7 +353,10 @@ func (c *ACMEConfigs) validate() error {
 		return nil
 	}
 	if c.Email == "" && !util.IsEmailValid(c.Email) {
-		return util.NewValidationError(fmt.Sprintf("acme: invalid email %q", c.Email))
+		return util.NewI18nError(
+			util.NewValidationError(fmt.Sprintf("acme: invalid email %q", c.Email)),
+			util.I18nErrorInvalidEmail,
+		)
 	}
 	if c.HTTP01Challenge.Port <= 0 || c.HTTP01Challenge.Port > 65535 {
 		return util.NewValidationError(fmt.Sprintf("acme: invalid HTTP-01 challenge port %d", c.HTTP01Challenge.Port))

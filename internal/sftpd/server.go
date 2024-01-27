@@ -340,7 +340,6 @@ func (c *Configuration) loadFromProvider() error {
 		}
 		c.PublicKeyAlgorithms = append(c.PublicKeyAlgorithms, configs.SFTPD.PublicKeyAlgos...)
 	}
-	c.Moduli = append(c.Moduli, configs.SFTPD.Moduli...)
 	if len(configs.SFTPD.KexAlgorithms) > 0 {
 		if len(c.KexAlgorithms) == 0 {
 			c.KexAlgorithms = preferredKexAlgos

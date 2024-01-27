@@ -232,6 +232,11 @@ const (
 	I18nFTPTLSMixed                    = "status.tls_mixed"
 	I18nErrorBackupFile                = "maintenance.backup_invalid_file"
 	I18nErrorRestore                   = "maintenance.restore_error"
+	I18nErrorACMEGeneric               = "acme.generic_error"
+	I18nErrorSMTPRequiredFields        = "smtp.err_required_fields"
+	I18nErrorSMTPClientIDRequired      = "smtp.client_id_required"
+	I18nErrorSMTPClientSecretRequired  = "smtp.client_secret_required"
+	I18nErrorSMTPRefreshTokenRequired  = "smtp.refresh_token_required"
 )
 
 // NewI18nError returns a I18nError wrappring the provided error

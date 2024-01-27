@@ -7925,7 +7925,6 @@ func TestLoaddata(t *testing.T) {
 	assert.Equal(t, configs.SMTP, configsGet.SMTP)
 	assert.Equal(t, []string{ssh.KeyAlgoRSA}, configsGet.SFTPD.HostKeyAlgos)
 	assert.Equal(t, []string{ssh.KeyAlgoDSA}, configsGet.SFTPD.PublicKeyAlgos)
-	assert.Len(t, configsGet.SFTPD.Moduli, 0)
 	assert.Len(t, configsGet.SFTPD.KexAlgorithms, 0)
 	assert.Len(t, configsGet.SFTPD.Ciphers, 0)
 	assert.Len(t, configsGet.SFTPD.MACs, 0)
@@ -8087,7 +8086,7 @@ func TestLoaddataMode(t *testing.T) {
 	folderName := filepath.Base(mappedPath)
 	configs := dataprovider.Configs{
 		SFTPD: &dataprovider.SFTPDConfigs{
-			Moduli: []string{"/moduli"},
+			PublicKeyAlgos: []string{ssh.KeyAlgoRSA},
 		},
 	}
 	role := getTestRole()
@@ -8200,7 +8199,7 @@ func TestLoaddataMode(t *testing.T) {
 	assert.NoError(t, err)
 	configs, err = dataprovider.GetConfigs()
 	assert.NoError(t, err)
-	assert.Len(t, configs.SFTPD.Moduli, 1)
+	assert.Len(t, configs.SFTPD.PublicKeyAlgos, 1)
 	folder, _, err := httpdtest.GetFolderByName(folderName, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Equal(t, mappedPath+"1", folder.MappedPath)
@@ -8272,7 +8271,7 @@ func TestLoaddataMode(t *testing.T) {
 	entry, _, err = httpdtest.UpdateIPListEntry(entry, http.StatusOK)
 	assert.NoError(t, err)
 
-	configs.SFTPD.Moduli = append(configs.SFTPD.Moduli, "/moduli_new")
+	configs.SFTPD.PublicKeyAlgos = append(configs.SFTPD.PublicKeyAlgos, ssh.KeyAlgoDSA)
 	err = dataprovider.UpdateConfigs(&configs, "", "", "")
 	assert.NoError(t, err)
 	backupData.Configs = &configs
@@ -8286,7 +8285,7 @@ func TestLoaddataMode(t *testing.T) {
 	assert.NoError(t, err)
 	configs, err = dataprovider.GetConfigs()
 	assert.NoError(t, err)
-	assert.Len(t, configs.SFTPD.Moduli, 2)
+	assert.Len(t, configs.SFTPD.PublicKeyAlgos, 2)
 	group, _, err = httpdtest.GetGroupByName(group.Name, http.StatusOK)
 	assert.NoError(t, err)
 	assert.NotEqual(t, oldGroupDesc, group.Description)
@@ -8346,7 +8345,7 @@ func TestLoaddataMode(t *testing.T) {
 	assert.Equal(t, oldUploadBandwidth, user.UploadBandwidth)
 	configs, err = dataprovider.GetConfigs()
 	assert.NoError(t, err)
-	assert.Len(t, configs.SFTPD.Moduli, 1)
+	assert.Len(t, configs.SFTPD.PublicKeyAlgos, 1)
 	// the group is referenced
 	_, err = httpdtest.RemoveGroup(group, http.StatusBadRequest)
 	assert.NoError(t, err)
@@ -12772,7 +12771,6 @@ func TestWebConfigsMock(t *testing.T) {
 	form.Set("sftp_host_key_algos", ssh.KeyAlgoRSA)
 	form.Add("sftp_host_key_algos", ssh.CertAlgoDSAv01)
 	form.Set("sftp_pub_key_algos", ssh.KeyAlgoDSA)
-	form.Set("sftp_moduli", "path 1 , path 2")
 	form.Set("form_action", "sftp_submit")
 	req, err = http.NewRequest(http.MethodPost, webConfigsPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
@@ -12800,9 +12798,6 @@ func TestWebConfigsMock(t *testing.T) {
 	assert.Contains(t, configs.SFTPD.HostKeyAlgos, ssh.KeyAlgoRSA)
 	assert.Len(t, configs.SFTPD.PublicKeyAlgos, 1)
 	assert.Contains(t, configs.SFTPD.PublicKeyAlgos, ssh.KeyAlgoDSA)
-	assert.Len(t, configs.SFTPD.Moduli, 2)
-	assert.Contains(t, configs.SFTPD.Moduli, "path 1")
-	assert.Contains(t, configs.SFTPD.Moduli, "path 2")
 	assert.Len(t, configs.SFTPD.KexAlgorithms, 1)
 	assert.Contains(t, configs.SFTPD.KexAlgorithms, "diffie-hellman-group16-sha512")
 	// invalid form action
@@ -12850,7 +12845,6 @@ func TestWebConfigsMock(t *testing.T) {
 	assert.Contains(t, configs.SFTPD.HostKeyAlgos, ssh.KeyAlgoRSA)
 	assert.Len(t, configs.SFTPD.PublicKeyAlgos, 1)
 	assert.Contains(t, configs.SFTPD.PublicKeyAlgos, ssh.KeyAlgoDSA)
-	assert.Len(t, configs.SFTPD.Moduli, 2)
 	assert.Equal(t, "mail.example.net", configs.SMTP.Host)
 	assert.Equal(t, 587, configs.SMTP.Port)
 	assert.Equal(t, "Example <info@example.net>", configs.SMTP.From)
@@ -12922,7 +12916,6 @@ func TestWebConfigsMock(t *testing.T) {
 	assert.Contains(t, configs.SFTPD.HostKeyAlgos, ssh.KeyAlgoRSA)
 	assert.Len(t, configs.SFTPD.PublicKeyAlgos, 1)
 	assert.Contains(t, configs.SFTPD.PublicKeyAlgos, ssh.KeyAlgoDSA)
-	assert.Len(t, configs.SFTPD.Moduli, 2)
 	assert.Equal(t, 80, configs.ACME.HTTP01Challenge.Port)
 	assert.Equal(t, 7, configs.ACME.Protocols)
 	assert.Empty(t, configs.ACME.Domain)

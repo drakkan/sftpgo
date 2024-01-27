@@ -38,7 +38,7 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.7.5
 	github.com/jackc/pgx/v5 v5.5.2
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
-	github.com/klauspost/compress v1.17.4
+	github.com/klauspost/compress v1.17.5
 	github.com/lestrrat-go/jwx/v2 v2.0.19
 	github.com/lithammer/shortuuid/v3 v3.0.7
 	github.com/mattn/go-sqlite3 v1.14.20
@@ -74,7 +74,7 @@ require (
 	golang.org/x/sys v0.16.0
 	golang.org/x/term v0.16.0
 	golang.org/x/time v0.5.0
-	google.golang.org/api v0.158.0
+	google.golang.org/api v0.159.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 

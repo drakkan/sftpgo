@@ -1834,7 +1834,6 @@ func TestConfigsFromProvider(t *testing.T) {
 	configs := dataprovider.Configs{
 		SFTPD: &dataprovider.SFTPDConfigs{
 			HostKeyAlgos:   []string{ssh.KeyAlgoRSA},
-			Moduli:         []string{"/etc/ssh/moduli"},
 			KexAlgorithms:  []string{kexDHGroupExchangeSHA256},
 			Ciphers:        []string{"aes128-cbc", "aes192-cbc", "aes256-cbc"},
 			MACs:           []string{"hmac-sha2-512-etm@openssh.com"},
@@ -1854,7 +1853,6 @@ func TestConfigsFromProvider(t *testing.T) {
 	assert.Equal(t, expectedKEXs, c.KexAlgorithms)
 	assert.Equal(t, expectedCiphers, c.Ciphers)
 	assert.Equal(t, expectedMACs, c.MACs)
-	assert.Equal(t, configs.SFTPD.Moduli, c.Moduli)
 	assert.Equal(t, expectedPublicKeyAlgos, c.PublicKeyAlgorithms)
 
 	err = dataprovider.UpdateConfigs(nil, "", "", "")

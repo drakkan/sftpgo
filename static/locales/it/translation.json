@@ -54,7 +54,7 @@
         "update_folder": "Aggiorna cartella virtuale",
         "template_folder": "Modello cartella virtuale",
         "oauth2_error": "Impossibile completare il flusso OAuth2",
-        "oauth2_success": "OAuth2 completato",
+        "oauth2_success": "Flusso OAuth2 completato",
         "add_role": "Aggiungi ruolo",
         "update_role": "Aggiorna ruolo",
         "add_admin": "Aggiungi amministratore",
@@ -237,7 +237,11 @@
         "issuer": "Emittente",
         "data_provider": "Database",
         "driver": "Driver",
-        "mode": "Modalità"
+        "mode": "Modalità",
+        "port": "Porta",
+        "domain": "Dominio",
+        "test": "Test",
+        "get": "Ottieni"
     },
     "fs": {
         "view_file": "Visualizza file \"{{- path}}\"",
@@ -789,5 +793,46 @@
         "quota_mode0": "Non aggiornare quota",
         "quota_mode1": "Aggiorna quota",
         "quota_mode2": "Aggiorna quota per gli utenti con limiti di quota"
+    },
+    "acme": {
+        "title": "ACME",
+        "generic_error": "Impossibile ottenere certificati TLS, controlla i log del server per maggiori dettagli",
+        "help": "Da questa sezione puoi richiedere certificati TLS gratuiti per i tuoi servizi SFTPGo utilizzando il protocollo ACME e la tipologia di challenge HTTP-01. Devi creare una voce DNS sotto un dominio personalizzato di tua proprietà che si risolve nel tuo indirizzo IP pubblico SFTPGo e la porta 80 deve essere raggiungibile pubblicamente. Qui è possibile impostare le opzioni di configurazione per i casi d'uso più comuni e le configurazioni a nodo singolo, per le configurazioni avanzate fare riferimento alla documentazione SFTPGo. Per applicare le modifiche è necessario il riavvio del servizio",
+        "domain_help": "È possibile specificare più domini separati da virgole o spazi. Saranno inclusi nello stesso certificato",
+        "email_help": "Email utilizzata per la registrazione e il contatto di recupero",
+        "port_help": "Se diverso da 80 è necessario configurare un proxy inverso",
+        "protocols_help": "Utilizzare i certificati ottenuti per i protocolli specificati"
+    },
+    "smtp": {
+        "title": "SMTP",
+        "err_required_fields": "L'indirizzo del mittente e lo username non possono essere entrambi vuoti",
+        "client_id_required": "Il Client ID è obbligatorio",
+        "client_secret_required": "Il Client Secret è obbligatorio",
+        "refresh_token_required": "Il Refresh Token è obbligatorio",
+        "help": "Imposta la configurazione SMTP sostituendo quella definita utilizzando env vars o il file di configurazione, se presente",
+        "host": "Nome server",
+        "host_help": "Se vuoto la configurazione è disabilitata",
+        "auth": "Autenticazione",
+        "encryption": "Crittografia",
+        "sender": "Mittente",
+        "debug": "Log a livello debug",
+        "domain_help": "Dominio HELO. Lascia vuoto per utilizzare il nome host del server",
+        "test_recipient": "Indirizzo a cui inviare e-mail di test",
+        "oauth2_provider": "OAuth2 provider",
+        "oauth2_provider_help": "URI a cui reindirizzare dopo l'autenticazione dell'utente",
+        "oauth2_tenant": "OAuth2 Tenant",
+        "oauth2_tenant_help": "Azure tenant. Valori tipici sono \"common\", \"organizations\", \"consumers\" or l'ID del tenant",
+        "oauth2_client_id": "OAuth2 Client ID",
+        "oauth2_client_secret": "OAuth2 Client Secret",
+        "oauth2_token": "OAuth2 Token",
+        "recipient_required": "Specifica un destinatario per inviare un'e-mail di prova",
+        "test_error": "Impossibile inviare e-mail di prova, controlla i log del server per maggiori dettagli",
+        "test_ok": "Non si sono verificati errori durante l'invio dell'e-mail di prova. Controlla la tua casella di posta per essere sicuro",
+        "oauth2_flow_error": "Impossibile ottenere l'URI per avviare il flusso OAuth2",
+        "oauth2_question": "Vuoi avviare il flusso OAuth2 per ottenere un token?"
+    },
+    "sftp": {
+        "help": "Da questa sezione è possibile abilitare gli algoritmi disabilitati di default. Non è necessario impostare valori già definiti utilizzando env vars o il file di configurazione. Per applicare le modifiche è necessario il riavvio del servizio",
+        "host_key_algos": "Algoritmi per chiavi host"
     }
 }

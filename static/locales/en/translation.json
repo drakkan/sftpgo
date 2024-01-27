@@ -237,7 +237,11 @@
         "issuer": "Issuer",
         "data_provider": "Database",
         "driver": "Driver",
-        "mode": "Mode"
+        "mode": "Mode",
+        "port": "Port",
+        "domain": "Domain",
+        "test": "Test",
+        "get": "Get"
     },
     "fs": {
         "view_file": "View file \"{{- path}}\"",
@@ -789,5 +793,46 @@
         "quota_mode0": "No quota update",
         "quota_mode1": "Update quota",
         "quota_mode2": "Update quota for users with quota limits"
+    },
+    "acme": {
+        "title": "ACME",
+        "generic_error": "Unable to obtain TLS certificates, check the server logs for more details",
+        "help": "From this section you can request free TLS certificates for your SFTPGo services using the ACME protocol and the HTTP-01 challenge type. You must create a DNS entry under a custom domain that you own which resolves to your SFTPGo public IP address and the port 80 must be publicly reachable. You can set the configuration options for the most common use cases and single node setups here, for advanced configurations refer to the SFTPGo docs. A service restart is required to apply changes",
+        "domain_help": "Multiple domains can be specified comma or space separated. They will be included in the same certificate",
+        "email_help": "Email used for registration and recovery contact",
+        "port_help": "If different from 80 you have to configure a reverse proxy",
+        "protocols_help": "Use the obtained certificates for the specified protocols"
+    },
+    "smtp": {
+        "title": "SMTP",
+        "err_required_fields": "From address and Username cannot be both empty",
+        "client_id_required": "Client ID is required",
+        "client_secret_required": "Client Secret is required",
+        "refresh_token_required": "Refresh Token is required",
+        "help": "Set the SMTP configuration replacing the one defined using env vars or config file if any",
+        "host": "Server name",
+        "host_help": "If blank the configuration is disabled",
+        "auth": "Authentication",
+        "encryption": "Encryption",
+        "sender": "Sender",
+        "debug": "Debug logs",
+        "domain_help": "HELO domain. Leave blank to use the server hostname",
+        "test_recipient": "Address to send test emails to",
+        "oauth2_provider": "OAuth2 provider",
+        "oauth2_provider_help": "URI to redirect to after user authentication",
+        "oauth2_tenant": "OAuth2 Tenant",
+        "oauth2_tenant_help": "Azure tenant. Typical values are \"common\", \"organizations\", \"consumers\" or the tenant identifier",
+        "oauth2_client_id": "OAuth2 Client ID",
+        "oauth2_client_secret": "OAuth2 Client Secret",
+        "oauth2_token": "OAuth2 Token",
+        "recipient_required": "Specify a recipient to send a test email",
+        "test_error": "Unable to send test email, check server logs for more details",
+        "test_ok": "No errors were reported while sending the test email. Please check your inbox to make sure",
+        "oauth2_flow_error": "Unable to get the URI to start OAuth2 flow",
+        "oauth2_question": "Do you want to start the OAuth2 flow to get a token?"
+    },
+    "sftp": {
+        "help": "From this section you can enable algorithms disabled by default. You don't need to set values already defined using env vars or config file. A service restart is required to apply changes",
+        "host_key_algos": "Host Key Algorithms"
     }
 }

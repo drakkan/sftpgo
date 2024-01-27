@@ -26,7 +26,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             <div class="form-group row">
                 <label for="idEmail" data-i18n="general.email" class="col-md-3 col-form-label">Email</label>
                 <div class="col-md-9">
-                    <input type="text" id="idEmail" name="email" placeholder="" spellcheck="false" value="{{.Email}}" maxlength="255"
+                    <input type="email" id="idEmail" name="email" placeholder="" spellcheck="false" value="{{.Email}}" maxlength="255"
                         autocomplete="off" {{if not .LoggedUser.CanChangeInfo}}class="form-control-plaintext readonly-input" readonly{{else}}class="form-control"{{end}}>
                 </div>
             </div>

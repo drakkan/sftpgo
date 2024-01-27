@@ -241,7 +241,10 @@ func (c *Configuration) Initialize(configDir string) error {
 		return nil
 	}
 	if c.Email == "" || !util.IsEmailValid(c.Email) {
-		return fmt.Errorf("invalid email address %q", c.Email)
+		return util.NewI18nError(
+			fmt.Errorf("invalid email address %q", c.Email),
+			util.I18nErrorInvalidEmail,
+		)
 	}
 	if c.RenewDays < 1 {
 		return fmt.Errorf("invalid number of days remaining before renewal: %d", c.RenewDays)
