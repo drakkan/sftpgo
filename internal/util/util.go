@@ -582,13 +582,19 @@ func HTTPListenAndServe(srv *http.Server, address string, port int, isTLS bool, 
 		if !IsFileInputValid(address) {
 			return fmt.Errorf("invalid socket address %q", address)
 		}
-		err = createDirPathIfMissing(address, os.ModePerm)
+		err = createDirPathIfMissing(address, 0770)
 		if err != nil {
 			logger.ErrorToConsole("error creating Unix-domain socket parent dir: %v", err)
 			logger.Error(logSender, "", "error creating Unix-domain socket parent dir: %v", err)
 		}
 		os.Remove(address)
 		listener, err = newListener("unix", address, srv.ReadTimeout, srv.WriteTimeout)
+		if err == nil {
+			// should a chmod err be fatal?
+			if errChmod := os.Chmod(address, 0770); errChmod != nil {
+				logger.Warn(logSender, "", "unable to set the Unix-domain socket group writable: %v", errChmod)
+			}
+		}
 	} else {
 		CheckTCP4Port(port)
 		listener, err = newListener("tcp", fmt.Sprintf("%s:%d", address, port), srv.ReadTimeout, srv.WriteTimeout)

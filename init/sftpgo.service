@@ -7,6 +7,7 @@ User=sftpgo
 Group=sftpgo
 Type=simple
 WorkingDirectory=/etc/sftpgo
+RuntimeDirectory=sftpgo
 Environment=SFTPGO_CONFIG_DIR=/etc/sftpgo/
 Environment=SFTPGO_LOG_FILE_PATH=
 EnvironmentFile=-/etc/sftpgo/sftpgo.env
