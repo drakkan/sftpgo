@@ -44,36 +44,32 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         </div>
         <div class="card-body">
         {{- if .Error}}
-            <div class="notice d-flex bg-light-warning rounded border-warning border border-dashed p-6">
-                <i class="ki-duotone ki-information-5 fs-2tx text-warning me-4">
+            <div class="notice d-flex align-items-center bg-light-warning rounded border-warning border border-dashed p-6">
+                <i class="ki-duotone ki-information-5 fs-3x text-warning me-4">
                     <span class="path1"></span>
                     <span class="path2"></span>
                     <span class="path3"></span>
                 </i>
-                <div class="d-flex flex-stack flex-grow-1 ">
-                    <div class=" fw-semibold">
-                        <div class="fs-4 text-gray-800">
-                            <span data-i18n="{{.Error.Message}}" {{if .Error.HasArgs}}data-i18n-options="{{.Error.Args}}"{{end}}></span>
-                        </div>
+                <div class="d-flex flex-stack flex-grow-1">
+                    <div class="fs-4 fw-semibold text-gray-800 text-break text-wrap">
+                        <span data-i18n="{{.Error.Message}}" {{if .Error.HasArgs}}data-i18n-options="{{.Error.Args}}"{{end}}></span>
                     </div>
                 </div>
             </div>
         {{- end}}
         {{- if .Success}}
-            <div class="notice d-flex bg-light-primary rounded border-primary border border-dashed p-6">
-                <i class="ki-duotone ki-information-2 fs-2tx text-primary me-4">
+            <div class="notice d-flex align-items-center bg-light-primary rounded border-primary border border-dashed p-6">
+                <i class="ki-duotone ki-information-2 fs-3x text-primary me-4">
                     <span class="path1"></span>
                     <span class="path2"></span>
                     <span class="path3"></span>
                 </i>
-                <div class="d-flex flex-stack flex-grow-1 ">
-                    <div class=" fw-semibold">
-                        <div class="fs-4 text-gray-800">
-                            <span data-i18n="{{.Success}}"></span>
-                            {{- if .Text}}
-                            <span> {{.Text}}</span>
-                            {{- end}}
-                        </div>
+                <div class="d-flex flex-stack flex-grow-1">
+                    <div class="fs-4 fw-semibold text-gray-800 text-break text-wrap">
+                        <span data-i18n="{{.Success}}"></span>
+                        {{- if .Text}}
+                        <span> {{.Text}}</span>
+                        {{- end}}
                     </div>
                 </div>
             </div>
