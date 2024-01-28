@@ -158,7 +158,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     const paginationData = new Map();
 
     function resetPagination() {
-        $('#pagePrev').addClass("disabled");
+        $('#pagePrevious').addClass("disabled");
         $('#pageNext').addClass("disabled");
         $('#paginationContainer').addClass("d-none");
         paginationData.delete("firstId");
@@ -190,15 +190,15 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             data.pop();
             length--;
             if (isPrev || isNext){
-                $('#pagePrev').removeClass("disabled");
+                $('#pagePrevious').removeClass("disabled");
             }
             $('#pageNext').removeClass("disabled");
         } else {
             if (isPrev){
-                $('#pagePrev').addClass("disabled");
+                $('#pagePrevious').addClass("disabled");
                 $('#pageNext').removeClass("disabled");
             } else if (isNext){
-                $('#pagePrev').removeClass("disabled");
+                $('#pagePrevious').removeClass("disabled");
                 $('#pageNext').addClass("disabled");
             } else {
                 $('#pageNext').addClass("disabled");
@@ -221,12 +221,13 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
     function humanizeMilliseconds(val) {
         let units = ["d", "h", "m", "s", "ms"];
-        if (val > 60000){
+        if (val > 1000){
             units = ["d", "h", "m", "s"]
         }
         return humanizeDuration(val, {
             language: i18next.resolvedLanguage,
             fallbacks: ["en"],
+            maxDecimalPoints: 1,
             units: units
         })
     }
