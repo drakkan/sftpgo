@@ -119,6 +119,7 @@
         "confirm_logout": "Are you sure you want to sign out?",
         "wait": "Please wait...",
         "ok": "OK",
+        "failed": "Failed",
         "cancel": "No, back",
         "submit": "Save",
         "back": "Back",
@@ -241,7 +242,8 @@
         "port": "Port",
         "domain": "Domain",
         "test": "Test",
-        "get": "Get"
+        "get": "Get",
+        "export": "Export"
     },
     "fs": {
         "view_file": "View file \"{{- path}}\"",
@@ -834,5 +836,33 @@
     "sftp": {
         "help": "From this section you can enable algorithms disabled by default. You don't need to set values already defined using env vars or config file. A service restart is required to apply changes",
         "host_key_algos": "Host Key Algorithms"
+    },
+    "events": {
+        "search": "Search logs",
+        "fs_events": "Filesystem events",
+        "provider_events": "Provider events",
+        "other_events": "Other events",
+        "quota_exceeded": "Quota exceeded",
+        "date_range": "Date range",
+        "upload": "Upload",
+        "download": "Download",
+        "mkdir": "Create dir",
+        "rmdir": "Remove dir",
+        "rename": "Rename",
+        "delete": "Removal",
+        "first_upload": "First upload",
+        "first_download": "First download",
+        "ssh_cmd": "SSH command",
+        "add": "Addition",
+        "update": "Update",
+        "login_failed": "Login failed",
+        "login_missing_user": "Login with non-existent user",
+        "no_login_tried": "No login tried",
+        "algo_negotiation_failed": "Algorithm negotiation failed",
+        "datetime": "Date and time",
+        "action": "Action",
+        "path": "Path",
+        "object": "Object",
+        "event": "Event"
     }
 }

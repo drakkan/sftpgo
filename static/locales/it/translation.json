@@ -119,6 +119,7 @@
         "confirm_logout": "Sei sicuro di volerti disconnettere?",
         "wait": "Attendere prego...",
         "ok": "OK",
+        "failed": "Fallito",
         "cancel": "No, indietro",
         "submit": "Salva",
         "back": "Indietro",
@@ -241,7 +242,8 @@
         "port": "Porta",
         "domain": "Dominio",
         "test": "Test",
-        "get": "Ottieni"
+        "get": "Ottieni",
+        "export": "Esporta"
     },
     "fs": {
         "view_file": "Visualizza file \"{{- path}}\"",
@@ -834,5 +836,33 @@
     "sftp": {
         "help": "Da questa sezione è possibile abilitare gli algoritmi disabilitati di default. Non è necessario impostare valori già definiti utilizzando env vars o il file di configurazione. Per applicare le modifiche è necessario il riavvio del servizio",
         "host_key_algos": "Algoritmi per chiavi host"
+    },
+    "events": {
+        "search": "Cerca eventi",
+        "fs_events": "Eventi filesystem",
+        "provider_events": "Eventi provider",
+        "other_events": "Altri eventi",
+        "quota_exceeded": "Quota superata",
+        "date_range": "Intervallo di date",
+        "upload": "Caricamento",
+        "download": "Download",
+        "mkdir": "Creazione cartella",
+        "rmdir": "Rimozione cartella",
+        "rename": "Rinomina",
+        "delete": "Rimozione",
+        "first_upload": "Primo caricamento",
+        "first_download": "Primo download",
+        "ssh_cmd": "Comando SSH",
+        "add": "Aggiunta",
+        "update": "Aggiornamento",
+        "login_failed": "Accesso fallito",
+        "login_missing_user": "Accesso con utente inesistente",
+        "no_login_tried": "Nessun accesso tentato",
+        "algo_negotiation_failed": "Negoziazione algoritmo fallita",
+        "datetime": "Data e ora",
+        "action": "Azione",
+        "path": "Percorso",
+        "object": "Oggetto",
+        "event": "Evento"
     }
 }

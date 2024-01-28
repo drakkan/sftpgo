@@ -100,7 +100,6 @@ const (
 	templateSetup            = "adminsetup.html"
 	pageEventRulesTitle      = "Event rules"
 	pageEventActionsTitle    = "Event actions"
-	pageEventsTitle          = "Logs"
 	defaultQueryLimit        = 1000
 	inversePatternType       = "inverse"
 )
@@ -509,7 +508,7 @@ func loadAdminTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateAdminDir, templateRole),
 	}
 	eventsPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateEvents),
 	}
@@ -3967,7 +3966,7 @@ func (s *httpdServer) handleWebGetEvents(w http.ResponseWriter, r *http.Request)
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 
 	data := eventsPage{
-		basePage:                s.getBasePageData(pageEventsTitle, webEventsPath, r),
+		basePage:                s.getBasePageData(util.I18nEventsTitle, webEventsPath, r),
 		FsEventsSearchURL:       webEventsFsSearchPath,
 		ProviderEventsSearchURL: webEventsProviderSearchPath,
 		LogEventsSearchURL:      webEventsLogSearchPath,

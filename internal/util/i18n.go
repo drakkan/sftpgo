@@ -67,6 +67,7 @@ const (
 	I18nAddIPListTitle                 = "title.add_ip_list"
 	I18nUpdateIPListTitle              = "title.update_ip_list"
 	I18nDefenderTitle                  = "title.defender"
+	I18nEventsTitle                    = "title.logs"
 	I18nStatusTitle                    = "status.desc"
 	I18nErrorSetupInstallCode          = "setup.install_code_mismatch"
 	I18nInvalidAuth                    = "general.invalid_auth_request"
