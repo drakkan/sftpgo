@@ -726,6 +726,16 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 </div>
 {{- end}}
 
+{{- define "infomsg"}}
+<div class="notice d-flex bg-light-primary rounded border-primary border border-dashed p-4">
+    <div class="d-flex flex-stack flex-grow-1">
+        <div class="fs-5 fw-semibold text-break text-wrap text-gray-800">
+            <span data-i18n="{{.}}"></span>
+        </div>
+    </div>
+</div>
+{{- end}}
+
 {{- define "base"}}
 <!DOCTYPE html>
 <html lang="en">

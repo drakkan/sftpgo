@@ -224,7 +224,7 @@ const (
 	I18nErrorAdminSelfPerms            = "admin.self_permissions"
 	I18nErrorAdminSelfDisable          = "admin.self_disable"
 	I18nErrorAdminSelfRole             = "admin.self_role"
-	I18nErrorIpInvalid                 = "ip_list.ip_invalid"
+	I18nErrorIPInvalid                 = "ip_list.ip_invalid"
 	I18nErrorNetInvalid                = "ip_list.net_invalid"
 	I18nFTPTLSDisabled                 = "status.tls_disabled"
 	I18nFTPTLSExplicit                 = "status.tls_explicit"

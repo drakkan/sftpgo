@@ -214,7 +214,7 @@ func (e *IPListEntry) validate() error {
 		// parse as IP
 		parsed, err := netip.ParseAddr(e.IPOrNet)
 		if err != nil {
-			return util.NewI18nError(util.NewValidationError(fmt.Sprintf("invalid IP %q", e.IPOrNet)), util.I18nErrorIpInvalid)
+			return util.NewI18nError(util.NewValidationError(fmt.Sprintf("invalid IP %q", e.IPOrNet)), util.I18nErrorIPInvalid)
 		}
 		if parsed.Is4() {
 			e.IPOrNet += "/32"

@@ -412,7 +412,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         </div>
 
         <div class="form-group row mt-10 fsconfig fsconfig-sftpfs">
-            <label for="idSFTPPrefix" data-i18n="storage.sftp_home_dir" class="col-md-3 col-form-label">Roor directory</label>
+            <label for="idSFTPPrefix" data-i18n="storage.sftp_home_dir" class="col-md-3 col-form-label">Root directory</label>
             <div class="col-md-9">
                 <input id="idSFTPPrefix" type="text" class="form-control" name="sftp_prefix" value="{{.SFTPConfig.Prefix}}" aria-describedby="idSFTPPrefixHelp"/>
                 <div id="idSFTPPrefixHelp" class="form-text" data-i18n="storage.sftp_home_help"></div>
@@ -517,7 +517,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     </div>
     <div class="card-body">
         <div id="directory_patterns">
-            <p class="fs-5 fw-semibold mb-4" data-i18n="filters.directory_patterns_help"></p>
+            {{template "infomsg" "filters.directory_patterns_help"}}
             <div class="form-group">
                 <div data-repeater-list="directory_patterns">
                     {{- range $idx, $pattern := .GetFlatFilePatterns -}}

@@ -47,9 +47,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </div>
                 <div class="card-body">
                     <div id="virtual_folders">
-                        <p class="fs-5 fw-semibold mb-4" data-i18n="user.virtual_folders_help">
-                            Quota size/files -1 means included within user quota, 0 unlimited. Don't set -1 for shared folders. You can use MB/GB/TB suffix. Without suffix we assume bytes
-                        </p>
+                        {{template "infomsg" "user.virtual_folders_help"}}
                         <div class="form-group">
                             <div data-repeater-list="virtual_folders">
                                 {{- range $idx, $val := .Group.VirtualFolders}}
@@ -158,7 +156,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 </div>
                                 <div class="card-body">
                                     <div id="directory_permissions">
-                                        <p class="fs-5 fw-semibold mb-4" data-i18n="filters.directory_permissions_help"></p>
+                                        {{template "infomsg" "filters.directory_permissions_help"}}
                                         <div class="form-group">
                                             <div data-repeater-list="directory_permissions">
                                                 {{- range $idx, $dirPerms := .Group.GetPermissions -}}

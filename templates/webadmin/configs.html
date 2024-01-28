@@ -31,7 +31,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </h2>
                 <div id="accordion_sftp_body" class="accordion-collapse collapse {{if eq .ConfigSection 1}}show{{end}}" aria-labelledby="accordion_header_sftp" data-bs-parent="#accordion_configs">
                     <div class="accordion-body">
-                        <p data-i18n="sftp.help" class="fs-5 fw-semibold mb-4"></p>
+                        {{template "infomsg" "sftp.help"}}
 
                         <form id="configs_sftp_form" action="{{.CurrentURL}}" method="POST" autocomplete="off">
                             <div class="form-group row mt-10">
@@ -126,7 +126,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </h2>
                 <div id="accordion_acme_body" class="accordion-collapse collapse {{if eq .ConfigSection 2}}show{{end}}" aria-labelledby="accordion_header_acme" data-bs-parent="#accordion_configs">
                     <div class="accordion-body">
-                        <p data-i18n="acme.help" class="fs-5 fw-semibold mb-4"></p>
+                        {{template "infomsg" "acme.help"}}
 
                         <form id="configs_acme_form" action="{{.CurrentURL}}" method="POST" autocomplete="off">
 
@@ -195,7 +195,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </h2>
                 <div id="accordion_smtp_body" class="accordion-collapse collapse {{if eq .ConfigSection 3}}show{{end}}" aria-labelledby="accordion_header_smtp" data-bs-parent="#accordion_configs">
                     <div class="accordion-body">
-                        <p data-i18n="smtp.help" class="fs-5 fw-semibold mb-4"></p>
+                        {{template "infomsg" "smtp.help"}}
 
                         <form id="configs_smtp_form" action="{{.CurrentURL}}" method="POST" autocomplete="off">
 

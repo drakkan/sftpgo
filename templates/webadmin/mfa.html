@@ -116,10 +116,14 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         </h2>
         <div id="accordion_rec_codes_body" class="accordion-collapse collapse" aria-labelledby="accordion_rec_codes" data-bs-parent="#id_accordion">
             <div class="accordion-body">
-                <div class="fs-5 text-gray-800">
-                    <p data-i18n="2fa.recovery_codes_msg1">Recovery codes are a set of one time use codes that can be used in place of the authentication code to login to the web UI. You can use them if you lose access to your phone to login to your account and disable or regenerate two-factor configuration.</p>
-                    <p data-i18n="2fa.recovery_codes_msg2">To keep your account secure, don't share or distribute your recovery codes. We recommend saving them with a secure password manager.</p>
-                    <p data-i18n="2fa.recovery_codes_msg3" class="fs-4 fw-bold">If you generate new recovery codes, you automatically invalidate old ones.</p>
+                <div class="notice d-flex bg-light-primary rounded border-primary border border-dashed p-6">
+                    <div class="d-flex flex-stack flex-grow-1">
+                        <div class="fs-5 fw-semibold text-break text-wrap text-gray-800">
+                            <p data-i18n="2fa.recovery_codes_msg1">Recovery codes are a set of one time use codes that can be used in place of the authentication code to login to the web UI. You can use them if you lose access to your phone to login to your account and disable or regenerate two-factor configuration.</p>
+                            <p data-i18n="2fa.recovery_codes_msg2">To keep your account secure, don't share or distribute your recovery codes. We recommend saving them with a secure password manager.</p>
+                            <p data-i18n="2fa.recovery_codes_msg3" class="fs-4 fw-bold">If you generate new recovery codes, you automatically invalidate old ones.</p>
+                        </div>
+                    </div>
                 </div>
                 <div class="d-flex justify-content-end mt-10">
                     <button type="button" id="generate_recovery_code_btn" class="btn btn-light-primary px-10 me-10">
