@@ -864,5 +864,18 @@
         "path": "Percorso",
         "object": "Oggetto",
         "event": "Evento"
+    },
+    "provider_objects": {
+        "user": "Utente",
+        "folder": "Cartella virtuale",
+        "group": "Gruppo",
+        "admin": "Amministratore",
+        "api_key": "Chiave API",
+        "share": "Condivisione",
+        "event_action": "Azione",
+        "event_rule": "Regola",
+        "role": "ruolo",
+        "ip_list_entry": "Elemento lista IP",
+        "configs": "Configurazioni"
     }
 }

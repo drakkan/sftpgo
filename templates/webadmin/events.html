@@ -221,13 +221,17 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
     function humanizeMilliseconds(val) {
         let units = ["d", "h", "m", "s", "ms"];
+        let decimalPoints = 1;
         if (val > 1000){
             units = ["d", "h", "m", "s"]
+        }
+        if (val > 60000){
+            decimalPoints = 0;
         }
         return humanizeDuration(val, {
             language: i18next.resolvedLanguage,
             fallbacks: ["en"],
-            maxDecimalPoints: 1,
+            maxDecimalPoints: decimalPoints,
             units: units
         })
     }
@@ -704,10 +708,49 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 if (!data){
                                     return "";
                                 }
-                                if (row.object_name){
-                                    return escapeHTML(`${data} "${row.object_name}"`);
+                                let message;
+                                switch (data){
+                                    case "user":
+                                        message = $.t('provider_objects.user');
+                                        break;
+                                    case "folder":
+                                        message = $.t('provider_objects.folder');
+                                        break;
+                                    case "group":
+                                        message = $.t('provider_objects.group');
+                                        break;
+                                    case "admin":
+                                        message = $.t('provider_objects.admin');
+                                        break;
+                                    case "api_key":
+                                        message = $.t('provider_objects.api_key');
+                                        break;
+                                    case "share":
+                                        message = $.t('provider_objects.share');
+                                        break;
+                                    case "event_action":
+                                        message = $.t('provider_objects.event_action');
+                                        break;
+                                    case "event_rule":
+                                        message = $.t('provider_objects.event_rule');
+                                        break;
+                                    case "role":
+                                        message = $.t('provider_objects.role');
+                                        break;
+                                    case "ip_list_entry":
+                                        message = $.t('provider_objects.ip_list_entry');
+                                        break;
+                                    case "configs":
+                                        message = $.t('provider_objects.configs');
+                                        break;
+                                    default:
+                                        console.log("uknown object type: "+data);
+                                        return ""
                                 }
-                                return escapeHTML(data);
+                                if (row.object_name && data != "configs"){
+                                    return message+= escapeHTML(` "${row.object_name}"`);
+                                }
+                                return message;
                             }
                             return data;
                         }

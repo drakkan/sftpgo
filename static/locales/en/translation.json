@@ -864,5 +864,18 @@
         "path": "Path",
         "object": "Object",
         "event": "Event"
+    },
+    "provider_objects": {
+        "user": "User",
+        "folder": "Folder",
+        "group": "Group",
+        "admin": "Admin",
+        "api_key": "API key",
+        "share": "Share",
+        "event_action": "Action",
+        "event_rule": "Rule",
+        "role": "role",
+        "ip_list_entry": "IP list entry",
+        "configs": "Configurations"
     }
 }
