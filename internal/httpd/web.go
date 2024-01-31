@@ -42,7 +42,6 @@ const (
 	templateResetPassword      = "reset-password.html"
 	templateChangePwd          = "changepassword.html"
 	templateMessage            = "message.html"
-	templateCommonCSS          = "sftpgo.css"
 	templateCommonBase         = "base.html"
 	templateCommonBaseLogin    = "baselogin.html"
 	templateCommonLogin        = "login.html"

@@ -99,7 +99,6 @@ const (
 	templateMFA              = "mfa.html"
 	templateSetup            = "adminsetup.html"
 	pageEventRulesTitle      = "Event rules"
-	pageEventActionsTitle    = "Event actions"
 	defaultQueryLimit        = 1000
 	inversePatternType       = "inverse"
 )
@@ -157,11 +156,6 @@ type basePage struct {
 type eventRulesPage struct {
 	basePage
 	Rules []dataprovider.EventRule
-}
-
-type eventActionsPage struct {
-	basePage
-	Actions []dataprovider.BaseEventAction
 }
 
 type statusPage struct {
@@ -305,7 +299,7 @@ type eventActionPage struct {
 	FsActions      []dataprovider.EnumMapping
 	HTTPMethods    []string
 	RedactedSecret string
-	Error          string
+	Error          *util.I18nError
 	Mode           genericPageMode
 }
 
@@ -418,22 +412,22 @@ func loadAdminTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateAdminDir, templateGroup),
 	}
 	eventRulesPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateEventRules),
 	}
 	eventRulePaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateEventRule),
 	}
 	eventActionsPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateEventActions),
 	}
 	eventActionPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateEventAction),
 	}
@@ -1075,16 +1069,16 @@ func (s *httpdServer) renderGroupPage(w http.ResponseWriter, r *http.Request, gr
 }
 
 func (s *httpdServer) renderEventActionPage(w http.ResponseWriter, r *http.Request, action dataprovider.BaseEventAction,
-	mode genericPageMode, error string,
+	mode genericPageMode, err error,
 ) {
 	action.Options.SetEmptySecretsIfNil()
 	var title, currentURL string
 	switch mode {
 	case genericPageModeAdd:
-		title = "Add a new event action"
+		title = util.I18nAddActionTitle
 		currentURL = webAdminEventActionPath
 	case genericPageModeUpdate:
-		title = "Update event action"
+		title = util.I18nUpdateActionTitle
 		currentURL = fmt.Sprintf("%s/%s", webAdminEventActionPath, url.PathEscape(action.Name))
 	}
 	if action.Options.HTTPConfig.Timeout == 0 {
@@ -1104,7 +1098,7 @@ func (s *httpdServer) renderEventActionPage(w http.ResponseWriter, r *http.Reque
 		FsActions:      dataprovider.FsActionTypes,
 		HTTPMethods:    dataprovider.SupportedHTTPActionMethods,
 		RedactedSecret: redactedSecret,
-		Error:          error,
+		Error:          getI18nError(err),
 		Mode:           mode,
 	}
 	renderAdminTemplate(w, templateEventAction, data)
@@ -2159,87 +2153,147 @@ func getGroupFromPostFields(r *http.Request) (dataprovider.Group, error) {
 
 func getKeyValsFromPostFields(r *http.Request, key, val string) []dataprovider.KeyValue {
 	var res []dataprovider.KeyValue
-	for k := range r.Form {
-		if strings.HasPrefix(k, key) {
-			formKey := r.Form.Get(k)
-			idx := strings.TrimPrefix(k, key)
-			formVal := strings.TrimSpace(r.Form.Get(fmt.Sprintf("%s%s", val, idx)))
-			if formKey != "" && formVal != "" {
-				res = append(res, dataprovider.KeyValue{
-					Key:   formKey,
-					Value: formVal,
-				})
-			}
+
+	keys := r.Form[key]
+	values := r.Form[val]
+
+	for idx, k := range keys {
+		v := values[idx]
+		if k != "" && v != "" {
+			res = append(res, dataprovider.KeyValue{
+				Key:   k,
+				Value: v,
+			})
 		}
 	}
+
 	return res
 }
 
 func getFoldersRetentionFromPostFields(r *http.Request) ([]dataprovider.FolderRetention, error) {
 	var res []dataprovider.FolderRetention
-	for k := range r.Form {
-		if strings.HasPrefix(k, "folder_retention_path") {
-			folderPath := strings.TrimSpace(r.Form.Get(k))
-			if folderPath != "" {
-				idx := strings.TrimPrefix(k, "folder_retention_path")
-				retention, err := strconv.Atoi(r.Form.Get(fmt.Sprintf("folder_retention_val%s", idx)))
-				if err != nil {
-					return nil, fmt.Errorf("invalid retention for path %q: %w", folderPath, err)
-				}
-				options := r.Form[fmt.Sprintf("folder_retention_options%s", idx)]
-				res = append(res, dataprovider.FolderRetention{
-					Path:                  folderPath,
-					Retention:             retention,
-					DeleteEmptyDirs:       util.Contains(options, "1"),
-					IgnoreUserPermissions: util.Contains(options, "2"),
-				})
+	paths := r.Form["folder_retention_path"]
+	values := r.Form["folder_retention_val"]
+
+	for idx, p := range paths {
+		if p != "" {
+			retention, err := strconv.Atoi(values[idx])
+			if err != nil {
+				return nil, fmt.Errorf("invalid retention for path %q: %w", p, err)
 			}
+			opts := r.Form["folder_retention_options"+strconv.Itoa(idx)]
+			res = append(res, dataprovider.FolderRetention{
+				Path:                  p,
+				Retention:             retention,
+				DeleteEmptyDirs:       util.Contains(opts, "1"),
+				IgnoreUserPermissions: util.Contains(opts, "2"),
+			})
 		}
 	}
+
 	return res, nil
 }
 
 func getHTTPPartsFromPostFields(r *http.Request) []dataprovider.HTTPPart {
 	var result []dataprovider.HTTPPart
-	for k := range r.Form {
-		if strings.HasPrefix(k, "http_part_name") {
-			partName := strings.TrimSpace(r.Form.Get(k))
-			if partName != "" {
-				idx := strings.TrimPrefix(k, "http_part_name")
-				order, err := strconv.Atoi(idx)
-				if err != nil {
-					continue
-				}
-				filePath := strings.TrimSpace(r.Form.Get(fmt.Sprintf("http_part_file%s", idx)))
-				body := r.Form.Get(fmt.Sprintf("http_part_body%s", idx))
-				concatHeaders := getSliceFromDelimitedValues(r.Form.Get(fmt.Sprintf("http_part_headers%s", idx)), "\n")
-				var headers []dataprovider.KeyValue
-				for _, h := range concatHeaders {
-					values := strings.SplitN(h, ":", 2)
-					if len(values) > 1 {
-						headers = append(headers, dataprovider.KeyValue{
-							Key:   strings.TrimSpace(values[0]),
-							Value: strings.TrimSpace(values[1]),
-						})
-					}
-				}
-				result = append(result, dataprovider.HTTPPart{
-					Name:     partName,
-					Filepath: filePath,
-					Headers:  headers,
-					Body:     body,
-					Order:    order,
-				})
+
+	names := r.Form["http_part_name"]
+	files := r.Form["http_part_file"]
+	headers := r.Form["http_part_headers"]
+	bodies := r.Form["http_part_body"]
+	orders := r.Form["http_part_order"]
+
+	for idx, partName := range names {
+		if partName != "" {
+			order, err := strconv.Atoi(orders[idx])
+			if err != nil {
+				continue
 			}
+			filePath := files[idx]
+			body := bodies[idx]
+			concatHeaders := getSliceFromDelimitedValues(headers[idx], "\n")
+			var headers []dataprovider.KeyValue
+			for _, h := range concatHeaders {
+				values := strings.SplitN(h, ":", 2)
+				if len(values) > 1 {
+					headers = append(headers, dataprovider.KeyValue{
+						Key:   strings.TrimSpace(values[0]),
+						Value: strings.TrimSpace(values[1]),
+					})
+				}
+			}
+			result = append(result, dataprovider.HTTPPart{
+				Name:     partName,
+				Filepath: filePath,
+				Headers:  headers,
+				Body:     body,
+				Order:    order,
+			})
 		}
 	}
+
 	sort.Slice(result, func(i, j int) bool {
 		return result[i].Order < result[j].Order
 	})
 	return result
 }
 
+func updateRepeaterFormActionFields(r *http.Request) {
+	for k := range r.Form {
+		if hasPrefixAndSuffix(k, "http_headers[", "][http_header_key]") {
+			base, _ := strings.CutSuffix(k, "[http_header_key]")
+			r.Form.Add("http_header_key", strings.TrimSpace(r.Form.Get(k)))
+			r.Form.Add("http_header_value", strings.TrimSpace(r.Form.Get(base+"[http_header_value]")))
+			continue
+		}
+		if hasPrefixAndSuffix(k, "query_parameters[", "][http_query_key]") {
+			base, _ := strings.CutSuffix(k, "[http_query_key]")
+			r.Form.Add("http_query_key", strings.TrimSpace(r.Form.Get(k)))
+			r.Form.Add("http_query_value", strings.TrimSpace(r.Form.Get(base+"[http_query_value]")))
+			continue
+		}
+		if hasPrefixAndSuffix(k, "multipart_body[", "][http_part_name]") {
+			base, _ := strings.CutSuffix(k, "[http_part_name]")
+			order, _ := strings.CutPrefix(k, "multipart_body[")
+			order, _ = strings.CutSuffix(order, "][http_part_name]")
+			r.Form.Add("http_part_name", strings.TrimSpace(r.Form.Get(k)))
+			r.Form.Add("http_part_file", strings.TrimSpace(r.Form.Get(base+"[http_part_file]")))
+			r.Form.Add("http_part_headers", strings.TrimSpace(r.Form.Get(base+"[http_part_headers]")))
+			r.Form.Add("http_part_body", strings.TrimSpace(r.Form.Get(base+"[http_part_body]")))
+			r.Form.Add("http_part_order", order)
+			continue
+		}
+		if hasPrefixAndSuffix(k, "env_vars[", "][cmd_env_key]") {
+			base, _ := strings.CutSuffix(k, "[cmd_env_key]")
+			r.Form.Add("cmd_env_key", strings.TrimSpace(r.Form.Get(k)))
+			r.Form.Add("cmd_env_value", strings.TrimSpace(r.Form.Get(base+"[cmd_env_value]")))
+			continue
+		}
+		if hasPrefixAndSuffix(k, "data_retention[", "][folder_retention_path]") {
+			base, _ := strings.CutSuffix(k, "[folder_retention_path]")
+			r.Form.Add("folder_retention_path", strings.TrimSpace(r.Form.Get(k)))
+			r.Form.Add("folder_retention_val", strings.TrimSpace(r.Form.Get(base+"[folder_retention_val]")))
+			r.Form["folder_retention_options"+strconv.Itoa(len(r.Form["folder_retention_path"])-1)] =
+				r.Form[base+"[folder_retention_options][]"]
+			continue
+		}
+		if hasPrefixAndSuffix(k, "fs_rename[", "][fs_rename_source]") {
+			base, _ := strings.CutSuffix(k, "[fs_rename_source]")
+			r.Form.Add("fs_rename_source", strings.TrimSpace(r.Form.Get(k)))
+			r.Form.Add("fs_rename_target", strings.TrimSpace(r.Form.Get(base+"[fs_rename_target]")))
+			continue
+		}
+		if hasPrefixAndSuffix(k, "fs_copy[", "][fs_copy_source]") {
+			base, _ := strings.CutSuffix(k, "[fs_copy_source]")
+			r.Form.Add("fs_copy_source", strings.TrimSpace(r.Form.Get(k)))
+			r.Form.Add("fs_copy_target", strings.TrimSpace(r.Form.Get(base+"[fs_copy_target]")))
+			continue
+		}
+	}
+}
+
 func getEventActionOptionsFromPostFields(r *http.Request) (dataprovider.BaseEventActionOptions, error) {
+	updateRepeaterFormActionFields(r)
 	httpTimeout, err := strconv.Atoi(r.Form.Get("http_timeout"))
 	if err != nil {
 		return dataprovider.BaseEventActionOptions{}, fmt.Errorf("invalid http timeout: %w", err)
@@ -2281,11 +2335,11 @@ func getEventActionOptionsFromPostFields(r *http.Request) (dataprovider.BaseEven
 			Endpoint:        strings.TrimSpace(r.Form.Get("http_endpoint")),
 			Username:        strings.TrimSpace(r.Form.Get("http_username")),
 			Password:        getSecretFromFormField(r, "http_password"),
-			Headers:         getKeyValsFromPostFields(r, "http_header_key", "http_header_val"),
+			Headers:         getKeyValsFromPostFields(r, "http_header_key", "http_header_value"),
 			Timeout:         httpTimeout,
 			SkipTLSVerify:   r.Form.Get("http_skip_tls_verify") != "",
 			Method:          r.Form.Get("http_method"),
-			QueryParameters: getKeyValsFromPostFields(r, "http_query_key", "http_query_val"),
+			QueryParameters: getKeyValsFromPostFields(r, "http_query_key", "http_query_value"),
 			Body:            r.Form.Get("http_body"),
 			Parts:           getHTTPPartsFromPostFields(r),
 		},
@@ -2293,7 +2347,7 @@ func getEventActionOptionsFromPostFields(r *http.Request) (dataprovider.BaseEven
 			Cmd:     strings.TrimSpace(r.Form.Get("cmd_path")),
 			Args:    cmdArgs,
 			Timeout: cmdTimeout,
-			EnvVars: getKeyValsFromPostFields(r, "cmd_env_key", "cmd_env_val"),
+			EnvVars: getKeyValsFromPostFields(r, "cmd_env_key", "cmd_env_value"),
 		},
 		EmailConfig: dataprovider.EventActionEmailConfig{
 			Recipients:  getSliceFromDelimitedValues(r.Form.Get("email_recipients"), ","),
@@ -3623,25 +3677,27 @@ func (s *httpdServer) getWebEventActions(w http.ResponseWriter, r *http.Request,
 	return actions, nil
 }
 
-func (s *httpdServer) handleWebGetEventActions(w http.ResponseWriter, r *http.Request) {
+func getAllActions(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	limit := defaultQueryLimit
-	if _, ok := r.URL.Query()["qlimit"]; ok {
-		var err error
-		limit, err = strconv.Atoi(r.URL.Query().Get("qlimit"))
+	actions := make([]dataprovider.BaseEventAction, 0, 10)
+	for {
+		res, err := dataprovider.GetEventActions(defaultQueryLimit, len(actions), dataprovider.OrderASC, false)
 		if err != nil {
-			limit = defaultQueryLimit
+			sendAPIResponse(w, r, err, getI18NErrorString(err, util.I18nError500Message), http.StatusInternalServerError)
+			return
+		}
+		actions = append(actions, res...)
+		if len(res) < defaultQueryLimit {
+			break
 		}
 	}
-	actions, err := s.getWebEventActions(w, r, limit, false)
-	if err != nil {
-		return
-	}
+	render.JSON(w, r, actions)
+}
 
-	data := eventActionsPage{
-		basePage: s.getBasePageData(pageEventActionsTitle, webAdminEventActionsPath, r),
-		Actions:  actions,
-	}
+func (s *httpdServer) handleWebGetEventActions(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+
+	data := s.getBasePageData(util.I18nActionsTitle, webAdminEventActionsPath, r)
 	renderAdminTemplate(w, templateEventActions, data)
 }
 
@@ -3650,7 +3706,7 @@ func (s *httpdServer) handleWebAddEventActionGet(w http.ResponseWriter, r *http.
 	action := dataprovider.BaseEventAction{
 		Type: dataprovider.ActionTypeHTTP,
 	}
-	s.renderEventActionPage(w, r, action, genericPageModeAdd, "")
+	s.renderEventActionPage(w, r, action, genericPageModeAdd, nil)
 }
 
 func (s *httpdServer) handleWebAddEventActionPost(w http.ResponseWriter, r *http.Request) {
@@ -3662,7 +3718,7 @@ func (s *httpdServer) handleWebAddEventActionPost(w http.ResponseWriter, r *http
 	}
 	action, err := getEventActionFromPostFields(r)
 	if err != nil {
-		s.renderEventActionPage(w, r, action, genericPageModeAdd, err.Error())
+		s.renderEventActionPage(w, r, action, genericPageModeAdd, err)
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
@@ -3671,7 +3727,7 @@ func (s *httpdServer) handleWebAddEventActionPost(w http.ResponseWriter, r *http
 		return
 	}
 	if err = dataprovider.AddEventAction(&action, claims.Username, ipAddr, claims.Role); err != nil {
-		s.renderEventActionPage(w, r, action, genericPageModeAdd, err.Error())
+		s.renderEventActionPage(w, r, action, genericPageModeAdd, err)
 		return
 	}
 	http.Redirect(w, r, webAdminEventActionsPath, http.StatusSeeOther)
@@ -3682,7 +3738,7 @@ func (s *httpdServer) handleWebUpdateEventActionGet(w http.ResponseWriter, r *ht
 	name := getURLParam(r, "name")
 	action, err := dataprovider.EventActionExists(name)
 	if err == nil {
-		s.renderEventActionPage(w, r, action, genericPageModeUpdate, "")
+		s.renderEventActionPage(w, r, action, genericPageModeUpdate, nil)
 	} else if errors.Is(err, util.ErrNotFound) {
 		s.renderNotFoundPage(w, r, err)
 	} else {
@@ -3708,7 +3764,7 @@ func (s *httpdServer) handleWebUpdateEventActionPost(w http.ResponseWriter, r *h
 	}
 	updatedAction, err := getEventActionFromPostFields(r)
 	if err != nil {
-		s.renderEventActionPage(w, r, updatedAction, genericPageModeUpdate, err.Error())
+		s.renderEventActionPage(w, r, updatedAction, genericPageModeUpdate, err)
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
@@ -3727,7 +3783,7 @@ func (s *httpdServer) handleWebUpdateEventActionPost(w http.ResponseWriter, r *h
 	}
 	err = dataprovider.UpdateEventAction(&updatedAction, claims.Username, ipAddr, claims.Role)
 	if err != nil {
-		s.renderEventActionPage(w, r, updatedAction, genericPageModeUpdate, err.Error())
+		s.renderEventActionPage(w, r, updatedAction, genericPageModeUpdate, err)
 		return
 	}
 	http.Redirect(w, r, webAdminEventActionsPath, http.StatusSeeOther)

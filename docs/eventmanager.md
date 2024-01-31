@@ -26,9 +26,9 @@ The following actions are supported:
 
 The following placeholders are supported:
 
-- `{{Name}}`. Username, folder name or admin username for provider events.
+- `{{Name}}`. Username, virtual folder name, admin username for provider events, domain name for TLS certificate events.
 - `{{Event}}`. Event name, for example `upload`, `download` for filesystem events or `add`, `update` for provider events.
-- `{{Status}}`. Status for `upload`, `download` and `ssh_cmd` events. 1 means no error, 2 means a generic error occurred, 3 means quota exceeded error.
+- `{{Status}}`. Status for filesystem events. 1 means no error, 2 means a generic error occurred, 3 means quota exceeded error.
 - `{{StatusString}}`. Status as string. Possible values "OK", "KO".
 - `{{ErrorString}}`. Error details. Replaced with an empty string if no errors occur.
 - `{{VirtualPath}}`. Path seen by SFTPGo users, for example `/adir/afile.txt`.
@@ -37,10 +37,10 @@ The following placeholders are supported:
 - `{{ObjectName}}`. File/directory name, for example `afile.txt` or provider object name.
 - `{{ObjectType}}`. Object type for provider events: `user`, `group`, `admin`, etc.
 - `{{Ext}}`. File extension, for example `.txt` if the filename is `afile.txt`.
-- `{{VirtualTargetPath}}`. Virtual target path for renames.
+- `{{VirtualTargetPath}}`. Virtual target path for rename and copy operations.
 - `{{VirtualTargetDirPath}}`. Parent directory for VirtualTargetPath.
-- `{{TargetName}}`. Target object name for renames.
-- `{{FsTargetPath}}`. Full filesystem target path for renames.
+- `{{TargetName}}`. Target object name for rename and copy operations.
+- `{{FsTargetPath}}`. Full filesystem target path for rename and copy operations.
 - `{{FileSize}}`. File size.
 - `{{Elapsed}}`. Elapsed time as milliseconds for filesystem events.
 - `{{Protocol}}`. Used protocol, for example `SFTP`, `FTP`.

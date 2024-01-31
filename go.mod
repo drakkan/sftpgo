@@ -41,7 +41,7 @@ require (
 	github.com/klauspost/compress v1.17.5
 	github.com/lestrrat-go/jwx/v2 v2.0.19
 	github.com/lithammer/shortuuid/v3 v3.0.7
-	github.com/mattn/go-sqlite3 v1.14.20
+	github.com/mattn/go-sqlite3 v1.14.21
 	github.com/mhale/smtpd v0.8.2
 	github.com/minio/sio v0.3.1
 	github.com/otiai10/copy v1.14.0
@@ -74,15 +74,15 @@ require (
 	golang.org/x/sys v0.16.0
 	golang.org/x/term v0.16.0
 	golang.org/x/time v0.5.0
-	google.golang.org/api v0.159.0
+	google.golang.org/api v0.161.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
 require (
 	cloud.google.com/go v0.112.0 // indirect
-	cloud.google.com/go/compute v1.23.3 // indirect
+	cloud.google.com/go/compute v1.23.4 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
-	cloud.google.com/go/iam v1.1.5 // indirect
+	cloud.google.com/go/iam v1.1.6 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.5.1 // indirect
 	github.com/ajg/form v1.5.1 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.5.4 // indirect

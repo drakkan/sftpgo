@@ -357,7 +357,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         render: function(data, type, row) {
                             if (type === 'display') {
                                 if (data){
-                                    return escapeHTML(data.join());
+                                    return escapeHTML(data.join(', '));
                                 }
                                 return ""
                             }

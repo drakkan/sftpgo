@@ -64,31 +64,31 @@ func isActionTypeValid(action int) bool {
 func getActionTypeAsString(action int) string {
 	switch action {
 	case ActionTypeHTTP:
-		return "HTTP"
+		return util.I18nActionTypeHTTP
 	case ActionTypeEmail:
-		return "Email"
+		return util.I18nActionTypeEmail
 	case ActionTypeBackup:
-		return "Backup"
+		return util.I18nActionTypeBackup
 	case ActionTypeUserQuotaReset:
-		return "User quota reset"
+		return util.I18nActionTypeUserQuotaReset
 	case ActionTypeFolderQuotaReset:
-		return "Folder quota reset"
+		return util.I18nActionTypeFolderQuotaReset
 	case ActionTypeTransferQuotaReset:
-		return "Transfer quota reset"
+		return util.I18nActionTypeTransferQuotaReset
 	case ActionTypeDataRetentionCheck:
-		return "Data retention check"
+		return util.I18nActionTypeDataRetentionCheck
 	case ActionTypeMetadataCheck:
-		return "Metadata check"
+		return util.I18nActionTypeMetadataCheck
 	case ActionTypeFilesystem:
-		return "Filesystem"
+		return util.I18nActionTypeFilesystem
 	case ActionTypePasswordExpirationCheck:
-		return "Password expiration check"
+		return util.I18nActionTypePwdExpirationCheck
 	case ActionTypeUserExpirationCheck:
-		return "User expiration check"
+		return util.I18nActionTypeUserExpirationCheck
 	case ActionTypeIDPAccountCheck:
-		return "Identity Provider account check"
+		return util.I18nActionTypeIDPCheck
 	default:
-		return "Command"
+		return util.I18nActionTypeCommand
 	}
 }
 
@@ -171,17 +171,17 @@ func isFilesystemActionValid(value int) bool {
 func getFsActionTypeAsString(value int) string {
 	switch value {
 	case FilesystemActionRename:
-		return "Rename"
+		return util.I18nActionFsTypeRename
 	case FilesystemActionDelete:
-		return "Delete"
+		return util.I18nActionFsTypeDelete
 	case FilesystemActionExist:
-		return "Paths exist"
+		return util.I18nActionFsTypePathExists
 	case FilesystemActionCompress:
-		return "Compress"
+		return util.I18nActionFsTypeCompress
 	case FilesystemActionCopy:
-		return "Copy"
+		return util.I18nActionFsTypeCopy
 	default:
-		return "Create directories"
+		return util.I18nActionFsTypeCreateDirs
 	}
 }
 
@@ -259,7 +259,7 @@ type HTTPPart struct {
 
 func (p *HTTPPart) validate() error {
 	if p.Name == "" {
-		return util.NewValidationError("HTTP part name is required")
+		return util.NewI18nError(util.NewValidationError("HTTP part name is required"), util.I18nErrorHTTPPartNameRequired)
 	}
 	for _, kv := range p.Headers {
 		if kv.isNotValid() {
@@ -268,7 +268,10 @@ func (p *HTTPPart) validate() error {
 	}
 	if p.Filepath == "" {
 		if p.Body == "" {
-			return util.NewValidationError("HTTP part body is required if no file path is provided")
+			return util.NewI18nError(
+				util.NewValidationError("HTTP part body is required if no file path is provided"),
+				util.I18nErrorHTTPPartBodyRequired,
+			)
 		}
 	} else {
 		p.Body = ""
@@ -318,18 +321,24 @@ func (c *EventActionHTTPConfig) validateMultiparts() error {
 		}
 		if filePath := c.Parts[idx].Filepath; filePath != "" {
 			if filePaths[filePath] {
-				return fmt.Errorf("filepath %q is duplicated", filePath)
+				return util.NewI18nError(fmt.Errorf("filepath %q is duplicated", filePath), util.I18nErrorPathDuplicated)
 			}
 			filePaths[filePath] = true
 		}
 	}
 	if len(c.Parts) > 0 {
 		if c.Body != "" {
-			return util.NewValidationError("multipart requests require no body. The request body is build from the specified parts")
+			return util.NewI18nError(
+				util.NewValidationError("multipart requests require no body. The request body is build from the specified parts"),
+				util.I18nErrorMultipartBody,
+			)
 		}
 		for _, k := range c.Headers {
 			if strings.ToLower(k.Key) == "content-type" {
-				return util.NewValidationError("content type is automatically set for multipart requests")
+				return util.NewI18nError(
+					util.NewValidationError("content type is automatically set for multipart requests"),
+					util.I18nErrorMultipartCType,
+				)
 			}
 		}
 	}
@@ -338,10 +347,13 @@ func (c *EventActionHTTPConfig) validateMultiparts() error {
 
 func (c *EventActionHTTPConfig) validate(additionalData string) error {
 	if c.Endpoint == "" {
-		return util.NewValidationError("HTTP endpoint is required")
+		return util.NewI18nError(util.NewValidationError("HTTP endpoint is required"), util.I18nErrorURLRequired)
 	}
 	if !util.IsStringPrefixInSlice(c.Endpoint, []string{"http://", "https://"}) {
-		return util.NewValidationError("invalid HTTP endpoint schema: http and https are supported")
+		return util.NewI18nError(
+			util.NewValidationError("invalid HTTP endpoint schema: http and https are supported"),
+			util.I18nErrorURLInvalid,
+		)
 	}
 	if c.isTimeoutNotValid() {
 		return util.NewValidationError(fmt.Sprintf("invalid HTTP timeout %d", c.Timeout))
@@ -443,10 +455,13 @@ type EventActionCommandConfig struct {
 
 func (c *EventActionCommandConfig) validate() error {
 	if c.Cmd == "" {
-		return util.NewValidationError("command is required")
+		return util.NewI18nError(util.NewValidationError("command is required"), util.I18nErrorCommandRequired)
 	}
 	if !filepath.IsAbs(c.Cmd) {
-		return util.NewValidationError("invalid command, it must be an absolute path")
+		return util.NewI18nError(
+			util.NewValidationError("invalid command, it must be an absolute path"),
+			util.I18nErrorCommandInvalid,
+		)
 	}
 	if c.Timeout < 1 || c.Timeout > 120 {
 		return util.NewValidationError(fmt.Sprintf("invalid command action timeout %d", c.Timeout))
@@ -506,7 +521,10 @@ func (c *EventActionEmailConfig) hasFilesAttachments() bool {
 
 func (c *EventActionEmailConfig) validate() error {
 	if len(c.Recipients) == 0 {
-		return util.NewValidationError("at least one email recipient is required")
+		return util.NewI18nError(
+			util.NewValidationError("at least one email recipient is required"),
+			util.I18nErrorEmailRecipientRequired,
+		)
 	}
 	c.Recipients = util.RemoveDuplicates(c.Recipients, false)
 	for _, r := range c.Recipients {
@@ -521,10 +539,16 @@ func (c *EventActionEmailConfig) validate() error {
 		}
 	}
 	if c.Subject == "" {
-		return util.NewValidationError("email subject is required")
+		return util.NewI18nError(
+			util.NewValidationError("email subject is required"),
+			util.I18nErrorEmailSubjectRequired,
+		)
 	}
 	if c.Body == "" {
-		return util.NewValidationError("email body is required")
+		return util.NewI18nError(
+			util.NewValidationError("email body is required"),
+			util.I18nErrorEmailBodyRequired,
+		)
 	}
 	if c.ContentType < 0 || c.ContentType > 1 {
 		return util.NewValidationError("invalid email content type")
@@ -589,12 +613,18 @@ func (c *EventActionDataRetentionConfig) validate() error {
 			nothingToDo = false
 		}
 		if _, ok := folderPaths[f.Path]; ok {
-			return util.NewValidationError(fmt.Sprintf("duplicated folder path %q", f.Path))
+			return util.NewI18nError(
+				util.NewValidationError(fmt.Sprintf("duplicated folder path %q", f.Path)),
+				util.I18nErrorPathDuplicated,
+			)
 		}
 		folderPaths[f.Path] = true
 	}
 	if nothingToDo {
-		return util.NewValidationError("nothing to delete!")
+		return util.NewI18nError(
+			util.NewValidationError("nothing to delete!"),
+			util.I18nErrorRetentionDirRequired,
+		)
 	}
 	return nil
 }
@@ -609,14 +639,14 @@ type EventActionFsCompress struct {
 
 func (c *EventActionFsCompress) validate() error {
 	if c.Name == "" {
-		return util.NewValidationError("archive name is mandatory")
+		return util.NewI18nError(util.NewValidationError("archive name is mandatory"), util.I18nErrorArchiveNameRequired)
 	}
 	c.Name = util.CleanPath(strings.TrimSpace(c.Name))
 	if c.Name == "/" {
-		return util.NewValidationError("invalid archive name")
+		return util.NewI18nError(util.NewValidationError("invalid archive name"), util.I18nErrorRootNotAllowed)
 	}
 	if len(c.Paths) == 0 {
-		return util.NewValidationError("no path to compress specified")
+		return util.NewI18nError(util.NewValidationError("no path to compress specified"), util.I18nErrorPathRequired)
 	}
 	for idx, val := range c.Paths {
 		val = strings.TrimSpace(val)
@@ -673,7 +703,7 @@ func (c EventActionFilesystemConfig) GetCompressPathsAsString() string {
 
 func (c *EventActionFilesystemConfig) validateRenames() error {
 	if len(c.Renames) == 0 {
-		return util.NewValidationError("no path to rename specified")
+		return util.NewI18nError(util.NewValidationError("no path to rename specified"), util.I18nErrorPathRequired)
 	}
 	for idx, kv := range c.Renames {
 		key := strings.TrimSpace(kv.Key)
@@ -684,10 +714,16 @@ func (c *EventActionFilesystemConfig) validateRenames() error {
 		key = util.CleanPath(key)
 		value = util.CleanPath(value)
 		if key == value {
-			return util.NewValidationError("rename source and target cannot be equal")
+			return util.NewI18nError(
+				util.NewValidationError("rename source and target cannot be equal"),
+				util.I18nErrorSourceDestMatch,
+			)
 		}
 		if key == "/" || value == "/" {
-			return util.NewValidationError("renaming the root directory is not allowed")
+			return util.NewI18nError(
+				util.NewValidationError("renaming the root directory is not allowed"),
+				util.I18nErrorRootNotAllowed,
+			)
 		}
 		c.Renames[idx] = KeyValue{
 			Key:   key,
@@ -699,7 +735,7 @@ func (c *EventActionFilesystemConfig) validateRenames() error {
 
 func (c *EventActionFilesystemConfig) validateCopy() error {
 	if len(c.Copy) == 0 {
-		return util.NewValidationError("no path to copy specified")
+		return util.NewI18nError(util.NewValidationError("no path to copy specified"), util.I18nErrorPathRequired)
 	}
 	for idx, kv := range c.Copy {
 		key := strings.TrimSpace(kv.Key)
@@ -710,10 +746,16 @@ func (c *EventActionFilesystemConfig) validateCopy() error {
 		key = util.CleanPath(key)
 		value = util.CleanPath(value)
 		if key == value {
-			return util.NewValidationError("copy source and target cannot be equal")
+			return util.NewI18nError(
+				util.NewValidationError("copy source and target cannot be equal"),
+				util.I18nErrorSourceDestMatch,
+			)
 		}
 		if key == "/" || value == "/" {
-			return util.NewValidationError("copying the root directory is not allowed")
+			return util.NewI18nError(
+				util.NewValidationError("copying the root directory is not allowed"),
+				util.I18nErrorRootNotAllowed,
+			)
 		}
 		if strings.HasSuffix(c.Copy[idx].Key, "/") {
 			key += "/"
@@ -731,7 +773,7 @@ func (c *EventActionFilesystemConfig) validateCopy() error {
 
 func (c *EventActionFilesystemConfig) validateDeletes() error {
 	if len(c.Deletes) == 0 {
-		return util.NewValidationError("no path to delete specified")
+		return util.NewI18nError(util.NewValidationError("no path to delete specified"), util.I18nErrorPathRequired)
 	}
 	for idx, val := range c.Deletes {
 		val = strings.TrimSpace(val)
@@ -746,7 +788,7 @@ func (c *EventActionFilesystemConfig) validateDeletes() error {
 
 func (c *EventActionFilesystemConfig) validateMkdirs() error {
 	if len(c.MkDirs) == 0 {
-		return util.NewValidationError("no directory to create specified")
+		return util.NewI18nError(util.NewValidationError("no directory to create specified"), util.I18nErrorPathRequired)
 	}
 	for idx, val := range c.MkDirs {
 		val = strings.TrimSpace(val)
@@ -761,7 +803,7 @@ func (c *EventActionFilesystemConfig) validateMkdirs() error {
 
 func (c *EventActionFilesystemConfig) validateExist() error {
 	if len(c.Exist) == 0 {
-		return util.NewValidationError("no path to check for existence specified")
+		return util.NewI18nError(util.NewValidationError("no path to check for existence specified"), util.I18nErrorPathRequired)
 	}
 	for idx, val := range c.Exist {
 		val = strings.TrimSpace(val)
@@ -885,7 +927,10 @@ type EventActionIDPAccountCheck struct {
 
 func (c *EventActionIDPAccountCheck) validate() error {
 	if c.TemplateAdmin == "" && c.TemplateUser == "" {
-		return util.NewValidationError("at least a template must be set")
+		return util.NewI18nError(
+			util.NewValidationError("at least a template must be set"),
+			util.I18nErrorIDPTemplateRequired,
+		)
 	}
 	if c.Mode < 0 || c.Mode > 1 {
 		return util.NewValidationError(fmt.Sprintf("invalid account check mode: %d", c.Mode))
@@ -1129,7 +1174,7 @@ func (a *BaseEventAction) RenderAsJSON(reload bool) ([]byte, error) {
 
 func (a *BaseEventAction) validate() error {
 	if a.Name == "" {
-		return util.NewValidationError("name is mandatory")
+		return util.NewI18nError(util.NewValidationError("name is mandatory"), util.I18nErrorNameRequired)
 	}
 	if !isActionTypeValid(a.Type) {
 		return util.NewValidationError(fmt.Sprintf("invalid action type: %d", a.Type))

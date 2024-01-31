@@ -17,7 +17,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
 {{- define "extra_css"}}
 <style {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
-    .shortcut {font-family: monospace; color: #666;}
     .cm-editor {
         height: 100%;
         width: 100%;
@@ -72,18 +71,18 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     <i class="ki-solid ki-cross fs-2x text-gray-700"></i>
                 </div>
             </div>
-            <div class="modal-body">
+            <div class="modal-body fs-5 fw-semibold">
                 <p>
-                    <span class="shortcut">Ctrl-F / Cmd-F</span> => <span data-i18n="editor.search" class="fw-semibold">Open search panel</span>
+                    <span class="shortcut">Ctrl-F / Cmd-F</span> => <span data-i18n="editor.search">Open search panel</span>
                 </p>
                 <p>
-                    <span class="shortcut">Alt-G</span> => <span data-i18n="editor.goto" class="fw-semibold">Jump to line</span>
+                    <span class="shortcut">Alt-G</span> => <span data-i18n="editor.goto">Jump to line</span>
                 </p>
                 <p>
-                    <span class="shortcut">Tab</span> => <span data-i18n="editor.indent_more" class="fw-semibold">Indent more</span>
+                    <span class="shortcut">Tab</span> => <span data-i18n="editor.indent_more">Indent more</span>
                 </p>
                 <p>
-                    <span class="shortcut">Shift-Tab</span> => <span data-i18n="editor.indent_less" class="fw-semibold">Indent less</span>
+                    <span class="shortcut">Shift-Tab</span> => <span data-i18n="editor.indent_less">Indent less</span>
                 </p>
             </div>
             <div class="modal-footer">

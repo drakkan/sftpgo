@@ -1,228 +1,332 @@
 <!--
-Copyright (C) 2019 Nicola Murino
+Copyright (C) 2024 Nicola Murino
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as published
-by the Free Software Foundation, version 3.
+This WebUI uses the KeenThemes Mega Bundle, a proprietary theme:
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU Affero General Public License for more details.
+https://keenthemes.com/products/templates-mega-bundle
 
-You should have received a copy of the GNU Affero General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
+KeenThemes HTML/CSS/JS components are allowed for use only within the
+SFTPGo product and restricted to be used in a resealable HTML template
+that can compete with KeenThemes products anyhow.
+
+This WebUI is allowed for use only within the SFTPGo product and
+therefore cannot be used in derivative works/products without an
+explicit grant from the SFTPGo Team (support@sftpgo.com).
 -->
 {{template "base" .}}
 
-{{define "title"}}{{.Title}}{{end}}
+{{- define "extra_css"}}
+<link href="{{.StaticURL}}/assets/plugins/custom/datatables/datatables.bundle.css" rel="stylesheet" type="text/css"/>
+{{- end}}
 
-{{define "extra_css"}}
-<link href="{{.StaticURL}}/vendor/datatables/dataTables.bootstrap4.min.css" rel="stylesheet">
-<link href="{{.StaticURL}}/vendor/datatables/buttons.bootstrap4.min.css" rel="stylesheet">
-<link href="{{.StaticURL}}/vendor/datatables/fixedHeader.bootstrap4.min.css" rel="stylesheet">
-<link href="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.css" rel="stylesheet">
-<link href="{{.StaticURL}}/vendor/datatables/select.bootstrap4.min.css" rel="stylesheet">
-{{end}}
-
-{{define "page_body"}}
-<div id="errorMsg" class="alert alert-warning fade show" style="display: none;" role="alert">
-    <span id="errorTxt"></span>
-    <button type="button" class="close" aria-label="Close" onclick="dismissErrorMsg();">
-      <span aria-hidden="true">&times;</span>
-    </button>
-</div>
-<script type="text/javascript">
-    function dismissErrorMsg(){
-        $('#errorMsg').hide();
-    }
-</script>
-<div class="card shadow mb-4">
-    <div class="card-header py-3">
-        <h6 class="m-0 font-weight-bold text-primary">View and manage event actions</h6>
+{{- define "page_body"}}
+{{- template "errmsg" ""}}
+<div class="card shadow-sm">
+    <div class="card-header bg-light">
+        <h3 data-i18n="actions.view_manage" class="card-title section-title">View and manage event actions</h3>
     </div>
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-hover nowrap" id="dataTable" width="100%" cellspacing="0">
+    <div id="card_body" class="card-body">
+        <div id="loader" class="align-items-center text-center my-10">
+            <span class="spinner-border w-15px h-15px text-muted align-middle me-2"></span>
+            <span data-i18n="general.loading" class="text-gray-700">Loading...</span>
+        </div>
+        <div id="card_content" class="d-none">
+            <div class="d-flex flex-stack flex-wrap mb-5">
+                <div class="d-flex align-items-center position-relative my-2">
+                    <i class="ki-solid ki-magnifier fs-1 position-absolute ms-6"></i>
+                    <input name="search" data-i18n="[placeholder]general.search" type="text" data-table-filter="search"
+                        class="form-control rounded-1 w-250px ps-15 me-5" placeholder="Search" />
+                </div>
+                <div class="d-flex justify-content-end my-2" data-table-toolbar="base">
+                    {{- if .LoggedUser.HasPermission "manage_event_rules"}}
+                    <a href="{{.EventActionURL}}" class="btn btn-primary ms-5">
+                        <i class="ki-duotone ki-plus fs-2"></i>
+                        <span data-i18n="general.add">Add</span>
+                    </a>
+                    {{- end}}
+                </div>
+            </div>
+
+            <table id="dataTable" class="table align-middle table-row-dashed fs-6 gy-5">
                 <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Description</th>
-                        <th>Type</th>
-                        <th>Rules</th>
+                    <tr class="text-start text-muted fw-bold fs-6 gs-0">
+                        <th data-i18n="general.name">Name</th>
+                        <th data-i18n="general.type">Type</th>
+                        <th data-i18n="title.event_rules">Rules</th>
+                        <th class="min-w-100px"></th>
                     </tr>
                 </thead>
-                <tbody>
-                    {{range .Actions}}
-                    <tr>
-                        <td>{{.Name}}</td>
-                        <td>{{.Description}}</td>
-                        <td>{{.GetTypeAsString}}</td>
-                        <td>{{.GetRulesAsString}}</td>
-                    </tr>
-                    {{end}}
-                </tbody>
+                <tbody id="table_body" class="text-gray-800 fw-semibold"></tbody>
             </table>
+
         </div>
     </div>
 </div>
-{{end}}
+{{- end}}
+{{- define "extra_js"}}
+<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/plugins/custom/datatables/datatables.bundle.js"></script>
+<script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
+    function deleteAction(name) {
+        ModalAlert.fire({
+            text: $.t('general.delete_confirm_generic'),
+            icon: "warning",
+            confirmButtonText: $.t('general.delete_confirm_btn'),
+            cancelButtonText: $.t('general.cancel'),
+            customClass: {
+                confirmButton: "btn btn-danger",
+                cancelButton: 'btn btn-secondary'
+            }
+        }).then((result) => {
+            if (result.isConfirmed){
+                $('#loading_message').text("");
+                KTApp.showPageLoading();
+                let path = '{{.EventActionURL}}' + "/" + encodeURIComponent(name);
 
-{{define "dialog"}}
-<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="deleteModalLabel"
-    aria-hidden="true">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="deleteModalLabel">
-                    Confirmation required
-                </h5>
-                <button class="close" type="button" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <div class="modal-body">Do you want to delete the selected event action? A referenced action cannot be removed</div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" type="button" data-dismiss="modal">
-                    Cancel
-                </button>
-                <a class="btn btn-warning" href="#" onclick="deleteAction()">
-                    Delete
-                </a>
-            </div>
-        </div>
-    </div>
-</div>
-{{end}}
-
-{{define "extra_js"}}
-<script src="{{.StaticURL}}/vendor/datatables/jquery.dataTables.min.js"></script>
-<script src="{{.StaticURL}}/vendor/datatables/dataTables.bootstrap4.min.js"></script>
-<script src="{{.StaticURL}}/vendor/datatables/dataTables.buttons.min.js"></script>
-<script src="{{.StaticURL}}/vendor/datatables/buttons.bootstrap4.min.js"></script>
-<script src="{{.StaticURL}}/vendor/datatables/buttons.colVis.min.js"></script>
-<script src="{{.StaticURL}}/vendor/datatables/dataTables.fixedHeader.min.js"></script>
-<script src="{{.StaticURL}}/vendor/datatables/dataTables.responsive.min.js"></script>
-<script src="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.js"></script>
-<script src="{{.StaticURL}}/vendor/datatables/dataTables.select.min.js"></script>
-<script src="{{.StaticURL}}/vendor/datatables/ellipsis.js"></script>
-<script type="text/javascript">
-
-    function deleteAction() {
-        let table = $('#dataTable').DataTable();
-        table.button('delete:name').enable(false);
-        let name = table.row({ selected: true }).data()[0];
-        let path = '{{.EventActionURL}}' + "/" + fixedEncodeURIComponent(name);
-        $('#deleteModal').modal('hide');
-        $('#errorMsg').hide();
-
-        $.ajax({
-            url: path,
-            type: 'DELETE',
-            dataType: 'json',
-            headers: {'X-CSRF-TOKEN' : '{{.CSRFToken}}'},
-            timeout: 15000,
-            success: function (result) {
-                window.location.href = '{{.EventActionsURL}}';
-            },
-            error: function ($xhr, textStatus, errorThrown) {
-                var txt = "Unable to delete the selected action";
-                if ($xhr) {
-                    var json = $xhr.responseJSON;
-                    if (json) {
-                        if (json.message){
-                            txt += ": " + json.message;
-                        } else {
-                            txt += ": " + json.error;
+                axios.delete(path, {
+                    timeout: 15000,
+                    headers: {
+                        'X-CSRF-TOKEN': '{{.CSRFToken}}'
+                    },
+                    validateStatus: function (status) {
+                        return status == 200;
+                    }
+                }).then(function(response){
+                    location.reload();
+                }).catch(function(error){
+                    KTApp.hidePageLoading();
+                    let errorMessage;
+                    if (error && error.response) {
+                        switch (error.response.status) {
+                            case 403:
+                                errorMessage = "general.delete_error_403";
+                                break;
+                            case 404:
+                                errorMessage = "general.delete_error_404";
+                                break;
                         }
                     }
-                }
-                $('#errorTxt').text(txt);
-                $('#errorMsg').show();
+                    if (!errorMessage){
+                        errorMessage = "general.delete_error_generic";
+                    }
+                    ModalAlert.fire({
+                        text: $.t(errorMessage),
+                        icon: "warning",
+                        confirmButtonText: $.t('general.ok'),
+                        customClass: {
+                            confirmButton: "btn btn-primary"
+                        }
+                    });
+                });
             }
         });
     }
 
-    $(document).ready(function () {
-        $.fn.dataTable.ext.buttons.add = {
-            text: '<i class="fas fa-plus"></i>',
-            name: 'add',
-            titleAttr: "Add",
-            action: function (e, dt, node, config) {
-                window.location.href = '{{.EventActionURL}}';
-            }
-        };
+    var datatable = function(){
+        var dt;
 
-        $.fn.dataTable.ext.buttons.edit = {
-            text: '<i class="fas fa-pen"></i>',
-            name: 'edit',
-            titleAttr: "Edit",
-            action: function (e, dt, node, config) {
-                var name = table.row({ selected: true }).data()[0];
-                var path = '{{.EventActionURL}}' + "/" + fixedEncodeURIComponent(name);
-                window.location.href = path;
-            },
-            enabled: false
-        };
+        var initDatatable = function () {
+            $('#errorMsg').addClass("d-none");
+            dt = $('#dataTable').DataTable({
+                ajax: {
+                    url: "{{.EventActionsURL}}/json",
+                    dataSrc: "",
+                    error: function ($xhr, textStatus, errorThrown) {
+                        $(".dataTables_processing").hide();
+                        let txt = "";
+                        if ($xhr) {
+                            let json = $xhr.responseJSON;
+                            if (json) {
+                                if (json.message){
+                                    txt = json.message;
+                                }
+                            }
+                        }
+                        if (!txt){
+                            txt = "general.error500";
+                        }
+                        setI18NData($('#errorTxt'), txt);
+                        $('#errorMsg').removeClass("d-none");
+                    }
+                },
+                columns: [
+                    {
+                        data: "name",
+                        render: function(data, type, row) {
+                            if (type === 'display') {
+                                return escapeHTML(data);
+                            }
+                            return data;
+                        }
+                    },
+                    {
+                        data: "type",
+                        render: function(data, type, row) {
+                            if (type === 'display') {
+                                switch (data){
+                                    case 1:
+                                        return $.t('actions.types.http');
+                                    case 2:
+                                        return $.t('actions.types.command');
+                                    case 3:
+                                        return $.t('actions.types.email');
+                                    case 4:
+                                        return $.t('actions.types.backup');
+                                    case 5:
+                                        return $.t('actions.types.user_quota_reset');
+                                    case 6:
+                                        return $.t('actions.types.folder_quota_reset');
+                                    case 7:
+                                        return $.t('actions.types.transfer_quota_reset');
+                                    case 8:
+                                        return $.t('actions.types.data_retention_check');
+                                    case 9:
+                                        return $.t('actions.types.filesystem');
+                                    case 10:
+                                        return $.t('actions.types.metadata_check');
+                                    case 11:
+                                        return $.t('actions.types.password_expiration_check');
+                                    case 12:
+                                        return $.t('actions.types.user_expiration_check');
+                                    case 13:
+                                        return $.t('actions.types.idp_check');
+                                    default:
+                                        return "";
+                                }
+                            }
+                            return data;
+                        }
+                    },
+                    {
+                        data: "rules",
+                        defaultContent: [],
+                        searchable: false,
+                        orderable: false,
+                        render: function(data, type, row) {
+                            if (type === 'display') {
+                                if (data){
+                                    return escapeHTML(data.join(', '));
+                                }
+                                return ""
+                            }
+                            return "";
+                        }
+                    },
+                    {
+                        data: "id",
+                        searchable: false,
+                        orderable: false,
+                        className: 'text-end',
+                        render: function (data, type, row) {
+                            if (type === 'display') {
+                                let numActions = 0;
+                                let actions = `<button class="btn btn-light btn-active-light-primary btn-flex btn-center btn-sm rotate" data-kt-menu-trigger="click" data-kt-menu-placement="bottom-end">
+                                                    <span data-i18n="general.actions" class="fs-6">Actions</span>
+										            <i class="ki-duotone ki-down fs-5 ms-1 rotate-180"></i>
+                                                </button>
+                                                <div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-700 menu-state-bg-light-primary fw-semibold fs-6 w-200px py-4" data-kt-menu="true">`;
 
-        $.fn.dataTable.ext.buttons.delete = {
-            text: '<i class="fas fa-trash"></i>',
-            name: 'delete',
-            titleAttr: "Delete",
-            action: function (e, dt, node, config) {
-                $('#deleteModal').modal('show');
-            },
-            enabled: false
-        };
-
-        var table = $('#dataTable').DataTable({
-            "select": {
-                "style": "single",
-                "blurable": true
-            },
-            "stateSave": true,
-            "stateDuration": 0,
-            "buttons": [
-                {
-                    "text": "Column visibility",
-                    "extend": "colvis",
-                    "columns": ":not(.noVis)"
+                                //{{- if .LoggedUser.HasPermission "manage_event_rules"}}
+                                numActions++;
+                                actions+=`<div class="menu-item px-3">
+										      <a data-i18n="general.edit" href="#" class="menu-link px-3" data-table-action="edit_row">Edit</a>
+										  </div>`
+                                numActions++;
+                                actions+=`<div class="menu-item px-3">
+                                             <a data-i18n="general.delete" href="#" class="menu-link text-danger px-3" data-table-action="delete_row">Delete</a>
+										  </div>`
+                                //{{- end}}
+                                if (numActions > 0){
+                                    actions+=`</div>`;
+                                    return actions;
+                                }
+                            }
+                            return "";
+                        }
+                    },
+                ],
+                deferRender: true,
+                stateSave: true,
+                stateDuration: 0,
+                stateLoadParams: function (settings, data) {
+                        if (data.search.search){
+                            const filterSearch = document.querySelector('[data-table-filter="search"]');
+                            filterSearch.value = data.search.search;
+                        }
+                    },
+                language: {
+                    info: $.t('datatable.info'),
+                    infoEmpty: $.t('datatable.info_empty'),
+                    infoFiltered: $.t('datatable.info_filtered'),
+                    loadingRecords: "",
+                    processing: $.t('datatable.processing'),
+                    zeroRecords: "",
+                    emptyTable: $.t('datatable.no_records')
+                },
+                order: [[0, 'asc']],
+                initComplete: function(settings, json) {
+                    $('#loader').addClass("d-none");
+                    $('#card_content').removeClass("d-none");
+                    let api = $.fn.dataTable.Api(settings);
+                    api.columns.adjust().draw("page");
+                    drawAction();
                 }
-            ],
-            "columnDefs": [
-                {
-                    "targets": [0],
-                    "className": "noVis"
-                },
-                {
-                    "targets": [3],
-                    "render": $.fn.dataTable.render.ellipsis(100, true)
-                },
-            ],
-            "scrollX": false,
-            "scrollY": false,
-            "responsive": true,
-            "language": {
-                "emptyTable": "No event actions defined"
-            },
-            "order": [[0, 'asc']]
-        });
+            });
 
-        new $.fn.dataTable.FixedHeader( table );
+            dt.on('draw', drawAction);
+            dt.on('column-reorder', function(e, settings, details){
+                drawAction();
+            });
+        }
 
-        table.button().add(0,'delete');
-        table.button().add(0,'edit');
-        table.button().add(0,'add');
+        function drawAction() {
+            KTMenu.createInstances();
+            handleRowActions();
+            $('#table_body').localize();
+        }
 
-        table.buttons().container().appendTo('.col-md-6:eq(0)', table.table().container());
+        var handleDatatableActions = function () {
+            const filterSearch = $(document.querySelector('[data-table-filter="search"]'));
+            filterSearch.off("keyup");
+            filterSearch.on('keyup', function (e) {
+                dt.rows().deselect();
+                dt.search(e.target.value, true, false).draw();
+            });
+        }
 
-        table.on('select deselect', function () {
-            var selectedRows = table.rows({ selected: true }).count();
-            table.button('delete:name').enable(selectedRows == 1);
-            table.button('edit:name').enable(selectedRows == 1);
-        });
+        function handleRowActions() {
+            const editButtons = document.querySelectorAll('[data-table-action="edit_row"]');
+            editButtons.forEach(d => {
+                let el = $(d);
+                el.off("click");
+                el.on("click", function(e){
+                    e.preventDefault();
+                    let rowData = dt.row(e.target.closest('tr')).data();
+                    window.location.replace('{{.EventActionURL}}' + "/" + encodeURIComponent(rowData['name']));
+                });
+            });
 
+            const deleteButtons = document.querySelectorAll('[data-table-action="delete_row"]');
+            deleteButtons.forEach(d => {
+                let el = $(d);
+                el.off("click");
+                el.on("click", function(e){
+                    e.preventDefault();
+                    const parent = e.target.closest('tr');
+                    deleteAction(dt.row(parent).data()['name']);
+                });
+            });
+        }
+
+        return {
+            init: function () {
+                initDatatable();
+                handleDatatableActions();
+            }
+        }
+    }();
+
+    $(document).on("i18nshow", function(){
+        datatable.init();
     });
-
 </script>
-{{end}}
+{{- end}}
