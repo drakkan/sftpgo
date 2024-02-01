@@ -117,19 +117,19 @@ func isEventTriggerValid(trigger int) bool {
 func getTriggerTypeAsString(trigger int) string {
 	switch trigger {
 	case EventTriggerFsEvent:
-		return "Filesystem event"
+		return util.I18nTriggerFsEvent
 	case EventTriggerProviderEvent:
-		return "Provider event"
+		return util.I18nTriggerProviderEvent
 	case EventTriggerIPBlocked:
-		return "IP blocked"
+		return util.I18nTriggerIPBlockedEvent
 	case EventTriggerCertificate:
-		return "Certificate renewal"
+		return util.I18nTriggerCertificateRenewEvent
 	case EventTriggerOnDemand:
-		return "On demand"
+		return util.I18nTriggerOnDemandEvent
 	case EventTriggerIDPLogin:
-		return "Identity Provider login"
+		return util.I18nTriggerIDPLoginEvent
 	default:
-		return "Schedule"
+		return util.I18nTriggerScheduleEvent
 	}
 }
 
@@ -1212,17 +1212,26 @@ func (a *EventAction) getACopy() EventAction {
 func (a *EventAction) validateAssociation(trigger int, fsEvents []string) error {
 	if a.Options.IsFailureAction {
 		if a.Options.ExecuteSync {
-			return util.NewValidationError("sync execution is not supported for failure actions")
+			return util.NewI18nError(
+				util.NewValidationError("sync execution is not supported for failure actions"),
+				util.I18nErrorEvSyncFailureActions,
+			)
 		}
 	}
 	if a.Options.ExecuteSync {
 		if trigger != EventTriggerFsEvent && trigger != EventTriggerIDPLogin {
-			return util.NewValidationError("sync execution is only supported for some filesystem events and Identity Provider logins")
+			return util.NewI18nError(
+				util.NewValidationError("sync execution is only supported for some filesystem events and Identity Provider logins"),
+				util.I18nErrorEvSyncUnsupported,
+			)
 		}
 		if trigger == EventTriggerFsEvent {
 			for _, ev := range fsEvents {
 				if !util.Contains(allowedSyncFsEvents, ev) {
-					return util.NewValidationError("sync execution is only supported for upload and pre-* events")
+					return util.NewI18nError(
+						util.NewValidationError("sync execution is only supported for upload and pre-* events"),
+						util.I18nErrorEvSyncUnsupportedFs,
+					)
 				}
 			}
 		}
@@ -1379,11 +1388,14 @@ func (c *EventConditions) getACopy() EventConditions {
 
 func (c *EventConditions) validateSchedules() error {
 	if len(c.Schedules) == 0 {
-		return util.NewValidationError("at least one schedule is required")
+		return util.NewI18nError(
+			util.NewValidationError("at least one schedule is required"),
+			util.I18nErrorRuleScheduleRequired,
+		)
 	}
 	for _, schedule := range c.Schedules {
 		if err := schedule.validate(); err != nil {
-			return err
+			return util.NewI18nError(err, util.I18nErrorRuleScheduleInvalid)
 		}
 	}
 	return nil
@@ -1397,7 +1409,10 @@ func (c *EventConditions) validate(trigger int) error {
 		c.Options.ProviderObjects = nil
 		c.IDPLoginEvent = 0
 		if len(c.FsEvents) == 0 {
-			return util.NewValidationError("at least one filesystem event is required")
+			return util.NewI18nError(
+				util.NewValidationError("at least one filesystem event is required"),
+				util.I18nErrorRuleFsEventRequired,
+			)
 		}
 		for _, ev := range c.FsEvents {
 			if !util.Contains(SupportedFsEvents, ev) {
@@ -1414,7 +1429,10 @@ func (c *EventConditions) validate(trigger int) error {
 		c.Options.MaxFileSize = 0
 		c.IDPLoginEvent = 0
 		if len(c.ProviderEvents) == 0 {
-			return util.NewValidationError("at least one provider event is required")
+			return util.NewI18nError(
+				util.NewValidationError("at least one provider event is required"),
+				util.I18nErrorRuleProviderEventRequired,
+			)
 		}
 		for _, ev := range c.ProviderEvents {
 			if !util.Contains(SupportedProviderEvents, ev) {
@@ -1558,7 +1576,7 @@ func (r *EventRule) isStatusValid() bool {
 
 func (r *EventRule) validate() error {
 	if r.Name == "" {
-		return util.NewValidationError("name is mandatory")
+		return util.NewI18nError(util.NewValidationError("name is mandatory"), util.I18nErrorNameRequired)
 	}
 	if !r.isStatusValid() {
 		return util.NewValidationError(fmt.Sprintf("invalid event rule status: %d", r.Status))
@@ -1570,7 +1588,7 @@ func (r *EventRule) validate() error {
 		return err
 	}
 	if len(r.Actions) == 0 {
-		return util.NewValidationError("at least one action is required")
+		return util.NewI18nError(util.NewValidationError("at least one action is required"), util.I18nErrorRuleActionRequired)
 	}
 	actionNames := make(map[string]bool)
 	actionOrders := make(map[int]bool)
@@ -1581,7 +1599,10 @@ func (r *EventRule) validate() error {
 			return util.NewValidationError(fmt.Sprintf("invalid action at position %d, name not specified", idx))
 		}
 		if actionNames[r.Actions[idx].Name] {
-			return util.NewValidationError(fmt.Sprintf("duplicated action %q", r.Actions[idx].Name))
+			return util.NewI18nError(
+				util.NewValidationError(fmt.Sprintf("duplicated action %q", r.Actions[idx].Name)),
+				util.I18nErrorRuleDuplicateActions,
+			)
 		}
 		if actionOrders[r.Actions[idx].Order] {
 			return util.NewValidationError(fmt.Sprintf("duplicated order %d for action %q",
@@ -1600,7 +1621,10 @@ func (r *EventRule) validate() error {
 		actionOrders[r.Actions[idx].Order] = true
 	}
 	if len(r.Actions) == failureActions {
-		return util.NewValidationError("at least a non-failure action is required")
+		return util.NewI18nError(
+			util.NewValidationError("at least a non-failure action is required"),
+			util.I18nErrorRuleFailureActionsOnly,
+		)
 	}
 	if !hasSyncAction {
 		return r.validateMandatorySyncActions()
@@ -1614,7 +1638,13 @@ func (r *EventRule) validateMandatorySyncActions() error {
 	}
 	for _, ev := range r.Conditions.FsEvents {
 		if util.Contains(mandatorySyncFsEvents, ev) {
-			return util.NewValidationError(fmt.Sprintf("event %q requires at least a sync action", ev))
+			return util.NewI18nError(
+				util.NewValidationError(fmt.Sprintf("event %q requires at least a sync action", ev)),
+				util.I18nErrorRuleSyncActionRequired,
+				util.I18nErrorArgs(map[string]any{
+					"val": ev,
+				}),
+			)
 		}
 	}
 	return nil

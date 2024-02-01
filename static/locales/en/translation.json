@@ -63,7 +63,9 @@
         "add_ip_list": "Add IP list entry",
         "update_ip_list": "Update IP list entry",
         "add_action": "Add action",
-        "update_action": "Update action"
+        "update_action": "Update action",
+        "add_rule": "Add rule",
+        "update_rule": "Update rule"
     },
     "setup": {
         "desc": "To start using SFTPGo you need to create an administrator user",
@@ -252,7 +254,12 @@
         "timeout": "Timeout",
         "env_vars": "Environment variables",
         "hours": "Hours",
-        "paths": "Paths"
+        "paths": "Paths",
+        "hour": "Hour",
+        "day_of_week": "Day of week",
+        "day_of_month": "Day of month",
+        "month": "Month",
+        "options": "Options"
     },
     "fs": {
         "view_file": "View file \"{{- path}}\"",
@@ -1002,6 +1009,64 @@
             "metadata": "Cloud storage metadata for the downloaded file serialized as JSON",
             "metadata_string": "Cloud storage metadata for the downloaded file as JSON escaped string",
             "uid": "Unique ID"
+        }
+    },
+    "rules": {
+        "view_manage": "View and manage rules for events",
+        "trigger": "Trigger",
+        "run_confirm": "Do you want to execute the selected rule?",
+        "run_confirm_btn": "Yes, run",
+        "run_error_generic": "Unable to run the selected rule",
+        "run_ok": "Rule actions started",
+        "run": "Run",
+        "invalid_fs_min_size": "Invalid min size",
+        "invalid_fs_max_size": "Invalid max size",
+        "action_required": "At least one action is required",
+        "fs_event_required": "At least one filesystem event is required",
+        "provider_event_required": "At least one provider event is required",
+        "schedule_required": "At least one schedule is required",
+        "schedule_invalid": "Invalid schedule",
+        "duplicate_actions": "Duplicate actions detected",
+        "sync_failure_actions": "Synchronous execution is not supported for failure actions",
+        "sync_unsupported": "Synchronous execution is only supported for some filesystem events and Identity Provider logins",
+        "sync_unsupported_fs_event": "Synchronous execution is only supported for upload and pre-* filesystem events",
+        "only_failure_actions": "At least a non-failure action is required",
+        "sync_action_required": "Event \"{{val}}\" requires at least a synchronous action",
+        "scheduler_help": "The scheduler uses UTC time. Hours: 0-23. Day of week: 0-6 (Sun-Sat). Day of month: 1-31. Month: 1-12. Asterisk (*) indicates a match for all the values of the field. e.g. every day of week, every day of month and so on",
+        "concurrent_run": "Allow concurrent execution from multiple instances",
+        "protocol_filters": "Protocol filters",
+        "object_filters": "Object filters",
+        "name_filters": "Name filters",
+        "name_filters_help": "Shell-like pattern filters for usernames, folder names. For example \"user*\"\" will match names starting with \"user\". For provider events, this filter is applied to the username of the admin executing the event",
+        "inverse_match": "Inverse match",
+        "group_name_filters": "Group name filters",
+        "group_name_filters_help": "Shell-like pattern filters for group names. For example \"group*\"\" will match group names starting with \"group\"",
+        "role_name_filters": "Role name filters",
+        "role_name_filters_help": "Shell-like pattern filters for role names. For example \"role*\"\" will match role names starting with \"role\"",
+        "path_filters": "Path filters",
+        "path_filters_help": "Shell-like pattern filters on filesystem event paths. For example \"/adir/*.txt\"\" will match paths in the \"/adir\" directory ending with \".txt\". Double asterisk is supported, for example \"/**/*.txt\" will match any file ending with \".txt\". \"/mydir/**\" will match any entry in \"/mydir\"",
+        "file_size_limits": "File size limits",
+        "file_size_limits_help": "0 means no limit. You can use MB/GB suffix",
+        "min_size": "Minimum size",
+        "max_size": "Maximum size",
+        "actions_help": "One or more actions to execute. The \"Execute sync\" option is supported for \"upload\" events and required for \"pre-*\" events and Identity provider login events if the action checks the account",
+        "option_failure_action": "Failure action",
+        "option_stop_on_failure": "Stop on failure",
+        "option_execute_sync": "Synchronous execution",
+        "no_filter": "No filter means always triggering events",
+        "action_placeholder": "Select an action",
+        "triggers": {
+            "fs_event": "Filesystem events",
+            "provider_event": "Provider events",
+            "ip_blocked": "IP blocked",
+            "certificate_renewal": "Certificate renewal",
+            "on_demand": "On demand",
+            "idp_login": "Identity Provider logins",
+            "schedule": "Schedules"
+        },
+        "idp_logins": {
+            "user": "User login",
+            "admin": "Admin login"
         }
     }
 }

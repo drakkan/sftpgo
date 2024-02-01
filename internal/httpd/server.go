@@ -1775,6 +1775,8 @@ func (s *httpdServer) setupWebAdminRoutes() {
 				s.handleWebUpdateEventActionPost)
 			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), verifyCSRFHeader).
 				Delete(webAdminEventActionPath+"/{name}", deleteEventAction)
+			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), compressor.Handler, s.refreshCookie).
+				Get(webAdminEventRulesPath+jsonAPISuffix, getAllRules)
 			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), s.refreshCookie).
 				Get(webAdminEventRulesPath, s.handleWebGetEventRules)
 			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), s.refreshCookie).

@@ -1020,13 +1020,13 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
         $('#idType').on("change", function(){
             onTypeChanged(this.value);
-        })
+        });
 
         $('#idFsActionType').on("change", function(){
             onFsActionChanged(this.value);
         });
 
-        $('#role_form').submit(function (event) {
+        $('#eventaction_form').submit(function (event) {
 			let submitButton = document.querySelector('#form_submit');
 			submitButton.setAttribute('data-kt-indicator', 'on');
 			submitButton.disabled = true;

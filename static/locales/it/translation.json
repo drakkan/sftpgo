@@ -63,7 +63,9 @@
         "add_ip_list": "Aggiungi elemento a lista IP",
         "update_ip_list": "Aggiorna elemento lista IP",
         "add_action": "Aggiungi azione",
-        "update_action": "Aggiorna azione"
+        "update_action": "Aggiorna azione",
+        "add_rule": "Aggiungi regola",
+        "update_rule": "Aggiorna regola"
     },
     "setup": {
         "desc": "Per iniziare a utilizzare SFTPGo devi creare un utente amministratore",
@@ -252,7 +254,12 @@
         "timeout": "Timeout",
         "env_vars": "Variabili d'ambiente",
         "hours": "Ore",
-        "paths": "Percorsi"
+        "paths": "Percorsi",
+        "hour": "Ora",
+        "day_of_week": "Giorno settimana",
+        "day_of_month": "Giorno mese",
+        "month": "Mese",
+        "options": "Opzioni"
     },
     "fs": {
         "view_file": "Visualizza file \"{{- path}}\"",
@@ -1002,6 +1009,64 @@
             "metadata": "Metadati del Cloud Storage Provider serializzati come JSON per i file scaricati",
             "metadata_string": "Metadati del Cloud Storage Provider serializzati come stringa JSON escaped per i file scaricati",
             "uid": "ID univoco"
+        }
+    },
+    "rules": {
+        "view_manage": "Visualizza e gestisci le regole per gli eventi",
+        "trigger": "Attivazione",
+        "run_confirm": "Vuoi eseguire la regola selezionata?",
+        "run_confirm_btn": "Si, esegui",
+        "run_error_generic": "Impossibile eseguire la regola selezionata",
+        "run_ok": "Azioni delle regola avviate",
+        "run": "Esegui",
+        "invalid_fs_min_size": "Dimensione minima non valida",
+        "invalid_fs_max_size": "Dimensione massima non valida",
+        "action_required": "Almeno un'azione è obbligatoria",
+        "fs_event_required": "Almeno un evento file system è obbligatorio",
+        "provider_event_required": "Almeno un evento provider è obbligatorio",
+        "schedule_required": "Almeno una schedulazione è obbligatoria",
+        "schedule_invalid": "Schedulazione non valida",
+        "duplicate_actions": "Rilevata azioni duplicate",
+        "sync_failure_actions": "L'esecuzione sincrona non è supportata per le azioni su errore",
+        "sync_unsupported": "L'esecuzione sincrona è supportata solo per alcuni eventi del file system e per gli accessi tramite Identity Provider",
+        "sync_unsupported_fs_event": "L'esecuzione sincrona è supporta solo per gli eventi \"upload\" e \"pre-*\"",
+        "only_failure_actions": "E' richiesta almeno un'azione che non venga eseguita su errore",
+        "sync_action_required": "L'evento \"{{val}}\" richiede almeno un'azione da eseguire sincronamente",
+        "scheduler_help": "Lo scheduler utilizza l'ora UTC. Orari: 0-23. Giorno della settimana: 0-6 (dom-sab). Giorno del mese: 1-31. Mese: 1-12. L'asterisco (*) indica una corrispondenza per tutti i valori del campo. per esempio. ogni giorno della settimana, ogni giorno del mese e così via",
+        "concurrent_run": "Consentire l'esecuzione simultanea da più istanze",
+        "protocol_filters": "Filtro su protocolli",
+        "object_filters": "Filtro su oggetti",
+        "name_filters": "Filtro su nomi",
+        "name_filters_help": "Filtri per nomi utente e nomi di cartelle. Ad esempio, \"user*\"\" corrisponderà per i nomi che iniziano con \"user\". Per gli eventi del provider, questo filtro viene applicato al nome utente dell'amministratore che esegue l'evento",
+        "inverse_match": "Corrispondenza inversa",
+        "group_name_filters": "Filtro su nome gruppi",
+        "group_name_filters_help": "Filtri per nomi dei gruppi. Ad esempio \"group*\"\" corrisponderà ai nomi dei gruppi che iniziano con \"group\"",
+        "role_name_filters": "Filtri su nome ruoli",
+        "role_name_filters_help": "Filtri per nomi dei ruoli. Ad esempio \"role*\"\" corrisponderà ai nomi dei gruppi che iniziano con \"role\"",
+        "path_filters": "Filtri sui percorsi",
+        "path_filters_help": "Filtri sui percorsi degli eventi del file system. Ad esempio \"/adir/*.txt\"\" corrisponderà ai percorsi nella directory \"/adir\" che terminano con \".txt\". È supportato il doppio asterisco, ad esempio \"/**/*. txt\" corrisponderà a qualsiasi file che termina con \".txt\". \"/mydir/**\" corrisponderà a qualsiasi voce in \"/mydir\"",
+        "file_size_limits": "Filtri sulla dimensione file",
+        "file_size_limits_help": "0 significa nessun limite. È possibile utilizzare il suffisso MB/GB",
+        "min_size": "Dimensione min",
+        "max_size": "Dimensione max",
+        "actions_help": "Una o più azioni da eseguire. L'opzione \"Esecuzione sincrona\" è supportata per gli eventi di \"upload\" ed è richiesta per gli eventi \"pre-*\" e gli eventi di accesso tramite Identity provider se l'azione controlla l'account",
+        "option_failure_action": "Azione su errore",
+        "option_stop_on_failure": "Termina su errore",
+        "option_execute_sync": "Esecuzione sincrona",
+        "no_filter": "Nessun filtro significa attivare sempre gli eventi",
+        "action_placeholder": "Seleziona un'azione",
+        "triggers": {
+            "fs_event": "Eventi file system",
+            "provider_event": "Eventi provider",
+            "ip_blocked": "IP bloccato",
+            "certificate_renewal": "Rinnovo certificato",
+            "on_demand": "Su richiesta",
+            "idp_login": "Accessi tramite Identity Provider",
+            "schedule": "Schedulazioni"
+        },
+        "idp_logins": {
+            "user": "Accesso utente",
+            "admin": "Accesso amministratore"
         }
     }
 }

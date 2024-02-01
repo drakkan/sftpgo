@@ -98,7 +98,6 @@ const (
 	templateMaintenance      = "maintenance.html"
 	templateMFA              = "mfa.html"
 	templateSetup            = "adminsetup.html"
-	pageEventRulesTitle      = "Event rules"
 	defaultQueryLimit        = 1000
 	inversePatternType       = "inverse"
 )
@@ -151,11 +150,6 @@ type basePage struct {
 	HasExternalLogin    bool
 	LoggedUser          *dataprovider.Admin
 	Branding            UIBranding
-}
-
-type eventRulesPage struct {
-	basePage
-	Rules []dataprovider.EventRule
 }
 
 type statusPage struct {
@@ -312,7 +306,7 @@ type eventRulePage struct {
 	Protocols       []string
 	ProviderEvents  []string
 	ProviderObjects []string
-	Error           string
+	Error           *util.I18nError
 	Mode            genericPageMode
 	IsShared        bool
 }
@@ -1105,19 +1099,19 @@ func (s *httpdServer) renderEventActionPage(w http.ResponseWriter, r *http.Reque
 }
 
 func (s *httpdServer) renderEventRulePage(w http.ResponseWriter, r *http.Request, rule dataprovider.EventRule,
-	mode genericPageMode, error string,
+	mode genericPageMode, err error,
 ) {
-	actions, err := s.getWebEventActions(w, r, defaultQueryLimit, true)
-	if err != nil {
+	actions, errActions := s.getWebEventActions(w, r, defaultQueryLimit, true)
+	if errActions != nil {
 		return
 	}
 	var title, currentURL string
 	switch mode {
 	case genericPageModeAdd:
-		title = "Add new event rules"
+		title = util.I18nAddRuleTitle
 		currentURL = webAdminEventRulePath
 	case genericPageModeUpdate:
-		title = "Update event rules"
+		title = util.I18nUpdateRuleTitle
 		currentURL = fmt.Sprintf("%v/%v", webAdminEventRulePath, url.PathEscape(rule.Name))
 	}
 
@@ -1130,7 +1124,7 @@ func (s *httpdServer) renderEventRulePage(w http.ResponseWriter, r *http.Request
 		Protocols:       dataprovider.SupportedRuleConditionProtocols,
 		ProviderEvents:  dataprovider.SupportedProviderEvents,
 		ProviderObjects: dataprovider.SupporteRuleConditionProviderObjects,
-		Error:           error,
+		Error:           getI18nError(err),
 		Mode:            mode,
 		IsShared:        s.isShared > 0,
 	}
@@ -2420,74 +2414,66 @@ func getIDPLoginEventFromPostField(r *http.Request) int {
 func getEventRuleConditionsFromPostFields(r *http.Request) (dataprovider.EventConditions, error) {
 	var schedules []dataprovider.Schedule
 	var names, groupNames, roleNames, fsPaths []dataprovider.ConditionPattern
-	for k := range r.Form {
-		if strings.HasPrefix(k, "schedule_hour") {
-			hour := strings.TrimSpace(r.Form.Get(k))
-			if hour != "" {
-				idx := strings.TrimPrefix(k, "schedule_hour")
-				dayOfWeek := strings.TrimSpace(r.Form.Get(fmt.Sprintf("schedule_day_of_week%s", idx)))
-				dayOfMonth := strings.TrimSpace(r.Form.Get(fmt.Sprintf("schedule_day_of_month%s", idx)))
-				month := strings.TrimSpace(r.Form.Get(fmt.Sprintf("schedule_month%s", idx)))
-				schedules = append(schedules, dataprovider.Schedule{
-					Hours:      hour,
-					DayOfWeek:  dayOfWeek,
-					DayOfMonth: dayOfMonth,
-					Month:      month,
-				})
-			}
-		}
-		if strings.HasPrefix(k, "name_pattern") {
-			pattern := strings.TrimSpace(r.Form.Get(k))
-			if pattern != "" {
-				idx := strings.TrimPrefix(k, "name_pattern")
-				patternType := r.Form.Get(fmt.Sprintf("type_name_pattern%s", idx))
-				names = append(names, dataprovider.ConditionPattern{
-					Pattern:      pattern,
-					InverseMatch: patternType == inversePatternType,
-				})
-			}
-		}
-		if strings.HasPrefix(k, "group_name_pattern") {
-			pattern := strings.TrimSpace(r.Form.Get(k))
-			if pattern != "" {
-				idx := strings.TrimPrefix(k, "group_name_pattern")
-				patternType := r.Form.Get(fmt.Sprintf("type_group_name_pattern%s", idx))
-				groupNames = append(groupNames, dataprovider.ConditionPattern{
-					Pattern:      pattern,
-					InverseMatch: patternType == inversePatternType,
-				})
-			}
-		}
-		if strings.HasPrefix(k, "role_name_pattern") {
-			pattern := strings.TrimSpace(r.Form.Get(k))
-			if pattern != "" {
-				idx := strings.TrimPrefix(k, "role_name_pattern")
-				patternType := r.Form.Get(fmt.Sprintf("type_role_name_pattern%s", idx))
-				roleNames = append(roleNames, dataprovider.ConditionPattern{
-					Pattern:      pattern,
-					InverseMatch: patternType == inversePatternType,
-				})
-			}
-		}
-		if strings.HasPrefix(k, "fs_path_pattern") {
-			pattern := strings.TrimSpace(r.Form.Get(k))
-			if pattern != "" {
-				idx := strings.TrimPrefix(k, "fs_path_pattern")
-				patternType := r.Form.Get(fmt.Sprintf("type_fs_path_pattern%s", idx))
-				fsPaths = append(fsPaths, dataprovider.ConditionPattern{
-					Pattern:      pattern,
-					InverseMatch: patternType == inversePatternType,
-				})
-			}
+
+	scheduleHours := r.Form["schedule_hour"]
+	scheduleDayOfWeeks := r.Form["schedule_day_of_week"]
+	scheduleDayOfMonths := r.Form["schedule_day_of_month"]
+	scheduleMonths := r.Form["schedule_month"]
+
+	for idx, hour := range scheduleHours {
+		if hour != "" {
+			schedules = append(schedules, dataprovider.Schedule{
+				Hours:      hour,
+				DayOfWeek:  scheduleDayOfWeeks[idx],
+				DayOfMonth: scheduleDayOfMonths[idx],
+				Month:      scheduleMonths[idx],
+			})
 		}
 	}
+
+	for idx, name := range r.Form["name_pattern"] {
+		if name != "" {
+			names = append(names, dataprovider.ConditionPattern{
+				Pattern:      name,
+				InverseMatch: r.Form["type_name_pattern"][idx] == inversePatternType,
+			})
+		}
+	}
+
+	for idx, name := range r.Form["group_name_pattern"] {
+		if name != "" {
+			groupNames = append(groupNames, dataprovider.ConditionPattern{
+				Pattern:      name,
+				InverseMatch: r.Form["type_group_name_pattern"][idx] == inversePatternType,
+			})
+		}
+	}
+
+	for idx, name := range r.Form["role_name_pattern"] {
+		if name != "" {
+			roleNames = append(roleNames, dataprovider.ConditionPattern{
+				Pattern:      name,
+				InverseMatch: r.Form["type_role_name_pattern"][idx] == inversePatternType,
+			})
+		}
+	}
+
+	for idx, name := range r.Form["fs_path_pattern"] {
+		if name != "" {
+			fsPaths = append(fsPaths, dataprovider.ConditionPattern{
+				Pattern:      name,
+				InverseMatch: r.Form["type_fs_path_pattern"][idx] == inversePatternType,
+			})
+		}
+	}
+
 	minFileSize, err := util.ParseBytes(r.Form.Get("fs_min_size"))
 	if err != nil {
-		return dataprovider.EventConditions{}, fmt.Errorf("invalid min file size: %w", err)
+		return dataprovider.EventConditions{}, util.NewI18nError(fmt.Errorf("invalid min file size: %w", err), util.I18nErrorInvalidMinSize)
 	}
 	maxFileSize, err := util.ParseBytes(r.Form.Get("fs_max_size"))
 	if err != nil {
-		return dataprovider.EventConditions{}, fmt.Errorf("invalid max file size: %w", err)
+		return dataprovider.EventConditions{}, util.NewI18nError(fmt.Errorf("invalid max file size: %w", err), util.I18nErrorInvalidMaxSize)
 	}
 	conditions := dataprovider.EventConditions{
 		FsEvents:       r.Form["fs_events"],
@@ -2511,31 +2497,78 @@ func getEventRuleConditionsFromPostFields(r *http.Request) (dataprovider.EventCo
 
 func getEventRuleActionsFromPostFields(r *http.Request) ([]dataprovider.EventAction, error) {
 	var actions []dataprovider.EventAction
-	for k := range r.Form {
-		if strings.HasPrefix(k, "action_name") {
-			name := strings.TrimSpace(r.Form.Get(k))
-			if name != "" {
-				idx := strings.TrimPrefix(k, "action_name")
-				order, err := strconv.Atoi(r.Form.Get(fmt.Sprintf("action_order%s", idx)))
-				if err != nil {
-					return actions, fmt.Errorf("invalid order: %w", err)
-				}
-				options := r.Form[fmt.Sprintf("action_options%s", idx)]
-				actions = append(actions, dataprovider.EventAction{
-					BaseEventAction: dataprovider.BaseEventAction{
-						Name: name,
-					},
-					Order: order + 1,
-					Options: dataprovider.EventActionOptions{
-						IsFailureAction: util.Contains(options, "1"),
-						StopOnFailure:   util.Contains(options, "2"),
-						ExecuteSync:     util.Contains(options, "3"),
-					},
-				})
+
+	names := r.Form["action_name"]
+	orders := r.Form["action_order"]
+
+	for idx, name := range names {
+		if name != "" {
+			order, err := strconv.Atoi(orders[idx])
+			if err != nil {
+				return actions, fmt.Errorf("invalid order: %w", err)
 			}
+			options := r.Form["action_options"+strconv.Itoa(idx)]
+			actions = append(actions, dataprovider.EventAction{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: name,
+				},
+				Order: order + 1,
+				Options: dataprovider.EventActionOptions{
+					IsFailureAction: util.Contains(options, "1"),
+					StopOnFailure:   util.Contains(options, "2"),
+					ExecuteSync:     util.Contains(options, "3"),
+				},
+			})
 		}
 	}
+
 	return actions, nil
+}
+
+func updateRepeaterFormRuleFields(r *http.Request) {
+	for k := range r.Form {
+		if hasPrefixAndSuffix(k, "schedules[", "][schedule_hour]") {
+			base, _ := strings.CutSuffix(k, "[schedule_hour]")
+			r.Form.Add("schedule_hour", strings.TrimSpace(r.Form.Get(k)))
+			r.Form.Add("schedule_day_of_week", strings.TrimSpace(r.Form.Get(base+"[schedule_day_of_week]")))
+			r.Form.Add("schedule_day_of_month", strings.TrimSpace(r.Form.Get(base+"[schedule_day_of_month]")))
+			r.Form.Add("schedule_month", strings.TrimSpace(r.Form.Get(base+"[schedule_month]")))
+			continue
+		}
+		if hasPrefixAndSuffix(k, "name_filters[", "][name_pattern]") {
+			base, _ := strings.CutSuffix(k, "[name_pattern]")
+			r.Form.Add("name_pattern", strings.TrimSpace(r.Form.Get(k)))
+			r.Form.Add("type_name_pattern", strings.TrimSpace(r.Form.Get(base+"[type_name_pattern]")))
+			continue
+		}
+		if hasPrefixAndSuffix(k, "group_name_filters[", "][group_name_pattern]") {
+			base, _ := strings.CutSuffix(k, "[group_name_pattern]")
+			r.Form.Add("group_name_pattern", strings.TrimSpace(r.Form.Get(k)))
+			r.Form.Add("type_group_name_pattern", strings.TrimSpace(r.Form.Get(base+"[type_group_name_pattern]")))
+			continue
+		}
+		if hasPrefixAndSuffix(k, "role_name_filters[", "][role_name_pattern]") {
+			base, _ := strings.CutSuffix(k, "[role_name_pattern]")
+			r.Form.Add("role_name_pattern", strings.TrimSpace(r.Form.Get(k)))
+			r.Form.Add("type_role_name_pattern", strings.TrimSpace(r.Form.Get(base+"[type_role_name_pattern]")))
+			continue
+		}
+		if hasPrefixAndSuffix(k, "path_filters[", "][fs_path_pattern]") {
+			base, _ := strings.CutSuffix(k, "[fs_path_pattern]")
+			r.Form.Add("fs_path_pattern", strings.TrimSpace(r.Form.Get(k)))
+			r.Form.Add("type_fs_path_pattern", strings.TrimSpace(r.Form.Get(base+"[type_fs_path_pattern]")))
+			continue
+		}
+		if hasPrefixAndSuffix(k, "actions[", "][action_name]") {
+			base, _ := strings.CutSuffix(k, "[action_name]")
+			order, _ := strings.CutPrefix(k, "actions[")
+			order, _ = strings.CutSuffix(order, "][action_name]")
+			r.Form.Add("action_name", strings.TrimSpace(r.Form.Get(k)))
+			r.Form["action_options"+strconv.Itoa(len(r.Form["action_name"])-1)] = r.Form[base+"[action_options][]"]
+			r.Form.Add("action_order", order)
+			continue
+		}
+	}
 }
 
 func getEventRuleFromPostFields(r *http.Request) (dataprovider.EventRule, error) {
@@ -2543,6 +2576,7 @@ func getEventRuleFromPostFields(r *http.Request) (dataprovider.EventRule, error)
 	if err != nil {
 		return dataprovider.EventRule{}, util.NewI18nError(err, util.I18nErrorInvalidForm)
 	}
+	updateRepeaterFormRuleFields(r)
 	status, err := strconv.Atoi(r.Form.Get("status"))
 	if err != nil {
 		return dataprovider.EventRule{}, fmt.Errorf("invalid status: %w", err)
@@ -3789,31 +3823,27 @@ func (s *httpdServer) handleWebUpdateEventActionPost(w http.ResponseWriter, r *h
 	http.Redirect(w, r, webAdminEventActionsPath, http.StatusSeeOther)
 }
 
-func (s *httpdServer) handleWebGetEventRules(w http.ResponseWriter, r *http.Request) {
+func getAllRules(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	limit := defaultQueryLimit
-	if _, ok := r.URL.Query()["qlimit"]; ok {
-		if lim, err := strconv.Atoi(r.URL.Query().Get("qlimit")); err == nil {
-			limit = lim
-		}
-	}
-	rules := make([]dataprovider.EventRule, 0, limit)
+	rules := make([]dataprovider.EventRule, 0, 10)
 	for {
-		res, err := dataprovider.GetEventRules(limit, len(rules), dataprovider.OrderASC)
+		res, err := dataprovider.GetEventRules(defaultQueryLimit, len(rules), dataprovider.OrderASC)
 		if err != nil {
-			s.renderInternalServerErrorPage(w, r, err)
+			sendAPIResponse(w, r, err, getI18NErrorString(err, util.I18nError500Message), http.StatusInternalServerError)
 			return
 		}
 		rules = append(rules, res...)
-		if len(res) < limit {
+		if len(res) < defaultQueryLimit {
 			break
 		}
 	}
+	render.JSON(w, r, rules)
+}
 
-	data := eventRulesPage{
-		basePage: s.getBasePageData(pageEventRulesTitle, webAdminEventRulesPath, r),
-		Rules:    rules,
-	}
+func (s *httpdServer) handleWebGetEventRules(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+
+	data := s.getBasePageData(util.I18nRulesTitle, webAdminEventRulesPath, r)
 	renderAdminTemplate(w, templateEventRules, data)
 }
 
@@ -3823,7 +3853,7 @@ func (s *httpdServer) handleWebAddEventRuleGet(w http.ResponseWriter, r *http.Re
 		Status:  1,
 		Trigger: dataprovider.EventTriggerFsEvent,
 	}
-	s.renderEventRulePage(w, r, rule, genericPageModeAdd, "")
+	s.renderEventRulePage(w, r, rule, genericPageModeAdd, nil)
 }
 
 func (s *httpdServer) handleWebAddEventRulePost(w http.ResponseWriter, r *http.Request) {
@@ -3835,7 +3865,7 @@ func (s *httpdServer) handleWebAddEventRulePost(w http.ResponseWriter, r *http.R
 	}
 	rule, err := getEventRuleFromPostFields(r)
 	if err != nil {
-		s.renderEventRulePage(w, r, rule, genericPageModeAdd, err.Error())
+		s.renderEventRulePage(w, r, rule, genericPageModeAdd, err)
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
@@ -3845,7 +3875,7 @@ func (s *httpdServer) handleWebAddEventRulePost(w http.ResponseWriter, r *http.R
 		return
 	}
 	if err = dataprovider.AddEventRule(&rule, claims.Username, ipAddr, claims.Role); err != nil {
-		s.renderEventRulePage(w, r, rule, genericPageModeAdd, err.Error())
+		s.renderEventRulePage(w, r, rule, genericPageModeAdd, err)
 		return
 	}
 	http.Redirect(w, r, webAdminEventRulesPath, http.StatusSeeOther)
@@ -3856,7 +3886,7 @@ func (s *httpdServer) handleWebUpdateEventRuleGet(w http.ResponseWriter, r *http
 	name := getURLParam(r, "name")
 	rule, err := dataprovider.EventRuleExists(name)
 	if err == nil {
-		s.renderEventRulePage(w, r, rule, genericPageModeUpdate, "")
+		s.renderEventRulePage(w, r, rule, genericPageModeUpdate, nil)
 	} else if errors.Is(err, util.ErrNotFound) {
 		s.renderNotFoundPage(w, r, err)
 	} else {
@@ -3882,7 +3912,7 @@ func (s *httpdServer) handleWebUpdateEventRulePost(w http.ResponseWriter, r *htt
 	}
 	updatedRule, err := getEventRuleFromPostFields(r)
 	if err != nil {
-		s.renderEventRulePage(w, r, updatedRule, genericPageModeUpdate, err.Error())
+		s.renderEventRulePage(w, r, updatedRule, genericPageModeUpdate, err)
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
@@ -3894,7 +3924,7 @@ func (s *httpdServer) handleWebUpdateEventRulePost(w http.ResponseWriter, r *htt
 	updatedRule.Name = rule.Name
 	err = dataprovider.UpdateEventRule(&updatedRule, claims.Username, ipAddr, claims.Role)
 	if err != nil {
-		s.renderEventRulePage(w, r, updatedRule, genericPageModeUpdate, err.Error())
+		s.renderEventRulePage(w, r, updatedRule, genericPageModeUpdate, err)
 		return
 	}
 	http.Redirect(w, r, webAdminEventRulesPath, http.StatusSeeOther)
