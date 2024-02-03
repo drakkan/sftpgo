@@ -433,7 +433,7 @@ func TestInitialization(t *testing.T) {
 		CertificateKeyFile: "akey",
 	}
 	assert.False(t, binding.HasProxy())
-	assert.Equal(t, "Disabled", binding.GetTLSDescription())
+	assert.Equal(t, util.I18nFTPTLSDisabled, binding.GetTLSDescription())
 	err := c.Initialize(configDir)
 	assert.Error(t, err)
 	c.CertificateFile = ""
@@ -490,7 +490,7 @@ func TestInitialization(t *testing.T) {
 		Port:           2121,
 		ClientAuthType: 1,
 	}
-	assert.Equal(t, "Disabled", binding.GetTLSDescription())
+	assert.Equal(t, util.I18nFTPTLSDisabled, binding.GetTLSDescription())
 	certPath := filepath.Join(os.TempDir(), "test_ftpd.crt")
 	keyPath := filepath.Join(os.TempDir(), "test_ftpd.key")
 	binding.CertificateFile = certPath
@@ -505,7 +505,7 @@ func TestInitialization(t *testing.T) {
 	certMgr, err = common.NewCertManager(keyPairs, configDir, "")
 	require.NoError(t, err)
 
-	assert.Equal(t, "Plain and explicit", binding.GetTLSDescription())
+	assert.Equal(t, util.I18nFTPTLSMixed, binding.GetTLSDescription())
 	server = NewServer(c, configDir, binding, 0)
 	cfg, err := server.GetTLSConfig()
 	require.NoError(t, err)
@@ -541,15 +541,15 @@ func TestServerGetSettings(t *testing.T) {
 	assert.Error(t, err)
 	server.binding.Port = 8021
 
-	assert.Equal(t, "Disabled", binding.GetTLSDescription())
+	assert.Equal(t, util.I18nFTPTLSDisabled, binding.GetTLSDescription())
 	_, err = server.GetTLSConfig()
 	assert.Error(t, err) // TLS configured but cert manager has no certificate
 
 	binding.TLSMode = 1
-	assert.Equal(t, "Explicit required", binding.GetTLSDescription())
+	assert.Equal(t, util.I18nFTPTLSExplicit, binding.GetTLSDescription())
 
 	binding.TLSMode = 2
-	assert.Equal(t, "Implicit", binding.GetTLSDescription())
+	assert.Equal(t, util.I18nFTPTLSImplicit, binding.GetTLSDescription())
 
 	certPath := filepath.Join(os.TempDir(), "test_ftpd.crt")
 	keyPath := filepath.Join(os.TempDir(), "test_ftpd.key")
