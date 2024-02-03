@@ -224,7 +224,7 @@
         "zero_no_limit_help": "0 means no limit",
         "global_settings": "Global settings",
         "mandatory_encryption": "Mandatory encryption",
-        "name_invalid": "The specified username is not valid, the following characters are allowed: a-zA-Z0-9-_.~",
+        "name_invalid": "The specified name is not valid, the following characters are allowed: a-zA-Z0-9-_.~",
         "associations": "Associations",
         "template_placeholders": "The following placeholders are supported",
         "duplicated_username": "The specified username already exists",

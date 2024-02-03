@@ -115,7 +115,7 @@ const (
 	I18nErrorReservedUsername          = "user.username_reserved"
 	I18nErrorInvalidEmail              = "general.email_invalid"
 	I18nErrorInvalidUser               = "user.username_invalid"
-	I18nErrorInvalidName               = "user.name_invalid"
+	I18nErrorInvalidName               = "general.name_invalid"
 	I18nErrorHomeRequired              = "user.home_required"
 	I18nErrorHomeInvalid               = "user.home_invalid"
 	I18nErrorPubKeyInvalid             = "user.pub_key_invalid"

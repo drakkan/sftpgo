@@ -2200,29 +2200,28 @@ func getHTTPPartsFromPostFields(r *http.Request) []dataprovider.HTTPPart {
 	for idx, partName := range names {
 		if partName != "" {
 			order, err := strconv.Atoi(orders[idx])
-			if err != nil {
-				continue
-			}
-			filePath := files[idx]
-			body := bodies[idx]
-			concatHeaders := getSliceFromDelimitedValues(headers[idx], "\n")
-			var headers []dataprovider.KeyValue
-			for _, h := range concatHeaders {
-				values := strings.SplitN(h, ":", 2)
-				if len(values) > 1 {
-					headers = append(headers, dataprovider.KeyValue{
-						Key:   strings.TrimSpace(values[0]),
-						Value: strings.TrimSpace(values[1]),
-					})
+			if err == nil {
+				filePath := files[idx]
+				body := bodies[idx]
+				concatHeaders := getSliceFromDelimitedValues(headers[idx], "\n")
+				var headers []dataprovider.KeyValue
+				for _, h := range concatHeaders {
+					values := strings.SplitN(h, ":", 2)
+					if len(values) > 1 {
+						headers = append(headers, dataprovider.KeyValue{
+							Key:   strings.TrimSpace(values[0]),
+							Value: strings.TrimSpace(values[1]),
+						})
+					}
 				}
+				result = append(result, dataprovider.HTTPPart{
+					Name:     partName,
+					Filepath: filePath,
+					Headers:  headers,
+					Body:     body,
+					Order:    order,
+				})
 			}
-			result = append(result, dataprovider.HTTPPart{
-				Name:     partName,
-				Filepath: filePath,
-				Headers:  headers,
-				Body:     body,
-				Order:    order,
-			})
 		}
 	}
 
@@ -2495,7 +2494,7 @@ func getEventRuleConditionsFromPostFields(r *http.Request) (dataprovider.EventCo
 	return conditions, nil
 }
 
-func getEventRuleActionsFromPostFields(r *http.Request) ([]dataprovider.EventAction, error) {
+func getEventRuleActionsFromPostFields(r *http.Request) []dataprovider.EventAction {
 	var actions []dataprovider.EventAction
 
 	names := r.Form["action_name"]
@@ -2504,25 +2503,24 @@ func getEventRuleActionsFromPostFields(r *http.Request) ([]dataprovider.EventAct
 	for idx, name := range names {
 		if name != "" {
 			order, err := strconv.Atoi(orders[idx])
-			if err != nil {
-				return actions, fmt.Errorf("invalid order: %w", err)
+			if err == nil {
+				options := r.Form["action_options"+strconv.Itoa(idx)]
+				actions = append(actions, dataprovider.EventAction{
+					BaseEventAction: dataprovider.BaseEventAction{
+						Name: name,
+					},
+					Order: order + 1,
+					Options: dataprovider.EventActionOptions{
+						IsFailureAction: util.Contains(options, "1"),
+						StopOnFailure:   util.Contains(options, "2"),
+						ExecuteSync:     util.Contains(options, "3"),
+					},
+				})
 			}
-			options := r.Form["action_options"+strconv.Itoa(idx)]
-			actions = append(actions, dataprovider.EventAction{
-				BaseEventAction: dataprovider.BaseEventAction{
-					Name: name,
-				},
-				Order: order + 1,
-				Options: dataprovider.EventActionOptions{
-					IsFailureAction: util.Contains(options, "1"),
-					StopOnFailure:   util.Contains(options, "2"),
-					ExecuteSync:     util.Contains(options, "3"),
-				},
-			})
 		}
 	}
 
-	return actions, nil
+	return actions
 }
 
 func updateRepeaterFormRuleFields(r *http.Request) {
@@ -2589,17 +2587,13 @@ func getEventRuleFromPostFields(r *http.Request) (dataprovider.EventRule, error)
 	if err != nil {
 		return dataprovider.EventRule{}, err
 	}
-	actions, err := getEventRuleActionsFromPostFields(r)
-	if err != nil {
-		return dataprovider.EventRule{}, err
-	}
 	rule := dataprovider.EventRule{
 		Name:        strings.TrimSpace(r.Form.Get("name")),
 		Status:      status,
 		Description: r.Form.Get("description"),
 		Trigger:     trigger,
 		Conditions:  conditions,
-		Actions:     actions,
+		Actions:     getEventRuleActionsFromPostFields(r),
 	}
 	return rule, nil
 }
@@ -2881,7 +2875,7 @@ func getAllAdmins(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		sendAPIResponse(w, r, nil, util.I18nErrorDirList403, http.StatusForbidden)
+		sendAPIResponse(w, r, nil, util.I18nErrorInvalidToken, http.StatusForbidden)
 		return
 	}
 	admins := make([]dataprovider.Admin, 0, 50)
@@ -3046,7 +3040,7 @@ func getAllUsers(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		sendAPIResponse(w, r, nil, util.I18nErrorDirList403, http.StatusForbidden)
+		sendAPIResponse(w, r, nil, util.I18nErrorInvalidToken, http.StatusForbidden)
 		return
 	}
 	users := make([]dataprovider.User, 0, 100)

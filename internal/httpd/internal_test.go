@@ -573,28 +573,38 @@ func TestInvalidToken(t *testing.T) {
 
 	rr = httptest.NewRecorder()
 	server.handleWebRestore(rr, req)
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.Contains(t, rr.Body.String(), "invalid token claims")
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 
 	rr = httptest.NewRecorder()
 	server.handleWebAddUserPost(rr, req)
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.Contains(t, rr.Body.String(), "invalid token claims")
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 
 	rr = httptest.NewRecorder()
 	server.handleWebUpdateUserPost(rr, req)
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.Contains(t, rr.Body.String(), "invalid token claims")
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 
 	rr = httptest.NewRecorder()
 	server.handleWebTemplateFolderPost(rr, req)
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.Contains(t, rr.Body.String(), "invalid token claims")
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 
 	rr = httptest.NewRecorder()
 	server.handleWebTemplateUserPost(rr, req)
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.Contains(t, rr.Body.String(), "invalid token claims")
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
+
+	rr = httptest.NewRecorder()
+	getAllAdmins(rr, req)
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
+
+	rr = httptest.NewRecorder()
+	getAllUsers(rr, req)
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 
 	rr = httptest.NewRecorder()
 	addFolder(rr, req)
@@ -618,23 +628,23 @@ func TestInvalidToken(t *testing.T) {
 
 	rr = httptest.NewRecorder()
 	server.handleWebAddFolderPost(rr, req)
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.Contains(t, rr.Body.String(), "invalid token claims")
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 
 	rr = httptest.NewRecorder()
 	server.handleWebUpdateFolderPost(rr, req)
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.Contains(t, rr.Body.String(), "invalid token claims")
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 
 	rr = httptest.NewRecorder()
 	server.handleWebGetConnections(rr, req)
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.Contains(t, rr.Body.String(), "invalid token claims")
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 
 	rr = httptest.NewRecorder()
 	server.handleWebConfigsPost(rr, req)
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.Contains(t, rr.Body.String(), "invalid token claims")
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 
 	rr = httptest.NewRecorder()
 	addAdmin(rr, req)
@@ -813,63 +823,63 @@ func TestInvalidToken(t *testing.T) {
 
 	rr = httptest.NewRecorder()
 	server.handleGetWebUsers(rr, req)
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.Contains(t, rr.Body.String(), "invalid token claims")
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 
 	rr = httptest.NewRecorder()
 	server.handleWebUpdateUserGet(rr, req)
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.Contains(t, rr.Body.String(), "invalid token claims")
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 
 	rr = httptest.NewRecorder()
 	server.handleWebUpdateRolePost(rr, req)
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.Contains(t, rr.Body.String(), "invalid token claims")
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 
 	rr = httptest.NewRecorder()
 	server.handleWebAddRolePost(rr, req)
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.Contains(t, rr.Body.String(), "invalid token claims")
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 
 	rr = httptest.NewRecorder()
 	server.handleWebAddAdminPost(rr, req)
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.Contains(t, rr.Body.String(), "invalid token claims")
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 
 	rr = httptest.NewRecorder()
 	server.handleWebAddGroupPost(rr, req)
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.Contains(t, rr.Body.String(), "invalid token claims")
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 
 	rr = httptest.NewRecorder()
 	server.handleWebUpdateGroupPost(rr, req)
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.Contains(t, rr.Body.String(), "invalid token claims")
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 
 	rr = httptest.NewRecorder()
 	server.handleWebAddEventActionPost(rr, req)
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.Contains(t, rr.Body.String(), "invalid token claims")
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 
 	rr = httptest.NewRecorder()
 	server.handleWebUpdateEventActionPost(rr, req)
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.Contains(t, rr.Body.String(), "invalid token claims")
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 
 	rr = httptest.NewRecorder()
 	server.handleWebAddEventRulePost(rr, req)
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.Contains(t, rr.Body.String(), "invalid token claims")
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 
 	rr = httptest.NewRecorder()
 	server.handleWebUpdateEventRulePost(rr, req)
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.Contains(t, rr.Body.String(), "invalid token claims")
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 
 	rr = httptest.NewRecorder()
 	server.handleWebUpdateIPListEntryPost(rr, req)
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.Contains(t, rr.Body.String(), "invalid token claims")
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 
 	rr = httptest.NewRecorder()
 	server.handleWebClientTwoFactorRecoveryPost(rr, req)
@@ -889,8 +899,8 @@ func TestInvalidToken(t *testing.T) {
 
 	rr = httptest.NewRecorder()
 	server.handleWebUpdateIPListEntryPost(rr, req)
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.Contains(t, rr.Body.String(), "invalid token claims")
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 
 	form := make(url.Values)
 	req, _ = http.NewRequest(http.MethodPost, webIPListPath+"/1", bytes.NewBuffer([]byte(form.Encode())))
@@ -900,8 +910,8 @@ func TestInvalidToken(t *testing.T) {
 	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
 	rr = httptest.NewRecorder()
 	server.handleWebAddIPListEntryPost(rr, req)
-	assert.Equal(t, http.StatusBadRequest, rr.Code, rr.Body.String())
-	assert.Contains(t, rr.Body.String(), "invalid token claims")
+	assert.Equal(t, http.StatusForbidden, rr.Code, rr.Body.String())
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 }
 
 func TestUpdateWebAdminInvalidClaims(t *testing.T) {
@@ -933,7 +943,7 @@ func TestUpdateWebAdminInvalidClaims(t *testing.T) {
 	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
 	server.handleWebUpdateAdminPost(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 }
 
 func TestRetentionInvalidTokenClaims(t *testing.T) {
@@ -1023,7 +1033,7 @@ func TestOAuth2Redirect(t *testing.T) {
 	assert.NoError(t, err)
 	server.handleOAuth2TokenRedirect(rr, req)
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.Contains(t, rr.Body.String(), "token is unauthorized")
+	assert.Contains(t, rr.Body.String(), util.I18nOAuth2ErrorTitle)
 
 	ip := "127.1.1.4"
 	tokenString := createOAuth2Token(xid.New().String(), ip)
@@ -1033,7 +1043,7 @@ func TestOAuth2Redirect(t *testing.T) {
 	req.RemoteAddr = ip
 	server.handleOAuth2TokenRedirect(rr, req)
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
-	assert.Contains(t, rr.Body.String(), "no auth request found for the specified state")
+	assert.Contains(t, rr.Body.String(), util.I18nOAuth2ErrorValidateState)
 }
 
 func TestOAuth2Token(t *testing.T) {
@@ -1281,7 +1291,7 @@ func TestCreateTokenError(t *testing.T) {
 	rr = httptest.NewRecorder()
 	server.handleWebAdminChangePwdPost(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
-	assert.Contains(t, rr.Body.String(), "invalid URL escape")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidForm)
 
 	req, _ = http.NewRequest(http.MethodGet, webAdminLoginPath+"?a=a%C3%A2%G3", nil)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -1339,14 +1349,14 @@ func TestCreateTokenError(t *testing.T) {
 	rr = httptest.NewRecorder()
 	server.handleWebAdminTwoFactorPost(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
-	assert.Contains(t, rr.Body.String(), "invalid URL escape")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidForm)
 
 	req, _ = http.NewRequest(http.MethodPost, webAdminTwoFactorRecoveryPath+"?a=a%C3%AO%GD", bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = httptest.NewRecorder()
 	server.handleWebAdminTwoFactorRecoveryPost(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
-	assert.Contains(t, rr.Body.String(), "invalid URL escape")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidForm)
 
 	req, _ = http.NewRequest(http.MethodPost, webClientTwoFactorPath+"?a=a%C3%AO%GC", bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -1367,7 +1377,7 @@ func TestCreateTokenError(t *testing.T) {
 	rr = httptest.NewRecorder()
 	server.handleWebAdminForgotPwdPost(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
-	assert.Contains(t, rr.Body.String(), "invalid URL escape")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidForm)
 
 	req, _ = http.NewRequest(http.MethodPost, webClientForgotPwdPath+"?a=a%C2%A1%GD", bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -1381,14 +1391,14 @@ func TestCreateTokenError(t *testing.T) {
 	rr = httptest.NewRecorder()
 	server.handleWebAdminPasswordResetPost(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
-	assert.Contains(t, rr.Body.String(), "invalid URL escape")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidForm)
 
 	req, _ = http.NewRequest(http.MethodPost, webAdminRolePath+"?a=a%C3%AO%JE", bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = httptest.NewRecorder()
 	server.handleWebAddRolePost(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
-	assert.Contains(t, rr.Body.String(), "invalid URL escape")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidForm)
 
 	req, _ = http.NewRequest(http.MethodPost, webClientResetPwdPath+"?a=a%C3%AO%JD", bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -2105,7 +2115,7 @@ func TestProxyHeaders(t *testing.T) {
 	rr = httptest.NewRecorder()
 	testServer.Config.Handler.ServeHTTP(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
-	assert.Contains(t, rr.Body.String(), "login from IP 10.29.1.9 not allowed")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCredentials)
 
 	form.Set(csrfFormToken, createCSRFToken(validForwardedFor))
 	req, err = http.NewRequest(http.MethodPost, webAdminLoginPath, bytes.NewBuffer([]byte(form.Encode())))
@@ -3067,7 +3077,7 @@ func TestWebAdminSetupWithInstallCode(t *testing.T) {
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	server.router.ServeHTTP(rr, r)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Installation code mismatch")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorSetupInstallCode)
 
 	_, err = dataprovider.AdminExists(defaultAdminUsername)
 	assert.Error(t, err)
@@ -3123,7 +3133,7 @@ func TestWebAdminSetupWithInstallCode(t *testing.T) {
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	server.router.ServeHTTP(rr, r)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Installation code mismatch")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorSetupInstallCode)
 
 	_, err = dataprovider.AdminExists(defaultAdminUsername)
 	assert.Error(t, err)
