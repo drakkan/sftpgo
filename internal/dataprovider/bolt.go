@@ -1636,12 +1636,12 @@ func (p *BoltProvider) addAPIKey(apiKey *APIKey) error {
 		apiKey.LastUseAt = 0
 		if apiKey.User != "" {
 			if err := p.userExistsInternal(tx, apiKey.User); err != nil {
-				return util.NewValidationError(fmt.Sprintf("related user %q does not exists", apiKey.User))
+				return fmt.Errorf("%w: related user %q does not exists", ErrForeignKeyViolated, apiKey.User)
 			}
 		}
 		if apiKey.Admin != "" {
 			if err := p.adminExistsInternal(tx, apiKey.Admin); err != nil {
-				return util.NewValidationError(fmt.Sprintf("related admin %q does not exists", apiKey.User))
+				return fmt.Errorf("%w: related admin %q does not exists", ErrForeignKeyViolated, apiKey.Admin)
 			}
 		}
 		buf, err := json.Marshal(apiKey)
@@ -1681,12 +1681,12 @@ func (p *BoltProvider) updateAPIKey(apiKey *APIKey) error {
 		apiKey.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 		if apiKey.User != "" {
 			if err := p.userExistsInternal(tx, apiKey.User); err != nil {
-				return util.NewValidationError(fmt.Sprintf("related user %q does not exists", apiKey.User))
+				return fmt.Errorf("%w: related user %q does not exists", ErrForeignKeyViolated, apiKey.User)
 			}
 		}
 		if apiKey.Admin != "" {
 			if err := p.adminExistsInternal(tx, apiKey.Admin); err != nil {
-				return util.NewValidationError(fmt.Sprintf("related admin %q does not exists", apiKey.User))
+				return fmt.Errorf("%w: related admin %q does not exists", ErrForeignKeyViolated, apiKey.Admin)
 			}
 		}
 		buf, err := json.Marshal(apiKey)
@@ -2828,7 +2828,7 @@ func (p *BoltProvider) addIPListEntry(entry *IPListEntry) error {
 		}
 		if e := bucket.Get([]byte(entry.getKey())); e != nil {
 			return util.NewI18nError(
-				fmt.Errorf("entry %q already exists", entry.IPOrNet),
+				fmt.Errorf("%w: entry %q already exists", ErrDuplicatedKey, entry.IPOrNet),
 				util.I18nErrorDuplicatedIPNet,
 			)
 		}
@@ -3313,7 +3313,7 @@ func (p *BoltProvider) addAdminToRole(username, roleName string, bucket *bolt.Bu
 	}
 	r := bucket.Get([]byte(roleName))
 	if r == nil {
-		return util.NewGenericError(fmt.Sprintf("role %q does not exist", roleName))
+		return fmt.Errorf("%w: role %q does not exist", ErrForeignKeyViolated, roleName)
 	}
 	var role Role
 	err := json.Unmarshal(r, &role)
@@ -3368,7 +3368,7 @@ func (p *BoltProvider) addUserToRole(username, roleName string, bucket *bolt.Buc
 	}
 	r := bucket.Get([]byte(roleName))
 	if r == nil {
-		return util.NewGenericError(fmt.Sprintf("role %q does not exist", roleName))
+		return fmt.Errorf("%w: role %q does not exist", ErrForeignKeyViolated, roleName)
 	}
 	var role Role
 	err := json.Unmarshal(r, &role)

@@ -1314,7 +1314,7 @@ func (p *MemoryProvider) addAdminToRole(username, role string) error {
 	}
 	r, err := p.roleExistsInternal(role)
 	if err != nil {
-		return util.NewGenericError(fmt.Sprintf("role %q does not exist", role))
+		return fmt.Errorf("%w: role %q does not exist", ErrForeignKeyViolated, role)
 	}
 	if !util.Contains(r.Admins, username) {
 		r.Admins = append(r.Admins, username)
@@ -1348,7 +1348,7 @@ func (p *MemoryProvider) addUserToRole(username, role string) error {
 	}
 	r, err := p.roleExistsInternal(role)
 	if err != nil {
-		return util.NewGenericError(fmt.Sprintf("role %q does not exist", role))
+		return fmt.Errorf("%w: role %q does not exist", ErrForeignKeyViolated, role)
 	}
 	if !util.Contains(r.Users, username) {
 		r.Users = append(r.Users, username)
@@ -1658,12 +1658,12 @@ func (p *MemoryProvider) addAPIKey(apiKey *APIKey) error {
 	}
 	if apiKey.User != "" {
 		if _, err := p.userExistsInternal(apiKey.User); err != nil {
-			return util.NewValidationError(fmt.Sprintf("related user %q does not exists", apiKey.User))
+			return fmt.Errorf("%w: related user %q does not exists", ErrForeignKeyViolated, apiKey.User)
 		}
 	}
 	if apiKey.Admin != "" {
 		if _, err := p.adminExistsInternal(apiKey.Admin); err != nil {
-			return util.NewValidationError(fmt.Sprintf("related admin %q does not exists", apiKey.User))
+			return fmt.Errorf("%w: related admin %q does not exists", ErrForeignKeyViolated, apiKey.Admin)
 		}
 	}
 	apiKey.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
@@ -1692,12 +1692,12 @@ func (p *MemoryProvider) updateAPIKey(apiKey *APIKey) error {
 	}
 	if apiKey.User != "" {
 		if _, err := p.userExistsInternal(apiKey.User); err != nil {
-			return util.NewValidationError(fmt.Sprintf("related user %q does not exists", apiKey.User))
+			return fmt.Errorf("%w: related user %q does not exists", ErrForeignKeyViolated, apiKey.User)
 		}
 	}
 	if apiKey.Admin != "" {
 		if _, err := p.adminExistsInternal(apiKey.Admin); err != nil {
-			return util.NewValidationError(fmt.Sprintf("related admin %q does not exists", apiKey.User))
+			return fmt.Errorf("%w: related admin %q does not exists", ErrForeignKeyViolated, apiKey.Admin)
 		}
 	}
 	apiKey.ID = k.ID
@@ -2673,7 +2673,7 @@ func (p *MemoryProvider) addIPListEntry(entry *IPListEntry) error {
 	_, err := p.ipListEntryExistsInternal(entry)
 	if err == nil {
 		return util.NewI18nError(
-			fmt.Errorf("entry %q already exists", entry.IPOrNet),
+			fmt.Errorf("%w: entry %q already exists", ErrDuplicatedKey, entry.IPOrNet),
 			util.I18nErrorDuplicatedIPNet,
 		)
 	}

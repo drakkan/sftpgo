@@ -707,7 +707,7 @@ func TestRoleRelations(t *testing.T) {
 	admin, _, err := httpdtest.AddAdmin(a, http.StatusCreated)
 	assert.NoError(t, err)
 	admin.Role = "invalid role"
-	_, resp, err = httpdtest.UpdateAdmin(admin, http.StatusInternalServerError)
+	_, resp, err = httpdtest.UpdateAdmin(admin, http.StatusConflict)
 	assert.NoError(t, err, string(resp))
 	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
 	assert.NoError(t, err)
@@ -733,7 +733,7 @@ func TestRoleRelations(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, role.Name, user1.Role)
 	user1.Role = "missing"
-	_, _, err = httpdtest.UpdateUser(user1, http.StatusInternalServerError, "")
+	_, _, err = httpdtest.UpdateUser(user1, http.StatusConflict, "")
 	assert.NoError(t, err)
 	user1, _, err = httpdtest.GetUserByUsername(user1.Username, http.StatusOK)
 	assert.NoError(t, err)

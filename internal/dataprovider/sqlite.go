@@ -267,7 +267,7 @@ func (p *SQLiteProvider) addUser(user *User) error {
 }
 
 func (p *SQLiteProvider) updateUser(user *User) error {
-	return sqlCommonUpdateUser(user, p.dbHandle)
+	return p.normalizeError(sqlCommonUpdateUser(user, p.dbHandle), -1)
 }
 
 func (p *SQLiteProvider) deleteUser(user User, softDelete bool) error {
@@ -369,7 +369,7 @@ func (p *SQLiteProvider) addAdmin(admin *Admin) error {
 }
 
 func (p *SQLiteProvider) updateAdmin(admin *Admin) error {
-	return sqlCommonUpdateAdmin(admin, p.dbHandle)
+	return p.normalizeError(sqlCommonUpdateAdmin(admin, p.dbHandle), -1)
 }
 
 func (p *SQLiteProvider) deleteAdmin(admin Admin) error {
@@ -393,11 +393,11 @@ func (p *SQLiteProvider) apiKeyExists(keyID string) (APIKey, error) {
 }
 
 func (p *SQLiteProvider) addAPIKey(apiKey *APIKey) error {
-	return sqlCommonAddAPIKey(apiKey, p.dbHandle)
+	return p.normalizeError(sqlCommonAddAPIKey(apiKey, p.dbHandle), -1)
 }
 
 func (p *SQLiteProvider) updateAPIKey(apiKey *APIKey) error {
-	return sqlCommonUpdateAPIKey(apiKey, p.dbHandle)
+	return p.normalizeError(sqlCommonUpdateAPIKey(apiKey, p.dbHandle), -1)
 }
 
 func (p *SQLiteProvider) deleteAPIKey(apiKey APIKey) error {
@@ -421,11 +421,11 @@ func (p *SQLiteProvider) shareExists(shareID, username string) (Share, error) {
 }
 
 func (p *SQLiteProvider) addShare(share *Share) error {
-	return sqlCommonAddShare(share, p.dbHandle)
+	return p.normalizeError(sqlCommonAddShare(share, p.dbHandle), fieldName)
 }
 
 func (p *SQLiteProvider) updateShare(share *Share) error {
-	return sqlCommonUpdateShare(share, p.dbHandle)
+	return p.normalizeError(sqlCommonUpdateShare(share, p.dbHandle), -1)
 }
 
 func (p *SQLiteProvider) deleteShare(share Share) error {
