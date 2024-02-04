@@ -260,7 +260,7 @@ func getNewRecoveryCode() string {
 }
 
 func saveUserTOTPConfig(username string, r *http.Request, recoveryCodes []dataprovider.RecoveryCode) error {
-	user, err := dataprovider.UserExists(username, "")
+	user, userMerged, err := dataprovider.GetUserVariants(username, "")
 	if err != nil {
 		return err
 	}
@@ -270,13 +270,13 @@ func saveUserTOTPConfig(username string, r *http.Request, recoveryCodes []datapr
 	if err != nil {
 		return util.NewValidationError(fmt.Sprintf("unable to decode JSON body: %v", err))
 	}
-	if !user.Filters.TOTPConfig.Enabled && len(user.Filters.TwoFactorAuthProtocols) > 0 {
+	if !user.Filters.TOTPConfig.Enabled && len(userMerged.Filters.TwoFactorAuthProtocols) > 0 {
 		return util.NewValidationError("two-factor authentication must be enabled")
 	}
-	for _, p := range user.Filters.TwoFactorAuthProtocols {
+	for _, p := range userMerged.Filters.TwoFactorAuthProtocols {
 		if !util.Contains(user.Filters.TOTPConfig.Protocols, p) {
 			return util.NewValidationError(fmt.Sprintf("totp: the following protocols are required: %q",
-				strings.Join(user.Filters.TwoFactorAuthProtocols, ", ")))
+				strings.Join(userMerged.Filters.TwoFactorAuthProtocols, ", ")))
 		}
 	}
 	if user.Filters.TOTPConfig.Secret == nil || !user.Filters.TOTPConfig.Secret.IsPlain() {

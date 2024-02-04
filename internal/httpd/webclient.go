@@ -663,7 +663,7 @@ func (s *httpdServer) renderClientMFAPage(w http.ResponseWriter, r *http.Request
 		RecCodesURL:     webClientRecoveryCodesPath,
 		Protocols:       dataprovider.MFAProtocols,
 	}
-	user, err := dataprovider.UserExists(data.LoggedUser.Username, "")
+	user, err := dataprovider.GetUserWithGroupSettings(data.LoggedUser.Username, "")
 	if err != nil {
 		s.renderClientInternalServerErrorPage(w, r, err)
 		return
