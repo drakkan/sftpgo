@@ -16,6 +16,7 @@ package httpd
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
@@ -2878,19 +2879,17 @@ func getAllAdmins(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, nil, util.I18nErrorInvalidToken, http.StatusForbidden)
 		return
 	}
-	admins := make([]dataprovider.Admin, 0, 50)
-	for {
-		a, err := dataprovider.GetAdmins(defaultQueryLimit, len(admins), dataprovider.OrderASC)
+
+	dataGetter := func(limit, offset int) ([]byte, int, error) {
+		results, err := dataprovider.GetAdmins(limit, offset, dataprovider.OrderASC)
 		if err != nil {
-			sendAPIResponse(w, r, err, getI18NErrorString(err, util.I18nError500Message), http.StatusInternalServerError)
-			return
+			return nil, 0, err
 		}
-		admins = append(admins, a...)
-		if len(a) < defaultQueryLimit {
-			break
-		}
+		data, err := json.Marshal(results)
+		return data, len(results), err
 	}
-	render.JSON(w, r, admins)
+
+	streamJSONArray(w, defaultQueryLimit, dataGetter)
 }
 
 func (s *httpdServer) handleGetWebAdmins(w http.ResponseWriter, r *http.Request) {
@@ -3043,19 +3042,17 @@ func getAllUsers(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, nil, util.I18nErrorInvalidToken, http.StatusForbidden)
 		return
 	}
-	users := make([]dataprovider.User, 0, 100)
-	for {
-		u, err := dataprovider.GetUsers(defaultQueryLimit, len(users), dataprovider.OrderASC, claims.Role)
+
+	dataGetter := func(limit, offset int) ([]byte, int, error) {
+		results, err := dataprovider.GetUsers(limit, offset, dataprovider.OrderASC, claims.Role)
 		if err != nil {
-			sendAPIResponse(w, r, err, getI18NErrorString(err, util.I18nError500Message), http.StatusInternalServerError)
-			return
+			return nil, 0, err
 		}
-		users = append(users, u...)
-		if len(u) < defaultQueryLimit {
-			break
-		}
+		data, err := json.Marshal(results)
+		return data, len(results), err
 	}
-	render.JSON(w, r, users)
+
+	streamJSONArray(w, defaultQueryLimit, dataGetter)
 }
 
 func (s *httpdServer) handleGetWebUsers(w http.ResponseWriter, r *http.Request) {
@@ -3538,19 +3535,17 @@ func (s *httpdServer) getWebVirtualFolders(w http.ResponseWriter, r *http.Reques
 
 func getAllFolders(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	folders := make([]vfs.BaseVirtualFolder, 0, 50)
-	for {
-		f, err := dataprovider.GetFolders(defaultQueryLimit, len(folders), dataprovider.OrderASC, false)
+
+	dataGetter := func(limit, offset int) ([]byte, int, error) {
+		results, err := dataprovider.GetFolders(limit, offset, dataprovider.OrderASC, false)
 		if err != nil {
-			sendAPIResponse(w, r, err, getI18NErrorString(err, util.I18nError500Message), http.StatusInternalServerError)
-			return
+			return nil, 0, err
 		}
-		folders = append(folders, f...)
-		if len(f) < defaultQueryLimit {
-			break
-		}
+		data, err := json.Marshal(results)
+		return data, len(results), err
 	}
-	render.JSON(w, r, folders)
+
+	streamJSONArray(w, defaultQueryLimit, dataGetter)
 }
 
 func (s *httpdServer) handleWebGetFolders(w http.ResponseWriter, r *http.Request) {
@@ -3578,19 +3573,17 @@ func (s *httpdServer) getWebGroups(w http.ResponseWriter, r *http.Request, limit
 
 func getAllGroups(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	groups := make([]dataprovider.Group, 0, 50)
-	for {
-		f, err := dataprovider.GetGroups(defaultQueryLimit, len(groups), dataprovider.OrderASC, false)
+
+	dataGetter := func(limit, offset int) ([]byte, int, error) {
+		results, err := dataprovider.GetGroups(limit, offset, dataprovider.OrderASC, false)
 		if err != nil {
-			sendAPIResponse(w, r, err, getI18NErrorString(err, util.I18nError500Message), http.StatusInternalServerError)
-			return
+			return nil, 0, err
 		}
-		groups = append(groups, f...)
-		if len(f) < defaultQueryLimit {
-			break
-		}
+		data, err := json.Marshal(results)
+		return data, len(results), err
 	}
-	render.JSON(w, r, groups)
+
+	streamJSONArray(w, defaultQueryLimit, dataGetter)
 }
 
 func (s *httpdServer) handleWebGetGroups(w http.ResponseWriter, r *http.Request) {
@@ -3707,19 +3700,17 @@ func (s *httpdServer) getWebEventActions(w http.ResponseWriter, r *http.Request,
 
 func getAllActions(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	actions := make([]dataprovider.BaseEventAction, 0, 10)
-	for {
-		res, err := dataprovider.GetEventActions(defaultQueryLimit, len(actions), dataprovider.OrderASC, false)
+
+	dataGetter := func(limit, offset int) ([]byte, int, error) {
+		results, err := dataprovider.GetEventActions(limit, offset, dataprovider.OrderASC, false)
 		if err != nil {
-			sendAPIResponse(w, r, err, getI18NErrorString(err, util.I18nError500Message), http.StatusInternalServerError)
-			return
+			return nil, 0, err
 		}
-		actions = append(actions, res...)
-		if len(res) < defaultQueryLimit {
-			break
-		}
+		data, err := json.Marshal(results)
+		return data, len(results), err
 	}
-	render.JSON(w, r, actions)
+
+	streamJSONArray(w, defaultQueryLimit, dataGetter)
 }
 
 func (s *httpdServer) handleWebGetEventActions(w http.ResponseWriter, r *http.Request) {
@@ -3819,19 +3810,17 @@ func (s *httpdServer) handleWebUpdateEventActionPost(w http.ResponseWriter, r *h
 
 func getAllRules(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	rules := make([]dataprovider.EventRule, 0, 10)
-	for {
-		res, err := dataprovider.GetEventRules(defaultQueryLimit, len(rules), dataprovider.OrderASC)
+
+	dataGetter := func(limit, offset int) ([]byte, int, error) {
+		results, err := dataprovider.GetEventRules(limit, offset, dataprovider.OrderASC)
 		if err != nil {
-			sendAPIResponse(w, r, err, getI18NErrorString(err, util.I18nError500Message), http.StatusInternalServerError)
-			return
+			return nil, 0, err
 		}
-		rules = append(rules, res...)
-		if len(res) < defaultQueryLimit {
-			break
-		}
+		data, err := json.Marshal(results)
+		return data, len(results), err
 	}
-	render.JSON(w, r, rules)
+
+	streamJSONArray(w, defaultQueryLimit, dataGetter)
 }
 
 func (s *httpdServer) handleWebGetEventRules(w http.ResponseWriter, r *http.Request) {
@@ -3942,19 +3931,17 @@ func (s *httpdServer) getWebRoles(w http.ResponseWriter, r *http.Request, limit 
 
 func getAllRoles(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	roles := make([]dataprovider.Role, 0, 10)
-	for {
-		res, err := dataprovider.GetRoles(defaultQueryLimit, len(roles), dataprovider.OrderASC, false)
+
+	dataGetter := func(limit, offset int) ([]byte, int, error) {
+		results, err := dataprovider.GetRoles(limit, offset, dataprovider.OrderASC, false)
 		if err != nil {
-			sendAPIResponse(w, r, err, getI18NErrorString(err, util.I18nError500Message), http.StatusInternalServerError)
-			return
+			return nil, 0, err
 		}
-		roles = append(roles, res...)
-		if len(res) < defaultQueryLimit {
-			break
-		}
+		data, err := json.Marshal(results)
+		return data, len(results), err
 	}
-	render.JSON(w, r, roles)
+
+	streamJSONArray(w, defaultQueryLimit, dataGetter)
 }
 
 func (s *httpdServer) handleWebGetRoles(w http.ResponseWriter, r *http.Request) {

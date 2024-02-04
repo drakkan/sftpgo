@@ -2195,6 +2195,33 @@ func TestRecoverer(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, rr.Code, rr.Body.String())
 }
 
+func TestStreamJSONArray(t *testing.T) {
+	dataGetter := func(limit, offset int) ([]byte, int, error) {
+		return nil, 0, nil
+	}
+	rr := httptest.NewRecorder()
+	streamJSONArray(rr, 10, dataGetter)
+	assert.Equal(t, `[]`, rr.Body.String())
+
+	data := []int{}
+	for i := 0; i < 10; i++ {
+		data = append(data, i)
+	}
+
+	dataGetter = func(limit, offset int) ([]byte, int, error) {
+		if offset >= len(data) {
+			return nil, 0, nil
+		}
+		val := data[offset]
+		data, err := json.Marshal([]int{val})
+		return data, 1, err
+	}
+
+	rr = httptest.NewRecorder()
+	streamJSONArray(rr, 1, dataGetter)
+	assert.Equal(t, `[0,1,2,3,4,5,6,7,8,9]`, rr.Body.String())
+}
+
 func TestCompressorAbortHandler(t *testing.T) {
 	defer func() {
 		rcv := recover()
@@ -2207,6 +2234,15 @@ func TestCompressorAbortHandler(t *testing.T) {
 	}
 	share := &dataprovider.Share{}
 	renderCompressedFiles(&failingWriter{}, connection, "", nil, share)
+}
+
+func TestStreamDataAbortHandler(t *testing.T) {
+	defer func() {
+		rcv := recover()
+		assert.Equal(t, http.ErrAbortHandler, rcv)
+	}()
+
+	streamData(&failingWriter{}, []byte(`["a":"b"]`))
 }
 
 func TestZipErrors(t *testing.T) {

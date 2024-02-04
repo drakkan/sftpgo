@@ -1521,19 +1521,17 @@ func getAllShares(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, nil, util.I18nErrorInvalidToken, http.StatusForbidden)
 		return
 	}
-	shares := make([]dataprovider.Share, 0, 10)
-	for {
-		sh, err := dataprovider.GetShares(defaultQueryLimit, len(shares), dataprovider.OrderASC, claims.Username)
+
+	dataGetter := func(limit, offset int) ([]byte, int, error) {
+		shares, err := dataprovider.GetShares(limit, offset, dataprovider.OrderASC, claims.Username)
 		if err != nil {
-			sendAPIResponse(w, r, err, getI18NErrorString(err, util.I18nError500Message), http.StatusInternalServerError)
-			return
+			return nil, 0, err
 		}
-		shares = append(shares, sh...)
-		if len(sh) < defaultQueryLimit {
-			break
-		}
+		data, err := json.Marshal(shares)
+		return data, len(shares), err
 	}
-	render.JSON(w, r, shares)
+
+	streamJSONArray(w, defaultQueryLimit, dataGetter)
 }
 
 func (s *httpdServer) handleClientGetShares(w http.ResponseWriter, r *http.Request) {

@@ -7014,11 +7014,18 @@ func TestProviderErrors(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), util.I18nErrorGetUser)
 
-	req, err = http.NewRequest(http.MethodGet, webClientSharesPath+jsonAPISuffix, nil)
-	assert.NoError(t, err)
-	setJWTCookieForReq(req, userWebToken)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusInternalServerError, rr)
+	getJSONShares := func() {
+		defer func() {
+			rcv := recover()
+			assert.Equal(t, http.ErrAbortHandler, rcv)
+		}()
+		req, err := http.NewRequest(http.MethodGet, webClientSharesPath+jsonAPISuffix, nil)
+		assert.NoError(t, err)
+		setJWTCookieForReq(req, userWebToken)
+		executeRequest(req)
+	}
+	getJSONShares()
+
 	req, err = http.NewRequest(http.MethodGet, webClientSharePath, nil)
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, userWebToken)
@@ -7256,11 +7263,19 @@ func TestProviderErrors(t *testing.T) {
 	setJWTCookieForReq(req, testServerToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr)
-	req, err = http.NewRequest(http.MethodGet, webAdminEventActionsPath+jsonAPISuffix, nil)
-	assert.NoError(t, err)
-	setJWTCookieForReq(req, testServerToken)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusInternalServerError, rr)
+
+	getJSONActions := func() {
+		defer func() {
+			rcv := recover()
+			assert.Equal(t, http.ErrAbortHandler, rcv)
+		}()
+		req, err := http.NewRequest(http.MethodGet, webAdminEventActionsPath+jsonAPISuffix, nil)
+		assert.NoError(t, err)
+		setJWTCookieForReq(req, testServerToken)
+		executeRequest(req)
+	}
+	getJSONActions()
+
 	req, err = http.NewRequest(http.MethodGet, path.Join(webAdminEventRulePath, "rulename"), nil)
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, testServerToken)
@@ -7271,11 +7286,19 @@ func TestProviderErrors(t *testing.T) {
 	setJWTCookieForReq(req, testServerToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr)
-	req, err = http.NewRequest(http.MethodGet, webAdminEventRulesPath+jsonAPISuffix+"?qlimit=10", nil)
-	assert.NoError(t, err)
-	setJWTCookieForReq(req, testServerToken)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusInternalServerError, rr)
+
+	getJSONRules := func() {
+		defer func() {
+			rcv := recover()
+			assert.Equal(t, http.ErrAbortHandler, rcv)
+		}()
+		req, err := http.NewRequest(http.MethodGet, webAdminEventRulesPath+jsonAPISuffix, nil)
+		assert.NoError(t, err)
+		setJWTCookieForReq(req, testServerToken)
+		executeRequest(req)
+	}
+	getJSONRules()
+
 	req, err = http.NewRequest(http.MethodGet, webAdminEventRulePath, nil)
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, testServerToken)
@@ -18525,7 +18548,7 @@ func TestWebUserShare(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 
-	req, err = http.NewRequest(http.MethodGet, webClientSharesPath+jsonAPISuffix, nil) //nolint:goconst
+	req, err = http.NewRequest(http.MethodGet, webClientSharesPath+jsonAPISuffix, nil)
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, token)
@@ -22878,6 +22901,13 @@ func TestWebEventAction(t *testing.T) {
 	setCSRFHeaderForReq(req, csrfToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodGet, webAdminEventActionsPath+jsonAPISuffix, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Equal(t, `[]`, rr.Body.String())
 }
 
 func TestWebEventRule(t *testing.T) {
@@ -24928,18 +24958,39 @@ func TestProviderClosedMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr)
 
-	req, _ = http.NewRequest(http.MethodGet, webFoldersPath+jsonAPISuffix, nil)
-	setJWTCookieForReq(req, token)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusInternalServerError, rr)
-	req, _ = http.NewRequest(http.MethodGet, webGroupsPath+jsonAPISuffix, nil)
-	setJWTCookieForReq(req, token)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusInternalServerError, rr)
-	req, _ = http.NewRequest(http.MethodGet, webUsersPath+jsonAPISuffix, nil)
-	setJWTCookieForReq(req, token)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusInternalServerError, rr)
+	getJSONFolders := func() {
+		defer func() {
+			rcv := recover()
+			assert.Equal(t, http.ErrAbortHandler, rcv)
+		}()
+		req, _ := http.NewRequest(http.MethodGet, webFoldersPath+jsonAPISuffix, nil)
+		setJWTCookieForReq(req, token)
+		executeRequest(req)
+	}
+	getJSONFolders()
+
+	getJSONGroups := func() {
+		defer func() {
+			rcv := recover()
+			assert.Equal(t, http.ErrAbortHandler, rcv)
+		}()
+		req, _ := http.NewRequest(http.MethodGet, webGroupsPath+jsonAPISuffix, nil)
+		setJWTCookieForReq(req, token)
+		executeRequest(req)
+	}
+	getJSONGroups()
+
+	getJSONUsers := func() {
+		defer func() {
+			rcv := recover()
+			assert.Equal(t, http.ErrAbortHandler, rcv)
+		}()
+		req, _ := http.NewRequest(http.MethodGet, webUsersPath+jsonAPISuffix, nil)
+		setJWTCookieForReq(req, token)
+		executeRequest(req)
+	}
+	getJSONUsers()
+
 	req, _ = http.NewRequest(http.MethodGet, webUserPath+"/0", nil)
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -24961,10 +25012,16 @@ func TestProviderClosedMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr)
 
-	req, _ = http.NewRequest(http.MethodGet, webAdminsPath+jsonAPISuffix, nil)
-	setJWTCookieForReq(req, token)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusInternalServerError, rr)
+	getJSONAdmins := func() {
+		defer func() {
+			rcv := recover()
+			assert.Equal(t, http.ErrAbortHandler, rcv)
+		}()
+		req, _ := http.NewRequest(http.MethodGet, webAdminsPath+jsonAPISuffix, nil)
+		setJWTCookieForReq(req, token)
+		executeRequest(req)
+	}
+	getJSONAdmins()
 
 	req, _ = http.NewRequest(http.MethodGet, path.Join(webFolderPath, defaultTokenAuthUser), nil)
 	setJWTCookieForReq(req, token)
@@ -24998,11 +25055,17 @@ func TestProviderClosedMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr)
 
-	req, err = http.NewRequest(http.MethodGet, webAdminRolesPath+jsonAPISuffix, nil)
-	assert.NoError(t, err)
-	setJWTCookieForReq(req, token)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusInternalServerError, rr)
+	getJSONRoles := func() {
+		defer func() {
+			rcv := recover()
+			assert.Equal(t, http.ErrAbortHandler, rcv)
+		}()
+		req, err := http.NewRequest(http.MethodGet, webAdminRolesPath+jsonAPISuffix, nil)
+		assert.NoError(t, err)
+		setJWTCookieForReq(req, token)
+		executeRequest(req)
+	}
+	getJSONRoles()
 
 	req, err = http.NewRequest(http.MethodGet, path.Join(webAdminRolePath, role.Name), nil)
 	assert.NoError(t, err)

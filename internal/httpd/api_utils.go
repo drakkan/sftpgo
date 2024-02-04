@@ -299,6 +299,41 @@ func renderAPIDirContents(w http.ResponseWriter, r *http.Request, contents []os.
 	render.JSON(w, r, results)
 }
 
+func streamData(w io.Writer, data []byte) {
+	b := bytes.NewBuffer(data)
+	_, err := io.CopyN(w, b, int64(len(data)))
+	if err != nil {
+		panic(http.ErrAbortHandler)
+	}
+}
+
+func streamJSONArray(w http.ResponseWriter, chunkSize int, dataGetter func(limit, offset int) ([]byte, int, error)) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Accept-Ranges", "none")
+	w.WriteHeader(http.StatusOK)
+
+	streamData(w, []byte("["))
+	offset := 0
+	for {
+		data, count, err := dataGetter(chunkSize, offset)
+		if err != nil {
+			panic(http.ErrAbortHandler)
+		}
+		if count == 0 {
+			break
+		}
+		if offset > 0 {
+			streamData(w, []byte(","))
+		}
+		streamData(w, data[1:len(data)-1])
+		if count < chunkSize {
+			break
+		}
+		offset += count
+	}
+	streamData(w, []byte("]"))
+}
+
 func getCompressedFileName(username string, files []string) string {
 	if len(files) == 1 {
 		name := path.Base(files[0])
