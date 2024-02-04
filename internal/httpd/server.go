@@ -1613,6 +1613,8 @@ func (s *httpdServer) setupWebClientRoutes() {
 				Get(webClientRecoveryCodesPath, getRecoveryCodes)
 			router.With(s.checkHTTPUserPerm(sdk.WebClientMFADisabled), verifyCSRFHeader).
 				Post(webClientRecoveryCodesPath, generateRecoveryCodes)
+			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientSharesDisabled), compressor.Handler, s.refreshCookie).
+				Get(webClientSharesPath+jsonAPISuffix, getAllShares)
 			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientSharesDisabled), s.refreshCookie).
 				Get(webClientSharesPath, s.handleClientGetShares)
 			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientSharesDisabled), s.refreshCookie).

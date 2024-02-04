@@ -197,7 +197,6 @@ type clientMFAPage struct {
 
 type clientSharesPage struct {
 	baseClientPage
-	Shares              []dataprovider.Share
 	BasePublicSharesURL string
 }
 
@@ -1515,36 +1514,33 @@ func (s *httpdServer) handleClientUpdateSharePost(w http.ResponseWriter, r *http
 	}
 }
 
-func (s *httpdServer) handleClientGetShares(w http.ResponseWriter, r *http.Request) {
+func getAllShares(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		s.renderClientForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
+		sendAPIResponse(w, r, nil, util.I18nErrorInvalidToken, http.StatusForbidden)
 		return
 	}
-	limit := defaultQueryLimit
-	if _, ok := r.URL.Query()["qlimit"]; ok {
-		var err error
-		limit, err = strconv.Atoi(r.URL.Query().Get("qlimit"))
-		if err != nil {
-			limit = defaultQueryLimit
-		}
-	}
-	shares := make([]dataprovider.Share, 0, limit)
+	shares := make([]dataprovider.Share, 0, 10)
 	for {
-		sh, err := dataprovider.GetShares(limit, len(shares), dataprovider.OrderASC, claims.Username)
+		sh, err := dataprovider.GetShares(defaultQueryLimit, len(shares), dataprovider.OrderASC, claims.Username)
 		if err != nil {
-			s.renderClientInternalServerErrorPage(w, r, err)
+			sendAPIResponse(w, r, err, getI18NErrorString(err, util.I18nError500Message), http.StatusInternalServerError)
 			return
 		}
 		shares = append(shares, sh...)
-		if len(sh) < limit {
+		if len(sh) < defaultQueryLimit {
 			break
 		}
 	}
+	render.JSON(w, r, shares)
+}
+
+func (s *httpdServer) handleClientGetShares(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+
 	data := clientSharesPage{
 		baseClientPage:      s.getBaseClientPageData(util.I18nSharesTitle, webClientSharesPath, r),
-		Shares:              shares,
 		BasePublicSharesURL: webClientPubSharesPath,
 	}
 	renderClientTemplate(w, templateClientShares, data)

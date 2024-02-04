@@ -7014,7 +7014,7 @@ func TestProviderErrors(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), util.I18nErrorGetUser)
 
-	req, err = http.NewRequest(http.MethodGet, webClientSharesPath, nil)
+	req, err = http.NewRequest(http.MethodGet, webClientSharesPath+jsonAPISuffix, nil)
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, userWebToken)
 	rr = executeRequest(req)
@@ -18518,14 +18518,14 @@ func TestWebUserShare(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 
-	req, err = http.NewRequest(http.MethodGet, webClientSharesPath+"?qlimit=aa", nil)
+	req, err = http.NewRequest(http.MethodGet, webClientSharesPath, nil)
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 
-	req, err = http.NewRequest(http.MethodGet, webClientSharesPath+"?qlimit=1", nil) //nolint:goconst
+	req, err = http.NewRequest(http.MethodGet, webClientSharesPath+jsonAPISuffix, nil) //nolint:goconst
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, token)

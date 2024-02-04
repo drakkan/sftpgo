@@ -20,6 +20,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 {{- end}}
 
 {{- define "page_body"}}
+{{- template "errmsg" ""}}
 <div class="card shadow-sm">
     <div class="card-header bg-light">
         <h3 data-i18n="share.view_manage" class="card-title section-title">View and manage shares</h3>
@@ -73,7 +74,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </div>
             </div>
             <div class="modal-body fs-5">
-                <div id="readShare">
+                <div id="readShare" class="mb-5">
                     <div class="mb-3">
                         <h4 data-i18n="share.link_single_title">Single zip file</h4>
                         <p data-i18n="share.link_single_desc">You can download shared content as a single zip file</p>
@@ -133,7 +134,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         </a>
                     </div>
                 </div>
-                <div id="writeShare">
+                <div id="writeShare" class="mb-5">
                     <p data-i18n="share.upload_desc">You can upload one or more files to the shared directory</p>
                     <button id="writePageLinkCopy"  data-clipboard-target="#writePageLink" type="button" class="btn btn-flex btn-light-primary btn-clipboard-copy me-3">
                         <i class="ki-duotone ki-fasten fs-2">
@@ -150,7 +151,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         <span data-i18n="fs.upload.text">Upload</span>
                     </a>
                 </div>
-                <div data-i18n="share.expired_desc" id="expiredShare" class="fw-semibold">
+                <div data-i18n="share.expired_desc" id="expiredShare" class="fw-semibold fs-4 mb-5">
                     This share is no longer accessible because it has expired
                 </div>
             </div>
@@ -222,8 +223,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         window.location.replace('{{.ShareURL}}' + "/" + encodeURIComponent(shareID));
     }
 
-    function showShareLink(shareID, shareScope, isExpired) {
-        if (isExpired == "1") {
+    function showShareLink(shareID, shareScope, expiresAt) {
+        if (expiresAt < Date.now()) {
             $('#expiredShare').show();
             $('#writeShare').hide();
             $('#readShare').hide();
@@ -254,20 +255,35 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         $('#link_modal').modal('show');
     }
 
-    const tableData = [];
-    {{- range .Shares}}
-    tableData.push(['{{.Name}}','{{.Scope}}','{{- if .Password}}1{{- else}}0{{- end}}','{{.ShareID}}','{{- if .IsExpired}}1{{- else}}0{{- end}}', '{{.ExpiresAt}}', '{{.LastUseAt}}', '{{.UsedTokens}}', '{{.MaxTokens}}']);
-    {{- end}}
-
     var sharesDatatable = function(){
         var dt;
 
         var initDatatable = function () {
             dt = $('#dataTable').DataTable({
-                data: tableData,
-                columnDefs: [
+                ajax: {
+                    url: "{{.SharesURL}}/json",
+                    dataSrc: "",
+                    error: function ($xhr, textStatus, errorThrown) {
+                        $(".dataTables_processing").hide();
+                        let txt = "";
+                        if ($xhr) {
+                            let json = $xhr.responseJSON;
+                            if (json) {
+                                if (json.message){
+                                    txt = json.message;
+                                }
+                            }
+                        }
+                        if (!txt){
+                            txt = "general.error500";
+                        }
+                        setI18NData($('#errorTxt'), txt);
+                        $('#errorMsg').removeClass("d-none");
+                    }
+                },
+                columns: [
                     {
-                        target: 0,
+                        data: "name",
                         render: function(data, type, row) {
                             if (type === 'display') {
                                 return escapeHTML(data);
@@ -276,13 +292,13 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         }
                     },
                     {
-                        target: 1,
+                        data: "scope",
                         render: function (data, type, row) {
                             if (type === 'display') {
                                 switch (data){
-                                    case "2":
+                                    case 2:
                                         return $.t('share.scope_write');
-                                    case "3":
+                                    case 3:
                                         return $.t('share.scope_read_write');
                                     default:
                                         return $.t('share.scope_read');
@@ -292,34 +308,39 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         }
                     },
                     {
-                        target: 2,
+                        data: "expires_at",
+                        defaultContent: 0,
                         searchable: false,
                         orderable: false,
                         render: function (data, type, row) {
                             if (type === 'display') {
                                 let info = "";
-                                if (row[5] > 0){
+                                if (row.expires_at && row.expires_at > 0){
                                     info+= $.t('share.expiration_date', {
-                                        val: parseInt(row[5], 10),
+                                        val: row.expires_at,
                                         formatParams: {
                                             val: { year: 'numeric', month: 'numeric', day: 'numeric' },
                                         }
                                     });
                                 }
-                                if (row[6] > 0){
+                                if (row.last_use_at && row.last_use_at > 0){
                                     info+= $.t('share.last_use', {
-                                        val: parseInt(row[6], 10),
+                                        val: row.last_use_at,
                                         formatParams: {
                                             val: { year: 'numeric', month: 'numeric', day: 'numeric' },
                                         }
                                     });
                                 }
-                                if (row[8] > 0){
-                                    info+= $.t('share.usage', {used: row[7], total: row[8]})
-                                } else {
-                                    info+= $.t('share.used_tokens', {used: row[7]})
+                                let used_tokens = 0;
+                                if (row.used_tokens && row.used_tokens > 0){
+                                    used_tokens = row.used_tokens;
                                 }
-                                if (data == "1"){
+                                if (row.max_tokens && row.max_tokens > 0){
+                                    info+= $.t('share.usage', {used: used_tokens, total: row.max_tokens});
+                                } else {
+                                    info+= $.t('share.used_tokens', {used: used_tokens});
+                                }
+                                if (row.password){
                                     info+= $.t('share.password_protected')
                                 }
                                 return info;
@@ -328,7 +349,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         }
                     },
                     {
-                        targets: 3,
+                        data: "id",
                         searchable: false,
                         orderable: false,
                         className: 'text-end',
@@ -423,7 +444,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 el.on("click", function(e){
                     e.preventDefault();
                     const parent = e.target.closest('tr');
-                    editAction(dt.row(parent).data()[3]);
+                    editAction(dt.row(parent).data()["id"]);
                 });
             });
 
@@ -435,7 +456,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 el.on("click", function(e){
                     e.preventDefault();
                     const parent = e.target.closest('tr');
-                    deleteAction(dt.row(parent).data()[3]);
+                    deleteAction(dt.row(parent).data()["id"]);
                 });
             });
 
@@ -447,7 +468,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 el.on("click", function(e){
                     e.preventDefault();
                     let rowData = dt.row(e.target.closest('tr')).data();
-                    showShareLink(rowData[3], rowData[1], rowData[4]);
+                    showShareLink(rowData["id"], rowData["scope"], rowData["expires_at"]);
                 });
             });
         }

@@ -2645,9 +2645,9 @@ func TestWebUserInvalidClaims(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 
 	rr = httptest.NewRecorder()
-	req, _ = http.NewRequest(http.MethodGet, webClientSharesPath, nil)
+	req, _ = http.NewRequest(http.MethodGet, webClientSharesPath+jsonAPISuffix, nil)
 	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
-	server.handleClientGetShares(rr, req)
+	getAllShares(rr, req)
 	assert.Equal(t, http.StatusForbidden, rr.Code)
 	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 
