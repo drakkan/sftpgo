@@ -27,7 +27,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 <label for="idEmail" data-i18n="general.email" class="col-md-3 col-form-label">Email</label>
                 <div class="col-md-9">
                     <input type="email" id="idEmail" name="email" placeholder="" spellcheck="false" value="{{.Email}}" maxlength="255"
-                        autocomplete="off" {{if not .LoggedUser.CanChangeInfo}}class="form-control-plaintext readonly-input" readonly{{else}}class="form-control"{{end}}>
+                        autocomplete="off" {{if not .LoggedUser.CanChangeInfo}}{{if .Email}}class="form-control-plaintext readonly-input"{{else}}class="form-control"{{end}} readonly{{else}}class="form-control"{{end}}>
                 </div>
             </div>
 
@@ -35,7 +35,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 <label for="idDescription" data-i18n="general.description" class="col-md-3 col-form-label">Description</label>
                 <div class="col-md-9">
                     <input type="text" id="idDescription" name="description" placeholder="" value="{{.Description}}" maxlength="255"
-                        {{if not .LoggedUser.CanChangeInfo}}class="form-control-plaintext readonly-input" readonly{{else}}class="form-control"{{end}}>
+                        {{if not .LoggedUser.CanChangeInfo}}{{if .Description}}class="form-control-plaintext readonly-input"{{else}}class="form-control"{{end}} readonly{{else}}class="form-control"{{end}}>
                 </div>
             </div>
 
