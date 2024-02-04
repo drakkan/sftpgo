@@ -3124,6 +3124,7 @@ func TestWebAdminSetupWithInstallCode(t *testing.T) {
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	server.router.ServeHTTP(rr, r)
 	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webAdminMFAPath, rr.Header().Get("Location"))
 
 	_, err = dataprovider.AdminExists(defaultAdminUsername)
 	assert.NoError(t, err)
@@ -3180,6 +3181,7 @@ func TestWebAdminSetupWithInstallCode(t *testing.T) {
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	server.router.ServeHTTP(rr, r)
 	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webAdminMFAPath, rr.Header().Get("Location"))
 
 	_, err = dataprovider.AdminExists(defaultAdminUsername)
 	assert.NoError(t, err)

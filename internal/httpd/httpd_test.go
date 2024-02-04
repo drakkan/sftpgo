@@ -18086,7 +18086,7 @@ func TestWebAdminSetupMock(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusFound, rr)
-	assert.Equal(t, webUsersPath, rr.Header().Get("Location"))
+	assert.Equal(t, webAdminMFAPath, rr.Header().Get("Location"))
 	// if we resubmit the form we get a bad request, an admin already exists
 	req, err = http.NewRequest(http.MethodPost, webAdminSetupPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)

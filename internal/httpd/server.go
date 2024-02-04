@@ -817,7 +817,11 @@ func (s *httpdServer) loginAdmin(
 		return
 	}
 	dataprovider.UpdateAdminLastLogin(admin)
-	http.Redirect(w, r, webUsersPath, http.StatusFound)
+	redirectURL := webUsersPath
+	if errorFunc == nil {
+		redirectURL = webAdminMFAPath
+	}
+	http.Redirect(w, r, redirectURL, http.StatusFound)
 }
 
 func (s *httpdServer) logout(w http.ResponseWriter, r *http.Request) {
