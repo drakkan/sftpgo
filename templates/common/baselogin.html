@@ -59,9 +59,16 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 		<script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
 			KTUtil.onDOMContentLoaded(function () {
 				$('#sign_in_form').submit(function (event) {
-					let submitButton = document.querySelector('#sign_in_submit');
-					submitButton.setAttribute('data-kt-indicator', 'on');
-					submitButton.disabled = true;
+					let next = null;
+					//{{- if .CheckRedirect}}
+					const urlParams = new URLSearchParams(window.location.search);
+					next = urlParams.get('next');
+					//{{- end}}
+					if (!next){
+						let submitButton = document.querySelector('#sign_in_submit');
+						submitButton.setAttribute('data-kt-indicator', 'on');
+						submitButton.disabled = true;
+					}
 				});
 			});
 		</script>

@@ -69,6 +69,7 @@ type loginPage struct {
 	Title          string
 	Branding       UIBranding
 	FormDisabled   bool
+	CheckRedirect  bool
 }
 
 type twoFactorPage struct {

@@ -173,6 +173,7 @@ func (s *httpdServer) renderClientLoginPage(w http.ResponseWriter, r *http.Reque
 		CSRFToken:      createCSRFToken(ip),
 		Branding:       s.binding.Branding.WebClient,
 		FormDisabled:   s.binding.isWebClientLoginFormDisabled(),
+		CheckRedirect:  true,
 	}
 	if next := r.URL.Query().Get("next"); strings.HasPrefix(next, webClientFilesPath) {
 		data.CurrentURL += "?next=" + url.QueryEscape(next)
@@ -599,6 +600,7 @@ func (s *httpdServer) renderAdminLoginPage(w http.ResponseWriter, r *http.Reques
 		CSRFToken:      createCSRFToken(ip),
 		Branding:       s.binding.Branding.WebAdmin,
 		FormDisabled:   s.binding.isWebAdminLoginFormDisabled(),
+		CheckRedirect:  false,
 	}
 	if s.binding.showClientLoginURL() {
 		data.AltLoginURL = webClientLoginPath
