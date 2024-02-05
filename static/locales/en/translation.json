@@ -259,7 +259,8 @@
         "day_of_week": "Day of week",
         "day_of_month": "Day of month",
         "month": "Month",
-        "options": "Options"
+        "options": "Options",
+        "expired": "Expired"
     },
     "fs": {
         "view_file": "View file \"{{- path}}\"",

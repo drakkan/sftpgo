@@ -267,15 +267,23 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     {
                         data: "status",
                         render: function(data, type, row) {
+                            let result = data;
+                            if (row.expiration_date){
+                                if (row.expiration_date < Date.now()){
+                                    result = -1;
+                                }
+                            }
                             if (type === 'display') {
-                                switch (data){
+                                switch (result){
                                     case 1:
                                         return $.t('general.active');
+                                    case -1:
+                                        return $.t('general.expired');
                                     default:
                                         return $.t('general.inactive');
                                 }
                             }
-                            return data;
+                            return result;
                         }
                     },
                     {

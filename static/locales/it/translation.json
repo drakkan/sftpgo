@@ -259,7 +259,8 @@
         "day_of_week": "Giorno settimana",
         "day_of_month": "Giorno mese",
         "month": "Mese",
-        "options": "Opzioni"
+        "options": "Opzioni",
+        "expired": "Scaduto"
     },
     "fs": {
         "view_file": "Visualizza file \"{{- path}}\"",
