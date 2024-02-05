@@ -93,9 +93,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                             </label>
                         </div>
                         <div class="menu-item px-3 py-2 form-check form-check-sm form-check-custom form-check-solid">
-                            <input type="checkbox" class="form-check-input" value="" id="checkColDesc" />
-                            <label class="form-check-label" for="checkColDesc">
-                                <span data-i18n="general.description" class="text-gray-800 fs-6">Description</span>
+                            <input type="checkbox" class="form-check-input" value="" id="checkColGroups" />
+                            <label class="form-check-label" for="checkColGroups">
+                                <span data-i18n="title.groups" class="text-gray-800 fs-6">Groups</span>
                             </label>
                         </div>
                     </div>
@@ -120,7 +120,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         <th data-i18n="title.two_factor_auth_short">2FA</th>
                         <th data-i18n="fs.quota_usage.disk">Disk quota</th>
                         <th data-i18n="fs.quota_usage.transfer">Transfer quota</th>
-                        <th data-i18n="general.description">Description</th>
+                        <th data-i18n="title.groups">Groups</th>
                         <th class="min-w-100px"></th>
                     </tr>
                 </thead>
@@ -441,17 +441,24 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         }
                     },
                     {
-                        data: "description",
+                        data: "groups",
                         visible: false,
-                        defaultContent: "",
+                        orderable: false,
+                        defaultContent: [],
                         render: function(data, type, row) {
-                            if (type === 'display') {
-                                if (data){
-                                    return escapeHTML(data);
-                                }
-                                return ""
+                            if (!data){
+                                return "";
                             }
-                            return data;
+                            let groups = [];
+                            let result = "";
+                            for (i = 0; i < data.length; i++){
+                                groups.push(data[i].name);
+                            }
+                            result = groups.join(", ");
+                            if (type === 'display') {
+                                return escapeHTML(result);
+                            }
+                            return result;
                         }
                     },
                     {
@@ -569,7 +576,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             handleColVisibilityCheckbox($('#checkCol2FA'), 6);
             handleColVisibilityCheckbox($('#checkColDiskQuota'), 7);
             handleColVisibilityCheckbox($('#checkColTransferQuota'), 8);
-            handleColVisibilityCheckbox($('#checkColDesc'), 9);
+            handleColVisibilityCheckbox($('#checkColGroups'), 9);
         }
 
         function handleRowActions() {
