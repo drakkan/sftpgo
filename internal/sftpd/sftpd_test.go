@@ -11310,7 +11310,7 @@ func getCustomAuthSftpClient(user dataprovider.User, authMethods []ssh.AuthMetho
 	}
 	var err error
 	var conn *ssh.Client
-	if len(addr) > 0 {
+	if addr != "" {
 		conn, err = ssh.Dial("tcp", addr, config)
 	} else {
 		conn, err = ssh.Dial("tcp", sftpServerAddr, config)

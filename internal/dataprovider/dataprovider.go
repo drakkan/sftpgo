@@ -1371,7 +1371,9 @@ func CheckUserAndPubKey(username string, pubKey []byte, ip, protocol string, isS
 
 // CheckKeyboardInteractiveAuth checks the keyboard interactive authentication and returns
 // the authenticated user or an error
-func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.KeyboardInteractiveChallenge, ip, protocol string) (User, error) {
+func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.KeyboardInteractiveChallenge,
+	ip, protocol string, isPartialAuth bool,
+) (User, error) {
 	var user User
 	var err error
 	username = config.convertName(username)
@@ -1387,7 +1389,7 @@ func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.Keyboard
 	if err != nil {
 		return user, err
 	}
-	return doKeyboardInteractiveAuth(&user, authHook, client, ip, protocol)
+	return doKeyboardInteractiveAuth(&user, authHook, client, ip, protocol, isPartialAuth)
 }
 
 // GetFTPPreAuthUser returns the SFTPGo user with the specified username
@@ -3624,21 +3626,25 @@ func sendKeyboardAuthHTTPReq(url string, request *plugin.KeyboardAuthRequest) (*
 	return &response, err
 }
 
-func doBuiltinKeyboardInteractiveAuth(user *User, client ssh.KeyboardInteractiveChallenge, ip, protocol string) (int, error) {
-	answers, err := client("", "", []string{"Password: "}, []bool{false})
-	if err != nil {
+func doBuiltinKeyboardInteractiveAuth(user *User, client ssh.KeyboardInteractiveChallenge,
+	ip, protocol string, isPartialAuth bool,
+) (int, error) {
+	if err := user.LoadAndApplyGroupSettings(); err != nil {
 		return 0, err
 	}
-	if len(answers) != 1 {
-		return 0, fmt.Errorf("unexpected number of answers: %d", len(answers))
-	}
-	err = user.LoadAndApplyGroupSettings()
-	if err != nil {
-		return 0, err
-	}
-	_, err = checkUserAndPass(user, answers[0], ip, protocol)
-	if err != nil {
-		return 0, err
+	hasSecondFactor := user.Filters.TOTPConfig.Enabled && util.Contains(user.Filters.TOTPConfig.Protocols, protocolSSH)
+	if !isPartialAuth || !hasSecondFactor {
+		answers, err := client("", "", []string{"Password: "}, []bool{false})
+		if err != nil {
+			return 0, err
+		}
+		if len(answers) != 1 {
+			return 0, fmt.Errorf("unexpected number of answers: %d", len(answers))
+		}
+		_, err = checkUserAndPass(user, answers[0], ip, protocol)
+		if err != nil {
+			return 0, err
+		}
 	}
 	return checkKeyboardInteractiveSecondFactor(user, client, protocol)
 }
@@ -3881,7 +3887,9 @@ func executeKeyboardInteractiveProgram(user *User, authHook string, client ssh.K
 	return authResult, err
 }
 
-func doKeyboardInteractiveAuth(user *User, authHook string, client ssh.KeyboardInteractiveChallenge, ip, protocol string) (User, error) {
+func doKeyboardInteractiveAuth(user *User, authHook string, client ssh.KeyboardInteractiveChallenge,
+	ip, protocol string, isPartialAuth bool,
+) (User, error) {
 	if err := user.LoadAndApplyGroupSettings(); err != nil {
 		return *user, err
 	}
@@ -3900,10 +3908,10 @@ func doKeyboardInteractiveAuth(user *User, authHook string, client ssh.KeyboardI
 				authResult, err = executeKeyboardInteractiveProgram(user, authHook, client, ip, protocol)
 			}
 		} else {
-			authResult, err = doBuiltinKeyboardInteractiveAuth(user, client, ip, protocol)
+			authResult, err = doBuiltinKeyboardInteractiveAuth(user, client, ip, protocol, isPartialAuth)
 		}
 	} else {
-		authResult, err = doBuiltinKeyboardInteractiveAuth(user, client, ip, protocol)
+		authResult, err = doBuiltinKeyboardInteractiveAuth(user, client, ip, protocol, isPartialAuth)
 	}
 	if err != nil {
 		return *user, err

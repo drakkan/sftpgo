@@ -588,7 +588,7 @@ func (c *Configuration) configureKeyboardInteractiveAuth(serverConfig *ssh.Serve
 		}
 	}
 	serverConfig.KeyboardInteractiveCallback = func(conn ssh.ConnMetadata, client ssh.KeyboardInteractiveChallenge) (*ssh.Permissions, error) {
-		return c.validateKeyboardInteractiveCredentials(conn, client, dataprovider.SSHLoginMethodKeyboardInteractive)
+		return c.validateKeyboardInteractiveCredentials(conn, client, dataprovider.SSHLoginMethodKeyboardInteractive, false)
 	}
 
 	serviceStatus.Authentications = append(serviceStatus.Authentications, dataprovider.SSHLoginMethodKeyboardInteractive)
@@ -1193,7 +1193,7 @@ func (c *Configuration) getPartialSuccessError(nextAuthMethods []string) error {
 	}
 	if c.KeyboardInteractiveAuthentication && util.Contains(nextAuthMethods, dataprovider.SSHLoginMethodKeyboardInteractive) {
 		err.KeyboardInteractiveCallback = func(conn ssh.ConnMetadata, client ssh.KeyboardInteractiveChallenge) (*ssh.Permissions, error) {
-			return c.validateKeyboardInteractiveCredentials(conn, client, dataprovider.SSHLoginMethodKeyAndKeyboardInt)
+			return c.validateKeyboardInteractiveCredentials(conn, client, dataprovider.SSHLoginMethodKeyAndKeyboardInt, true)
 		}
 	}
 	return err
@@ -1288,7 +1288,7 @@ func (c *Configuration) validatePasswordCredentials(conn ssh.ConnMetadata, pass 
 }
 
 func (c *Configuration) validateKeyboardInteractiveCredentials(conn ssh.ConnMetadata, client ssh.KeyboardInteractiveChallenge,
-	method string,
+	method string, isPartialAuth bool,
 ) (*ssh.Permissions, error) {
 	var err error
 	var user dataprovider.User
@@ -1296,7 +1296,7 @@ func (c *Configuration) validateKeyboardInteractiveCredentials(conn ssh.ConnMeta
 
 	ipAddr := util.GetIPFromRemoteAddress(conn.RemoteAddr().String())
 	if user, err = dataprovider.CheckKeyboardInteractiveAuth(conn.User(), c.KeyboardInteractiveHook, client,
-		ipAddr, common.ProtocolSSH); err == nil {
+		ipAddr, common.ProtocolSSH, isPartialAuth); err == nil {
 		sshPerm, err = loginUser(&user, method, "", conn)
 	}
 	user.Username = conn.User()
