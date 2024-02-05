@@ -529,7 +529,8 @@
         "template_no_user": "No valid user defined, unable to complete the requested action"
     },
     "group": {
-        "view_manage": "View and manage groups"
+        "view_manage": "View and manage groups",
+        "err_delete_referenced": "Cannot delete a group with associated users, remove associations first"
     },
     "virtual_folders": {
         "view_manage": "View and manage virtual folders",
@@ -739,7 +740,8 @@
         "client": "Client: {{- val}}"
     },
     "role": {
-        "view_manage": "View and manage roles"
+        "view_manage": "View and manage roles",
+        "err_delete_referenced": "Cannot delete a role with associated admins, remove associations first"
     },
     "ip_list": {
         "view_manage": "View and manage IP lists",
@@ -896,6 +898,7 @@
     },
     "actions": {
         "view_manage": "View and manage rule actions for events",
+        "err_delete_referenced": "Cannot delete an action with associated rules, remove associations first",
         "http_url": "Server URL",
         "http_url_help": "i.e https://host:port/path. Placeholders are supported within the URL path",
         "http_url_required": "URL is required",

@@ -529,7 +529,8 @@
         "template_no_user": "Nessun utente valido definito. Impossibile completare l'azione richiesta"
     },
     "group": {
-        "view_manage": "Visualizza e gestisci gruppi"
+        "view_manage": "Visualizza e gestisci gruppi",
+        "err_delete_referenced": "Impossibile eliminare un gruppo con utenti associati, rimuovere prima le associazioni"
     },
     "virtual_folders": {
         "view_manage": "Visualizza e gestisci cartelle virtuali",
@@ -739,7 +740,8 @@
         "client": "Client: {{- val}}"
     },
     "role": {
-        "view_manage": "Visualizza e gestisci ruoli"
+        "view_manage": "Visualizza e gestisci ruoli",
+        "err_delete_referenced": "Impossibile eliminare un ruolo con amministratori associati, rimuovere prima le associazioni"
     },
     "ip_list": {
         "view_manage": "Visualizza e gestisci liste IP",
@@ -896,6 +898,7 @@
     },
     "actions": {
         "view_manage": "Visualizza e gestisci le azioni delle regole per gli eventi",
+        "err_delete_referenced": "Impossibile eliminare un'azione con regole associate, rimuovere prima le associazioni",
         "http_url": "URL Server",
         "http_url_help": "Ad es. \"https://host:port/path\". I segnaposto sono supportati nel path dell'URL",
         "http_url_required": "L'URL è obbligatorio",

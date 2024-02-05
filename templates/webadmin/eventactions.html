@@ -248,11 +248,11 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 stateSave: true,
                 stateDuration: 0,
                 stateLoadParams: function (settings, data) {
-                        if (data.search.search){
-                            const filterSearch = document.querySelector('[data-table-filter="search"]');
-                            filterSearch.value = data.search.search;
-                        }
-                    },
+                    if (data.search.search){
+                        const filterSearch = document.querySelector('[data-table-filter="search"]');
+                        filterSearch.value = data.search.search;
+                    }
+                },
                 language: {
                     info: $.t('datatable.info'),
                     infoEmpty: $.t('datatable.info_empty'),
@@ -312,7 +312,19 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 el.on("click", function(e){
                     e.preventDefault();
                     const parent = e.target.closest('tr');
-                    deleteAction(dt.row(parent).data()['name']);
+                    let row = dt.row(parent).data();
+                    if (row.rules && row.rules.length > 0){
+                        ModalAlert.fire({
+                            text: $.t('actions.err_delete_referenced'),
+                            icon: "warning",
+                            confirmButtonText: $.t('general.ok'),
+                            customClass: {
+                                confirmButton: "btn btn-primary"
+                            }
+                        });
+                        return;
+                    }
+                    deleteAction(row['name']);
                 });
             });
         }
