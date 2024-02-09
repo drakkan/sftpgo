@@ -18,12 +18,14 @@
 package sftpd
 
 import (
+	"os"
 	"os/exec"
 	"syscall"
 )
 
 func wrapCmd(cmd *exec.Cmd, uid, gid int) *exec.Cmd {
-	if uid > 0 || gid > 0 {
+	isCurrentUser := os.Getuid() == uid && os.Getgid() == gid
+	if (uid > 0 || gid > 0) && !isCurrentUser {
 		cmd.SysProcAttr = &syscall.SysProcAttr{}
 		cmd.SysProcAttr.Credential = &syscall.Credential{Uid: uint32(uid), Gid: uint32(gid)}
 	}
