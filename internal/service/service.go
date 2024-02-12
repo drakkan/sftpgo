@@ -162,6 +162,13 @@ func (s *Service) initializeServices(disableAWSInstallationCode bool) error {
 	}
 
 	if s.PortableMode == 1 {
+		// add virtual folders to provider
+		for _, f := range s.PortableUser.VirtualFolders {
+			if err := dataprovider.AddFolder(&f.BaseVirtualFolder, dataprovider.ActionExecutorSystem, "", ""); err != nil {
+				return err
+			}
+		}
+
 		// create the user for portable mode
 		err = dataprovider.AddUser(&s.PortableUser, dataprovider.ActionExecutorSystem, "", "")
 		if err != nil {
