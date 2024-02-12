@@ -90,6 +90,7 @@ const (
 
 var (
 	errNoMatchingVirtualFolder = errors.New("no matching virtual folder found")
+	AvailablePermissions       = []string{PermAny, PermListItems, PermDownload, PermUpload, PermOverwrite, PermDelete, PermDeleteFiles, PermDeleteDirs, PermRename, PermRenameFiles, PermRenameDirs, PermCreateDirs, PermCreateSymlinks, PermChmod, PermChown, PermChtimes}
 	permsRenameAny             = []string{PermRename, PermRenameDirs, PermRenameFiles}
 	permsDeleteAny             = []string{PermDelete, PermDeleteDirs, PermDeleteFiles}
 )
