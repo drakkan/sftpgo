@@ -165,6 +165,7 @@ func (s *Service) initializeServices(disableAWSInstallationCode bool) error {
 		// add virtual folders to provider
 		for _, f := range s.PortableUser.VirtualFolders {
 			if err := dataprovider.AddFolder(&f.BaseVirtualFolder, dataprovider.ActionExecutorSystem, "", ""); err != nil {
+				logger.ErrorToConsole("error adding virtual folder %v for portable user: %v", f, err)
 				return err
 			}
 		}
