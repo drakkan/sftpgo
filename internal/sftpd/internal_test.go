@@ -1294,6 +1294,17 @@ func TestSCPProtocolMessages(t *testing.T) {
 	if assert.Error(t, err) {
 		assert.Equal(t, protocolErrorMsg, err.Error())
 	}
+
+	mockSSHChannel = MockChannel{
+		Buffer:       bytes.NewBuffer(respBuffer),
+		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
+		ReadError:    nil,
+		WriteError:   writeErr,
+	}
+	scpCommand.connection.channel = &mockSSHChannel
+
+	err = scpCommand.downloadDirs(nil, nil)
+	assert.ErrorIs(t, err, writeErr)
 }
 
 func TestSCPTestDownloadProtocolMessages(t *testing.T) {

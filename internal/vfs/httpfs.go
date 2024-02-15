@@ -488,7 +488,7 @@ func (fs *HTTPFs) Truncate(name string, size int64) error {
 
 // ReadDir reads the directory named by dirname and returns
 // a list of directory entries.
-func (fs *HTTPFs) ReadDir(dirname string) ([]os.FileInfo, error) {
+func (fs *HTTPFs) ReadDir(dirname string) (DirLister, error) {
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()
 
@@ -511,7 +511,7 @@ func (fs *HTTPFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 	for _, stat := range response {
 		result = append(result, stat.getFileInfo())
 	}
-	return result, nil
+	return &baseDirLister{result}, nil
 }
 
 // IsUploadResumeSupported returns true if resuming uploads is supported.
@@ -731,19 +731,33 @@ func (fs *HTTPFs) walk(filePath string, info fs.FileInfo, walkFn filepath.WalkFu
 	if !info.IsDir() {
 		return walkFn(filePath, info, nil)
 	}
-	files, err := fs.ReadDir(filePath)
+	lister, err := fs.ReadDir(filePath)
 	err1 := walkFn(filePath, info, err)
 	if err != nil || err1 != nil {
+		if err == nil {
+			lister.Close()
+		}
 		return err1
 	}
-	for _, fi := range files {
-		objName := path.Join(filePath, fi.Name())
-		err = fs.walk(objName, fi, walkFn)
-		if err != nil {
+	defer lister.Close()
+
+	for {
+		files, err := lister.Next(ListerBatchSize)
+		finished := errors.Is(err, io.EOF)
+		if err != nil && !finished {
 			return err
 		}
+		for _, fi := range files {
+			objName := path.Join(filePath, fi.Name())
+			err = fs.walk(objName, fi, walkFn)
+			if err != nil {
+				return err
+			}
+		}
+		if finished {
+			return nil
+		}
 	}
-	return nil
 }
 
 func getErrorFromResponseCode(code int) error {

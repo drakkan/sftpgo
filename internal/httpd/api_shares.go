@@ -213,12 +213,12 @@ func (s *httpdServer) readBrowsableShareContents(w http.ResponseWriter, r *http.
 	}
 	defer common.Connections.Remove(connection.GetID())
 
-	contents, err := connection.ReadDir(name)
+	lister, err := connection.ReadDir(name)
 	if err != nil {
-		sendAPIResponse(w, r, err, "Unable to get directory contents", getMappedStatusCode(err))
+		sendAPIResponse(w, r, err, "Unable to get directory lister", getMappedStatusCode(err))
 		return
 	}
-	renderAPIDirContents(w, r, contents, true)
+	renderAPIDirContents(w, lister, true)
 }
 
 func (s *httpdServer) downloadBrowsableSharedFile(w http.ResponseWriter, r *http.Request) {

@@ -45,6 +45,8 @@ const (
 	gcsfsName        = "GCSFs"
 	azBlobFsName     = "AzureBlobFs"
 	preResumeTimeout = 90 * time.Second
+	// ListerBatchSize defines the default limit for DirLister implementations
+	ListerBatchSize = 1000
 )
 
 // Additional checks for files
@@ -58,14 +60,15 @@ var (
 	// ErrStorageSizeUnavailable is returned if the storage backend does not support getting the size
 	ErrStorageSizeUnavailable = errors.New("unable to get available size for this storage backend")
 	// ErrVfsUnsupported defines the error for an unsupported VFS operation
-	ErrVfsUnsupported    = errors.New("not supported")
-	tempPath             string
-	sftpFingerprints     []string
-	allowSelfConnections int
-	renameMode           int
-	readMetadata         int
-	resumeMaxSize        int64
-	uploadMode           int
+	ErrVfsUnsupported        = errors.New("not supported")
+	errInvalidDirListerLimit = errors.New("dir lister: invalid limit, must be > 0")
+	tempPath                 string
+	sftpFingerprints         []string
+	allowSelfConnections     int
+	renameMode               int
+	readMetadata             int
+	resumeMaxSize            int64
+	uploadMode               int
 )
 
 // SetAllowSelfConnections sets the desired behaviour for self connections
@@ -125,7 +128,7 @@ type Fs interface {
 	Chmod(name string, mode os.FileMode) error
 	Chtimes(name string, atime, mtime time.Time, isUploading bool) error
 	Truncate(name string, size int64) error
-	ReadDir(dirname string) ([]os.FileInfo, error)
+	ReadDir(dirname string) (DirLister, error)
 	Readlink(name string) (string, error)
 	IsUploadResumeSupported() bool
 	IsConditionalUploadResumeSupported(size int64) bool
@@ -199,9 +202,45 @@ type PipeReader interface {
 	Metadata() map[string]string
 }
 
+// DirLister defines an interface for a directory lister
+type DirLister interface {
+	Next(limit int) ([]os.FileInfo, error)
+	Close() error
+}
+
 // Metadater defines an interface to implement to return metadata for a file
 type Metadater interface {
 	Metadata() map[string]string
+}
+
+type baseDirLister struct {
+	cache []os.FileInfo
+}
+
+func (l *baseDirLister) Next(limit int) ([]os.FileInfo, error) {
+	if limit <= 0 {
+		return nil, errInvalidDirListerLimit
+	}
+	if len(l.cache) >= limit {
+		return l.returnFromCache(limit), nil
+	}
+	return l.returnFromCache(limit), io.EOF
+}
+
+func (l *baseDirLister) returnFromCache(limit int) []os.FileInfo {
+	if len(l.cache) >= limit {
+		result := l.cache[:limit]
+		l.cache = l.cache[limit:]
+		return result
+	}
+	result := l.cache
+	l.cache = nil
+	return result
+}
+
+func (l *baseDirLister) Close() error {
+	l.cache = nil
+	return nil
 }
 
 // QuotaCheckResult defines the result for a quota check
@@ -1069,18 +1108,6 @@ func updateFileInfoModTime(storageID, objectPath string, info *FileInfo) (*FileI
 	return info, nil
 }
 
-func getFolderModTimes(storageID, dirName string) (map[string]int64, error) {
-	var err error
-	modTimes := make(map[string]int64)
-	if plugin.Handler.HasMetadater() {
-		modTimes, err = plugin.Handler.GetModificationTimes(storageID, ensureAbsPath(dirName))
-		if err != nil && !errors.Is(err, metadata.ErrNoSuchObject) {
-			return modTimes, err
-		}
-	}
-	return modTimes, nil
-}
-
 func ensureAbsPath(name string) string {
 	if path.IsAbs(name) {
 		return name
@@ -1203,6 +1230,50 @@ func getLocalTempDir() string {
 		return tempPath
 	}
 	return filepath.Clean(os.TempDir())
+}
+
+func doRecursiveRename(fs Fs, source, target string,
+	renameFn func(string, string, os.FileInfo, int) (int, int64, error),
+	recursion int,
+) (int, int64, error) {
+	var numFiles int
+	var filesSize int64
+
+	if recursion > util.MaxRecursion {
+		return numFiles, filesSize, util.ErrRecursionTooDeep
+	}
+	recursion++
+
+	lister, err := fs.ReadDir(source)
+	if err != nil {
+		return numFiles, filesSize, err
+	}
+	defer lister.Close()
+
+	for {
+		entries, err := lister.Next(ListerBatchSize)
+		finished := errors.Is(err, io.EOF)
+		if err != nil && !finished {
+			return numFiles, filesSize, err
+		}
+		for _, info := range entries {
+			sourceEntry := fs.Join(source, info.Name())
+			targetEntry := fs.Join(target, info.Name())
+			files, size, err := renameFn(sourceEntry, targetEntry, info, recursion)
+			if err != nil {
+				if fs.IsNotExist(err) {
+					fsLog(fs, logger.LevelInfo, "skipping rename for %q: %v", sourceEntry, err)
+					continue
+				}
+				return numFiles, filesSize, err
+			}
+			numFiles += files
+			filesSize += size
+		}
+		if finished {
+			return numFiles, filesSize, nil
+		}
+	}
 }
 
 func fsLog(fs Fs, level logger.LogLevel, format string, v ...any) {

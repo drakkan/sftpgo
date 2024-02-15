@@ -376,6 +376,7 @@ func (c *Configuration) Initialize(configDir string) error {
 	c.loadModuli(configDir)
 
 	sftp.SetSFTPExtensions(sftpExtensions...) //nolint:errcheck // we configure valid SFTP Extensions so we cannot get an error
+	sftp.MaxFilelist = vfs.ListerBatchSize
 
 	if err := c.configureSecurityOptions(serverConfig); err != nil {
 		return err

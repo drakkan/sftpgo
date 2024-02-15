@@ -958,33 +958,50 @@ func (s *httpdServer) handleShareGetDirContents(w http.ResponseWriter, r *http.R
 	}
 	defer common.Connections.Remove(connection.GetID())
 
-	contents, err := connection.ReadDir(name)
+	lister, err := connection.ReadDir(name)
 	if err != nil {
 		sendAPIResponse(w, r, err, getI18NErrorString(err, util.I18nErrorDirListGeneric), getMappedStatusCode(err))
 		return
 	}
-	results := make([]map[string]any, 0, len(contents))
-	for _, info := range contents {
-		if !info.Mode().IsDir() && !info.Mode().IsRegular() {
-			continue
+	defer lister.Close()
+
+	dataGetter := func(limit, _ int) ([]byte, int, error) {
+		contents, err := lister.Next(limit)
+		if errors.Is(err, io.EOF) {
+			err = nil
 		}
-		res := make(map[string]any)
-		if info.IsDir() {
-			res["type"] = "1"
-			res["size"] = ""
-		} else {
-			res["type"] = "2"
-			res["size"] = info.Size()
+		if err != nil {
+			return nil, 0, err
 		}
-		res["meta"] = fmt.Sprintf("%v_%v", res["type"], info.Name())
-		res["name"] = info.Name()
-		res["url"] = getFileObjectURL(share.GetRelativePath(name), info.Name(),
-			path.Join(webClientPubSharesPath, share.ShareID, "browse"))
-		res["last_modified"] = getFileObjectModTime(info.ModTime())
-		results = append(results, res)
+		results := make([]map[string]any, 0, len(contents))
+		for _, info := range contents {
+			if !info.Mode().IsDir() && !info.Mode().IsRegular() {
+				continue
+			}
+			res := make(map[string]any)
+			if info.IsDir() {
+				res["type"] = "1"
+				res["size"] = ""
+			} else {
+				res["type"] = "2"
+				res["size"] = info.Size()
+			}
+			res["meta"] = fmt.Sprintf("%v_%v", res["type"], info.Name())
+			res["name"] = info.Name()
+			res["url"] = getFileObjectURL(share.GetRelativePath(name), info.Name(),
+				path.Join(webClientPubSharesPath, share.ShareID, "browse"))
+			res["last_modified"] = getFileObjectModTime(info.ModTime())
+			results = append(results, res)
+		}
+		data, err := json.Marshal(results)
+		count := limit
+		if len(results) == 0 {
+			count = 0
+		}
+		return data, count, err
 	}
 
-	render.JSON(w, r, results)
+	streamJSONArray(w, defaultQueryLimit, dataGetter)
 }
 
 func (s *httpdServer) handleClientUploadToShare(w http.ResponseWriter, r *http.Request) {
@@ -1146,43 +1163,59 @@ func (s *httpdServer) handleClientGetDirContents(w http.ResponseWriter, r *http.
 	defer common.Connections.Remove(connection.GetID())
 
 	name := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
-	contents, err := connection.ReadDir(name)
+	lister, err := connection.ReadDir(name)
 	if err != nil {
 		statusCode := getMappedStatusCode(err)
 		sendAPIResponse(w, r, err, i18nListDirMsg(statusCode), statusCode)
 		return
 	}
+	defer lister.Close()
 
 	dirTree := r.URL.Query().Get("dirtree") == "1"
-	results := make([]map[string]any, 0, len(contents))
-	for _, info := range contents {
-		res := make(map[string]any)
-		res["url"] = getFileObjectURL(name, info.Name(), webClientFilesPath)
-		if info.IsDir() {
-			res["type"] = "1"
-			res["size"] = ""
-			res["dir_path"] = url.QueryEscape(path.Join(name, info.Name()))
-		} else {
-			if dirTree {
-				continue
-			}
-			res["type"] = "2"
-			if info.Mode()&os.ModeSymlink != 0 {
+	dataGetter := func(limit, _ int) ([]byte, int, error) {
+		contents, err := lister.Next(limit)
+		if errors.Is(err, io.EOF) {
+			err = nil
+		}
+		if err != nil {
+			return nil, 0, err
+		}
+		results := make([]map[string]any, 0, len(contents))
+		for _, info := range contents {
+			res := make(map[string]any)
+			res["url"] = getFileObjectURL(name, info.Name(), webClientFilesPath)
+			if info.IsDir() {
+				res["type"] = "1"
 				res["size"] = ""
+				res["dir_path"] = url.QueryEscape(path.Join(name, info.Name()))
 			} else {
-				res["size"] = info.Size()
-				if info.Size() < httpdMaxEditFileSize {
-					res["edit_url"] = strings.Replace(res["url"].(string), webClientFilesPath, webClientEditFilePath, 1)
+				if dirTree {
+					continue
+				}
+				res["type"] = "2"
+				if info.Mode()&os.ModeSymlink != 0 {
+					res["size"] = ""
+				} else {
+					res["size"] = info.Size()
+					if info.Size() < httpdMaxEditFileSize {
+						res["edit_url"] = strings.Replace(res["url"].(string), webClientFilesPath, webClientEditFilePath, 1)
+					}
 				}
 			}
+			res["meta"] = fmt.Sprintf("%v_%v", res["type"], info.Name())
+			res["name"] = info.Name()
+			res["last_modified"] = getFileObjectModTime(info.ModTime())
+			results = append(results, res)
 		}
-		res["meta"] = fmt.Sprintf("%v_%v", res["type"], info.Name())
-		res["name"] = info.Name()
-		res["last_modified"] = getFileObjectModTime(info.ModTime())
-		results = append(results, res)
+		data, err := json.Marshal(results)
+		count := limit
+		if len(results) == 0 {
+			count = 0
+		}
+		return data, count, err
 	}
 
-	render.JSON(w, r, results)
+	streamJSONArray(w, defaultQueryLimit, dataGetter)
 }
 
 func (s *httpdServer) handleClientGetFiles(w http.ResponseWriter, r *http.Request) {
@@ -1917,27 +1950,45 @@ func doCheckExist(w http.ResponseWriter, r *http.Request, connection *Connection
 		return
 	}
 
-	contents, err := connection.ListDir(name)
+	lister, err := connection.ListDir(name)
 	if err != nil {
 		sendAPIResponse(w, r, err, "Unable to get directory contents", getMappedStatusCode(err))
 		return
 	}
-	existing := make([]map[string]any, 0)
-	for _, info := range contents {
-		if util.Contains(filesList.Files, info.Name()) {
-			res := make(map[string]any)
-			res["name"] = info.Name()
-			if info.IsDir() {
-				res["type"] = "1"
-				res["size"] = ""
-			} else {
-				res["type"] = "2"
-				res["size"] = info.Size()
-			}
-			existing = append(existing, res)
+	defer lister.Close()
+
+	dataGetter := func(limit, _ int) ([]byte, int, error) {
+		contents, err := lister.Next(limit)
+		if errors.Is(err, io.EOF) {
+			err = nil
 		}
+		if err != nil {
+			return nil, 0, err
+		}
+		existing := make([]map[string]any, 0)
+		for _, info := range contents {
+			if util.Contains(filesList.Files, info.Name()) {
+				res := make(map[string]any)
+				res["name"] = info.Name()
+				if info.IsDir() {
+					res["type"] = "1"
+					res["size"] = ""
+				} else {
+					res["type"] = "2"
+					res["size"] = info.Size()
+				}
+				existing = append(existing, res)
+			}
+		}
+		data, err := json.Marshal(existing)
+		count := limit
+		if len(existing) == 0 {
+			count = 0
+		}
+		return data, count, err
 	}
-	render.JSON(w, r, existing)
+
+	streamJSONArray(w, defaultQueryLimit, dataGetter)
 }
 
 func checkShareRedirectURL(next, base string) (bool, string) {

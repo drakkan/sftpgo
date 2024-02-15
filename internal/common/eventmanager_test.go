@@ -1835,7 +1835,7 @@ func TestFilesystemActionErrors(t *testing.T) {
 			Writer:  zip.NewWriter(bytes.NewBuffer(nil)),
 			Entries: map[string]bool{},
 		}
-		err = addZipEntry(wr, conn, "/adir/sub/f.dat", "/adir/sub/sub")
+		err = addZipEntry(wr, conn, "/adir/sub/f.dat", "/adir/sub/sub", 0)
 		assert.Error(t, err)
 		assert.Contains(t, getErrorString(err), "is outside base dir")
 	}

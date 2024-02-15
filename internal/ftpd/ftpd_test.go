@@ -2544,14 +2544,14 @@ func TestRename(t *testing.T) {
 				assert.NoError(t, err)
 				err = client.MakeDir(path.Join(otherDir, testDir))
 				assert.NoError(t, err)
-				code, response, err := client.SendCustomCommand(fmt.Sprintf("SITE CHMOD 0001 %v", otherDir))
+				code, response, err := client.SendCommand(fmt.Sprintf("SITE CHMOD 0001 %v", otherDir))
 				assert.NoError(t, err)
 				assert.Equal(t, ftp.StatusCommandOK, code)
 				assert.Equal(t, "SITE CHMOD command successful", response)
 				err = client.Rename(testDir, path.Join(otherDir, testDir))
 				assert.Error(t, err)
 
-				code, response, err = client.SendCustomCommand(fmt.Sprintf("SITE CHMOD 755 %v", otherDir))
+				code, response, err = client.SendCommand(fmt.Sprintf("SITE CHMOD 755 %v", otherDir))
 				assert.NoError(t, err)
 				assert.Equal(t, ftp.StatusCommandOK, code)
 				assert.Equal(t, "SITE CHMOD command successful", response)
@@ -2611,7 +2611,7 @@ func TestSymlink(t *testing.T) {
 			assert.NoError(t, err)
 			err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
 			assert.NoError(t, err)
-			code, _, err := client.SendCustomCommand(fmt.Sprintf("SITE SYMLINK %v %v", testFileName, testFileName+".link"))
+			code, _, err := client.SendCommand(fmt.Sprintf("SITE SYMLINK %v %v", testFileName, testFileName+".link"))
 			assert.NoError(t, err)
 			assert.Equal(t, ftp.StatusCommandOK, code)
 
@@ -2622,15 +2622,15 @@ func TestSymlink(t *testing.T) {
 				assert.NoError(t, err)
 				err = client.MakeDir(path.Join(otherDir, testDir))
 				assert.NoError(t, err)
-				code, response, err := client.SendCustomCommand(fmt.Sprintf("SITE CHMOD 0001 %v", otherDir))
+				code, response, err := client.SendCommand(fmt.Sprintf("SITE CHMOD 0001 %v", otherDir))
 				assert.NoError(t, err)
 				assert.Equal(t, ftp.StatusCommandOK, code)
 				assert.Equal(t, "SITE CHMOD command successful", response)
-				code, _, err = client.SendCustomCommand(fmt.Sprintf("SITE SYMLINK %v %v", testDir, path.Join(otherDir, testDir)))
+				code, _, err = client.SendCommand(fmt.Sprintf("SITE SYMLINK %v %v", testDir, path.Join(otherDir, testDir)))
 				assert.NoError(t, err)
 				assert.Equal(t, ftp.StatusFileUnavailable, code)
 
-				code, response, err = client.SendCustomCommand(fmt.Sprintf("SITE CHMOD 755 %v", otherDir))
+				code, response, err = client.SendCommand(fmt.Sprintf("SITE CHMOD 755 %v", otherDir))
 				assert.NoError(t, err)
 				assert.Equal(t, ftp.StatusCommandOK, code)
 				assert.Equal(t, "SITE CHMOD command successful", response)
@@ -2860,17 +2860,17 @@ func TestAllocateAvailable(t *testing.T) {
 	assert.NoError(t, err)
 	client, err := getFTPClient(user, false, nil)
 	if assert.NoError(t, err) {
-		code, response, err := client.SendCustomCommand("allo 2000000")
+		code, response, err := client.SendCommand("allo 2000000")
 		assert.NoError(t, err)
 		assert.Equal(t, ftp.StatusCommandOK, code)
 		assert.Equal(t, "Done !", response)
 
-		code, response, err = client.SendCustomCommand("AVBL /vdir")
+		code, response, err = client.SendCommand("AVBL /vdir")
 		assert.NoError(t, err)
 		assert.Equal(t, ftp.StatusFile, code)
 		assert.Equal(t, "110", response)
 
-		code, _, err = client.SendCustomCommand("AVBL")
+		code, _, err = client.SendCommand("AVBL")
 		assert.NoError(t, err)
 		assert.Equal(t, ftp.StatusFile, code)
 
@@ -2886,7 +2886,7 @@ func TestAllocateAvailable(t *testing.T) {
 		testFileSize := user.QuotaSize - 1
 		err = createTestFile(testFilePath, testFileSize)
 		assert.NoError(t, err)
-		code, response, err := client.SendCustomCommand("allo 1000")
+		code, response, err := client.SendCommand("allo 1000")
 		assert.NoError(t, err)
 		assert.Equal(t, ftp.StatusCommandOK, code)
 		assert.Equal(t, "Done !", response)
@@ -2894,7 +2894,7 @@ func TestAllocateAvailable(t *testing.T) {
 		err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
 		assert.NoError(t, err)
 
-		code, response, err = client.SendCustomCommand("AVBL")
+		code, response, err = client.SendCommand("AVBL")
 		assert.NoError(t, err)
 		assert.Equal(t, ftp.StatusFile, code)
 		assert.Equal(t, "1", response)
@@ -2909,7 +2909,7 @@ func TestAllocateAvailable(t *testing.T) {
 	assert.NoError(t, err)
 	client, err = getFTPClient(user, false, nil)
 	if assert.NoError(t, err) {
-		code, response, err := client.SendCustomCommand("AVBL")
+		code, response, err := client.SendCommand("AVBL")
 		assert.NoError(t, err)
 		assert.Equal(t, ftp.StatusFile, code)
 		assert.Equal(t, "1", response)
@@ -2925,7 +2925,7 @@ func TestAllocateAvailable(t *testing.T) {
 	assert.NoError(t, err)
 	client, err = getFTPClient(user, false, nil)
 	if assert.NoError(t, err) {
-		code, response, err := client.SendCustomCommand("AVBL")
+		code, response, err := client.SendCommand("AVBL")
 		assert.NoError(t, err)
 		assert.Equal(t, ftp.StatusFile, code)
 		assert.Equal(t, "5242880", response)
@@ -2941,7 +2941,7 @@ func TestAllocateAvailable(t *testing.T) {
 	assert.NoError(t, err)
 	client, err = getFTPClient(user, false, nil)
 	if assert.NoError(t, err) {
-		code, response, err := client.SendCustomCommand("AVBL")
+		code, response, err := client.SendCommand("AVBL")
 		assert.NoError(t, err)
 		assert.Equal(t, ftp.StatusFile, code)
 		assert.Equal(t, "5242880", response)
@@ -2958,12 +2958,12 @@ func TestAllocateAvailable(t *testing.T) {
 	assert.NoError(t, err)
 	client, err = getFTPClient(user, false, nil)
 	if assert.NoError(t, err) {
-		code, response, err := client.SendCustomCommand("allo 10000")
+		code, response, err := client.SendCommand("allo 10000")
 		assert.NoError(t, err)
 		assert.Equal(t, ftp.StatusCommandOK, code)
 		assert.Equal(t, "Done !", response)
 
-		code, response, err = client.SendCustomCommand("AVBL")
+		code, response, err = client.SendCommand("AVBL")
 		assert.NoError(t, err)
 		assert.Equal(t, ftp.StatusFile, code)
 		assert.Equal(t, "100", response)
@@ -2977,7 +2977,7 @@ func TestAllocateAvailable(t *testing.T) {
 	assert.NoError(t, err)
 	client, err = getFTPClient(user, false, nil)
 	if assert.NoError(t, err) {
-		code, response, err := client.SendCustomCommand("AVBL")
+		code, response, err := client.SendCommand("AVBL")
 		assert.NoError(t, err)
 		assert.Equal(t, ftp.StatusFile, code)
 		assert.Equal(t, "0", response)
@@ -2989,7 +2989,7 @@ func TestAllocateAvailable(t *testing.T) {
 	assert.NoError(t, err)
 	client, err = getFTPClient(user, false, nil)
 	if assert.NoError(t, err) {
-		code, response, err := client.SendCustomCommand("AVBL")
+		code, response, err := client.SendCommand("AVBL")
 		assert.NoError(t, err)
 		assert.Equal(t, ftp.StatusFile, code)
 		assert.Equal(t, "1", response)
@@ -3013,7 +3013,7 @@ func TestAvailableSFTPFs(t *testing.T) {
 	assert.NoError(t, err)
 	client, err := getFTPClient(sftpUser, false, nil)
 	if assert.NoError(t, err) {
-		code, response, err := client.SendCustomCommand("AVBL /")
+		code, response, err := client.SendCommand("AVBL /")
 		assert.NoError(t, err)
 		assert.Equal(t, ftp.StatusFile, code)
 		avblSize, err := strconv.ParseInt(response, 10, 64)
@@ -3051,7 +3051,7 @@ func TestChtimes(t *testing.T) {
 			assert.NoError(t, err)
 
 			mtime := time.Now().Format("20060102150405")
-			code, response, err := client.SendCustomCommand(fmt.Sprintf("MFMT %v %v", mtime, testFileName))
+			code, response, err := client.SendCommand(fmt.Sprintf("MFMT %v %v", mtime, testFileName))
 			assert.NoError(t, err)
 			assert.Equal(t, ftp.StatusFile, code)
 			assert.Equal(t, fmt.Sprintf("Modify=%v; %v", mtime, testFileName), response)
@@ -3097,7 +3097,7 @@ func TestChown(t *testing.T) {
 		assert.NoError(t, err)
 		err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
 		assert.NoError(t, err)
-		code, response, err := client.SendCustomCommand(fmt.Sprintf("SITE CHOWN 1000:1000 %v", testFileName))
+		code, response, err := client.SendCommand(fmt.Sprintf("SITE CHOWN 1000:1000 %v", testFileName))
 		assert.NoError(t, err)
 		assert.Equal(t, ftp.StatusFileUnavailable, code)
 		assert.Equal(t, "Couldn't chown: operation unsupported", response)
@@ -3135,7 +3135,7 @@ func TestChmod(t *testing.T) {
 			err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
 			assert.NoError(t, err)
 
-			code, response, err := client.SendCustomCommand(fmt.Sprintf("SITE CHMOD 600 %v", testFileName))
+			code, response, err := client.SendCommand(fmt.Sprintf("SITE CHMOD 600 %v", testFileName))
 			assert.NoError(t, err)
 			assert.Equal(t, ftp.StatusCommandOK, code)
 			assert.Equal(t, "SITE CHMOD command successful", response)
@@ -3182,7 +3182,7 @@ func TestCombineDisabled(t *testing.T) {
 			err = checkBasicFTP(client)
 			assert.NoError(t, err)
 
-			code, response, err := client.SendCustomCommand("COMB file file.1 file.2")
+			code, response, err := client.SendCommand("COMB file file.1 file.2")
 			assert.NoError(t, err)
 			assert.Equal(t, ftp.StatusNotImplemented, code)
 			assert.Equal(t, "COMB support is disabled", response)
@@ -3208,12 +3208,12 @@ func TestActiveModeDisabled(t *testing.T) {
 	if assert.NoError(t, err) {
 		err = checkBasicFTP(client)
 		assert.NoError(t, err)
-		code, response, err := client.SendCustomCommand("PORT 10,2,0,2,4,31")
+		code, response, err := client.SendCommand("PORT 10,2,0,2,4,31")
 		assert.NoError(t, err)
 		assert.Equal(t, ftp.StatusNotAvailable, code)
 		assert.Equal(t, "PORT command is disabled", response)
 
-		code, response, err = client.SendCustomCommand("EPRT |1|132.235.1.2|6275|")
+		code, response, err = client.SendCommand("EPRT |1|132.235.1.2|6275|")
 		assert.NoError(t, err)
 		assert.Equal(t, ftp.StatusNotAvailable, code)
 		assert.Equal(t, "EPRT command is disabled", response)
@@ -3224,12 +3224,12 @@ func TestActiveModeDisabled(t *testing.T) {
 
 	client, err = getFTPClient(user, false, nil)
 	if assert.NoError(t, err) {
-		code, response, err := client.SendCustomCommand("PORT 10,2,0,2,4,31")
+		code, response, err := client.SendCommand("PORT 10,2,0,2,4,31")
 		assert.NoError(t, err)
 		assert.Equal(t, ftp.StatusBadArguments, code)
 		assert.Equal(t, "Your request does not meet the configured security requirements", response)
 
-		code, response, err = client.SendCustomCommand("EPRT |1|132.235.1.2|6275|")
+		code, response, err = client.SendCommand("EPRT |1|132.235.1.2|6275|")
 		assert.NoError(t, err)
 		assert.Equal(t, ftp.StatusBadArguments, code)
 		assert.Equal(t, "Your request does not meet the configured security requirements", response)
@@ -3253,7 +3253,7 @@ func TestSITEDisabled(t *testing.T) {
 		err = checkBasicFTP(client)
 		assert.NoError(t, err)
 
-		code, response, err := client.SendCustomCommand("SITE CHMOD 600 afile.txt")
+		code, response, err := client.SendCommand("SITE CHMOD 600 afile.txt")
 		assert.NoError(t, err)
 		assert.Equal(t, ftp.StatusBadCommand, code)
 		assert.Equal(t, "SITE support is disabled", response)
@@ -3298,12 +3298,12 @@ func TestHASH(t *testing.T) {
 			err = f.Close()
 			assert.NoError(t, err)
 
-			code, response, err := client.SendCustomCommand(fmt.Sprintf("XSHA256 %v", testFileName))
+			code, response, err := client.SendCommand(fmt.Sprintf("XSHA256 %v", testFileName))
 			assert.NoError(t, err)
 			assert.Equal(t, ftp.StatusRequestedFileActionOK, code)
 			assert.Contains(t, response, hash)
 
-			code, response, err = client.SendCustomCommand(fmt.Sprintf("HASH %v", testFileName))
+			code, response, err = client.SendCommand(fmt.Sprintf("HASH %v", testFileName))
 			assert.NoError(t, err)
 			assert.Equal(t, ftp.StatusFile, code)
 			assert.Contains(t, response, hash)
@@ -3359,7 +3359,7 @@ func TestCombine(t *testing.T) {
 			err = ftpUploadFile(testFilePath, testFileName+".2", testFileSize, client, 0)
 			assert.NoError(t, err)
 
-			code, response, err := client.SendCustomCommand(fmt.Sprintf("COMB %v %v %v", testFileName, testFileName+".1", testFileName+".2"))
+			code, response, err := client.SendCommand(fmt.Sprintf("COMB %v %v %v", testFileName, testFileName+".1", testFileName+".2"))
 			assert.NoError(t, err)
 			if user.Username == defaultUsername {
 				assert.Equal(t, ftp.StatusRequestedFileActionOK, code)

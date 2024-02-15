@@ -17,10 +17,12 @@ package common
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"testing"
 	"time"
 
@@ -601,8 +603,10 @@ func TestErrorResolvePath(t *testing.T) {
 	}
 
 	conn := NewBaseConnection("", ProtocolSFTP, "", "", u)
-	err := conn.doRecursiveRemoveDirEntry("/vpath", nil)
+	err := conn.doRecursiveRemoveDirEntry("/vpath", nil, 0)
 	assert.Error(t, err)
+	err = conn.doRecursiveRemove(nil, "/fspath", "/vpath", vfs.NewFileInfo("vpath", true, 0, time.Now(), false), 2000)
+	assert.Error(t, err, util.ErrRecursionTooDeep)
 	err = conn.checkCopy(vfs.NewFileInfo("name", true, 0, time.Unix(0, 0), false), nil, "/source", "/target")
 	assert.Error(t, err)
 	sourceFile := filepath.Join(os.TempDir(), "f", "source")
@@ -700,26 +704,32 @@ func TestFilePatterns(t *testing.T) {
 		VirtualFolders: virtualFolders,
 	}
 
+	getFilteredInfo := func(dirContents []os.FileInfo, virtualPath string) []os.FileInfo {
+		result := user.FilterListDir(dirContents, virtualPath)
+		result = append(result, user.GetVirtualFoldersInfo(virtualPath)...)
+		return result
+	}
+
 	dirContents := []os.FileInfo{
 		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
 		vfs.NewFileInfo("file1.jpg", false, 123, time.Now(), false),
 	}
 	// dirContents are modified in place, we need to redefine them each time
-	filtered := user.FilterListDir(dirContents, "/dir1")
+	filtered := getFilteredInfo(dirContents, "/dir1")
 	assert.Len(t, filtered, 5)
 
 	dirContents = []os.FileInfo{
 		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
 		vfs.NewFileInfo("file1.jpg", false, 123, time.Now(), false),
 	}
-	filtered = user.FilterListDir(dirContents, "/dir1/vdir1")
+	filtered = getFilteredInfo(dirContents, "/dir1/vdir1")
 	assert.Len(t, filtered, 2)
 
 	dirContents = []os.FileInfo{
 		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
 		vfs.NewFileInfo("file1.jpg", false, 123, time.Now(), false),
 	}
-	filtered = user.FilterListDir(dirContents, "/dir2/vdir2")
+	filtered = getFilteredInfo(dirContents, "/dir2/vdir2")
 	require.Len(t, filtered, 1)
 	assert.Equal(t, "file1.jpg", filtered[0].Name())
 
@@ -727,7 +737,7 @@ func TestFilePatterns(t *testing.T) {
 		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
 		vfs.NewFileInfo("file1.jpg", false, 123, time.Now(), false),
 	}
-	filtered = user.FilterListDir(dirContents, "/dir2/vdir2/sub")
+	filtered = getFilteredInfo(dirContents, "/dir2/vdir2/sub")
 	require.Len(t, filtered, 1)
 	assert.Equal(t, "file1.jpg", filtered[0].Name())
 
@@ -754,14 +764,14 @@ func TestFilePatterns(t *testing.T) {
 		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
 		vfs.NewFileInfo("file1.jpg", false, 123, time.Now(), false),
 	}
-	filtered = user.FilterListDir(dirContents, "/dir4")
+	filtered = getFilteredInfo(dirContents, "/dir4")
 	require.Len(t, filtered, 0)
 
 	dirContents = []os.FileInfo{
 		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
 		vfs.NewFileInfo("file1.jpg", false, 123, time.Now(), false),
 	}
-	filtered = user.FilterListDir(dirContents, "/dir4/vdir2/sub")
+	filtered = getFilteredInfo(dirContents, "/dir4/vdir2/sub")
 	require.Len(t, filtered, 0)
 
 	dirContents = []os.FileInfo{
@@ -769,7 +779,7 @@ func TestFilePatterns(t *testing.T) {
 		vfs.NewFileInfo("file1.jpg", false, 123, time.Now(), false),
 	}
 
-	filtered = user.FilterListDir(dirContents, "/dir2")
+	filtered = getFilteredInfo(dirContents, "/dir2")
 	assert.Len(t, filtered, 2)
 
 	dirContents = []os.FileInfo{
@@ -777,7 +787,7 @@ func TestFilePatterns(t *testing.T) {
 		vfs.NewFileInfo("file1.jpg", false, 123, time.Now(), false),
 	}
 
-	filtered = user.FilterListDir(dirContents, "/dir4")
+	filtered = getFilteredInfo(dirContents, "/dir4")
 	assert.Len(t, filtered, 0)
 
 	dirContents = []os.FileInfo{
@@ -785,7 +795,7 @@ func TestFilePatterns(t *testing.T) {
 		vfs.NewFileInfo("file1.jpg", false, 123, time.Now(), false),
 	}
 
-	filtered = user.FilterListDir(dirContents, "/dir4/sub")
+	filtered = getFilteredInfo(dirContents, "/dir4/sub")
 	assert.Len(t, filtered, 0)
 
 	dirContents = []os.FileInfo{
@@ -793,10 +803,10 @@ func TestFilePatterns(t *testing.T) {
 		vfs.NewFileInfo("vdir3.jpg", false, 123, time.Now(), false),
 	}
 
-	filtered = user.FilterListDir(dirContents, "/dir1")
+	filtered = getFilteredInfo(dirContents, "/dir1")
 	assert.Len(t, filtered, 5)
 
-	filtered = user.FilterListDir(dirContents, "/dir2")
+	filtered = getFilteredInfo(dirContents, "/dir2")
 	if assert.Len(t, filtered, 1) {
 		assert.True(t, filtered[0].IsDir())
 	}
@@ -806,14 +816,14 @@ func TestFilePatterns(t *testing.T) {
 		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
 		vfs.NewFileInfo("vdir3.jpg", false, 123, time.Now(), false),
 	}
-	filtered = user.FilterListDir(dirContents, "/dir1")
+	filtered = getFilteredInfo(dirContents, "/dir1")
 	assert.Len(t, filtered, 2)
 
 	dirContents = []os.FileInfo{
 		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
 		vfs.NewFileInfo("vdir3.jpg", false, 123, time.Now(), false),
 	}
-	filtered = user.FilterListDir(dirContents, "/dir2")
+	filtered = getFilteredInfo(dirContents, "/dir2")
 	if assert.Len(t, filtered, 1) {
 		assert.False(t, filtered[0].IsDir())
 	}
@@ -824,7 +834,7 @@ func TestFilePatterns(t *testing.T) {
 		vfs.NewFileInfo("file2.txt", false, 123, time.Now(), false),
 		vfs.NewFileInfo("vdir3.jpg", false, 123, time.Now(), false),
 	}
-	filtered = user.FilterListDir(dirContents, "/dir2")
+	filtered = getFilteredInfo(dirContents, "/dir2")
 	if assert.Len(t, filtered, 2) {
 		assert.False(t, filtered[0].IsDir())
 		assert.False(t, filtered[1].IsDir())
@@ -832,9 +842,9 @@ func TestFilePatterns(t *testing.T) {
 
 	user.VirtualFolders = virtualFolders
 	user.Filters = filters
-	filtered = user.FilterListDir(nil, "/dir1")
+	filtered = getFilteredInfo(nil, "/dir1")
 	assert.Len(t, filtered, 3)
-	filtered = user.FilterListDir(nil, "/dir2")
+	filtered = getFilteredInfo(nil, "/dir2")
 	assert.Len(t, filtered, 1)
 
 	dirContents = []os.FileInfo{
@@ -843,7 +853,7 @@ func TestFilePatterns(t *testing.T) {
 		vfs.NewFileInfo("file2.txt", false, 123, time.Now(), false),
 		vfs.NewFileInfo("vdir3.jpg", false, 456, time.Now(), false),
 	}
-	filtered = user.FilterListDir(dirContents, "/dir2")
+	filtered = getFilteredInfo(dirContents, "/dir2")
 	assert.Len(t, filtered, 2)
 
 	user = dataprovider.User{
@@ -866,7 +876,7 @@ func TestFilePatterns(t *testing.T) {
 		vfs.NewFileInfo("file2.txt", false, 123, time.Now(), false),
 		vfs.NewFileInfo("vdir3.jpg", false, 456, time.Now(), false),
 	}
-	filtered = user.FilterListDir(dirContents, "/dir3")
+	filtered = getFilteredInfo(dirContents, "/dir3")
 	assert.Len(t, filtered, 0)
 
 	dirContents = nil
@@ -881,7 +891,7 @@ func TestFilePatterns(t *testing.T) {
 	dirContents = append(dirContents, vfs.NewFileInfo("ic35.*", false, 123, time.Now(), false))
 	dirContents = append(dirContents, vfs.NewFileInfo("file.jpg", false, 123, time.Now(), false))
 
-	filtered = user.FilterListDir(dirContents, "/dir3")
+	filtered = getFilteredInfo(dirContents, "/dir3")
 	require.Len(t, filtered, 1)
 	assert.Equal(t, "ic35", filtered[0].Name())
 
@@ -890,7 +900,7 @@ func TestFilePatterns(t *testing.T) {
 		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
 		vfs.NewFileInfo("file2.txt", false, 123, time.Now(), false),
 	}
-	filtered = user.FilterListDir(dirContents, "/dir3/ic36")
+	filtered = getFilteredInfo(dirContents, "/dir3/ic36")
 	require.Len(t, filtered, 0)
 
 	dirContents = []os.FileInfo{
@@ -898,7 +908,7 @@ func TestFilePatterns(t *testing.T) {
 		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
 		vfs.NewFileInfo("file2.txt", false, 123, time.Now(), false),
 	}
-	filtered = user.FilterListDir(dirContents, "/dir3/ic35")
+	filtered = getFilteredInfo(dirContents, "/dir3/ic35")
 	require.Len(t, filtered, 3)
 
 	dirContents = []os.FileInfo{
@@ -906,7 +916,7 @@ func TestFilePatterns(t *testing.T) {
 		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
 		vfs.NewFileInfo("file2.txt", false, 123, time.Now(), false),
 	}
-	filtered = user.FilterListDir(dirContents, "/dir3/ic35/sub")
+	filtered = getFilteredInfo(dirContents, "/dir3/ic35/sub")
 	require.Len(t, filtered, 3)
 
 	res, _ = user.IsFileAllowed("/dir3/file.txt")
@@ -930,7 +940,7 @@ func TestFilePatterns(t *testing.T) {
 		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
 		vfs.NewFileInfo("file2.txt", false, 123, time.Now(), false),
 	}
-	filtered = user.FilterListDir(dirContents, "/dir3/ic35/sub")
+	filtered = getFilteredInfo(dirContents, "/dir3/ic35/sub")
 	require.Len(t, filtered, 3)
 
 	user.Filters.FilePatterns = append(user.Filters.FilePatterns, sdk.PatternsFilter{
@@ -949,7 +959,7 @@ func TestFilePatterns(t *testing.T) {
 		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
 		vfs.NewFileInfo("file2.txt", false, 123, time.Now(), false),
 	}
-	filtered = user.FilterListDir(dirContents, "/dir3/ic35/sub1")
+	filtered = getFilteredInfo(dirContents, "/dir3/ic35/sub1")
 	require.Len(t, filtered, 3)
 
 	dirContents = []os.FileInfo{
@@ -957,7 +967,7 @@ func TestFilePatterns(t *testing.T) {
 		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
 		vfs.NewFileInfo("file2.txt", false, 123, time.Now(), false),
 	}
-	filtered = user.FilterListDir(dirContents, "/dir3/ic35/sub2")
+	filtered = getFilteredInfo(dirContents, "/dir3/ic35/sub2")
 	require.Len(t, filtered, 2)
 
 	dirContents = []os.FileInfo{
@@ -965,7 +975,7 @@ func TestFilePatterns(t *testing.T) {
 		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
 		vfs.NewFileInfo("file2.txt", false, 123, time.Now(), false),
 	}
-	filtered = user.FilterListDir(dirContents, "/dir3/ic35/sub2/sub1")
+	filtered = getFilteredInfo(dirContents, "/dir3/ic35/sub2/sub1")
 	require.Len(t, filtered, 2)
 
 	res, _ = user.IsFileAllowed("/dir3/ic35/file.jpg")
@@ -1023,7 +1033,7 @@ func TestFilePatterns(t *testing.T) {
 		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
 		vfs.NewFileInfo("file2.txt", false, 123, time.Now(), false),
 	}
-	filtered = user.FilterListDir(dirContents, "/dir3/ic35")
+	filtered = getFilteredInfo(dirContents, "/dir3/ic35")
 	require.Len(t, filtered, 1)
 
 	dirContents = []os.FileInfo{
@@ -1031,6 +1041,116 @@ func TestFilePatterns(t *testing.T) {
 		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
 		vfs.NewFileInfo("file2.txt", false, 123, time.Now(), false),
 	}
-	filtered = user.FilterListDir(dirContents, "/dir3/ic35/abc")
+	filtered = getFilteredInfo(dirContents, "/dir3/ic35/abc")
 	require.Len(t, filtered, 1)
+}
+
+func TestListerAt(t *testing.T) {
+	dir := t.TempDir()
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username: "u",
+			Password: "p",
+			HomeDir:  dir,
+			Status:   1,
+			Permissions: map[string][]string{
+				"/": {"*"},
+			},
+		},
+	}
+	conn := NewBaseConnection(xid.New().String(), ProtocolSFTP, "", "", user)
+	lister, err := conn.ListDir("/")
+	require.NoError(t, err)
+	files, err := lister.Next(1)
+	require.ErrorIs(t, err, io.EOF)
+	require.Len(t, files, 0)
+	err = lister.Close()
+	require.NoError(t, err)
+
+	conn.User.VirtualFolders = []vfs.VirtualFolder{
+		{
+			VirtualPath: "p1",
+		},
+		{
+			VirtualPath: "p2",
+		},
+		{
+			VirtualPath: "p3",
+		},
+	}
+	lister, err = conn.ListDir("/")
+	require.NoError(t, err)
+	files, err = lister.Next(2)
+	// virtual directories exceeds the limit
+	require.ErrorIs(t, err, io.EOF)
+	require.Len(t, files, 3)
+	files, err = lister.Next(2)
+	require.ErrorIs(t, err, io.EOF)
+	require.Len(t, files, 0)
+	_, err = lister.Next(-1)
+	require.ErrorContains(t, err, "invalid limit")
+	err = lister.Close()
+	require.NoError(t, err)
+
+	lister, err = conn.ListDir("/")
+	require.NoError(t, err)
+	_, err = lister.ListAt(nil, 0)
+	require.ErrorContains(t, err, "zero size")
+	err = lister.Close()
+	require.NoError(t, err)
+
+	for i := 0; i < 100; i++ {
+		f, err := os.Create(filepath.Join(dir, strconv.Itoa(i)))
+		require.NoError(t, err)
+		err = f.Close()
+		require.NoError(t, err)
+	}
+	lister, err = conn.ListDir("/")
+	require.NoError(t, err)
+	files = make([]os.FileInfo, 18)
+	n, err := lister.ListAt(files, 0)
+	require.NoError(t, err)
+	require.Equal(t, 18, n)
+	n, err = lister.ListAt(files, 0)
+	require.NoError(t, err)
+	require.Equal(t, 18, n)
+	files = make([]os.FileInfo, 100)
+	n, err = lister.ListAt(files, 0)
+	require.NoError(t, err)
+	require.Equal(t, 64+3, n)
+	n, err = lister.ListAt(files, 0)
+	require.ErrorIs(t, err, io.EOF)
+	require.Equal(t, 0, n)
+	n, err = lister.ListAt(files, 0)
+	require.ErrorIs(t, err, io.EOF)
+	require.Equal(t, 0, n)
+	err = lister.Close()
+	require.NoError(t, err)
+	n, err = lister.ListAt(files, 0)
+	require.Error(t, err)
+	require.NotErrorIs(t, err, io.EOF)
+	require.Equal(t, 0, n)
+	lister, err = conn.ListDir("/")
+	require.NoError(t, err)
+	lister.Add(vfs.NewFileInfo("..", true, 0, time.Unix(0, 0), false))
+	lister.Add(vfs.NewFileInfo(".", true, 0, time.Unix(0, 0), false))
+	files = make([]os.FileInfo, 1)
+	n, err = lister.ListAt(files, 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, n)
+	assert.Equal(t, ".", files[0].Name())
+	files = make([]os.FileInfo, 2)
+	n, err = lister.ListAt(files, 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, n)
+	assert.Equal(t, "..", files[0].Name())
+	assert.Equal(t, "p3", files[1].Name())
+	files = make([]os.FileInfo, 200)
+	n, err = lister.ListAt(files, 0)
+	require.NoError(t, err)
+	require.Equal(t, 102, n)
+	assert.Equal(t, "p2", files[0].Name())
+	assert.Equal(t, "p1", files[1].Name())
+	err = lister.Close()
+	require.NoError(t, err)
 }

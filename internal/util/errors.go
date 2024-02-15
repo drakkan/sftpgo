@@ -15,6 +15,7 @@
 package util
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -24,12 +25,16 @@ const (
 		"sftpgo serve -c \"<path to dir containing the default config file and templates directory>\""
 )
 
+// MaxRecursion defines the maximum number of allowed recursions
+const MaxRecursion = 1000
+
 // errors definitions
 var (
-	ErrValidation     = NewValidationError("")
-	ErrNotFound       = NewRecordNotFoundError("")
-	ErrMethodDisabled = NewMethodDisabledError("")
-	ErrGeneric        = NewGenericError("")
+	ErrValidation       = NewValidationError("")
+	ErrNotFound         = NewRecordNotFoundError("")
+	ErrMethodDisabled   = NewMethodDisabledError("")
+	ErrGeneric          = NewGenericError("")
+	ErrRecursionTooDeep = errors.New("recursion too deep")
 )
 
 // ValidationError raised if input data is not valid

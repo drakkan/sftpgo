@@ -88,7 +88,7 @@ func (c *Connection) Stat(name string, mode int) (os.FileInfo, error) {
 }
 
 // ReadDir returns a list of directory entries
-func (c *Connection) ReadDir(name string) ([]os.FileInfo, error) {
+func (c *Connection) ReadDir(name string) (vfs.DirLister, error) {
 	c.UpdateLastActivity()
 
 	return c.ListDir(name)

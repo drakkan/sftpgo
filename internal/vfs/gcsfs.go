@@ -266,7 +266,7 @@ func (fs *GCSFs) Rename(source, target string) (int, int64, error) {
 	if err != nil {
 		return -1, -1, err
 	}
-	return fs.renameInternal(source, target, fi)
+	return fs.renameInternal(source, target, fi, 0)
 }
 
 // Remove removes the named file or (empty) directory.
@@ -369,80 +369,23 @@ func (*GCSFs) Truncate(_ string, _ int64) error {
 
 // ReadDir reads the directory named by dirname and returns
 // a list of directory entries.
-func (fs *GCSFs) ReadDir(dirname string) ([]os.FileInfo, error) {
-	var result []os.FileInfo
+func (fs *GCSFs) ReadDir(dirname string) (DirLister, error) {
 	// dirname must be already cleaned
 	prefix := fs.getPrefix(dirname)
-
 	query := &storage.Query{Prefix: prefix, Delimiter: "/"}
 	err := query.SetAttrSelection(gcsDefaultFieldsSelection)
 	if err != nil {
 		return nil, err
 	}
-
-	modTimes, err := getFolderModTimes(fs.getStorageID(), dirname)
-	if err != nil {
-		return result, err
-	}
-
-	prefixes := make(map[string]bool)
-	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxLongTimeout))
-	defer cancelFn()
-
 	bkt := fs.svc.Bucket(fs.config.Bucket)
-	it := bkt.Objects(ctx, query)
-	pager := iterator.NewPager(it, defaultGCSPageSize, "")
 
-	for {
-		var objects []*storage.ObjectAttrs
-		pageToken, err := pager.NextPage(&objects)
-		if err != nil {
-			metric.GCSListObjectsCompleted(err)
-			return result, err
-		}
-
-		for _, attrs := range objects {
-			if attrs.Prefix != "" {
-				name, _ := fs.resolve(attrs.Prefix, prefix, attrs.ContentType)
-				if name == "" {
-					continue
-				}
-				if _, ok := prefixes[name]; ok {
-					continue
-				}
-				result = append(result, NewFileInfo(name, true, 0, time.Unix(0, 0), false))
-				prefixes[name] = true
-			} else {
-				name, isDir := fs.resolve(attrs.Name, prefix, attrs.ContentType)
-				if name == "" {
-					continue
-				}
-				if !attrs.Deleted.IsZero() {
-					continue
-				}
-				if isDir {
-					// check if the dir is already included, it will be sent as blob prefix if it contains at least one item
-					if _, ok := prefixes[name]; ok {
-						continue
-					}
-					prefixes[name] = true
-				}
-				modTime := attrs.Updated
-				if t, ok := modTimes[name]; ok {
-					modTime = util.GetTimeFromMsecSinceEpoch(t)
-				}
-				result = append(result, NewFileInfo(name, isDir, attrs.Size, modTime, false))
-			}
-		}
-
-		objects = nil
-		if pageToken == "" {
-			break
-		}
-	}
-
-	metric.GCSListObjectsCompleted(nil)
-	return result, nil
+	return &gcsDirLister{
+		bucket:   bkt,
+		query:    query,
+		timeout:  fs.ctxTimeout,
+		prefix:   prefix,
+		prefixes: make(map[string]bool),
+	}, nil
 }
 
 // IsUploadResumeSupported returns true if resuming uploads is supported.
@@ -853,7 +796,7 @@ func (fs *GCSFs) copyFileInternal(source, target string) error {
 	return err
 }
 
-func (fs *GCSFs) renameInternal(source, target string, fi os.FileInfo) (int, int64, error) {
+func (fs *GCSFs) renameInternal(source, target string, fi os.FileInfo, recursion int) (int, int64, error) {
 	var numFiles int
 	var filesSize int64
 
@@ -871,23 +814,11 @@ func (fs *GCSFs) renameInternal(source, target string, fi os.FileInfo) (int, int
 			return numFiles, filesSize, err
 		}
 		if renameMode == 1 {
-			entries, err := fs.ReadDir(source)
+			files, size, err := doRecursiveRename(fs, source, target, fs.renameInternal, recursion)
+			numFiles += files
+			filesSize += size
 			if err != nil {
 				return numFiles, filesSize, err
-			}
-			for _, info := range entries {
-				sourceEntry := fs.Join(source, info.Name())
-				targetEntry := fs.Join(target, info.Name())
-				files, size, err := fs.renameInternal(sourceEntry, targetEntry, info)
-				if err != nil {
-					if fs.IsNotExist(err) {
-						fsLog(fs, logger.LevelInfo, "skipping rename for %q: %v", sourceEntry, err)
-						continue
-					}
-					return numFiles, filesSize, err
-				}
-				numFiles += files
-				filesSize += size
 			}
 		}
 	} else {
@@ -1009,4 +940,98 @@ func (*GCSFs) getTempObject(name string) string {
 
 func (fs *GCSFs) getStorageID() string {
 	return fmt.Sprintf("gs://%v", fs.config.Bucket)
+}
+
+type gcsDirLister struct {
+	baseDirLister
+	bucket        *storage.BucketHandle
+	query         *storage.Query
+	timeout       time.Duration
+	nextPageToken string
+	noMorePages   bool
+	prefix        string
+	prefixes      map[string]bool
+	metricUpdated bool
+}
+
+func (l *gcsDirLister) resolve(name, contentType string) (string, bool) {
+	result := strings.TrimPrefix(name, l.prefix)
+	isDir := strings.HasSuffix(result, "/")
+	if isDir {
+		result = strings.TrimSuffix(result, "/")
+	}
+	if contentType == dirMimeType {
+		isDir = true
+	}
+	return result, isDir
+}
+
+func (l *gcsDirLister) Next(limit int) ([]os.FileInfo, error) {
+	if limit <= 0 {
+		return nil, errInvalidDirListerLimit
+	}
+	if len(l.cache) >= limit {
+		return l.returnFromCache(limit), nil
+	}
+
+	if l.noMorePages {
+		if !l.metricUpdated {
+			l.metricUpdated = true
+			metric.GCSListObjectsCompleted(nil)
+		}
+		return l.returnFromCache(limit), io.EOF
+	}
+
+	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(l.timeout))
+	defer cancelFn()
+
+	it := l.bucket.Objects(ctx, l.query)
+	paginator := iterator.NewPager(it, defaultGCSPageSize, l.nextPageToken)
+	var objects []*storage.ObjectAttrs
+
+	pageToken, err := paginator.NextPage(&objects)
+	if err != nil {
+		metric.GCSListObjectsCompleted(err)
+		return l.cache, err
+	}
+
+	for _, attrs := range objects {
+		if attrs.Prefix != "" {
+			name, _ := l.resolve(attrs.Prefix, attrs.ContentType)
+			if name == "" {
+				continue
+			}
+			if _, ok := l.prefixes[name]; ok {
+				continue
+			}
+			l.cache = append(l.cache, NewFileInfo(name, true, 0, time.Unix(0, 0), false))
+			l.prefixes[name] = true
+		} else {
+			name, isDir := l.resolve(attrs.Name, attrs.ContentType)
+			if name == "" {
+				continue
+			}
+			if !attrs.Deleted.IsZero() {
+				continue
+			}
+			if isDir {
+				// check if the dir is already included, it will be sent as blob prefix if it contains at least one item
+				if _, ok := l.prefixes[name]; ok {
+					continue
+				}
+				l.prefixes[name] = true
+			}
+			l.cache = append(l.cache, NewFileInfo(name, isDir, attrs.Size, attrs.Updated, false))
+		}
+	}
+
+	l.nextPageToken = pageToken
+	l.noMorePages = (l.nextPageToken == "")
+
+	return l.returnFromCache(limit), nil
+}
+
+func (l *gcsDirLister) Close() error {
+	clear(l.prefixes)
+	return l.baseDirLister.Close()
 }

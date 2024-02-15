@@ -291,7 +291,7 @@ func (c *Connection) Symlink(oldname, newname string) error {
 }
 
 // ReadDir implements ClientDriverExtensionFilelist
-func (c *Connection) ReadDir(name string) ([]os.FileInfo, error) {
+func (c *Connection) ReadDir(name string) (ftpserver.DirLister, error) {
 	c.UpdateLastActivity()
 
 	if c.doWildcardListDir {
@@ -302,7 +302,17 @@ func (c *Connection) ReadDir(name string) ([]os.FileInfo, error) {
 		// - dir*/*.xml is not supported
 		name = path.Dir(name)
 		c.clientContext.SetListPath(name)
-		return c.getListDirWithWildcards(name, baseName)
+		lister, err := c.ListDir(name)
+		if err != nil {
+			return nil, err
+		}
+		return &patternDirLister{
+			DirLister:      lister,
+			pattern:        baseName,
+			lastCommand:    c.clientContext.GetLastCommand(),
+			dirName:        name,
+			connectionPath: c.clientContext.Path(),
+		}, nil
 	}
 
 	return c.ListDir(name)
@@ -506,31 +516,6 @@ func (c *Connection) handleFTPUploadToExistingFile(fs vfs.Fs, flags int, resolve
 	return t, nil
 }
 
-func (c *Connection) getListDirWithWildcards(dirName, pattern string) ([]os.FileInfo, error) {
-	files, err := c.ListDir(dirName)
-	if err != nil {
-		return files, err
-	}
-	validIdx := 0
-	var relativeBase string
-	if c.clientContext.GetLastCommand() != "NLST" {
-		relativeBase = getPathRelativeTo(c.clientContext.Path(), dirName)
-	}
-	for _, fi := range files {
-		match, err := path.Match(pattern, fi.Name())
-		if err != nil {
-			return files, err
-		}
-		if match {
-			files[validIdx] = vfs.NewFileInfo(path.Join(relativeBase, fi.Name()), fi.IsDir(), fi.Size(),
-				fi.ModTime(), true)
-			validIdx++
-		}
-	}
-
-	return files[:validIdx], nil
-}
-
 func (c *Connection) isListDirWithWildcards(name string) bool {
 	if strings.ContainsAny(name, "*?[]^") {
 		lastCommand := c.clientContext.GetLastCommand()
@@ -557,5 +542,42 @@ func getPathRelativeTo(base, target string) string {
 		}
 		sb.WriteString("../")
 		base = path.Dir(path.Clean(base))
+	}
+}
+
+type patternDirLister struct {
+	vfs.DirLister
+	pattern        string
+	lastCommand    string
+	dirName        string
+	connectionPath string
+}
+
+func (l *patternDirLister) Next(limit int) ([]os.FileInfo, error) {
+	for {
+		files, err := l.DirLister.Next(limit)
+		if len(files) == 0 {
+			return files, err
+		}
+		validIdx := 0
+		var relativeBase string
+		if l.lastCommand != "NLST" {
+			relativeBase = getPathRelativeTo(l.connectionPath, l.dirName)
+		}
+		for _, fi := range files {
+			match, errMatch := path.Match(l.pattern, fi.Name())
+			if errMatch != nil {
+				return nil, errMatch
+			}
+			if match {
+				files[validIdx] = vfs.NewFileInfo(path.Join(relativeBase, fi.Name()), fi.IsDir(), fi.Size(),
+					fi.ModTime(), true)
+				validIdx++
+			}
+		}
+		files = files[:validIdx]
+		if err != nil || len(files) > 0 {
+			return files, err
+		}
 	}
 }

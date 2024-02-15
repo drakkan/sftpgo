@@ -28,6 +28,7 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/smtp"
+	"github.com/drakkan/sftpgo/v2/internal/util"
 )
 
 func TestRetentionValidation(t *testing.T) {
@@ -272,7 +273,9 @@ func TestRetentionPermissionsAndGetFolder(t *testing.T) {
 	conn.SetProtocol(ProtocolDataRetention)
 	conn.ID = fmt.Sprintf("data_retention_%v", user.Username)
 	check.conn = conn
+	assert.False(t, check.hasCleanupPerms(check.Folders[2].Path))
 	check.updateUserPermissions()
+	assert.True(t, check.hasCleanupPerms(check.Folders[2].Path))
 	assert.Equal(t, []string{dataprovider.PermListItems, dataprovider.PermDelete}, conn.User.Permissions["/"])
 	assert.Equal(t, []string{dataprovider.PermListItems}, conn.User.Permissions["/dir1"])
 	assert.Equal(t, []string{dataprovider.PermAny}, conn.User.Permissions["/dir2"])
@@ -391,8 +394,11 @@ func TestCleanupErrors(t *testing.T) {
 	err := check.removeFile("missing file", nil)
 	assert.Error(t, err)
 
-	err = check.cleanupFolder("/")
+	err = check.cleanupFolder("/", 0)
 	assert.Error(t, err)
+
+	err = check.cleanupFolder("/", 1000)
+	assert.ErrorIs(t, err, util.ErrRecursionTooDeep)
 
 	assert.True(t, RetentionChecks.remove(user.Username))
 }

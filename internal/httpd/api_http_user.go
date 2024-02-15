@@ -74,12 +74,12 @@ func readUserFolder(w http.ResponseWriter, r *http.Request) {
 	defer common.Connections.Remove(connection.GetID())
 
 	name := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
-	contents, err := connection.ReadDir(name)
+	lister, err := connection.ReadDir(name)
 	if err != nil {
-		sendAPIResponse(w, r, err, "Unable to get directory contents", getMappedStatusCode(err))
+		sendAPIResponse(w, r, err, "Unable to get directory lister", getMappedStatusCode(err))
 		return
 	}
-	renderAPIDirContents(w, r, contents, false)
+	renderAPIDirContents(w, lister, false)
 }
 
 func createUserDir(w http.ResponseWriter, r *http.Request) {

@@ -692,6 +692,8 @@ func TestContentType(t *testing.T) {
 		assert.Equal(t, "application/custom-mime", ctype)
 	}
 	_, err = davFile.Readdir(-1)
+	assert.ErrorIs(t, err, webdav.ErrNotImplemented)
+	_, err = davFile.ReadDir()
 	assert.Error(t, err)
 	err = davFile.Close()
 	assert.NoError(t, err)

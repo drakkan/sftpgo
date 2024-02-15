@@ -131,9 +131,9 @@ func getDefenderHostQuery() string {
 		sqlTableDefenderHosts, sqlPlaceholders[0], sqlPlaceholders[1])
 }
 
-func getDefenderEventsQuery(hostIDS []int64) string {
+func getDefenderEventsQuery(hostIDs []int64) string {
 	var sb strings.Builder
-	for _, hID := range hostIDS {
+	for _, hID := range hostIDs {
 		if sb.Len() == 0 {
 			sb.WriteString("(")
 		} else {

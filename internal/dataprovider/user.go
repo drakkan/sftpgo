@@ -676,8 +676,7 @@ func (u *User) GetVirtualFoldersInPath(virtualPath string) map[string]bool {
 	result := make(map[string]bool)
 
 	for idx := range u.VirtualFolders {
-		v := &u.VirtualFolders[idx]
-		dirsForPath := util.GetDirsForVirtualPath(v.VirtualPath)
+		dirsForPath := util.GetDirsForVirtualPath(u.VirtualFolders[idx].VirtualPath)
 		for index := range dirsForPath {
 			d := dirsForPath[index]
 			if d == "/" {
@@ -716,13 +715,34 @@ func (u *User) hasVirtualDirs() bool {
 	return numFolders > 0
 }
 
-// FilterListDir adds virtual folders and remove hidden items from the given files list
+// GetVirtualFoldersInfo returns []os.FileInfo for virtual folders
+func (u *User) GetVirtualFoldersInfo(virtualPath string) []os.FileInfo {
+	filter := u.getPatternsFilterForPath(virtualPath)
+	if !u.hasVirtualDirs() && filter.DenyPolicy != sdk.DenyPolicyHide {
+		return nil
+	}
+	vdirs := u.GetVirtualFoldersInPath(virtualPath)
+	result := make([]os.FileInfo, 0, len(vdirs))
+
+	for dir := range u.GetVirtualFoldersInPath(virtualPath) {
+		dirName := path.Base(dir)
+		if filter.DenyPolicy == sdk.DenyPolicyHide {
+			if !filter.CheckAllowed(dirName) {
+				continue
+			}
+		}
+		result = append(result, vfs.NewFileInfo(dirName, true, 0, time.Unix(0, 0), false))
+	}
+
+	return result
+}
+
+// FilterListDir removes hidden items from the given files list
 func (u *User) FilterListDir(dirContents []os.FileInfo, virtualPath string) []os.FileInfo {
 	filter := u.getPatternsFilterForPath(virtualPath)
 	if !u.hasVirtualDirs() && filter.DenyPolicy != sdk.DenyPolicyHide {
 		return dirContents
 	}
-
 	vdirs := make(map[string]bool)
 	for dir := range u.GetVirtualFoldersInPath(virtualPath) {
 		dirName := path.Base(dir)
@@ -735,36 +755,24 @@ func (u *User) FilterListDir(dirContents []os.FileInfo, virtualPath string) []os
 	}
 
 	validIdx := 0
-	for index, fi := range dirContents {
-		for dir := range vdirs {
-			if fi.Name() == dir {
-				if !fi.IsDir() {
-					fi = vfs.NewFileInfo(dir, true, 0, time.Unix(0, 0), false)
-					dirContents[index] = fi
+	for idx := range dirContents {
+		fi := dirContents[idx]
+
+		if fi.Name() != "." && fi.Name() != ".." {
+			if _, ok := vdirs[fi.Name()]; ok {
+				continue
+			}
+			if filter.DenyPolicy == sdk.DenyPolicyHide {
+				if !filter.CheckAllowed(fi.Name()) {
+					continue
 				}
-				delete(vdirs, dir)
 			}
 		}
-		if filter.DenyPolicy == sdk.DenyPolicyHide {
-			if filter.CheckAllowed(fi.Name()) {
-				dirContents[validIdx] = fi
-				validIdx++
-			}
-		}
+		dirContents[validIdx] = fi
+		validIdx++
 	}
 
-	if filter.DenyPolicy == sdk.DenyPolicyHide {
-		for idx := validIdx; idx < len(dirContents); idx++ {
-			dirContents[idx] = nil
-		}
-		dirContents = dirContents[:validIdx]
-	}
-
-	for dir := range vdirs {
-		fi := vfs.NewFileInfo(dir, true, 0, time.Unix(0, 0), false)
-		dirContents = append(dirContents, fi)
-	}
-	return dirContents
+	return dirContents[:validIdx]
 }
 
 // IsMappedPath returns true if the specified filesystem path has a virtual folder mapping.

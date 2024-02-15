@@ -988,11 +988,16 @@ func getFileWriter(conn *BaseConnection, virtualPath string, expectedSize int64)
 	return w, numFiles, truncatedSize, cancelFn, nil
 }
 
-func addZipEntry(wr *zipWriterWrapper, conn *BaseConnection, entryPath, baseDir string) error {
+func addZipEntry(wr *zipWriterWrapper, conn *BaseConnection, entryPath, baseDir string, recursion int) error {
 	if entryPath == wr.Name {
 		// skip the archive itself
 		return nil
 	}
+	if recursion >= util.MaxRecursion {
+		eventManagerLog(logger.LevelError, "unable to add zip entry %q, recursion too deep: %v", entryPath, recursion)
+		return util.ErrRecursionTooDeep
+	}
+	recursion++
 	info, err := conn.DoStat(entryPath, 1, false)
 	if err != nil {
 		eventManagerLog(logger.LevelError, "unable to add zip entry %q, stat error: %v", entryPath, err)
@@ -1018,25 +1023,42 @@ func addZipEntry(wr *zipWriterWrapper, conn *BaseConnection, entryPath, baseDir 
 			eventManagerLog(logger.LevelError, "unable to create zip entry %q: %v", entryPath, err)
 			return fmt.Errorf("unable to create zip entry %q: %w", entryPath, err)
 		}
-		contents, err := conn.ListDir(entryPath)
+		lister, err := conn.ListDir(entryPath)
 		if err != nil {
-			eventManagerLog(logger.LevelError, "unable to add zip entry %q, read dir error: %v", entryPath, err)
+			eventManagerLog(logger.LevelError, "unable to add zip entry %q, get dir lister error: %v", entryPath, err)
 			return fmt.Errorf("unable to add zip entry %q: %w", entryPath, err)
 		}
-		for _, info := range contents {
-			fullPath := util.CleanPath(path.Join(entryPath, info.Name()))
-			if err := addZipEntry(wr, conn, fullPath, baseDir); err != nil {
-				eventManagerLog(logger.LevelError, "unable to add zip entry: %v", err)
-				return err
+		defer lister.Close()
+
+		for {
+			contents, err := lister.Next(vfs.ListerBatchSize)
+			finished := errors.Is(err, io.EOF)
+			if err := lister.convertError(err); err != nil {
+				eventManagerLog(logger.LevelError, "unable to add zip entry %q, read dir error: %v", entryPath, err)
+				return fmt.Errorf("unable to add zip entry %q: %w", entryPath, err)
+			}
+			for _, info := range contents {
+				fullPath := util.CleanPath(path.Join(entryPath, info.Name()))
+				if err := addZipEntry(wr, conn, fullPath, baseDir, recursion); err != nil {
+					eventManagerLog(logger.LevelError, "unable to add zip entry: %v", err)
+					return err
+				}
+			}
+			if finished {
+				return nil
 			}
 		}
-		return nil
 	}
 	if !info.Mode().IsRegular() {
 		// we only allow regular files
 		eventManagerLog(logger.LevelInfo, "skipping zip entry for non regular file %q", entryPath)
 		return nil
 	}
+
+	return addFileToZip(wr, conn, entryPath, entryName, info.ModTime())
+}
+
+func addFileToZip(wr *zipWriterWrapper, conn *BaseConnection, entryPath, entryName string, modTime time.Time) error {
 	reader, cancelFn, err := getFileReader(conn, entryPath)
 	if err != nil {
 		eventManagerLog(logger.LevelError, "unable to add zip entry %q, cannot open file: %v", entryPath, err)
@@ -1048,7 +1070,7 @@ func addZipEntry(wr *zipWriterWrapper, conn *BaseConnection, entryPath, baseDir 
 	f, err := wr.Writer.CreateHeader(&zip.FileHeader{
 		Name:     entryName,
 		Method:   zip.Deflate,
-		Modified: info.ModTime(),
+		Modified: modTime,
 	})
 	if err != nil {
 		eventManagerLog(logger.LevelError, "unable to create zip entry %q: %v", entryPath, err)
@@ -1890,18 +1912,28 @@ func getArchiveBaseDir(paths []string) string {
 func getSizeForPath(conn *BaseConnection, p string, info os.FileInfo) (int64, error) {
 	if info.IsDir() {
 		var dirSize int64
-		entries, err := conn.ListDir(p)
+		lister, err := conn.ListDir(p)
 		if err != nil {
 			return 0, err
 		}
-		for _, entry := range entries {
-			size, err := getSizeForPath(conn, path.Join(p, entry.Name()), entry)
-			if err != nil {
+		defer lister.Close()
+		for {
+			entries, err := lister.Next(vfs.ListerBatchSize)
+			finished := errors.Is(err, io.EOF)
+			if err != nil && !finished {
 				return 0, err
 			}
-			dirSize += size
+			for _, entry := range entries {
+				size, err := getSizeForPath(conn, path.Join(p, entry.Name()), entry)
+				if err != nil {
+					return 0, err
+				}
+				dirSize += size
+			}
+			if finished {
+				return dirSize, nil
+			}
 		}
-		return dirSize, nil
 	}
 	if info.Mode().IsRegular() {
 		return info.Size(), nil
@@ -1978,7 +2010,7 @@ func executeCompressFsActionForUser(c dataprovider.EventActionFsCompress, replac
 	}
 	startTime := time.Now()
 	for _, item := range paths {
-		if err := addZipEntry(zipWriter, conn, item, baseDir); err != nil {
+		if err := addZipEntry(zipWriter, conn, item, baseDir, 0); err != nil {
 			closeWriterAndUpdateQuota(writer, conn, name, "", numFiles, truncatedSize, err, operationUpload, startTime) //nolint:errcheck
 			return err
 		}

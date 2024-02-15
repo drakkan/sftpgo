@@ -216,16 +216,16 @@ func (c *Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 
 	switch request.Method {
 	case "List":
-		files, err := c.ListDir(request.Filepath)
+		lister, err := c.ListDir(request.Filepath)
 		if err != nil {
 			return nil, err
 		}
 		modTime := time.Unix(0, 0)
 		if request.Filepath != "/" || c.folderPrefix != "" {
-			files = util.PrependFileInfo(files, vfs.NewFileInfo("..", true, 0, modTime, false))
+			lister.Add(vfs.NewFileInfo("..", true, 0, modTime, false))
 		}
-		files = util.PrependFileInfo(files, vfs.NewFileInfo(".", true, 0, modTime, false))
-		return listerAt(files), nil
+		lister.Add(vfs.NewFileInfo(".", true, 0, modTime, false))
+		return lister, nil
 	case "Stat":
 		if !c.User.HasPerm(dataprovider.PermListItems, path.Dir(request.Filepath)) {
 			return nil, sftp.ErrSSHFxPermissionDenied

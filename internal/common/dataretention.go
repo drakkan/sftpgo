@@ -18,7 +18,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -37,6 +39,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/smtp"
 	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/drakkan/sftpgo/v2/internal/vfs"
 )
 
 // RetentionCheckNotification defines the supported notification methods for a retention check result
@@ -226,8 +229,17 @@ func (c *RetentionCheck) removeFile(virtualPath string, info os.FileInfo) error 
 	return c.conn.RemoveFile(fs, fsPath, virtualPath, info)
 }
 
-func (c *RetentionCheck) cleanupFolder(folderPath string) error {
-	deleteFilesPerms := []string{dataprovider.PermDelete, dataprovider.PermDeleteFiles}
+func (c *RetentionCheck) hasCleanupPerms(folderPath string) bool {
+	if !c.conn.User.HasPerm(dataprovider.PermListItems, folderPath) {
+		return false
+	}
+	if !c.conn.User.HasAnyPerm([]string{dataprovider.PermDelete, dataprovider.PermDeleteFiles}, folderPath) {
+		return false
+	}
+	return true
+}
+
+func (c *RetentionCheck) cleanupFolder(folderPath string, recursion int) error {
 	startTime := time.Now()
 	result := folderRetentionCheckResult{
 		Path: folderPath,
@@ -235,7 +247,15 @@ func (c *RetentionCheck) cleanupFolder(folderPath string) error {
 	defer func() {
 		c.results = append(c.results, result)
 	}()
-	if !c.conn.User.HasPerm(dataprovider.PermListItems, folderPath) || !c.conn.User.HasAnyPerm(deleteFilesPerms, folderPath) {
+	if recursion >= util.MaxRecursion {
+		result.Elapsed = time.Since(startTime)
+		result.Info = "data retention check skipped: recursion too deep"
+		c.conn.Log(logger.LevelError, "data retention check skipped, recursion too depth for %q: %d",
+			folderPath, recursion)
+		return util.ErrRecursionTooDeep
+	}
+	recursion++
+	if !c.hasCleanupPerms(folderPath) {
 		result.Elapsed = time.Since(startTime)
 		result.Info = "data retention check skipped: no permissions"
 		c.conn.Log(logger.LevelInfo, "user %q does not have permissions to check retention on %q, retention check skipped",
@@ -259,7 +279,7 @@ func (c *RetentionCheck) cleanupFolder(folderPath string) error {
 	}
 	c.conn.Log(logger.LevelDebug, "start retention check for folder %q, retention: %v hours, delete empty dirs? %v, ignore user perms? %v",
 		folderPath, folderRetention.Retention, folderRetention.DeleteEmptyDirs, folderRetention.IgnoreUserPermissions)
-	files, err := c.conn.ListDir(folderPath)
+	lister, err := c.conn.ListDir(folderPath)
 	if err != nil {
 		result.Elapsed = time.Since(startTime)
 		if err == c.conn.GetNotExistError() {
@@ -267,40 +287,54 @@ func (c *RetentionCheck) cleanupFolder(folderPath string) error {
 			c.conn.Log(logger.LevelDebug, "folder %q does not exist, retention check skipped", folderPath)
 			return nil
 		}
-		result.Error = fmt.Sprintf("unable to list directory %q", folderPath)
+		result.Error = fmt.Sprintf("unable to get lister for directory %q", folderPath)
 		c.conn.Log(logger.LevelError, result.Error)
 		return err
 	}
-	for _, info := range files {
-		virtualPath := path.Join(folderPath, info.Name())
-		if info.IsDir() {
-			if err := c.cleanupFolder(virtualPath); err != nil {
-				result.Elapsed = time.Since(startTime)
-				result.Error = fmt.Sprintf("unable to check folder: %v", err)
-				c.conn.Log(logger.LevelError, "unable to cleanup folder %q: %v", virtualPath, err)
-				return err
-			}
-		} else {
-			retentionTime := info.ModTime().Add(time.Duration(folderRetention.Retention) * time.Hour)
-			if retentionTime.Before(time.Now()) {
-				if err := c.removeFile(virtualPath, info); err != nil {
+	defer lister.Close()
+
+	for {
+		files, err := lister.Next(vfs.ListerBatchSize)
+		finished := errors.Is(err, io.EOF)
+		if err := lister.convertError(err); err != nil {
+			result.Elapsed = time.Since(startTime)
+			result.Error = fmt.Sprintf("unable to list directory %q", folderPath)
+			c.conn.Log(logger.LevelError, "unable to list dir %q: %v", folderPath, err)
+			return err
+		}
+		for _, info := range files {
+			virtualPath := path.Join(folderPath, info.Name())
+			if info.IsDir() {
+				if err := c.cleanupFolder(virtualPath, recursion); err != nil {
 					result.Elapsed = time.Since(startTime)
-					result.Error = fmt.Sprintf("unable to remove file %q: %v", virtualPath, err)
-					c.conn.Log(logger.LevelError, "unable to remove file %q, retention %v: %v",
-						virtualPath, retentionTime, err)
+					result.Error = fmt.Sprintf("unable to check folder: %v", err)
+					c.conn.Log(logger.LevelError, "unable to cleanup folder %q: %v", virtualPath, err)
 					return err
 				}
-				c.conn.Log(logger.LevelDebug, "removed file %q, modification time: %v, retention: %v hours, retention time: %v",
-					virtualPath, info.ModTime(), folderRetention.Retention, retentionTime)
-				result.DeletedFiles++
-				result.DeletedSize += info.Size()
+			} else {
+				retentionTime := info.ModTime().Add(time.Duration(folderRetention.Retention) * time.Hour)
+				if retentionTime.Before(time.Now()) {
+					if err := c.removeFile(virtualPath, info); err != nil {
+						result.Elapsed = time.Since(startTime)
+						result.Error = fmt.Sprintf("unable to remove file %q: %v", virtualPath, err)
+						c.conn.Log(logger.LevelError, "unable to remove file %q, retention %v: %v",
+							virtualPath, retentionTime, err)
+						return err
+					}
+					c.conn.Log(logger.LevelDebug, "removed file %q, modification time: %v, retention: %v hours, retention time: %v",
+						virtualPath, info.ModTime(), folderRetention.Retention, retentionTime)
+					result.DeletedFiles++
+					result.DeletedSize += info.Size()
+				}
 			}
+		}
+		if finished {
+			break
 		}
 	}
 
-	if folderRetention.DeleteEmptyDirs {
-		c.checkEmptyDirRemoval(folderPath)
-	}
+	lister.Close()
+	c.checkEmptyDirRemoval(folderPath, folderRetention.DeleteEmptyDirs)
 	result.Elapsed = time.Since(startTime)
 	c.conn.Log(logger.LevelDebug, "retention check completed for folder %q, deleted files: %v, deleted size: %v bytes",
 		folderPath, result.DeletedFiles, result.DeletedSize)
@@ -308,8 +342,8 @@ func (c *RetentionCheck) cleanupFolder(folderPath string) error {
 	return nil
 }
 
-func (c *RetentionCheck) checkEmptyDirRemoval(folderPath string) {
-	if folderPath == "/" {
+func (c *RetentionCheck) checkEmptyDirRemoval(folderPath string, checkVal bool) {
+	if folderPath == "/" || !checkVal {
 		return
 	}
 	for _, folder := range c.Folders {
@@ -322,10 +356,14 @@ func (c *RetentionCheck) checkEmptyDirRemoval(folderPath string) {
 		dataprovider.PermDeleteDirs,
 	}, path.Dir(folderPath),
 	) {
-		files, err := c.conn.ListDir(folderPath)
-		if err == nil && len(files) == 0 {
-			err = c.conn.RemoveDir(folderPath)
-			c.conn.Log(logger.LevelDebug, "tried to remove empty dir %q, error: %v", folderPath, err)
+		lister, err := c.conn.ListDir(folderPath)
+		if err == nil {
+			files, err := lister.Next(1)
+			lister.Close()
+			if len(files) == 0 && errors.Is(err, io.EOF) {
+				err = c.conn.RemoveDir(folderPath)
+				c.conn.Log(logger.LevelDebug, "tried to remove empty dir %q, error: %v", folderPath, err)
+			}
 		}
 	}
 }
@@ -339,7 +377,7 @@ func (c *RetentionCheck) Start() error {
 	startTime := time.Now()
 	for _, folder := range c.Folders {
 		if folder.Retention > 0 {
-			if err := c.cleanupFolder(folder.Path); err != nil {
+			if err := c.cleanupFolder(folder.Path, 0); err != nil {
 				c.conn.Log(logger.LevelError, "retention check failed, unable to cleanup folder %q", folder.Path)
 				c.sendNotifications(time.Since(startTime), err)
 				return err

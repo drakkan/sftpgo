@@ -190,7 +190,7 @@ func (fs *OsFs) Rename(source, target string) (int, int64, error) {
 		}
 
 		err = fscopy.Copy(source, target, fscopy.Options{
-			OnSymlink: func(src string) fscopy.SymlinkAction {
+			OnSymlink: func(_ string) fscopy.SymlinkAction {
 				return fscopy.Skip
 			},
 			CopyBufferSize: readBufferSize,
@@ -258,7 +258,7 @@ func (*OsFs) Truncate(name string, size int64) error {
 
 // ReadDir reads the directory named by dirname and returns
 // a list of directory entries.
-func (*OsFs) ReadDir(dirname string) ([]os.FileInfo, error) {
+func (*OsFs) ReadDir(dirname string) (DirLister, error) {
 	f, err := os.Open(dirname)
 	if err != nil {
 		if isInvalidNameError(err) {
@@ -266,12 +266,7 @@ func (*OsFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 		}
 		return nil, err
 	}
-	list, err := f.Readdir(-1)
-	f.Close()
-	if err != nil {
-		return nil, err
-	}
-	return list, nil
+	return &osFsDirLister{f}, nil
 }
 
 // IsUploadResumeSupported returns true if resuming uploads is supported
@@ -598,4 +593,19 @@ func (fs *OsFs) useWriteBuffering(flag int) bool {
 		return false
 	}
 	return true
+}
+
+type osFsDirLister struct {
+	f *os.File
+}
+
+func (l *osFsDirLister) Next(limit int) ([]os.FileInfo, error) {
+	if limit <= 0 {
+		return nil, errInvalidDirListerLimit
+	}
+	return l.f.Readdir(limit)
+}
+
+func (l *osFsDirLister) Close() error {
+	return l.f.Close()
 }

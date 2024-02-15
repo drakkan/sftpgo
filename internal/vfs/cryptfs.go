@@ -221,21 +221,16 @@ func (*CryptFs) Truncate(_ string, _ int64) error {
 
 // ReadDir reads the directory named by dirname and returns
 // a list of directory entries.
-func (fs *CryptFs) ReadDir(dirname string) ([]os.FileInfo, error) {
+func (fs *CryptFs) ReadDir(dirname string) (DirLister, error) {
 	f, err := os.Open(dirname)
 	if err != nil {
+		if isInvalidNameError(err) {
+			err = os.ErrNotExist
+		}
 		return nil, err
 	}
-	list, err := f.Readdir(-1)
-	f.Close()
-	if err != nil {
-		return nil, err
-	}
-	result := make([]os.FileInfo, 0, len(list))
-	for _, info := range list {
-		result = append(result, fs.ConvertFileInfo(info))
-	}
-	return result, nil
+
+	return &cryptFsDirLister{f}, nil
 }
 
 // IsUploadResumeSupported returns false sio does not support random access writes
@@ -289,20 +284,7 @@ func (fs *CryptFs) getSIOConfig(key [32]byte) sio.Config {
 
 // ConvertFileInfo returns a FileInfo with the decrypted size
 func (fs *CryptFs) ConvertFileInfo(info os.FileInfo) os.FileInfo {
-	if !info.Mode().IsRegular() {
-		return info
-	}
-	size := info.Size()
-	if size >= headerV10Size {
-		size -= headerV10Size
-		decryptedSize, err := sio.DecryptedSize(uint64(size))
-		if err == nil {
-			size = int64(decryptedSize)
-		}
-	} else {
-		size = 0
-	}
-	return NewFileInfo(info.Name(), info.IsDir(), size, info.ModTime(), false)
+	return convertCryptFsInfo(info)
 }
 
 func (fs *CryptFs) getFileAndEncryptionKey(name string) (*os.File, [32]byte, error) {
@@ -366,6 +348,23 @@ func isZeroBytesDownload(f *os.File, offset int64) (bool, error) {
 	return false, nil
 }
 
+func convertCryptFsInfo(info os.FileInfo) os.FileInfo {
+	if !info.Mode().IsRegular() {
+		return info
+	}
+	size := info.Size()
+	if size >= headerV10Size {
+		size -= headerV10Size
+		decryptedSize, err := sio.DecryptedSize(uint64(size))
+		if err == nil {
+			size = int64(decryptedSize)
+		}
+	} else {
+		size = 0
+	}
+	return NewFileInfo(info.Name(), info.IsDir(), size, info.ModTime(), false)
+}
+
 type encryptedFileHeader struct {
 	version byte
 	nonce   []byte
@@ -399,4 +398,23 @@ type cryptedFileWrapper struct {
 
 func (w *cryptedFileWrapper) ReadAt(p []byte, offset int64) (n int, err error) {
 	return w.File.ReadAt(p, offset+headerV10Size)
+}
+
+type cryptFsDirLister struct {
+	f *os.File
+}
+
+func (l *cryptFsDirLister) Next(limit int) ([]os.FileInfo, error) {
+	if limit <= 0 {
+		return nil, errInvalidDirListerLimit
+	}
+	files, err := l.f.Readdir(limit)
+	for idx := range files {
+		files[idx] = convertCryptFsInfo(files[idx])
+	}
+	return files, err
+}
+
+func (l *cryptFsDirLister) Close() error {
+	return l.f.Close()
 }

@@ -22,6 +22,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"io"
 	"mime"
 	"net"
 	"net/http"
@@ -61,7 +62,8 @@ const (
 )
 
 var (
-	s3DirMimeTypes = []string{s3DirMimeType, "httpd/unix-directory"}
+	s3DirMimeTypes    = []string{s3DirMimeType, "httpd/unix-directory"}
+	s3DefaultPageSize = int32(5000)
 )
 
 // S3Fs is a Fs implementation for AWS S3 compatible object storages
@@ -337,7 +339,7 @@ func (fs *S3Fs) Rename(source, target string) (int, int64, error) {
 	if err != nil {
 		return -1, -1, err
 	}
-	return fs.renameInternal(source, target, fi)
+	return fs.renameInternal(source, target, fi, 0)
 }
 
 // Remove removes the named file or (empty) directory.
@@ -426,68 +428,22 @@ func (*S3Fs) Truncate(_ string, _ int64) error {
 
 // ReadDir reads the directory named by dirname and returns
 // a list of directory entries.
-func (fs *S3Fs) ReadDir(dirname string) ([]os.FileInfo, error) {
-	var result []os.FileInfo
+func (fs *S3Fs) ReadDir(dirname string) (DirLister, error) {
 	// dirname must be already cleaned
 	prefix := fs.getPrefix(dirname)
-
-	modTimes, err := getFolderModTimes(fs.getStorageID(), dirname)
-	if err != nil {
-		return result, err
-	}
-	prefixes := make(map[string]bool)
-
 	paginator := s3.NewListObjectsV2Paginator(fs.svc, &s3.ListObjectsV2Input{
 		Bucket:    aws.String(fs.config.Bucket),
 		Prefix:    aws.String(prefix),
 		Delimiter: aws.String("/"),
+		MaxKeys:   &s3DefaultPageSize,
 	})
 
-	for paginator.HasMorePages() {
-		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
-		defer cancelFn()
-
-		page, err := paginator.NextPage(ctx)
-		if err != nil {
-			metric.S3ListObjectsCompleted(err)
-			return result, err
-		}
-		for _, p := range page.CommonPrefixes {
-			// prefixes have a trailing slash
-			name, _ := fs.resolve(p.Prefix, prefix)
-			if name == "" {
-				continue
-			}
-			if _, ok := prefixes[name]; ok {
-				continue
-			}
-			result = append(result, NewFileInfo(name, true, 0, time.Unix(0, 0), false))
-			prefixes[name] = true
-		}
-		for _, fileObject := range page.Contents {
-			objectModTime := util.GetTimeFromPointer(fileObject.LastModified)
-			objectSize := util.GetIntFromPointer(fileObject.Size)
-			name, isDir := fs.resolve(fileObject.Key, prefix)
-			if name == "" || name == "/" {
-				continue
-			}
-			if isDir {
-				if _, ok := prefixes[name]; ok {
-					continue
-				}
-				prefixes[name] = true
-			}
-			if t, ok := modTimes[name]; ok {
-				objectModTime = util.GetTimeFromMsecSinceEpoch(t)
-			}
-
-			result = append(result, NewFileInfo(name, (isDir && objectSize == 0), objectSize,
-				objectModTime, false))
-		}
-	}
-
-	metric.S3ListObjectsCompleted(nil)
-	return result, nil
+	return &s3DirLister{
+		paginator: paginator,
+		timeout:   fs.ctxTimeout,
+		prefix:    prefix,
+		prefixes:  make(map[string]bool),
+	}, nil
 }
 
 // IsUploadResumeSupported returns true if resuming uploads is supported.
@@ -574,6 +530,7 @@ func (fs *S3Fs) getFileNamesInPrefix(fsPrefix string) (map[string]bool, error) {
 		Bucket:    aws.String(fs.config.Bucket),
 		Prefix:    aws.String(prefix),
 		Delimiter: aws.String("/"),
+		MaxKeys:   &s3DefaultPageSize,
 	})
 
 	for paginator.HasMorePages() {
@@ -614,8 +571,9 @@ func (fs *S3Fs) GetDirSize(dirname string) (int, int64, error) {
 	size := int64(0)
 
 	paginator := s3.NewListObjectsV2Paginator(fs.svc, &s3.ListObjectsV2Input{
-		Bucket: aws.String(fs.config.Bucket),
-		Prefix: aws.String(prefix),
+		Bucket:  aws.String(fs.config.Bucket),
+		Prefix:  aws.String(prefix),
+		MaxKeys: &s3DefaultPageSize,
 	})
 
 	for paginator.HasMorePages() {
@@ -679,8 +637,9 @@ func (fs *S3Fs) Walk(root string, walkFn filepath.WalkFunc) error {
 	prefix := fs.getPrefix(root)
 
 	paginator := s3.NewListObjectsV2Paginator(fs.svc, &s3.ListObjectsV2Input{
-		Bucket: aws.String(fs.config.Bucket),
-		Prefix: aws.String(prefix),
+		Bucket:  aws.String(fs.config.Bucket),
+		Prefix:  aws.String(prefix),
+		MaxKeys: &s3DefaultPageSize,
 	})
 
 	for paginator.HasMorePages() {
@@ -797,7 +756,7 @@ func (fs *S3Fs) copyFileInternal(source, target string, fileSize int64) error {
 	return err
 }
 
-func (fs *S3Fs) renameInternal(source, target string, fi os.FileInfo) (int, int64, error) {
+func (fs *S3Fs) renameInternal(source, target string, fi os.FileInfo, recursion int) (int, int64, error) {
 	var numFiles int
 	var filesSize int64
 
@@ -815,23 +774,11 @@ func (fs *S3Fs) renameInternal(source, target string, fi os.FileInfo) (int, int6
 			return numFiles, filesSize, err
 		}
 		if renameMode == 1 {
-			entries, err := fs.ReadDir(source)
+			files, size, err := doRecursiveRename(fs, source, target, fs.renameInternal, recursion)
+			numFiles += files
+			filesSize += size
 			if err != nil {
 				return numFiles, filesSize, err
-			}
-			for _, info := range entries {
-				sourceEntry := fs.Join(source, info.Name())
-				targetEntry := fs.Join(target, info.Name())
-				files, size, err := fs.renameInternal(sourceEntry, targetEntry, info)
-				if err != nil {
-					if fs.IsNotExist(err) {
-						fsLog(fs, logger.LevelInfo, "skipping rename for %q: %v", sourceEntry, err)
-						continue
-					}
-					return numFiles, filesSize, err
-				}
-				numFiles += files
-				filesSize += size
 			}
 		}
 	} else {
@@ -1112,6 +1059,81 @@ func (fs *S3Fs) getStorageID() string {
 		return fmt.Sprintf("s3://%v%v", fs.config.Endpoint, fs.config.Bucket)
 	}
 	return fmt.Sprintf("s3://%v", fs.config.Bucket)
+}
+
+type s3DirLister struct {
+	baseDirLister
+	paginator     *s3.ListObjectsV2Paginator
+	timeout       time.Duration
+	prefix        string
+	prefixes      map[string]bool
+	metricUpdated bool
+}
+
+func (l *s3DirLister) resolve(name *string) (string, bool) {
+	result := strings.TrimPrefix(util.GetStringFromPointer(name), l.prefix)
+	isDir := strings.HasSuffix(result, "/")
+	if isDir {
+		result = strings.TrimSuffix(result, "/")
+	}
+	return result, isDir
+}
+
+func (l *s3DirLister) Next(limit int) ([]os.FileInfo, error) {
+	if limit <= 0 {
+		return nil, errInvalidDirListerLimit
+	}
+	if len(l.cache) >= limit {
+		return l.returnFromCache(limit), nil
+	}
+	if !l.paginator.HasMorePages() {
+		if !l.metricUpdated {
+			l.metricUpdated = true
+			metric.S3ListObjectsCompleted(nil)
+		}
+		return l.returnFromCache(limit), io.EOF
+	}
+	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(l.timeout))
+	defer cancelFn()
+
+	page, err := l.paginator.NextPage(ctx)
+	if err != nil {
+		metric.S3ListObjectsCompleted(err)
+		return l.cache, err
+	}
+	for _, p := range page.CommonPrefixes {
+		// prefixes have a trailing slash
+		name, _ := l.resolve(p.Prefix)
+		if name == "" {
+			continue
+		}
+		if _, ok := l.prefixes[name]; ok {
+			continue
+		}
+		l.cache = append(l.cache, NewFileInfo(name, true, 0, time.Unix(0, 0), false))
+		l.prefixes[name] = true
+	}
+	for _, fileObject := range page.Contents {
+		objectModTime := util.GetTimeFromPointer(fileObject.LastModified)
+		objectSize := util.GetIntFromPointer(fileObject.Size)
+		name, isDir := l.resolve(fileObject.Key)
+		if name == "" || name == "/" {
+			continue
+		}
+		if isDir {
+			if _, ok := l.prefixes[name]; ok {
+				continue
+			}
+			l.prefixes[name] = true
+		}
+
+		l.cache = append(l.cache, NewFileInfo(name, (isDir && objectSize == 0), objectSize, objectModTime, false))
+	}
+	return l.returnFromCache(limit), nil
+}
+
+func (l *s3DirLister) Close() error {
+	return l.baseDirLister.Close()
 }
 
 func getAWSHTTPClient(timeout int, idleConnectionTimeout time.Duration, skipTLSVerify bool) *awshttp.BuildableClient {

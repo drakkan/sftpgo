@@ -21,7 +21,7 @@ require (
 	github.com/bmatcuk/doublestar/v4 v4.6.1
 	github.com/cockroachdb/cockroach-go/v2 v2.3.6
 	github.com/coreos/go-oidc/v3 v3.9.0
-	github.com/drakkan/webdav v0.0.0-20230227175313-32996838bcd8
+	github.com/drakkan/webdav v0.0.0-20240212101318-94e905cb9adb
 	github.com/eikenb/pipeat v0.0.0-20210730190139-06b3e6902001
 	github.com/fclairamb/ftpserverlib v0.22.0
 	github.com/fclairamb/go-log v0.4.1
@@ -71,7 +71,7 @@ require (
 	golang.org/x/crypto v0.18.0
 	golang.org/x/net v0.20.0
 	golang.org/x/oauth2 v0.16.0
-	golang.org/x/sys v0.16.0
+	golang.org/x/sys v0.17.0
 	golang.org/x/term v0.16.0
 	golang.org/x/time v0.5.0
 	google.golang.org/api v0.161.0
@@ -118,7 +118,9 @@ require (
 	github.com/google/s2a-go v0.1.7 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.2 // indirect
 	github.com/googleapis/gax-go/v2 v2.12.0 // indirect
+	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
+	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/hashicorp/yamux v0.1.1 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
@@ -181,8 +183,9 @@ require (
 )
 
 replace (
-	github.com/fclairamb/ftpserverlib => github.com/drakkan/ftpserverlib v0.0.0-20230820193955-e7243edeb89b
-	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
+	github.com/fclairamb/ftpserverlib => github.com/drakkan/ftpserverlib v0.0.0-20240212100826-a241365cb085
+	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20240210102745-f1ffc43f78d2
+	github.com/pkg/sftp => github.com/drakkan/sftp v0.0.0-20240214104840-fbb0b8bdb30c
 	github.com/robfig/cron/v3 => github.com/drakkan/cron/v3 v3.0.0-20230222140221-217a1e4d96c0
 	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20231218163632-74b52eafd2c0
 )

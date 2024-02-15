@@ -91,8 +91,8 @@ func (s *Service) initLogger() {
 // Start initializes and starts the service
 func (s *Service) Start(disableAWSInstallationCode bool) error {
 	s.initLogger()
-	logger.Info(logSender, "", "starting SFTPGo %v, config dir: %v, config file: %v, log max size: %v log max backups: %v "+
-		"log max age: %v log level: %v, log compress: %v, log utc time: %v, load data from: %q, grace time: %d secs",
+	logger.Info(logSender, "", "starting SFTPGo %s, config dir: %s, config file: %s, log max size: %d log max backups: %d "+
+		"log max age: %d log level: %s, log compress: %t, log utc time: %t, load data from: %q, grace time: %d secs",
 		version.GetAsString(), s.ConfigDir, s.ConfigFile, s.LogMaxSize, s.LogMaxBackups, s.LogMaxAge, s.LogLevel,
 		s.LogCompress, s.LogUTCTime, s.LoadDataFrom, graceTime)
 	// in portable mode we don't read configuration from file

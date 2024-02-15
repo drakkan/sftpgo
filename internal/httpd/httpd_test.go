@@ -16028,7 +16028,7 @@ func TestWebGetFiles(t *testing.T) {
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
-	assert.Contains(t, rr.Body.String(), "Unable to get directory contents")
+	assert.Contains(t, rr.Body.String(), "Unable to get directory lister")
 
 	req, _ = http.NewRequest(http.MethodGet, webClientFilesPath+"?path="+testFileName, nil)
 	setJWTCookieForReq(req, webToken)

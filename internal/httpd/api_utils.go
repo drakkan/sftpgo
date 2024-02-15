@@ -17,6 +17,7 @@ package httpd
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -44,6 +45,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/plugin"
 	"github.com/drakkan/sftpgo/v2/internal/smtp"
 	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/drakkan/sftpgo/v2/internal/vfs"
 )
 
 type pwdChange struct {
@@ -280,23 +282,40 @@ func getSearchFilters(w http.ResponseWriter, r *http.Request) (int, int, string,
 	return limit, offset, order, err
 }
 
-func renderAPIDirContents(w http.ResponseWriter, r *http.Request, contents []os.FileInfo, omitNonRegularFiles bool) {
-	results := make([]map[string]any, 0, len(contents))
-	for _, info := range contents {
-		if omitNonRegularFiles && !info.Mode().IsDir() && !info.Mode().IsRegular() {
-			continue
+func renderAPIDirContents(w http.ResponseWriter, lister vfs.DirLister, omitNonRegularFiles bool) {
+	defer lister.Close()
+
+	dataGetter := func(limit, _ int) ([]byte, int, error) {
+		contents, err := lister.Next(limit)
+		if errors.Is(err, io.EOF) {
+			err = nil
 		}
-		res := make(map[string]any)
-		res["name"] = info.Name()
-		if info.Mode().IsRegular() {
-			res["size"] = info.Size()
+		if err != nil {
+			return nil, 0, err
 		}
-		res["mode"] = info.Mode()
-		res["last_modified"] = info.ModTime().UTC().Format(time.RFC3339)
-		results = append(results, res)
+		results := make([]map[string]any, 0, len(contents))
+		for _, info := range contents {
+			if omitNonRegularFiles && !info.Mode().IsDir() && !info.Mode().IsRegular() {
+				continue
+			}
+			res := make(map[string]any)
+			res["name"] = info.Name()
+			if info.Mode().IsRegular() {
+				res["size"] = info.Size()
+			}
+			res["mode"] = info.Mode()
+			res["last_modified"] = info.ModTime().UTC().Format(time.RFC3339)
+			results = append(results, res)
+		}
+		data, err := json.Marshal(results)
+		count := limit
+		if len(results) == 0 {
+			count = 0
+		}
+		return data, count, err
 	}
 
-	render.JSON(w, r, results)
+	streamJSONArray(w, defaultQueryLimit, dataGetter)
 }
 
 func streamData(w io.Writer, data []byte) {
@@ -355,7 +374,7 @@ func renderCompressedFiles(w http.ResponseWriter, conn *Connection, baseDir stri
 
 	for _, file := range files {
 		fullPath := util.CleanPath(path.Join(baseDir, file))
-		if err := addZipEntry(wr, conn, fullPath, baseDir); err != nil {
+		if err := addZipEntry(wr, conn, fullPath, baseDir, 0); err != nil {
 			if share != nil {
 				dataprovider.UpdateShareLastUse(share, -1) //nolint:errcheck
 			}
@@ -371,7 +390,12 @@ func renderCompressedFiles(w http.ResponseWriter, conn *Connection, baseDir stri
 	}
 }
 
-func addZipEntry(wr *zip.Writer, conn *Connection, entryPath, baseDir string) error {
+func addZipEntry(wr *zip.Writer, conn *Connection, entryPath, baseDir string, recursion int) error {
+	if recursion >= util.MaxRecursion {
+		conn.Log(logger.LevelDebug, "unable to add zip entry %q, recursion too depth: %d", entryPath, recursion)
+		return util.ErrRecursionTooDeep
+	}
+	recursion++
 	info, err := conn.Stat(entryPath, 1)
 	if err != nil {
 		conn.Log(logger.LevelDebug, "unable to add zip entry %q, stat error: %v", entryPath, err)
@@ -392,24 +416,39 @@ func addZipEntry(wr *zip.Writer, conn *Connection, entryPath, baseDir string) er
 			conn.Log(logger.LevelError, "unable to create zip entry %q: %v", entryPath, err)
 			return err
 		}
-		contents, err := conn.ReadDir(entryPath)
+		lister, err := conn.ReadDir(entryPath)
 		if err != nil {
-			conn.Log(logger.LevelDebug, "unable to add zip entry %q, read dir error: %v", entryPath, err)
+			conn.Log(logger.LevelDebug, "unable to add zip entry %q, get list dir error: %v", entryPath, err)
 			return err
 		}
-		for _, info := range contents {
-			fullPath := util.CleanPath(path.Join(entryPath, info.Name()))
-			if err := addZipEntry(wr, conn, fullPath, baseDir); err != nil {
+		defer lister.Close()
+
+		for {
+			contents, err := lister.Next(vfs.ListerBatchSize)
+			finished := errors.Is(err, io.EOF)
+			if err != nil && !finished {
 				return err
 			}
+			for _, info := range contents {
+				fullPath := util.CleanPath(path.Join(entryPath, info.Name()))
+				if err := addZipEntry(wr, conn, fullPath, baseDir, recursion); err != nil {
+					return err
+				}
+			}
+			if finished {
+				return nil
+			}
 		}
-		return nil
 	}
 	if !info.Mode().IsRegular() {
 		// we only allow regular files
 		conn.Log(logger.LevelInfo, "skipping zip entry for non regular file %q", entryPath)
 		return nil
 	}
+	return addFileToZipEntry(wr, conn, entryPath, entryName, info)
+}
+
+func addFileToZipEntry(wr *zip.Writer, conn *Connection, entryPath, entryName string, info os.FileInfo) error {
 	reader, err := conn.getFileReader(entryPath, 0, http.MethodGet)
 	if err != nil {
 		conn.Log(logger.LevelDebug, "unable to add zip entry %q, cannot open file: %v", entryPath, err)

@@ -541,12 +541,16 @@ func (fs *SFTPFs) Truncate(name string, size int64) error {
 
 // ReadDir reads the directory named by dirname and returns
 // a list of directory entries.
-func (fs *SFTPFs) ReadDir(dirname string) ([]os.FileInfo, error) {
+func (fs *SFTPFs) ReadDir(dirname string) (DirLister, error) {
 	client, err := fs.conn.getClient()
 	if err != nil {
 		return nil, err
 	}
-	return client.ReadDir(dirname)
+	files, err := client.ReadDir(dirname)
+	if err != nil {
+		return nil, err
+	}
+	return &baseDirLister{files}, nil
 }
 
 // IsUploadResumeSupported returns true if resuming uploads is supported.
