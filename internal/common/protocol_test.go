@@ -227,10 +227,10 @@ func TestMain(m *testing.M) {
 
 	go func() {
 		// start a test HTTP server to receive action notifications
-		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 			fmt.Fprintf(w, "OK\n")
 		})
-		http.HandleFunc("/404", func(w http.ResponseWriter, r *http.Request) {
+		http.HandleFunc("/404", func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
 			fmt.Fprintf(w, "Not found\n")
 		})
@@ -272,7 +272,7 @@ func TestMain(m *testing.M) {
 	}()
 
 	go func() {
-		if err := smtpd.ListenAndServe(smtpServerAddr, func(remoteAddr net.Addr, from string, to []string, data []byte) error {
+		if err := smtpd.ListenAndServe(smtpServerAddr, func(_ net.Addr, from string, to []string, data []byte) error {
 			lastReceivedEmail.set(from, to, data)
 			return nil
 		}, "SFTPGo test", "localhost"); err != nil {
@@ -7793,7 +7793,7 @@ func TestBuiltinKeyboardInteractiveAuthentication(t *testing.T) {
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	authMethods := []ssh.AuthMethod{
-		ssh.KeyboardInteractive(func(user, instruction string, questions []string, echos []bool) ([]string, error) {
+		ssh.KeyboardInteractive(func(_, _ string, _ []string, _ []bool) ([]string, error) {
 			return []string{defaultPassword}, nil
 		}),
 	}
@@ -7822,7 +7822,7 @@ func TestBuiltinKeyboardInteractiveAuthentication(t *testing.T) {
 	passwordAsked := false
 	passcodeAsked := false
 	authMethods = []ssh.AuthMethod{
-		ssh.KeyboardInteractive(func(user, instruction string, questions []string, echos []bool) ([]string, error) {
+		ssh.KeyboardInteractive(func(_, _ string, questions []string, _ []bool) ([]string, error) {
 			var answers []string
 			if strings.HasPrefix(questions[0], "Password") {
 				answers = append(answers, defaultPassword)
@@ -7866,7 +7866,7 @@ func TestMultiStepBuiltinKeyboardAuth(t *testing.T) {
 	// public key + password
 	authMethods := []ssh.AuthMethod{
 		ssh.PublicKeys(signer),
-		ssh.KeyboardInteractive(func(user, instruction string, questions []string, echos []bool) ([]string, error) {
+		ssh.KeyboardInteractive(func(_, _ string, _ []string, _ []bool) ([]string, error) {
 			return []string{defaultPassword}, nil
 		}),
 	}
@@ -7895,7 +7895,7 @@ func TestMultiStepBuiltinKeyboardAuth(t *testing.T) {
 	// public key + passcode
 	authMethods = []ssh.AuthMethod{
 		ssh.PublicKeys(signer),
-		ssh.KeyboardInteractive(func(user, instruction string, questions []string, echos []bool) ([]string, error) {
+		ssh.KeyboardInteractive(func(_, _ string, _ []string, _ []bool) ([]string, error) {
 			return []string{passcode}, nil
 		}),
 	}
@@ -8848,12 +8848,10 @@ func checkBasicSFTP(client *sftp.Client) error {
 func getCustomAuthSftpClient(user dataprovider.User, authMethods []ssh.AuthMethod) (*ssh.Client, *sftp.Client, error) {
 	var sftpClient *sftp.Client
 	config := &ssh.ClientConfig{
-		User: user.Username,
-		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-			return nil
-		},
-		Auth:    authMethods,
-		Timeout: 5 * time.Second,
+		User:            user.Username,
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Auth:            authMethods,
+		Timeout:         5 * time.Second,
 	}
 	conn, err := ssh.Dial("tcp", sftpServerAddr, config)
 	if err != nil {
@@ -8869,11 +8867,9 @@ func getCustomAuthSftpClient(user dataprovider.User, authMethods []ssh.AuthMetho
 func getSftpClient(user dataprovider.User) (*ssh.Client, *sftp.Client, error) {
 	var sftpClient *sftp.Client
 	config := &ssh.ClientConfig{
-		User: user.Username,
-		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-			return nil
-		},
-		Timeout: 5 * time.Second,
+		User:            user.Username,
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         5 * time.Second,
 	}
 	if user.Password != "" {
 		config.Auth = []ssh.AuthMethod{ssh.Password(user.Password)}
@@ -8896,11 +8892,9 @@ func runSSHCommand(command string, user dataprovider.User) ([]byte, error) {
 	var sshSession *ssh.Session
 	var output []byte
 	config := &ssh.ClientConfig{
-		User: user.Username,
-		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-			return nil
-		},
-		Timeout: 5 * time.Second,
+		User:            user.Username,
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         5 * time.Second,
 	}
 	if user.Password != "" {
 		config.Auth = []ssh.AuthMethod{ssh.Password(user.Password)}

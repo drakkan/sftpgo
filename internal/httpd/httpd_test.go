@@ -25526,7 +25526,7 @@ func getJWTWebToken(username, password string) (string, error) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	client := &http.Client{
 		Timeout: 10 * time.Second,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
 	}

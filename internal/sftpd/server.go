@@ -555,7 +555,7 @@ func (c *Configuration) configureLoginBanner(serverConfig *ssh.ServerConfig, con
 		bannerContent, err := os.ReadFile(bannerFilePath)
 		if err == nil {
 			banner := string(bannerContent)
-			serverConfig.BannerCallback = func(conn ssh.ConnMetadata) string {
+			serverConfig.BannerCallback = func(_ ssh.ConnMetadata) string {
 				return banner
 			}
 		} else {

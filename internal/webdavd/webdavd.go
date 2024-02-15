@@ -156,7 +156,7 @@ type Binding struct {
 func (b *Binding) parseAllowedProxy() error {
 	if filepath.IsAbs(b.Address) && len(b.ProxyAllowed) > 0 {
 		// unix domain socket
-		b.allowHeadersFrom = []func(net.IP) bool{func(ip net.IP) bool { return true }}
+		b.allowHeadersFrom = []func(net.IP) bool{func(_ net.IP) bool { return true }}
 		return nil
 	}
 	allowedFuncs, err := util.ParseAllowedIPAndRanges(b.ProxyAllowed)

@@ -53,7 +53,7 @@ MacOS:
 You will need to start a new shell for this setup to take effect.
 `,
 	DisableFlagsInUseLine: true,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		return cmd.Root().GenBashCompletionV2(os.Stdout, true)
 	},
 }
@@ -79,7 +79,7 @@ macOS:
 You will need to start a new shell for this setup to take effect.
 `,
 	DisableFlagsInUseLine: true,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		return cmd.Root().GenZshCompletion(os.Stdout)
 	},
 }
@@ -100,7 +100,7 @@ $ sftpgo gen completion fish > ~/.config/fish/completions/sftpgo.fish
 You will need to start a new shell for this setup to take effect.
 `,
 	DisableFlagsInUseLine: true,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		return cmd.Root().GenFishCompletion(os.Stdout, true)
 	},
 }
@@ -118,7 +118,7 @@ To load completions for every new session, add the output of the above command
 to your powershell profile.
 `,
 	DisableFlagsInUseLine: true,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		return cmd.Root().GenPowerShellCompletionWithDesc(os.Stdout)
 	},
 }

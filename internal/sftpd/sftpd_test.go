@@ -2331,7 +2331,7 @@ func TestMultiStepLoginKeyAndKeyInt(t *testing.T) {
 	signer, _ := ssh.ParsePrivateKey([]byte(testPrivateKey))
 	authMethods := []ssh.AuthMethod{
 		ssh.PublicKeys(signer),
-		ssh.KeyboardInteractive(func(user, instruction string, questions []string, echos []bool) ([]string, error) {
+		ssh.KeyboardInteractive(func(_, _ string, _ []string, _ []bool) ([]string, error) {
 			return []string{"1", "2"}, nil
 		}),
 	}
@@ -2348,7 +2348,7 @@ func TestMultiStepLoginKeyAndKeyInt(t *testing.T) {
 		assert.NoError(t, checkBasicSFTP(client))
 	}
 	authMethods = []ssh.AuthMethod{
-		ssh.KeyboardInteractive(func(user, instruction string, questions []string, echos []bool) ([]string, error) {
+		ssh.KeyboardInteractive(func(_, _ string, _ []string, _ []bool) ([]string, error) {
 			return []string{"1", "2"}, nil
 		}),
 		ssh.PublicKeys(signer),
@@ -8225,12 +8225,10 @@ func TestOpenUnhandledChannel(t *testing.T) {
 	assert.NoError(t, err)
 
 	config := &ssh.ClientConfig{
-		User: user.Username,
-		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-			return nil
-		},
-		Auth:    []ssh.AuthMethod{ssh.Password(defaultPassword)},
-		Timeout: 5 * time.Second,
+		User:            user.Username,
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Auth:            []ssh.AuthMethod{ssh.Password(defaultPassword)},
+		Timeout:         5 * time.Second,
 	}
 	conn, err := ssh.Dial("tcp", sftpServerAddr, config)
 	if assert.NoError(t, err) {
@@ -11186,11 +11184,9 @@ func runSSHCommand(command string, user dataprovider.User, usePubKey bool) ([]by
 	var sshSession *ssh.Session
 	var output []byte
 	config := &ssh.ClientConfig{
-		User: user.Username,
-		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-			return nil
-		},
-		Timeout: 5 * time.Second,
+		User:            user.Username,
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         5 * time.Second,
 	}
 	if usePubKey {
 		key, err := ssh.ParsePrivateKey([]byte(testPrivateKey))
@@ -11235,11 +11231,9 @@ func getSignerForUserCert(certBytes []byte) (ssh.Signer, error) {
 func getSftpClientWithAddr(user dataprovider.User, usePubKey bool, addr string) (*ssh.Client, *sftp.Client, error) {
 	var sftpClient *sftp.Client
 	config := &ssh.ClientConfig{
-		User: user.Username,
-		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-			return nil
-		},
-		Timeout: 5 * time.Second,
+		User:            user.Username,
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         5 * time.Second,
 	}
 	if usePubKey {
 		signer, err := ssh.ParsePrivateKey([]byte(testPrivateKey))
@@ -11276,12 +11270,10 @@ func getSftpClient(user dataprovider.User, usePubKey bool) (*ssh.Client, *sftp.C
 func getKeyboardInteractiveSftpClient(user dataprovider.User, answers []string) (*ssh.Client, *sftp.Client, error) {
 	var sftpClient *sftp.Client
 	config := &ssh.ClientConfig{
-		User: user.Username,
-		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-			return nil
-		},
+		User:            user.Username,
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Auth: []ssh.AuthMethod{
-			ssh.KeyboardInteractive(func(user, instruction string, questions []string, echos []bool) ([]string, error) {
+			ssh.KeyboardInteractive(func(_, _ string, _ []string, _ []bool) ([]string, error) {
 				return answers, nil
 			}),
 		},
@@ -11301,12 +11293,10 @@ func getKeyboardInteractiveSftpClient(user dataprovider.User, answers []string) 
 func getCustomAuthSftpClient(user dataprovider.User, authMethods []ssh.AuthMethod, addr string) (*ssh.Client, *sftp.Client, error) {
 	var sftpClient *sftp.Client
 	config := &ssh.ClientConfig{
-		User: user.Username,
-		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-			return nil
-		},
-		Auth:    authMethods,
-		Timeout: 5 * time.Second,
+		User:            user.Username,
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Auth:            authMethods,
+		Timeout:         5 * time.Second,
 	}
 	var err error
 	var conn *ssh.Client

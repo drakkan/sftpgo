@@ -2168,7 +2168,7 @@ func TestRecoverer(t *testing.T) {
 	}
 	server := newHttpdServer(b, "../static", "", CorsConfig{}, "../openapi")
 	server.initializeRouter()
-	server.router.Get(recoveryPath, func(w http.ResponseWriter, r *http.Request) {
+	server.router.Get(recoveryPath, func(_ http.ResponseWriter, _ *http.Request) {
 		panic("panic")
 	})
 	testServer := httptest.NewServer(server.router)
@@ -2182,7 +2182,7 @@ func TestRecoverer(t *testing.T) {
 
 	server.router = chi.NewRouter()
 	server.router.Use(middleware.Recoverer)
-	server.router.Get(recoveryPath, func(w http.ResponseWriter, r *http.Request) {
+	server.router.Get(recoveryPath, func(_ http.ResponseWriter, _ *http.Request) {
 		panic("panic")
 	})
 	testServer = httptest.NewServer(server.router)
@@ -2208,7 +2208,7 @@ func TestStreamJSONArray(t *testing.T) {
 		data = append(data, i)
 	}
 
-	dataGetter = func(limit, offset int) ([]byte, int, error) {
+	dataGetter = func(_, offset int) ([]byte, int, error) {
 		if offset >= len(data) {
 			return nil, 0, nil
 		}
@@ -3140,7 +3140,7 @@ func TestWebAdminSetupWithInstallCode(t *testing.T) {
 	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 
-	SetInstallationCodeResolver(func(defaultInstallationCode string) string {
+	SetInstallationCodeResolver(func(_ string) string {
 		return "5678"
 	})
 
