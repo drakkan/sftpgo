@@ -276,15 +276,15 @@ func (c *Config) Initialize(configDir string, isService bool) error {
 }
 
 func (c *Config) getMailClientOptions() []mail.Option {
-	options := []mail.Option{mail.WithPort(c.Port), mail.WithoutNoop()}
+	options := []mail.Option{mail.WithoutNoop()}
 
 	switch c.Encryption {
 	case 1:
-		options = append(options, mail.WithSSL())
+		options = append(options, mail.WithSSLPort(false))
 	case 2:
-		options = append(options, mail.WithTLSPolicy(mail.TLSMandatory))
+		options = append(options, mail.WithTLSPortPolicy(mail.TLSMandatory))
 	default:
-		options = append(options, mail.WithTLSPolicy(mail.NoTLS))
+		options = append(options, mail.WithTLSPortPolicy(mail.NoTLS))
 	}
 	if c.User != "" {
 		options = append(options, mail.WithUsername(c.User))
@@ -314,6 +314,7 @@ func (c *Config) getMailClientOptions() []mail.Option {
 			}),
 			mail.WithDebugLog())
 	}
+	options = append(options, mail.WithPort(c.Port))
 	return options
 }
 
