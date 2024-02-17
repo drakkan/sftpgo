@@ -252,20 +252,20 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     {
                         data: "actions",
                         defaultContent: [],
-                        searchable: false,
-                        orderable: false,
                         render: function(data, type, row) {
-                            if (type === 'display') {
-                                if (data){
-                                    let actions = [];
-                                    for (i = 0; i < data.length; i++){
-                                        actions.push(data[i].name);
-                                    }
-                                    return escapeHTML(actions.join(', '));
-                                }
-                                return ""
+                            if (!data){
+                                return "";
                             }
-                            return "";
+                            let actions = [];
+                            let result = "";
+                            for (i = 0; i < data.length; i++){
+                                actions.push(data[i].name);
+                            }
+                            result = actions.join(", ");
+                            if (type === 'display') {
+                                return escapeHTML(result);
+                            }
+                            return result;
                         }
                     },
                     {
