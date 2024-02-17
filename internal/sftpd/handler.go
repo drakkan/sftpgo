@@ -353,23 +353,25 @@ func (c *Connection) handleSFTPSetstat(request *sftp.Request) error {
 	attrs := common.StatAttributes{
 		Flags: 0,
 	}
-	if request.AttrFlags().Permissions {
-		attrs.Flags |= common.StatAttrPerms
-		attrs.Mode = request.Attributes().FileMode()
-	}
-	if request.AttrFlags().UidGid {
-		attrs.Flags |= common.StatAttrUIDGID
-		attrs.UID = int(request.Attributes().UID)
-		attrs.GID = int(request.Attributes().GID)
-	}
-	if request.AttrFlags().Acmodtime {
-		attrs.Flags |= common.StatAttrTimes
-		attrs.Atime = time.Unix(int64(request.Attributes().Atime), 0)
-		attrs.Mtime = time.Unix(int64(request.Attributes().Mtime), 0)
-	}
-	if request.AttrFlags().Size {
-		attrs.Flags |= common.StatAttrSize
-		attrs.Size = int64(request.Attributes().Size)
+	if request.Attributes() != nil {
+		if request.AttrFlags().Permissions {
+			attrs.Flags |= common.StatAttrPerms
+			attrs.Mode = request.Attributes().FileMode()
+		}
+		if request.AttrFlags().UidGid {
+			attrs.Flags |= common.StatAttrUIDGID
+			attrs.UID = int(request.Attributes().UID)
+			attrs.GID = int(request.Attributes().GID)
+		}
+		if request.AttrFlags().Acmodtime {
+			attrs.Flags |= common.StatAttrTimes
+			attrs.Atime = time.Unix(int64(request.Attributes().Atime), 0)
+			attrs.Mtime = time.Unix(int64(request.Attributes().Mtime), 0)
+		}
+		if request.AttrFlags().Size {
+			attrs.Flags |= common.StatAttrSize
+			attrs.Size = int64(request.Attributes().Size)
+		}
 	}
 
 	return c.SetStat(request.Filepath, &attrs)
