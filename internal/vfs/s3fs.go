@@ -50,7 +50,6 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/metric"
-	"github.com/drakkan/sftpgo/v2/internal/plugin"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 	"github.com/drakkan/sftpgo/v2/internal/version"
 )
@@ -148,10 +147,10 @@ func (fs *S3Fs) ConnectionID() string {
 func (fs *S3Fs) Stat(name string) (os.FileInfo, error) {
 	var result *FileInfo
 	if name == "" || name == "/" || name == "." {
-		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, 0, time.Unix(0, 0), false))
+		return NewFileInfo(name, true, 0, time.Unix(0, 0), false), nil
 	}
 	if fs.config.KeyPrefix == name+"/" {
-		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, 0, time.Unix(0, 0), false))
+		return NewFileInfo(name, true, 0, time.Unix(0, 0), false), nil
 	}
 	obj, err := fs.headObject(name)
 	if err == nil {
@@ -162,8 +161,7 @@ func (fs *S3Fs) Stat(name string) (os.FileInfo, error) {
 			_, err = fs.headObject(name + "/")
 			isDir = err == nil
 		}
-		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, isDir, util.GetIntFromPointer(obj.ContentLength),
-			util.GetTimeFromPointer(obj.LastModified), false))
+		return NewFileInfo(name, isDir, util.GetIntFromPointer(obj.ContentLength), util.GetTimeFromPointer(obj.LastModified), false), nil
 	}
 	if !fs.IsNotExist(err) {
 		return result, err
@@ -171,7 +169,7 @@ func (fs *S3Fs) Stat(name string) (os.FileInfo, error) {
 	// now check if this is a prefix (virtual directory)
 	hasContents, err := fs.hasContents(name)
 	if err == nil && hasContents {
-		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, 0, time.Unix(0, 0), false))
+		return NewFileInfo(name, true, 0, time.Unix(0, 0), false), nil
 	} else if err != nil {
 		return nil, err
 	}
@@ -188,8 +186,7 @@ func (fs *S3Fs) getStatForDir(name string) (os.FileInfo, error) {
 	if err != nil {
 		return result, err
 	}
-	return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, util.GetIntFromPointer(obj.ContentLength),
-		util.GetTimeFromPointer(obj.LastModified), false))
+	return NewFileInfo(name, true, util.GetIntFromPointer(obj.ContentLength), util.GetTimeFromPointer(obj.LastModified), false), nil
 }
 
 // Lstat returns a FileInfo describing the named file
@@ -364,11 +361,6 @@ func (fs *S3Fs) Remove(name string, isDir bool) error {
 		Key:    aws.String(name),
 	})
 	metric.S3DeleteObjectCompleted(err)
-	if plugin.Handler.HasMetadater() && err == nil && !isDir {
-		if errMetadata := plugin.Handler.RemoveMetadata(fs.getStorageID(), ensureAbsPath(name)); errMetadata != nil {
-			fsLog(fs, logger.LevelWarn, "unable to remove metadata for path %q: %+v", name, errMetadata)
-		}
-	}
 	return err
 }
 
@@ -402,21 +394,8 @@ func (*S3Fs) Chmod(_ string, _ os.FileMode) error {
 }
 
 // Chtimes changes the access and modification times of the named file.
-func (fs *S3Fs) Chtimes(name string, _, mtime time.Time, isUploading bool) error {
-	if !plugin.Handler.HasMetadater() {
-		return ErrVfsUnsupported
-	}
-	if !isUploading {
-		info, err := fs.Stat(name)
-		if err != nil {
-			return err
-		}
-		if info.IsDir() {
-			return ErrVfsUnsupported
-		}
-	}
-	return plugin.Handler.SetModificationTime(fs.getStorageID(), ensureAbsPath(name),
-		util.GetTimeAsMsSinceEpoch(mtime))
+func (fs *S3Fs) Chtimes(_ string, _, _ time.Time, _ bool) error {
+	return ErrVfsUnsupported
 }
 
 // Truncate changes the size of the named file.
@@ -517,50 +496,6 @@ func (fs *S3Fs) CheckRootPath(username string, uid int, gid int) bool {
 // and their size
 func (fs *S3Fs) ScanRootDirContents() (int, int64, error) {
 	return fs.GetDirSize(fs.config.KeyPrefix)
-}
-
-func (fs *S3Fs) getFileNamesInPrefix(fsPrefix string) (map[string]bool, error) {
-	fileNames := make(map[string]bool)
-	prefix := ""
-	if fsPrefix != "/" {
-		prefix = strings.TrimPrefix(fsPrefix, "/")
-	}
-
-	paginator := s3.NewListObjectsV2Paginator(fs.svc, &s3.ListObjectsV2Input{
-		Bucket:    aws.String(fs.config.Bucket),
-		Prefix:    aws.String(prefix),
-		Delimiter: aws.String("/"),
-		MaxKeys:   &s3DefaultPageSize,
-	})
-
-	for paginator.HasMorePages() {
-		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
-		defer cancelFn()
-
-		page, err := paginator.NextPage(ctx)
-		if err != nil {
-			metric.S3ListObjectsCompleted(err)
-			if err != nil {
-				fsLog(fs, logger.LevelError, "unable to get content for prefix %q: %+v", prefix, err)
-				return nil, err
-			}
-			return fileNames, err
-		}
-		for _, fileObject := range page.Contents {
-			name, isDir := fs.resolve(fileObject.Key, prefix)
-			if name != "" && !isDir {
-				fileNames[name] = true
-			}
-		}
-	}
-
-	metric.S3ListObjectsCompleted(nil)
-	return fileNames, nil
-}
-
-// CheckMetadata checks the metadata consistency
-func (fs *S3Fs) CheckMetadata() error {
-	return fsMetadataCheck(fs, fs.getStorageID(), fs.config.KeyPrefix)
 }
 
 // GetDirSize returns the number of files and the size for a folder
@@ -787,14 +722,6 @@ func (fs *S3Fs) renameInternal(source, target string, fi os.FileInfo, recursion 
 		}
 		numFiles++
 		filesSize += fi.Size()
-		if plugin.Handler.HasMetadater() {
-			err := plugin.Handler.SetModificationTime(fs.getStorageID(), ensureAbsPath(target),
-				util.GetTimeAsMsSinceEpoch(fi.ModTime()))
-			if err != nil {
-				fsLog(fs, logger.LevelWarn, "unable to preserve modification time after renaming %q -> %q: %+v",
-					source, target, err)
-			}
-		}
 	}
 	err := fs.Remove(source, fi.IsDir())
 	if fs.IsNotExist(err) {
@@ -1049,16 +976,6 @@ func (fs *S3Fs) downloadToWriter(name string, w PipeWriter) (int64, error) {
 		name, n, err)
 	metric.S3TransferCompleted(n, 1, err)
 	return n, err
-}
-
-func (fs *S3Fs) getStorageID() string {
-	if fs.config.Endpoint != "" {
-		if !strings.HasSuffix(fs.config.Endpoint, "/") {
-			return fmt.Sprintf("s3://%v/%v", fs.config.Endpoint, fs.config.Bucket)
-		}
-		return fmt.Sprintf("s3://%v%v", fs.config.Endpoint, fs.config.Bucket)
-	}
-	return fmt.Sprintf("s3://%v", fs.config.Bucket)
 }
 
 type s3DirLister struct {

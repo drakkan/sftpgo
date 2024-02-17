@@ -153,11 +153,9 @@ var (
 	// Connections is the list of active connections
 	Connections ActiveConnections
 	// QuotaScans is the list of active quota scans
-	QuotaScans ActiveScans
-	// ActiveMetadataChecks holds the active metadata checks
-	ActiveMetadataChecks MetadataChecks
-	transfersChecker     TransfersChecker
-	supportedProtocols   = []string{ProtocolSFTP, ProtocolSCP, ProtocolSSH, ProtocolFTP, ProtocolWebDAV,
+	QuotaScans         ActiveScans
+	transfersChecker   TransfersChecker
+	supportedProtocols = []string{ProtocolSFTP, ProtocolSCP, ProtocolSSH, ProtocolFTP, ProtocolWebDAV,
 		ProtocolHTTP, ProtocolHTTPShare, ProtocolOIDC}
 	disconnHookProtocols = []string{ProtocolSFTP, ProtocolSCP, ProtocolSSH, ProtocolFTP}
 	// the map key is the protocol, for each protocol we can have multiple rate limiters
@@ -1391,77 +1389,6 @@ func (s *ActiveScans) RemoveVFolderQuotaScan(folderName string) bool {
 			lastIdx := len(s.FolderScans) - 1
 			s.FolderScans[idx] = s.FolderScans[lastIdx]
 			s.FolderScans = s.FolderScans[:lastIdx]
-			return true
-		}
-	}
-
-	return false
-}
-
-// MetadataCheck defines an active metadata check
-type MetadataCheck struct {
-	// Username to which the metadata check refers
-	Username string `json:"username"`
-	// check start time as unix timestamp in milliseconds
-	StartTime int64  `json:"start_time"`
-	Role      string `json:"-"`
-}
-
-// MetadataChecks holds the active metadata checks
-type MetadataChecks struct {
-	sync.RWMutex
-	checks []MetadataCheck
-}
-
-// Get returns the active metadata checks
-func (c *MetadataChecks) Get(role string) []MetadataCheck {
-	c.RLock()
-	defer c.RUnlock()
-
-	checks := make([]MetadataCheck, 0, len(c.checks))
-	for _, check := range c.checks {
-		if role == "" || role == check.Role {
-			checks = append(checks, MetadataCheck{
-				Username:  check.Username,
-				StartTime: check.StartTime,
-			})
-		}
-	}
-
-	return checks
-}
-
-// Add adds a user to the ones with active metadata checks.
-// Return false if a metadata check is already active for the specified user
-func (c *MetadataChecks) Add(username, role string) bool {
-	c.Lock()
-	defer c.Unlock()
-
-	for idx := range c.checks {
-		if c.checks[idx].Username == username {
-			return false
-		}
-	}
-
-	c.checks = append(c.checks, MetadataCheck{
-		Username:  username,
-		StartTime: util.GetTimeAsMsSinceEpoch(time.Now()),
-		Role:      role,
-	})
-
-	return true
-}
-
-// Remove removes a user from the ones with active metadata checks
-func (c *MetadataChecks) Remove(username string) bool {
-	c.Lock()
-	defer c.Unlock()
-
-	for idx := range c.checks {
-		if c.checks[idx].Username == username {
-			lastIdx := len(c.checks) - 1
-			c.checks[idx] = c.checks[lastIdx]
-			c.checks = c.checks[:lastIdx]
 			return true
 		}
 	}

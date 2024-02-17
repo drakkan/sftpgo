@@ -12,7 +12,6 @@ The following actions are supported:
 - `Folder quota reset`. The quota used by virtual folders will be updated based on current usage.
 - `Transfer quota reset`. The transfer quota values will be reset to `0`.
 - `Data retention check`. You can define per-folder retention policies.
-- `Metadata check`. A metadata check requires a metadata plugin such as [this one](https://github.com/sftpgo/sftpgo-plugin-metadata) and removes the metadata associated to missing items (for example objects deleted outside SFTPGo). A metadata check does nothing is no metadata plugin is installed or external metadata are not supported for a filesystem.
 - `Password expiration check`. You can send an email notification to users whose password is about to expire.
 - `User expiration check`. You can receive notifications with expired users.
 - `Identity Provider account check`. You can create/update accounts for users/admins logging in using an Identity Provider.

@@ -44,7 +44,7 @@ const (
 	ActionTypeTransferQuotaReset
 	ActionTypeDataRetentionCheck
 	ActionTypeFilesystem
-	ActionTypeMetadataCheck
+	actionTypeReserved
 	ActionTypePasswordExpirationCheck
 	ActionTypeUserExpirationCheck
 	ActionTypeIDPAccountCheck
@@ -53,7 +53,7 @@ const (
 var (
 	supportedEventActions = []int{ActionTypeHTTP, ActionTypeCommand, ActionTypeEmail, ActionTypeFilesystem,
 		ActionTypeBackup, ActionTypeUserQuotaReset, ActionTypeFolderQuotaReset, ActionTypeTransferQuotaReset,
-		ActionTypeDataRetentionCheck, ActionTypeMetadataCheck, ActionTypePasswordExpirationCheck,
+		ActionTypeDataRetentionCheck, ActionTypePasswordExpirationCheck,
 		ActionTypeUserExpirationCheck, ActionTypeIDPAccountCheck}
 )
 
@@ -77,8 +77,6 @@ func getActionTypeAsString(action int) string {
 		return util.I18nActionTypeTransferQuotaReset
 	case ActionTypeDataRetentionCheck:
 		return util.I18nActionTypeDataRetentionCheck
-	case ActionTypeMetadataCheck:
-		return util.I18nActionTypeMetadataCheck
 	case ActionTypeFilesystem:
 		return util.I18nActionTypeFilesystem
 	case ActionTypePasswordExpirationCheck:
@@ -1652,7 +1650,7 @@ func (r *EventRule) validateMandatorySyncActions() error {
 
 func (r *EventRule) checkIPBlockedAndCertificateActions() error {
 	unavailableActions := []int{ActionTypeUserQuotaReset, ActionTypeFolderQuotaReset, ActionTypeTransferQuotaReset,
-		ActionTypeDataRetentionCheck, ActionTypeMetadataCheck, ActionTypeFilesystem, ActionTypePasswordExpirationCheck,
+		ActionTypeDataRetentionCheck, ActionTypeFilesystem, ActionTypePasswordExpirationCheck,
 		ActionTypeUserExpirationCheck}
 	for _, action := range r.Actions {
 		if util.Contains(unavailableActions, action.Type) {
@@ -1668,7 +1666,7 @@ func (r *EventRule) checkProviderEventActions(providerObjectType string) error {
 	// can be executed only if we modify a user. They will be executed for the
 	// affected user. Folder quota reset can be executed only for folders.
 	userSpecificActions := []int{ActionTypeUserQuotaReset, ActionTypeTransferQuotaReset,
-		ActionTypeDataRetentionCheck, ActionTypeMetadataCheck, ActionTypeFilesystem,
+		ActionTypeDataRetentionCheck, ActionTypeFilesystem,
 		ActionTypePasswordExpirationCheck, ActionTypeUserExpirationCheck}
 	for _, action := range r.Actions {
 		if util.Contains(userSpecificActions, action.Type) && providerObjectType != actionObjectUser {

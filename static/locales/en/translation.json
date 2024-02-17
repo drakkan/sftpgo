@@ -260,7 +260,8 @@
         "day_of_month": "Day of month",
         "month": "Month",
         "options": "Options",
-        "expired": "Expired"
+        "expired": "Expired",
+        "unsupported": "Feature no longer supported"
     },
     "fs": {
         "view_file": "View file \"{{- path}}\"",
@@ -968,7 +969,6 @@
             "folder_quota_reset": "Folder quota reset",
             "transfer_quota_reset": "Transfer quota reset",
             "data_retention_check": "Data retention check",
-            "metadata_check": "Metadata check",
             "filesystem": "Filesystem",
             "password_expiration_check": "Password expiration check",
             "user_expiration_check": "User expiration check",

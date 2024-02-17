@@ -1378,9 +1378,6 @@ func (s *httpdServer) initializeRouter() {
 			router.With(s.checkPerm(dataprovider.PermAdminRetentionChecks)).Get(retentionChecksPath, getRetentionChecks)
 			router.With(s.checkPerm(dataprovider.PermAdminRetentionChecks)).Post(retentionBasePath+"/{username}/check",
 				startRetentionCheck)
-			router.With(s.checkPerm(dataprovider.PermAdminMetadataChecks)).Get(metadataChecksPath, getMetadataChecks)
-			router.With(s.checkPerm(dataprovider.PermAdminMetadataChecks)).Post(metadataBasePath+"/{username}/check",
-				startMetadataCheck)
 			router.With(s.checkPerm(dataprovider.PermAdminViewEvents), compressor.Handler).
 				Get(fsEventsPath, searchFsEvents)
 			router.With(s.checkPerm(dataprovider.PermAdminViewEvents), compressor.Handler).

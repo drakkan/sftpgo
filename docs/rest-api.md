@@ -39,7 +39,6 @@ You can create other administrator and assign them the following permissions:
 - manage admins
 - manage groups
 - manage data retention
-- manage metadata
 - view events
 - manage event rules
 

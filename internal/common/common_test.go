@@ -1486,38 +1486,6 @@ func TestUpdateTransferTimestamps(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestMetadataAPI(t *testing.T) {
-	username := "metadatauser"
-	require.False(t, ActiveMetadataChecks.Remove(username))
-	require.True(t, ActiveMetadataChecks.Add(username, ""))
-	require.False(t, ActiveMetadataChecks.Add(username, ""))
-	checks := ActiveMetadataChecks.Get("")
-	require.Len(t, checks, 1)
-	checks[0].Username = username + "a"
-	checks = ActiveMetadataChecks.Get("")
-	require.Len(t, checks, 1)
-	require.Equal(t, username, checks[0].Username)
-	require.True(t, ActiveMetadataChecks.Remove(username))
-	require.Len(t, ActiveMetadataChecks.Get(""), 0)
-}
-
-func TestMetadataAPIRole(t *testing.T) {
-	username := "muser"
-	role1 := "r1"
-	role2 := "r2"
-	require.True(t, ActiveMetadataChecks.Add(username, role2))
-	require.False(t, ActiveMetadataChecks.Add(username, ""))
-	checks := ActiveMetadataChecks.Get("")
-	require.Len(t, checks, 1)
-	assert.Empty(t, checks[0].Role)
-	checks = ActiveMetadataChecks.Get(role1)
-	require.Len(t, checks, 0)
-	checks = ActiveMetadataChecks.Get(role2)
-	require.Len(t, checks, 1)
-	require.True(t, ActiveMetadataChecks.Remove(username))
-	require.Len(t, ActiveMetadataChecks.Get(""), 0)
-}
-
 func TestIPList(t *testing.T) {
 	type test struct {
 		ip            string

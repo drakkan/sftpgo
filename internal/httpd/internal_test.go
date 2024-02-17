@@ -732,16 +732,6 @@ func TestInvalidToken(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
 
 	rr = httptest.NewRecorder()
-	getMetadataChecks(rr, req)
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Invalid token claims")
-
-	rr = httptest.NewRecorder()
-	startMetadataCheck(rr, req)
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Invalid token claims")
-
-	rr = httptest.NewRecorder()
 	getUsersQuotaScans(rr, req)
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
@@ -2850,52 +2840,6 @@ func TestUserCanResetPassword(t *testing.T) {
 	u.Filters.DeniedLoginMethods = nil
 	u.Filters.AllowedIP = []string{"127.0.0.1/8"}
 	assert.False(t, isUserAllowedToResetPassword(req, &u))
-}
-
-func TestMetadataAPI(t *testing.T) {
-	username := "metadatauser"
-	assert.False(t, common.ActiveMetadataChecks.Remove(username))
-
-	user := dataprovider.User{
-		BaseUser: sdk.BaseUser{
-			Username: username,
-			Password: "metadata_pwd",
-			HomeDir:  filepath.Join(os.TempDir(), username),
-			Status:   1,
-		},
-	}
-	user.Permissions = make(map[string][]string)
-	user.Permissions["/"] = []string{dataprovider.PermAny}
-	err := dataprovider.AddUser(&user, "", "", "")
-	assert.NoError(t, err)
-
-	assert.True(t, common.ActiveMetadataChecks.Add(username, ""))
-
-	tokenAuth := jwtauth.New(jwa.HS256.String(), util.GenerateRandomBytes(32), nil)
-	claims := make(map[string]any)
-	claims["username"] = defaultAdminUsername
-	claims[jwt.ExpirationKey] = time.Now().UTC().Add(1 * time.Hour)
-	token, _, err := tokenAuth.Encode(claims)
-	assert.NoError(t, err)
-	req, err := http.NewRequest(http.MethodPost, path.Join(metadataBasePath, username, "check"), nil)
-	assert.NoError(t, err)
-	rctx := chi.NewRouteContext()
-	rctx.URLParams.Add("username", username)
-	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
-	req = req.WithContext(context.WithValue(req.Context(), jwtauth.TokenCtxKey, token))
-
-	rr := httptest.NewRecorder()
-	startMetadataCheck(rr, req)
-	assert.Equal(t, http.StatusConflict, rr.Code, rr.Body.String())
-
-	assert.True(t, common.ActiveMetadataChecks.Remove(username))
-	assert.Len(t, common.ActiveMetadataChecks.Get(""), 0)
-	err = dataprovider.DeleteUser(username, "", "", "")
-	assert.NoError(t, err)
-
-	user.FsConfig.Provider = sdk.AzureBlobFilesystemProvider
-	err = doMetadataCheck(user)
-	assert.Error(t, err)
 }
 
 func TestBrowsableSharePaths(t *testing.T) {

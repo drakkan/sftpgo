@@ -13,9 +13,9 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.27.0
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.0
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.15.0
-	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.16.0
+	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.16.1
 	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.20.1
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.49.0
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.50.0
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.27.1
 	github.com/aws/aws-sdk-go-v2/service/sts v1.27.0
 	github.com/bmatcuk/doublestar/v4 v4.6.1
@@ -26,7 +26,7 @@ require (
 	github.com/fclairamb/ftpserverlib v0.22.0
 	github.com/fclairamb/go-log v0.4.1
 	github.com/go-acme/lego/v4 v4.15.0
-	github.com/go-chi/chi/v5 v5.0.11
+	github.com/go-chi/chi/v5 v5.0.12
 	github.com/go-chi/jwtauth/v5 v5.3.0
 	github.com/go-chi/render v1.0.3
 	github.com/go-sql-driver/mysql v1.7.1
@@ -53,7 +53,7 @@ require (
 	github.com/rs/cors v1.10.1
 	github.com/rs/xid v1.5.0
 	github.com/rs/zerolog v1.32.0
-	github.com/sftpgo/sdk v0.1.6-0.20240114195211-3f4916cc829c
+	github.com/sftpgo/sdk v0.1.6-0.20240216180841-c13afec62842
 	github.com/shirou/gopsutil/v3 v3.24.1
 	github.com/spf13/afero v1.11.0
 	github.com/spf13/cobra v1.8.0
@@ -145,7 +145,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.1.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/power-devops/perfstat v0.0.0-20221212215047-62379fc7944b // indirect
-	github.com/prometheus/client_model v0.5.0 // indirect
+	github.com/prometheus/client_model v0.6.0 // indirect
 	github.com/prometheus/common v0.47.0 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect

@@ -46,7 +46,6 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/metric"
-	"github.com/drakkan/sftpgo/v2/internal/plugin"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 	"github.com/drakkan/sftpgo/v2/internal/version"
 )
@@ -171,10 +170,10 @@ func (fs *AzureBlobFs) ConnectionID() string {
 // Stat returns a FileInfo describing the named file
 func (fs *AzureBlobFs) Stat(name string) (os.FileInfo, error) {
 	if name == "" || name == "/" || name == "." {
-		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, 0, time.Unix(0, 0), false))
+		return NewFileInfo(name, true, 0, time.Unix(0, 0), false), nil
 	}
 	if fs.config.KeyPrefix == name+"/" {
-		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, 0, time.Unix(0, 0), false))
+		return NewFileInfo(name, true, 0, time.Unix(0, 0), false), nil
 	}
 
 	attrs, err := fs.headObject(name)
@@ -182,9 +181,7 @@ func (fs *AzureBlobFs) Stat(name string) (os.FileInfo, error) {
 		contentType := util.GetStringFromPointer(attrs.ContentType)
 		isDir := checkDirectoryMarkers(contentType, attrs.Metadata)
 		metric.AZListObjectsCompleted(nil)
-		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, isDir,
-			util.GetIntFromPointer(attrs.ContentLength),
-			util.GetTimeFromPointer(attrs.LastModified), false))
+		return NewFileInfo(name, isDir, util.GetIntFromPointer(attrs.ContentLength), util.GetTimeFromPointer(attrs.LastModified), false), nil
 	}
 	if !fs.IsNotExist(err) {
 		return nil, err
@@ -195,7 +192,7 @@ func (fs *AzureBlobFs) Stat(name string) (os.FileInfo, error) {
 		return nil, err
 	}
 	if hasContents {
-		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, 0, time.Unix(0, 0), false))
+		return NewFileInfo(name, true, 0, time.Unix(0, 0), false), nil
 	}
 	return nil, os.ErrNotExist
 }
@@ -347,11 +344,6 @@ func (fs *AzureBlobFs) Remove(name string, isDir bool) error {
 		}
 	}
 	metric.AZDeleteObjectCompleted(err)
-	if plugin.Handler.HasMetadater() && err == nil && !isDir {
-		if errMetadata := plugin.Handler.RemoveMetadata(fs.getStorageID(), ensureAbsPath(name)); errMetadata != nil {
-			fsLog(fs, logger.LevelWarn, "unable to remove metadata for path %q: %+v", name, errMetadata)
-		}
-	}
 	return err
 }
 
@@ -385,22 +377,8 @@ func (*AzureBlobFs) Chmod(_ string, _ os.FileMode) error {
 }
 
 // Chtimes changes the access and modification times of the named file.
-func (fs *AzureBlobFs) Chtimes(name string, _, mtime time.Time, isUploading bool) error {
-	if !plugin.Handler.HasMetadater() {
-		return ErrVfsUnsupported
-	}
-	if !isUploading {
-		info, err := fs.Stat(name)
-		if err != nil {
-			return err
-		}
-		if info.IsDir() {
-			return ErrVfsUnsupported
-		}
-	}
-
-	return plugin.Handler.SetModificationTime(fs.getStorageID(), ensureAbsPath(name),
-		util.GetTimeAsMsSinceEpoch(mtime))
+func (fs *AzureBlobFs) Chtimes(_ string, _, _ time.Time, _ bool) error {
+	return ErrVfsUnsupported
 }
 
 // Truncate changes the size of the named file.
@@ -507,53 +485,6 @@ func (fs *AzureBlobFs) CheckRootPath(username string, uid int, gid int) bool {
 // and their size
 func (fs *AzureBlobFs) ScanRootDirContents() (int, int64, error) {
 	return fs.GetDirSize(fs.config.KeyPrefix)
-}
-
-func (fs *AzureBlobFs) getFileNamesInPrefix(fsPrefix string) (map[string]bool, error) {
-	fileNames := make(map[string]bool)
-	prefix := ""
-	if fsPrefix != "/" {
-		prefix = strings.TrimPrefix(fsPrefix, "/")
-	}
-
-	pager := fs.containerClient.NewListBlobsHierarchyPager("/", &container.ListBlobsHierarchyOptions{
-		Include: container.ListBlobsInclude{
-			//Metadata: true,
-		},
-		Prefix:     &prefix,
-		MaxResults: &azureBlobDefaultPageSize,
-	})
-
-	for pager.More() {
-		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
-		defer cancelFn()
-
-		resp, err := pager.NextPage(ctx)
-		if err != nil {
-			metric.AZListObjectsCompleted(err)
-			return fileNames, err
-		}
-		for _, blobItem := range resp.ListBlobsHierarchySegmentResponse.Segment.BlobItems {
-			name := util.GetStringFromPointer(blobItem.Name)
-			name = strings.TrimPrefix(name, prefix)
-			if blobItem.Properties != nil {
-				contentType := util.GetStringFromPointer(blobItem.Properties.ContentType)
-				isDir := checkDirectoryMarkers(contentType, blobItem.Metadata)
-				if isDir {
-					continue
-				}
-				fileNames[name] = true
-			}
-		}
-	}
-	metric.AZListObjectsCompleted(nil)
-
-	return fileNames, nil
-}
-
-// CheckMetadata checks the metadata consistency
-func (fs *AzureBlobFs) CheckMetadata() error {
-	return fsMetadataCheck(fs, fs.getStorageID(), fs.config.KeyPrefix)
 }
 
 // GetDirSize returns the number of files and the size for a folder
@@ -848,16 +779,6 @@ func (fs *AzureBlobFs) renameInternal(source, target string, fi os.FileInfo, rec
 		}
 		numFiles++
 		filesSize += fi.Size()
-		if plugin.Handler.HasMetadater() {
-			if !fi.IsDir() {
-				err := plugin.Handler.SetModificationTime(fs.getStorageID(), ensureAbsPath(target),
-					util.GetTimeAsMsSinceEpoch(fi.ModTime()))
-				if err != nil {
-					fsLog(fs, logger.LevelWarn, "unable to preserve modification time after renaming %q -> %q: %+v",
-						source, target, err)
-				}
-			}
-		}
 	}
 	err := fs.skipNotExistErr(fs.Remove(source, fi.IsDir()))
 	return numFiles, filesSize, err
@@ -1160,16 +1081,6 @@ func (fs *AzureBlobFs) downloadToWriter(name string, w PipeWriter) (int64, error
 		name, n, err)
 	metric.AZTransferCompleted(n, 1, err)
 	return n, err
-}
-
-func (fs *AzureBlobFs) getStorageID() string {
-	if fs.config.Endpoint != "" {
-		if !strings.HasSuffix(fs.config.Endpoint, "/") {
-			return fmt.Sprintf("azblob://%v/%v", fs.config.Endpoint, fs.config.Container)
-		}
-		return fmt.Sprintf("azblob://%v%v", fs.config.Endpoint, fs.config.Container)
-	}
-	return fmt.Sprintf("azblob://%v", fs.config.Container)
 }
 
 func checkDirectoryMarkers(contentType string, metadata map[string]*string) bool {

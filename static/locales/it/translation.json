@@ -260,7 +260,8 @@
         "day_of_month": "Giorno mese",
         "month": "Mese",
         "options": "Opzioni",
-        "expired": "Scaduto"
+        "expired": "Scaduto",
+        "unsupported": "Funzionalità non più supportata"
     },
     "fs": {
         "view_file": "Visualizza file \"{{- path}}\"",
@@ -968,7 +969,6 @@
             "folder_quota_reset": "Ricalcolo quota cartella virtuale",
             "transfer_quota_reset": "Reimpostazione quota trasferimenti",
             "data_retention_check": "Controllo conservazione dati",
-            "metadata_check": "Controllo metadati",
             "filesystem": "Filesystem",
             "password_expiration_check": "Controllo password scadute",
             "user_expiration_check": "Controllo utenti scaduti",

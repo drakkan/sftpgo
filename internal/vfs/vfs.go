@@ -31,11 +31,9 @@ import (
 	"github.com/eikenb/pipeat"
 	"github.com/pkg/sftp"
 	"github.com/sftpgo/sdk"
-	"github.com/sftpgo/sdk/plugin/metadata"
 
 	"github.com/drakkan/sftpgo/v2/internal/kms"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/plugin"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 )
 
@@ -147,7 +145,6 @@ type Fs interface {
 	HasVirtualFolders() bool
 	GetMimeType(name string) (string, error)
 	GetAvailableDiskSize(dirName string) (*sftp.StatVFS, error)
-	CheckMetadata() error
 	Close() error
 }
 
@@ -155,13 +152,6 @@ type Fs interface {
 type FsRealPather interface {
 	Fs
 	RealPath(p string) (string, error)
-}
-
-// fsMetadataChecker is a Fs that implements the getFileNamesInPrefix method.
-// This interface is used to abstract metadata consistency checks
-type fsMetadataChecker interface {
-	Fs
-	getFileNamesInPrefix(fsPrefix string) (map[string]bool, error)
 }
 
 // FsFileCopier is a Fs that implements the CopyFile method.
@@ -1088,90 +1078,6 @@ func IsUploadResumeSupported(fs Fs, size int64) bool {
 		return true
 	}
 	return fs.IsConditionalUploadResumeSupported(size)
-}
-
-func updateFileInfoModTime(storageID, objectPath string, info *FileInfo) (*FileInfo, error) {
-	if !plugin.Handler.HasMetadater() {
-		return info, nil
-	}
-	if info.IsDir() {
-		return info, nil
-	}
-	mTime, err := plugin.Handler.GetModificationTime(storageID, ensureAbsPath(objectPath), info.IsDir())
-	if errors.Is(err, metadata.ErrNoSuchObject) {
-		return info, nil
-	}
-	if err != nil {
-		return info, err
-	}
-	info.modTime = util.GetTimeFromMsecSinceEpoch(mTime)
-	return info, nil
-}
-
-func ensureAbsPath(name string) string {
-	if path.IsAbs(name) {
-		return name
-	}
-	return path.Join("/", name)
-}
-
-func fsMetadataCheck(fs fsMetadataChecker, storageID, keyPrefix string) error {
-	if !plugin.Handler.HasMetadater() {
-		return nil
-	}
-	limit := 100
-	from := ""
-	for {
-		metadataFolders, err := plugin.Handler.GetMetadataFolders(storageID, from, limit)
-		if err != nil {
-			fsLog(fs, logger.LevelError, "unable to get folders: %v", err)
-			return err
-		}
-		for _, folder := range metadataFolders {
-			from = folder
-			fsPrefix := folder
-			if !strings.HasSuffix(folder, "/") {
-				fsPrefix += "/"
-			}
-			if keyPrefix != "" {
-				if !strings.HasPrefix(fsPrefix, "/"+keyPrefix) {
-					fsLog(fs, logger.LevelDebug, "skip metadata check for folder %q outside prefix %q",
-						folder, keyPrefix)
-					continue
-				}
-			}
-			fsLog(fs, logger.LevelDebug, "check metadata for folder %q", folder)
-			metadataValues, err := plugin.Handler.GetModificationTimes(storageID, folder)
-			if err != nil {
-				fsLog(fs, logger.LevelError, "unable to get modification times for folder %q: %v", folder, err)
-				return err
-			}
-			if len(metadataValues) == 0 {
-				fsLog(fs, logger.LevelDebug, "no metadata for folder %q", folder)
-				continue
-			}
-			fileNames, err := fs.getFileNamesInPrefix(fsPrefix)
-			if err != nil {
-				fsLog(fs, logger.LevelError, "unable to get content for prefix %q: %v", fsPrefix, err)
-				return err
-			}
-			// now check if we have metadata for a missing object
-			for k := range metadataValues {
-				if _, ok := fileNames[k]; !ok {
-					filePath := ensureAbsPath(path.Join(folder, k))
-					if err = plugin.Handler.RemoveMetadata(storageID, filePath); err != nil {
-						fsLog(fs, logger.LevelError, "unable to remove metadata for missing file %q: %v", filePath, err)
-					} else {
-						fsLog(fs, logger.LevelDebug, "metadata removed for missing file %q", filePath)
-					}
-				}
-			}
-		}
-
-		if len(metadataFolders) < limit {
-			return nil
-		}
-	}
 }
 
 func validateOSFsConfig(config *sdk.OSFsConfig) error {

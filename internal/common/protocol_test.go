@@ -8077,10 +8077,9 @@ func TestSFTPLoopError(t *testing.T) {
 	assert.NoError(t, err, string(resp))
 	user2, resp, err = httpdtest.AddUser(user2, http.StatusCreated)
 	assert.NoError(t, err, string(resp))
-	// test metadata check event error
 	a1 := dataprovider.BaseEventAction{
 		Name: "a1",
-		Type: dataprovider.ActionTypeMetadataCheck,
+		Type: dataprovider.ActionTypeUserQuotaReset,
 	}
 	action1, _, err := httpdtest.AddEventAction(a1, http.StatusCreated)
 	assert.NoError(t, err)

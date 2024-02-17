@@ -605,8 +605,6 @@ func TestEventManagerErrors(t *testing.T) {
 	assert.Error(t, err)
 	err = executeTransferQuotaResetRuleAction(dataprovider.ConditionOptions{}, &EventParams{})
 	assert.Error(t, err)
-	err = executeMetadataCheckRuleAction(dataprovider.ConditionOptions{}, &EventParams{})
-	assert.Error(t, err)
 	err = executeUserExpirationCheckRuleAction(dataprovider.ConditionOptions{}, &EventParams{})
 	assert.Error(t, err)
 	err = executeDeleteFsRuleAction(nil, nil, dataprovider.ConditionOptions{}, &EventParams{})
@@ -631,15 +629,6 @@ func TestEventManagerErrors(t *testing.T) {
 
 	groupName := "agroup"
 	err = executeQuotaResetForUser(&dataprovider.User{
-		Groups: []sdk.GroupMapping{
-			{
-				Name: groupName,
-				Type: sdk.GroupTypePrimary,
-			},
-		},
-	})
-	assert.Error(t, err)
-	err = executeMetadataCheckForUser(&dataprovider.User{
 		Groups: []sdk.GroupMapping{
 			{
 				Name: groupName,
@@ -986,40 +975,6 @@ func TestEventRuleActions(t *testing.T) {
 	})
 	assert.Error(t, err)
 	assert.Contains(t, getErrorString(err), "no user quota reset executed")
-
-	action = dataprovider.BaseEventAction{
-		Type: dataprovider.ActionTypeMetadataCheck,
-	}
-
-	err = executeRuleAction(action, &EventParams{}, dataprovider.ConditionOptions{
-		Names: []dataprovider.ConditionPattern{
-			{
-				Pattern: "don't match",
-			},
-		},
-	})
-	assert.Error(t, err)
-	assert.Contains(t, getErrorString(err), "no metadata check executed")
-
-	err = executeRuleAction(action, &EventParams{}, dataprovider.ConditionOptions{
-		Names: []dataprovider.ConditionPattern{
-			{
-				Pattern: username1,
-			},
-		},
-	})
-	assert.NoError(t, err)
-	// simulate another metadata check in progress
-	assert.True(t, ActiveMetadataChecks.Add(username1, ""))
-	err = executeRuleAction(action, &EventParams{}, dataprovider.ConditionOptions{
-		Names: []dataprovider.ConditionPattern{
-			{
-				Pattern: username1,
-			},
-		},
-	})
-	assert.Error(t, err)
-	assert.True(t, ActiveMetadataChecks.Remove(username1))
 
 	action = dataprovider.BaseEventAction{
 		Type: dataprovider.ActionTypeUserExpirationCheck,
@@ -1551,10 +1506,6 @@ func TestEventRuleActionsNoGroupMatching(t *testing.T) {
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "no user quota reset executed")
 	}
-	err = executeMetadataCheckRuleAction(conditions, &EventParams{})
-	if assert.Error(t, err) {
-		assert.Contains(t, err.Error(), "no metadata check executed")
-	}
 	err = executeTransferQuotaResetRuleAction(conditions, &EventParams{})
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "no transfer quota reset executed")
@@ -1839,6 +1790,14 @@ func TestFilesystemActionErrors(t *testing.T) {
 		assert.Error(t, err)
 		assert.Contains(t, getErrorString(err), "is outside base dir")
 	}
+
+	wr := &zipWriterWrapper{
+		Name:    xid.New().String() + ".zip",
+		Writer:  zip.NewWriter(bytes.NewBuffer(nil)),
+		Entries: map[string]bool{},
+	}
+	err = addZipEntry(wr, conn, "/p1", "/", 2000)
+	assert.ErrorIs(t, err, util.ErrRecursionTooDeep)
 
 	err = dataprovider.DeleteUser(username, "", "", "")
 	assert.NoError(t, err)

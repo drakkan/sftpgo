@@ -86,8 +86,6 @@ const (
 	userSharesPath                        = "/api/v2/user/shares"
 	retentionBasePath                     = "/api/v2/retention/users"
 	retentionChecksPath                   = "/api/v2/retention/users/checks"
-	metadataBasePath                      = "/api/v2/metadata/users"
-	metadataChecksPath                    = "/api/v2/metadata/users/checks"
 	fsEventsPath                          = "/api/v2/events/fs"
 	providerEventsPath                    = "/api/v2/events/provider"
 	logEventsPath                         = "/api/v2/events/logs"

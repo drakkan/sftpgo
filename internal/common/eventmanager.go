@@ -2354,57 +2354,6 @@ func executeUserExpirationCheckRuleAction(conditions dataprovider.ConditionOptio
 	return nil
 }
 
-func executeMetadataCheckForUser(user *dataprovider.User) error {
-	if err := user.LoadAndApplyGroupSettings(); err != nil {
-		eventManagerLog(logger.LevelError, "skipping scheduled quota reset for user %s, cannot apply group settings: %v",
-			user.Username, err)
-		return err
-	}
-	if !ActiveMetadataChecks.Add(user.Username, user.Role) {
-		eventManagerLog(logger.LevelError, "another metadata check is already in progress for user %q", user.Username)
-		return fmt.Errorf("another metadata check is in progress for user %q", user.Username)
-	}
-	defer ActiveMetadataChecks.Remove(user.Username)
-
-	if err := user.CheckMetadataConsistency(); err != nil {
-		eventManagerLog(logger.LevelError, "error checking metadata consistence for user %q: %v", user.Username, err)
-		return fmt.Errorf("error checking metadata consistence for user %q: %w", user.Username, err)
-	}
-	return nil
-}
-
-func executeMetadataCheckRuleAction(conditions dataprovider.ConditionOptions, params *EventParams) error {
-	users, err := params.getUsers()
-	if err != nil {
-		return fmt.Errorf("unable to get users: %w", err)
-	}
-	var failures []string
-	var executed int
-	for _, user := range users {
-		// if sender is set, the conditions have already been evaluated
-		if params.sender == "" {
-			if !checkUserConditionOptions(&user, &conditions) {
-				eventManagerLog(logger.LevelDebug, "skipping metadata check for user %q, condition options don't match",
-					user.Username)
-				continue
-			}
-		}
-		executed++
-		if err = executeMetadataCheckForUser(&user); err != nil {
-			params.AddError(err)
-			failures = append(failures, user.Username)
-		}
-	}
-	if len(failures) > 0 {
-		return fmt.Errorf("metadata check failed for users: %s", strings.Join(failures, ", "))
-	}
-	if executed == 0 {
-		eventManagerLog(logger.LevelError, "no metadata check executed")
-		return errors.New("no metadata check executed")
-	}
-	return nil
-}
-
 func executePwdExpirationCheckForUser(user *dataprovider.User, config dataprovider.EventActionPasswordExpiration) error {
 	if err := user.LoadAndApplyGroupSettings(); err != nil {
 		eventManagerLog(logger.LevelError, "skipping password expiration check for user %q, cannot apply group settings: %v",
@@ -2568,8 +2517,6 @@ func executeRuleAction(action dataprovider.BaseEventAction, params *EventParams,
 		err = executeTransferQuotaResetRuleAction(conditions, params)
 	case dataprovider.ActionTypeDataRetentionCheck:
 		err = executeDataRetentionCheckRuleAction(action.Options.RetentionConfig, conditions, params, action.Name)
-	case dataprovider.ActionTypeMetadataCheck:
-		err = executeMetadataCheckRuleAction(conditions, params)
 	case dataprovider.ActionTypeFilesystem:
 		err = executeFsRuleAction(action.Options.FsConfig, conditions, params)
 	case dataprovider.ActionTypePasswordExpirationCheck:

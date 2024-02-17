@@ -269,7 +269,6 @@ const (
 	I18nActionTypeFolderQuotaReset     = "actions.types.folder_quota_reset"
 	I18nActionTypeTransferQuotaReset   = "actions.types.transfer_quota_reset"
 	I18nActionTypeDataRetentionCheck   = "actions.types.data_retention_check"
-	I18nActionTypeMetadataCheck        = "actions.types.metadata_check"
 	I18nActionTypeFilesystem           = "actions.types.filesystem"
 	I18nActionTypePwdExpirationCheck   = "actions.types.password_expiration_check"
 	I18nActionTypeUserExpirationCheck  = "actions.types.user_expiration_check"
