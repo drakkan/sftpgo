@@ -87,6 +87,7 @@ jobs:
         with:
           file: ./coverage.txt
           fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Run test cases using bolt provider
         run: |
