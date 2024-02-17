@@ -500,7 +500,7 @@ func (t *BaseTransfer) getUploadedFiles() int {
 
 func (t *BaseTransfer) updateTimes() {
 	if !t.aTime.IsZero() && !t.mTime.IsZero() {
-		err := t.Fs.Chtimes(t.fsPath, t.aTime, t.mTime, true)
+		err := t.Fs.Chtimes(t.fsPath, t.aTime, t.mTime, false)
 		t.Connection.Log(logger.LevelDebug, "set times for file %q, atime: %v, mtime: %v, err: %v",
 			t.fsPath, t.aTime, t.mTime, err)
 	}

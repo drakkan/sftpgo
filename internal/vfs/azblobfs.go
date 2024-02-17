@@ -29,6 +29,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -37,6 +38,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blockblob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
@@ -180,8 +182,11 @@ func (fs *AzureBlobFs) Stat(name string) (os.FileInfo, error) {
 	if err == nil {
 		contentType := util.GetStringFromPointer(attrs.ContentType)
 		isDir := checkDirectoryMarkers(contentType, attrs.Metadata)
-		metric.AZListObjectsCompleted(nil)
-		return NewFileInfo(name, isDir, util.GetIntFromPointer(attrs.ContentLength), util.GetTimeFromPointer(attrs.LastModified), false), nil
+		lastModified := util.GetTimeFromPointer(attrs.LastModified)
+		if val := getAzureLastModified(attrs.Metadata); val > 0 {
+			lastModified = util.GetTimeFromMsecSinceEpoch(val)
+		}
+		return NewFileInfo(name, isDir, util.GetIntFromPointer(attrs.ContentLength), lastModified, false), nil
 	}
 	if !fs.IsNotExist(err) {
 		return nil, err
@@ -377,8 +382,25 @@ func (*AzureBlobFs) Chmod(_ string, _ os.FileMode) error {
 }
 
 // Chtimes changes the access and modification times of the named file.
-func (fs *AzureBlobFs) Chtimes(_ string, _, _ time.Time, _ bool) error {
-	return ErrVfsUnsupported
+func (fs *AzureBlobFs) Chtimes(name string, _, mtime time.Time, isUploading bool) error {
+	if isUploading {
+		return nil
+	}
+	props, err := fs.headObject(name)
+	if err != nil {
+		return err
+	}
+	metadata := props.Metadata
+	if metadata == nil {
+		metadata = make(map[string]*string)
+	}
+	metadata[lastModifiedField] = to.Ptr(strconv.FormatInt(mtime.UnixMilli(), 10))
+
+	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+	defer cancelFn()
+
+	_, err = fs.containerClient.NewBlockBlobClient(name).SetMetadata(ctx, metadata, &blob.SetMetadataOptions{})
+	return err
 }
 
 // Truncate changes the size of the named file.
@@ -395,7 +417,7 @@ func (fs *AzureBlobFs) ReadDir(dirname string) (DirLister, error) {
 	prefix := fs.getPrefix(dirname)
 	pager := fs.containerClient.NewListBlobsHierarchyPager("/", &container.ListBlobsHierarchyOptions{
 		Include: container.ListBlobsInclude{
-			//Metadata: true,
+			Metadata: true,
 		},
 		Prefix:     &prefix,
 		MaxResults: &azureBlobDefaultPageSize,
@@ -1089,7 +1111,7 @@ func checkDirectoryMarkers(contentType string, metadata map[string]*string) bool
 	}
 	for k, v := range metadata {
 		if strings.ToLower(k) == azFolderKey {
-			return util.GetStringFromPointer(v) == "true"
+			return strings.ToLower(util.GetStringFromPointer(v)) == "true"
 		}
 	}
 	return false
@@ -1230,6 +1252,9 @@ func (l *azureBlobDirLister) Next(limit int) ([]os.FileInfo, error) {
 					continue
 				}
 				l.prefixes[name] = true
+			}
+			if val := getAzureLastModified(blobItem.Metadata); val > 0 {
+				modTime = util.GetTimeFromMsecSinceEpoch(val)
 			}
 		}
 		l.cache = append(l.cache, NewFileInfo(name, isDir, size, modTime, false))

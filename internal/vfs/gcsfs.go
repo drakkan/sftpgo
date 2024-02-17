@@ -26,6 +26,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -39,6 +40,7 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/metric"
+	"github.com/drakkan/sftpgo/v2/internal/util"
 	"github.com/drakkan/sftpgo/v2/internal/version"
 )
 
@@ -47,7 +49,7 @@ const (
 )
 
 var (
-	gcsDefaultFieldsSelection = []string{"Name", "Size", "Deleted", "Updated", "ContentType"}
+	gcsDefaultFieldsSelection = []string{"Name", "Size", "Deleted", "Updated", "ContentType", "Metadata"}
 )
 
 // GCSFs is a Fs implementation for Google Cloud Storage.
@@ -335,8 +337,32 @@ func (*GCSFs) Chmod(_ string, _ os.FileMode) error {
 }
 
 // Chtimes changes the access and modification times of the named file.
-func (fs *GCSFs) Chtimes(_ string, _, _ time.Time, _ bool) error {
-	return ErrVfsUnsupported
+func (fs *GCSFs) Chtimes(name string, _, mtime time.Time, isUploading bool) error {
+	if isUploading {
+		return nil
+	}
+	obj := fs.svc.Bucket(fs.config.Bucket).Object(name)
+	attrs, err := fs.headObject(name)
+	if err != nil {
+		return err
+	}
+	obj = obj.If(storage.Conditions{MetagenerationMatch: attrs.Metageneration})
+
+	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+	defer cancelFn()
+
+	metadata := attrs.Metadata
+	if metadata == nil {
+		metadata = make(map[string]string)
+	}
+	metadata[lastModifiedField] = strconv.FormatInt(mtime.UnixMilli(), 10)
+
+	objectAttrsToUpdate := storage.ObjectAttrsToUpdate{
+		Metadata: metadata,
+	}
+	_, err = obj.Update(ctx, objectAttrsToUpdate)
+
+	return err
 }
 
 // Truncate changes the size of the named file.
@@ -615,6 +641,9 @@ func (fs *GCSFs) getObjectStat(name string) (os.FileInfo, error) {
 	if err == nil {
 		objSize := attrs.Size
 		objectModTime := attrs.Updated
+		if val := getLastModified(attrs.Metadata); val > 0 {
+			objectModTime = util.GetTimeFromMsecSinceEpoch(val)
+		}
 		isDir := attrs.ContentType == dirMimeType || strings.HasSuffix(attrs.Name, "/")
 		return NewFileInfo(name, isDir, objSize, objectModTime, false), nil
 	}
@@ -634,7 +663,11 @@ func (fs *GCSFs) getObjectStat(name string) (os.FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewFileInfo(name, true, attrs.Size, attrs.Updated, false), nil
+	objectModTime := attrs.Updated
+	if val := getLastModified(attrs.Metadata); val > 0 {
+		objectModTime = util.GetTimeFromMsecSinceEpoch(val)
+	}
+	return NewFileInfo(name, true, attrs.Size, objectModTime, false), nil
 }
 
 func (fs *GCSFs) setWriterAttrs(objectWriter *storage.Writer, flag int, name string) {
@@ -927,7 +960,11 @@ func (l *gcsDirLister) Next(limit int) ([]os.FileInfo, error) {
 				}
 				l.prefixes[name] = true
 			}
-			l.cache = append(l.cache, NewFileInfo(name, isDir, attrs.Size, attrs.Updated, false))
+			modTime := attrs.Updated
+			if val := getLastModified(attrs.Metadata); val > 0 {
+				modTime = util.GetTimeFromMsecSinceEpoch(val)
+			}
+			l.cache = append(l.cache, NewFileInfo(name, isDir, attrs.Size, modTime, false))
 		}
 	}
 

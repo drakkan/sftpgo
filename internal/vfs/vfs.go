@@ -24,6 +24,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -38,11 +39,12 @@ import (
 )
 
 const (
-	dirMimeType      = "inode/directory"
-	s3fsName         = "S3Fs"
-	gcsfsName        = "GCSFs"
-	azBlobFsName     = "AzureBlobFs"
-	preResumeTimeout = 90 * time.Second
+	dirMimeType       = "inode/directory"
+	s3fsName          = "S3Fs"
+	gcsfsName         = "GCSFs"
+	azBlobFsName      = "AzureBlobFs"
+	lastModifiedField = "sftpgo_last_modified"
+	preResumeTimeout  = 90 * time.Second
 	// ListerBatchSize defines the default limit for DirLister implementations
 	ListerBatchSize = 1000
 )
@@ -1078,6 +1080,31 @@ func IsUploadResumeSupported(fs Fs, size int64) bool {
 		return true
 	}
 	return fs.IsConditionalUploadResumeSupported(size)
+}
+
+func getLastModified(metadata map[string]string) int64 {
+	if val, ok := metadata[lastModifiedField]; ok {
+		lastModified, err := strconv.ParseInt(val, 10, 64)
+		if err == nil {
+			return lastModified
+		}
+	}
+	return 0
+}
+
+func getAzureLastModified(metadata map[string]*string) int64 {
+	for k, v := range metadata {
+		if strings.ToLower(k) == lastModifiedField {
+			if val := util.GetStringFromPointer(v); val != "" {
+				lastModified, err := strconv.ParseInt(val, 10, 64)
+				if err == nil {
+					return lastModified
+				}
+			}
+			return 0
+		}
+	}
+	return 0
 }
 
 func validateOSFsConfig(config *sdk.OSFsConfig) error {
