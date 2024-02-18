@@ -108,6 +108,7 @@ If you report an invalid issue or ask for step-by-step support, your issue will 
 - Log files are accurate and they are saved in the easily parsable JSON format ([more information](./docs/logs.md)).
 - SFTPGo supports a [plugin system](./docs/plugins.md) and therefore can be extended using external plugins.
 - Infrastructure as Code (IaC) support using the [Terraform provider](https://registry.terraform.io/providers/drakkan/sftpgo/latest).
+- Partial (experimental) support for [internationalization](./docs/internationalization.md).
 
 ## Platforms
 
@@ -371,6 +372,8 @@ We are very grateful to all the people who contributed with ideas and/or pull re
 Thank you to [ysura](https://www.ysura.com/) for granting us stable access to a test AWS S3 account.
 
 Thank you to [KeenThemes](https://keenthemes.com/) for granting us a custom license to use their amazing [Mega Bundle](https://keenthemes.com/products/templates-mega-bundle) for SFTPGo UI.
+
+Thank you to [Crowdin](https://crowdin.com/) for granting us an Open Source License.
 
 Thank you to [Incode](https://www.incode.it/) for helping us to improve the UI/UX.
 
