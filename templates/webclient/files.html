@@ -163,7 +163,11 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 <button data-i18n="general.submit" type="button" id="upload_files_empty_button" class="btn btn-primary">Submit</button>
             </div>
         </div>
-        <div id="file_manager_list_container">
+        <div id="loader" class="align-items-center text-center my-10">
+            <span class="spinner-border w-15px h-15px text-muted align-middle me-2"></span>
+            <span data-i18n="general.loading" class="text-gray-700">Loading...</span>
+        </div>
+        <div id="file_manager_list_container" class="d-none">
             <table id="file_manager_list" class="table align-middle table-row-dashed fs-6 gy-5">
                 <thead>
                     <tr class="text-start text-muted fw-bold fs-6 gs-0 text-gray-500">
@@ -735,10 +739,19 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     emptyTable: $.t('fs.no_files_folders')
                 },
                 orderFixed: [1, 'asc'],
-                order: [2, 'asc']
+                order: [2, 'asc'],
+                initComplete: function(settings, json) {
+                    $('#loader').addClass("d-none");
+                    $('#file_manager_list_container').removeClass("d-none");
+                    let api = $.fn.dataTable.Api(settings);
+                    api.columns.adjust().draw("page");
+                    drawAction();
+                }
             });
 
-            dt.on('draw', function () {
+            dt.on('draw', drawAction);
+
+            function drawAction() {
                 //{{- if .CanAddFiles}}
                 if (dt.rows().count() === 0) {
                     $('#file_manager_list_container').addClass("d-none");
@@ -771,7 +784,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 toggleToolbars();
                 handleRowActions();
                 $('#file_manager_list_body').localize();
-            });
+            }
 
             dt.on('user-select', function(e, dt, type, cell, originalEvent){
                 let pageSelected = dt.rows({ selected: true, page: 'current' }).count();
