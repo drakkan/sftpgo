@@ -543,11 +543,9 @@ func (fs *AzureBlobFs) GetDirSize(dirname string) (int, int64, error) {
 				}
 				numFiles++
 				size += blobSize
-				if numFiles%1000 == 0 {
-					fsLog(fs, logger.LevelDebug, "dirname %q scan in progress, files: %d, size: %d", dirname, numFiles, size)
-				}
 			}
 		}
+		fsLog(fs, logger.LevelDebug, "scan in progress for %q, files: %d, size: %d", dirname, numFiles, size)
 	}
 	metric.AZListObjectsCompleted(nil)
 
@@ -616,6 +614,9 @@ func (fs *AzureBlobFs) Walk(root string, walkFn filepath.WalkFunc) error {
 				isDir = checkDirectoryMarkers(contentType, blobItem.Metadata)
 				blobSize = util.GetIntFromPointer(blobItem.Properties.ContentLength)
 				lastModified = util.GetTimeFromPointer(blobItem.Properties.LastModified)
+				if val := getAzureLastModified(blobItem.Metadata); val > 0 {
+					lastModified = util.GetTimeFromMsecSinceEpoch(val)
+				}
 			}
 			err := walkFn(name, NewFileInfo(name, isDir, blobSize, lastModified, false), nil)
 			if err != nil {

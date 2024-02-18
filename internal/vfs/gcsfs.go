@@ -476,21 +476,20 @@ func (fs *GCSFs) GetDirSize(dirname string) (int, int64, error) {
 	if err != nil {
 		return numFiles, size, err
 	}
-	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxLongTimeout))
-	defer cancelFn()
 
-	bkt := fs.svc.Bucket(fs.config.Bucket)
-	it := bkt.Objects(ctx, query)
-	pager := iterator.NewPager(it, defaultGCSPageSize, "")
+	iteratePage := func(nextPageToken string) (string, error) {
+		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+		defer cancelFn()
 
-	for {
+		bkt := fs.svc.Bucket(fs.config.Bucket)
+		it := bkt.Objects(ctx, query)
+		pager := iterator.NewPager(it, defaultGCSPageSize, nextPageToken)
+
 		var objects []*storage.ObjectAttrs
 		pageToken, err := pager.NextPage(&objects)
 		if err != nil {
-			metric.GCSListObjectsCompleted(err)
-			return numFiles, size, err
+			return pageToken, err
 		}
-
 		for _, attrs := range objects {
 			if !attrs.Deleted.IsZero() {
 				continue
@@ -501,12 +500,18 @@ func (fs *GCSFs) GetDirSize(dirname string) (int, int64, error) {
 			}
 			numFiles++
 			size += attrs.Size
-			if numFiles%1000 == 0 {
-				fsLog(fs, logger.LevelDebug, "dirname %q scan in progress, files: %d, size: %d", dirname, numFiles, size)
-			}
 		}
+		return pageToken, nil
+	}
 
-		objects = nil
+	pageToken := ""
+	for {
+		pageToken, err = iteratePage(pageToken)
+		if err != nil {
+			metric.GCSListObjectsCompleted(err)
+			return numFiles, size, err
+		}
+		fsLog(fs, logger.LevelDebug, "scan in progress for %q, files: %d, size: %d", dirname, numFiles, size)
 		if pageToken == "" {
 			break
 		}
@@ -556,22 +561,20 @@ func (fs *GCSFs) Walk(root string, walkFn filepath.WalkFunc) error {
 		return err
 	}
 
-	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxLongTimeout))
-	defer cancelFn()
+	iteratePage := func(nextPageToken string) (string, error) {
+		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+		defer cancelFn()
 
-	bkt := fs.svc.Bucket(fs.config.Bucket)
-	it := bkt.Objects(ctx, query)
-	pager := iterator.NewPager(it, defaultGCSPageSize, "")
+		bkt := fs.svc.Bucket(fs.config.Bucket)
+		it := bkt.Objects(ctx, query)
+		pager := iterator.NewPager(it, defaultGCSPageSize, nextPageToken)
 
-	for {
 		var objects []*storage.ObjectAttrs
 		pageToken, err := pager.NextPage(&objects)
 		if err != nil {
 			walkFn(root, nil, err) //nolint:errcheck
-			metric.GCSListObjectsCompleted(err)
-			return err
+			return pageToken, err
 		}
-
 		for _, attrs := range objects {
 			if !attrs.Deleted.IsZero() {
 				continue
@@ -580,13 +583,26 @@ func (fs *GCSFs) Walk(root string, walkFn filepath.WalkFunc) error {
 			if name == "" {
 				continue
 			}
-			err = walkFn(attrs.Name, NewFileInfo(name, isDir, attrs.Size, attrs.Updated, false), nil)
+			objectModTime := attrs.Updated
+			if val := getLastModified(attrs.Metadata); val > 0 {
+				objectModTime = util.GetTimeFromMsecSinceEpoch(val)
+			}
+			err = walkFn(attrs.Name, NewFileInfo(name, isDir, attrs.Size, objectModTime, false), nil)
 			if err != nil {
-				return err
+				return pageToken, err
 			}
 		}
 
-		objects = nil
+		return pageToken, nil
+	}
+
+	pageToken := ""
+	for {
+		pageToken, err = iteratePage(pageToken)
+		if err != nil {
+			metric.GCSListObjectsCompleted(err)
+			return err
+		}
 		if pageToken == "" {
 			break
 		}
