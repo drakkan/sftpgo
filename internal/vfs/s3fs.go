@@ -482,7 +482,7 @@ func (*S3Fs) IsNotSupported(err error) bool {
 	if err == nil {
 		return false
 	}
-	return err == ErrVfsUnsupported
+	return errors.Is(err, ErrVfsUnsupported)
 }
 
 // CheckRootPath creates the specified local root directory if it does not exists
@@ -700,7 +700,7 @@ func (fs *S3Fs) renameInternal(source, target string, fi os.FileInfo, recursion 
 				return numFiles, filesSize, err
 			}
 			if hasContents {
-				return numFiles, filesSize, fmt.Errorf("cannot rename non empty directory: %q", source)
+				return numFiles, filesSize, fmt.Errorf("%w: cannot rename non empty directory: %q", ErrVfsUnsupported, source)
 			}
 		}
 		if err := fs.mkdirInternal(target); err != nil {

@@ -482,7 +482,7 @@ func (*AzureBlobFs) IsNotSupported(err error) bool {
 	if err == nil {
 		return false
 	}
-	return err == ErrVfsUnsupported
+	return errors.Is(err, ErrVfsUnsupported)
 }
 
 func (*AzureBlobFs) isBadRequestError(err error) bool {
@@ -782,7 +782,7 @@ func (fs *AzureBlobFs) renameInternal(source, target string, fi os.FileInfo, rec
 				return numFiles, filesSize, err
 			}
 			if hasContents {
-				return numFiles, filesSize, fmt.Errorf("cannot rename non empty directory: %q", source)
+				return numFiles, filesSize, fmt.Errorf("%w: cannot rename non empty directory: %q", ErrVfsUnsupported, source)
 			}
 		}
 		if err := fs.mkdirInternal(target); err != nil {

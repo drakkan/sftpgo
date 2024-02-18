@@ -1428,6 +1428,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 let errorMessage = "";
                 if (error && error.response) {
                     switch (error.response.status) {
+                        case 400:
+                            errorMessage = "fs.move.err_unsupported";
+                            break;
                         case 403:
                             errorMessage = "fs.move.err_403";
                             break;
@@ -1640,6 +1643,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 let errorMessage;
                 if (error && error.response) {
                     switch (error.response.status) {
+                        case 400:
+                            errorMessage = "fs.rename.err_unsupported";
+                            break;
                         case 403:
                             errorMessage = "fs.rename.err_403";
                             break;

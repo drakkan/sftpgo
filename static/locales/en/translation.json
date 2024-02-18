@@ -328,7 +328,8 @@
             "err_generic": "Error moving files/directories",
             "err_403": "$t(fs.move.err_generic). $t(fs.err_403)",
             "err_429": "$t(fs.move.err_generic). $t(fs.err_429)",
-            "err_exists": "$t(fs.move.err_generic). $t(fs.err_exists)"
+            "err_exists": "$t(fs.move.err_generic). $t(fs.err_exists)",
+            "err_unsupported": "Unsupported: if you want to move a directory make sure it is empty"
         },
         "rename": {
             "title": "Rename \"{{- name}}\"",
@@ -336,7 +337,8 @@
             "err_generic": "Unable to rename \"{{- name}}\"",
             "err_403": "$t(fs.rename.err_generic). $t(fs.err_403)",
             "err_429": "$t(fs.rename.err_generic). $t(fs.err_429)",
-            "err_exists": "$t(fs.rename.err_generic). $t(fs.err_exists)"
+            "err_exists": "$t(fs.rename.err_generic). $t(fs.err_exists)",
+            "err_unsupported": "Unsupported: if you want to rename a directory make sure it is empty"
         },
         "upload": {
             "text": "Upload Files",
