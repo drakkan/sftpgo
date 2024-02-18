@@ -31,10 +31,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </h2>
                 <div id="accordion_sftp_body" class="accordion-collapse collapse {{if eq .ConfigSection 1}}show{{end}}" aria-labelledby="accordion_header_sftp" data-bs-parent="#accordion_configs">
                     <div class="accordion-body">
-                        {{template "infomsg" "sftp.help"}}
+                        {{- template "infomsg" "sftp.help"}}
 
                         <form id="configs_sftp_form" action="{{.CurrentURL}}" method="POST" autocomplete="off">
-                            <div class="form-group row mt-10">
+                            <div class="form-group row">
                                 <label for="idHostKeyAlgos" data-i18n="sftp.host_key_algos" class="col-md-3 col-form-label">
                                     Host Key Algos
                                 </label>
@@ -126,11 +126,11 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </h2>
                 <div id="accordion_acme_body" class="accordion-collapse collapse {{if eq .ConfigSection 2}}show{{end}}" aria-labelledby="accordion_header_acme" data-bs-parent="#accordion_configs">
                     <div class="accordion-body">
-                        {{template "infomsg" "acme.help"}}
+                        {{- template "infomsg" "acme.help"}}
 
                         <form id="configs_acme_form" action="{{.CurrentURL}}" method="POST" autocomplete="off">
 
-                            <div class="form-group row mt-10">
+                            <div class="form-group row">
                                 <label for="idACMEDomain" data-i18n="general.domain" class="col-md-3 col-form-label">Domain</label>
                                 <div class="col-md-9">
                                     <input id="idACMEDomain" type="text" class="form-control" name="acme_domain" value="{{.Configs.ACME.Domain}}" aria-describedby="idACMEDomainHelp" />
@@ -195,11 +195,11 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </h2>
                 <div id="accordion_smtp_body" class="accordion-collapse collapse {{if eq .ConfigSection 3}}show{{end}}" aria-labelledby="accordion_header_smtp" data-bs-parent="#accordion_configs">
                     <div class="accordion-body">
-                        {{template "infomsg" "smtp.help"}}
+                        {{- template "infomsg" "smtp.help"}}
 
                         <form id="configs_smtp_form" action="{{.CurrentURL}}" method="POST" autocomplete="off">
 
-                            <div class="form-group row mt-10">
+                            <div class="form-group row">
                                 <label for="idSMTPHost" data-i18n="smtp.host" class="col-md-3 col-form-label">Server name</label>
                                 <div class="col-md-5">
                                     <input id="idSMTPHost" type="text" class="form-control" name="smtp_host" value="{{.Configs.SMTP.Host}}" maxlength="512" spellcheck="false" aria-describedby="idSMTPHostHelp" />

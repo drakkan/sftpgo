@@ -21,6 +21,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <h3 data-i18n="{{.Title}}" class="card-title section-title"></h3>
     </div>
     <div class="card-body">
+        {{- template "infomsg" "group.help"}}
         {{- template "errmsg" .Error}}
         <form id="group_form" enctype="multipart/form-data" action="{{.CurrentURL}}" method="POST" autocomplete="off">
 
@@ -47,7 +48,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </div>
                 <div class="card-body">
                     <div id="virtual_folders">
-                        {{template "infomsg" "user.virtual_folders_help"}}
+                        {{- template "infomsg-no-mb" "user.virtual_folders_help"}}
                         <div class="form-group">
                             <div data-repeater-list="virtual_folders">
                                 {{- range $idx, $val := .Group.VirtualFolders}}
@@ -156,7 +157,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 </div>
                                 <div class="card-body">
                                     <div id="directory_permissions">
-                                        {{template "infomsg" "filters.directory_permissions_help"}}
+                                        {{- template "infomsg-no-mb" "filters.directory_permissions_help"}}
                                         <div class="form-group">
                                             <div data-repeater-list="directory_permissions">
                                                 {{- range $idx, $dirPerms := .Group.GetPermissions -}}

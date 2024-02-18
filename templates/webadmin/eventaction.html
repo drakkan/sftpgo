@@ -295,7 +295,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </div>
                 <div class="card-body">
                     <div id="multipart_body">
-                        {{template "infomsg" "actions.multipart_body_help"}}
+                        {{- template "infomsg-no-mb" "actions.multipart_body_help"}}
                         <div class="form-group">
                             <div data-repeater-list="multipart_body">
                                 {{- range $idx, $val := .Action.Options.HTTPConfig.Parts}}
@@ -411,7 +411,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </div>
                 <div class="card-body">
                     <div id="env_vars">
-                        {{template "infomsg" "actions.command_env_vars_help"}}
+                        {{- template "infomsg-no-mb" "actions.command_env_vars_help"}}
                         <div class="form-group">
                             <div data-repeater-list="env_vars">
                                 {{- range $idx, $val := .Action.Options.CmdConfig.EnvVars}}
@@ -536,7 +536,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </div>
                 <div class="card-body">
                     <div id="data_retention">
-                        {{template "infomsg" "actions.data_retention_help"}}
+                        {{- template "infomsg-no-mb" "actions.data_retention_help"}}
                         <div class="form-group">
                             <div data-repeater-list="data_retention">
                                 {{- range $idx, $val := .Action.Options.RetentionConfig.Folders}}
@@ -632,7 +632,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </div>
                 <div class="card-body">
                     <div id="fs_rename">
-                        {{template "infomsg" "actions.paths_src_dst_help"}}
+                        {{- template "infomsg-no-mb" "actions.paths_src_dst_help"}}
                         <div class="form-group">
                             <div data-repeater-list="fs_rename">
                                 {{- range $idx, $val := .Action.Options.FsConfig.Renames}}
@@ -730,7 +730,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </div>
                 <div class="card-body">
                     <div id="fs_copy">
-                        {{template "infomsg" "actions.paths_src_dst_help"}}
+                        {{- template "infomsg-no-mb" "actions.paths_src_dst_help"}}
                         <div class="form-group">
                             <div data-repeater-list="fs_copy">
                                 {{- range $idx, $val := .Action.Options.FsConfig.Copy}}

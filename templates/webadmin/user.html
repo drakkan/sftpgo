@@ -216,8 +216,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     <h3 data-i18n="title.groups" class="card-title section-title-inner">Groups</h3>
                 </div>
                 <div class="card-body">
-                    {{template "infomsg" "user.groups_help"}}
-                    <div class="form-group row mt-10">
+                    {{- template "infomsg" "user.groups_help"}}
+                    <div class="form-group row">
                         <label for="idPrimaryGroup" data-i18n="user.primary_group" class="col-md-3 col-form-label">Primary group</label>
                         <div class="col-md-9">
                             <select id="idPrimaryGroup" name="primary_group" data-i18n="[data-placeholder]general.group_placeholder" class="form-select" data-control="i18n-select2" data-placeholder="Select a group" data-allow-clear="true">
@@ -264,7 +264,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </div>
                 <div class="card-body">
                     <div id="virtual_folders">
-                        {{template "infomsg" "user.virtual_folders_help"}}
+                        {{- template "infomsg-no-mb" "user.virtual_folders_help"}}
                         <div class="form-group">
                             <div data-repeater-list="virtual_folders">
                                 {{- range $idx, $val := .User.VirtualFolders}}
@@ -443,7 +443,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 </div>
                                 <div class="card-body">
                                     <div id="directory_permissions">
-                                        {{template "infomsg" "filters.directory_permissions_help"}}
+                                        {{- template "infomsg-no-mb" "filters.directory_permissions_help"}}
                                         <div class="form-group">
                                             <div data-repeater-list="directory_permissions">
                                                 {{- range $idx, $dirPerms := .User.GetSubDirPermissions -}}

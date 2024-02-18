@@ -69,8 +69,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     <h3 data-i18n="general.role" class="card-title section-title-inner">Role</h3>
                 </div>
                 <div class="card-body">
-                    {{template "infomsg" "admin.role_help"}}
-                    <div class="form-group row mt-10">
+                    {{- template "infomsg" "admin.role_help"}}
+                    <div class="form-group row">
                         <label for="idRole" data-i18n="general.role" class="col-md-3 col-form-label">Role</label>
                         <div class="col-md-9">
                             <select id="idRole" name="role" data-i18n="[data-placeholder]general.role_placeholder" class="form-select" data-control="i18n-select2" data-placeholder="Select a role" data-allow-clear="true">
@@ -92,7 +92,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </div>
                 <div class="card-body">
                     <div id="groups">
-                        {{template "infomsg" "admin.users_groups_help"}}
+                        {{- template "infomsg-no-mb" "admin.users_groups_help"}}
                         <div class="form-group">
                             <div data-repeater-list="groups">
                                 {{range $idx, $val := .Admin.Groups}}
@@ -181,9 +181,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     <h3 data-i18n="admin.user_page_pref" class="card-title section-title-inner">User page preferences</h3>
                 </div>
                 <div class="card-body">
-                    {{template "infomsg" "admin.user_page_pref_help"}}
+                    {{- template "infomsg" "admin.user_page_pref_help"}}
 
-                    <div class="form-group row mt-10">
+                    <div class="form-group row">
                         <label for="idUserPageHiddenSections" data-i18n="admin.hide_sections" class="col-md-3 col-form-label">Hide sections</label>
                         <div class="col-md-9">
                             <select id="idUserPageHiddenSections" name="user_page_hidden_sections" class="form-select" data-control="i18n-select2" data-hide-search="true" data-close-on-select="false" multiple>

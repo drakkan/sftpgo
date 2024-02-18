@@ -41,9 +41,11 @@ Each admin can view/change his/her two-factor authentication by selecting the `T
 
 ![Admin 2FA](./img/admin-2FA.png)
 
-Then select a configuration and click "Generate new secret". A QR code will be generated which you can scan with a compatible app. After you configured your app, enter a test code to ensure everything works correctly and click on "Verify and save".
+Then select a configuration and click "Generate new secret key". A QR code will be generated which you can scan with a compatible app. After you configured your app, enter a test code to ensure everything works correctly and click on "Save".
 
 ![Enable 2FA](./img/admin-save-2FA.png)
+
+Then save the configuration.
 
 SFTPGo automatically generates some recovery codes. They are a set of one time use codes that can be used in place of the TOTP to login to the web UI. You can use them if you lose access to your phone to login to your account and disable or regenerate TOTP configuration.
 
@@ -82,9 +84,11 @@ HTTP protocol means Web UI and REST APIs. Web UI will ask for the passcode using
 
 FTP has no standard way to support two factor authentication, if you enable the FTP protocol, you have to add the TOTP passcode after the password. For example if your password is "password" and your one time passcode is "123456" you have to use "password123456" as password.
 
-To enable 2FA select the wanted protocols, a configuration and click "Generate new secret". A QR code will be generated which you can scan with a compatible app. After you configured your app, enter a test code to ensure everything works correctly and click on "Verify and save".
+To enable 2FA select the wanted protocols, a configuration and click "Generate new secret key". A QR code will be generated which you can scan with a compatible app. After you configured your app, enter a test code to ensure everything works correctly and click on "Save".
 
 ![Enable 2FA](./img/user-save-2FA.png)
+
+Then save the configuration.
 
 SFTPGo automatically generates some recovery codes. They are a set of one time use codes that can be used in place of the TOTP to login to the web UI. You can use them if you lose access to your phone to login to your account and disable or regenerate TOTP configuration.
 

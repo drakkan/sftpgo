@@ -517,7 +517,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     </div>
     <div class="card-body">
         <div id="directory_patterns">
-            {{template "infomsg" "filters.directory_patterns_help"}}
+            {{- template "infomsg-no-mb" "filters.directory_patterns_help"}}
             <div class="form-group">
                 <div data-repeater-list="directory_patterns">
                     {{- range $idx, $pattern := .GetFlatFilePatterns -}}

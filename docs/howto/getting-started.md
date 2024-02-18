@@ -36,7 +36,7 @@ Before you can use SFTPGo you need to create an admin account, so open [http://1
 
 ![Setup](./img/setup.png)
 
-After creating the admin account you will be automatically logged in.
+After creating the admin account you will be automatically logged in and redirected to the page to set up two-factor authentication. Setting up two-factor authentication is optional.
 
 ![Users list](./img/initial-screen.png)
 
@@ -57,7 +57,7 @@ Let's create our first local user:
 - from the `Users` page click the `+` icon to open the `Add user page`
 - the only required fields are the `Username` and a `Password` or a `Public key`
 - if you are on Windows or you installed SFTPGo manually and no `users_base_dir` is defined in your configuration file you also have to set a `Home Dir`. It must be an absolute path, for example `/srv/sftpgo/data/username` on Linux or `C:\sftpgo\data\username` on Windows. SFTPGo will try to automatically create the home directory, if missing, when the user logs in. Each user can only access files and folders inside its home directory.
-- click `Submit`
+- click `Save`
 
 ![Add user](./img/add-user.png)
 

@@ -167,7 +167,7 @@
         "api_key_auth": "Autenticazione mediante chiave API",
         "api_key_auth_help": "Permetti di impersonarti nelle API REST utilizzando una chiave API",
         "pub_keys": "Chiavi pubbliche",
-        "pub_key_placeholder": "Incolla qui la tua chiave pubblica",
+        "pub_key_placeholder": "Incolla qui una chiave pubblica",
         "verify": "Verifica",
         "problems": "Hai problemi?",
         "allowed_ip_mask": "IP/Reti permesse",
@@ -522,7 +522,7 @@
         "expires_in": "Scadenza",
         "expires_in_help": "Scadenza dell'account espressa in numero di giorni dalla creazione. 0 significa nessuna scadenza",
         "tls_certs": "Certificati TLS",
-        "tls_cert_help": "Incolla qui il tuo certificato TLS codificato PEM",
+        "tls_cert_help": "Incolla qui un tuo certificato TLS codificato PEM",
         "tls_cert_invalid": "Certificato TLS non valido",
         "template_title": "Crea uno o più nuovi utenti da questo modello",
         "template_username_placeholder": "sostituito con il nome utente specificato",
@@ -533,7 +533,8 @@
     },
     "group": {
         "view_manage": "Visualizza e gestisci gruppi",
-        "err_delete_referenced": "Impossibile eliminare un gruppo con utenti associati, rimuovere prima le associazioni"
+        "err_delete_referenced": "Impossibile eliminare un gruppo con utenti associati, rimuovere prima le associazioni",
+        "help": "Il segnaposto %username% verrà sostituito con il nome utente degli utenti associati"
     },
     "virtual_folders": {
         "view_manage": "Visualizza e gestisci cartelle virtuali",

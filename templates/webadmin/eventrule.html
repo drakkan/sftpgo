@@ -99,7 +99,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </div>
                 <div class="card-body">
                     <div id="schedules">
-                        {{template "infomsg" "rules.scheduler_help"}}
+                        {{- template "infomsg-no-mb" "rules.scheduler_help"}}
                         <div class="form-group">
                             <div data-repeater-list="schedules">
                                 {{- range $idx, $val := .Rule.Conditions.Schedules}}
@@ -219,7 +219,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </div>
                 <div class="card-body">
                     <div id="name_filters">
-                        {{template "infomsg" "rules.name_filters_help"}}
+                        {{- template "infomsg-no-mb" "rules.name_filters_help"}}
                         <div class="form-group">
                             <div data-repeater-list="name_filters">
                                 {{- range $idx, $val := .Rule.Conditions.Options.Names}}
@@ -296,7 +296,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </div>
                 <div class="card-body">
                     <div id="group_name_filters">
-                        {{template "infomsg" "rules.group_name_filters_help"}}
+                        {{- template "infomsg-no-mb" "rules.group_name_filters_help"}}
                         <div class="form-group">
                             <div data-repeater-list="group_name_filters">
                                 {{- range $idx, $val := .Rule.Conditions.Options.GroupNames}}
@@ -373,7 +373,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </div>
                 <div class="card-body">
                     <div id="role_name_filters">
-                        {{template "infomsg" "rules.role_name_filters_help"}}
+                        {{- template "infomsg-no-mb" "rules.role_name_filters_help"}}
                         <div class="form-group">
                             <div data-repeater-list="role_name_filters">
                                 {{- range $idx, $val := .Rule.Conditions.Options.RoleNames}}
@@ -450,7 +450,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </div>
                 <div class="card-body">
                     <div id="path_filters">
-                        {{template "infomsg" "rules.path_filters_help"}}
+                        {{- template "infomsg-no-mb" "rules.path_filters_help"}}
                         <div class="form-group">
                             <div data-repeater-list="path_filters">
                                 {{- range $idx, $val := .Rule.Conditions.Options.FsPaths}}
@@ -528,8 +528,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     </h3>
                 </div>
                 <div class="card-body">
-                    {{template "infomsg" "rules.file_size_limits_help"}}
-                    <div class="form-group row mt-10">
+                    {{- template "infomsg" "rules.file_size_limits_help"}}
+                    <div class="form-group row">
                         <label for="idFsMinSize" data-i18n="rules.min_size" class="col-md-3 col-form-label">Min size</label>
                         <div class="col-md-3">
                             <input id="idFsMinSize" type="text" class="form-control" name="fs_min_size" value="{{HumanizeBytes .Rule.Conditions.Options.MinFileSize}}" />
@@ -549,7 +549,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </div>
                 <div class="card-body">
                     <div id="actions">
-                        {{template "infomsg" "rules.actions_help"}}
+                        {{- template "infomsg-no-mb" "rules.actions_help"}}
                         <div class="form-group">
                             <div data-repeater-list="actions">
                                 {{- range $idx, $val := .Rule.Actions}}
