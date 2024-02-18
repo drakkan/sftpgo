@@ -1129,13 +1129,9 @@ func TestListerAt(t *testing.T) {
 	err = lister.Close()
 	require.NoError(t, err)
 	n, err = lister.ListAt(files, 0)
-	if runtime.GOOS == "windows" {
-		assert.NoError(t, err)
-	} else {
-		assert.Error(t, err)
-		assert.NotErrorIs(t, err, io.EOF)
-		require.Equal(t, 0, n)
-	}
+	assert.Error(t, err)
+	assert.NotErrorIs(t, err, io.EOF)
+	require.Equal(t, 0, n)
 	lister, err = conn.ListDir("/")
 	require.NoError(t, err)
 	lister.Add(vfs.NewFileInfo("..", true, 0, time.Unix(0, 0), false))
