@@ -17,6 +17,20 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
 {{- define "page_body"}}
 {{- template "errmsg" .Error}}
+
+{{- $move_copy_msg := ""}}
+{{- if and .CanRename .CanCopy}}
+{{- $move_copy_msg = "fs.move_copy"}}
+{{- else}}
+{{- if .CanRename}}
+{{- $move_copy_msg = "fs.move.msg"}}
+{{- else}}
+{{- if .CanCopy}}
+{{- $move_copy_msg = "fs.copy.msg"}}
+{{- end}}
+{{- end}}
+{{- end}}
+
 <div class="card card-flush shadow-sm">
     <div class="card-header pt-8">
         <div class="card-title">
@@ -91,7 +105,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         {{- if not .ShareUploadBaseURL}}
                         {{- if or .CanRename .CanAddFiles}}
 						<div class="menu-item px-3">
-                            <a data-i18n="fs.move_copy" href="#" class="menu-link px-3 fs-6" data-kt-filemanager-table-select="move_or_copy_selected">
+                            <a data-i18n="{{$move_copy_msg}}" href="#" class="menu-link px-3 fs-6" data-kt-filemanager-table-select="move_or_copy_selected">
                                 Move or copy
                             </a>
                         </div>
@@ -208,6 +222,19 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 <script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/glightbox/glightbox.min.js"></script>
 <script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/pdfobject/pdfobject.min.js"></script>
 <script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
+    //{{- $move_copy_msg := ""}}
+    //{{- if and .CanRename .CanCopy}}
+    //{{- $move_copy_msg = "fs.move_copy"}}
+    //{{- else}}
+    //{{- if .CanRename}}
+    //{{- $move_copy_msg = "fs.move.msg"}}
+    //{{- else}}
+    //{{- if .CanCopy}}
+    //{{- $move_copy_msg = "fs.copy.msg"}}
+    //{{- end}}
+    //{{- end}}
+    //{{- end}}
+
     //{{- if not .ShareUploadBaseURL}}
     const supportedEditExtensions = ["csv", "bat", "dyalog", "apl", "asc", "pgp", "sig", "asn", "asn1", "b", "bf",
             "c", "h", "ino", "cpp", "c++", "cc", "cxx", "hpp", "h++", "hh", "hxx", "cob", "cpy", "cbl", "cs", "clj",
@@ -673,9 +700,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 														<a data-i18n="general.rename" href="#" class="menu-link px-3" data-kt-filemanager-table-action="rename">Rename</a>
 													</div>
                                                     {{- end}}
-                                                    {{- if or .CanRename .CanAddFiles}}
+                                                    {{- if or .CanRename .CanCopy}}
 													<div class="menu-item px-3">
-														<a data-i18n="fs.move_copy" href="#" class="menu-link px-3" data-kt-filemanager-table-action="move_or_copy">Move or copy</a>
+														<a data-i18n="{{$move_copy_msg}}" href="#" class="menu-link px-3" data-kt-filemanager-table-action="move_or_copy">Move or copy</a>
 													</div>
                                                     {{- end}}
                                                     {{- if .CanShare}}
@@ -2398,8 +2425,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
             </div>
             <div class="modal-footer border-0">
-                {{- if .CanAddFiles }}
-                <button id="id_copy_button" type="button" class="btn btn-light-primary me-5" data-bs-dismiss="modal">
+                {{- if .CanCopy }}
+                <button id="id_copy_button" type="button" class="btn {{if .CanRename}}btn-light-primary me-5{{else}}btn-primary{{end}}" data-bs-dismiss="modal">
                     <span data-i18n="fs.copy.msg">Copy</span>
                 </button>
                 {{- end}}

@@ -612,6 +612,9 @@ func (c *BaseConnection) checkCopy(srcInfo, dstInfo os.FileInfo, virtualSource, 
 }
 
 func (c *BaseConnection) copyFile(virtualSourcePath, virtualTargetPath string, srcSize int64) error {
+	if !c.User.HasPerm(dataprovider.PermCopy, virtualSourcePath) || !c.User.HasPerm(dataprovider.PermCopy, virtualTargetPath) {
+		return c.GetPermissionDeniedError()
+	}
 	if ok, _ := c.User.IsFileAllowed(virtualTargetPath); !ok {
 		return fmt.Errorf("file %q is not allowed: %w", virtualTargetPath, c.GetPermissionDeniedError())
 	}

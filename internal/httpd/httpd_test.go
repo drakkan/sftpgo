@@ -16223,6 +16223,21 @@ func TestRenameDifferentResource(t *testing.T) {
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "Cannot perform copy step")
+
+	u.Permissions = map[string][]string{
+		"/": {dataprovider.PermUpload, dataprovider.PermListItems, dataprovider.PermCreateDirs,
+			dataprovider.PermDownload, dataprovider.PermOverwrite, dataprovider.PermCopy},
+	}
+	_, resp, err = httpdtest.UpdateUser(u, http.StatusOK, "")
+	assert.NoError(t, err, string(resp))
+	webAPIToken, err = getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userFileActionsPath+"/move?path="+testFileName+"&target="+url.QueryEscape(path.Join("/", "folderPath", testFileName)), nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
 	assert.Contains(t, rr.Body.String(), "Cannot perform remove step")
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)

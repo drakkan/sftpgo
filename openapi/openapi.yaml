@@ -4904,6 +4904,7 @@ components:
         - chmod
         - chown
         - chtimes
+        - copy
       description: |
         Permissions:
           * `*` - all permissions are granted
@@ -4922,6 +4923,7 @@ components:
           * `chmod` changing file or directory permissions is allowed
           * `chown` changing file or directory owner and group is allowed
           * `chtimes` changing file or directory access and modification time is allowed
+          * `copy`, copying files or directories is allowed
     AdminPermissions:
       type: string
       enum:

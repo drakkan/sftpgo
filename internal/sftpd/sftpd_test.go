@@ -9280,7 +9280,7 @@ func TestSSHCopyPermissions(t *testing.T) {
 	u := getTestUser(usePubKey)
 	u.Permissions["/dir1"] = []string{dataprovider.PermUpload, dataprovider.PermDownload, dataprovider.PermListItems}
 	u.Permissions["/dir2"] = []string{dataprovider.PermCreateDirs, dataprovider.PermUpload, dataprovider.PermDownload,
-		dataprovider.PermListItems}
+		dataprovider.PermListItems, dataprovider.PermCopy}
 	u.Permissions["/dir3"] = []string{dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermDownload,
 		dataprovider.PermListItems}
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)

@@ -135,6 +135,7 @@ type filesPage struct {
 	CanDelete          bool
 	CanDownload        bool
 	CanShare           bool
+	CanCopy            bool
 	ShareUploadBaseURL string
 	Error              *util.I18nError
 	Paths              []dirMapping
@@ -755,6 +756,7 @@ func (s *httpdServer) renderSharedFilesPage(w http.ResponseWriter, r *http.Reque
 		CanDelete:          false,
 		CanDownload:        share.Scope != dataprovider.ShareScopeWrite,
 		CanShare:           false,
+		CanCopy:            false,
 		Paths:              getDirMapping(dirName, currentURL),
 		QuotaUsage:         newUserQuotaUsage(&dataprovider.User{}),
 	}
@@ -797,6 +799,7 @@ func (s *httpdServer) renderFilesPage(w http.ResponseWriter, r *http.Request, di
 		CanDelete:          user.CanDeleteFromWeb(dirName),
 		CanDownload:        user.HasPerm(dataprovider.PermDownload, dirName),
 		CanShare:           user.CanManageShares(),
+		CanCopy:            user.CanCopyFromWeb(dirName, dirName),
 		ShareUploadBaseURL: "",
 		Paths:              getDirMapping(dirName, webClientFilesPath),
 		QuotaUsage:         newUserQuotaUsage(user),

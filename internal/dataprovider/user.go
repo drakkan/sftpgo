@@ -72,6 +72,8 @@ const (
 	PermChown = "chown"
 	// changing file or directory access and modification time is allowed
 	PermChtimes = "chtimes"
+	// copying files or directories is allowed
+	PermCopy = "copy"
 )
 
 // Available login methods
@@ -1111,6 +1113,21 @@ func (u *User) CanDeleteFromWeb(target string) bool {
 		return false
 	}
 	return u.HasAnyPerm(permsDeleteAny, target)
+}
+
+// CanCopyFromWeb returns true if the client can copy objects from the web UI.
+// The specified src and dest are the source and target directories for the copy.
+func (u *User) CanCopyFromWeb(src, dest string) bool {
+	if util.Contains(u.Filters.WebClient, sdk.WebClientWriteDisabled) {
+		return false
+	}
+	if !u.HasPerm(PermListItems, src) {
+		return false
+	}
+	if !u.HasPerm(PermDownload, src) {
+		return false
+	}
+	return u.HasPerm(PermCopy, src) && u.HasPerm(PermCopy, dest)
 }
 
 // PasswordExpiresIn returns the number of days before the password expires.

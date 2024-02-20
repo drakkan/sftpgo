@@ -13,9 +13,9 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.27.0
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.0
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.15.0
-	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.16.1
+	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.16.2
 	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.20.1
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.50.0
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.50.1
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.27.1
 	github.com/aws/aws-sdk-go-v2/service/sts v1.27.0
 	github.com/bmatcuk/doublestar/v4 v4.6.1
@@ -39,7 +39,7 @@ require (
 	github.com/jackc/pgx/v5 v5.5.3
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
 	github.com/klauspost/compress v1.17.6
-	github.com/lestrrat-go/jwx/v2 v2.0.19
+	github.com/lestrrat-go/jwx/v2 v2.0.20
 	github.com/lithammer/shortuuid/v3 v3.0.7
 	github.com/mattn/go-sqlite3 v1.14.22
 	github.com/mhale/smtpd v0.8.2
@@ -144,7 +144,7 @@ require (
 	github.com/oklog/run v1.1.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.1.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
-	github.com/power-devops/perfstat v0.0.0-20221212215047-62379fc7944b // indirect
+	github.com/power-devops/perfstat v0.0.0-20240219145905-2259734c190a // indirect
 	github.com/prometheus/client_model v0.6.0 // indirect
 	github.com/prometheus/common v0.47.0 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect

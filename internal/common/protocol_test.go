@@ -8601,6 +8601,13 @@ func TestCopyAndRemovePermissions(t *testing.T) {
 		user.Permissions[testDir] = []string{dataprovider.PermListItems}
 		_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 		assert.NoError(t, err)
+		// no copy permission
+		out, err = runSSHCommand(fmt.Sprintf(`sftpgo-copy %s %s`, testFileName, restrictedPath), user)
+		assert.Error(t, err, string(out))
+		user.Permissions[restrictedPath] = []string{dataprovider.PermListItems, dataprovider.PermUpload, dataprovider.PermCopy}
+		user.Permissions[testDir] = []string{dataprovider.PermListItems, dataprovider.PermCopy}
+		_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+		assert.NoError(t, err)
 		out, err = runSSHCommand(fmt.Sprintf(`sftpgo-copy %s %s`, testFileName, restrictedPath), user)
 		assert.NoError(t, err, string(out))
 		// overwrite will fail, no permission
