@@ -3501,6 +3501,194 @@ func TestTwoFactorRequirementsGroupLevel(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestAdminMustChangePasswordRequirement(t *testing.T) {
+	admin := getTestAdmin()
+	admin.Username = altAdminUsername
+	admin.Password = altAdminPassword
+	admin.Filters.RequirePasswordChange = true
+	admin, _, err := httpdtest.AddAdmin(admin, http.StatusCreated)
+	assert.NoError(t, err)
+
+	token, _, err := httpdtest.GetToken(altAdminUsername, altAdminPassword)
+	assert.NoError(t, err)
+	httpdtest.SetJWTToken(token)
+
+	_, _, err = httpdtest.GetUsers(0, 0, http.StatusForbidden)
+	assert.NoError(t, err)
+	_, _, err = httpdtest.GetStatus(http.StatusForbidden)
+	assert.NoError(t, err)
+
+	_, err = httpdtest.ChangeAdminPassword(altAdminPassword, defaultTokenAuthPass, http.StatusOK)
+	assert.NoError(t, err)
+
+	httpdtest.SetJWTToken("")
+
+	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.False(t, admin.Filters.RequirePasswordChange)
+
+	// get a new token
+	token, _, err = httpdtest.GetToken(altAdminUsername, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	httpdtest.SetJWTToken(token)
+
+	_, _, err = httpdtest.GetUsers(0, 0, http.StatusOK)
+	assert.NoError(t, err)
+
+	desc := xid.New().String()
+	admin.Filters.RequirePasswordChange = true
+	admin.Filters.RequireTwoFactor = true
+	admin.Description = desc
+	_, _, err = httpdtest.UpdateAdmin(admin, http.StatusOK)
+	if assert.Error(t, err) {
+		assert.ErrorContains(t, err, "require password change mismatch")
+	}
+	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.False(t, admin.Filters.RequirePasswordChange)
+	assert.False(t, admin.Filters.RequireTwoFactor)
+	assert.Equal(t, desc, admin.Description)
+
+	httpdtest.SetJWTToken("")
+
+	admin.Filters.RequirePasswordChange = true
+	_, _, err = httpdtest.UpdateAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+	// test the same for the WebAdmin
+	webToken, err := getJWTWebTokenFromTestServer(altAdminUsername, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodGet, webUsersPath, nil)
+	assert.NoError(t, err)
+	req.RequestURI = webUsersPath
+	setJWTCookieForReq(req, webToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+
+	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	assert.NoError(t, err)
+	form := make(url.Values)
+	form.Set(csrfFormToken, csrfToken)
+	form.Set("current_password", defaultTokenAuthPass)
+	form.Set("new_password1", altAdminPassword)
+	form.Set("new_password2", altAdminPassword)
+	req, err = http.NewRequest(http.MethodPost, webChangeAdminPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusFound, rr)
+	assert.Equal(t, webLoginPath, rr.Header().Get("Location"))
+
+	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.False(t, admin.Filters.RequirePasswordChange)
+
+	webToken, err = getJWTWebTokenFromTestServer(altAdminUsername, altAdminPassword)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodGet, webUsersPath, nil)
+	assert.NoError(t, err)
+	req.RequestURI = webUsersPath
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestAdminTwoFactorRequirements(t *testing.T) {
+	admin := getTestAdmin()
+	admin.Username = altAdminUsername
+	admin.Password = altAdminPassword
+	admin.Filters.RequireTwoFactor = true
+	admin, _, err := httpdtest.AddAdmin(admin, http.StatusCreated)
+	assert.NoError(t, err)
+
+	token, err := getJWTAPITokenFromTestServer(altAdminUsername, altAdminPassword)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodGet, serverStatusPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "Two-factor authentication requirements not met")
+
+	webToken, err := getJWTWebTokenFromTestServer(altAdminUsername, altAdminPassword)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodGet, webFoldersPath, nil)
+	assert.NoError(t, err)
+	req.RequestURI = webFoldersPath
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), util.I18nError2FARequiredGeneric)
+	// add TOTP config
+	configName, key, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], altAdminUsername)
+	assert.NoError(t, err)
+	adminTOTPConfig := dataprovider.AdminTOTPConfig{
+		Enabled:    true,
+		ConfigName: configName,
+		Secret:     kms.NewPlainSecret(key.Secret()),
+	}
+	asJSON, err := json.Marshal(adminTOTPConfig)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, adminTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	admin, _, err = httpdtest.GetAdminByUsername(altAdminUsername, http.StatusOK)
+	assert.NoError(t, err)
+	assert.True(t, admin.Filters.TOTPConfig.Enabled)
+
+	passcode, err := generateTOTPPasscode(key.Secret())
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%v%v", httpBaseURL, tokenPath), nil)
+	assert.NoError(t, err)
+	req.Header.Set("X-SFTPGO-OTP", passcode)
+	req.SetBasicAuth(altAdminUsername, altAdminPassword)
+	resp, err := httpclient.GetHTTPClient().Do(req)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	responseHolder := make(map[string]any)
+	err = render.DecodeJSON(resp.Body, &responseHolder)
+	assert.NoError(t, err)
+	token = responseHolder["access_token"].(string)
+	assert.NotEmpty(t, token)
+	err = resp.Body.Close()
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%v%v", httpBaseURL, serverStatusPath), nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	resp, err = httpclient.GetHTTPClient().Do(req)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	err = resp.Body.Close()
+	assert.NoError(t, err)
+	// try to disable 2FA
+	disableReq := map[string]any{
+		"enabled": false,
+	}
+	asJSON, err = json.Marshal(disableReq)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, fmt.Sprintf("%v%v", httpBaseURL, adminTOTPSavePath), bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	resp, err = httpclient.GetHTTPClient().Do(req)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	bodyResp, err := io.ReadAll(resp.Body)
+	assert.NoError(t, err)
+	assert.Contains(t, string(bodyResp), "two-factor authentication must be enabled")
+	err = resp.Body.Close()
+	assert.NoError(t, err)
+
+	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+}
+
 func TestLoginUserAPITOTP(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
@@ -19835,6 +20023,20 @@ func TestAdminUpdateSelfMock(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), util.I18nErrorAdminSelfDisable)
 
 	form.Set("status", "1")
+	form.Set("require_two_factor", "1")
+	form.Set("require_password_change", "1")
+	req, _ = http.NewRequest(http.MethodPost, path.Join(webAdminPath, defaultTokenAuthUser), bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+
+	admin, _, err = httpdtest.GetAdminByUsername(defaultTokenAuthUser, http.StatusOK)
+	assert.NoError(t, err)
+	assert.False(t, admin.Filters.RequirePasswordChange)
+	assert.False(t, admin.Filters.RequireTwoFactor)
+
 	form.Set("role", "my role")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webAdminPath, defaultTokenAuthUser), bytes.NewBuffer([]byte(form.Encode())))
 	req.RemoteAddr = defaultRemoteAddr
@@ -24375,6 +24577,7 @@ func TestAdminForgotPassword(t *testing.T) {
 	a := getTestAdmin()
 	a.Username = altAdminUsername
 	a.Password = altAdminPassword
+	a.Filters.RequirePasswordChange = true
 	admin, _, err := httpdtest.AddAdmin(a, http.StatusCreated)
 	assert.NoError(t, err)
 
@@ -24513,6 +24716,10 @@ func TestAdminForgotPassword(t *testing.T) {
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
+
+	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.False(t, admin.Filters.RequirePasswordChange)
 
 	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
 	assert.NoError(t, err)

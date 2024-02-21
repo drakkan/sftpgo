@@ -42,6 +42,18 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </div>
             </div>
 
+            <div class="form-group row align-items-center mt-10 {{if eq .LoggedUser.Username .Admin.Username}}d-none{{end}}">
+                <label data-i18n="user.require_pwd_change" class="col-md-3 col-form-label" for="idRequirePasswordChange">Require password change</label>
+                <div class="col-md-9">
+                    <div class="form-check form-switch form-check-custom form-check-solid">
+                        <input class="form-check-input" type="checkbox" id="idRequirePasswordChange" name="require_password_change" {{if .Admin.Filters.RequirePasswordChange}}checked="checked"{{end}}/>
+                        <label data-i18n="admin.require_pwd_change_help" class="form-check-label fw-semibold text-gray-800" for="idRequirePasswordChange">
+                            A password change is required at the next login
+                        </label>
+                    </div>
+                </div>
+            </div>
+
             <div class="form-group row mt-10">
                 <label for="idStatus" data-i18n="general.status" class="col-md-3 col-form-label">Status</label>
                 <div class="col-md-9">
@@ -240,6 +252,18 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         <input class="form-check-input" type="checkbox" id="idAllowAPIKeyAuth" name="allow_api_key_auth" {{if .Admin.Filters.AllowAPIKeyAuth}}checked{{end}}/>
                         <label data-i18n="filters.api_key_auth_help" class="form-check-label fw-semibold text-gray-800" for="idAllowAPIKeyAuth">
                             Allow to impersonate yourself, in REST API, with an API key
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group row align-items-center mt-10 {{if eq .LoggedUser.Username .Admin.Username}}d-none{{end}}">
+                <label data-i18n="title.two_factor_auth_short" class="col-md-3 col-form-label" for="idRequire2FA">2FA</label>
+                <div class="col-md-9">
+                    <div class="form-check form-switch form-check-custom form-check-solid">
+                        <input class="form-check-input" type="checkbox" id="idRequire2FA" name="require_two_factor" {{if .Admin.Filters.RequireTwoFactor}}checked{{end}}/>
+                        <label data-i18n="2fa.require" class="form-check-label fw-semibold text-gray-800" for="idRequire2FA">
+                            Two-factor authentication is required
                         </label>
                     </div>
                 </div>

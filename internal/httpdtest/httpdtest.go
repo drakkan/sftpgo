@@ -1970,6 +1970,12 @@ func compareAdminFilters(expected, actual dataprovider.AdminFilters) error {
 	if expected.Preferences.DefaultUsersExpiration != actual.Preferences.DefaultUsersExpiration {
 		return errors.New("default users expiration mismatch")
 	}
+	if expected.RequirePasswordChange != actual.RequirePasswordChange {
+		return errors.New("require password change mismatch")
+	}
+	if expected.RequireTwoFactor != actual.RequireTwoFactor {
+		return errors.New("require two factor mismatch")
+	}
 	return nil
 }
 

@@ -210,12 +210,13 @@ type changePasswordPage struct {
 
 type mfaPage struct {
 	basePage
-	TOTPConfigs     []string
-	TOTPConfig      dataprovider.AdminTOTPConfig
-	GenerateTOTPURL string
-	ValidateTOTPURL string
-	SaveTOTPURL     string
-	RecCodesURL     string
+	TOTPConfigs      []string
+	TOTPConfig       dataprovider.AdminTOTPConfig
+	GenerateTOTPURL  string
+	ValidateTOTPURL  string
+	SaveTOTPURL      string
+	RecCodesURL      string
+	RequireTwoFactor bool
 }
 
 type maintenancePage struct {
@@ -786,6 +787,7 @@ func (s *httpdServer) renderMFAPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data.TOTPConfig = admin.Filters.TOTPConfig
+	data.RequireTwoFactor = admin.Filters.RequireTwoFactor
 	renderAdminTemplate(w, templateMFA, data)
 }
 
@@ -1741,6 +1743,8 @@ func getAdminFromPostFields(r *http.Request) (dataprovider.Admin, error) {
 	admin.Role = strings.TrimSpace(r.Form.Get("role"))
 	admin.Filters.AllowList = getSliceFromDelimitedValues(r.Form.Get("allowed_ip"), ",")
 	admin.Filters.AllowAPIKeyAuth = r.Form.Get("allow_api_key_auth") != ""
+	admin.Filters.RequireTwoFactor = r.Form.Get("require_two_factor") != ""
+	admin.Filters.RequirePasswordChange = r.Form.Get("require_password_change") != ""
 	admin.AdditionalInfo = r.Form.Get("additional_info")
 	admin.Description = r.Form.Get("description")
 	admin.Filters.Preferences.HideUserPageSections = getAdminHiddenUserPageSections(r)
@@ -3016,6 +3020,8 @@ func (s *httpdServer) handleWebUpdateAdminPost(w http.ResponseWriter, r *http.Re
 				), false)
 			return
 		}
+		updatedAdmin.Filters.RequirePasswordChange = admin.Filters.RequirePasswordChange
+		updatedAdmin.Filters.RequireTwoFactor = admin.Filters.RequireTwoFactor
 	}
 	err = dataprovider.UpdateAdmin(&updatedAdmin, claims.Username, ipAddr, claims.Role)
 	if err != nil {

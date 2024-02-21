@@ -344,6 +344,16 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     }
 
     function disableConfig() {
+        //{{- if .RequireTwoFactor}}
+        ModalAlert.fire({
+            text: $.t('2fa.require'),
+            icon: "warning",
+            confirmButtonText: $.t('general.ok'),
+            customClass: {
+                confirmButton: "btn btn-primary"
+            }
+        });
+        //{{- else}}
         ModalAlert.fire({
             text: $.t('2fa.disable_question'),
             icon: "warning",
@@ -358,6 +368,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 doSaveConfig(document.querySelector('#disable_btn'), null, false, true);
             }
         });
+        //{{- end}}
     }
 
     function validatePasscode() {

@@ -794,6 +794,8 @@ func (s *httpdServer) loginAdmin(
 		Role:                 admin.Role,
 		Signature:            admin.GetSignature(),
 		HideUserPageSections: admin.Filters.Preferences.HideUserPageSections,
+		MustSetTwoFactorAuth: admin.Filters.RequireTwoFactor && !admin.Filters.TOTPConfig.Enabled,
+		MustChangePassword:   admin.Filters.RequirePasswordChange,
 	}
 
 	audience := tokenAudienceWebAdmin
@@ -982,10 +984,12 @@ func (s *httpdServer) getToken(w http.ResponseWriter, r *http.Request) {
 
 func (s *httpdServer) generateAndSendToken(w http.ResponseWriter, r *http.Request, admin dataprovider.Admin, ip string) {
 	c := jwtTokenClaims{
-		Username:    admin.Username,
-		Permissions: admin.Permissions,
-		Role:        admin.Role,
-		Signature:   admin.GetSignature(),
+		Username:             admin.Username,
+		Permissions:          admin.Permissions,
+		Role:                 admin.Role,
+		Signature:            admin.GetSignature(),
+		MustSetTwoFactorAuth: admin.Filters.RequireTwoFactor && !admin.Filters.TOTPConfig.Enabled,
+		MustChangePassword:   admin.Filters.RequirePasswordChange,
 	}
 
 	resp, err := c.createTokenResponse(s.tokenAuth, tokenAudienceAPI, ip)
@@ -1318,7 +1322,7 @@ func (s *httpdServer) initializeRouter() {
 
 			router.With(forbidAPIKeyAuthentication).Get(logoutPath, s.logout)
 			router.With(forbidAPIKeyAuthentication).Get(adminProfilePath, getAdminProfile)
-			router.With(forbidAPIKeyAuthentication).Put(adminProfilePath, updateAdminProfile)
+			router.With(forbidAPIKeyAuthentication, s.checkAuthRequirements).Put(adminProfilePath, updateAdminProfile)
 			router.With(forbidAPIKeyAuthentication).Put(adminPwdPath, changeAdminPassword)
 			// admin TOTP APIs
 			router.With(forbidAPIKeyAuthentication).Get(adminTOTPConfigsPath, getTOTPConfigs)
@@ -1328,62 +1332,6 @@ func (s *httpdServer) initializeRouter() {
 			router.With(forbidAPIKeyAuthentication).Get(admin2FARecoveryCodesPath, getRecoveryCodes)
 			router.With(forbidAPIKeyAuthentication).Post(admin2FARecoveryCodesPath, generateRecoveryCodes)
 
-			router.With(s.checkPerm(dataprovider.PermAdminViewServerStatus)).
-				Get(serverStatusPath, func(w http.ResponseWriter, r *http.Request) {
-					r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-					render.JSON(w, r, getServicesStatus())
-				})
-
-			router.With(s.checkPerm(dataprovider.PermAdminViewConnections)).Get(activeConnectionsPath, getActiveConnections)
-			router.With(s.checkPerm(dataprovider.PermAdminCloseConnections)).
-				Delete(activeConnectionsPath+"/{connectionID}", handleCloseConnection)
-			router.With(s.checkPerm(dataprovider.PermAdminQuotaScans)).Get(quotasBasePath+"/users/scans", getUsersQuotaScans)
-			router.With(s.checkPerm(dataprovider.PermAdminQuotaScans)).Post(quotasBasePath+"/users/{username}/scan", startUserQuotaScan)
-			router.With(s.checkPerm(dataprovider.PermAdminQuotaScans)).Get(quotasBasePath+"/folders/scans", getFoldersQuotaScans)
-			router.With(s.checkPerm(dataprovider.PermAdminQuotaScans)).Post(quotasBasePath+"/folders/{name}/scan", startFolderQuotaScan)
-			router.With(s.checkPerm(dataprovider.PermAdminViewUsers)).Get(userPath, getUsers)
-			router.With(s.checkPerm(dataprovider.PermAdminAddUsers)).Post(userPath, addUser)
-			router.With(s.checkPerm(dataprovider.PermAdminViewUsers)).Get(userPath+"/{username}", getUserByUsername) //nolint:goconst
-			router.With(s.checkPerm(dataprovider.PermAdminChangeUsers)).Put(userPath+"/{username}", updateUser)
-			router.With(s.checkPerm(dataprovider.PermAdminDeleteUsers)).Delete(userPath+"/{username}", deleteUser)
-			router.With(s.checkPerm(dataprovider.PermAdminChangeUsers)).Put(userPath+"/{username}/2fa/disable", disableUser2FA)
-			router.With(s.checkPerm(dataprovider.PermAdminManageFolders)).Get(folderPath, getFolders)
-			router.With(s.checkPerm(dataprovider.PermAdminManageFolders)).Get(folderPath+"/{name}", getFolderByName) //nolint:goconst
-			router.With(s.checkPerm(dataprovider.PermAdminManageFolders)).Post(folderPath, addFolder)
-			router.With(s.checkPerm(dataprovider.PermAdminManageFolders)).Put(folderPath+"/{name}", updateFolder)
-			router.With(s.checkPerm(dataprovider.PermAdminManageFolders)).Delete(folderPath+"/{name}", deleteFolder)
-			router.With(s.checkPerm(dataprovider.PermAdminManageGroups)).Get(groupPath, getGroups)
-			router.With(s.checkPerm(dataprovider.PermAdminManageGroups)).Get(groupPath+"/{name}", getGroupByName)
-			router.With(s.checkPerm(dataprovider.PermAdminManageGroups)).Post(groupPath, addGroup)
-			router.With(s.checkPerm(dataprovider.PermAdminManageGroups)).Put(groupPath+"/{name}", updateGroup)
-			router.With(s.checkPerm(dataprovider.PermAdminManageGroups)).Delete(groupPath+"/{name}", deleteGroup)
-			router.With(s.checkPerm(dataprovider.PermAdminManageSystem)).Get(dumpDataPath, dumpData)
-			router.With(s.checkPerm(dataprovider.PermAdminManageSystem)).Get(loadDataPath, loadData)
-			router.With(s.checkPerm(dataprovider.PermAdminManageSystem)).Post(loadDataPath, loadDataFromRequest)
-			router.With(s.checkPerm(dataprovider.PermAdminChangeUsers)).Put(quotasBasePath+"/users/{username}/usage",
-				updateUserQuotaUsage)
-			router.With(s.checkPerm(dataprovider.PermAdminChangeUsers)).Put(quotasBasePath+"/users/{username}/transfer-usage",
-				updateUserTransferQuotaUsage)
-			router.With(s.checkPerm(dataprovider.PermAdminChangeUsers)).Put(quotasBasePath+"/folders/{name}/usage",
-				updateFolderQuotaUsage)
-			router.With(s.checkPerm(dataprovider.PermAdminViewDefender)).Get(defenderHosts, getDefenderHosts)
-			router.With(s.checkPerm(dataprovider.PermAdminViewDefender)).Get(defenderHosts+"/{id}", getDefenderHostByID)
-			router.With(s.checkPerm(dataprovider.PermAdminManageDefender)).Delete(defenderHosts+"/{id}", deleteDefenderHostByID)
-			router.With(s.checkPerm(dataprovider.PermAdminManageAdmins)).Get(adminPath, getAdmins)
-			router.With(s.checkPerm(dataprovider.PermAdminManageAdmins)).Post(adminPath, addAdmin)
-			router.With(s.checkPerm(dataprovider.PermAdminManageAdmins)).Get(adminPath+"/{username}", getAdminByUsername)
-			router.With(s.checkPerm(dataprovider.PermAdminManageAdmins)).Put(adminPath+"/{username}", updateAdmin)
-			router.With(s.checkPerm(dataprovider.PermAdminManageAdmins)).Delete(adminPath+"/{username}", deleteAdmin)
-			router.With(s.checkPerm(dataprovider.PermAdminManageAdmins)).Put(adminPath+"/{username}/2fa/disable", disableAdmin2FA)
-			router.With(s.checkPerm(dataprovider.PermAdminRetentionChecks)).Get(retentionChecksPath, getRetentionChecks)
-			router.With(s.checkPerm(dataprovider.PermAdminRetentionChecks)).Post(retentionBasePath+"/{username}/check",
-				startRetentionCheck)
-			router.With(s.checkPerm(dataprovider.PermAdminViewEvents), compressor.Handler).
-				Get(fsEventsPath, searchFsEvents)
-			router.With(s.checkPerm(dataprovider.PermAdminViewEvents), compressor.Handler).
-				Get(providerEventsPath, searchProviderEvents)
-			router.With(s.checkPerm(dataprovider.PermAdminViewEvents), compressor.Handler).
-				Get(logEventsPath, searchLogEvents)
 			router.With(forbidAPIKeyAuthentication, s.checkPerm(dataprovider.PermAdminManageAPIKeys)).
 				Get(apiKeysPath, getAPIKeys)
 			router.With(forbidAPIKeyAuthentication, s.checkPerm(dataprovider.PermAdminManageAPIKeys)).
@@ -1394,27 +1342,88 @@ func (s *httpdServer) initializeRouter() {
 				Put(apiKeysPath+"/{id}", updateAPIKey)
 			router.With(forbidAPIKeyAuthentication, s.checkPerm(dataprovider.PermAdminManageAPIKeys)).
 				Delete(apiKeysPath+"/{id}", deleteAPIKey)
-			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Get(eventActionsPath, getEventActions)
-			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Get(eventActionsPath+"/{name}", getEventActionByName)
-			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Post(eventActionsPath, addEventAction)
-			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Put(eventActionsPath+"/{name}", updateEventAction)
-			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Delete(eventActionsPath+"/{name}", deleteEventAction)
-			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Get(eventRulesPath, getEventRules)
-			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Get(eventRulesPath+"/{name}", getEventRuleByName)
-			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Post(eventRulesPath, addEventRule)
-			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Put(eventRulesPath+"/{name}", updateEventRule)
-			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Delete(eventRulesPath+"/{name}", deleteEventRule)
-			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Post(eventRulesPath+"/run/{name}", runOnDemandRule)
-			router.With(s.checkPerm(dataprovider.PermAdminManageRoles)).Get(rolesPath, getRoles)
-			router.With(s.checkPerm(dataprovider.PermAdminManageRoles)).Post(rolesPath, addRole)
-			router.With(s.checkPerm(dataprovider.PermAdminManageRoles)).Get(rolesPath+"/{name}", getRoleByName)
-			router.With(s.checkPerm(dataprovider.PermAdminManageRoles)).Put(rolesPath+"/{name}", updateRole)
-			router.With(s.checkPerm(dataprovider.PermAdminManageRoles)).Delete(rolesPath+"/{name}", deleteRole)
-			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists), compressor.Handler).Get(ipListsPath+"/{type}", getIPListEntries) //nolint:goconst
-			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists)).Post(ipListsPath+"/{type}", addIPListEntry)
-			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists)).Get(ipListsPath+"/{type}/{ipornet}", getIPListEntry) //nolint:goconst
-			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists)).Put(ipListsPath+"/{type}/{ipornet}", updateIPListEntry)
-			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists)).Delete(ipListsPath+"/{type}/{ipornet}", deleteIPListEntry)
+
+			router.Group(func(router chi.Router) {
+				router.Use(s.checkAuthRequirements)
+
+				router.With(s.checkPerm(dataprovider.PermAdminViewServerStatus)).
+					Get(serverStatusPath, func(w http.ResponseWriter, r *http.Request) {
+						r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+						render.JSON(w, r, getServicesStatus())
+					})
+
+				router.With(s.checkPerm(dataprovider.PermAdminViewConnections)).Get(activeConnectionsPath, getActiveConnections)
+				router.With(s.checkPerm(dataprovider.PermAdminCloseConnections)).
+					Delete(activeConnectionsPath+"/{connectionID}", handleCloseConnection)
+				router.With(s.checkPerm(dataprovider.PermAdminQuotaScans)).Get(quotasBasePath+"/users/scans", getUsersQuotaScans)
+				router.With(s.checkPerm(dataprovider.PermAdminQuotaScans)).Post(quotasBasePath+"/users/{username}/scan", startUserQuotaScan)
+				router.With(s.checkPerm(dataprovider.PermAdminQuotaScans)).Get(quotasBasePath+"/folders/scans", getFoldersQuotaScans)
+				router.With(s.checkPerm(dataprovider.PermAdminQuotaScans)).Post(quotasBasePath+"/folders/{name}/scan", startFolderQuotaScan)
+				router.With(s.checkPerm(dataprovider.PermAdminViewUsers)).Get(userPath, getUsers)
+				router.With(s.checkPerm(dataprovider.PermAdminAddUsers)).Post(userPath, addUser)
+				router.With(s.checkPerm(dataprovider.PermAdminViewUsers)).Get(userPath+"/{username}", getUserByUsername) //nolint:goconst
+				router.With(s.checkPerm(dataprovider.PermAdminChangeUsers)).Put(userPath+"/{username}", updateUser)
+				router.With(s.checkPerm(dataprovider.PermAdminDeleteUsers)).Delete(userPath+"/{username}", deleteUser)
+				router.With(s.checkPerm(dataprovider.PermAdminChangeUsers)).Put(userPath+"/{username}/2fa/disable", disableUser2FA)
+				router.With(s.checkPerm(dataprovider.PermAdminManageFolders)).Get(folderPath, getFolders)
+				router.With(s.checkPerm(dataprovider.PermAdminManageFolders)).Get(folderPath+"/{name}", getFolderByName) //nolint:goconst
+				router.With(s.checkPerm(dataprovider.PermAdminManageFolders)).Post(folderPath, addFolder)
+				router.With(s.checkPerm(dataprovider.PermAdminManageFolders)).Put(folderPath+"/{name}", updateFolder)
+				router.With(s.checkPerm(dataprovider.PermAdminManageFolders)).Delete(folderPath+"/{name}", deleteFolder)
+				router.With(s.checkPerm(dataprovider.PermAdminManageGroups)).Get(groupPath, getGroups)
+				router.With(s.checkPerm(dataprovider.PermAdminManageGroups)).Get(groupPath+"/{name}", getGroupByName)
+				router.With(s.checkPerm(dataprovider.PermAdminManageGroups)).Post(groupPath, addGroup)
+				router.With(s.checkPerm(dataprovider.PermAdminManageGroups)).Put(groupPath+"/{name}", updateGroup)
+				router.With(s.checkPerm(dataprovider.PermAdminManageGroups)).Delete(groupPath+"/{name}", deleteGroup)
+				router.With(s.checkPerm(dataprovider.PermAdminManageSystem)).Get(dumpDataPath, dumpData)
+				router.With(s.checkPerm(dataprovider.PermAdminManageSystem)).Get(loadDataPath, loadData)
+				router.With(s.checkPerm(dataprovider.PermAdminManageSystem)).Post(loadDataPath, loadDataFromRequest)
+				router.With(s.checkPerm(dataprovider.PermAdminChangeUsers)).Put(quotasBasePath+"/users/{username}/usage",
+					updateUserQuotaUsage)
+				router.With(s.checkPerm(dataprovider.PermAdminChangeUsers)).Put(quotasBasePath+"/users/{username}/transfer-usage",
+					updateUserTransferQuotaUsage)
+				router.With(s.checkPerm(dataprovider.PermAdminChangeUsers)).Put(quotasBasePath+"/folders/{name}/usage",
+					updateFolderQuotaUsage)
+				router.With(s.checkPerm(dataprovider.PermAdminViewDefender)).Get(defenderHosts, getDefenderHosts)
+				router.With(s.checkPerm(dataprovider.PermAdminViewDefender)).Get(defenderHosts+"/{id}", getDefenderHostByID)
+				router.With(s.checkPerm(dataprovider.PermAdminManageDefender)).Delete(defenderHosts+"/{id}", deleteDefenderHostByID)
+				router.With(s.checkPerm(dataprovider.PermAdminManageAdmins)).Get(adminPath, getAdmins)
+				router.With(s.checkPerm(dataprovider.PermAdminManageAdmins)).Post(adminPath, addAdmin)
+				router.With(s.checkPerm(dataprovider.PermAdminManageAdmins)).Get(adminPath+"/{username}", getAdminByUsername)
+				router.With(s.checkPerm(dataprovider.PermAdminManageAdmins)).Put(adminPath+"/{username}", updateAdmin)
+				router.With(s.checkPerm(dataprovider.PermAdminManageAdmins)).Delete(adminPath+"/{username}", deleteAdmin)
+				router.With(s.checkPerm(dataprovider.PermAdminManageAdmins)).Put(adminPath+"/{username}/2fa/disable", disableAdmin2FA)
+				router.With(s.checkPerm(dataprovider.PermAdminRetentionChecks)).Get(retentionChecksPath, getRetentionChecks)
+				router.With(s.checkPerm(dataprovider.PermAdminRetentionChecks)).Post(retentionBasePath+"/{username}/check",
+					startRetentionCheck)
+				router.With(s.checkPerm(dataprovider.PermAdminViewEvents), compressor.Handler).
+					Get(fsEventsPath, searchFsEvents)
+				router.With(s.checkPerm(dataprovider.PermAdminViewEvents), compressor.Handler).
+					Get(providerEventsPath, searchProviderEvents)
+				router.With(s.checkPerm(dataprovider.PermAdminViewEvents), compressor.Handler).
+					Get(logEventsPath, searchLogEvents)
+				router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Get(eventActionsPath, getEventActions)
+				router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Get(eventActionsPath+"/{name}", getEventActionByName)
+				router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Post(eventActionsPath, addEventAction)
+				router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Put(eventActionsPath+"/{name}", updateEventAction)
+				router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Delete(eventActionsPath+"/{name}", deleteEventAction)
+				router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Get(eventRulesPath, getEventRules)
+				router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Get(eventRulesPath+"/{name}", getEventRuleByName)
+				router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Post(eventRulesPath, addEventRule)
+				router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Put(eventRulesPath+"/{name}", updateEventRule)
+				router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Delete(eventRulesPath+"/{name}", deleteEventRule)
+				router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Post(eventRulesPath+"/run/{name}", runOnDemandRule)
+				router.With(s.checkPerm(dataprovider.PermAdminManageRoles)).Get(rolesPath, getRoles)
+				router.With(s.checkPerm(dataprovider.PermAdminManageRoles)).Post(rolesPath, addRole)
+				router.With(s.checkPerm(dataprovider.PermAdminManageRoles)).Get(rolesPath+"/{name}", getRoleByName)
+				router.With(s.checkPerm(dataprovider.PermAdminManageRoles)).Put(rolesPath+"/{name}", updateRole)
+				router.With(s.checkPerm(dataprovider.PermAdminManageRoles)).Delete(rolesPath+"/{name}", deleteRole)
+				router.With(s.checkPerm(dataprovider.PermAdminManageIPLists), compressor.Handler).Get(ipListsPath+"/{type}", getIPListEntries) //nolint:goconst
+				router.With(s.checkPerm(dataprovider.PermAdminManageIPLists)).Post(ipListsPath+"/{type}", addIPListEntry)
+				router.With(s.checkPerm(dataprovider.PermAdminManageIPLists)).Get(ipListsPath+"/{type}/{ipornet}", getIPListEntry) //nolint:goconst
+				router.With(s.checkPerm(dataprovider.PermAdminManageIPLists)).Put(ipListsPath+"/{type}/{ipornet}", updateIPListEntry)
+				router.With(s.checkPerm(dataprovider.PermAdminManageIPLists)).Delete(ipListsPath+"/{type}/{ipornet}", deleteIPListEntry)
+			})
 		})
 
 		s.router.Get(userTokenPath, s.getUserToken)
@@ -1675,8 +1684,9 @@ func (s *httpdServer) setupWebAdminRoutes() {
 			router.Use(jwtAuthenticatorWebAdmin)
 
 			router.Get(webLogoutPath, s.handleWebAdminLogout)
-			router.With(s.refreshCookie, s.requireBuiltinLogin).Get(webAdminProfilePath, s.handleWebAdminProfile)
-			router.With(s.requireBuiltinLogin).Post(webAdminProfilePath, s.handleWebAdminProfilePost)
+			router.With(s.refreshCookie, s.checkAuthRequirements, s.requireBuiltinLogin).Get(
+				webAdminProfilePath, s.handleWebAdminProfile)
+			router.With(s.checkAuthRequirements, s.requireBuiltinLogin).Post(webAdminProfilePath, s.handleWebAdminProfilePost)
 			router.With(s.refreshCookie, s.requireBuiltinLogin).Get(webChangeAdminPwdPath, s.handleWebAdminChangePwd)
 			router.With(s.requireBuiltinLogin).Post(webChangeAdminPwdPath, s.handleWebAdminChangePwdPost)
 
@@ -1689,153 +1699,157 @@ func (s *httpdServer) setupWebAdminRoutes() {
 				getRecoveryCodes)
 			router.With(verifyCSRFHeader, s.requireBuiltinLogin).Post(webAdminRecoveryCodesPath, generateRecoveryCodes)
 
-			router.With(s.checkPerm(dataprovider.PermAdminViewUsers), s.refreshCookie).
-				Get(webUsersPath, s.handleGetWebUsers)
-			router.With(s.checkPerm(dataprovider.PermAdminViewUsers), compressor.Handler, s.refreshCookie).
-				Get(webUsersPath+jsonAPISuffix, getAllUsers)
-			router.With(s.checkPerm(dataprovider.PermAdminAddUsers), s.refreshCookie).
-				Get(webUserPath, s.handleWebAddUserGet)
-			router.With(s.checkPerm(dataprovider.PermAdminChangeUsers), s.refreshCookie).
-				Get(webUserPath+"/{username}", s.handleWebUpdateUserGet)
-			router.With(s.checkPerm(dataprovider.PermAdminAddUsers)).Post(webUserPath, s.handleWebAddUserPost)
-			router.With(s.checkPerm(dataprovider.PermAdminChangeUsers)).Post(webUserPath+"/{username}",
-				s.handleWebUpdateUserPost)
-			router.With(s.checkPerm(dataprovider.PermAdminManageGroups), s.refreshCookie).
-				Get(webGroupsPath, s.handleWebGetGroups)
-			router.With(s.checkPerm(dataprovider.PermAdminManageGroups), compressor.Handler, s.refreshCookie).
-				Get(webGroupsPath+jsonAPISuffix, getAllGroups)
-			router.With(s.checkPerm(dataprovider.PermAdminManageGroups), s.refreshCookie).
-				Get(webGroupPath, s.handleWebAddGroupGet)
-			router.With(s.checkPerm(dataprovider.PermAdminManageGroups)).Post(webGroupPath, s.handleWebAddGroupPost)
-			router.With(s.checkPerm(dataprovider.PermAdminManageGroups), s.refreshCookie).
-				Get(webGroupPath+"/{name}", s.handleWebUpdateGroupGet)
-			router.With(s.checkPerm(dataprovider.PermAdminManageGroups)).Post(webGroupPath+"/{name}",
-				s.handleWebUpdateGroupPost)
-			router.With(s.checkPerm(dataprovider.PermAdminManageGroups), verifyCSRFHeader).
-				Delete(webGroupPath+"/{name}", deleteGroup)
-			router.With(s.checkPerm(dataprovider.PermAdminViewConnections), s.refreshCookie).
-				Get(webConnectionsPath, s.handleWebGetConnections)
-			router.With(s.checkPerm(dataprovider.PermAdminViewConnections), s.refreshCookie).
-				Get(webConnectionsPath+jsonAPISuffix, getActiveConnections)
-			router.With(s.checkPerm(dataprovider.PermAdminManageFolders), s.refreshCookie).
-				Get(webFoldersPath, s.handleWebGetFolders)
-			router.With(s.checkPerm(dataprovider.PermAdminManageFolders), compressor.Handler, s.refreshCookie).
-				Get(webFoldersPath+jsonAPISuffix, getAllFolders)
-			router.With(s.checkPerm(dataprovider.PermAdminManageFolders), s.refreshCookie).
-				Get(webFolderPath, s.handleWebAddFolderGet)
-			router.With(s.checkPerm(dataprovider.PermAdminManageFolders)).Post(webFolderPath, s.handleWebAddFolderPost)
-			router.With(s.checkPerm(dataprovider.PermAdminViewServerStatus), s.refreshCookie).
-				Get(webStatusPath, s.handleWebGetStatus)
-			router.With(s.checkPerm(dataprovider.PermAdminManageAdmins), s.refreshCookie).
-				Get(webAdminsPath, s.handleGetWebAdmins)
-			router.With(s.checkPerm(dataprovider.PermAdminManageAdmins), compressor.Handler, s.refreshCookie).
-				Get(webAdminsPath+jsonAPISuffix, getAllAdmins)
-			router.With(s.checkPerm(dataprovider.PermAdminManageAdmins), s.refreshCookie).
-				Get(webAdminPath, s.handleWebAddAdminGet)
-			router.With(s.checkPerm(dataprovider.PermAdminManageAdmins), s.refreshCookie).
-				Get(webAdminPath+"/{username}", s.handleWebUpdateAdminGet)
-			router.With(s.checkPerm(dataprovider.PermAdminManageAdmins)).Post(webAdminPath, s.handleWebAddAdminPost)
-			router.With(s.checkPerm(dataprovider.PermAdminManageAdmins)).Post(webAdminPath+"/{username}",
-				s.handleWebUpdateAdminPost)
-			router.With(s.checkPerm(dataprovider.PermAdminManageAdmins), verifyCSRFHeader).
-				Delete(webAdminPath+"/{username}", deleteAdmin)
-			router.With(s.checkPerm(dataprovider.PermAdminCloseConnections), verifyCSRFHeader).
-				Delete(webConnectionsPath+"/{connectionID}", handleCloseConnection)
-			router.With(s.checkPerm(dataprovider.PermAdminManageFolders), s.refreshCookie).
-				Get(webFolderPath+"/{name}", s.handleWebUpdateFolderGet)
-			router.With(s.checkPerm(dataprovider.PermAdminManageFolders)).Post(webFolderPath+"/{name}",
-				s.handleWebUpdateFolderPost)
-			router.With(s.checkPerm(dataprovider.PermAdminManageFolders), verifyCSRFHeader).
-				Delete(webFolderPath+"/{name}", deleteFolder)
-			router.With(s.checkPerm(dataprovider.PermAdminQuotaScans), verifyCSRFHeader).
-				Post(webScanVFolderPath+"/{name}", startFolderQuotaScan)
-			router.With(s.checkPerm(dataprovider.PermAdminDeleteUsers), verifyCSRFHeader).
-				Delete(webUserPath+"/{username}", deleteUser)
-			router.With(s.checkPerm(dataprovider.PermAdminQuotaScans), verifyCSRFHeader).
-				Post(webQuotaScanPath+"/{username}", startUserQuotaScan)
-			router.With(s.checkPerm(dataprovider.PermAdminManageSystem)).Get(webMaintenancePath, s.handleWebMaintenance)
-			router.With(s.checkPerm(dataprovider.PermAdminManageSystem)).Get(webBackupPath, dumpData)
-			router.With(s.checkPerm(dataprovider.PermAdminManageSystem)).Post(webRestorePath, s.handleWebRestore)
-			router.With(s.checkPerm(dataprovider.PermAdminManageSystem), s.refreshCookie).
-				Get(webTemplateUser, s.handleWebTemplateUserGet)
-			router.With(s.checkPerm(dataprovider.PermAdminManageSystem)).Post(webTemplateUser, s.handleWebTemplateUserPost)
-			router.With(s.checkPerm(dataprovider.PermAdminManageSystem), s.refreshCookie).
-				Get(webTemplateFolder, s.handleWebTemplateFolderGet)
-			router.With(s.checkPerm(dataprovider.PermAdminManageSystem)).Post(webTemplateFolder, s.handleWebTemplateFolderPost)
-			router.With(s.checkPerm(dataprovider.PermAdminViewDefender)).Get(webDefenderPath, s.handleWebDefenderPage)
-			router.With(s.checkPerm(dataprovider.PermAdminViewDefender)).Get(webDefenderHostsPath, getDefenderHosts)
-			router.With(s.checkPerm(dataprovider.PermAdminManageDefender)).Delete(webDefenderHostsPath+"/{id}",
-				deleteDefenderHostByID)
-			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), compressor.Handler, s.refreshCookie).
-				Get(webAdminEventActionsPath+jsonAPISuffix, getAllActions)
-			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), s.refreshCookie).
-				Get(webAdminEventActionsPath, s.handleWebGetEventActions)
-			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), s.refreshCookie).
-				Get(webAdminEventActionPath, s.handleWebAddEventActionGet)
-			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Post(webAdminEventActionPath,
-				s.handleWebAddEventActionPost)
-			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), s.refreshCookie).
-				Get(webAdminEventActionPath+"/{name}", s.handleWebUpdateEventActionGet)
-			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Post(webAdminEventActionPath+"/{name}",
-				s.handleWebUpdateEventActionPost)
-			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), verifyCSRFHeader).
-				Delete(webAdminEventActionPath+"/{name}", deleteEventAction)
-			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), compressor.Handler, s.refreshCookie).
-				Get(webAdminEventRulesPath+jsonAPISuffix, getAllRules)
-			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), s.refreshCookie).
-				Get(webAdminEventRulesPath, s.handleWebGetEventRules)
-			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), s.refreshCookie).
-				Get(webAdminEventRulePath, s.handleWebAddEventRuleGet)
-			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Post(webAdminEventRulePath,
-				s.handleWebAddEventRulePost)
-			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), s.refreshCookie).
-				Get(webAdminEventRulePath+"/{name}", s.handleWebUpdateEventRuleGet)
-			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Post(webAdminEventRulePath+"/{name}",
-				s.handleWebUpdateEventRulePost)
-			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), verifyCSRFHeader).
-				Delete(webAdminEventRulePath+"/{name}", deleteEventRule)
-			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), verifyCSRFHeader).
-				Post(webAdminEventRulePath+"/run/{name}", runOnDemandRule)
-			router.With(s.checkPerm(dataprovider.PermAdminManageRoles), s.refreshCookie).
-				Get(webAdminRolesPath, s.handleWebGetRoles)
-			router.With(s.checkPerm(dataprovider.PermAdminManageRoles), compressor.Handler, s.refreshCookie).
-				Get(webAdminRolesPath+jsonAPISuffix, getAllRoles)
-			router.With(s.checkPerm(dataprovider.PermAdminManageRoles), s.refreshCookie).
-				Get(webAdminRolePath, s.handleWebAddRoleGet)
-			router.With(s.checkPerm(dataprovider.PermAdminManageRoles)).Post(webAdminRolePath, s.handleWebAddRolePost)
-			router.With(s.checkPerm(dataprovider.PermAdminManageRoles), s.refreshCookie).
-				Get(webAdminRolePath+"/{name}", s.handleWebUpdateRoleGet)
-			router.With(s.checkPerm(dataprovider.PermAdminManageRoles)).Post(webAdminRolePath+"/{name}",
-				s.handleWebUpdateRolePost)
-			router.With(s.checkPerm(dataprovider.PermAdminManageRoles), verifyCSRFHeader).
-				Delete(webAdminRolePath+"/{name}", deleteRole)
-			router.With(s.checkPerm(dataprovider.PermAdminViewEvents), s.refreshCookie).Get(webEventsPath,
-				s.handleWebGetEvents)
-			router.With(s.checkPerm(dataprovider.PermAdminViewEvents), compressor.Handler, s.refreshCookie).
-				Get(webEventsFsSearchPath, searchFsEvents)
-			router.With(s.checkPerm(dataprovider.PermAdminViewEvents), compressor.Handler, s.refreshCookie).
-				Get(webEventsProviderSearchPath, searchProviderEvents)
-			router.With(s.checkPerm(dataprovider.PermAdminViewEvents), compressor.Handler, s.refreshCookie).
-				Get(webEventsLogSearchPath, searchLogEvents)
-			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists)).Get(webIPListsPath, s.handleWebIPListsPage)
-			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists), compressor.Handler, s.refreshCookie).
-				Get(webIPListsPath+"/{type}", getIPListEntries)
-			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists), s.refreshCookie).Get(webIPListPath+"/{type}",
-				s.handleWebAddIPListEntryGet)
-			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists)).Post(webIPListPath+"/{type}",
-				s.handleWebAddIPListEntryPost)
-			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists), s.refreshCookie).Get(webIPListPath+"/{type}/{ipornet}",
-				s.handleWebUpdateIPListEntryGet)
-			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists)).Post(webIPListPath+"/{type}/{ipornet}",
-				s.handleWebUpdateIPListEntryPost)
-			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists), verifyCSRFHeader).
-				Delete(webIPListPath+"/{type}/{ipornet}", deleteIPListEntry)
-			router.With(s.checkPerm(dataprovider.PermAdminManageSystem), s.refreshCookie).Get(webConfigsPath, s.handleWebConfigs)
-			router.With(s.checkPerm(dataprovider.PermAdminManageSystem)).Post(webConfigsPath, s.handleWebConfigsPost)
-			router.With(s.checkPerm(dataprovider.PermAdminManageSystem), verifyCSRFHeader, s.refreshCookie).
-				Post(webConfigsPath+"/smtp/test", testSMTPConfig)
-			router.With(s.checkPerm(dataprovider.PermAdminManageSystem), verifyCSRFHeader, s.refreshCookie).
-				Post(webOAuth2TokenPath, handleSMTPOAuth2TokenRequestPost)
+			router.Group(func(router chi.Router) {
+				router.Use(s.checkAuthRequirements)
+
+				router.With(s.checkPerm(dataprovider.PermAdminViewUsers), s.refreshCookie).
+					Get(webUsersPath, s.handleGetWebUsers)
+				router.With(s.checkPerm(dataprovider.PermAdminViewUsers), compressor.Handler, s.refreshCookie).
+					Get(webUsersPath+jsonAPISuffix, getAllUsers)
+				router.With(s.checkPerm(dataprovider.PermAdminAddUsers), s.refreshCookie).
+					Get(webUserPath, s.handleWebAddUserGet)
+				router.With(s.checkPerm(dataprovider.PermAdminChangeUsers), s.refreshCookie).
+					Get(webUserPath+"/{username}", s.handleWebUpdateUserGet)
+				router.With(s.checkPerm(dataprovider.PermAdminAddUsers)).Post(webUserPath, s.handleWebAddUserPost)
+				router.With(s.checkPerm(dataprovider.PermAdminChangeUsers)).Post(webUserPath+"/{username}",
+					s.handleWebUpdateUserPost)
+				router.With(s.checkPerm(dataprovider.PermAdminManageGroups), s.refreshCookie).
+					Get(webGroupsPath, s.handleWebGetGroups)
+				router.With(s.checkPerm(dataprovider.PermAdminManageGroups), compressor.Handler, s.refreshCookie).
+					Get(webGroupsPath+jsonAPISuffix, getAllGroups)
+				router.With(s.checkPerm(dataprovider.PermAdminManageGroups), s.refreshCookie).
+					Get(webGroupPath, s.handleWebAddGroupGet)
+				router.With(s.checkPerm(dataprovider.PermAdminManageGroups)).Post(webGroupPath, s.handleWebAddGroupPost)
+				router.With(s.checkPerm(dataprovider.PermAdminManageGroups), s.refreshCookie).
+					Get(webGroupPath+"/{name}", s.handleWebUpdateGroupGet)
+				router.With(s.checkPerm(dataprovider.PermAdminManageGroups)).Post(webGroupPath+"/{name}",
+					s.handleWebUpdateGroupPost)
+				router.With(s.checkPerm(dataprovider.PermAdminManageGroups), verifyCSRFHeader).
+					Delete(webGroupPath+"/{name}", deleteGroup)
+				router.With(s.checkPerm(dataprovider.PermAdminViewConnections), s.refreshCookie).
+					Get(webConnectionsPath, s.handleWebGetConnections)
+				router.With(s.checkPerm(dataprovider.PermAdminViewConnections), s.refreshCookie).
+					Get(webConnectionsPath+jsonAPISuffix, getActiveConnections)
+				router.With(s.checkPerm(dataprovider.PermAdminManageFolders), s.refreshCookie).
+					Get(webFoldersPath, s.handleWebGetFolders)
+				router.With(s.checkPerm(dataprovider.PermAdminManageFolders), compressor.Handler, s.refreshCookie).
+					Get(webFoldersPath+jsonAPISuffix, getAllFolders)
+				router.With(s.checkPerm(dataprovider.PermAdminManageFolders), s.refreshCookie).
+					Get(webFolderPath, s.handleWebAddFolderGet)
+				router.With(s.checkPerm(dataprovider.PermAdminManageFolders)).Post(webFolderPath, s.handleWebAddFolderPost)
+				router.With(s.checkPerm(dataprovider.PermAdminViewServerStatus), s.refreshCookie).
+					Get(webStatusPath, s.handleWebGetStatus)
+				router.With(s.checkPerm(dataprovider.PermAdminManageAdmins), s.refreshCookie).
+					Get(webAdminsPath, s.handleGetWebAdmins)
+				router.With(s.checkPerm(dataprovider.PermAdminManageAdmins), compressor.Handler, s.refreshCookie).
+					Get(webAdminsPath+jsonAPISuffix, getAllAdmins)
+				router.With(s.checkPerm(dataprovider.PermAdminManageAdmins), s.refreshCookie).
+					Get(webAdminPath, s.handleWebAddAdminGet)
+				router.With(s.checkPerm(dataprovider.PermAdminManageAdmins), s.refreshCookie).
+					Get(webAdminPath+"/{username}", s.handleWebUpdateAdminGet)
+				router.With(s.checkPerm(dataprovider.PermAdminManageAdmins)).Post(webAdminPath, s.handleWebAddAdminPost)
+				router.With(s.checkPerm(dataprovider.PermAdminManageAdmins)).Post(webAdminPath+"/{username}",
+					s.handleWebUpdateAdminPost)
+				router.With(s.checkPerm(dataprovider.PermAdminManageAdmins), verifyCSRFHeader).
+					Delete(webAdminPath+"/{username}", deleteAdmin)
+				router.With(s.checkPerm(dataprovider.PermAdminCloseConnections), verifyCSRFHeader).
+					Delete(webConnectionsPath+"/{connectionID}", handleCloseConnection)
+				router.With(s.checkPerm(dataprovider.PermAdminManageFolders), s.refreshCookie).
+					Get(webFolderPath+"/{name}", s.handleWebUpdateFolderGet)
+				router.With(s.checkPerm(dataprovider.PermAdminManageFolders)).Post(webFolderPath+"/{name}",
+					s.handleWebUpdateFolderPost)
+				router.With(s.checkPerm(dataprovider.PermAdminManageFolders), verifyCSRFHeader).
+					Delete(webFolderPath+"/{name}", deleteFolder)
+				router.With(s.checkPerm(dataprovider.PermAdminQuotaScans), verifyCSRFHeader).
+					Post(webScanVFolderPath+"/{name}", startFolderQuotaScan)
+				router.With(s.checkPerm(dataprovider.PermAdminDeleteUsers), verifyCSRFHeader).
+					Delete(webUserPath+"/{username}", deleteUser)
+				router.With(s.checkPerm(dataprovider.PermAdminQuotaScans), verifyCSRFHeader).
+					Post(webQuotaScanPath+"/{username}", startUserQuotaScan)
+				router.With(s.checkPerm(dataprovider.PermAdminManageSystem)).Get(webMaintenancePath, s.handleWebMaintenance)
+				router.With(s.checkPerm(dataprovider.PermAdminManageSystem)).Get(webBackupPath, dumpData)
+				router.With(s.checkPerm(dataprovider.PermAdminManageSystem)).Post(webRestorePath, s.handleWebRestore)
+				router.With(s.checkPerm(dataprovider.PermAdminManageSystem), s.refreshCookie).
+					Get(webTemplateUser, s.handleWebTemplateUserGet)
+				router.With(s.checkPerm(dataprovider.PermAdminManageSystem)).Post(webTemplateUser, s.handleWebTemplateUserPost)
+				router.With(s.checkPerm(dataprovider.PermAdminManageSystem), s.refreshCookie).
+					Get(webTemplateFolder, s.handleWebTemplateFolderGet)
+				router.With(s.checkPerm(dataprovider.PermAdminManageSystem)).Post(webTemplateFolder, s.handleWebTemplateFolderPost)
+				router.With(s.checkPerm(dataprovider.PermAdminViewDefender)).Get(webDefenderPath, s.handleWebDefenderPage)
+				router.With(s.checkPerm(dataprovider.PermAdminViewDefender)).Get(webDefenderHostsPath, getDefenderHosts)
+				router.With(s.checkPerm(dataprovider.PermAdminManageDefender)).Delete(webDefenderHostsPath+"/{id}",
+					deleteDefenderHostByID)
+				router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), compressor.Handler, s.refreshCookie).
+					Get(webAdminEventActionsPath+jsonAPISuffix, getAllActions)
+				router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), s.refreshCookie).
+					Get(webAdminEventActionsPath, s.handleWebGetEventActions)
+				router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), s.refreshCookie).
+					Get(webAdminEventActionPath, s.handleWebAddEventActionGet)
+				router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Post(webAdminEventActionPath,
+					s.handleWebAddEventActionPost)
+				router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), s.refreshCookie).
+					Get(webAdminEventActionPath+"/{name}", s.handleWebUpdateEventActionGet)
+				router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Post(webAdminEventActionPath+"/{name}",
+					s.handleWebUpdateEventActionPost)
+				router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), verifyCSRFHeader).
+					Delete(webAdminEventActionPath+"/{name}", deleteEventAction)
+				router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), compressor.Handler, s.refreshCookie).
+					Get(webAdminEventRulesPath+jsonAPISuffix, getAllRules)
+				router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), s.refreshCookie).
+					Get(webAdminEventRulesPath, s.handleWebGetEventRules)
+				router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), s.refreshCookie).
+					Get(webAdminEventRulePath, s.handleWebAddEventRuleGet)
+				router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Post(webAdminEventRulePath,
+					s.handleWebAddEventRulePost)
+				router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), s.refreshCookie).
+					Get(webAdminEventRulePath+"/{name}", s.handleWebUpdateEventRuleGet)
+				router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Post(webAdminEventRulePath+"/{name}",
+					s.handleWebUpdateEventRulePost)
+				router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), verifyCSRFHeader).
+					Delete(webAdminEventRulePath+"/{name}", deleteEventRule)
+				router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), verifyCSRFHeader).
+					Post(webAdminEventRulePath+"/run/{name}", runOnDemandRule)
+				router.With(s.checkPerm(dataprovider.PermAdminManageRoles), s.refreshCookie).
+					Get(webAdminRolesPath, s.handleWebGetRoles)
+				router.With(s.checkPerm(dataprovider.PermAdminManageRoles), compressor.Handler, s.refreshCookie).
+					Get(webAdminRolesPath+jsonAPISuffix, getAllRoles)
+				router.With(s.checkPerm(dataprovider.PermAdminManageRoles), s.refreshCookie).
+					Get(webAdminRolePath, s.handleWebAddRoleGet)
+				router.With(s.checkPerm(dataprovider.PermAdminManageRoles)).Post(webAdminRolePath, s.handleWebAddRolePost)
+				router.With(s.checkPerm(dataprovider.PermAdminManageRoles), s.refreshCookie).
+					Get(webAdminRolePath+"/{name}", s.handleWebUpdateRoleGet)
+				router.With(s.checkPerm(dataprovider.PermAdminManageRoles)).Post(webAdminRolePath+"/{name}",
+					s.handleWebUpdateRolePost)
+				router.With(s.checkPerm(dataprovider.PermAdminManageRoles), verifyCSRFHeader).
+					Delete(webAdminRolePath+"/{name}", deleteRole)
+				router.With(s.checkPerm(dataprovider.PermAdminViewEvents), s.refreshCookie).Get(webEventsPath,
+					s.handleWebGetEvents)
+				router.With(s.checkPerm(dataprovider.PermAdminViewEvents), compressor.Handler, s.refreshCookie).
+					Get(webEventsFsSearchPath, searchFsEvents)
+				router.With(s.checkPerm(dataprovider.PermAdminViewEvents), compressor.Handler, s.refreshCookie).
+					Get(webEventsProviderSearchPath, searchProviderEvents)
+				router.With(s.checkPerm(dataprovider.PermAdminViewEvents), compressor.Handler, s.refreshCookie).
+					Get(webEventsLogSearchPath, searchLogEvents)
+				router.With(s.checkPerm(dataprovider.PermAdminManageIPLists)).Get(webIPListsPath, s.handleWebIPListsPage)
+				router.With(s.checkPerm(dataprovider.PermAdminManageIPLists), compressor.Handler, s.refreshCookie).
+					Get(webIPListsPath+"/{type}", getIPListEntries)
+				router.With(s.checkPerm(dataprovider.PermAdminManageIPLists), s.refreshCookie).Get(webIPListPath+"/{type}",
+					s.handleWebAddIPListEntryGet)
+				router.With(s.checkPerm(dataprovider.PermAdminManageIPLists)).Post(webIPListPath+"/{type}",
+					s.handleWebAddIPListEntryPost)
+				router.With(s.checkPerm(dataprovider.PermAdminManageIPLists), s.refreshCookie).Get(webIPListPath+"/{type}/{ipornet}",
+					s.handleWebUpdateIPListEntryGet)
+				router.With(s.checkPerm(dataprovider.PermAdminManageIPLists)).Post(webIPListPath+"/{type}/{ipornet}",
+					s.handleWebUpdateIPListEntryPost)
+				router.With(s.checkPerm(dataprovider.PermAdminManageIPLists), verifyCSRFHeader).
+					Delete(webIPListPath+"/{type}/{ipornet}", deleteIPListEntry)
+				router.With(s.checkPerm(dataprovider.PermAdminManageSystem), s.refreshCookie).Get(webConfigsPath, s.handleWebConfigs)
+				router.With(s.checkPerm(dataprovider.PermAdminManageSystem)).Post(webConfigsPath, s.handleWebConfigsPost)
+				router.With(s.checkPerm(dataprovider.PermAdminManageSystem), verifyCSRFHeader, s.refreshCookie).
+					Post(webConfigsPath+"/smtp/test", testSMTPConfig)
+				router.With(s.checkPerm(dataprovider.PermAdminManageSystem), verifyCSRFHeader, s.refreshCookie).
+					Post(webOAuth2TokenPath, handleSMTPOAuth2TokenRequestPost)
+			})
 		})
 	}
 }

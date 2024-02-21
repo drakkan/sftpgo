@@ -199,6 +199,10 @@ type AdminFilters struct {
 	AllowList []string `json:"allow_list,omitempty"`
 	// API key auth allows to impersonate this administrator with an API key
 	AllowAPIKeyAuth bool `json:"allow_api_key_auth,omitempty"`
+	// A password change is required at the next login
+	RequirePasswordChange bool `json:"require_password_change,omitempty"`
+	// Require two factor authentication
+	RequireTwoFactor bool `json:"require_two_factor"`
 	// Time-based one time passwords configuration
 	TOTPConfig AdminTOTPConfig `json:"totp_config,omitempty"`
 	// Recovery codes to use if the user loses access to their second factor auth device.
@@ -615,6 +619,8 @@ func (a *Admin) getACopy() Admin {
 	filters := AdminFilters{}
 	filters.AllowList = make([]string, len(a.Filters.AllowList))
 	filters.AllowAPIKeyAuth = a.Filters.AllowAPIKeyAuth
+	filters.RequirePasswordChange = a.Filters.RequirePasswordChange
+	filters.RequireTwoFactor = a.Filters.RequireTwoFactor
 	filters.TOTPConfig.Enabled = a.Filters.TOTPConfig.Enabled
 	filters.TOTPConfig.ConfigName = a.Filters.TOTPConfig.ConfigName
 	filters.TOTPConfig.Secret = a.Filters.TOTPConfig.Secret.Clone()

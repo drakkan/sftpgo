@@ -159,6 +159,7 @@ const (
 	I18nErrorShareExpired              = "share.expired"
 	I18nErrorLoginFromIPDenied         = "login.ip_not_allowed"
 	I18nError2FARequired               = "login.two_factor_required"
+	I18nError2FARequiredGeneric        = "login.two_factor_required_generic"
 	I18nErrorNoOIDCFeature             = "general.no_oidc_feature"
 	I18nErrorNoPermissions             = "general.no_permissions"
 	I18nErrorShareBrowsePaths          = "share.browsable_multiple_paths"

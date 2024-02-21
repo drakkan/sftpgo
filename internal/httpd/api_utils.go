@@ -830,6 +830,7 @@ func handleResetPassword(r *http.Request, code, newPassword, confirmPassword str
 			return &admin, &user, util.NewValidationError("unable to associate the confirmation code with an existing admin")
 		}
 		admin.Password = newPassword
+		admin.Filters.RequirePasswordChange = false
 		err = dataprovider.UpdateAdmin(&admin, dataprovider.ActionExecutorSelf, ipAddr, admin.Role)
 		if err != nil {
 			return &admin, &user, util.NewGenericError(fmt.Sprintf("unable to set the new password: %v", err))

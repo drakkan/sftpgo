@@ -6003,6 +6003,10 @@ components:
         allow_api_key_auth:
           type: boolean
           description: 'API key auth allows to impersonate this administrator with an API key'
+        require_two_factor:
+          type: boolean
+        require_password_change:
+          type: boolean
         totp_config:
           $ref: '#/components/schemas/AdminTOTPConfig'
         recovery_codes:

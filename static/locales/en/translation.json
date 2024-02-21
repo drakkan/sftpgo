@@ -99,6 +99,7 @@
         "reset_ok_login_error": "The password reset completed successfully but an unexpected error occurred while signing in",
         "ip_not_allowed": "Login is not allowed from this IP address",
         "two_factor_required": "Set up two-factor authentication, it is required for the following protocols: {{val}}",
+        "two_factor_required_generic": "Set up two-factor authentication, it is mandatory for your account",
         "link": "Go to {{link}}"
     },
     "theme": {
@@ -386,6 +387,7 @@
         "msg_enabled": "Two-factor authentication is enabled",
         "msg_disabled": "Secure Your Account",
         "msg_info": "Two-factor authentication adds an extra layer of security to your account. To log in you'll need to provide an additional authentication code.",
+        "require": "Two-factor authentication is required for this account",
         "require_for": "Require 2FA for",
         "generate": "Generate new secret key",
         "recovery_codes": "Recovery codes",
@@ -727,7 +729,8 @@
         "user_page_pref_help": "You can hide some sections from the user page. These are not security settings and are not enforced server side in any way. They are only intended to simplify the add/update user page",
         "hide_sections": "Hide sections",
         "default_users_expiration": "Default users expiration",
-        "default_users_expiration_help": "Default expiration for new users as number of days"
+        "default_users_expiration_help": "Default expiration for new users as number of days",
+        "require_pwd_change_help": "A password change is required at the next login"
     },
     "connections": {
         "view_manage": "View and manage connections",

@@ -1554,6 +1554,14 @@ func TestJWTTokenValidation(t *testing.T) {
 	fn.ServeHTTP(rr, req.WithContext(ctx))
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 
+	fn = server.checkAuthRequirements(r)
+	rr = httptest.NewRecorder()
+	req, _ = http.NewRequest(http.MethodPost, webGroupsPath, nil)
+	req.RequestURI = webGroupsPath
+	ctx = jwtauth.NewContext(req.Context(), token, errTest)
+	fn.ServeHTTP(rr, req.WithContext(ctx))
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest(http.MethodPost, userSharesPath, nil)
 	req.RequestURI = userSharesPath

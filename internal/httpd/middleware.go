@@ -223,7 +223,11 @@ func (s *httpdServer) checkAuthRequirements(next http.Handler) http.Handler {
 		_, claims, err := jwtauth.FromContext(r.Context())
 		if err != nil {
 			if isWebRequest(r) {
-				s.renderClientBadRequestPage(w, r, err)
+				if isWebClientRequest(r) {
+					s.renderClientBadRequestPage(w, r, err)
+				} else {
+					s.renderBadRequestPage(w, r, err)
+				}
 			} else {
 				sendAPIResponse(w, r, err, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 			}
@@ -234,16 +238,23 @@ func (s *httpdServer) checkAuthRequirements(next http.Handler) http.Handler {
 		if tokenClaims.MustSetTwoFactorAuth || tokenClaims.MustChangePassword {
 			var err error
 			if tokenClaims.MustSetTwoFactorAuth {
-				protocols := strings.Join(tokenClaims.RequiredTwoFactorProtocols, ", ")
-				err = util.NewI18nError(
-					util.NewGenericError(
-						fmt.Sprintf("Two-factor authentication requirements not met, please configure two-factor authentication for the following protocols: %v",
-							protocols)),
-					util.I18nError2FARequired,
-					util.I18nErrorArgs(map[string]any{
-						"val": protocols,
-					}),
-				)
+				if len(tokenClaims.RequiredTwoFactorProtocols) > 0 {
+					protocols := strings.Join(tokenClaims.RequiredTwoFactorProtocols, ", ")
+					err = util.NewI18nError(
+						util.NewGenericError(
+							fmt.Sprintf("Two-factor authentication requirements not met, please configure two-factor authentication for the following protocols: %v",
+								protocols)),
+						util.I18nError2FARequired,
+						util.I18nErrorArgs(map[string]any{
+							"val": protocols,
+						}),
+					)
+				} else {
+					err = util.NewI18nError(
+						util.NewGenericError("Two-factor authentication requirements not met, please configure two-factor authentication"),
+						util.I18nError2FARequiredGeneric,
+					)
+				}
 			} else {
 				err = util.NewI18nError(
 					util.NewGenericError("Password change required. Please set a new password to continue to use your account"),
@@ -251,7 +262,11 @@ func (s *httpdServer) checkAuthRequirements(next http.Handler) http.Handler {
 				)
 			}
 			if isWebRequest(r) {
-				s.renderClientForbiddenPage(w, r, err)
+				if isWebClientRequest(r) {
+					s.renderClientForbiddenPage(w, r, err)
+				} else {
+					s.renderForbiddenPage(w, r, err)
+				}
 			} else {
 				sendAPIResponse(w, r, err, "", http.StatusForbidden)
 			}

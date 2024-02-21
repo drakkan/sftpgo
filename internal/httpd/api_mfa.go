@@ -122,23 +122,25 @@ func saveTOTPConfig(w http.ResponseWriter, r *http.Request) {
 		code := getNewRecoveryCode()
 		recoveryCodes = append(recoveryCodes, dataprovider.RecoveryCode{Secret: kms.NewPlainSecret(code)})
 	}
+	baseURL := webBaseClientPath
 	if claims.hasUserAudience() {
 		if err := saveUserTOTPConfig(claims.Username, r, recoveryCodes); err != nil {
 			sendAPIResponse(w, r, err, "", getRespStatus(err))
 			return
-		}
-		if claims.MustSetTwoFactorAuth {
-			// force logout
-			defer func() {
-				c := jwtTokenClaims{}
-				c.removeCookie(w, r, webBaseClientPath)
-			}()
 		}
 	} else {
 		if err := saveAdminTOTPConfig(claims.Username, r, recoveryCodes); err != nil {
 			sendAPIResponse(w, r, err, "", getRespStatus(err))
 			return
 		}
+		baseURL = webBasePath
+	}
+	if claims.MustSetTwoFactorAuth {
+		// force logout
+		defer func() {
+			c := jwtTokenClaims{}
+			c.removeCookie(w, r, baseURL)
+		}()
 	}
 
 	sendAPIResponse(w, r, nil, "TOTP configuration saved", http.StatusOK)
@@ -302,6 +304,9 @@ func saveAdminTOTPConfig(username string, r *http.Request, recoveryCodes []datap
 	err = render.DecodeJSON(r.Body, &admin.Filters.TOTPConfig)
 	if err != nil {
 		return util.NewValidationError(fmt.Sprintf("unable to decode JSON body: %v", err))
+	}
+	if !admin.Filters.TOTPConfig.Enabled && admin.Filters.RequireTwoFactor {
+		return util.NewValidationError("two-factor authentication must be enabled")
 	}
 	if admin.Filters.TOTPConfig.Enabled {
 		if admin.CountUnusedRecoveryCodes() < 5 && admin.Filters.TOTPConfig.Enabled {

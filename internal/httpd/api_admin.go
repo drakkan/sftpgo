@@ -150,6 +150,8 @@ func updateAdmin(w http.ResponseWriter, r *http.Request) {
 			sendAPIResponse(w, r, errors.New("you cannot add/change your role"), "", http.StatusBadRequest)
 			return
 		}
+		updatedAdmin.Filters.RequirePasswordChange = admin.Filters.RequirePasswordChange
+		updatedAdmin.Filters.RequireTwoFactor = admin.Filters.RequireTwoFactor
 	}
 	updatedAdmin.ID = admin.ID
 	updatedAdmin.Username = admin.Username
@@ -317,6 +319,7 @@ func doChangeAdminPassword(r *http.Request, currentPassword, newPassword, confir
 	}
 
 	admin.Password = newPassword
+	admin.Filters.RequirePasswordChange = false
 
 	return dataprovider.UpdateAdmin(&admin, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
 }

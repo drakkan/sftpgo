@@ -99,6 +99,7 @@
         "reset_ok_login_error": "La reimpostazione della password è stata completata correttamente ma si è verificato un errore imprevisto durante l'accesso",
         "ip_not_allowed": "L'accesso non è consentito da questo indirizzo IP",
         "two_factor_required": "Configura l'autenticazione a due fattori, è obbligatoria per i seguenti protocolli: {{val}}",
+        "two_factor_required_generic": "Configura l'autenticazione a due fattori, è obbligatoria per il tuo account",
         "link": "Vai a {{link}}"
     },
     "theme": {
@@ -386,6 +387,7 @@
         "msg_enabled": "L'autenticazione a due fattori è abilitata",
         "msg_disabled": "Metti il tuo account in sicurezza",
         "msg_info": "L'autenticazione a due fattori aggiunge un ulteriore livello di sicurezza al tuo account. Per accedere dovrai fornire un ulteriore codice di autenticazione.",
+        "require": "L'autenticazione a due fattori è obbligatoria per questo account",
         "require_for": "Richiedi 2FA per",
         "generate": "Genera una nuova chiave segreta",
         "recovery_codes": "Codici di ripristino",
@@ -727,7 +729,8 @@
         "user_page_pref_help": "Puoi nascondere alcune sezioni dalla pagina utente. Queste non sono impostazioni di sicurezza e non vengono verificate lato server. Hanno il solo scopo di semplificare la pagina di creazione/modifica utenti",
         "hide_sections": "Nascondi sezioni",
         "default_users_expiration": "Scadenza predefinita utenti",
-        "default_users_expiration_help": "Scadenza predefinita per i nuovi utenti espressa in numero di giorni"
+        "default_users_expiration_help": "Scadenza predefinita per i nuovi utenti espressa in numero di giorni",
+        "require_pwd_change_help": "Il cambio password è obbligatorio al prossimo accesso"
     },
     "connections": {
         "view_manage": "Visualizza e gestisci connessioni attive",
