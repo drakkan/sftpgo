@@ -142,6 +142,7 @@ const (
 	I18nErrorFilePatternInvalid        = "user.file_pattern_invalid"
 	I18nErrorDisableActive2FA          = "user.disable_active_2fa"
 	I18nErrorPwdChangeConflict         = "user.pwd_change_conflict"
+	I18nError2FAConflict               = "user.two_factor_conflict"
 	I18nErrorLoginAfterReset           = "login.reset_ok_login_error"
 	I18nErrorShareScope                = "share.scope_invalid"
 	I18nErrorShareMaxTokens            = "share.max_tokens_invalid"

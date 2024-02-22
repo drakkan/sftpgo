@@ -3114,6 +3114,12 @@ func validateCombinedUserFilters(user *User) error {
 			util.I18nErrorPwdChangeConflict,
 		)
 	}
+	if len(user.Filters.TwoFactorAuthProtocols) > 0 && util.Contains(user.Filters.WebClient, sdk.WebClientMFADisabled) {
+		return util.NewI18nError(
+			util.NewValidationError("you cannot require two-factor authentication and at the same time disallow it"),
+			util.I18nError2FAConflict,
+		)
+	}
 	return nil
 }
 

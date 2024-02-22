@@ -507,6 +507,7 @@
         "file_pattern_invalid": "Filtri su modelli di nome file non validi",
         "disable_active_2fa": "L'autenticazione a due fattori non può essere disabilitata per un utente con una configurazione attiva",
         "pwd_change_conflict": "Non è possibile richiedere la modifica della password e allo stesso tempo impedire la modifica della password",
+        "two_factor_conflict": "Non è possibile richiedere l'autenticazione a due fattori e allo stesso tempo impedire che venga configurata",
         "role_help": "Gli utenti con un ruolo possono essere gestiti da amministratori globali e amministratori con lo stesso ruolo",
         "require_pwd_change": "Richiedi modifica password",
         "require_pwd_change_help": "L'utente dovrà modificare la password dal WebClient per attivare l'account",

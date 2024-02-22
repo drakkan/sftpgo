@@ -3048,6 +3048,11 @@ func TestPermMFADisabled(t *testing.T) {
 	u.Filters.WebClient = []string{sdk.WebClientMFADisabled}
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
+	user.Filters.TwoFactorAuthProtocols = []string{common.ProtocolSSH}
+	_, resp, err := httpdtest.UpdateUser(user, http.StatusBadRequest, "")
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "you cannot require two-factor authentication and at the same time disallow it")
+	user.Filters.TwoFactorAuthProtocols = nil
 
 	configName, key, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
 	assert.NoError(t, err)
@@ -3080,7 +3085,7 @@ func TestPermMFADisabled(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 	// now we cannot disable MFA for this user
 	user.Filters.WebClient = []string{sdk.WebClientMFADisabled}
-	_, resp, err := httpdtest.UpdateUser(user, http.StatusBadRequest, "")
+	_, resp, err = httpdtest.UpdateUser(user, http.StatusBadRequest, "")
 	assert.NoError(t, err)
 	assert.Contains(t, string(resp), "two-factor authentication cannot be disabled for a user with an active configuration")
 

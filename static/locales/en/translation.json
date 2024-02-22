@@ -507,6 +507,7 @@
         "file_pattern_invalid": "Invalid file name pattern filters",
         "disable_active_2fa": "Two-factor authentication cannot be disabled for a user with an active configuration",
         "pwd_change_conflict": "It is not possible to request a password change and at the same time prevent the password from being changed",
+        "two_factor_conflict": "You can't require two-factor authentication and at the same time prevent it from being set up",
         "role_help": "Users with a role can be managed by global administrators and administrators with the same role",
         "require_pwd_change": "Require password change",
         "require_pwd_change_help": "The user will need to change the password from WebClient to activate the account",
