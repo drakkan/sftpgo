@@ -100,6 +100,13 @@ func disableAdmin2FA(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
+	if admin.Username == claims.Username {
+		if admin.Filters.RequireTwoFactor {
+			err := util.NewValidationError("two-factor authentication must be enabled")
+			sendAPIResponse(w, r, err, "", getRespStatus(err))
+			return
+		}
+	}
 	admin.Filters.RecoveryCodes = nil
 	admin.Filters.TOTPConfig = dataprovider.AdminTOTPConfig{
 		Enabled: false,
