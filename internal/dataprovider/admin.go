@@ -58,6 +58,7 @@ const (
 	PermAdminManageEventRules = "manage_event_rules"
 	PermAdminManageRoles      = "manage_roles"
 	PermAdminManageIPLists    = "manage_ip_lists"
+	PermAdminDisableMFA       = "disable_mfa"
 )
 
 const (
@@ -75,7 +76,7 @@ var (
 		PermAdminCloseConnections, PermAdminViewServerStatus, PermAdminManageAdmins, PermAdminManageRoles,
 		PermAdminManageEventRules, PermAdminManageAPIKeys, PermAdminQuotaScans, PermAdminManageSystem,
 		PermAdminManageDefender, PermAdminViewDefender, PermAdminManageIPLists, PermAdminRetentionChecks,
-		PermAdminViewEvents}
+		PermAdminViewEvents, PermAdminDisableMFA}
 	forbiddenPermsForRoleAdmins = []string{PermAdminAny, PermAdminManageAdmins, PermAdminManageSystem,
 		PermAdminManageEventRules, PermAdminManageIPLists, PermAdminManageRoles}
 )

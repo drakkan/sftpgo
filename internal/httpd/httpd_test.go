@@ -6812,14 +6812,6 @@ func TestNamingRules(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), "the following characters are allowed")
-
-	req, err = http.NewRequest(http.MethodPut, adminPath+"/"+admin.Username+"/2fa/disable", nil)
-	assert.NoError(t, err)
-	setBearerForReq(req, adminAPIToken)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.Contains(t, rr.Body.String(), "the following characters are allowed")
-
 	// test admin reset password
 	form = make(url.Values)
 	form.Set("username", admin.Username)
@@ -9086,6 +9078,18 @@ func TestAdminTwoFactorLogin(t *testing.T) {
 	admin.Password = altAdminPassword
 	admin, _, err := httpdtest.AddAdmin(admin, http.StatusCreated)
 	assert.NoError(t, err)
+	admin1 := getTestAdmin()
+	admin1.Username = altAdminUsername + "1"
+	admin1.Password = altAdminPassword
+	var permissions []string
+	for _, p := range admin1.GetValidPerms() {
+		if p != dataprovider.PermAdminAny && p != dataprovider.PermAdminDisableMFA {
+			permissions = append(permissions, p)
+		}
+	}
+	admin1.Permissions = permissions
+	admin1, _, err = httpdtest.AddAdmin(admin1, http.StatusCreated)
+	assert.NoError(t, err)
 	// enable two factor authentication
 	configName, key, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], admin.Username)
 	assert.NoError(t, err)
@@ -9369,11 +9373,26 @@ func TestAdminTwoFactorLogin(t *testing.T) {
 	assert.NoError(t, err)
 
 	// disable TOTP
+	altToken1, err := getJWTAPITokenFromTestServer(admin1.Username, altAdminPassword)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPut, adminPath+"/"+altAdminUsername+"/2fa/disable", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, altToken1)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+
 	req, err = http.NewRequest(http.MethodPut, adminPath+"/"+altAdminUsername+"/2fa/disable", nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, altToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodPut, adminPath+"/"+altAdminUsername+"/2fa/disable", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, altToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "two-factor authentication is not enabled")
 
 	form = make(url.Values)
 	form.Set("recovery_code", recoveryCode)
@@ -9398,6 +9417,8 @@ func TestAdminTwoFactorLogin(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), util.I18n2FADisabled)
 
 	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveAdmin(admin1, http.StatusOK)
 	assert.NoError(t, err)
 
 	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
@@ -10106,6 +10127,13 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	setBearerForReq(req, adminToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodPut, userPath+"/"+user.Username+"/2fa/disable", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, adminToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "two-factor authentication is not enabled")
 
 	form = make(url.Values)
 	form.Set("recovery_code", recoveryCode)

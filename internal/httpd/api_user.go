@@ -134,6 +134,10 @@ func disableUser2FA(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
+	if !user.Filters.TOTPConfig.Enabled {
+		sendAPIResponse(w, r, nil, "two-factor authentication is not enabled", http.StatusBadRequest)
+		return
+	}
 	user.Filters.RecoveryCodes = nil
 	user.Filters.TOTPConfig = dataprovider.UserTOTPConfig{
 		Enabled: false,

@@ -1364,7 +1364,7 @@ func (s *httpdServer) initializeRouter() {
 				router.With(s.checkPerm(dataprovider.PermAdminViewUsers)).Get(userPath+"/{username}", getUserByUsername) //nolint:goconst
 				router.With(s.checkPerm(dataprovider.PermAdminChangeUsers)).Put(userPath+"/{username}", updateUser)
 				router.With(s.checkPerm(dataprovider.PermAdminDeleteUsers)).Delete(userPath+"/{username}", deleteUser)
-				router.With(s.checkPerm(dataprovider.PermAdminChangeUsers)).Put(userPath+"/{username}/2fa/disable", disableUser2FA)
+				router.With(s.checkPerm(dataprovider.PermAdminDisableMFA)).Put(userPath+"/{username}/2fa/disable", disableUser2FA) //nolint:goconst
 				router.With(s.checkPerm(dataprovider.PermAdminManageFolders)).Get(folderPath, getFolders)
 				router.With(s.checkPerm(dataprovider.PermAdminManageFolders)).Get(folderPath+"/{name}", getFolderByName) //nolint:goconst
 				router.With(s.checkPerm(dataprovider.PermAdminManageFolders)).Post(folderPath, addFolder)
@@ -1392,7 +1392,7 @@ func (s *httpdServer) initializeRouter() {
 				router.With(s.checkPerm(dataprovider.PermAdminManageAdmins)).Get(adminPath+"/{username}", getAdminByUsername)
 				router.With(s.checkPerm(dataprovider.PermAdminManageAdmins)).Put(adminPath+"/{username}", updateAdmin)
 				router.With(s.checkPerm(dataprovider.PermAdminManageAdmins)).Delete(adminPath+"/{username}", deleteAdmin)
-				router.With(s.checkPerm(dataprovider.PermAdminManageAdmins)).Put(adminPath+"/{username}/2fa/disable", disableAdmin2FA)
+				router.With(s.checkPerm(dataprovider.PermAdminDisableMFA)).Put(adminPath+"/{username}/2fa/disable", disableAdmin2FA)
 				router.With(s.checkPerm(dataprovider.PermAdminRetentionChecks)).Get(retentionChecksPath, getRetentionChecks)
 				router.With(s.checkPerm(dataprovider.PermAdminRetentionChecks)).Post(retentionBasePath+"/{username}/check",
 					startRetentionCheck)
@@ -1752,6 +1752,8 @@ func (s *httpdServer) setupWebAdminRoutes() {
 					s.handleWebUpdateAdminPost)
 				router.With(s.checkPerm(dataprovider.PermAdminManageAdmins), verifyCSRFHeader).
 					Delete(webAdminPath+"/{username}", deleteAdmin)
+				router.With(s.checkPerm(dataprovider.PermAdminDisableMFA), verifyCSRFHeader).
+					Put(webAdminPath+"/{username}/2fa/disable", disableAdmin2FA)
 				router.With(s.checkPerm(dataprovider.PermAdminCloseConnections), verifyCSRFHeader).
 					Delete(webConnectionsPath+"/{connectionID}", handleCloseConnection)
 				router.With(s.checkPerm(dataprovider.PermAdminManageFolders), s.refreshCookie).
@@ -1764,6 +1766,8 @@ func (s *httpdServer) setupWebAdminRoutes() {
 					Post(webScanVFolderPath+"/{name}", startFolderQuotaScan)
 				router.With(s.checkPerm(dataprovider.PermAdminDeleteUsers), verifyCSRFHeader).
 					Delete(webUserPath+"/{username}", deleteUser)
+				router.With(s.checkPerm(dataprovider.PermAdminDisableMFA), verifyCSRFHeader).
+					Put(webUserPath+"/{username}/2fa/disable", disableUser2FA)
 				router.With(s.checkPerm(dataprovider.PermAdminQuotaScans), verifyCSRFHeader).
 					Post(webQuotaScanPath+"/{username}", startUserQuotaScan)
 				router.With(s.checkPerm(dataprovider.PermAdminManageSystem)).Get(webMaintenancePath, s.handleWebMaintenance)

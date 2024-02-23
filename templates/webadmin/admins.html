@@ -175,6 +175,47 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         });
     }
 
+    function disableSeconFactorAction(username) {
+        ModalAlert.fire({
+            text: $.t('2fa.disable_confirm'),
+            icon: "warning",
+            confirmButtonText: $.t('general.disable_confirm_btn'),
+            cancelButtonText: $.t('general.cancel'),
+            customClass: {
+                confirmButton: "btn btn-danger",
+                cancelButton: 'btn btn-secondary'
+            }
+        }).then((result) => {
+            if (result.isConfirmed){
+                $('#loading_message').text("");
+                KTApp.showPageLoading();
+                let path = '{{.AdminURL}}' + "/" + encodeURIComponent(username)+"/2fa/disable";
+
+                axios.put(path, null, {
+                    timeout: 15000,
+                    headers: {
+                        'X-CSRF-TOKEN': '{{.CSRFToken}}'
+                    },
+                    validateStatus: function (status) {
+                        return status == 200;
+                    }
+                }).then(function(response){
+                    location.reload();
+                }).catch(function(error){
+                    KTApp.hidePageLoading();
+                    ModalAlert.fire({
+                        text: $.t('2fa.save_err'),
+                        icon: "warning",
+                        confirmButtonText: $.t('general.ok'),
+                        customClass: {
+                            confirmButton: "btn btn-primary"
+                        }
+                    });
+                });
+            }
+        });
+    }
+
     var datatable = function(){
         var dt;
 
@@ -273,17 +314,17 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         }
                     },
                     {
-                        data: "filters.totp_config.enabled",
+                        data: "filters.totp_config",
                         visible: false,
                         defaultContent: false,
                         render: function(data, type, row) {
                             if (type === 'display') {
-                                if (data){
+                                if (data && data.enabled){
                                     return $.t('general.active');
                                 }
                                 return $.t('general.inactive')
                             }
-                            return data;
+                            return data && data.enabled;
                         }
                     },
                     {
@@ -307,20 +348,39 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         className: 'text-end',
                         render: function (data, type, row) {
                             if (type === 'display') {
-                                //{{- if .LoggedUser.HasPermission "manage_admins"}}
-                                return `<button class="btn btn-light btn-active-light-primary btn-flex btn-center btn-sm rotate" data-kt-menu-trigger="click" data-kt-menu-placement="bottom-end">
+                                let numActions = 0;
+                                let username = "{{.LoggedUser.Username}}";
+                                let actions = `<button class="btn btn-light btn-active-light-primary btn-flex btn-center btn-sm rotate" data-kt-menu-trigger="click" data-kt-menu-placement="bottom-end">
                                                     <span data-i18n="general.actions" class="fs-6">Actions</span>
 										            <i class="ki-duotone ki-down fs-5 ms-1 rotate-180"></i>
                                                 </button>
-                                                <div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-700 menu-state-bg-light-primary fw-semibold fs-6 w-200px py-4" data-kt-menu="true">
-                                                    <div class="menu-item px-3">
-										                <a data-i18n="general.edit" href="#" class="menu-link px-3" data-table-action="edit_row">Edit</a>
-										            </div>
-                                                    <div class="menu-item px-3">
-                                                        <a data-i18n="general.delete" href="#" class="menu-link text-danger px-3" data-table-action="delete_row">Delete</a>
-										            </div>
-                                                </div>`;
+                                                <div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-700 menu-state-bg-light-primary fw-semibold fs-6 w-200px py-4" data-kt-menu="true">`;
+                                //{{- if .LoggedUser.HasPermission "manage_admins"}}
+                                numActions++;
+                                actions+=`<div class="menu-item px-3">
+										      <a data-i18n="general.edit" href="#" class="menu-link px-3" data-table-action="edit_row">Edit</a>
+										  </div>`;
                                 //{{- end}}
+                                //{{- if .LoggedUser.HasPermission "disable_mfa"}}
+                                if (row.filters.totp_config && row.filters.totp_config.enabled && username != row.username){
+                                    numActions++;
+                                    actions+=`<div class="menu-item px-3">
+                                                <a data-i18n="2fa.disable_msg" href="#" class="menu-link text-danger px-3" data-table-action="disable_2fa_row">Disable 2FA</a>
+										      </div>`;
+                                }
+                                //{{- end}}
+                                //{{- if .LoggedUser.HasPermission "manage_admins"}}
+                                if (username != row.username){
+                                    numActions++;
+                                    actions+=`<div class="menu-item px-3">
+                                                <a data-i18n="general.delete" href="#" class="menu-link text-danger px-3" data-table-action="delete_row">Delete</a>
+										     </div>`;
+                                }
+                                //{{- end}}
+                                if (numActions > 0){
+                                    actions+=`</div>`;
+                                    return actions;
+                                }
                             }
                             return "";
                         }
@@ -403,6 +463,17 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     e.preventDefault();
                     let rowData = dt.row(e.target.closest('tr')).data();
                     window.location.replace('{{.AdminURL}}' + "/" + encodeURIComponent(rowData['username']));
+                });
+            });
+
+            const diable2FAButtons = document.querySelectorAll('[data-table-action="disable_2fa_row"]');
+            diable2FAButtons.forEach(d => {
+                let el = $(d);
+                el.off("click");
+                el.on("click", function(e){
+                    e.preventDefault();
+                    let rowData = dt.row(e.target.closest('tr')).data();
+                    disableSeconFactorAction(rowData['username']);
                 });
             });
 

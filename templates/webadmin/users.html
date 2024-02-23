@@ -188,44 +188,85 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         });
     }
 
-    function quotaScanAction(username) {
-            $('#loading_message').text("");
-            KTApp.showPageLoading();
-            let path = '{{.QuotaScanURL}}' + "/" + encodeURIComponent(username);
-            axios.post(path, null, {
-                timeout: 15000,
-                headers: {
-                    'X-CSRF-TOKEN': '{{.CSRFToken}}'
-                },
-                validateStatus: function (status) {
-                    return status == 202;
-                }
-            }).then(function (response) {
-                KTApp.hidePageLoading();
-                showToast(1, 'general.quota_scan_started');
-            }).catch(function (error) {
-                KTApp.hidePageLoading();
-                let errorMessage;
-                if (error && error.response) {
-                    switch (error.response.status) {
-                        case 409:
-                            errorMessage = "general.quota_scan_conflit";
-                            break;
+    function disableSeconFactorAction(username) {
+        ModalAlert.fire({
+            text: $.t('2fa.disable_confirm'),
+            icon: "warning",
+            confirmButtonText: $.t('general.disable_confirm_btn'),
+            cancelButtonText: $.t('general.cancel'),
+            customClass: {
+                confirmButton: "btn btn-danger",
+                cancelButton: 'btn btn-secondary'
+            }
+        }).then((result) => {
+            if (result.isConfirmed){
+                $('#loading_message').text("");
+                KTApp.showPageLoading();
+                let path = '{{.UserURL}}' + "/" + encodeURIComponent(username)+"/2fa/disable";
+
+                axios.put(path, null, {
+                    timeout: 15000,
+                    headers: {
+                        'X-CSRF-TOKEN': '{{.CSRFToken}}'
+                    },
+                    validateStatus: function (status) {
+                        return status == 200;
                     }
-                }
-                if (!errorMessage) {
-                    errorMessage = "general.quota_scan_error";
-                }
-                ModalAlert.fire({
-                    text: $.t(errorMessage),
-                    icon: "warning",
-                    confirmButtonText: $.t('general.ok'),
-                    customClass: {
-                        confirmButton: "btn btn-primary"
-                    }
+                }).then(function(response){
+                    location.reload();
+                }).catch(function(error){
+                    KTApp.hidePageLoading();
+                    ModalAlert.fire({
+                        text: $.t('2fa.save_err'),
+                        icon: "warning",
+                        confirmButtonText: $.t('general.ok'),
+                        customClass: {
+                            confirmButton: "btn btn-primary"
+                        }
+                    });
                 });
+            }
+        });
+    }
+
+    function quotaScanAction(username) {
+        $('#loading_message').text("");
+        KTApp.showPageLoading();
+        let path = '{{.QuotaScanURL}}' + "/" + encodeURIComponent(username);
+        axios.post(path, null, {
+            timeout: 15000,
+            headers: {
+                'X-CSRF-TOKEN': '{{.CSRFToken}}'
+            },
+            validateStatus: function (status) {
+                return status == 202;
+            }
+        }).then(function (response) {
+            KTApp.hidePageLoading();
+            showToast(1, 'general.quota_scan_started');
+        }).catch(function (error) {
+            KTApp.hidePageLoading();
+            let errorMessage;
+            if (error && error.response) {
+                switch (error.response.status) {
+                    case 409:
+                        errorMessage = "general.quota_scan_conflit";
+                        break;
+                }
+            }
+            if (!errorMessage) {
+                errorMessage = "general.quota_scan_error";
+            }
+            ModalAlert.fire({
+                text: $.t(errorMessage),
+                icon: "warning",
+                confirmButtonText: $.t('general.ok'),
+                customClass: {
+                    confirmButton: "btn btn-primary"
+                }
             });
-        }
+        });
+    }
 
     var datatable = function(){
         var dt;
@@ -359,17 +400,20 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         }
                     },
                     {
-                        data: "filters.two_factor_protocols",
+                        data: "filters.totp_config",
                         visible: false,
                         defaultContent: "",
                         render: function(data, type, row) {
-                            if (type === 'display') {
-                                if (data){
-                                    return escapeHTML(data.join(', '));
-                                }
-                                return ""
+                            let protocols = "";
+                            if (data && data.enabled){
+                                protocols = data.protocols.join(', ');
                             }
-                            return data;
+                            if (type === 'display') {
+                                if (protocols){
+                                    return escapeHTML(protocols);
+                                }
+                            }
+                            return protocols;
                         }
                     },
                     {
@@ -486,25 +530,33 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 numActions++;
                                 actions+=`<div class="menu-item px-3">
 										      <a data-i18n="general.edit" href="#" class="menu-link px-3" data-table-action="edit_row">Edit</a>
-										  </div>`
+										  </div>`;
                                 //{{- end}}
                                 //{{- if .LoggedUser.HasPermission "manage_system"}}
                                 numActions++;
                                 actions+=`<div class="menu-item px-3">
 										      <a data-i18n="general.template" href="#" class="menu-link px-3" data-table-action="template_row">Template</a>
-										  </div>`
+										  </div>`;
                                 //{{- end}}
                                 //{{- if .LoggedUser.HasPermission "quota_scans"}}
                                 numActions++;
                                 actions+=`<div class="menu-item px-3">
 										      <a data-i18n="general.quota_scan" href="#" class="menu-link px-3" data-table-action="quota_scan_row">Quota scan</a>
-										  </div>`
+										  </div>`;
+                                //{{- end}}
+                                //{{- if .LoggedUser.HasPermission "disable_mfa"}}
+                                if (row.filters.totp_config && row.filters.totp_config.enabled){
+                                    numActions++;
+                                    actions+=`<div class="menu-item px-3">
+                                                <a data-i18n="2fa.disable_msg" href="#" class="menu-link text-danger px-3" data-table-action="disable_2fa_row">Disable 2FA</a>
+										      </div>`;
+                                }
                                 //{{- end}}
                                 //{{- if .LoggedUser.HasPermission "del_users"}}
                                 numActions++;
                                 actions+=`<div class="menu-item px-3">
                                              <a data-i18n="general.delete" href="#" class="menu-link text-danger px-3" data-table-action="delete_row">Delete</a>
-										  </div>`
+										  </div>`;
                                 //{{- end}}
                                 if (numActions > 0){
                                     actions+=`</div>`;
@@ -617,6 +669,17 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     e.preventDefault();
                     let rowData = dt.row(e.target.closest('tr')).data();
                     quotaScanAction(rowData['username']);
+                });
+            });
+
+            const diable2FAButtons = document.querySelectorAll('[data-table-action="disable_2fa_row"]');
+            diable2FAButtons.forEach(d => {
+                let el = $(d);
+                el.off("click");
+                el.on("click", function(e){
+                    e.preventDefault();
+                    let rowData = dt.row(e.target.closest('tr')).data();
+                    disableSeconFactorAction(rowData['username']);
                 });
             });
 

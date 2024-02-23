@@ -4948,6 +4948,7 @@ components:
         - manage_event_rules
         - manage_roles
         - manage_ip_lists
+        - disable_mfa
       description: |
         Admin permissions:
           * `*` - all permissions are granted
@@ -4971,6 +4972,7 @@ components:
           * `manage_event_rules` - manage event actions and rules is allowed
           * `manage_roles` - manage roles is allowed
           * `manage_ip_lists` - manage global and ratelimter allow lists and defender block and safe lists is allowed
+          * `disable_mfa` - allow to disable two-factor authentication for users and admins
     FsProviders:
       type: integer
       enum:
