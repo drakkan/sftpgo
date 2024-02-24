@@ -1837,7 +1837,6 @@ func TestConfigsFromProvider(t *testing.T) {
 	err = c.loadFromProvider()
 	assert.NoError(t, err)
 	assert.Len(t, c.HostKeyAlgorithms, 0)
-	assert.Len(t, c.Moduli, 0)
 	assert.Len(t, c.KexAlgorithms, 0)
 	assert.Len(t, c.Ciphers, 0)
 	assert.Len(t, c.MACs, 0)
@@ -1845,10 +1844,10 @@ func TestConfigsFromProvider(t *testing.T) {
 	configs := dataprovider.Configs{
 		SFTPD: &dataprovider.SFTPDConfigs{
 			HostKeyAlgos:   []string{ssh.KeyAlgoRSA},
-			KexAlgorithms:  []string{kexDHGroupExchangeSHA256},
-			Ciphers:        []string{"aes128-cbc", "aes192-cbc", "aes256-cbc"},
-			MACs:           []string{"hmac-sha2-512-etm@openssh.com"},
-			PublicKeyAlgos: []string{ssh.KeyAlgoDSA},
+			KexAlgorithms:  []string{ssh.InsecureKeyExchangeDHGEXSHA1},
+			Ciphers:        []string{ssh.InsecureCipherAES128CBC, ssh.InsecureCipherAES192CBC, ssh.InsecureCipherAES256CBC},
+			MACs:           []string{ssh.HMACSHA512ETM},
+			PublicKeyAlgos: []string{ssh.InsecureKeyAlgoDSA},
 		},
 	}
 	err = dataprovider.UpdateConfigs(&configs, "", "", "")
@@ -1876,58 +1875,33 @@ func TestSupportedSecurityOptions(t *testing.T) {
 		MACs:          supportedMACs,
 		Ciphers:       supportedCiphers,
 	}
+	var defaultKexs []string
+	for _, k := range supportedKexAlgos {
+		defaultKexs = append(defaultKexs, k)
+		if k == ssh.KeyExchangeCurve25519SHA256 {
+			defaultKexs = append(defaultKexs, keyExchangeCurve25519SHA256LibSSH)
+		}
+	}
 	serverConfig := &ssh.ServerConfig{}
 	err := c.configureSecurityOptions(serverConfig)
 	assert.NoError(t, err)
 	assert.Equal(t, supportedCiphers, serverConfig.Ciphers)
 	assert.Equal(t, supportedMACs, serverConfig.MACs)
-	assert.Equal(t, supportedKexAlgos, serverConfig.KeyExchanges)
+	assert.Equal(t, defaultKexs, serverConfig.KeyExchanges)
 	c.KexAlgorithms = append(c.KexAlgorithms, "not a kex")
 	err = c.configureSecurityOptions(serverConfig)
 	assert.Error(t, err)
-	c.KexAlgorithms = supportedKexAlgos
+	c.KexAlgorithms = append(supportedKexAlgos, "diffie-hellman-group18-sha512")
 	c.MACs = []string{
-		" hmac-sha2-256-etm@openssh.com ", "hmac-sha2-256",
-		" hmac-sha2-512-etm@openssh.com", "hmac-sha2-512 ",
-		"hmac-sha1 ", " hmac-sha1-96",
+		" hmac-sha2-256-etm@openssh.com ", " hmac-sha2-512-etm@openssh.com",
+		"hmac-sha2-256", "hmac-sha2-512 ",
+		" hmac-sha1-96", "hmac-sha1 ",
 	}
 	err = c.configureSecurityOptions(serverConfig)
 	assert.NoError(t, err)
 	assert.Equal(t, supportedCiphers, serverConfig.Ciphers)
 	assert.Equal(t, supportedMACs, serverConfig.MACs)
-	assert.Equal(t, supportedKexAlgos, serverConfig.KeyExchanges)
-	c.KexAlgorithms = append(preferredKexAlgos, kexDHGroupExchangeSHA256) // removed because no moduli is provided
-	err = c.configureSecurityOptions(serverConfig)
-	assert.NoError(t, err)
-	assert.Equal(t, supportedCiphers, serverConfig.Ciphers)
-	assert.Equal(t, supportedMACs, serverConfig.MACs)
-	assert.Equal(t, preferredKexAlgos, serverConfig.KeyExchanges)
-}
-
-func TestLoadModuli(t *testing.T) {
-	dhGEXSha1 := "diffie-hellman-group-exchange-sha1"
-	dhGEXSha256 := "diffie-hellman-group-exchange-sha256"
-	c := Configuration{}
-	c.Moduli = []string{".", "missing file"}
-	c.loadModuli(configDir)
-	assert.NotContains(t, supportedKexAlgos, dhGEXSha1)
-	assert.NotContains(t, supportedKexAlgos, dhGEXSha256)
-	assert.NotContains(t, preferredKexAlgos, dhGEXSha1)
-	assert.NotContains(t, preferredKexAlgos, dhGEXSha256)
-	assert.Len(t, supportedKexAlgos, 10)
-	moduli := []byte("20220414072358 2 6 100 2047 5 F19C2D09AD49978F8A0C1B84168A4011A26F9CD516815934764A319FDC5975FA514AAF11B747D8CA6B3919532BEFB68FA118079473895674F3770F71FBB742F176883841EB3DE679BEF53C6AFE437A662F228B03C1E34B5A0D3909F608CEAA16C1F8131DE11E67878EFD918A89205E5E4DE323054010CA4711F25D466BB7727A016DD3F9F53BDBCE093055A4F2497ADEFB5A2500F9C5C3B0BCD88C6489F4C1CBC7CFB67BA6EABA0195794E4188CE9060F431041AD52FB9BAC4DF7FA536F585FBE67746CD57BFAD67567E9706C24D95C49BE95B759657C6BB5151E2AEA32F4CD557C40298A5C402101520EE8AAB8DFEED6FFC11AAF8036D6345923CFB5D1B922F")
-	moduliFile := filepath.Join(os.TempDir(), "moduli")
-	err := os.WriteFile(moduliFile, moduli, 0600)
-	assert.NoError(t, err)
-	c.Moduli = []string{moduliFile}
-	c.loadModuli(configDir)
-	assert.Contains(t, supportedKexAlgos, dhGEXSha1)
-	assert.Contains(t, supportedKexAlgos, dhGEXSha256)
-	assert.NotContains(t, preferredKexAlgos, dhGEXSha1)
-	assert.Contains(t, preferredKexAlgos, dhGEXSha256)
-	assert.Len(t, supportedKexAlgos, 12)
-	err = os.Remove(moduliFile)
-	assert.NoError(t, err)
+	assert.Equal(t, defaultKexs, serverConfig.KeyExchanges)
 }
 
 func TestLoadHostKeys(t *testing.T) {

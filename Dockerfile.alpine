@@ -25,8 +25,6 @@ RUN set -xe && \
     export COMMIT_SHA=${COMMIT_SHA:-$(git describe --always --abbrev=8 --dirty)} && \
     go build $(if [ -n "${FEATURES}" ]; then echo "-tags ${FEATURES}"; fi) -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=${COMMIT_SHA} -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -v -o sftpgo
 
-RUN apk add --update --no-cache openssh-client-common
-
 FROM alpine:3.19
 
 # Set to "true" to install jq and the optional git and rsync dependencies
@@ -42,7 +40,6 @@ RUN addgroup -g 1000 -S sftpgo && \
     adduser -u 1000 -h /var/lib/sftpgo -s /sbin/nologin -G sftpgo -S -D -H -g "SFTPGo user" sftpgo
 
 COPY --from=builder /workspace/sftpgo.json /etc/sftpgo/sftpgo.json
-COPY --from=builder /etc/ssh/moduli /etc/sftpgo/moduli
 COPY --from=builder /workspace/templates /usr/share/sftpgo/templates
 COPY --from=builder /workspace/static /usr/share/sftpgo/static
 COPY --from=builder /workspace/openapi /usr/share/sftpgo/openapi

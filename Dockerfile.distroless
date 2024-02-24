@@ -2,7 +2,7 @@ FROM golang:1.22-bookworm as builder
 
 ENV CGO_ENABLED=0 GOFLAGS="-mod=readonly"
 
-RUN apt-get update && apt-get -y upgrade && apt-get install --no-install-recommends -y media-types openssh-server && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get -y upgrade && apt-get install --no-install-recommends -y media-types && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /workspace
 WORKDIR /workspace
@@ -38,7 +38,6 @@ COPY --from=builder --chown=1000:1000 /etc/sftpgo /etc/sftpgo
 COPY --from=builder --chown=1000:1000 /srv/sftpgo /srv/sftpgo
 COPY --from=builder --chown=1000:1000 /var/lib/sftpgo /var/lib/sftpgo
 COPY --from=builder --chown=1000:1000 /workspace/sftpgo.json /etc/sftpgo/sftpgo.json
-COPY --from=builder --chown=1000:1000 /etc/ssh/moduli /etc/sftpgo/moduli
 COPY --from=builder /workspace/templates /usr/share/sftpgo/templates
 COPY --from=builder /workspace/static /usr/share/sftpgo/static
 COPY --from=builder /workspace/openapi /usr/share/sftpgo/openapi

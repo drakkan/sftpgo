@@ -28,18 +28,18 @@ import (
 // Supported values for host keys, KEXs, ciphers, MACs
 var (
 	supportedHostKeyAlgos   = []string{ssh.KeyAlgoRSA}
-	supportedPublicKeyAlgos = []string{ssh.KeyAlgoRSA, ssh.KeyAlgoDSA}
+	supportedPublicKeyAlgos = []string{ssh.KeyAlgoRSA, ssh.InsecureKeyAlgoDSA}
 	supportedKexAlgos       = []string{
-		"diffie-hellman-group16-sha512", "diffie-hellman-group14-sha1", "diffie-hellman-group1-sha1",
-		"diffie-hellman-group-exchange-sha256", "diffie-hellman-group-exchange-sha1",
+		ssh.KeyExchangeDH16SHA512, ssh.InsecureKeyExchangeDH14SHA1, ssh.InsecureKeyExchangeDH1SHA1,
+		ssh.InsecureKeyExchangeDHGEXSHA1,
 	}
 	supportedCiphers = []string{
-		"aes128-cbc", "aes192-cbc", "aes256-cbc",
-		"3des-cbc",
+		ssh.InsecureCipherAES128CBC, ssh.InsecureCipherAES192CBC, ssh.InsecureCipherAES256CBC,
+		ssh.InsecureCipherTripleDESCBC,
 	}
 	supportedMACs = []string{
-		"hmac-sha2-512-etm@openssh.com", "hmac-sha2-512",
-		"hmac-sha1", "hmac-sha1-96",
+		ssh.HMACSHA512ETM, ssh.HMACSHA512,
+		ssh.InsecureHMACSHA1, ssh.InsecureHMACSHA196,
 	}
 )
 
@@ -110,7 +110,7 @@ func (c *SFTPDConfigs) validate() error {
 	c.HostKeyAlgos = hostKeyAlgos
 	var kexAlgos []string
 	for _, algo := range c.KexAlgorithms {
-		if algo == "diffie-hellman-group18-sha512" {
+		if algo == "diffie-hellman-group18-sha512" || algo == ssh.KeyExchangeDHGEXSHA256 {
 			continue
 		}
 		if !util.Contains(supportedKexAlgos, algo) {

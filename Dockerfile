@@ -2,7 +2,7 @@ FROM golang:1.22-bookworm as builder
 
 ENV GOFLAGS="-mod=readonly"
 
-RUN apt-get update && apt-get -y upgrade && apt-get install --no-install-recommends -y openssh-server && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get -y upgrade && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /workspace
 WORKDIR /workspace
@@ -47,7 +47,6 @@ RUN groupadd --system -g 1000 sftpgo && \
     --comment "SFTPGo user" --uid 1000 sftpgo
 
 COPY --from=builder /workspace/sftpgo.json /etc/sftpgo/sftpgo.json
-COPY --from=builder /etc/ssh/moduli /etc/sftpgo/moduli
 COPY --from=builder /workspace/templates /usr/share/sftpgo/templates
 COPY --from=builder /workspace/static /usr/share/sftpgo/static
 COPY --from=builder /workspace/openapi /usr/share/sftpgo/openapi

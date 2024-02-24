@@ -259,7 +259,6 @@ func Init() {
 			HostKeys:                          []string{},
 			HostCertificates:                  []string{},
 			HostKeyAlgorithms:                 []string{},
-			Moduli:                            []string{},
 			KexAlgorithms:                     []string{},
 			Ciphers:                           []string{},
 			MACs:                              []string{},
@@ -2020,7 +2019,6 @@ func setViperDefaults() {
 	viper.SetDefault("sftpd.host_keys", globalConf.SFTPD.HostKeys)
 	viper.SetDefault("sftpd.host_certificates", globalConf.SFTPD.HostCertificates)
 	viper.SetDefault("sftpd.host_key_algorithms", globalConf.SFTPD.HostKeyAlgorithms)
-	viper.SetDefault("sftpd.moduli", globalConf.SFTPD.Moduli)
 	viper.SetDefault("sftpd.kex_algorithms", globalConf.SFTPD.KexAlgorithms)
 	viper.SetDefault("sftpd.ciphers", globalConf.SFTPD.Ciphers)
 	viper.SetDefault("sftpd.macs", globalConf.SFTPD.MACs)

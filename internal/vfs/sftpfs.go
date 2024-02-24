@@ -956,17 +956,13 @@ func (c *sftpConnection) openConnNoLock() error {
 	if c.config.Password.GetPayload() != "" {
 		clientConfig.Auth = append(clientConfig.Auth, ssh.Password(c.config.Password.GetPayload()))
 	}
-	// add more ciphers, KEXs and MACs, they are negotiated according to the order
-	clientConfig.Ciphers = []string{"aes128-gcm@openssh.com", "aes256-gcm@openssh.com", "chacha20-poly1305@openssh.com",
-		"aes128-ctr", "aes192-ctr", "aes256-ctr", "aes128-cbc", "aes192-cbc", "aes256-cbc"}
-	clientConfig.KeyExchanges = []string{"curve25519-sha256", "curve25519-sha256@libssh.org",
-		"ecdh-sha2-nistp256", "ecdh-sha2-nistp384", "ecdh-sha2-nistp521",
-		"diffie-hellman-group14-sha256", "diffie-hellman-group-exchange-sha256",
-		"diffie-hellman-group16-sha512", "diffie-hellman-group-exchange-sha1",
-		"diffie-hellman-group14-sha1", "diffie-hellman-group1-sha1"}
-	clientConfig.MACs = []string{"hmac-sha2-256-etm@openssh.com", "hmac-sha2-256",
-		"hmac-sha2-512-etm@openssh.com", "hmac-sha2-512",
-		"hmac-sha1", "hmac-sha1-96"}
+	supportedAlgos := ssh.SupportedAlgorithms()
+	insecureAlgos := ssh.InsecureAlgorithms()
+	// add all available ciphers, KEXs and MACs, they are negotiated according to the order
+	clientConfig.Ciphers = append(supportedAlgos.Ciphers, ssh.InsecureCipherAES128CBC,
+		ssh.InsecureCipherAES192CBC, ssh.InsecureCipherAES256CBC)
+	clientConfig.KeyExchanges = append(supportedAlgos.KeyExchanges, insecureAlgos.KeyExchanges...)
+	clientConfig.MACs = append(supportedAlgos.MACs, insecureAlgos.MACs...)
 	sshClient, err := ssh.Dial("tcp", c.config.Endpoint, clientConfig)
 	if err != nil {
 		return fmt.Errorf("sftpfs: unable to connect: %w", err)

@@ -255,11 +255,10 @@ func TestMain(m *testing.M) {
 			ApplyProxyConfig: true,
 		},
 	}
-	sftpdConf.KexAlgorithms = []string{"curve25519-sha256@libssh.org", "ecdh-sha2-nistp256",
-		"ecdh-sha2-nistp384"}
-	sftpdConf.Ciphers = []string{"chacha20-poly1305@openssh.com", "aes128-gcm@openssh.com",
-		"aes256-ctr"}
-	sftpdConf.MACs = []string{"hmac-sha2-256-etm@openssh.com", "hmac-sha2-256"}
+	sftpdConf.KexAlgorithms = []string{"curve25519-sha256@libssh.org", ssh.KeyExchangeECDHP256,
+		ssh.KeyExchangeECDHP384}
+	sftpdConf.Ciphers = []string{ssh.CipherChacha20Poly1305, ssh.CipherAES128GCM,
+		ssh.CipherAES256CTR}
 	sftpdConf.LoginBannerFile = loginBannerFileName
 	// we need to test all supported ssh commands
 	sftpdConf.EnabledSSHCommands = []string{"*"}
@@ -8239,6 +8238,32 @@ func TestOpenUnhandledChannel(t *testing.T) {
 		err = conn.Close()
 		assert.NoError(t, err)
 	}
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestAlgorithmNotNegotiated(t *testing.T) {
+	u := getTestUser(false)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	config := &ssh.ClientConfig{
+		Config: ssh.Config{
+			Ciphers: []string{ssh.InsecureCipherRC4},
+		},
+		User:            user.Username,
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Auth:            []ssh.AuthMethod{ssh.Password(defaultPassword)},
+		Timeout:         5 * time.Second,
+	}
+	_, err = ssh.Dial("tcp", sftpServerAddr, config)
+	if assert.Error(t, err) {
+		negotiationErr := &ssh.AlgorithmNegotiationError{}
+		assert.ErrorAs(t, err, &negotiationErr)
+	}
+
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())

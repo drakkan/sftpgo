@@ -45,75 +45,32 @@ import (
 )
 
 const (
-	defaultPrivateRSAKeyName     = "id_rsa"
-	defaultPrivateECDSAKeyName   = "id_ecdsa"
-	defaultPrivateEd25519KeyName = "id_ed25519"
-	sourceAddressCriticalOption  = "source-address"
-	kexDHGroupExchangeSHA1       = "diffie-hellman-group-exchange-sha1"
-	kexDHGroupExchangeSHA256     = "diffie-hellman-group-exchange-sha256"
+	defaultPrivateRSAKeyName          = "id_rsa"
+	defaultPrivateECDSAKeyName        = "id_ecdsa"
+	defaultPrivateEd25519KeyName      = "id_ed25519"
+	sourceAddressCriticalOption       = "source-address"
+	keyExchangeCurve25519SHA256LibSSH = "curve25519-sha256@libssh.org"
 )
 
 var (
+	supportedAlgos        = ssh.SupportedAlgorithms()
+	insecureAlgos         = ssh.InsecureAlgorithms()
 	sftpExtensions        = []string{"statvfs@openssh.com"}
-	supportedHostKeyAlgos = []string{
-		ssh.CertAlgoRSASHA512v01, ssh.CertAlgoRSASHA256v01,
-		ssh.CertAlgoRSAv01, ssh.CertAlgoDSAv01, ssh.CertAlgoECDSA256v01,
-		ssh.CertAlgoECDSA384v01, ssh.CertAlgoECDSA521v01, ssh.CertAlgoED25519v01,
-		ssh.KeyAlgoECDSA256, ssh.KeyAlgoECDSA384, ssh.KeyAlgoECDSA521,
-		ssh.KeyAlgoRSASHA512, ssh.KeyAlgoRSASHA256,
-		ssh.KeyAlgoRSA, ssh.KeyAlgoDSA,
-		ssh.KeyAlgoED25519,
-	}
+	supportedHostKeyAlgos = append(supportedAlgos.HostKeys, insecureAlgos.HostKeys...)
 	preferredHostKeyAlgos = []string{
 		ssh.KeyAlgoRSASHA256, ssh.KeyAlgoRSASHA512,
 		ssh.KeyAlgoECDSA256, ssh.KeyAlgoECDSA384, ssh.KeyAlgoECDSA521,
 		ssh.KeyAlgoED25519,
 	}
-	supportedPublicKeyAlgos = []string{
-		ssh.KeyAlgoED25519,
-		ssh.KeyAlgoSKED25519, ssh.KeyAlgoSKECDSA256,
-		ssh.KeyAlgoECDSA256, ssh.KeyAlgoECDSA384, ssh.KeyAlgoECDSA521,
-		ssh.KeyAlgoRSASHA256, ssh.KeyAlgoRSASHA512, ssh.KeyAlgoRSA,
-		ssh.KeyAlgoDSA,
-	}
-	preferredPublicKeyAlgos = []string{
-		ssh.KeyAlgoED25519,
-		ssh.KeyAlgoSKED25519, ssh.KeyAlgoSKECDSA256,
-		ssh.KeyAlgoECDSA256, ssh.KeyAlgoECDSA384, ssh.KeyAlgoECDSA521,
-		ssh.KeyAlgoRSASHA256, ssh.KeyAlgoRSASHA512,
-	}
-	supportedKexAlgos = []string{
-		"curve25519-sha256", "curve25519-sha256@libssh.org",
-		"ecdh-sha2-nistp256", "ecdh-sha2-nistp384", "ecdh-sha2-nistp521",
-		"diffie-hellman-group14-sha256", "diffie-hellman-group16-sha512",
-		"diffie-hellman-group18-sha512", "diffie-hellman-group14-sha1",
-		"diffie-hellman-group1-sha1",
-	}
-	preferredKexAlgos = []string{
-		"curve25519-sha256", "curve25519-sha256@libssh.org",
-		"ecdh-sha2-nistp256", "ecdh-sha2-nistp384", "ecdh-sha2-nistp521",
-		"diffie-hellman-group14-sha256",
-	}
-	supportedCiphers = []string{
-		"aes128-gcm@openssh.com", "aes256-gcm@openssh.com",
-		"chacha20-poly1305@openssh.com",
-		"aes128-ctr", "aes192-ctr", "aes256-ctr",
-		"aes128-cbc", "aes192-cbc", "aes256-cbc",
-		"3des-cbc",
-		"arcfour", "arcfour128", "arcfour256",
-	}
-	preferredCiphers = []string{
-		"aes128-gcm@openssh.com", "aes256-gcm@openssh.com",
-		"chacha20-poly1305@openssh.com",
-		"aes128-ctr", "aes192-ctr", "aes256-ctr",
-	}
-	supportedMACs = []string{
-		"hmac-sha2-256-etm@openssh.com", "hmac-sha2-256",
-		"hmac-sha2-512-etm@openssh.com", "hmac-sha2-512",
-		"hmac-sha1", "hmac-sha1-96",
-	}
-	preferredMACs = []string{
-		"hmac-sha2-256-etm@openssh.com", "hmac-sha2-256",
+	supportedPublicKeyAlgos = append(supportedAlgos.PublicKeyAuths, insecureAlgos.PublicKeyAuths...)
+	preferredPublicKeyAlgos = supportedAlgos.PublicKeyAuths
+	supportedKexAlgos       = append(supportedAlgos.KeyExchanges, insecureAlgos.KeyExchanges...)
+	preferredKexAlgos       = supportedAlgos.KeyExchanges
+	supportedCiphers        = append(supportedAlgos.Ciphers, insecureAlgos.Ciphers...)
+	preferredCiphers        = supportedAlgos.Ciphers
+	supportedMACs           = append(supportedAlgos.MACs, insecureAlgos.MACs...)
+	preferredMACs           = []string{
+		ssh.HMACSHA256ETM, ssh.HMACSHA256,
 	}
 
 	revokedCertManager = revokedCertificates{
@@ -170,12 +127,6 @@ type Configuration struct {
 	// HostKeyAlgorithms lists the public key algorithms that the server will accept for host
 	// key authentication.
 	HostKeyAlgorithms []string `json:"host_key_algorithms" mapstructure:"host_key_algorithms"`
-	// Diffie-Hellman moduli files.
-	// Each moduli file can be defined as a path relative to the configuration directory or an absolute one.
-	// If set and valid, "diffie-hellman-group-exchange-sha256" and "diffie-hellman-group-exchange-sha1" KEX algorithms
-	// will be available, `diffie-hellman-group-exchange-sha256` will be enabled by default if you
-	// don't explicitly set KEXs
-	Moduli []string `json:"moduli" mapstructure:"moduli"`
 	// KexAlgorithms specifies the available KEX (Key Exchange) algorithms in
 	// preference order.
 	KexAlgorithms []string `json:"kex_algorithms" mapstructure:"kex_algorithms"`
@@ -373,8 +324,6 @@ func (c *Configuration) Initialize(configDir string) error {
 		return common.ErrNoBinding
 	}
 
-	c.loadModuli(configDir)
-
 	sftp.SetSFTPExtensions(sftpExtensions...) //nolint:errcheck // we configure valid SFTP Extensions so we cannot get an error
 	sftp.MaxFilelist = vfs.ListerBatchSize
 
@@ -491,21 +440,34 @@ func (c *Configuration) configureKeyAlgos(serverConfig *ssh.ServerConfig) error 
 	return nil
 }
 
+func (c *Configuration) checkKeyExchangeAlgorithms() {
+	var kexs []string
+	for _, k := range c.KexAlgorithms {
+		if k == "diffie-hellman-group18-sha512" {
+			logger.Warn(logSender, "", "KEX %q is not supported and will be ignored", k)
+			continue
+		}
+		kexs = append(kexs, k)
+		if strings.TrimSpace(k) == keyExchangeCurve25519SHA256LibSSH {
+			kexs = append(kexs, ssh.KeyExchangeCurve25519SHA256)
+		}
+		if strings.TrimSpace(k) == ssh.KeyExchangeCurve25519SHA256 {
+			kexs = append(kexs, keyExchangeCurve25519SHA256LibSSH)
+		}
+	}
+	c.KexAlgorithms = util.RemoveDuplicates(kexs, true)
+}
+
 func (c *Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig) error {
 	if err := c.configureKeyAlgos(serverConfig); err != nil {
 		return err
 	}
 
 	if len(c.KexAlgorithms) > 0 {
-		hasDHGroupKEX := util.Contains(supportedKexAlgos, kexDHGroupExchangeSHA256)
-		if !hasDHGroupKEX {
-			c.KexAlgorithms = util.Remove(c.KexAlgorithms, kexDHGroupExchangeSHA1)
-			c.KexAlgorithms = util.Remove(c.KexAlgorithms, kexDHGroupExchangeSHA256)
-		}
-		c.KexAlgorithms = util.RemoveDuplicates(c.KexAlgorithms, true)
+		c.checkKeyExchangeAlgorithms()
 		for _, kex := range c.KexAlgorithms {
-			if kex == "diffie-hellman-group18-sha512" {
-				logger.Warn(logSender, "", "KEX %q is not supported and will be ignored", kex)
+			if kex == keyExchangeCurve25519SHA256LibSSH {
+				continue
 			}
 			if !util.Contains(supportedKexAlgos, kex) {
 				return fmt.Errorf("unsupported key-exchange algorithm %q", kex)
@@ -513,6 +475,7 @@ func (c *Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig)
 		}
 	} else {
 		c.KexAlgorithms = preferredKexAlgos
+		c.checkKeyExchangeAlgorithms()
 	}
 	serverConfig.KeyExchanges = c.KexAlgorithms
 	serviceStatus.KexAlgorithms = c.KexAlgorithms
@@ -643,8 +606,8 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 	}
 
 	logger.Log(logger.LevelInfo, common.ProtocolSSH, connectionID,
-		"User %q logged in with %q, from ip %q, client version %q", user.Username, loginType,
-		ipAddr, string(sconn.ClientVersion()))
+		"User %q logged in with %q, from ip %q, client version %q, negotiated algorithms: %+v",
+		user.Username, loginType, ipAddr, string(sconn.ClientVersion()), sconn.Conn.(ssh.AlgorithmsConnMetadata).Algorithms())
 	dataprovider.UpdateLastLogin(&user)
 
 	sshConnection := common.NewSSHConnection(connectionID, conn)
@@ -812,7 +775,8 @@ func checkAuthError(ip string, err error) {
 		common.AddDefenderEvent(ip, common.ProtocolSSH, common.HostEventNoLoginTried)
 		dataprovider.ExecutePostLoginHook(&dataprovider.User{}, dataprovider.LoginMethodNoAuthTried, ip, common.ProtocolSSH, err)
 		logEv := notifier.LogEventTypeNoLoginTried
-		if errors.Is(err, ssh.ErrNoCommonAlgo) {
+		var negotiationError *ssh.AlgorithmNegotiationError
+		if errors.As(err, &negotiationError) {
 			logEv = notifier.LogEventTypeNotNegotiated
 		}
 		plugin.Handler.NotifyLogEvent(logEv, common.ProtocolSSH, "", ip, "", err)
@@ -851,7 +815,7 @@ func loginUser(user *dataprovider.User, loginMethod, publicKey string, conn ssh.
 			user.Username)
 		return nil, fmt.Errorf("second factor authentication is not set for user %q", user.Username)
 	}
-	remoteAddr := conn.RemoteAddr().String()
+	remoteAddr := util.GetIPFromRemoteAddress(conn.RemoteAddr().String())
 	if !user.IsLoginFromAddrAllowed(remoteAddr) {
 		logger.Info(logSender, connectionID, "cannot login user %q, remote address is not allowed: %v",
 			user.Username, remoteAddr)
@@ -979,38 +943,6 @@ func (c *Configuration) checkHostKeyAutoGeneration(configDir string) error {
 		}
 	}
 	return nil
-}
-
-func (c *Configuration) loadModuli(configDir string) {
-	supportedKexAlgos = util.Remove(supportedKexAlgos, kexDHGroupExchangeSHA1)
-	supportedKexAlgos = util.Remove(supportedKexAlgos, kexDHGroupExchangeSHA256)
-	preferredKexAlgos = util.Remove(preferredKexAlgos, kexDHGroupExchangeSHA256)
-	c.Moduli = util.RemoveDuplicates(c.Moduli, false)
-	for _, m := range c.Moduli {
-		m = strings.TrimSpace(m)
-		if !util.IsFileInputValid(m) {
-			logger.Warn(logSender, "", "unable to load invalid moduli file %q", m)
-			logger.WarnToConsole("unable to load invalid host moduli file %q", m)
-			continue
-		}
-		if !filepath.IsAbs(m) {
-			m = filepath.Join(configDir, m)
-		}
-		logger.Info(logSender, "", "loading moduli file %q", m)
-		if err := ssh.ParseModuli(m); err != nil {
-			logger.Warn(logSender, "", "ignoring moduli file %q, error: %v", m, err)
-			continue
-		}
-		if !util.Contains(supportedKexAlgos, kexDHGroupExchangeSHA1) {
-			supportedKexAlgos = append(supportedKexAlgos, kexDHGroupExchangeSHA1)
-		}
-		if !util.Contains(supportedKexAlgos, kexDHGroupExchangeSHA256) {
-			supportedKexAlgos = append(supportedKexAlgos, kexDHGroupExchangeSHA256)
-		}
-		if !util.Contains(preferredKexAlgos, kexDHGroupExchangeSHA256) {
-			preferredKexAlgos = append(preferredKexAlgos, kexDHGroupExchangeSHA256)
-		}
-	}
 }
 
 func (c *Configuration) getHostKeyAlgorithms(keyFormat string) []string {
@@ -1188,12 +1120,12 @@ func (c *Configuration) initializeCertChecker(configDir string) error {
 func (c *Configuration) getPartialSuccessError(nextAuthMethods []string) error {
 	err := &ssh.PartialSuccessError{}
 	if c.PasswordAuthentication && util.Contains(nextAuthMethods, dataprovider.LoginMethodPassword) {
-		err.PasswordCallback = func(conn ssh.ConnMetadata, password []byte) (*ssh.Permissions, error) {
+		err.Next.PasswordCallback = func(conn ssh.ConnMetadata, password []byte) (*ssh.Permissions, error) {
 			return c.validatePasswordCredentials(conn, password, dataprovider.SSHLoginMethodKeyAndPassword)
 		}
 	}
 	if c.KeyboardInteractiveAuthentication && util.Contains(nextAuthMethods, dataprovider.SSHLoginMethodKeyboardInteractive) {
-		err.KeyboardInteractiveCallback = func(conn ssh.ConnMetadata, client ssh.KeyboardInteractiveChallenge) (*ssh.Permissions, error) {
+		err.Next.KeyboardInteractiveCallback = func(conn ssh.ConnMetadata, client ssh.KeyboardInteractiveChallenge) (*ssh.Permissions, error) {
 			return c.validateKeyboardInteractiveCredentials(conn, client, dataprovider.SSHLoginMethodKeyAndKeyboardInt, true)
 		}
 	}
