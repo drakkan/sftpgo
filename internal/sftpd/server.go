@@ -77,7 +77,7 @@ var (
 		certs: map[string]bool{},
 	}
 
-	sftpAuthError = newAuthenticationError(nil, "")
+	sftpAuthError = newAuthenticationError(nil, "", "")
 )
 
 // Binding defines the configuration for a network listener
@@ -192,6 +192,7 @@ type Configuration struct {
 type authenticationError struct {
 	err         error
 	loginMethod string
+	username    string
 }
 
 func (e *authenticationError) Error() string {
@@ -213,8 +214,12 @@ func (e *authenticationError) getLoginMethod() string {
 	return e.loginMethod
 }
 
-func newAuthenticationError(err error, loginMethod string) *authenticationError {
-	return &authenticationError{err: err, loginMethod: loginMethod}
+func (e *authenticationError) getUsername() string {
+	return e.username
+}
+
+func newAuthenticationError(err error, loginMethod, username string) *authenticationError {
+	return &authenticationError{err: err, loginMethod: loginMethod, username: username}
 }
 
 // ShouldBind returns true if there is at least a valid binding
@@ -240,7 +245,7 @@ func (c *Configuration) getServerConfig() *ssh.ServerConfig {
 			}
 			if err != nil {
 				return nil, newAuthenticationError(fmt.Errorf("could not validate public key credentials: %w", err),
-					dataprovider.SSHLoginMethodPublicKey)
+					dataprovider.SSHLoginMethodPublicKey, conn.User())
 			}
 
 			return sp, nil
@@ -751,7 +756,8 @@ func discardAllChannels(in <-chan ssh.NewChannel, message, connectionID string) 
 }
 
 func checkAuthError(ip string, err error) {
-	if authErrors, ok := err.(*ssh.ServerAuthError); ok {
+	var authErrors *ssh.ServerAuthError
+	if errors.As(err, &authErrors) {
 		// check public key auth errors here
 		for _, err := range authErrors.Errors {
 			var sftpAuthErr *authenticationError
@@ -764,7 +770,7 @@ func checkAuthError(ip string, err error) {
 						logEv = notifier.LogEventTypeLoginNoUser
 					}
 					common.AddDefenderEvent(ip, common.ProtocolSSH, event)
-					plugin.Handler.NotifyLogEvent(logEv, common.ProtocolSSH, "", ip, "", err)
+					plugin.Handler.NotifyLogEvent(logEv, common.ProtocolSSH, sftpAuthErr.getUsername(), ip, "", err)
 					return
 				}
 			}
@@ -1215,7 +1221,7 @@ func (c *Configuration) validatePasswordCredentials(conn ssh.ConnMetadata, pass 
 	user.Username = conn.User()
 	updateLoginMetrics(&user, ipAddr, method, err)
 	if err != nil {
-		return nil, newAuthenticationError(fmt.Errorf("could not validate password credentials: %w", err), method)
+		return nil, newAuthenticationError(fmt.Errorf("could not validate password credentials: %w", err), method, conn.User())
 	}
 	return sshPerm, nil
 }
@@ -1235,7 +1241,7 @@ func (c *Configuration) validateKeyboardInteractiveCredentials(conn ssh.ConnMeta
 	user.Username = conn.User()
 	updateLoginMetrics(&user, ipAddr, method, err)
 	if err != nil {
-		return nil, newAuthenticationError(fmt.Errorf("could not validate keyboard interactive credentials: %w", err), method)
+		return nil, newAuthenticationError(fmt.Errorf("could not validate keyboard interactive credentials: %w", err), method, conn.User())
 	}
 	return sshPerm, nil
 }

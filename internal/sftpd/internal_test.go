@@ -2227,23 +2227,26 @@ func TestCanReadSymlink(t *testing.T) {
 
 func TestAuthenticationErrors(t *testing.T) {
 	loginMethod := dataprovider.SSHLoginMethodPassword
-	err := newAuthenticationError(fmt.Errorf("cannot validate credentials: %w", util.NewRecordNotFoundError("not found")), loginMethod)
+	username := "test user"
+	err := newAuthenticationError(fmt.Errorf("cannot validate credentials: %w", util.NewRecordNotFoundError("not found")),
+		loginMethod, username)
 	assert.ErrorIs(t, err, sftpAuthError)
 	assert.ErrorIs(t, err, util.ErrNotFound)
 	var sftpAuthErr *authenticationError
 	if assert.ErrorAs(t, err, &sftpAuthErr) {
 		assert.Equal(t, loginMethod, sftpAuthErr.getLoginMethod())
+		assert.Equal(t, username, sftpAuthErr.getUsername())
 	}
-	err = newAuthenticationError(fmt.Errorf("cannot validate credentials: %w", fs.ErrPermission), loginMethod)
+	err = newAuthenticationError(fmt.Errorf("cannot validate credentials: %w", fs.ErrPermission), loginMethod, username)
 	assert.ErrorIs(t, err, sftpAuthError)
 	assert.NotErrorIs(t, err, util.ErrNotFound)
-	err = newAuthenticationError(fmt.Errorf("cert has wrong type %d", ssh.HostCert), loginMethod)
+	err = newAuthenticationError(fmt.Errorf("cert has wrong type %d", ssh.HostCert), loginMethod, username)
 	assert.ErrorIs(t, err, sftpAuthError)
 	assert.NotErrorIs(t, err, util.ErrNotFound)
-	err = newAuthenticationError(errors.New("ssh: certificate signed by unrecognized authority"), loginMethod)
+	err = newAuthenticationError(errors.New("ssh: certificate signed by unrecognized authority"), loginMethod, username)
 	assert.ErrorIs(t, err, sftpAuthError)
 	assert.NotErrorIs(t, err, util.ErrNotFound)
-	err = newAuthenticationError(nil, loginMethod)
+	err = newAuthenticationError(nil, loginMethod, username)
 	assert.ErrorIs(t, err, sftpAuthError)
 	assert.NotErrorIs(t, err, util.ErrNotFound)
 }
