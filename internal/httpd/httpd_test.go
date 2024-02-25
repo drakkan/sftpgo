@@ -12903,6 +12903,18 @@ func TestDefender(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
 	assert.Contains(t, rr.Body.String(), "your IP address is blocked")
+	// requests for static files should be always allowed
+	req, err = http.NewRequest(http.MethodGet, "/static/favicon.ico", nil)
+	assert.NoError(t, err)
+	req.RemoteAddr = remoteAddr
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodGet, "/.well-known/acme-challenge/foo", nil)
+	assert.NoError(t, err)
+	req.RemoteAddr = remoteAddr
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)

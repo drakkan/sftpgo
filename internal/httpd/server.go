@@ -1231,6 +1231,17 @@ func (s *httpdServer) mustStripSlash(r *http.Request) bool {
 		!strings.HasPrefix(urlPath, webStaticFilesPath) && !strings.HasPrefix(urlPath, acmeChallengeURI)
 }
 
+func (s *httpdServer) mustCheckPath(r *http.Request) bool {
+	var urlPath string
+	rctx := chi.RouteContext(r.Context())
+	if rctx != nil && rctx.RoutePath != "" {
+		urlPath = rctx.RoutePath
+	} else {
+		urlPath = r.URL.Path
+	}
+	return !strings.HasPrefix(urlPath, webStaticFilesPath) && !strings.HasPrefix(urlPath, acmeChallengeURI)
+}
+
 func (s *httpdServer) initializeRouter() {
 	var hasHTTPSRedirect bool
 	s.tokenAuth = jwtauth.New(jwa.HS256.String(), getSigningKey(s.signingPassphrase), nil)
@@ -1240,7 +1251,7 @@ func (s *httpdServer) initializeRouter() {
 	s.router.Use(s.parseHeaders)
 	s.router.Use(logger.NewStructuredLogger(logger.GetLogger()))
 	s.router.Use(middleware.Recoverer)
-	s.router.Use(s.checkConnection)
+	s.router.Use(middleware.Maybe(s.checkConnection, s.mustCheckPath))
 	if s.binding.Security.Enabled {
 		secureMiddleware := secure.New(secure.Options{
 			AllowedHosts:            s.binding.Security.AllowedHosts,
