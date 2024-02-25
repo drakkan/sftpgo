@@ -17,6 +17,7 @@ package vfs
 import (
 	"bufio"
 	"bytes"
+	"crypto/rsa"
 	"errors"
 	"fmt"
 	"hash/fnv"
@@ -178,6 +179,34 @@ func (c *SFTPFsConfig) validate() error {
 		c.Prefix = util.CleanPath(c.Prefix)
 	} else {
 		c.Prefix = "/"
+	}
+	return c.validatePrivateKey()
+}
+
+func (c *SFTPFsConfig) validatePrivateKey() error {
+	if c.PrivateKey.IsPlain() {
+		var signer ssh.Signer
+		var err error
+		if c.KeyPassphrase.IsPlain() {
+			signer, err = ssh.ParsePrivateKeyWithPassphrase([]byte(c.PrivateKey.GetPayload()),
+				[]byte(c.KeyPassphrase.GetPayload()))
+		} else {
+			signer, err = ssh.ParsePrivateKey([]byte(c.PrivateKey.GetPayload()))
+		}
+		if err != nil {
+			return util.NewI18nError(fmt.Errorf("invalid private key: %w", err), util.I18nErrorPrivKeyInvalid)
+		}
+		if key, ok := signer.PublicKey().(ssh.CryptoPublicKey); ok {
+			cryptoKey := key.CryptoPublicKey()
+			if rsaKey, ok := cryptoKey.(*rsa.PublicKey); ok {
+				if size := rsaKey.N.BitLen(); size < 2048 {
+					return util.NewI18nError(
+						fmt.Errorf("rsa key with size %d not accepted, minimum 2048", size),
+						util.I18nErrorKeySizeInvalid,
+					)
+				}
+			}
+		}
 	}
 	return nil
 }
@@ -902,6 +931,14 @@ func (c *sftpConnection) OpenConnection() error {
 	return c.openConnNoLock()
 }
 
+func (c *sftpConnection) getSigner() (ssh.Signer, error) {
+	if c.config.KeyPassphrase.GetPayload() != "" {
+		return ssh.ParsePrivateKeyWithPassphrase([]byte(c.config.PrivateKey.GetPayload()),
+			[]byte(c.config.KeyPassphrase.GetPayload()))
+	}
+	return ssh.ParsePrivateKey([]byte(c.config.PrivateKey.GetPayload()))
+}
+
 func (c *sftpConnection) openConnNoLock() error {
 	if c.isConnected {
 		logger.Debug(c.logSender, "", "reusing connection")
@@ -940,14 +977,7 @@ func (c *sftpConnection) openConnNoLock() error {
 		ClientVersion: fmt.Sprintf("SSH-2.0-SFTPGo_%v", version.Get().Version),
 	}
 	if c.config.PrivateKey.GetPayload() != "" {
-		var signer ssh.Signer
-		var err error
-		if c.config.KeyPassphrase.GetPayload() != "" {
-			signer, err = ssh.ParsePrivateKeyWithPassphrase([]byte(c.config.PrivateKey.GetPayload()),
-				[]byte(c.config.KeyPassphrase.GetPayload()))
-		} else {
-			signer, err = ssh.ParsePrivateKey([]byte(c.config.PrivateKey.GetPayload()))
-		}
+		signer, err := c.getSigner()
 		if err != nil {
 			return fmt.Errorf("sftpfs: unable to parse the private key: %w", err)
 		}

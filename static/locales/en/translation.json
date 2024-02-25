@@ -489,6 +489,8 @@
         "home_required": "The home directory is mandatory",
         "home_invalid": "The home directory must be an absolute path",
         "pub_key_invalid": "Invalid public key",
+        "priv_key_invalid": "Invalid private key",
+        "key_invalid_size": "Invalid RSA key: the minimum supported size is 2048",
         "err_primary_group": "Only one primary group is allowed",
         "err_duplicate_group": "Duplicate groups detected",
         "no_permissions": "Directories permissions are mandatory",

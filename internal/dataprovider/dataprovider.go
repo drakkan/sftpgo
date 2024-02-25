@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/md5"
+	"crypto/rsa"
 	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/sha512"
@@ -2877,15 +2878,32 @@ func validatePublicKeys(user *User) error {
 		user.PublicKeys = []string{}
 	}
 	var validatedKeys []string
-	for i, k := range user.PublicKeys {
-		if k == "" {
+	for idx, key := range user.PublicKeys {
+		if key == "" {
 			continue
 		}
-		_, _, _, _, err := ssh.ParseAuthorizedKey([]byte(k))
+		out, _, _, _, err := ssh.ParseAuthorizedKey([]byte(key))
 		if err != nil {
-			return util.NewValidationError(fmt.Sprintf("could not parse key nr. %d: %s", i+1, err))
+			return util.NewI18nError(
+				util.NewValidationError(fmt.Sprintf("error parsing public key at position %d: %v", idx, err)),
+				util.I18nErrorPubKeyInvalid,
+			)
 		}
-		validatedKeys = append(validatedKeys, k)
+		if k, ok := out.(ssh.CryptoPublicKey); ok {
+			cryptoKey := k.CryptoPublicKey()
+			if rsaKey, ok := cryptoKey.(*rsa.PublicKey); ok {
+				if size := rsaKey.N.BitLen(); size < 2048 {
+					providerLog(logger.LevelError, "rsa key with size %d not accepted, minimum 2048", size)
+					return util.NewI18nError(
+						util.NewValidationError(fmt.Sprintf("invalid size %d for rsa key at position %d, minimum 2048",
+							size, idx)),
+						util.I18nErrorKeySizeInvalid,
+					)
+				}
+			}
+		}
+
+		validatedKeys = append(validatedKeys, key)
 	}
 	user.PublicKeys = util.RemoveDuplicates(validatedKeys, false)
 	return nil
@@ -3047,11 +3065,24 @@ func validateTLSCerts(certs []string) error {
 				util.I18nErrorInvalidTLSCert,
 			)
 		}
-		if _, err := x509.ParseCertificate(derBlock.Bytes); err != nil {
+		cert, err := x509.ParseCertificate(derBlock.Bytes)
+		if err != nil {
 			return util.NewI18nError(
 				util.NewValidationError(fmt.Sprintf("error parsing TLS certificate %d", idx)),
 				util.I18nErrorInvalidTLSCert,
 			)
+		}
+		if cert.PublicKeyAlgorithm == x509.RSA {
+			if rsaCert, ok := cert.PublicKey.(*rsa.PublicKey); ok {
+				if size := rsaCert.N.BitLen(); size < 2048 {
+					providerLog(logger.LevelError, "rsa cert with size %d not accepted, minimum 2048", size)
+					return util.NewI18nError(
+						util.NewValidationError(fmt.Sprintf("invalid size %d for rsa cert at position %d, minimum 2048",
+							size, idx)),
+						util.I18nErrorKeySizeInvalid,
+					)
+				}
+			}
 		}
 	}
 	return nil
@@ -3275,7 +3306,7 @@ func ValidateUser(user *User) error {
 		return err
 	}
 	if err := validatePublicKeys(user); err != nil {
-		return util.NewI18nError(err, util.I18nErrorPubKeyInvalid)
+		return err
 	}
 	if err := validateBaseFilters(&user.Filters.BaseUserFilters); err != nil {
 		return err
@@ -3477,14 +3508,14 @@ func checkUserAndPubKey(user *User, pubKey []byte, isSSHCert bool) (User, string
 	if len(user.PublicKeys) == 0 {
 		return *user, "", ErrInvalidCredentials
 	}
-	for i, k := range user.PublicKeys {
-		storedPubKey, comment, _, _, err := ssh.ParseAuthorizedKey([]byte(k))
+	for idx, key := range user.PublicKeys {
+		storedKey, comment, _, _, err := ssh.ParseAuthorizedKey([]byte(key))
 		if err != nil {
-			providerLog(logger.LevelError, "error parsing stored public key %d for user %s: %v", i, user.Username, err)
+			providerLog(logger.LevelError, "error parsing stored public key %d for user %s: %v", idx, user.Username, err)
 			return *user, "", err
 		}
-		if bytes.Equal(storedPubKey.Marshal(), pubKey) {
-			return *user, fmt.Sprintf("%s:%s", ssh.FingerprintSHA256(storedPubKey), comment), nil
+		if bytes.Equal(storedKey.Marshal(), pubKey) {
+			return *user, fmt.Sprintf("%s:%s", ssh.FingerprintSHA256(storedKey), comment), nil
 		}
 	}
 	return *user, "", ErrInvalidCredentials

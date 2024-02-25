@@ -241,6 +241,23 @@ qwlk5iw/jQekxThg==
 `
 	testPubKeyPwd  = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILqltfCL7IPuIQ2q+8w23flfgskjIlKViEwMfjJR4mrb"
 	privateKeyPwd  = "password"
+	rsa1024PrivKey = `-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAlwAAAAdzc2gtcn
+NhAAAAAwEAAQAAAIEAxgrZ84gJyU7Qz8JbYuYh0fgTN29h4qVkqDkEE0lWZe7L4QRcQHrB
+vycJO5vjfitY5JTojV3nbDNHN6XGVX8QNurwXmxv0EmEbqPoNO/rTf1t7qqwMBBAfSJJ5H
+TXsO37vqcWSOt1Ki5yjRm232UfPo3AYXaZdOKDWKpzI12FfqkAAAIAondFqKJ3RagAAAAH
+c3NoLXJzYQAAAIEAxgrZ84gJyU7Qz8JbYuYh0fgTN29h4qVkqDkEE0lWZe7L4QRcQHrBvy
+cJO5vjfitY5JTojV3nbDNHN6XGVX8QNurwXmxv0EmEbqPoNO/rTf1t7qqwMBBAfSJJ5HTX
+sO37vqcWSOt1Ki5yjRm232UfPo3AYXaZdOKDWKpzI12FfqkAAAADAQABAAAAgC7V5COG+a
+GFJTbtJQWnnTn17D2A9upN6RcrnL4e6vLiXY8So+qP3YAicDmLrWpqP/SXDsRX/+ID4oTT
+jKstiJy5jTvXAozwBbFCvNDk1qifs8p/HKzel3t0172j6gLOa2h9+clJ4BYyCk6ue4f8fV
+yKTIc9chdJSpeINNY60CJxAAAAQQDhYpGXljD2Xy/CzqRXyoF+iMtOImLlbgQYswTXegk3
+7JoCNvwqg8xP+JxGpvUGpX23VWh0nBhzcAKHGlssiYQuAAAAQQDwB6s7s1WIRZ2Jsz8f6l
+7/ebpPrAMyKmWkXc7KyvR53zuMkMIdvujM5NkOWh1ON8jtNumArey2dWuGVh+pXbdVAAAA
+QQDTOAaMcyTfXMH/oSMsp+5obvT/RuewaRLHdBiCy0y1Jw0ykOcOCkswr/btDL26hImaHF
+SheorO+2We7dnFuUIFAAAACW5pY29sYUBwMQE=
+-----END OPENSSH PRIVATE KEY-----`
+	rsa1024PubKey  = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQDGCtnziAnJTtDPwlti5iHR+BM3b2HipWSoOQQTSVZl7svhBFxAesG/Jwk7m+N+K1jklOiNXedsM0c3pcZVfxA26vBebG/QSYRuo+g07+tN/W3uqrAwEEB9IknkdNew7fu+pxZI63UqLnKNGbbfZR8+jcBhdpl04oNYqnMjXYV+qQ=="
 	redactedSecret = "[**redacted**]"
 	osWindows      = "windows"
 	oidcMockAddr   = "127.0.0.1:11111"
@@ -821,6 +838,20 @@ func TestRoleRelations(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user2, http.StatusOK)
 	assert.NoError(t, err)
+}
+
+func TestRSAKeyInvalidSize(t *testing.T) {
+	u := getTestUser()
+	u.PublicKeys = append(u.PublicKeys, rsa1024PubKey)
+	_, resp, err := httpdtest.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err, string(resp))
+	assert.Contains(t, string(resp), "invalid size")
+	u = getTestSFTPUser()
+	u.FsConfig.SFTPConfig.Password = nil
+	u.FsConfig.SFTPConfig.PrivateKey = kms.NewPlainSecret(rsa1024PrivKey)
+	_, resp, err = httpdtest.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err, string(resp))
+	assert.Contains(t, string(resp), "rsa key with size 1024 not accepted")
 }
 
 func TestTLSCert(t *testing.T) {
@@ -11065,7 +11096,7 @@ func TestWebAPIChangeUserProfileMock(t *testing.T) {
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.Contains(t, rr.Body.String(), "Validation error: could not parse key")
+	assert.Contains(t, rr.Body.String(), "Validation error: error parsing public key")
 
 	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
@@ -22409,8 +22440,8 @@ func TestWebUserSFTPFsMock(t *testing.T) {
 	user.FsConfig.SFTPConfig.Endpoint = "127.0.0.1:22"
 	user.FsConfig.SFTPConfig.Username = "sftpuser"
 	user.FsConfig.SFTPConfig.Password = kms.NewPlainSecret("pwd")
-	user.FsConfig.SFTPConfig.PrivateKey = kms.NewPlainSecret(sftpPrivateKey)
-	user.FsConfig.SFTPConfig.KeyPassphrase = kms.NewPlainSecret(testPrivateKeyPwd)
+	user.FsConfig.SFTPConfig.PrivateKey = kms.NewPlainSecret(testPrivateKeyPwd)
+	user.FsConfig.SFTPConfig.KeyPassphrase = kms.NewPlainSecret(privateKeyPwd)
 	user.FsConfig.SFTPConfig.Fingerprints = []string{sftpPkeyFingerprint}
 	user.FsConfig.SFTPConfig.Prefix = "/home/sftpuser"
 	user.FsConfig.SFTPConfig.DisableCouncurrentReads = true
