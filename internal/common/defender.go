@@ -47,7 +47,7 @@ var (
 type Defender interface {
 	GetHosts() ([]dataprovider.DefenderEntry, error)
 	GetHost(ip string) (dataprovider.DefenderEntry, error)
-	AddEvent(ip, protocol string, event HostEvent)
+	AddEvent(ip, protocol string, event HostEvent) bool
 	IsBanned(ip, protocol string) bool
 	IsSafe(ip, protocol string) bool
 	GetBanTime(ip string) (*time.Time, error)

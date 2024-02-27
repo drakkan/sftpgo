@@ -170,10 +170,11 @@ func (d *memoryDefender) DeleteHost(ip string) bool {
 }
 
 // AddEvent adds an event for the given IP.
-// This method must be called for clients not yet banned
-func (d *memoryDefender) AddEvent(ip, protocol string, event HostEvent) {
+// This method must be called for clients not yet banned.
+// Returns true if the IP is in the defender's safe list.
+func (d *memoryDefender) AddEvent(ip, protocol string, event HostEvent) bool {
 	if d.IsSafe(ip, protocol) {
-		return
+		return true
 	}
 
 	d.Lock()
@@ -182,7 +183,7 @@ func (d *memoryDefender) AddEvent(ip, protocol string, event HostEvent) {
 	// ignore events for already banned hosts
 	if v, ok := d.banned[ip]; ok {
 		if v.After(time.Now()) {
-			return
+			return false
 		}
 		delete(d.banned, ip)
 	}
@@ -231,6 +232,7 @@ func (d *memoryDefender) AddEvent(ip, protocol string, event HostEvent) {
 		}
 		d.cleanupHosts()
 	}
+	return false
 }
 
 func (d *memoryDefender) countBanned() int {

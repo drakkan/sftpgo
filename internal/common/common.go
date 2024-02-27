@@ -383,13 +383,14 @@ func GetDefenderScore(ip string) (int, error) {
 	return Config.defender.GetScore(ip)
 }
 
-// AddDefenderEvent adds the specified defender event for the given IP
-func AddDefenderEvent(ip, protocol string, event HostEvent) {
+// AddDefenderEvent adds the specified defender event for the given IP.
+// Returns true if the IP is in the defender's safe list.
+func AddDefenderEvent(ip, protocol string, event HostEvent) bool {
 	if Config.defender == nil {
-		return
+		return false
 	}
 
-	Config.defender.AddEvent(ip, protocol, event)
+	return Config.defender.AddEvent(ip, protocol, event)
 }
 
 func startPeriodicChecks(duration time.Duration, isShared int) {
@@ -1191,9 +1192,12 @@ func (conns *ActiveConnections) IsNewConnectionAllowed(ipAddr, protocol string) 
 
 	if Config.MaxPerHostConnections > 0 {
 		if total := conns.clients.getTotalFrom(ipAddr); total > Config.MaxPerHostConnections {
-			logger.Info(logSender, "", "active connections from %s %d/%d", ipAddr, total, Config.MaxPerHostConnections)
-			AddDefenderEvent(ipAddr, protocol, HostEventLimitExceeded)
-			return ErrConnectionDenied
+			if !AddDefenderEvent(ipAddr, protocol, HostEventLimitExceeded) {
+				logger.Warn(logSender, "", "connection denied, active connections from IP %q: %d/%d",
+					ipAddr, total, Config.MaxPerHostConnections)
+				return ErrConnectionDenied
+			}
+			logger.Info(logSender, "", "active connections from safe IP %q: %d", ipAddr, total)
 		}
 	}
 

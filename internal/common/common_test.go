@@ -668,9 +668,26 @@ func TestConnectionRoles(t *testing.T) {
 }
 
 func TestMaxConnectionPerHost(t *testing.T) {
-	oldValue := Config.MaxPerHostConnections
+	defender, err := newInMemoryDefender(&DefenderConfig{
+		Enabled:            true,
+		Driver:             DefenderDriverMemory,
+		BanTime:            30,
+		BanTimeIncrement:   50,
+		Threshold:          15,
+		ScoreInvalid:       2,
+		ScoreValid:         1,
+		ScoreLimitExceeded: 3,
+		ObservationTime:    30,
+		EntriesSoftLimit:   100,
+		EntriesHardLimit:   150,
+	})
+	require.NoError(t, err)
+
+	oldMaxPerHostConn := Config.MaxPerHostConnections
+	oldDefender := Config.defender
 
 	Config.MaxPerHostConnections = 2
+	Config.defender = defender
 
 	ipAddr := "192.168.9.9"
 	Connections.AddClientConnection(ipAddr)
@@ -682,14 +699,30 @@ func TestMaxConnectionPerHost(t *testing.T) {
 	Connections.AddClientConnection(ipAddr)
 	assert.Error(t, Connections.IsNewConnectionAllowed(ipAddr, ProtocolFTP))
 	assert.Equal(t, int32(3), Connections.GetClientConnections())
+	// Add the IP to the defender safe list
+	entry := dataprovider.IPListEntry{
+		IPOrNet: ipAddr,
+		Type:    dataprovider.IPListTypeDefender,
+		Mode:    dataprovider.ListModeAllow,
+	}
+	err = dataprovider.AddIPListEntry(&entry, "", "", "")
+	assert.NoError(t, err)
 
+	Connections.AddClientConnection(ipAddr)
+	assert.NoError(t, Connections.IsNewConnectionAllowed(ipAddr, ProtocolSSH))
+
+	err = dataprovider.DeleteIPListEntry(entry.IPOrNet, dataprovider.IPListTypeDefender, "", "", "")
+	assert.NoError(t, err)
+
+	Connections.RemoveClientConnection(ipAddr)
 	Connections.RemoveClientConnection(ipAddr)
 	Connections.RemoveClientConnection(ipAddr)
 	Connections.RemoveClientConnection(ipAddr)
 
 	assert.Equal(t, int32(0), Connections.GetClientConnections())
 
-	Config.MaxPerHostConnections = oldValue
+	Config.MaxPerHostConnections = oldMaxPerHostConn
+	Config.defender = oldDefender
 }
 
 func TestIdleConnections(t *testing.T) {

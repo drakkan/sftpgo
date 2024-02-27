@@ -88,17 +88,18 @@ func (d *dbDefender) DeleteHost(ip string) bool {
 }
 
 // AddEvent adds an event for the given IP.
-// This method must be called for clients not yet banned
-func (d *dbDefender) AddEvent(ip, protocol string, event HostEvent) {
+// This method must be called for clients not yet banned.
+// Returns true if the IP is in the defender's safe list.
+func (d *dbDefender) AddEvent(ip, protocol string, event HostEvent) bool {
 	if d.IsSafe(ip, protocol) {
-		return
+		return true
 	}
 
 	score := d.baseDefender.getScore(event)
 
 	host, err := dataprovider.AddDefenderEvent(ip, score, d.getStartObservationTime())
 	if err != nil {
-		return
+		return false
 	}
 	d.baseDefender.logEvent(ip, protocol, event, host.Score)
 	if host.Score > d.config.Threshold {
@@ -118,6 +119,7 @@ func (d *dbDefender) AddEvent(ip, protocol string, event HostEvent) {
 	if err == nil {
 		d.cleanup()
 	}
+	return false
 }
 
 // GetBanTime returns the ban time for the given IP or nil if the IP is not banned

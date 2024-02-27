@@ -1220,25 +1220,13 @@ func (s *httpdServer) redirectToWebPath(w http.ResponseWriter, r *http.Request, 
 // The StripSlashes causes infinite redirects at the root path if used with http.FileServer.
 // We also don't strip paths with more than one trailing slash, see #1434
 func (s *httpdServer) mustStripSlash(r *http.Request) bool {
-	var urlPath string
-	rctx := chi.RouteContext(r.Context())
-	if rctx != nil && rctx.RoutePath != "" {
-		urlPath = rctx.RoutePath
-	} else {
-		urlPath = r.URL.Path
-	}
+	urlPath := getURLPath(r)
 	return !strings.HasSuffix(urlPath, "//") && !strings.HasPrefix(urlPath, webOpenAPIPath) &&
 		!strings.HasPrefix(urlPath, webStaticFilesPath) && !strings.HasPrefix(urlPath, acmeChallengeURI)
 }
 
 func (s *httpdServer) mustCheckPath(r *http.Request) bool {
-	var urlPath string
-	rctx := chi.RouteContext(r.Context())
-	if rctx != nil && rctx.RoutePath != "" {
-		urlPath = rctx.RoutePath
-	} else {
-		urlPath = r.URL.Path
-	}
+	urlPath := getURLPath(r)
 	return !strings.HasPrefix(urlPath, webStaticFilesPath) && !strings.HasPrefix(urlPath, acmeChallengeURI)
 }
 

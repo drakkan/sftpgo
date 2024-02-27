@@ -146,6 +146,14 @@ func getURLParam(r *http.Request, key string) string {
 	return unescaped
 }
 
+func getURLPath(r *http.Request) string {
+	rctx := chi.RouteContext(r.Context())
+	if rctx != nil && rctx.RoutePath != "" {
+		return rctx.RoutePath
+	}
+	return r.URL.Path
+}
+
 func getCommaSeparatedQueryParam(r *http.Request, key string) []string {
 	var result []string
 
