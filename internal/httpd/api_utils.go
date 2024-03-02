@@ -850,13 +850,11 @@ func handleResetPassword(r *http.Request, code, newPassword, confirmPassword str
 	if err != nil {
 		return &admin, &user, util.NewValidationError("Unable to associate the confirmation code with an existing user")
 	}
-	if err == nil {
-		if !isUserAllowedToResetPassword(r, &user) {
-			return &admin, &user, util.NewI18nError(
-				util.NewValidationError("you are not allowed to reset your password"),
-				util.I18nErrorPwdResetForbidded,
-			)
-		}
+	if !isUserAllowedToResetPassword(r, &user) {
+		return &admin, &user, util.NewI18nError(
+			util.NewValidationError("you are not allowed to reset your password"),
+			util.I18nErrorPwdResetForbidded,
+		)
 	}
 	err = dataprovider.UpdateUserPassword(user.Username, newPassword, dataprovider.ActionExecutorSelf,
 		util.GetIPFromRemoteAddress(r.RemoteAddr), user.Role)

@@ -470,7 +470,7 @@ func (a *Admin) CheckPassword(password string) (bool, error) {
 	if !match || err != nil {
 		return false, ErrInvalidCredentials
 	}
-	if match && err == nil {
+	if match {
 		cachedAdminPasswords.Add(a.Username, password, a.Password)
 	}
 	return match, err
