@@ -58,6 +58,22 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </div>
             </div>
 
+            <div class="form-group row action-type action-user-inactivity mt-10">
+                <label for="idInactivityThresholdDisable" data-i18n="actions.disable_threshold" class="col-md-3 col-form-label">Disable Threshold</label>
+                <div class="col-md-9">
+                    <input id="idInactivityThresholdDisable" type="number" min="0" class="form-control" name="inactivity_disable_threshold" value="{{.Action.Options.UserInactivityConfig.DisableThreshold}}" aria-describedby="idInactivityThresholdDisableHelp" />
+                    <div id="idInactivityThresholdDisableHelp" class="form-text" data-i18n="actions.disable_threshold_help"></div>
+                </div>
+            </div>
+
+            <div class="form-group row action-type action-user-inactivity mt-10">
+                <label for="idInactivityThresholdDelete" data-i18n="actions.delete_threshold" class="col-md-3 col-form-label">Delete Threshold</label>
+                <div class="col-md-9">
+                    <input id="idInactivityThresholdDelete" type="number" min="0" class="form-control" name="inactivity_delete_threshold" value="{{.Action.Options.UserInactivityConfig.DeleteThreshold}}" aria-describedby="idInactivityThresholdDeleteHelp" />
+                    <div id="idInactivityThresholdDeleteHelp" class="form-text" data-i18n="actions.delete_threshold_help"></div>
+                </div>
+            </div>
+
             <div class="form-group action-type action-idp row mt-10">
                 <label for="idIDPMode" data-i18n="general.mode" class="col-md-3 col-form-label">Mode</label>
                 <div class="col-md-9">
@@ -975,6 +991,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 break;
             case '13':
                 $('.action-idp').show();
+                break;
+            case '14':
+                $('.action-user-inactivity').show();
                 break;
         }
     }

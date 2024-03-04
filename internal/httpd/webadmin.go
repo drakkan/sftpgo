@@ -2312,6 +2312,13 @@ func getEventActionOptionsFromPostFields(r *http.Request) (dataprovider.BaseEven
 	if err != nil {
 		return dataprovider.BaseEventActionOptions{}, fmt.Errorf("invalid password expiration threshold: %w", err)
 	}
+	var disableThreshold, deleteThreshold int
+	if val, err := strconv.Atoi(r.Form.Get("inactivity_disable_threshold")); err == nil {
+		disableThreshold = val
+	}
+	if val, err := strconv.Atoi(r.Form.Get("inactivity_delete_threshold")); err == nil {
+		deleteThreshold = val
+	}
 	var emailAttachments []string
 	if r.Form.Get("email_attachments") != "" {
 		emailAttachments = getSliceFromDelimitedValues(r.Form.Get("email_attachments"), ",")
@@ -2372,6 +2379,10 @@ func getEventActionOptionsFromPostFields(r *http.Request) (dataprovider.BaseEven
 		},
 		PwdExpirationConfig: dataprovider.EventActionPasswordExpiration{
 			Threshold: pwdExpirationThreshold,
+		},
+		UserInactivityConfig: dataprovider.EventActionUserInactivity{
+			DisableThreshold: disableThreshold,
+			DeleteThreshold:  deleteThreshold,
 		},
 		IDPConfig: dataprovider.EventActionIDPAccountCheck{
 			Mode:          idpMode,

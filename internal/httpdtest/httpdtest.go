@@ -1600,6 +1600,12 @@ func checkEventAction(expected, actual dataprovider.BaseEventAction) error {
 	if expected.Options.PwdExpirationConfig.Threshold != actual.Options.PwdExpirationConfig.Threshold {
 		return errors.New("password expiration threshold mismatch")
 	}
+	if expected.Options.UserInactivityConfig.DisableThreshold != actual.Options.UserInactivityConfig.DisableThreshold {
+		return errors.New("user inactivity disable threshold mismatch")
+	}
+	if expected.Options.UserInactivityConfig.DeleteThreshold != actual.Options.UserInactivityConfig.DeleteThreshold {
+		return errors.New("user inactivity delete threshold mismatch")
+	}
 	if err := compareEventActionIDPConfigFields(expected.Options.IDPConfig, actual.Options.IDPConfig); err != nil {
 		return err
 	}

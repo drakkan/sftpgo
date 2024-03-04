@@ -48,13 +48,14 @@ const (
 	ActionTypePasswordExpirationCheck
 	ActionTypeUserExpirationCheck
 	ActionTypeIDPAccountCheck
+	ActionTypeUserInactivityCheck
 )
 
 var (
 	supportedEventActions = []int{ActionTypeHTTP, ActionTypeCommand, ActionTypeEmail, ActionTypeFilesystem,
 		ActionTypeBackup, ActionTypeUserQuotaReset, ActionTypeFolderQuotaReset, ActionTypeTransferQuotaReset,
 		ActionTypeDataRetentionCheck, ActionTypePasswordExpirationCheck,
-		ActionTypeUserExpirationCheck, ActionTypeIDPAccountCheck}
+		ActionTypeUserExpirationCheck, ActionTypeUserInactivityCheck, ActionTypeIDPAccountCheck}
 )
 
 func isActionTypeValid(action int) bool {
@@ -83,6 +84,8 @@ func getActionTypeAsString(action int) string {
 		return util.I18nActionTypePwdExpirationCheck
 	case ActionTypeUserExpirationCheck:
 		return util.I18nActionTypeUserExpirationCheck
+	case ActionTypeUserInactivityCheck:
+		return util.I18nActionTypeUserInactivityCheck
 	case ActionTypeIDPAccountCheck:
 		return util.I18nActionTypeIDPCheck
 	default:
@@ -915,6 +918,38 @@ func (c *EventActionPasswordExpiration) validate() error {
 	return nil
 }
 
+// EventActionUserInactivity defines the configuration for user inactivity checks.
+type EventActionUserInactivity struct {
+	// DisableThreshold defines inactivity in days, since the last login before disabling the account
+	DisableThreshold int `json:"disable_threshold,omitempty"`
+	// DeleteThreshold defines inactivity in days, since the last login before deleting the account
+	DeleteThreshold int `json:"delete_threshold,omitempty"`
+}
+
+func (c *EventActionUserInactivity) validate() error {
+	if c.DeleteThreshold < 0 {
+		c.DeleteThreshold = 0
+	}
+	if c.DisableThreshold < 0 {
+		c.DisableThreshold = 0
+	}
+	if c.DisableThreshold == 0 && c.DeleteThreshold == 0 {
+		return util.NewI18nError(
+			util.NewValidationError("at least a threshold must be defined"),
+			util.I18nActionThresholdRequired,
+		)
+	}
+	if c.DeleteThreshold > 0 && c.DisableThreshold > 0 {
+		if c.DeleteThreshold <= c.DisableThreshold {
+			return util.NewI18nError(
+				util.NewValidationError(fmt.Sprintf("deletion threshold %d must be greater than deactivation threshold: %d", c.DeleteThreshold, c.DisableThreshold)),
+				util.I18nActionThresholdsInvalid,
+			)
+		}
+	}
+	return nil
+}
+
 // EventActionIDPAccountCheck defines the check to execute after a successful IDP login
 type EventActionIDPAccountCheck struct {
 	// 0 create/update, 1 create the account if it doesn't exist
@@ -938,13 +973,14 @@ func (c *EventActionIDPAccountCheck) validate() error {
 
 // BaseEventActionOptions defines the supported configuration options for a base event actions
 type BaseEventActionOptions struct {
-	HTTPConfig          EventActionHTTPConfig          `json:"http_config"`
-	CmdConfig           EventActionCommandConfig       `json:"cmd_config"`
-	EmailConfig         EventActionEmailConfig         `json:"email_config"`
-	RetentionConfig     EventActionDataRetentionConfig `json:"retention_config"`
-	FsConfig            EventActionFilesystemConfig    `json:"fs_config"`
-	PwdExpirationConfig EventActionPasswordExpiration  `json:"pwd_expiration_config"`
-	IDPConfig           EventActionIDPAccountCheck     `json:"idp_config"`
+	HTTPConfig           EventActionHTTPConfig          `json:"http_config"`
+	CmdConfig            EventActionCommandConfig       `json:"cmd_config"`
+	EmailConfig          EventActionEmailConfig         `json:"email_config"`
+	RetentionConfig      EventActionDataRetentionConfig `json:"retention_config"`
+	FsConfig             EventActionFilesystemConfig    `json:"fs_config"`
+	PwdExpirationConfig  EventActionPasswordExpiration  `json:"pwd_expiration_config"`
+	UserInactivityConfig EventActionUserInactivity      `json:"user_inactivity_config"`
+	IDPConfig            EventActionIDPAccountCheck     `json:"idp_config"`
 }
 
 func (o *BaseEventActionOptions) getACopy() BaseEventActionOptions {
@@ -1009,6 +1045,10 @@ func (o *BaseEventActionOptions) getACopy() BaseEventActionOptions {
 		PwdExpirationConfig: EventActionPasswordExpiration{
 			Threshold: o.PwdExpirationConfig.Threshold,
 		},
+		UserInactivityConfig: EventActionUserInactivity{
+			DisableThreshold: o.UserInactivityConfig.DisableThreshold,
+			DeleteThreshold:  o.UserInactivityConfig.DeleteThreshold,
+		},
 		IDPConfig: EventActionIDPAccountCheck{
 			Mode:          o.IDPConfig.Mode,
 			TemplateUser:  o.IDPConfig.TemplateUser,
@@ -1047,6 +1087,7 @@ func (o *BaseEventActionOptions) validate(action int, name string) error {
 		o.FsConfig = EventActionFilesystemConfig{}
 		o.PwdExpirationConfig = EventActionPasswordExpiration{}
 		o.IDPConfig = EventActionIDPAccountCheck{}
+		o.UserInactivityConfig = EventActionUserInactivity{}
 		return o.HTTPConfig.validate(name)
 	case ActionTypeCommand:
 		o.HTTPConfig = EventActionHTTPConfig{}
@@ -1055,6 +1096,7 @@ func (o *BaseEventActionOptions) validate(action int, name string) error {
 		o.FsConfig = EventActionFilesystemConfig{}
 		o.PwdExpirationConfig = EventActionPasswordExpiration{}
 		o.IDPConfig = EventActionIDPAccountCheck{}
+		o.UserInactivityConfig = EventActionUserInactivity{}
 		return o.CmdConfig.validate()
 	case ActionTypeEmail:
 		o.HTTPConfig = EventActionHTTPConfig{}
@@ -1063,6 +1105,7 @@ func (o *BaseEventActionOptions) validate(action int, name string) error {
 		o.FsConfig = EventActionFilesystemConfig{}
 		o.PwdExpirationConfig = EventActionPasswordExpiration{}
 		o.IDPConfig = EventActionIDPAccountCheck{}
+		o.UserInactivityConfig = EventActionUserInactivity{}
 		return o.EmailConfig.validate()
 	case ActionTypeDataRetentionCheck:
 		o.HTTPConfig = EventActionHTTPConfig{}
@@ -1071,6 +1114,7 @@ func (o *BaseEventActionOptions) validate(action int, name string) error {
 		o.FsConfig = EventActionFilesystemConfig{}
 		o.PwdExpirationConfig = EventActionPasswordExpiration{}
 		o.IDPConfig = EventActionIDPAccountCheck{}
+		o.UserInactivityConfig = EventActionUserInactivity{}
 		return o.RetentionConfig.validate()
 	case ActionTypeFilesystem:
 		o.HTTPConfig = EventActionHTTPConfig{}
@@ -1079,6 +1123,7 @@ func (o *BaseEventActionOptions) validate(action int, name string) error {
 		o.RetentionConfig = EventActionDataRetentionConfig{}
 		o.PwdExpirationConfig = EventActionPasswordExpiration{}
 		o.IDPConfig = EventActionIDPAccountCheck{}
+		o.UserInactivityConfig = EventActionUserInactivity{}
 		return o.FsConfig.validate()
 	case ActionTypePasswordExpirationCheck:
 		o.HTTPConfig = EventActionHTTPConfig{}
@@ -1087,7 +1132,17 @@ func (o *BaseEventActionOptions) validate(action int, name string) error {
 		o.RetentionConfig = EventActionDataRetentionConfig{}
 		o.FsConfig = EventActionFilesystemConfig{}
 		o.IDPConfig = EventActionIDPAccountCheck{}
+		o.UserInactivityConfig = EventActionUserInactivity{}
 		return o.PwdExpirationConfig.validate()
+	case ActionTypeUserInactivityCheck:
+		o.HTTPConfig = EventActionHTTPConfig{}
+		o.CmdConfig = EventActionCommandConfig{}
+		o.EmailConfig = EventActionEmailConfig{}
+		o.RetentionConfig = EventActionDataRetentionConfig{}
+		o.FsConfig = EventActionFilesystemConfig{}
+		o.IDPConfig = EventActionIDPAccountCheck{}
+		o.PwdExpirationConfig = EventActionPasswordExpiration{}
+		return o.UserInactivityConfig.validate()
 	case ActionTypeIDPAccountCheck:
 		o.HTTPConfig = EventActionHTTPConfig{}
 		o.CmdConfig = EventActionCommandConfig{}
@@ -1095,6 +1150,7 @@ func (o *BaseEventActionOptions) validate(action int, name string) error {
 		o.RetentionConfig = EventActionDataRetentionConfig{}
 		o.FsConfig = EventActionFilesystemConfig{}
 		o.PwdExpirationConfig = EventActionPasswordExpiration{}
+		o.UserInactivityConfig = EventActionUserInactivity{}
 		return o.IDPConfig.validate()
 	default:
 		o.HTTPConfig = EventActionHTTPConfig{}
@@ -1104,6 +1160,7 @@ func (o *BaseEventActionOptions) validate(action int, name string) error {
 		o.FsConfig = EventActionFilesystemConfig{}
 		o.PwdExpirationConfig = EventActionPasswordExpiration{}
 		o.IDPConfig = EventActionIDPAccountCheck{}
+		o.UserInactivityConfig = EventActionUserInactivity{}
 	}
 	return nil
 }

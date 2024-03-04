@@ -1827,6 +1827,16 @@ func TestBasicActionRulesHandling(t *testing.T) {
 	_, _, err = httpdtest.UpdateEventAction(a, http.StatusOK)
 	assert.NoError(t, err)
 
+	a.Type = dataprovider.ActionTypeUserInactivityCheck
+	a.Options = dataprovider.BaseEventActionOptions{
+		UserInactivityConfig: dataprovider.EventActionUserInactivity{
+			DisableThreshold: 10,
+			DeleteThreshold:  20,
+		},
+	}
+	_, _, err = httpdtest.UpdateEventAction(a, http.StatusOK)
+	assert.NoError(t, err)
+
 	a.Type = dataprovider.ActionTypeHTTP
 	a.Options = dataprovider.BaseEventActionOptions{
 		HTTPConfig: dataprovider.EventActionHTTPConfig{
@@ -2501,6 +2511,25 @@ func TestEventActionValidation(t *testing.T) {
 	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
 	assert.NoError(t, err)
 	assert.Contains(t, string(resp), "invalid account check mode")
+	action.Type = dataprovider.ActionTypeUserInactivityCheck
+	action.Options = dataprovider.BaseEventActionOptions{
+		UserInactivityConfig: dataprovider.EventActionUserInactivity{
+			DisableThreshold: 0,
+			DeleteThreshold:  0,
+		},
+	}
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "at least a threshold must be defined")
+	action.Options = dataprovider.BaseEventActionOptions{
+		UserInactivityConfig: dataprovider.EventActionUserInactivity{
+			DisableThreshold: 10,
+			DeleteThreshold:  10,
+		},
+	}
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "must be greater than deactivation threshold")
 }
 
 func TestEventRuleValidation(t *testing.T) {
@@ -23136,6 +23165,28 @@ func TestWebEventAction(t *testing.T) {
 	assert.Equal(t, action.Options.PwdExpirationConfig.Threshold, actionGet.Options.PwdExpirationConfig.Threshold)
 	assert.Equal(t, 0, actionGet.Options.CmdConfig.Timeout)
 	assert.Len(t, actionGet.Options.CmdConfig.EnvVars, 0)
+
+	action.Type = dataprovider.ActionTypeUserInactivityCheck
+	action.Options.UserInactivityConfig = dataprovider.EventActionUserInactivity{
+		DisableThreshold: 10,
+		DeleteThreshold:  15,
+	}
+	form.Set("type", fmt.Sprintf("%d", action.Type))
+	form.Set("inactivity_disable_threshold", strconv.Itoa(action.Options.UserInactivityConfig.DisableThreshold))
+	form.Set("inactivity_delete_threshold", strconv.Itoa(action.Options.UserInactivityConfig.DeleteThreshold))
+	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminEventActionPath, action.Name),
+		bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+	actionGet, _, err = httpdtest.GetEventActionByName(action.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, action.Type, actionGet.Type)
+	assert.Equal(t, 0, actionGet.Options.PwdExpirationConfig.Threshold)
+	assert.Equal(t, action.Options.UserInactivityConfig.DisableThreshold, actionGet.Options.UserInactivityConfig.DisableThreshold)
+	assert.Equal(t, action.Options.UserInactivityConfig.DeleteThreshold, actionGet.Options.UserInactivityConfig.DeleteThreshold)
 
 	action.Type = dataprovider.ActionTypeIDPAccountCheck
 	form.Set("type", fmt.Sprintf("%d", action.Type))

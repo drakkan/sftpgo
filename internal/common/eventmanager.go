@@ -2354,6 +2354,65 @@ func executeUserExpirationCheckRuleAction(conditions dataprovider.ConditionOptio
 	return nil
 }
 
+func executeInactivityCheckForUser(user *dataprovider.User, config dataprovider.EventActionUserInactivity, when time.Time) error {
+	if config.DeleteThreshold > 0 && (user.Status == 0 || config.DisableThreshold == 0) {
+		if inactivityDays := user.InactivityDays(when); inactivityDays > config.DeleteThreshold {
+			err := dataprovider.DeleteUser(user.Username, dataprovider.ActionExecutorSystem, "", "")
+			eventManagerLog(logger.LevelInfo, "deleting inactive user %q, days of inactivity: %d/%d, err: %v",
+				user.Username, inactivityDays, config.DeleteThreshold, err)
+			if err != nil {
+				return fmt.Errorf("unable to delete inactive user %q", user.Username)
+			}
+			return fmt.Errorf("inactive user %q deleted. Number of days of inactivity: %d", user.Username, inactivityDays)
+		}
+	}
+	if config.DisableThreshold > 0 && user.Status > 0 {
+		if inactivityDays := user.InactivityDays(when); inactivityDays > config.DisableThreshold {
+			user.Status = 0
+			err := dataprovider.UpdateUser(user, dataprovider.ActionExecutorSystem, "", "")
+			eventManagerLog(logger.LevelInfo, "disabling inactive user %q, days of inactivity: %d/%d, err: %v",
+				user.Username, inactivityDays, config.DisableThreshold, err)
+			if err != nil {
+				return fmt.Errorf("unable to disable inactive user %q", user.Username)
+			}
+			return fmt.Errorf("inactive user %q disabled. Number of days of inactivity: %d", user.Username, inactivityDays)
+		}
+	}
+
+	return nil
+}
+
+func executeUserInactivityCheckRuleAction(config dataprovider.EventActionUserInactivity,
+	conditions dataprovider.ConditionOptions,
+	params *EventParams,
+	when time.Time,
+) error {
+	users, err := params.getUsers()
+	if err != nil {
+		return fmt.Errorf("unable to get users: %w", err)
+	}
+	var failures []string
+	for _, user := range users {
+		// if sender is set, the conditions have already been evaluated
+		if params.sender == "" {
+			if !checkUserConditionOptions(&user, &conditions) {
+				eventManagerLog(logger.LevelDebug, "skipping inactivity check for user %q, condition options don't match",
+					user.Username)
+				continue
+			}
+		}
+		if err = executeInactivityCheckForUser(&user, config, when); err != nil {
+			params.AddError(err)
+			failures = append(failures, user.Username)
+		}
+	}
+	if len(failures) > 0 {
+		return fmt.Errorf("executed inactivity check actions for users: %s", strings.Join(failures, ", "))
+	}
+
+	return nil
+}
+
 func executePwdExpirationCheckForUser(user *dataprovider.User, config dataprovider.EventActionPasswordExpiration) error {
 	if err := user.LoadAndApplyGroupSettings(); err != nil {
 		eventManagerLog(logger.LevelError, "skipping password expiration check for user %q, cannot apply group settings: %v",
@@ -2523,6 +2582,8 @@ func executeRuleAction(action dataprovider.BaseEventAction, params *EventParams,
 		err = executePwdExpirationCheckRuleAction(action.Options.PwdExpirationConfig, conditions, params)
 	case dataprovider.ActionTypeUserExpirationCheck:
 		err = executeUserExpirationCheckRuleAction(conditions, params)
+	case dataprovider.ActionTypeUserInactivityCheck:
+		err = executeUserInactivityCheckRuleAction(action.Options.UserInactivityConfig, conditions, params, time.Now())
 	default:
 		err = fmt.Errorf("unsupported action type: %d", action.Type)
 	}

@@ -1130,6 +1130,22 @@ func (u *User) CanCopyFromWeb(src, dest string) bool {
 	return u.HasPerm(PermCopy, src) && u.HasPerm(PermCopy, dest)
 }
 
+// InactivityDays returns the number of days of inactivity
+func (u *User) InactivityDays(when time.Time) int {
+	if when.IsZero() {
+		when = time.Now()
+	}
+	lastActivity := u.LastLogin
+	if lastActivity == 0 {
+		lastActivity = u.CreatedAt
+	}
+	if lastActivity == 0 {
+		// unable to determine inactivity
+		return 0
+	}
+	return int(float64(when.Sub(util.GetTimeFromMsecSinceEpoch(lastActivity))) / float64(24*time.Hour))
+}
+
 // PasswordExpiresIn returns the number of days before the password expires.
 // The returned value is negative if the password is expired.
 // The caller must ensure that a PasswordExpiration is set

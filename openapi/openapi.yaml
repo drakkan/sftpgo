@@ -5004,10 +5004,10 @@ components:
         - 7
         - 8
         - 9
-        - 10
         - 11
         - 12
         - 13
+        - 14
       description: |
         Supported event action types:
           * `1` - HTTP
@@ -5022,6 +5022,7 @@ components:
           * `11` - Password expiration check
           * `12` - User expiration check
           * `13` - Identity Provider account check
+          * `14` - User inactivity check
     FilesystemActionTypes:
       type: integer
       enum:
@@ -7087,6 +7088,15 @@ components:
         threshold:
           type: integer
           description: 'An email notification will be generated for users whose password expires in a number of days less than or equal to this threshold'
+    EventActionUserInactivity:
+      type: object
+      properties:
+        disable_threshold:
+          type: integer
+          description: 'Inactivity threshold, in days, before disabling the account'
+        delete_threshold:
+          type: integer
+          description: 'Inactivity threshold, in days, before deleting the account'
     EventActionIDPAccountCheck:
       type: object
       properties:
@@ -7120,6 +7130,8 @@ components:
           $ref: '#/components/schemas/EventActionFilesystemConfig'
         pwd_expiration_config:
           $ref: '#/components/schemas/EventActionPasswordExpiration'
+        user_inactivity_config:
+          $ref: '#/components/schemas/EventActionUserInactivity'
         idp_config:
           $ref: '#/components/schemas/EventActionIDPAccountCheck'
     BaseEventAction:

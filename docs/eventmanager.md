@@ -14,6 +14,7 @@ The following actions are supported:
 - `Data retention check`. You can define per-folder retention policies.
 - `Password expiration check`. You can send an email notification to users whose password is about to expire.
 - `User expiration check`. You can receive notifications with expired users.
+- `User inactivity check`. Allow to disable or delete inactive users.
 - `Identity Provider account check`. You can create/update accounts for users/admins logging in using an Identity Provider.
 - `Filesystem`. For these actions, the required permissions are automatically granted. This is the same as executing the actions from an SFTP client and the same restrictions applies. Supported actions:
   - `Rename`. You can rename one or more files or directories.
