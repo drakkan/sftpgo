@@ -5544,6 +5544,9 @@ components:
           minLength: 1
         access_key:
           type: string
+        session_token:
+          type: string
+          description: 'Optional Session token that is a part of temporary security credentials provisioned by AWS STS. Leave empty to use standard IAM credentials. For more information about temporary credentials, see here: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp.html'
         access_secret:
           $ref: '#/components/schemas/Secret'
         role_arn:
