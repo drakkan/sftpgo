@@ -113,7 +113,7 @@ func NewS3Fs(connectionID, localTempDir, mountPath string, s3Config S3FsConfig) 
 			return fs, err
 		}
 		awsConfig.Credentials = aws.NewCredentialsCache(
-			credentials.NewStaticCredentialsProvider(fs.config.AccessKey, fs.config.AccessSecret.GetPayload(), ""))
+			credentials.NewStaticCredentialsProvider(fs.config.AccessKey, fs.config.AccessSecret.GetPayload(), fs.config.SessionToken))
 	}
 
 	fs.setConfigDefaults()

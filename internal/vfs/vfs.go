@@ -266,6 +266,7 @@ func (q *QuotaCheckResult) GetRemainingFiles() int {
 type S3FsConfig struct {
 	sdk.BaseS3FsConfig
 	AccessSecret *kms.Secret `json:"access_secret,omitempty"`
+	SessionToken string      `json:"session_token,omitempty"`
 }
 
 // HideConfidentialData hides confidential data
