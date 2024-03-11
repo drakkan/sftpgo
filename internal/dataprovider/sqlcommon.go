@@ -3247,6 +3247,9 @@ func sqlCommonGetSession(key string, dbHandle sqlQuerier) (Session, error) {
 	var data []byte // type hint, some driver will use string instead of []byte if the type is any
 	err := dbHandle.QueryRowContext(ctx, q, key).Scan(&session.Key, &data, &session.Type, &session.Timestamp)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return session, util.NewRecordNotFoundError(err.Error())
+		}
 		return session, err
 	}
 	session.Data = data

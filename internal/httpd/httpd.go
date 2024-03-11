@@ -177,6 +177,7 @@ const (
 	webClientViewPDFPathDefault           = "/web/client/viewpdf"
 	webClientGetPDFPathDefault            = "/web/client/getpdf"
 	webClientExistPathDefault             = "/web/client/exist"
+	webClientTasksPathDefault             = "/web/client/tasks"
 	webStaticFilesPathDefault             = "/static"
 	webOpenAPIPathDefault                 = "/openapi"
 	// MaxRestoreSize defines the max size for the loaddata input file
@@ -278,6 +279,7 @@ var (
 	webClientViewPDFPath           string
 	webClientGetPDFPath            string
 	webClientExistPath             string
+	webClientTasksPath             string
 	webStaticFilesPath             string
 	webOpenAPIPath                 string
 	// max upload size for http clients, 1GB by default
@@ -936,6 +938,7 @@ func (c *Conf) Initialize(configDir string, isShared int) error {
 	resetCodesMgr = newResetCodeManager(isShared)
 	oidcMgr = newOIDCManager(isShared)
 	oauth2Mgr = newOAuth2Manager(isShared)
+	webTaskMgr = newWebTaskManager(isShared)
 	staticFilesPath := util.FindSharedDataPath(c.StaticFilesPath, configDir)
 	templatesPath := util.FindSharedDataPath(c.TemplatesPath, configDir)
 	openAPIPath := util.FindSharedDataPath(c.OpenAPIPath, configDir)
@@ -1108,6 +1111,7 @@ func updateWebClientURLs(baseURL string) {
 	webClientViewPDFPath = path.Join(baseURL, webClientViewPDFPathDefault)
 	webClientGetPDFPath = path.Join(baseURL, webClientGetPDFPathDefault)
 	webClientExistPath = path.Join(baseURL, webClientExistPathDefault)
+	webClientTasksPath = path.Join(baseURL, webClientTasksPathDefault)
 	webStaticFilesPath = path.Join(baseURL, webStaticFilesPathDefault)
 	webOpenAPIPath = path.Join(baseURL, webOpenAPIPathDefault)
 }
@@ -1196,6 +1200,7 @@ func startCleanupTicker(duration time.Duration) {
 				counter++
 				invalidatedJWTTokens.Cleanup()
 				resetCodesMgr.Cleanup()
+				webTaskMgr.Cleanup()
 				if counter%2 == 0 {
 					oidcMgr.cleanup()
 					oauth2Mgr.cleanup()

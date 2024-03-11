@@ -19,7 +19,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -286,6 +285,7 @@ RKjnkiEZeG4+G91Xu7+HmcBLwV86k5I+tXK9O1Okomr6Zry8oqVcxU5TB6VRS+rA
 ubwF00Drdvk2+kDZfxIM137nBiy7wgCJi2Ksm5ihN3dUF6Q0oNPl
 -----END RSA PRIVATE KEY-----`
 	defaultAdminUsername = "admin"
+	defeaultUsername     = "test_user"
 )
 
 var (
@@ -518,6 +518,11 @@ func TestInvalidToken(t *testing.T) {
 
 	rr = httptest.NewRecorder()
 	updateUserProfile(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	getWebTask(rr, req)
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
 
@@ -3167,7 +3172,7 @@ func TestDbResetCodeManager(t *testing.T) {
 		assert.ErrorIs(t, err, util.ErrNotFound)
 	}
 	_, err = mgr.Get(resetCode.Code)
-	assert.ErrorIs(t, err, sql.ErrNoRows)
+	assert.ErrorIs(t, err, util.ErrNotFound)
 	// add an expired reset code
 	resetCode = newResetCode("user", false)
 	resetCode.ExpiresAt = time.Now().Add(-24 * time.Hour)
@@ -3179,7 +3184,7 @@ func TestDbResetCodeManager(t *testing.T) {
 	}
 	mgr.Cleanup()
 	_, err = mgr.Get(resetCode.Code)
-	assert.ErrorIs(t, err, sql.ErrNoRows)
+	assert.ErrorIs(t, err, util.ErrNotFound)
 
 	dbMgr, ok := mgr.(*dbResetCodeManager)
 	if assert.True(t, ok) {

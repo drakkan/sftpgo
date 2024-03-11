@@ -1583,6 +1583,8 @@ func (s *httpdServer) setupWebClientRoutes() {
 			router.With(s.checkAuthRequirements, s.refreshCookie).Get(webClientViewPDFPath, s.handleClientViewPDF)
 			router.With(s.checkAuthRequirements, s.refreshCookie).Get(webClientGetPDFPath, s.handleClientGetPDF)
 			router.With(s.checkAuthRequirements, s.refreshCookie, verifyCSRFHeader).Get(webClientFilePath, getUserFile)
+			router.With(s.checkAuthRequirements, s.refreshCookie, verifyCSRFHeader).Get(webClientTasksPath+"/{id}",
+				getWebTask)
 			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
 				Post(webClientFilePath, uploadUserFile)
 			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
@@ -1595,11 +1597,11 @@ func (s *httpdServer) setupWebClientRoutes() {
 			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
 				Post(webClientDirsPath, createUserDir)
 			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
-				Delete(webClientDirsPath, deleteUserDir)
+				Delete(webClientDirsPath, taskDeleteDir)
 			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
-				Post(webClientFileActionsPath+"/move", renameUserFsEntry)
+				Post(webClientFileActionsPath+"/move", taskRenameFsEntry)
 			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
-				Post(webClientFileActionsPath+"/copy", copyUserFsEntry)
+				Post(webClientFileActionsPath+"/copy", taskCopyFsEntry)
 			router.With(s.checkAuthRequirements, s.refreshCookie).
 				Post(webClientDownloadZipPath, s.handleWebClientDownloadZip)
 			router.With(s.checkAuthRequirements, s.refreshCookie).Get(webClientPingPath, handlePingRequest)

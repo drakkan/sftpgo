@@ -129,6 +129,7 @@ type filesPage struct {
 	DownloadURL        string
 	ViewPDFURL         string
 	FileURL            string
+	TasksURL           string
 	CanAddFiles        bool
 	CanCreateDirs      bool
 	CanRename          bool
@@ -750,6 +751,7 @@ func (s *httpdServer) renderSharedFilesPage(w http.ResponseWriter, r *http.Reque
 		FileURL:            "",
 		FileActionsURL:     "",
 		CheckExistURL:      path.Join(baseSharePath, "browse", "exist"),
+		TasksURL:           "",
 		CanAddFiles:        share.Scope == dataprovider.ShareScopeReadWrite,
 		CanCreateDirs:      false,
 		CanRename:          false,
@@ -793,6 +795,7 @@ func (s *httpdServer) renderFilesPage(w http.ResponseWriter, r *http.Request, di
 		FileURL:            webClientFilePath,
 		FileActionsURL:     webClientFileActionsPath,
 		CheckExistURL:      webClientExistPath,
+		TasksURL:           webClientTasksPath,
 		CanAddFiles:        user.CanAddFilesFromWeb(dirName),
 		CanCreateDirs:      user.CanAddDirsFromWeb(dirName),
 		CanRename:          user.CanRenameFromWeb(dirName, dirName),
@@ -2014,4 +2017,205 @@ func checkShareRedirectURL(next, base string) (bool, string) {
 		return true, redirectURL.String()
 	}
 	return true, next
+}
+
+func getWebTask(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
+	taskID := getURLParam(r, "id")
+
+	task, err := webTaskMgr.Get(taskID)
+	if err != nil {
+		sendAPIResponse(w, r, err, "Unable to get task", getMappedStatusCode(err))
+		return
+	}
+	if task.User != claims.Username {
+		sendAPIResponse(w, r, nil, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+		return
+	}
+	render.JSON(w, r, task)
+}
+
+func taskDeleteDir(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	connection, err := getUserConnection(w, r)
+	if err != nil {
+		return
+	}
+
+	name := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
+	task := webTaskData{
+		ID:        connection.GetID(),
+		User:      connection.GetUsername(),
+		Path:      name,
+		Timestamp: util.GetTimeAsMsSinceEpoch(time.Now()),
+		Status:    0,
+	}
+	if err := webTaskMgr.Add(task); err != nil {
+		common.Connections.Remove(connection.GetID())
+		sendAPIResponse(w, r, nil, "Unable to create task", http.StatusInternalServerError)
+		return
+	}
+	go executeDeleteTask(connection, task)
+	sendAPIResponse(w, r, nil, task.ID, http.StatusAccepted)
+}
+
+func taskRenameFsEntry(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	connection, err := getUserConnection(w, r)
+	if err != nil {
+		return
+	}
+	oldName := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
+	newName := connection.User.GetCleanedPath(r.URL.Query().Get("target"))
+	task := webTaskData{
+		ID:        connection.GetID(),
+		User:      connection.GetUsername(),
+		Path:      oldName,
+		Target:    newName,
+		Timestamp: util.GetTimeAsMsSinceEpoch(time.Now()),
+		Status:    0,
+	}
+	if err := webTaskMgr.Add(task); err != nil {
+		common.Connections.Remove(connection.GetID())
+		sendAPIResponse(w, r, nil, "Unable to create task", http.StatusInternalServerError)
+		return
+	}
+	go executeRenameTask(connection, task)
+	sendAPIResponse(w, r, nil, task.ID, http.StatusAccepted)
+}
+
+func taskCopyFsEntry(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	connection, err := getUserConnection(w, r)
+	if err != nil {
+		return
+	}
+	source := r.URL.Query().Get("path")
+	target := r.URL.Query().Get("target")
+	copyFromSource := strings.HasSuffix(source, "/")
+	copyInTarget := strings.HasSuffix(target, "/")
+	source = connection.User.GetCleanedPath(source)
+	target = connection.User.GetCleanedPath(target)
+	if copyFromSource {
+		source += "/"
+	}
+	if copyInTarget {
+		target += "/"
+	}
+	task := webTaskData{
+		ID:        connection.GetID(),
+		User:      connection.GetUsername(),
+		Path:      source,
+		Target:    target,
+		Timestamp: util.GetTimeAsMsSinceEpoch(time.Now()),
+		Status:    0,
+	}
+	if err := webTaskMgr.Add(task); err != nil {
+		common.Connections.Remove(connection.GetID())
+		sendAPIResponse(w, r, nil, "Unable to create task", http.StatusInternalServerError)
+		return
+	}
+	go executeCopyTask(connection, task)
+	sendAPIResponse(w, r, nil, task.ID, http.StatusAccepted)
+}
+
+func executeDeleteTask(conn *Connection, task webTaskData) {
+	done := make(chan bool)
+
+	defer func() {
+		close(done)
+		common.Connections.Remove(conn.GetID())
+	}()
+
+	go keepAliveTask(task, done, 2*time.Minute)
+
+	status := http.StatusOK
+	if err := conn.RemoveAll(task.Path); err != nil {
+		status = getMappedStatusCode(err)
+	}
+
+	task.Timestamp = util.GetTimeAsMsSinceEpoch(time.Now())
+	task.Status = status
+	err := webTaskMgr.Add(task)
+	conn.Log(logger.LevelDebug, "delete task finished, status: %d, update task err: %v", status, err)
+}
+
+func executeRenameTask(conn *Connection, task webTaskData) {
+	done := make(chan bool)
+
+	defer func() {
+		close(done)
+		common.Connections.Remove(conn.GetID())
+	}()
+
+	go keepAliveTask(task, done, 2*time.Minute)
+
+	status := http.StatusOK
+
+	if !conn.IsSameResource(task.Path, task.Target) {
+		if err := conn.Copy(task.Path, task.Target); err != nil {
+			status = getMappedStatusCode(err)
+			task.Timestamp = util.GetTimeAsMsSinceEpoch(time.Now())
+			task.Status = status
+			err = webTaskMgr.Add(task)
+			conn.Log(logger.LevelDebug, "copy step for rename task finished, status: %d, update task err: %v", status, err)
+			return
+		}
+		if err := conn.RemoveAll(task.Path); err != nil {
+			status = getMappedStatusCode(err)
+		}
+	} else {
+		if err := conn.Rename(task.Path, task.Target); err != nil {
+			status = getMappedStatusCode(err)
+		}
+	}
+
+	task.Timestamp = util.GetTimeAsMsSinceEpoch(time.Now())
+	task.Status = status
+	err := webTaskMgr.Add(task)
+	conn.Log(logger.LevelDebug, "rename task finished, status: %d, update task err: %v", status, err)
+}
+
+func executeCopyTask(conn *Connection, task webTaskData) {
+	done := make(chan bool)
+
+	defer func() {
+		close(done)
+		common.Connections.Remove(conn.GetID())
+	}()
+
+	go keepAliveTask(task, done, 2*time.Minute)
+
+	status := http.StatusOK
+	if err := conn.Copy(task.Path, task.Target); err != nil {
+		status = getMappedStatusCode(err)
+	}
+
+	task.Timestamp = util.GetTimeAsMsSinceEpoch(time.Now())
+	task.Status = status
+	err := webTaskMgr.Add(task)
+	conn.Log(logger.LevelDebug, "copy task finished, status: %d, update task err: %v", status, err)
+}
+
+func keepAliveTask(task webTaskData, done chan bool, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer func() {
+		ticker.Stop()
+	}()
+
+	for {
+		select {
+		case <-done:
+			return
+		case <-ticker.C:
+			task.Timestamp = util.GetTimeAsMsSinceEpoch(time.Now())
+			err := webTaskMgr.Add(task)
+			logger.Debug(logSender, task.ID, "task timestamp updated, err: %v", err)
+		}
+	}
 }

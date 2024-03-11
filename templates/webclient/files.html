@@ -264,6 +264,62 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         //{{- end}}
     }
 
+    var taskStatusWaiter = function () {
+        var promiseResolve;
+
+        function getTaskStatus(taskID, numErrors) {
+            axios.get('{{.TasksURL}}'+"/"+encodeURIComponent(taskID),{
+                timeout: 15000,
+                headers: {
+                    'X-CSRF-TOKEN': '{{.CSRFToken}}'
+                },
+                validateStatus: function (status) {
+                    return status == 200;
+                }
+            }).then(function(response){
+                let status = response.data.status;
+                if (status == 0){
+                    setTimeout(function() {
+                        getTaskStatus(taskID, numErrors);
+                    }, 2500);
+                } else {
+                    promiseResolve({
+                        status: status
+                    });
+                }
+            }).catch(function(error){
+                numErrors++;
+                if (numErrors >= 3){
+                    promiseResolve({
+                        status: 0
+                    });
+                    return;
+                }
+                if (error && error.response && error.response.status == 404){
+                    promiseResolve({
+                        status: 404
+                    });
+                    return;
+                }
+                setTimeout(function() {
+                    getTaskStatus(taskID, numErrors);
+                }, 2500);
+            });
+        }
+
+        return {
+            wait: function(params){
+                setTimeout(function() {
+                    getTaskStatus(params.taskID, 0);
+                }, params.delay);
+
+                return new Promise(function(resolve, reject) {
+                    promiseResolve = resolve;
+                });
+            }
+        }
+    }();
+
     //{{- if not .ShareUploadBaseURL}}
     var KTDatatablesFoldersExplorer = function () {
         var dt;
@@ -1048,6 +1104,35 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
             const deleteButton = document.querySelector('[data-kt-filemanager-table-select="delete_selected"]');
             if (deleteButton) {
+
+                function getMultiDeleteErrorMessage(status, deleted) {
+                    let errorMessage;
+                    switch (status) {
+                        case 403:
+                            if (deleted > 0){
+                                errorMessage = "fs.delete_multi.err_403_partial";
+                            } else {
+                                errorMessage = "fs.delete_multi.err_403";
+                            }
+                            break;
+                        case 429:
+                        if (deleted > 0){
+                                errorMessage = "fs.delete_multi.err_429_partial";
+                            } else {
+                                errorMessage = "fs.delete_multi.err_429";
+                            }
+                            break;
+                    }
+                    if (!errorMessage){
+                        if (deleted > 0){
+                            errorMessage = "fs.delete_multi.err_generic_partial";
+                        } else {
+                            errorMessage = "fs.delete_multi.err_generic";
+                        }
+                    }
+                    return errorMessage;
+                }
+
                 let el = $(deleteButton);
                 el.off("click");
                 el.on('click', function(e){
@@ -1075,14 +1160,11 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                             if (selectedRowsIdx.length == 0){
                                 return;
                             }
-                            keepAlive();
-                            let keepAliveTimer = setInterval(keepAlive, 300000);
                             $('#loading_message').text("");
                             KTApp.showPageLoading();
 
                             function deleteSelected() {
                                 if (index >= selectedRowsIdx.length || hasError){
-                                    clearInterval(keepAliveTimer);
                                     KTApp.hidePageLoading();
                                     if (!hasError){
                                         location.reload();
@@ -1090,57 +1172,66 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                     return;
                                 }
                                 let meta = dt.row(selectedRowsIdx[index]).data()['meta'];
-                                let attrs = getDeleteReqAttrs(meta);
+                                let itemName = getNameFromMeta(meta);
+                                let isDir = (getTypeFromMeta(meta) == "1");
+                                let path;
+                                if (isDir){
+                                    path = '{{.DirsURL}}';
+                                } else {
+                                    path = '{{.FilesURL}}';
+                                }
+                                path+='?path={{.CurrentDir}}'+encodeURIComponent("/"+itemName);
+
                                 let deleteTxt = "";
                                 if (selectedRowsIdx.length > 1){
                                     deleteTxt = $.t('fs.deleting', {
                                         idx : index + 1,
                                         total: selectedRowsIdx.length,
-                                        name: getNameFromMeta(meta)
+                                        name: itemName
                                     });
                                 }
                                 $('#loading_message').text(deleteTxt);
-                                axios.delete(attrs.path,{
-                                    timeout: attrs.reqTimeout,
+                                axios.delete(path,{
+                                    timeout: 15000,
                                     headers: {
                                         'X-CSRF-TOKEN': '{{.CSRFToken}}'
                                     },
                                     validateStatus: function (status) {
+                                        if (isDir){
+                                            return status == 202;
+                                        }
                                         return status == 200;
                                     }
                                 }).then(function(response){
-                                    index++;
-                                    deleted++;
-                                    deleteSelected();
+                                    if (isDir){
+                                        taskStatusWaiter.wait({
+                                            taskID: response.data.message,
+                                            delay: 500
+                                        }).then((result) => {
+                                            index++;
+                                            if (result.status == 200){
+                                                deleted++;
+                                            } else {
+                                                hasError = true;
+                                                let errorMessage = getMultiDeleteErrorMessage(result.status, deleted);
+                                                setI18NData(errTxtEl, errorMessage);
+                                                errDivEl.removeClass("d-none");
+                                            }
+                                            deleteSelected();
+                                        });
+                                    } else {
+                                        index++;
+                                        deleted++;
+                                        deleteSelected();
+                                    }
                                 }).catch(function(error){
                                     index++;
                                     hasError = true;
-                                    let errorMessage;
+                                    let status = 0;
                                     if (error && error.response) {
-                                        switch (error.response.status) {
-                                            case 403:
-                                                if (deleted > 0){
-                                                    errorMessage = "fs.delete_multi.err_403_partial";
-                                                } else {
-                                                    errorMessage = "fs.delete_multi.err_403";
-                                                }
-                                                break;
-                                            case 429:
-                                            if (deleted > 0){
-                                                    errorMessage = "fs.delete_multi.err_429_partial";
-                                                } else {
-                                                    errorMessage = "fs.delete_multi.err_429";
-                                                }
-                                                break;
-                                        }
+                                        status = error.response.status;
                                     }
-                                    if (!errorMessage){
-                                        if (deleted > 0){
-                                            errorMessage = "fs.delete_multi.err_generic_partial";
-                                        } else {
-                                            errorMessage = "fs.delete_multi.err_generic";
-                                        }
-                                    }
+                                    let errorMessage = getMultiDeleteErrorMessage(status, deleted);
                                     setI18NData(errTxtEl, errorMessage);
                                     errDivEl.removeClass("d-none");
                                     deleteSelected();
@@ -1274,8 +1365,30 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             });
             return;
         }
-        keepAlive();
-        let keepAliveTimer = setInterval(keepAlive, 300000);
+
+        function showCopyError(status) {
+            KTApp.hidePageLoading();
+            let errorMessage = "";
+            switch (status) {
+                case 403:
+                    errorMessage = "fs.copy.err_403";
+                    break;
+                case 429:
+                    errorMessage = "fs.copy.err_429";
+                    break;
+                default:
+                    errorMessage = "fs.copy.err_generic";
+            }
+            ModalAlert.fire({
+                text: $.t(errorMessage),
+                icon: "warning",
+                confirmButtonText: $.t('general.ok'),
+                customClass: {
+                    confirmButton: "btn btn-primary"
+                }
+            });
+        }
+
         let hasError = false;
         let index = 0;
 
@@ -1284,7 +1397,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
         function copyItem() {
             if (index >= items.length || hasError){
-                clearInterval(keepAliveTimer);
                 KTApp.hidePageLoading();
                 if (!hasError){
                     location.reload();
@@ -1316,41 +1428,33 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             path+='?path={{.CurrentDir}}'+encodeURIComponent("/"+item.sourceName)+'&target='+item.targetDir+encodeURIComponent("/"+item.targetName);
 
             axios.post(path, null, {
-                timeout: 180000,
+                timeout: 15000,
                 headers: {
                     'X-CSRF-TOKEN': '{{.CSRFToken}}'
                 },
                 validateStatus: function (status) {
-                    return status == 200;
+                    return status == 202;
                 }
             }).then(function (response) {
-                index++;
-                copyItem();
+                taskStatusWaiter.wait({
+                    taskID: response.data.message,
+                    delay: 500
+                }).then((result) => {
+                    index++;
+                    if (result.status != 200){
+                        hasError = true;
+                        showCopyError(result.status);
+                    }
+                    copyItem();
+                });
             }).catch(function (error) {
                 index++;
                 hasError = true;
-                let errorMessage = "";
+                let status = 0;
                 if (error && error.response) {
-                    switch (error.response.status) {
-                        case 403:
-                            errorMessage = "fs.copy.err_403";
-                            break;
-                        case 429:
-                            errorMessage = "fs.copy.err_429";
-                            break;
-                    }
+                    status = error.response.status;
                 }
-                if (!errorMessage){
-                    errorMessage = "fs.copy.err_generic";
-                }
-                ModalAlert.fire({
-                    text: $.t(errorMessage),
-                    icon: "warning",
-                    confirmButtonText: $.t('general.ok'),
-                    customClass: {
-                        confirmButton: "btn btn-primary"
-                    }
-                });
+                showCopyError(status);
                 copyItem();
             });
         }
@@ -1410,8 +1514,33 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             });
             return;
         }
-        keepAlive();
-        let keepAliveTimer = setInterval(keepAlive, 300000);
+
+        function showMoveError(status) {
+            KTApp.hidePageLoading();
+            let errorMessage = "";
+            switch (status) {
+                case 400:
+                    errorMessage = "fs.move.err_unsupported";
+                    break;
+                case 403:
+                    errorMessage = "fs.move.err_403";
+                    break;
+                case 429:
+                    errorMessage = "fs.move.err_429";
+                    break;
+                default:
+                    errorMessage = "fs.move.err_generic";
+            }
+            ModalAlert.fire({
+                text: $.t(errorMessage),
+                icon: "warning",
+                confirmButtonText: $.t('general.ok'),
+                customClass: {
+                    confirmButton: "btn btn-primary"
+                }
+            });
+        }
+
         let hasError = false;
         let index = 0;
 
@@ -1420,7 +1549,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
         function moveItem() {
             if (index >= items.length || hasError){
-                clearInterval(keepAliveTimer);
                 KTApp.hidePageLoading();
                 if (!hasError){
                     location.reload();
@@ -1452,44 +1580,33 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             path+='?path={{.CurrentDir}}'+encodeURIComponent("/"+item.sourceName)+'&target='+item.targetDir+encodeURIComponent("/"+item.targetName);
 
             axios.post(path, null, {
-                timeout: 180000,
+                timeout: 15000,
                 headers: {
                     'X-CSRF-TOKEN': '{{.CSRFToken}}'
                 },
                 validateStatus: function (status) {
-                    return status == 200;
+                    return status == 202;
                 }
             }).then(function (response) {
-                index++;
-                moveItem();
+                taskStatusWaiter.wait({
+                    taskID: response.data.message,
+                    delay: 500
+                }).then((result) => {
+                    index++;
+                    if (result.status != 200){
+                        hasError = true;
+                        showMoveError(result.status);
+                    }
+                    moveItem();
+                });
             }).catch(function (error) {
                 index++;
                 hasError = true;
-                let errorMessage = "";
+                let status = 0;
                 if (error && error.response) {
-                    switch (error.response.status) {
-                        case 400:
-                            errorMessage = "fs.move.err_unsupported";
-                            break;
-                        case 403:
-                            errorMessage = "fs.move.err_403";
-                            break;
-                        case 429:
-                            errorMessage = "fs.move.err_429";
-                            break;
-                    }
+                    status = error.response.status;
                 }
-                if (!errorMessage){
-                    errorMessage = "fs.move.err_generic";
-                }
-                ModalAlert.fire({
-                    text: $.t(errorMessage),
-                    icon: "warning",
-                    confirmButtonText: $.t('general.ok'),
-                    customClass: {
-                        confirmButton: "btn btn-primary"
-                    }
-                });
+                showMoveError(status);
                 moveItem();
             });
         }
@@ -1531,20 +1648,27 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         });
     }
 
-    function getDeleteReqAttrs(meta) {
-        let path;
-        let reqTimeout = 15000;
-        let itemType = getTypeFromMeta(meta);
-        let itemName = getNameFromMeta(meta);
-        if (itemType == "1"){
-            path = '{{.DirsURL}}';
-            reqTimeout = 120000
-        } else {
-            path = '{{.FilesURL}}';
+    function showDeleteItemError(status, itemName) {
+        KTApp.hidePageLoading();
+        let errorMessage;
+        switch (status) {
+            case 403:
+                errorMessage = "fs.delete.err_403";
+                break;
+            case 429:
+                errorMessage = "fs.delete.err_429";
+                break;
+            default:
+                errorMessage = "fs.delete.err_generic";
         }
-        path+='?path={{.CurrentDir}}'+encodeURIComponent("/"+itemName);
-
-        return { path, reqTimeout}
+        ModalAlert.fire({
+            text: $.t(errorMessage, {name: itemName}),
+            icon: "warning",
+            confirmButtonText: $.t('general.ok'),
+            customClass: {
+                confirmButton: "btn btn-primary"
+            }
+        });
     }
 
     function deleteItem(meta) {
@@ -1564,42 +1688,47 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             if (result.isConfirmed){
                 $('#loading_message').text("");
                 KTApp.showPageLoading();
-                let attrs = getDeleteReqAttrs(meta);
+                let isDir = (getTypeFromMeta(meta) == "1");
+                let path;
+                if (isDir){
+                    path = '{{.DirsURL}}';
+                } else {
+                    path = '{{.FilesURL}}';
+                }
+                path+='?path={{.CurrentDir}}'+encodeURIComponent("/"+itemName);
 
-                axios.delete(attrs.path, {
-                    timeout: attrs.reqTimeout,
+                axios.delete(path, {
+                    timeout: 15000,
                     headers: {
                         'X-CSRF-TOKEN': '{{.CSRFToken}}'
                     },
                     validateStatus: function (status) {
+                        if (isDir){
+                            return status == 202;
+                        }
                         return status == 200;
                     }
                 }).then(function(response){
-                    location.reload();
+                    if (isDir){
+                        taskStatusWaiter.wait({
+                            taskID: response.data.message,
+                            delay: 500
+                        }).then((result) => {
+                            if (result.status == 200){
+                                location.reload();
+                            } else {
+                                showDeleteItemError(result.status, itemName);
+                            }
+                        });
+                    } else {
+                        location.reload();
+                    }
                 }).catch(function(error){
-                    KTApp.hidePageLoading();
-                    let errorMessage;
+                    let status = 0;
                     if (error && error.response) {
-                        switch (error.response.status) {
-                            case 403:
-                                errorMessage = "fs.delete.err_403";
-                                break;
-                            case 429:
-                                errorMessage = "fs.delete.err_429";
-                                break;
-                        }
+                        status = error.response.status;
                     }
-                    if (!errorMessage){
-                        errorMessage = "fs.delete.err_generic";
-                    }
-                    ModalAlert.fire({
-                        text: $.t(errorMessage, {name: itemName}),
-                        icon: "warning",
-                        confirmButtonText: $.t('general.ok'),
-                        customClass: {
-                            confirmButton: "btn btn-primary"
-                        }
-                    });
+                    showDeleteItemError(status, itemName);
                 });
             }
         });
@@ -1622,6 +1751,33 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         $('#rename_new_name').val(oldName);
         $('#rename_title').text($.t('fs.rename.title', { name: oldName}));
         $('#modal_rename').modal('show');
+    }
+
+    function showRenameItemError(status, oldName) {
+        KTApp.hidePageLoading();
+        let errorMessage;
+        switch (status) {
+            case 400:
+                errorMessage = "fs.rename.err_unsupported";
+                break;
+            case 403:
+                errorMessage = "fs.rename.err_403";
+                break;
+            case 429:
+                errorMessage = "fs.rename.err_429";
+                break;
+            default:
+                errorMessage = "fs.rename.err_generic";
+        }
+
+        ModalAlert.fire({
+            text: $.t(errorMessage, {name: oldName}),
+            icon: "warning",
+            confirmButtonText: $.t('general.ok'),
+            customClass: {
+                confirmButton: "btn btn-primary"
+            }
+        });
     }
 
     function doRename() {
@@ -1674,37 +1830,25 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     'X-CSRF-TOKEN': '{{.CSRFToken}}'
                 },
                 validateStatus: function (status) {
-                    return status == 200;
+                    return status == 202;
                 }
             }).then(function (response) {
-                location.reload();
-            }).catch(function (error) {
-                KTApp.hidePageLoading();
-                let errorMessage;
-                if (error && error.response) {
-                    switch (error.response.status) {
-                        case 400:
-                            errorMessage = "fs.rename.err_unsupported";
-                            break;
-                        case 403:
-                            errorMessage = "fs.rename.err_403";
-                            break;
-                        case 429:
-                            errorMessage = "fs.rename.err_429";
-                            break;
+                taskStatusWaiter.wait({
+                    taskID: response.data.message,
+                    delay: 500
+                }).then((result) => {
+                    if (result.status == 200){
+                        location.reload();
+                    } else {
+                        showRenameItemError(result.status, oldName);
                     }
+                });
+            }).catch(function (error) {
+                let status = 0;
+                if (error && error.response) {
+                    status = error.response.status;
                 }
-                if (!errorMessage) {
-                    errorMessage = "fs.rename.err_generic";
-                }
-                ModalAlert.fire({
-                        text: $.t(errorMessage, {name: oldName}),
-                        icon: "warning",
-                        confirmButtonText: $.t('general.ok'),
-                        customClass: {
-                            confirmButton: "btn btn-primary"
-                        }
-                    });
+                showRenameItemError(status, oldName);
             });
         }
 

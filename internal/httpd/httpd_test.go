@@ -193,6 +193,9 @@ const (
 	webClientViewPDFPath           = "/web/client/viewpdf"
 	webClientGetPDFPath            = "/web/client/getpdf"
 	webClientExistPath             = "/web/client/exist"
+	webClientTasksPath             = "/web/client/tasks"
+	webClientFileMovePath          = "/web/client/file-actions/move"
+	webClientFileCopyPath          = "/web/client/file-actions/copy"
 	jsonAPISuffix                  = "/json"
 	httpBaseURL                    = "http://127.0.0.1:8081"
 	defaultRemoteAddr              = "127.0.0.1:1234"
@@ -16506,6 +16509,28 @@ func TestRenameDifferentResource(t *testing.T) {
 
 	webAPIToken, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
+	webToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
+
+	getStatusResponse := func(taskID string) int {
+		req, _ := http.NewRequest(http.MethodGet, webClientTasksPath+"/"+url.PathEscape(taskID), nil)
+		req.RemoteAddr = defaultRemoteAddr
+		req.Header.Set("X-CSRF-TOKEN", csrfToken)
+		setJWTCookieForReq(req, webToken)
+		rr := executeRequest(req)
+		if rr.Code != http.StatusOK {
+			return -1
+		}
+		resp := make(map[string]any)
+		err = json.Unmarshal(rr.Body.Bytes(), &resp)
+		if err != nil {
+			return -1
+		}
+		return int(resp["status"].(float64))
+	}
+
+	assert.NoError(t, err)
 
 	req, err := http.NewRequest(http.MethodPost, userFileActionsPath+"/move?path="+testFileName+"&target="+url.QueryEscape(path.Join("/", "folderPath", testFileName)), nil) //nolint:goconst
 	assert.NoError(t, err)
@@ -16513,6 +16538,24 @@ func TestRenameDifferentResource(t *testing.T) {
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
 	assert.Contains(t, rr.Body.String(), "Cannot perform copy step")
+
+	req, err = http.NewRequest(http.MethodPost, webClientFileMovePath+"?path="+testFileName+"&target="+url.QueryEscape(path.Join("/", "folderPath", testFileName)), nil)
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("X-CSRF-TOKEN", csrfToken)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusAccepted, rr)
+	taskResp := make(map[string]any)
+	err = json.Unmarshal(rr.Body.Bytes(), &taskResp)
+	assert.NoError(t, err)
+	taskID := taskResp["message"].(string)
+	assert.NotEmpty(t, taskID)
+
+	assert.Eventually(t, func() bool {
+		status := getStatusResponse(taskID)
+		return status == http.StatusNotFound
+	}, 1000*time.Millisecond, 100*time.Millisecond)
 
 	err = os.WriteFile(filepath.Join(user.GetHomeDir(), testFileName), []byte("just a test"), os.ModePerm)
 	assert.NoError(t, err)
@@ -16556,6 +16599,24 @@ func TestRenameDifferentResource(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
 	assert.Contains(t, rr.Body.String(), "Cannot perform remove step")
+
+	req, err = http.NewRequest(http.MethodPost, webClientFileMovePath+"?path="+testFileName+"&target="+url.QueryEscape(path.Join("/", "folderPath", testFileName)), nil)
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("X-CSRF-TOKEN", csrfToken)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusAccepted, rr)
+	taskResp = make(map[string]any)
+	err = json.Unmarshal(rr.Body.Bytes(), &taskResp)
+	assert.NoError(t, err)
+	taskID = taskResp["message"].(string)
+	assert.NotEmpty(t, taskID)
+
+	assert.Eventually(t, func() bool {
+		status := getStatusResponse(taskID)
+		return status == http.StatusForbidden
+	}, 1000*time.Millisecond, 100*time.Millisecond)
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -17183,6 +17244,209 @@ func TestBufferedWebFilesAPI(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(mappedPath)
 	assert.NoError(t, err)
+}
+
+func TestWebClientTasksAPI(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	u1 := getTestUser()
+	u1.Username = xid.New().String()
+	user1, _, err := httpdtest.AddUser(u1, http.StatusCreated)
+	assert.NoError(t, err)
+
+	testDir := "subdir"
+	testFileData := []byte("data")
+	testFilePath := filepath.Join(user.GetHomeDir(), testDir, "file.txt")
+	testFileName := filepath.Base(testFilePath)
+	err = os.MkdirAll(filepath.Dir(testFilePath), os.ModePerm)
+	assert.NoError(t, err)
+	err = os.WriteFile(testFilePath, testFileData, 0666)
+	assert.NoError(t, err)
+
+	webToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
+	assert.NoError(t, err)
+	webToken1, err := getJWTWebClientTokenFromTestServer(user1.Username, defaultPassword)
+	assert.NoError(t, err)
+
+	getStatusResponse := func(taskID string) int {
+		req, _ := http.NewRequest(http.MethodGet, webClientTasksPath+"/"+url.PathEscape(taskID), nil)
+		req.RemoteAddr = defaultRemoteAddr
+		req.Header.Set("X-CSRF-TOKEN", csrfToken)
+		setJWTCookieForReq(req, webToken)
+		rr := executeRequest(req)
+		if rr.Code != http.StatusOK {
+			return -1
+		}
+		resp := make(map[string]any)
+		err = json.Unmarshal(rr.Body.Bytes(), &resp)
+		if err != nil {
+			return -1
+		}
+		return int(resp["status"].(float64))
+	}
+	// missing task
+	assert.Equal(t, -1, getStatusResponse("missing"))
+
+	req, err := http.NewRequest(http.MethodPost, webClientFileCopyPath+"?path="+
+		url.QueryEscape(path.Join(testDir, testFileName))+"&target="+url.QueryEscape(testFileName), nil)
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("X-CSRF-TOKEN", csrfToken)
+	setJWTCookieForReq(req, webToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusAccepted, rr)
+	resp := make(map[string]any)
+	err = json.Unmarshal(rr.Body.Bytes(), &resp)
+	assert.NoError(t, err)
+	taskID := resp["message"].(string)
+	assert.NotEmpty(t, taskID)
+
+	assert.Eventually(t, func() bool {
+		status := getStatusResponse(taskID)
+		return status == http.StatusOK
+	}, 1000*time.Millisecond, 100*time.Millisecond)
+
+	// cannot get the task with a different user
+	req, err = http.NewRequest(http.MethodGet, webClientTasksPath+"/"+url.PathEscape(taskID), nil)
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("X-CSRF-TOKEN", csrfToken)
+	setJWTCookieForReq(req, webToken1)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+
+	req, err = http.NewRequest(http.MethodPost, webClientFileMovePath+"?path="+
+		url.QueryEscape(path.Join(testDir, testFileName))+"&target="+url.QueryEscape(testFileName), nil)
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("X-CSRF-TOKEN", csrfToken)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusAccepted, rr)
+	resp = make(map[string]any)
+	err = json.Unmarshal(rr.Body.Bytes(), &resp)
+	assert.NoError(t, err)
+	taskID = resp["message"].(string)
+	assert.NotEmpty(t, taskID)
+
+	assert.Eventually(t, func() bool {
+		status := getStatusResponse(taskID)
+		return status == http.StatusOK
+	}, 1000*time.Millisecond, 100*time.Millisecond)
+
+	req, err = http.NewRequest(http.MethodDelete, webClientDirsPath+"?path="+
+		url.QueryEscape(testDir), nil)
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("X-CSRF-TOKEN", csrfToken)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusAccepted, rr)
+	resp = make(map[string]any)
+	err = json.Unmarshal(rr.Body.Bytes(), &resp)
+	assert.NoError(t, err)
+	taskID = resp["message"].(string)
+	assert.NotEmpty(t, taskID)
+
+	assert.Eventually(t, func() bool {
+		status := getStatusResponse(taskID)
+		return status == http.StatusOK
+	}, 1000*time.Millisecond, 100*time.Millisecond)
+
+	req, err = http.NewRequest(http.MethodDelete, webClientDirsPath+"?path="+
+		url.QueryEscape(testDir), nil)
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("X-CSRF-TOKEN", csrfToken)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusAccepted, rr)
+	resp = make(map[string]any)
+	err = json.Unmarshal(rr.Body.Bytes(), &resp)
+	assert.NoError(t, err)
+	taskID = resp["message"].(string)
+	assert.NotEmpty(t, taskID)
+
+	assert.Eventually(t, func() bool {
+		status := getStatusResponse(taskID)
+		return status == http.StatusNotFound
+	}, 1000*time.Millisecond, 100*time.Millisecond)
+
+	req, err = http.NewRequest(http.MethodPost, webClientFileMovePath+"?path="+
+		url.QueryEscape(path.Join(testDir, testFileName))+"&target="+url.QueryEscape(testFileName), nil)
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("X-CSRF-TOKEN", csrfToken)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusAccepted, rr)
+	resp = make(map[string]any)
+	err = json.Unmarshal(rr.Body.Bytes(), &resp)
+	assert.NoError(t, err)
+	taskID = resp["message"].(string)
+	assert.NotEmpty(t, taskID)
+
+	assert.Eventually(t, func() bool {
+		status := getStatusResponse(taskID)
+		return status == http.StatusNotFound
+	}, 1000*time.Millisecond, 100*time.Millisecond)
+
+	req, err = http.NewRequest(http.MethodPost, webClientFileCopyPath+"?path="+
+		url.QueryEscape(path.Join(testDir, testFileName)+"/")+"&target="+url.QueryEscape(testFileName+"/"), nil)
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("X-CSRF-TOKEN", csrfToken)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusAccepted, rr)
+	resp = make(map[string]any)
+	err = json.Unmarshal(rr.Body.Bytes(), &resp)
+	assert.NoError(t, err)
+	taskID = resp["message"].(string)
+	assert.NotEmpty(t, taskID)
+
+	assert.Eventually(t, func() bool {
+		status := getStatusResponse(taskID)
+		return status == http.StatusNotFound
+	}, 1000*time.Millisecond, 100*time.Millisecond)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user1, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user1.GetHomeDir())
+	assert.NoError(t, err)
+	// user deleted
+	req, err = http.NewRequest(http.MethodDelete, webClientDirsPath+"?path="+
+		url.QueryEscape(testDir), nil)
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("X-CSRF-TOKEN", csrfToken)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodPost, webClientFileMovePath+"?path="+
+		url.QueryEscape(path.Join(testDir, testFileName))+"&target="+url.QueryEscape(testFileName), nil)
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("X-CSRF-TOKEN", csrfToken)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodPost, webClientFileCopyPath+"?path="+
+		url.QueryEscape(path.Join(testDir, testFileName))+"&target="+url.QueryEscape(testFileName), nil)
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("X-CSRF-TOKEN", csrfToken)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
 }
 
 func TestStartDirectory(t *testing.T) {
