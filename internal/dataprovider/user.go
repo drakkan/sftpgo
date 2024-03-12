@@ -1695,7 +1695,7 @@ func (u *User) LoadAndApplyGroupSettings() error {
 }
 
 func (u *User) getGroupPlacehodersReplacer() *strings.Replacer {
-	return strings.NewReplacer("%username%", u.Username)
+	return strings.NewReplacer("%username%", u.Username, "%role%", u.Role)
 }
 
 func (u *User) replacePlaceholder(value string, replacer *strings.Replacer) string {

@@ -1315,6 +1315,11 @@ func TestGroupSettingsOverride(t *testing.T) {
 			Type: sdk.GroupTypeSecondary,
 		},
 	}
+
+	r := getTestRole()
+	role, _, err := httpdtest.AddRole(r, http.StatusCreated)
+	assert.NoError(t, err)
+	u.Role = role.Name
 	user, resp, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err, string(resp))
 	assert.Len(t, user.VirtualFolders, 0)
@@ -1407,7 +1412,7 @@ func TestGroupSettingsOverride(t *testing.T) {
 			BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
 				Endpoint: sftpServerAddr,
 				Username: altAdminUsername,
-				Prefix:   "/dirs/%username%",
+				Prefix:   "/dirs/%role%/%username%",
 			},
 			Password: kms.NewPlainSecret(defaultPassword),
 		},
@@ -1423,13 +1428,13 @@ func TestGroupSettingsOverride(t *testing.T) {
 	group1.UserSettings.Filters.PasswordStrength = 70
 	group1.UserSettings.Filters.WebClient = []string{sdk.WebClientInfoChangeDisabled}
 	group1.UserSettings.Permissions = map[string][]string{
-		"/":               {dataprovider.PermListItems, dataprovider.PermUpload},
-		"/sub/%username%": {dataprovider.PermRename},
-		"/%username%":     {dataprovider.PermDelete},
+		"/":                  {dataprovider.PermListItems, dataprovider.PermUpload},
+		"/sub/%username%":    {dataprovider.PermRename},
+		"/%role%/%username%": {dataprovider.PermDelete},
 	}
 	group1.UserSettings.Filters.FilePatterns = []sdk.PatternsFilter{
 		{
-			Path:            "/sub2/%username%test",
+			Path:            "/sub2/%role%/%username%test",
 			AllowedPatterns: []string{},
 			DeniedPatterns:  []string{"*.jpg", "*.zip"},
 		},
@@ -1443,9 +1448,9 @@ func TestGroupSettingsOverride(t *testing.T) {
 	assert.Equal(t, group1.UserSettings.Filters.PasswordStrength, user.Filters.PasswordStrength)
 	assert.Equal(t, sdk.SFTPFilesystemProvider, user.FsConfig.Provider)
 	assert.Equal(t, altAdminUsername, user.FsConfig.SFTPConfig.Username)
-	assert.Equal(t, "/dirs/"+defaultUsername, user.FsConfig.SFTPConfig.Prefix)
+	assert.Equal(t, "/dirs/"+role.Name+"/"+defaultUsername, user.FsConfig.SFTPConfig.Prefix)
 	assert.Equal(t, []string{dataprovider.PermListItems, dataprovider.PermUpload}, user.GetPermissionsForPath("/"))
-	assert.Equal(t, []string{dataprovider.PermDelete}, user.GetPermissionsForPath(path.Join("/", defaultUsername)))
+	assert.Equal(t, []string{dataprovider.PermDelete}, user.GetPermissionsForPath(path.Join("/", role.Name, defaultUsername)))
 	assert.Equal(t, []string{dataprovider.PermRename}, user.GetPermissionsForPath(path.Join("/sub", defaultUsername)))
 	assert.Equal(t, group1.UserSettings.MaxSessions, user.MaxSessions)
 	assert.Equal(t, group1.UserSettings.QuotaFiles, user.QuotaFiles)
@@ -1454,7 +1459,7 @@ func TestGroupSettingsOverride(t *testing.T) {
 	assert.Equal(t, group1.UserSettings.Filters.MaxUploadFileSize, user.Filters.MaxUploadFileSize)
 	assert.Equal(t, "/startdir/"+defaultUsername, user.Filters.StartDirectory)
 	if assert.Len(t, user.Filters.FilePatterns, 1) {
-		assert.Equal(t, "/sub2/"+defaultUsername+"test", user.Filters.FilePatterns[0].Path) //nolint:goconst
+		assert.Equal(t, "/sub2/"+role.Name+"/"+defaultUsername+"test", user.Filters.FilePatterns[0].Path) //nolint:goconst
 	}
 	if assert.Len(t, user.Filters.WebClient, 2) {
 		assert.Contains(t, user.Filters.WebClient, sdk.WebClientInfoChangeDisabled)
@@ -1474,6 +1479,8 @@ func TestGroupSettingsOverride(t *testing.T) {
 	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName2}, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName3}, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveRole(role, http.StatusOK)
 	assert.NoError(t, err)
 }
 
