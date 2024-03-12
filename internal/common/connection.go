@@ -314,6 +314,8 @@ func (c *BaseConnection) ListDir(virtualPath string) (*DirListerAt, error) {
 		virtualPath: virtualPath,
 		user:        &c.User,
 		info:        c.User.GetVirtualFoldersInfo(virtualPath),
+		id:          c.ID,
+		protocol:    c.protocol,
 		lister:      lister,
 	}, nil
 }
@@ -1801,6 +1803,8 @@ type DirListerAt struct {
 	virtualPath string
 	user        *dataprovider.User
 	info        []os.FileInfo
+	id          string
+	protocol    string
 	mu          sync.Mutex
 	lister      vfs.DirLister
 }
@@ -1843,6 +1847,7 @@ func (l *DirListerAt) Next(limit int) ([]os.FileInfo, error) {
 	for {
 		files, err := l.lister.Next(limit)
 		if err != nil && !errors.Is(err, io.EOF) {
+			logger.Debug(l.protocol, l.id, "error retrieving directory entries: %+v", err)
 			return files, err
 		}
 		files = l.user.FilterListDir(files, l.virtualPath)
