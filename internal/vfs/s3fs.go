@@ -56,8 +56,9 @@ import (
 
 const (
 	// using this mime type for directories improves compatibility with s3fs-fuse
-	s3DirMimeType        = "application/x-directory"
-	s3TransferBufferSize = 256 * 1024
+	s3DirMimeType         = "application/x-directory"
+	s3TransferBufferSize  = 256 * 1024
+	s3CopyObjectThreshold = 500 * 1024 * 1024
 )
 
 var (
@@ -626,8 +627,22 @@ func (fs *S3Fs) ResolvePath(virtualPath string) (string, error) {
 }
 
 // CopyFile implements the FsFileCopier interface
-func (fs *S3Fs) CopyFile(source, target string, srcSize int64) error {
-	return fs.copyFileInternal(source, target, srcSize)
+func (fs *S3Fs) CopyFile(source, target string, srcSize int64) (int, int64, error) {
+	numFiles := 1
+	sizeDiff := srcSize
+	attrs, err := fs.headObject(target)
+	if err == nil {
+		sizeDiff -= util.GetIntFromPointer(attrs.ContentLength)
+		numFiles = 0
+	} else {
+		if !fs.IsNotExist(err) {
+			return 0, 0, err
+		}
+	}
+	if err := fs.copyFileInternal(source, target, srcSize); err != nil {
+		return 0, 0, err
+	}
+	return numFiles, sizeDiff, nil
 }
 
 func (fs *S3Fs) resolve(name *string, prefix string) (string, bool) {
@@ -666,7 +681,7 @@ func (fs *S3Fs) copyFileInternal(source, target string, fileSize int64) error {
 	contentType := mime.TypeByExtension(path.Ext(source))
 	copySource := pathEscape(fs.Join(fs.config.Bucket, source))
 
-	if fileSize > 500*1024*1024 {
+	if fileSize > s3CopyObjectThreshold {
 		fsLog(fs, logger.LevelDebug, "renaming file %q with size %d using multipart copy",
 			source, fileSize)
 		err := fs.doMultipartCopy(copySource, target, contentType, fileSize)

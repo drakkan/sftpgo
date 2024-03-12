@@ -628,7 +628,14 @@ func (c *BaseConnection) copyFile(virtualSourcePath, virtualTargetPath string, s
 			if err != nil {
 				return err
 			}
-			return copier.CopyFile(fsSourcePath, fsTargetPath, srcSize)
+			startTime := time.Now()
+			numFiles, sizeDiff, err := copier.CopyFile(fsSourcePath, fsTargetPath, srcSize)
+			elapsed := time.Since(startTime).Nanoseconds() / 1000000
+			updateUserQuotaAfterFileWrite(c, virtualTargetPath, numFiles, sizeDiff)
+			logger.CommandLog(copyLogSender, fsSourcePath, fsTargetPath, c.User.Username, "", c.ID, c.protocol, -1, -1,
+				"", "", "", srcSize, c.localAddr, c.remoteAddr, elapsed)
+			ExecuteActionNotification(c, operationCopy, fsSourcePath, virtualSourcePath, fsTargetPath, virtualTargetPath, "", srcSize, err, elapsed, nil) //nolint:errcheck
+			return err
 		}
 	}
 

@@ -159,7 +159,7 @@ type FsRealPather interface {
 // FsFileCopier is a Fs that implements the CopyFile method.
 type FsFileCopier interface {
 	Fs
-	CopyFile(source, target string, srcSize int64) error
+	CopyFile(source, target string, srcSize int64) (int, int64, error)
 }
 
 // File defines an interface representing a SFTPGo file

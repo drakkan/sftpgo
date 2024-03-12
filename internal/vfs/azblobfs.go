@@ -651,8 +651,22 @@ func (fs *AzureBlobFs) ResolvePath(virtualPath string) (string, error) {
 }
 
 // CopyFile implements the FsFileCopier interface
-func (fs *AzureBlobFs) CopyFile(source, target string, _ int64) error {
-	return fs.copyFileInternal(source, target)
+func (fs *AzureBlobFs) CopyFile(source, target string, srcSize int64) (int, int64, error) {
+	numFiles := 1
+	sizeDiff := srcSize
+	attrs, err := fs.headObject(target)
+	if err == nil {
+		sizeDiff -= util.GetIntFromPointer(attrs.ContentLength)
+		numFiles = 0
+	} else {
+		if !fs.IsNotExist(err) {
+			return 0, 0, err
+		}
+	}
+	if err := fs.copyFileInternal(source, target); err != nil {
+		return 0, 0, err
+	}
+	return numFiles, sizeDiff, nil
 }
 
 func (fs *AzureBlobFs) headObject(name string) (blob.GetPropertiesResponse, error) {
