@@ -3081,6 +3081,40 @@ func TestChtimes(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestSTAT(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	client, err := getFTPClient(user, false, nil)
+	if assert.NoError(t, err) {
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFileSize := int64(131072)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		testDir := "testdir"
+		err = client.MakeDir(testDir)
+		assert.NoError(t, err)
+		err = ftpUploadFile(testFilePath, path.Join(testDir, testFileName), testFileSize, client, 0)
+		assert.NoError(t, err)
+		err = ftpUploadFile(testFilePath, path.Join(testDir, testFileName+"_1"), testFileSize, client, 0)
+		assert.NoError(t, err)
+		code, response, err := client.SendCommand(fmt.Sprintf("STAT %s", testDir))
+		assert.NoError(t, err)
+		assert.Equal(t, ftp.StatusDirectory, code)
+		assert.Contains(t, response, fmt.Sprintf("STAT %s", testDir))
+		assert.Contains(t, response, testFileName)
+		assert.Contains(t, response, testFileName+"_1")
+		assert.Contains(t, response, "End")
+
+		err = client.Quit()
+		assert.NoError(t, err)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestChown(t *testing.T) {
 	if runtime.GOOS == osWindows {
 		t.Skip("chown is not supported on Windows")
