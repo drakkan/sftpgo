@@ -263,7 +263,16 @@
         "month": "Mese",
         "options": "Opzioni",
         "expired": "Scaduto",
-        "unsupported": "Funzionalità non più supportata"
+        "unsupported": "Funzionalità non più supportata",
+        "start": "Inizio (HH:MM)",
+        "end": "Fine (HH:MM)",
+        "monday": "Lunedì",
+        "tuesday": "Martedì",
+        "wednesday": "Mercoledì",
+        "thursday": "Giovedì",
+        "friday": "Venerdì",
+        "saturday": "Sabato",
+        "sunday": "Domenica"
     },
     "fs": {
         "view_file": "Visualizza file \"{{- path}}\"",
@@ -537,7 +546,9 @@
         "template_password_placeholder": "sostituito con la password specificata",
         "template_help1": "I segnaposto verranno sostituiti nei percorsi e nelle credenziali del backend di archiviazione configurato.",
         "template_help2": "Gli utenti generati possono essere salvati o esportati. Gli utenti esportati possono essere importati dalla sezione \"Manutenzione\" di questa istanza SFTPGo o di un'altra.",
-        "template_no_user": "Nessun utente valido definito. Impossibile completare l'azione richiesta"
+        "template_no_user": "Nessun utente valido definito. Impossibile completare l'azione richiesta",
+        "time_of_day_invalid": "Ora del giorno non valida. Formato supportato HH:MM",
+        "time_of_day_conflict": "Ora del giorno non valida. L'ora di fine non può essere precedente all'ora di inizio"
     },
     "group": {
         "view_manage": "Visualizza e gestisci gruppi",
@@ -715,7 +726,9 @@
         "disable_fs_checks_help": "Disabilita i controlli sull'esistenza e la creazione automatica della directory home e delle cartelle virtuali",
         "api_key_auth_help": "Permetti di impersonare l'utente nelle API REST utilizzando una chiave API",
         "external_auth_cache_time": "Cache per autenticazione esterna",
-        "external_auth_cache_time_help": "Tempo di memorizzazione nella cache, in secondi, per gli utenti autenticati utilizzando un hook di autenticazione esterno. 0 significa nessuna cache"
+        "external_auth_cache_time_help": "Tempo di memorizzazione nella cache, in secondi, per gli utenti autenticati utilizzando un hook di autenticazione esterno. 0 significa nessuna cache",
+        "access_time": "Limitazioni temporali all'accesso",
+        "access_time_help": "Nessuna restrizione significa che l'accesso è sempre consentito, l'ora deve essere impostata nel formato HH:MM. Utilizzare l'ora UTC"
     },
     "admin": {
         "role_permissions": "Un amministratore di ruolo non può avere le seguenti autorizzazioni: {{val}}",

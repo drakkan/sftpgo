@@ -531,6 +531,45 @@ func TestCheckFsAfterUpdate(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestLoginAccessTime(t *testing.T) {
+	u := getTestUser()
+	u.Filters.AccessTime = []sdk.TimePeriod{
+		{
+			DayOfWeek: int(time.Now().Add(-25 * time.Hour).UTC().Weekday()),
+			From:      "00:00",
+			To:        "23:59",
+		},
+	}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	_, _, err = getSftpClient(user)
+	assert.Error(t, err)
+
+	user.Filters.AccessTime = []sdk.TimePeriod{
+		{
+			DayOfWeek: int(time.Now().UTC().Weekday()),
+			From:      "00:00",
+			To:        "23:59",
+		},
+	}
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		err := checkBasicSFTP(client)
+		assert.NoError(t, err)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestSetStat(t *testing.T) {
 	u := getTestUser()
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)

@@ -2516,6 +2516,9 @@ func compareUserFilters(expected sdk.BaseUserFilters, actual sdk.BaseUserFilters
 	if err := compareUserBandwidthLimitFilters(expected, actual); err != nil {
 		return err
 	}
+	if err := compareAccessTimeFilters(expected, actual); err != nil {
+		return err
+	}
 	return compareUserFilePatternsFilters(expected, actual)
 }
 
@@ -2529,6 +2532,26 @@ func checkFilterMatch(expected []string, actual []string) bool {
 		}
 	}
 	return true
+}
+
+func compareAccessTimeFilters(expected sdk.BaseUserFilters, actual sdk.BaseUserFilters) error {
+	if len(expected.AccessTime) != len(actual.AccessTime) {
+		return errors.New("access time filters mismatch")
+	}
+
+	for idx, p := range expected.AccessTime {
+		if actual.AccessTime[idx].DayOfWeek != p.DayOfWeek {
+			return errors.New("access time day of week mismatch")
+		}
+		if actual.AccessTime[idx].From != p.From {
+			return errors.New("access time from mismatch")
+		}
+		if actual.AccessTime[idx].To != p.To {
+			return errors.New("access time to mismatch")
+		}
+	}
+
+	return nil
 }
 
 func compareUserBandwidthLimitFilters(expected sdk.BaseUserFilters, actual sdk.BaseUserFilters) error {

@@ -263,7 +263,16 @@
         "month": "Month",
         "options": "Options",
         "expired": "Expired",
-        "unsupported": "Feature no longer supported"
+        "unsupported": "Feature no longer supported",
+        "start": "Start (HH:MM)",
+        "end": "End (HH:MM)",
+        "monday": "Monday",
+        "tuesday": "Tuesday",
+        "wednesday": "Wednesday",
+        "thursday": "Thursday",
+        "friday": "Friday",
+        "saturday": "Saturday",
+        "sunday": "Sunday"
     },
     "fs": {
         "view_file": "View file \"{{- path}}\"",
@@ -537,7 +546,9 @@
         "template_password_placeholder": "replaced with the specified password",
         "template_help1": "Placeholders will be replaced in paths and credentials of the configured storage backend.",
         "template_help2": "The generated users can be saved or exported. Exported users can be imported from the \"Maintenance\" section of this SFTPGo instance or another.",
-        "template_no_user": "No valid user defined, unable to complete the requested action"
+        "template_no_user": "No valid user defined, unable to complete the requested action",
+        "time_of_day_invalid": "Invalid time of day. Supported format HH:MM",
+        "time_of_day_conflict": "Invalid time of day. The end time cannot be earlier than the start time"
     },
     "group": {
         "view_manage": "View and manage groups",
@@ -715,7 +726,9 @@
         "disable_fs_checks_help": "Disable checks for existence and automatic creation of home directory and virtual folders",
         "api_key_auth_help": "Allow to impersonate the user, in REST API, with an API key",
         "external_auth_cache_time": "External auth cache time",
-        "external_auth_cache_time_help": "Cache time, in seconds, for users authenticated using an external auth hook. 0 means no cache"
+        "external_auth_cache_time_help": "Cache time, in seconds, for users authenticated using an external auth hook. 0 means no cache",
+        "access_time": "Access time restrictions",
+        "access_time_help": "No restrictions means access is always allowed, the time must be set in the format HH:MM. Use UTC time"
     },
     "admin": {
         "role_permissions": "A role admin cannot have the following permissions: {{val}}",

@@ -2650,6 +2650,14 @@ func copyBaseUserFilters(in sdk.BaseUserFilters) sdk.BaseUserFilters {
 		copy(bwLimit.Sources, limit.Sources)
 		filters.BandwidthLimits = append(filters.BandwidthLimits, bwLimit)
 	}
+	filters.AccessTime = make([]sdk.TimePeriod, 0, len(in.AccessTime))
+	for _, period := range in.AccessTime {
+		filters.AccessTime = append(filters.AccessTime, sdk.TimePeriod{
+			DayOfWeek: period.DayOfWeek,
+			From:      period.From,
+			To:        period.To,
+		})
+	}
 	return filters
 }
 
@@ -3129,7 +3137,58 @@ func validateBaseFilters(filters *sdk.BaseUserFilters) error {
 	}
 	updateFiltersValues(filters)
 
+	if err := validateAccessTimeFilters(filters); err != nil {
+		return err
+	}
+
 	return validateFiltersPatternExtensions(filters)
+}
+
+func isTimeOfDayValid(value string) bool {
+	if len(value) != 5 {
+		return false
+	}
+	parts := strings.Split(value, ":")
+	if len(parts) != 2 {
+		return false
+	}
+	hour, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return false
+	}
+	if hour < 0 || hour > 23 {
+		return false
+	}
+	minute, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return false
+	}
+	if minute < 0 || minute > 59 {
+		return false
+	}
+	return true
+}
+
+func validateAccessTimeFilters(filters *sdk.BaseUserFilters) error {
+	for _, period := range filters.AccessTime {
+		if period.DayOfWeek < int(time.Sunday) || period.DayOfWeek > int(time.Saturday) {
+			return util.NewValidationError(fmt.Sprintf("invalid day of week: %d", period.DayOfWeek))
+		}
+		if !isTimeOfDayValid(period.From) || !isTimeOfDayValid(period.To) {
+			return util.NewI18nError(
+				util.NewValidationError("invalid time of day. Supported format: HH:MM"),
+				util.I18nErrorTimeOfDayInvalid,
+			)
+		}
+		if period.To <= period.From {
+			return util.NewI18nError(
+				util.NewValidationError("invalid time of day. The end time cannot be earlier than the start time"),
+				util.I18nErrorTimeOfDayConflict,
+			)
+		}
+	}
+
+	return nil
 }
 
 func validateCombinedUserFilters(user *User) error {

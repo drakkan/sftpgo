@@ -1269,6 +1269,13 @@ func TestGroupSettingsOverride(t *testing.T) {
 		},
 		VirtualPath: "/vdir4",
 	})
+	g2.UserSettings.Filters.AccessTime = []sdk.TimePeriod{
+		{
+			DayOfWeek: int(time.Now().UTC().Weekday()),
+			From:      "10:00",
+			To:        "18:00",
+		},
+	}
 	f1 := vfs.BaseVirtualFolder{
 		Name:       folderName1,
 		MappedPath: mappedPath1,
@@ -1363,10 +1370,12 @@ func TestGroupSettingsOverride(t *testing.T) {
 	assert.Equal(t, g2.UserSettings.Permissions["/dir3"], user.Permissions["/dir3"])
 	assert.Equal(t, g1.UserSettings.FsConfig.OSConfig.ReadBufferSize, user.FsConfig.OSConfig.ReadBufferSize)
 	assert.Equal(t, g1.UserSettings.FsConfig.OSConfig.WriteBufferSize, user.FsConfig.OSConfig.WriteBufferSize)
+	assert.Len(t, user.Filters.AccessTime, 1)
 
 	user, err = dataprovider.GetUserAfterIDPAuth(defaultUsername, "", common.ProtocolOIDC, nil)
 	assert.NoError(t, err)
 	assert.Len(t, user.VirtualFolders, 4)
+	assert.Len(t, user.Filters.AccessTime, 1)
 
 	user1, user2, err := dataprovider.GetUserVariants(defaultUsername, "")
 	assert.NoError(t, err)
@@ -1374,6 +1383,8 @@ func TestGroupSettingsOverride(t *testing.T) {
 	assert.Len(t, user2.VirtualFolders, 4)
 	assert.Equal(t, int64(0), user1.ExpirationDate)
 	assert.Equal(t, int64(0), user2.ExpirationDate)
+	assert.Len(t, user1.Filters.AccessTime, 0)
+	assert.Len(t, user2.Filters.AccessTime, 1)
 
 	group2.UserSettings.FsConfig = vfs.Filesystem{
 		Provider: sdk.SFTPFilesystemProvider,
@@ -2844,6 +2855,40 @@ func TestUserBandwidthLimits(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
+}
+
+func TestAccessTimeValidation(t *testing.T) {
+	u := getTestUser()
+	u.Filters.AccessTime = []sdk.TimePeriod{
+		{
+			DayOfWeek: 8,
+			From:      "10:00",
+			To:        "18:00",
+		},
+	}
+	_, resp, err := httpdtest.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err, string(resp))
+	assert.Contains(t, string(resp), "invalid day of week")
+	u.Filters.AccessTime = []sdk.TimePeriod{
+		{
+			DayOfWeek: 6,
+			From:      "10:00",
+			To:        "18",
+		},
+	}
+	_, resp, err = httpdtest.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err, string(resp))
+	assert.Contains(t, string(resp), "invalid time of day")
+	u.Filters.AccessTime = []sdk.TimePeriod{
+		{
+			DayOfWeek: 6,
+			From:      "11:00",
+			To:        "10:58",
+		},
+	}
+	_, resp, err = httpdtest.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err, string(resp))
+	assert.Contains(t, string(resp), "The end time cannot be earlier than the start time")
 }
 
 func TestUserTimestamps(t *testing.T) {
@@ -20648,6 +20693,11 @@ func TestWebUserAddMock(t *testing.T) {
 	form.Set("directory_patterns[4][pattern_path]", "/dir2")
 	form.Set("directory_patterns[4][patterns]", "*.mkv")
 	form.Set("directory_patterns[4][pattern_type]", "denied")
+	form.Set("access_time_restrictions[0][access_time_day_of_week]", "2")
+	form.Set("access_time_restrictions[0][access_time_start]", "10") // invalid and no end, ignored
+	form.Set("access_time_restrictions[1][access_time_day_of_week]", "3")
+	form.Set("access_time_restrictions[1][access_time_start]", "12:00")
+	form.Set("access_time_restrictions[1][access_time_end]", "14:09")
 	form.Set("additional_info", user.AdditionalInfo)
 	form.Set("description", user.Description)
 	form.Add("hooks", "external_auth_disabled")
@@ -20996,6 +21046,11 @@ func TestWebUserAddMock(t *testing.T) {
 				assert.Equal(t, int64(1024), bwLimit.DownloadBandwidth)
 			}
 		}
+	}
+	if assert.Len(t, newUser.Filters.AccessTime, 1) {
+		assert.Equal(t, 3, newUser.Filters.AccessTime[0].DayOfWeek)
+		assert.Equal(t, "12:00", newUser.Filters.AccessTime[0].From)
+		assert.Equal(t, "14:09", newUser.Filters.AccessTime[0].To)
 	}
 	assert.Len(t, newUser.Groups, 3)
 	assert.Equal(t, sdk.TLSUsernameNone, newUser.Filters.TLSUsername)

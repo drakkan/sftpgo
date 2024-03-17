@@ -230,6 +230,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
                             {{- template "user_group_perms" .Group.UserSettings.Filters}}
 
+                            {{- template "user_group_access_time" .Group.UserSettings.Filters}}
+
                             <div class="form-group row mt-10">
                                 <label for="idMaxSessions" data-i18n="filters.max_sessions" class="col-md-3 col-form-label">Max sessions</label>
                                 <div class="col-md-9">
@@ -392,6 +394,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         initRepeater('#directory_permissions');
         initRepeater('#directory_patterns');
         initRepeater('#src_bandwidth_limits');
+        initRepeater('#access_time_restrictions');
         initRepeaterItems();
         //{{- if .Error}}
         $('#accordionUser .collapse').removeAttr("data-bs-parent").collapse('show');

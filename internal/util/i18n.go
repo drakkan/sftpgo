@@ -191,6 +191,8 @@ const (
 	I18nStorageSFTP                    = "storage.sftp"
 	I18nStorageHTTP                    = "storage.http"
 	I18nErrorInvalidQuotaSize          = "user.invalid_quota_size"
+	I18nErrorTimeOfDayInvalid          = "user.time_of_day_invalid"
+	I18nErrorTimeOfDayConflict         = "user.time_of_day_conflict"
 	I18nErrorInvalidMaxFilesize        = "filters.max_upload_size_invalid"
 	I18nErrorInvalidHomeDir            = "storage.home_dir_invalid"
 	I18nErrorBucketRequired            = "storage.bucket_required"

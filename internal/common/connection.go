@@ -109,6 +109,14 @@ func (c *BaseConnection) GetMaxSessions() int {
 	return c.User.MaxSessions
 }
 
+// isAccessAllowed returns true if the user's access conditions are met
+func (c *BaseConnection) isAccessAllowed() bool {
+	if err := c.User.CheckLoginConditions(); err != nil {
+		return false
+	}
+	return true
+}
+
 // GetProtocol returns the protocol for the connection
 func (c *BaseConnection) GetProtocol() string {
 	return c.protocol

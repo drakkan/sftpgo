@@ -1284,6 +1284,36 @@ func getUserPermissionsFromPostFields(r *http.Request) map[string][]string {
 	return permissions
 }
 
+func getAccessTimeRestrictionsFromPostFields(r *http.Request) []sdk.TimePeriod {
+	var result []sdk.TimePeriod
+
+	dayOfWeeks := r.Form["access_time_day_of_week"]
+	starts := r.Form["access_time_start"]
+	ends := r.Form["access_time_end"]
+
+	for idx, dayOfWeek := range dayOfWeeks {
+		dayOfWeek = strings.TrimSpace(dayOfWeek)
+		start := ""
+		if len(starts) > idx {
+			start = strings.TrimSpace(starts[idx])
+		}
+		end := ""
+		if len(ends) > idx {
+			end = strings.TrimSpace(ends[idx])
+		}
+		dayNumber, err := strconv.Atoi(dayOfWeek)
+		if err == nil && start != "" && end != "" {
+			result = append(result, sdk.TimePeriod{
+				DayOfWeek: dayNumber,
+				From:      start,
+				To:        end,
+			})
+		}
+	}
+
+	return result
+}
+
 func getBandwidthLimitsFromPostFields(r *http.Request) ([]sdk.BandwidthLimit, error) {
 	var result []sdk.BandwidthLimit
 	bwSources := r.Form["bandwidth_limit_sources"]
@@ -1463,6 +1493,7 @@ func getFiltersFromUserPostFields(r *http.Request) (sdk.BaseUserFilters, error) 
 	filters.MaxSharesExpiration = maxSharesExpiration
 	filters.PasswordExpiration = passwordExpiration
 	filters.PasswordStrength = passwordStrength
+	filters.AccessTime = getAccessTimeRestrictionsFromPostFields(r)
 	hooks := r.Form["hooks"]
 	if util.Contains(hooks, "external_auth_disabled") {
 		filters.Hooks.ExternalAuthDisabled = true
@@ -1967,6 +1998,13 @@ func updateRepeaterFormFields(r *http.Request) {
 			r.Form.Add("patterns", strings.TrimSpace(r.Form.Get(base+"[patterns]")))
 			r.Form.Add("pattern_type", strings.TrimSpace(r.Form.Get(base+"[pattern_type]")))
 			r.Form.Add("pattern_policy", strings.TrimSpace(r.Form.Get(base+"[pattern_policy]")))
+			continue
+		}
+		if hasPrefixAndSuffix(k, "access_time_restrictions[", "][access_time_day_of_week]") {
+			base, _ := strings.CutSuffix(k, "[access_time_day_of_week]")
+			r.Form.Add("access_time_day_of_week", strings.TrimSpace(r.Form.Get(k)))
+			r.Form.Add("access_time_start", strings.TrimSpace(r.Form.Get(base+"[access_time_start]")))
+			r.Form.Add("access_time_end", strings.TrimSpace(r.Form.Get(base+"[access_time_end]")))
 			continue
 		}
 		if hasPrefixAndSuffix(k, "src_bandwidth_limits[", "][bandwidth_limit_sources]") {

@@ -449,6 +449,7 @@ type ActiveConnection interface {
 	GetTransfers() []ConnectionTransfer
 	SignalTransferClose(transferID int64, err error)
 	CloseFS() error
+	isAccessAllowed() bool
 }
 
 // StatAttributes defines the attributes for set stat commands
@@ -1081,8 +1082,14 @@ func (conns *ActiveConnections) checkIdles() {
 		if idleTime > Config.idleTimeoutAsDuration || (isUnauthenticatedFTPUser && idleTime > Config.idleLoginTimeout) {
 			defer func(conn ActiveConnection) {
 				err := conn.Disconnect()
-				logger.Debug(conn.GetProtocol(), conn.GetID(), "close idle connection, idle time: %v, username: %q close err: %v",
+				logger.Debug(conn.GetProtocol(), conn.GetID(), "close idle connection, idle time: %s, username: %q close err: %v",
 					time.Since(conn.GetLastActivity()), conn.GetUsername(), err)
+			}(c)
+		} else if !c.isAccessAllowed() {
+			defer func(conn ActiveConnection) {
+				err := conn.Disconnect()
+				logger.Info(conn.GetProtocol(), conn.GetID(), "access conditions not met for user: %q close connection err: %v",
+					conn.GetUsername(), err)
 			}(c)
 		}
 	}

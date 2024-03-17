@@ -335,7 +335,27 @@ func (u *User) isFsEqual(other *User) bool {
 	return true
 }
 
-// CheckLoginConditions checks if the user is active and not expired
+func (u *User) isTimeBasedAccessAllowed(when time.Time) bool {
+	if len(u.Filters.AccessTime) == 0 {
+		return true
+	}
+	if when.IsZero() {
+		when = time.Now()
+	}
+	when = when.UTC()
+	weekDay := when.Weekday()
+	hhMM := when.Format("15:04")
+	for _, p := range u.Filters.AccessTime {
+		if p.DayOfWeek == int(weekDay) {
+			if hhMM >= p.From && hhMM <= p.To {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// CheckLoginConditions checks user access restrictions
 func (u *User) CheckLoginConditions() error {
 	if u.Status < 1 {
 		return fmt.Errorf("user %q is disabled", u.Username)
@@ -344,7 +364,10 @@ func (u *User) CheckLoginConditions() error {
 		return fmt.Errorf("user %q is expired, expiration timestamp: %v current timestamp: %v", u.Username,
 			u.ExpirationDate, util.GetTimeAsMsSinceEpoch(time.Now()))
 	}
-	return nil
+	if u.isTimeBasedAccessAllowed(time.Now()) {
+		return nil
+	}
+	return errors.New("access is not allowed at this time")
 }
 
 // hideConfidentialData hides user confidential data
@@ -1834,6 +1857,7 @@ func (u *User) mergeAdditiveProperties(group *Group, groupType int, replacer *st
 	u.Filters.DeniedProtocols = append(u.Filters.DeniedProtocols, group.UserSettings.Filters.DeniedProtocols...)
 	u.Filters.WebClient = append(u.Filters.WebClient, group.UserSettings.Filters.WebClient...)
 	u.Filters.TwoFactorAuthProtocols = append(u.Filters.TwoFactorAuthProtocols, group.UserSettings.Filters.TwoFactorAuthProtocols...)
+	u.Filters.AccessTime = append(u.Filters.AccessTime, group.UserSettings.Filters.AccessTime...)
 }
 
 func (u *User) mergeVirtualFolders(group *Group, groupType int, replacer *strings.Replacer) {

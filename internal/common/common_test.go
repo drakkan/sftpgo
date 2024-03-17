@@ -748,6 +748,7 @@ func TestIdleConnections(t *testing.T) {
 	user := dataprovider.User{
 		BaseUser: sdk.BaseUser{
 			Username: username,
+			Status:   1,
 		},
 	}
 	c := NewBaseConnection(sshConn1.id+"_1", ProtocolSFTP, "", "", user)
@@ -772,15 +773,34 @@ func TestIdleConnections(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, Connections.GetActiveSessions(username), 2)
 
-	cFTP := NewBaseConnection("id2", ProtocolFTP, "", "", dataprovider.User{})
+	cFTP := NewBaseConnection("id2", ProtocolFTP, "", "", dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Status: 1,
+		},
+	})
 	cFTP.lastActivity.Store(time.Now().UnixNano())
 	fakeConn = &fakeConnection{
 		BaseConnection: cFTP,
 	}
 	err = Connections.Add(fakeConn)
 	assert.NoError(t, err)
-	assert.Equal(t, Connections.GetActiveSessions(username), 2)
-	assert.Len(t, Connections.GetStats(""), 3)
+	// the user is expired, this connection will be removed
+	cDAV := NewBaseConnection("id3", ProtocolWebDAV, "", "", dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username:       username + "_2",
+			Status:         1,
+			ExpirationDate: util.GetTimeAsMsSinceEpoch(time.Now().Add(-24 * time.Hour)),
+		},
+	})
+	cDAV.lastActivity.Store(time.Now().UnixNano())
+	fakeConn = &fakeConnection{
+		BaseConnection: cDAV,
+	}
+	err = Connections.Add(fakeConn)
+	assert.NoError(t, err)
+
+	assert.Equal(t, 2, Connections.GetActiveSessions(username))
+	assert.Len(t, Connections.GetStats(""), 4)
 	Connections.RLock()
 	assert.Len(t, Connections.sshConnections, 2)
 	Connections.RUnlock()
