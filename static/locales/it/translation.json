@@ -553,7 +553,7 @@
     "group": {
         "view_manage": "Visualizza e gestisci gruppi",
         "err_delete_referenced": "Impossibile eliminare un gruppo con utenti associati, rimuovere prima le associazioni",
-        "help": "Il segnaposto %username% verrà sostituito con il nome utente degli utenti associati"
+        "help": "Il segnaposto %username% verrà sostituito con il nome utente degli utenti associati, %role% con il loro ruolo"
     },
     "virtual_folders": {
         "view_manage": "Visualizza e gestisci cartelle virtuali",

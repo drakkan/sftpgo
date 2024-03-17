@@ -553,7 +553,7 @@
     "group": {
         "view_manage": "View and manage groups",
         "err_delete_referenced": "Cannot delete a group with associated users, remove associations first",
-        "help": "The %username% placeholder will be replaced with the username of the associated users"
+        "help": "The %username% placeholder will be replaced with the username of the associated users, %role% with their role"
     },
     "virtual_folders": {
         "view_manage": "View and manage virtual folders",
