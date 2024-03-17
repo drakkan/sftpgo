@@ -163,6 +163,7 @@ Flags:
                                         operations to a given path within the
                                         remote SFTP server
       --sftp-username string            SFTP user for SFTP provider
+  -I, --sftpd-idle-timeout int          shutdown sftpd server if there are no active connections for the given amount of seconds. A value of "-1" disables the automatic shutdown. (default -1)
   -s, --sftpd-port int                  0 means a random unprivileged port,
                                         < 0 disabled
       --ssh-commands strings            SSH commands to enable.

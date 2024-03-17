@@ -23,6 +23,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/sftpgo/sdk"
 	"github.com/spf13/cobra"
@@ -40,6 +41,7 @@ import (
 var (
 	directoryToServe                   string
 	portableSFTPDPort                  int
+	portableSFTPDIdleTimeout           int
 	portableUsername                   string
 	portablePassword                   string
 	portablePasswordFile               string
@@ -292,6 +294,9 @@ Please take a look at the usage below to customize the serving parameters`,
 				portableSSHCommands, portableFTPSCert, portableFTPSKey, portableWebDAVCert, portableWebDAVKey,
 				portableHTTPSCert, portableHTTPSKey)
 			if err == nil {
+				if portableSFTPDIdleTimeout >= 0 {
+					go shutdownSFTPDOnInactivity(&service, portableSFTPDPort, portableSFTPDIdleTimeout)
+				}
 				service.Wait()
 				if service.Error == nil {
 					os.Exit(0)
@@ -314,6 +319,7 @@ This is a virtual path not a filesystem
 path`)
 	portableCmd.Flags().IntVarP(&portableSFTPDPort, "sftpd-port", "s", 0, `0 means a random unprivileged port,
 < 0 disabled`)
+	portableCmd.Flags().IntVarP(&portableSFTPDIdleTimeout, "sftpd-idle-timeout", "I", -1, `shutdown sftpd server if there are no active connections for the given amount of seconds. A value of "-1" disables the automatic shutdown.`)
 	portableCmd.Flags().IntVar(&portableFTPDPort, "ftpd-port", -1, `0 means a random unprivileged port,
 < 0 disabled`)
 	portableCmd.Flags().IntVar(&portableWebDAVPort, "webdav-port", -1, `0 means a random unprivileged port,
@@ -523,4 +529,47 @@ func getFileContents(name string) (string, error) {
 		return "", err
 	}
 	return string(contents), nil
+}
+
+func shutdownSFTPDOnInactivity(svc *service.Service, sftpPort, inactiveShutdownSeconds int) {
+	username := svc.PortableUser.Username
+	checkDuration := 3 * time.Second
+	shutdownAfter := time.Now().
+		Add(checkDuration).
+		Add(time.Duration(inactiveShutdownSeconds) * time.Second)
+
+	ticker := time.NewTicker(checkDuration)
+	warningLogged := false
+	current := 0
+	fmt.Println("automatic inactivity shutdown enabled")
+	for {
+		select {
+		case <-ticker.C:
+			connections := common.Connections.GetActiveSessions(username)
+			if current > connections {
+				fmt.Println(fmt.Sprintf("[%d] connection for user %q closed", sftpPort, username))
+			} else if current < connections {
+				fmt.Println(fmt.Sprintf("[%d] new connection for user %q", sftpPort, username))
+			}
+			current = connections
+			if connections > 0 {
+				shutdownAfter = time.Now().
+					Add(checkDuration).
+					Add(time.Duration(inactiveShutdownSeconds) * time.Second)
+				warningLogged = false
+				continue
+			}
+
+			if time.Now().After(shutdownAfter) {
+				fmt.Println("shutdown due to inactivity")
+				svc.Stop()
+				return
+			}
+
+			if !warningLogged {
+				fmt.Println(fmt.Sprintf("there are no active connections. Server will be shutdown after %s if no new connection is established", shutdownAfter))
+				warningLogged = true
+			}
+		}
+	}
 }
