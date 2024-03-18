@@ -1272,8 +1272,8 @@ func TestGroupSettingsOverride(t *testing.T) {
 	g2.UserSettings.Filters.AccessTime = []sdk.TimePeriod{
 		{
 			DayOfWeek: int(time.Now().UTC().Weekday()),
-			From:      "10:00",
-			To:        "18:00",
+			From:      "00:00",
+			To:        "23:59",
 		},
 	}
 	f1 := vfs.BaseVirtualFolder{

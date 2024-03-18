@@ -5400,6 +5400,26 @@ components:
           type: integer
           format: int32
           description: 'Maximum download bandwidth as KB/s, 0 means unlimited'
+    TimePeriod:
+      type: object
+      properties:
+        day_of_week:
+          type: integer
+          enum:
+            - 0
+            - 1
+            - 2
+            - 3
+            - 4
+            - 5
+            - 6
+          description: Day of week, 0 Sunday, 6 Saturday
+        from:
+          type: string
+          description: Start time in HH:MM format
+        to:
+          type: string
+          description: End time in HH:MM format
     BaseUserFilters:
       type: object
       properties:
@@ -5493,6 +5513,10 @@ components:
         password_expiration:
           type: integer
           description: 'The password expires after the defined number of days. 0 means no expiration'
+        access_time:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimePeriod'
       description: Additional user options
     UserFilters:
       allOf:
