@@ -39,6 +39,7 @@ import (
 
 var (
 	directoryToServe                   string
+	portableVirtualDirectories         []string
 	portableSFTPDPort                  int
 	portableUsername                   string
 	portablePassword                   string
@@ -198,6 +199,30 @@ Please take a look at the usage below to customize the serving parameters`,
 				}
 				pwd = strings.TrimSpace(string(content))
 			}
+
+			var vFolder []vfs.VirtualFolder
+			if len(portableVirtualDirectories) > 0 {
+				folderMapping, err := parseFoldersFromStringSlice(portableVirtualDirectories)
+				if err != nil {
+					fmt.Printf("Unable to parse virtual folder mapping %q: %s", portableVirtualDirectories, err)
+					os.Exit(1)
+				}
+				for hostPath, virtual := range folderMapping {
+					vFolder = append(vFolder, vfs.VirtualFolder{
+						BaseVirtualFolder: vfs.BaseVirtualFolder{
+							Name:       hostPath,
+							MappedPath: hostPath,
+						},
+						VirtualPath: virtual.VirtualPath,
+					})
+					if len(virtual.Permissions) > 0 {
+						permissions[virtual.VirtualPath] = virtual.Permissions
+					} else {
+						permissions[virtual.VirtualPath] = []string{dataprovider.PermListItems}
+					}
+				}
+			}
+
 			service.SetGraceTime(graceTime)
 			service := service.Service{
 				ConfigDir:     util.CleanDirInput(configDir),
@@ -212,6 +237,7 @@ Please take a look at the usage below to customize the serving parameters`,
 				Shutdown:      make(chan bool),
 				PortableMode:  1,
 				PortableUser: dataprovider.User{
+					VirtualFolders: vFolder,
 					BaseUser: sdk.BaseUser{
 						Username:    portableUsername,
 						Password:    pwd,
@@ -312,6 +338,8 @@ relative to the current directory
 	portableCmd.Flags().StringVar(&portableStartDir, "start-directory", "/", `Alternate start directory.
 This is a virtual path not a filesystem
 path`)
+	portableCmd.Flags().StringSliceVarP(&portableVirtualDirectories, "virtual-directory", "v", nil, fmt.Sprintf(`virtual directory mapping: "-v <host-path>[:<virtual-path>[:<permission>[;<permission>]]]".
+available permissions: "%s"`, strings.Join(dataprovider.AvailablePermissions, ",")))
 	portableCmd.Flags().IntVarP(&portableSFTPDPort, "sftpd-port", "s", 0, `0 means a random unprivileged port,
 < 0 disabled`)
 	portableCmd.Flags().IntVar(&portableFTPDPort, "ftpd-port", -1, `0 means a random unprivileged port,
@@ -523,4 +551,40 @@ func getFileContents(name string) (string, error) {
 		return "", err
 	}
 	return string(contents), nil
+}
+
+type virtualFolder struct {
+	VirtualPath string
+	Permissions []string
+}
+
+func parseFoldersFromStringSlice(in []string) (map[string]virtualFolder, error) {
+	mapping := make(map[string]virtualFolder)
+	for _, folder := range in {
+		splitted := strings.Split(folder, ":")
+		hostPath := splitted[0]
+		virtualPath := hostPath
+		var permissions string
+
+		if len(splitted) < 1 || len(splitted) > 3 {
+			return nil, fmt.Errorf("malformed folder %s", folder)
+		}
+		if len(splitted) > 1 && len(splitted[1]) > 0 {
+			virtualPath = splitted[1]
+		}
+		if len(splitted) > 2 {
+			permissions = splitted[2]
+		}
+
+		vFolder := virtualFolder{
+			VirtualPath: virtualPath,
+		}
+		if len(permissions) > 0 {
+			vFolder.Permissions = strings.Split(permissions, ";")
+		}
+
+		mapping[hostPath] = vFolder
+	}
+
+	return mapping, nil
 }

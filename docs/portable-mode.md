@@ -1,6 +1,6 @@
 # Portable mode
 
-SFTPGo allows to share a single directory on demand using the `portable` subcommand:
+SFTPGo allows to share a single directory (and multiple virtual directory mappings) on demand using the `portable` subcommand:
 
 ```console
 sftpgo portable --help
@@ -174,6 +174,8 @@ Flags:
                                         path (default "/")
   -u, --username string                 Leave empty to use an auto generated
                                         value
+  -v, --virtual-directory strings       virtual directory mapping: "-v <host-path>[:<virtual-path>[:<permission>[;<permission>]]]".
+                                        available permissions: "*,list,download,upload,overwrite,delete,rename,create_dirs,create_symlinks,chmod,chown,chtimes"
       --webdav-cert string              Path to the certificate file for WebDAV
                                         over HTTPS
       --webdav-key string               Path to the key file for WebDAV over
