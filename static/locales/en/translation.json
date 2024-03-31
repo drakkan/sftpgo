@@ -360,7 +360,7 @@
             "err_403": "$t(fs.upload.err_generic). $t(fs.err_403)",
             "err_429": "$t(fs.upload.err_generic). $t(fs.err_429)",
             "err_dir_overwrite": "$t(fs.upload.err_generic). There are directories with the same name as the files: {{- val}}",
-            "overwrite_text": "File conflict detected. Do you want to overwrite the following files?"
+            "overwrite_text": "Conflict detected. Do you want to overwrite the following files/directories?"
         },
         "quota_usage": {
             "title": "Quota usage",

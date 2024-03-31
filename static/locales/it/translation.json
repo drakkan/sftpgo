@@ -360,7 +360,7 @@
             "err_403": "$t(fs.upload.err_generic). $t(fs.err_403)",
             "err_429": "$t(fs.upload.err_generic). $t(fs.err_429)",
             "err_dir_overwrite": "$t(fs.upload.err_generic). Ci sono cartelle con lo stesso nome dei file: {{- val}}",
-            "overwrite_text": "Rilevato conflitto di file. Vuoi sovrascrivere i seguenti file?"
+            "overwrite_text": "Rilevato conflitto. Vuoi sovrascrivere i seguenti file/cartelle?"
         },
         "quota_usage": {
             "title": "Utilizzo quota",

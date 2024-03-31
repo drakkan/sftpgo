@@ -33,7 +33,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             {{- template "errmsg" ""}}
             <form id="upload_files_form" action="{{.UploadBasePath}}" method="POST" enctype="multipart/form-data">
                 <div class="fv-row">
-                    <div class="dropzone" id="upload_files">
+                    <div class="dropzone mh-350px overflow-auto visibility-auto" id="upload_files">
                         <div class="dz-message needsclick align-items-center">
                             <i class="ki-duotone ki-file-up fs-3x text-primary"><span class="path1"></span><span class="path2"></span></i>
                             <div class="ms-4">
@@ -58,6 +58,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         let has_errors = false;
         let index = 0;
         let success = 0;
+        let checkedDirs = [];
         $('#errorMsg').addClass("d-none");
         $('#loading_message').text("");
         KTApp.showPageLoading();
@@ -83,7 +84,17 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             }
 
             let f = files[index];
-            let uploadPath = '{{.UploadBasePath}}/'+encodeURIComponent(f.name);
+            let name = f.name;
+            let mkdirParents = "false";
+            if (f.fullPath){
+                name = f.fullPath;
+                let dirName = name.substr(0, name.lastIndexOf("/"));
+                if (!checkedDirs.includes(dirName)){
+                    mkdirParents = "true";
+                    checkedDirs.push(dirName);
+                }
+            }
+            let uploadPath = '{{.UploadBasePath}}/'+encodeURIComponent(name)+"?mkdir_parents="+mkdirParents;
             let lastModified;
             try {
                 lastModified = f.lastModified;
@@ -154,12 +165,20 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         var dropzone =  new Dropzone("#upload_files", {
             url: "{{.UploadBasePath}}",
             paramName: "filenames",
-            maxFiles: 200,
+            createImageThumbnails: false,
+            maxFiles: null,
             maxFilesize: null,
             autoQueue: false,
-            addRemoveLinks: true,
+            addRemoveLinks: false,
             autoProcessQueue: false,
             filesizeBase: 1000,
+            previewTemplate: `<div class="d-flex align-items-center mb-2">
+                                 <span class="bullet bullet-dot bg-primary me-2"></span>
+                                 <div class="text-break text-wrap text-left"><span class="fs-5 fw-semibold" data-dz-name></span>&nbsp;(<span class="fs-5 fw-semibold" data-custom-size></span>)</div>
+                               </div>
+                               <div class="dz-error-message d-none" data-dz-errormessage></div>
+                               <div class="dz-progress d-none"><span class="dz-upload" data-dz-uploadprogress></span></div>
+                              `,
             init: function() {
                 var dropzone = this;
                 $("#upload_files_button").click(function(){
@@ -169,7 +188,14 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         });
 
         dropzone.on("addedfile", file => {
-            file.previewElement.querySelector(".dz-progress").style.display = 'none';
+            for (node of file.previewElement.querySelectorAll("[data-custom-size]")) {
+                node.textContent = fileSizeIEC(file.size);
+            }
+            if (file.fullPath){
+                for (var node of file.previewElement.querySelectorAll("[data-dz-name]")) {
+                    node.textContent = file.fullPath;
+                }
+            }
         });
     });
 

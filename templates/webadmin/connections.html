@@ -127,6 +127,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     dataSrc: "",
                     error: function ($xhr, textStatus, errorThrown) {
                         $(".dataTables_processing").hide();
+                        $('#loader').addClass("d-none");
                         let txt = "";
                         if ($xhr) {
                             let json = $xhr.responseJSON;
