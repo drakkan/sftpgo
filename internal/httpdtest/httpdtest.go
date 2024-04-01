@@ -2813,9 +2813,6 @@ func compareEventActionDataRetentionFields(expected, actual dataprovider.EventAc
 				if f1.DeleteEmptyDirs != f2.DeleteEmptyDirs {
 					return fmt.Errorf("delete_empty_dirs mismatch for folder %s", f1.Path)
 				}
-				if f1.IgnoreUserPermissions != f2.IgnoreUserPermissions {
-					return fmt.Errorf("ignore_user_permissions mismatch for folder %s", f1.Path)
-				}
 				break
 			}
 		}

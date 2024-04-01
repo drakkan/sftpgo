@@ -6087,10 +6087,9 @@ func TestEventActionsRetentionReports(t *testing.T) {
 			RetentionConfig: dataprovider.EventActionDataRetentionConfig{
 				Folders: []dataprovider.FolderRetention{
 					{
-						Path:                  testDir,
-						Retention:             1,
-						DeleteEmptyDirs:       true,
-						IgnoreUserPermissions: true,
+						Path:            testDir,
+						Retention:       1,
+						DeleteEmptyDirs: true,
 					},
 				},
 			},
@@ -7690,6 +7689,9 @@ func TestGetQuotaError(t *testing.T) {
 
 func TestRetentionAPI(t *testing.T) {
 	u := getTestUser()
+	u.Permissions["/"] = []string{dataprovider.PermListItems, dataprovider.PermUpload,
+		dataprovider.PermOverwrite, dataprovider.PermDownload, dataprovider.PermCreateDirs,
+		dataprovider.PermChtimes}
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	uploadPath := path.Join(testDir, testFileName)
@@ -7765,7 +7767,7 @@ func TestRetentionAPI(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	// remove delete permissions to the user
+	// remove delete permissions to the user, it will be automatically granted
 	user.Permissions["/"+testDir] = []string{dataprovider.PermListItems, dataprovider.PermUpload,
 		dataprovider.PermCreateDirs, dataprovider.PermChtimes}
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
@@ -7796,24 +7798,10 @@ func TestRetentionAPI(t *testing.T) {
 				DeleteEmptyDirs: true,
 			},
 			{
-				Path:                  path.Dir(innerUploadFilePath),
-				Retention:             0,
-				IgnoreUserPermissions: true,
+				Path:      path.Dir(innerUploadFilePath),
+				Retention: 0,
 			},
 		}
-		_, err = httpdtest.StartRetentionCheck(user.Username, folderRetention, http.StatusAccepted)
-		assert.NoError(t, err)
-
-		assert.Eventually(t, func() bool {
-			return len(common.RetentionChecks.Get("")) == 0
-		}, 1000*time.Millisecond, 50*time.Millisecond)
-
-		_, err = client.Stat(uploadPath)
-		assert.NoError(t, err)
-		_, err = client.Stat(innerUploadFilePath)
-		assert.NoError(t, err)
-
-		folderRetention[1].IgnoreUserPermissions = true
 		_, err = httpdtest.StartRetentionCheck(user.Username, folderRetention, http.StatusAccepted)
 		assert.NoError(t, err)
 
@@ -7829,10 +7817,9 @@ func TestRetentionAPI(t *testing.T) {
 		folderRetention = []dataprovider.FolderRetention{
 
 			{
-				Path:                  "/" + testDir,
-				Retention:             24,
-				DeleteEmptyDirs:       true,
-				IgnoreUserPermissions: true,
+				Path:            "/" + testDir,
+				Retention:       24,
+				DeleteEmptyDirs: true,
 			},
 		}
 
@@ -7864,10 +7851,9 @@ func TestRetentionAPI(t *testing.T) {
 		folderRetention := []dataprovider.FolderRetention{
 
 			{
-				Path:                  "/adir",
-				Retention:             24,
-				DeleteEmptyDirs:       true,
-				IgnoreUserPermissions: true,
+				Path:            "/adir",
+				Retention:       24,
+				DeleteEmptyDirs: true,
 			},
 		}
 

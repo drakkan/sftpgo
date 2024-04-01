@@ -983,7 +983,6 @@
         "data_retention": "Data retention",
         "data_retention_help": "Set the data retention, as hours, per path. Retention applies recursively. Setting 0 as retention means excluding the specified path. \"Ignore user permissions\" defines whether to delete files even if the user does not have the \"delete\" permission, by default files will be skipped if the user does not have the \"delete\" permission",
         "delete_empty_dirs": "Delete empty dirs",
-        "ignore_user_perms": "Ignore user permissions",
         "fs_action": "Filesystem action",
         "paths_src_dst_help": "Paths as seen by SFTPGo users. Placeholders are supported. The required permissions are granted automatically",
         "source_path": "Source",

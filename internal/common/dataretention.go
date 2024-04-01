@@ -201,10 +201,8 @@ func (c *RetentionCheck) Validate() error {
 }
 
 func (c *RetentionCheck) updateUserPermissions() {
-	for _, folder := range c.Folders {
-		if folder.IgnoreUserPermissions {
-			c.conn.User.Permissions[folder.Path] = []string{dataprovider.PermAny}
-		}
+	for k := range c.conn.User.Permissions {
+		c.conn.User.Permissions[k] = []string{dataprovider.PermAny}
 	}
 }
 
@@ -229,16 +227,6 @@ func (c *RetentionCheck) removeFile(virtualPath string, info os.FileInfo) error 
 	return c.conn.RemoveFile(fs, fsPath, virtualPath, info)
 }
 
-func (c *RetentionCheck) hasCleanupPerms(folderPath string) bool {
-	if !c.conn.User.HasPerm(dataprovider.PermListItems, folderPath) {
-		return false
-	}
-	if !c.conn.User.HasAnyPerm([]string{dataprovider.PermDelete, dataprovider.PermDeleteFiles}, folderPath) {
-		return false
-	}
-	return true
-}
-
 func (c *RetentionCheck) cleanupFolder(folderPath string, recursion int) error {
 	startTime := time.Now()
 	result := folderRetentionCheckResult{
@@ -255,13 +243,6 @@ func (c *RetentionCheck) cleanupFolder(folderPath string, recursion int) error {
 		return util.ErrRecursionTooDeep
 	}
 	recursion++
-	if !c.hasCleanupPerms(folderPath) {
-		result.Elapsed = time.Since(startTime)
-		result.Info = "data retention check skipped: no permissions"
-		c.conn.Log(logger.LevelInfo, "user %q does not have permissions to check retention on %q, retention check skipped",
-			c.conn.User.Username, folderPath)
-		return nil
-	}
 
 	folderRetention, err := c.getFolderRetention(folderPath)
 	if err != nil {
@@ -277,8 +258,8 @@ func (c *RetentionCheck) cleanupFolder(folderPath string, recursion int) error {
 		c.conn.Log(logger.LevelDebug, "retention check skipped for folder %q, retention is set to 0", folderPath)
 		return nil
 	}
-	c.conn.Log(logger.LevelDebug, "start retention check for folder %q, retention: %v hours, delete empty dirs? %v, ignore user perms? %v",
-		folderPath, folderRetention.Retention, folderRetention.DeleteEmptyDirs, folderRetention.IgnoreUserPermissions)
+	c.conn.Log(logger.LevelDebug, "start retention check for folder %q, retention: %v hours, delete empty dirs? %v",
+		folderPath, folderRetention.Retention, folderRetention.DeleteEmptyDirs)
 	lister, err := c.conn.ListDir(folderPath)
 	if err != nil {
 		result.Elapsed = time.Since(startTime)

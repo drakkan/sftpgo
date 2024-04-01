@@ -566,10 +566,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                                 <input data-i18n="[placeholder]general.hours" type="text" class="form-control" name="folder_retention_val" value="{{$val.Retention}}" />
                                             </div>
                                             <div class="col-md-4 mt-3 mt-md-8">
-                                                <select name="folder_retention_options" data-i18n="[data-placeholder]general.folder_placeholder" class="form-select select-repetear" data-allow-clear="true" data-close-on-select="false" data-hide-search="true" multiple>
+                                                <select name="folder_retention_options" data-i18n="[data-placeholder]general.options" class="form-select select-repetear" data-allow-clear="true" data-close-on-select="false" data-hide-search="true" multiple>
                                                     <option value=""></option>
                                                     <option value="1" data-i18n="actions.delete_empty_dirs" {{if $val.DeleteEmptyDirs}}selected{{end}}>Delete empty dirs</option>
-                                                    <option value="2" data-i18n="actions.ignore_user_perms" {{if $val.IgnoreUserPermissions}}selected{{end}}>Ignore user permissions</option>
                                                 </select>
                                             </div>
                                             <div class="col-md-1 mt-3 mt-md-8">
@@ -597,10 +596,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                             <input data-i18n="[placeholder]general.hours" type="text" class="form-control" name="folder_retention_val" value="" />
                                         </div>
                                         <div class="col-md-4 mt-3 mt-md-8">
-                                            <select name="folder_retention_options" data-i18n="[data-placeholder]general.folder_placeholder" class="form-select select-repetear" data-allow-clear="true" data-close-on-select="false" data-hide-search="true" multiple>
+                                            <select name="folder_retention_options" data-i18n="[data-placeholder]general.options" class="form-select select-repetear" data-allow-clear="true" data-close-on-select="false" data-hide-search="true" multiple>
                                                 <option value=""></option>
                                                 <option value="1" data-i18n="actions.delete_empty_dirs">Delete empty dirs</option>
-                                                <option value="2" data-i18n="actions.ignore_user_perms">Ignore user permissions</option>
                                             </select>
                                         </div>
                                         <div class="col-md-1 mt-3 mt-md-8">

@@ -23338,11 +23338,10 @@ func TestWebEventAction(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), util.I18nError500Message)
 	form.Set("data_retention[10][folder_retention_val]", "24")
 	form.Set("data_retention[10][folder_retention_options][]", "1")
-	form.Add("data_retention[10][folder_retention_options][]", "2")
 	form.Set("data_retention[11][folder_retention_path]", "../p2")
 	form.Set("data_retention[11][folder_retention_val]", "48")
 	form.Set("data_retention[11][folder_retention_options][]", "1")
-	form.Set("data_retention[12][folder_retention_options][]", "2") // ignored
+	form.Set("data_retention[13][folder_retention_options][]", "1") // ignored
 	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminEventActionPath, action.Name),
 		bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
@@ -23360,11 +23359,9 @@ func TestWebEventAction(t *testing.T) {
 			case "/p1":
 				assert.Equal(t, 24, folder.Retention)
 				assert.True(t, folder.DeleteEmptyDirs)
-				assert.True(t, folder.IgnoreUserPermissions)
 			case "/p2":
 				assert.Equal(t, 48, folder.Retention)
 				assert.True(t, folder.DeleteEmptyDirs)
-				assert.False(t, folder.IgnoreUserPermissions)
 			default:
 				t.Errorf("unexpected folder path %v", folder.Path)
 			}

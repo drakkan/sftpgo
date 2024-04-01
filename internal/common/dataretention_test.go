@@ -252,19 +252,16 @@ func TestRetentionPermissionsAndGetFolder(t *testing.T) {
 	check := RetentionCheck{
 		Folders: []dataprovider.FolderRetention{
 			{
-				Path:                  "/dir2",
-				Retention:             24 * 7,
-				IgnoreUserPermissions: true,
+				Path:      "/dir2",
+				Retention: 24 * 7,
 			},
 			{
-				Path:                  "/dir3",
-				Retention:             24 * 7,
-				IgnoreUserPermissions: false,
+				Path:      "/dir3",
+				Retention: 24 * 7,
 			},
 			{
-				Path:                  "/dir2/sub1/sub",
-				Retention:             24,
-				IgnoreUserPermissions: true,
+				Path:      "/dir2/sub1/sub",
+				Retention: 24,
 			},
 		},
 	}
@@ -273,15 +270,11 @@ func TestRetentionPermissionsAndGetFolder(t *testing.T) {
 	conn.SetProtocol(ProtocolDataRetention)
 	conn.ID = fmt.Sprintf("data_retention_%v", user.Username)
 	check.conn = conn
-	assert.False(t, check.hasCleanupPerms(check.Folders[2].Path))
 	check.updateUserPermissions()
-	assert.True(t, check.hasCleanupPerms(check.Folders[2].Path))
-	assert.Equal(t, []string{dataprovider.PermListItems, dataprovider.PermDelete}, conn.User.Permissions["/"])
-	assert.Equal(t, []string{dataprovider.PermListItems}, conn.User.Permissions["/dir1"])
-	assert.Equal(t, []string{dataprovider.PermAny}, conn.User.Permissions["/dir2"])
-	assert.Equal(t, []string{dataprovider.PermAny}, conn.User.Permissions["/dir2/sub1/sub"])
-	assert.Equal(t, []string{dataprovider.PermCreateDirs}, conn.User.Permissions["/dir2/sub1"])
-	assert.Equal(t, []string{dataprovider.PermDelete}, conn.User.Permissions["/dir2/sub2"])
+	assert.Equal(t, []string{dataprovider.PermAny}, conn.User.Permissions["/"])
+	assert.Equal(t, []string{dataprovider.PermAny}, conn.User.Permissions["/dir1"])
+	assert.Equal(t, []string{dataprovider.PermAny}, conn.User.Permissions["/dir2/sub1"])
+	assert.Equal(t, []string{dataprovider.PermAny}, conn.User.Permissions["/dir2/sub2"])
 
 	_, err := check.getFolderRetention("/")
 	assert.Error(t, err)

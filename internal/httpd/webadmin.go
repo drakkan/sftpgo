@@ -2220,10 +2220,9 @@ func getFoldersRetentionFromPostFields(r *http.Request) ([]dataprovider.FolderRe
 			}
 			opts := r.Form["folder_retention_options"+strconv.Itoa(idx)]
 			res = append(res, dataprovider.FolderRetention{
-				Path:                  p,
-				Retention:             retention,
-				DeleteEmptyDirs:       util.Contains(opts, "1"),
-				IgnoreUserPermissions: util.Contains(opts, "2"),
+				Path:            p,
+				Retention:       retention,
+				DeleteEmptyDirs: util.Contains(opts, "1"),
 			})
 		}
 	}

@@ -581,10 +581,6 @@ type FolderRetention struct {
 	// DeleteEmptyDirs defines if empty directories will be deleted.
 	// The user need the delete permission
 	DeleteEmptyDirs bool `json:"delete_empty_dirs,omitempty"`
-	// IgnoreUserPermissions defines whether to delete files even if the user does not have the delete permission.
-	// The default is "false" which means that files will be skipped if the user does not have the permission
-	// to delete them. This applies to sub directories too.
-	IgnoreUserPermissions bool `json:"ignore_user_permissions,omitempty"`
 }
 
 // Validate returns an error if the configuration is not valid
@@ -996,10 +992,9 @@ func (o *BaseEventActionOptions) getACopy() BaseEventActionOptions {
 	folders := make([]FolderRetention, 0, len(o.RetentionConfig.Folders))
 	for _, folder := range o.RetentionConfig.Folders {
 		folders = append(folders, FolderRetention{
-			Path:                  folder.Path,
-			Retention:             folder.Retention,
-			DeleteEmptyDirs:       folder.DeleteEmptyDirs,
-			IgnoreUserPermissions: folder.IgnoreUserPermissions,
+			Path:            folder.Path,
+			Retention:       folder.Retention,
+			DeleteEmptyDirs: folder.DeleteEmptyDirs,
 		})
 	}
 	httpParts := make([]HTTPPart, 0, len(o.HTTPConfig.Parts))
