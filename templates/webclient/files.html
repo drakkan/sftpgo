@@ -2114,27 +2114,27 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 uploadFile();
                 return;
             }
-            let existingFiles = [];
-            let existingDirs = [];
+            let existingEntries = [];
+            let fileOverwriteDirs = [];
             $.each(result.data, function (key, item) {
                 if (item.type === "1" && !dirsArray.includes(item.name)) {
-                    existingDirs.push(item.name);
+                    fileOverwriteDirs.push(item.name);
                 } else {
-                    existingFiles.push(item.name);
+                    existingEntries.push(item.name);
                 }
             });
-            if (existingDirs.length > 0) {
+            if (fileOverwriteDirs.length > 0) {
                 has_errors = true;
-                setI18NData($('#errorTxt'), "fs.upload.err_dir_overwrite", {val: existingDirs.join(", ")});
+                setI18NData($('#errorTxt'), "fs.upload.err_dir_overwrite", {val: fileOverwriteDirs.join(", ")});
                 $('#errorMsg').removeClass("d-none");
                 uploadFile();
                 return;
             }
-            if (existingFiles.length > 0) {
+            if (existingEntries.length > 0) {
                 KTApp.hidePageLoading();
                 ModalAlert.fire({
                     text: $.t('fs.upload.overwrite_text'),
-                    items: existingFiles,
+                    items: existingEntries,
                     icon: "warning",
                     confirmButtonText: $.t('general.confirm'),
                     cancelButtonText: $.t('general.cancel'),

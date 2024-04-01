@@ -14554,11 +14554,13 @@ func TestShareUploadSingle(t *testing.T) {
 func TestShareReadWrite(t *testing.T) {
 	u := getTestUser()
 	u.Filters.StartDirectory = path.Join("/start", "dir")
+	u.Permissions["/start/dir/limited"] = []string{dataprovider.PermListItems}
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
 	testFileName := "test.txt"
+	testSubDirs := "/sub/dir"
 
 	share := dataprovider.Share{
 		Name:      "test share rw",
@@ -14599,6 +14601,27 @@ func TestShareReadWrite(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusCreated, rr)
 	assert.FileExists(t, filepath.Join(user.GetHomeDir(), user.Filters.StartDirectory, testFileName))
+
+	req, err = http.NewRequest(http.MethodPost, path.Join(sharesPath, objectID)+"/"+url.PathEscape(path.Join(testSubDirs, testFileName)), bytes.NewBuffer(content))
+	assert.NoError(t, err)
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodPost, path.Join(sharesPath, objectID)+"/"+url.PathEscape(path.Join(testSubDirs, testFileName))+"?mkdir_parents=true",
+		bytes.NewBuffer(content))
+	assert.NoError(t, err)
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	assert.FileExists(t, filepath.Join(user.GetHomeDir(), user.Filters.StartDirectory, testSubDirs, testFileName))
+
+	req, err = http.NewRequest(http.MethodPost, path.Join(sharesPath, objectID)+"/"+url.PathEscape(path.Join("limited", "sub", testFileName))+"?mkdir_parents=true",
+		bytes.NewBuffer(content))
+	assert.NoError(t, err)
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
 
 	req, err = http.NewRequest(http.MethodPost, path.Join(webClientPubSharesPath, objectID, "/browse/exist?path=%2F"), bytes.NewBuffer(asJSON))
 	assert.NoError(t, err)
