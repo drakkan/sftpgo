@@ -1470,9 +1470,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
         let filesArray = [];
         for (let i = 0; i < items.length; i++){
-            filesArray.push({
-                name: items[i].targetName
-            });
+            filesArray.push(items[i].targetName);
         }
 
         CheckExist.fire({
@@ -1622,9 +1620,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
         let filesArray = [];
         for (let i = 0; i < items.length; i++){
-            filesArray.push({
-                name: items[i].targetName
-            });
+            filesArray.push(items[i].targetName);
         }
 
         CheckExist.fire({
@@ -1863,7 +1859,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
         CheckExist.fire({
             operation: "move",
-            files: [{name: newName}],
+            files: [newName],
             path: '{{.CurrentDir}}'
         }).then((result)=>{
             if (result.error) {
