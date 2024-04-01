@@ -358,6 +358,7 @@ func (s *httpdServer) uploadFileToShare(w http.ResponseWriter, r *http.Request) 
 	}
 	defer common.Connections.Remove(connection.GetID())
 
+	connection.User.CheckFsRoot(connection.ID) //nolint:errcheck
 	if getBoolQueryParam(r, "mkdir_parents") {
 		if err = connection.CheckParentDirs(path.Dir(filePath)); err != nil {
 			sendAPIResponse(w, r, err, "Error checking parent directories", getMappedStatusCode(err))
@@ -417,6 +418,7 @@ func (s *httpdServer) uploadFilesToShare(w http.ResponseWriter, r *http.Request)
 	}
 	dataprovider.UpdateShareLastUse(&share, len(files)) //nolint:errcheck
 
+	connection.User.CheckFsRoot(connection.ID) //nolint:errcheck
 	numUploads := doUploadFiles(w, r, connection, share.Paths[0], files)
 	if numUploads != len(files) {
 		dataprovider.UpdateShareLastUse(&share, numUploads-len(files)) //nolint:errcheck

@@ -90,6 +90,7 @@ func createUserDir(w http.ResponseWriter, r *http.Request) {
 	}
 	defer common.Connections.Remove(connection.GetID())
 
+	connection.User.CheckFsRoot(connection.ID) //nolint:errcheck
 	name := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
 	if getBoolQueryParam(r, "mkdir_parents") {
 		if err = connection.CheckParentDirs(path.Dir(name)); err != nil {
@@ -97,7 +98,6 @@ func createUserDir(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	connection.User.CheckFsRoot(connection.ID) //nolint:errcheck
 	err = connection.CreateDir(name, true)
 	if err != nil {
 		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to create directory %q", name), getMappedStatusCode(err))
@@ -273,6 +273,7 @@ func uploadUserFile(w http.ResponseWriter, r *http.Request) {
 	}
 	defer common.Connections.Remove(connection.GetID())
 
+	connection.User.CheckFsRoot(connection.ID) //nolint:errcheck
 	filePath := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
 	if getBoolQueryParam(r, "mkdir_parents") {
 		if err = connection.CheckParentDirs(path.Dir(filePath)); err != nil {
@@ -284,7 +285,6 @@ func uploadUserFile(w http.ResponseWriter, r *http.Request) {
 }
 
 func doUploadFile(w http.ResponseWriter, r *http.Request, connection *Connection, filePath string) error {
-	connection.User.CheckFsRoot(connection.ID) //nolint:errcheck
 	writer, err := connection.getFileWriter(filePath)
 	if err != nil {
 		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to write file %q", filePath), getMappedStatusCode(err))
@@ -342,6 +342,7 @@ func uploadUserFiles(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, nil, "No files uploaded!", http.StatusBadRequest)
 		return
 	}
+	connection.User.CheckFsRoot(connection.ID) //nolint:errcheck
 	if getBoolQueryParam(r, "mkdir_parents") {
 		if err = connection.CheckParentDirs(parentDir); err != nil {
 			sendAPIResponse(w, r, err, "Error checking parent directories", getMappedStatusCode(err))
@@ -354,7 +355,6 @@ func uploadUserFiles(w http.ResponseWriter, r *http.Request) {
 func doUploadFiles(w http.ResponseWriter, r *http.Request, connection *Connection, parentDir string,
 	files []*multipart.FileHeader,
 ) int {
-	connection.User.CheckFsRoot(connection.ID) //nolint:errcheck
 	uploaded := 0
 	connection.User.UploadBandwidth = 0
 	for _, f := range files {
