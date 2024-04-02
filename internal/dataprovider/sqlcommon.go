@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	sqlDatabaseVersion     = 28
+	sqlDatabaseVersion     = 29
 	defaultSQLQueryTimeout = 10 * time.Second
 	longSQLQueryTimeout    = 60 * time.Second
 )

@@ -209,6 +209,12 @@ INSERT INTO {{schema_version}} (version) VALUES (28);
 `
 	// not supported in CockroachDB
 	ipListsLikeIndex = `CREATE INDEX "{{prefix}}ip_lists_ipornet_like_idx" ON "{{ip_lists}}" ("ipornet" varchar_pattern_ops);`
+	pgsqlV29SQL      = `ALTER TABLE "{{users}}" ALTER COLUMN "used_download_data_transfer" TYPE bigint;
+ALTER TABLE "{{users}}" ALTER COLUMN "used_upload_data_transfer" TYPE bigint;
+`
+	pgsqlV29DownSQL = `ALTER TABLE "{{users}}" ALTER COLUMN "used_upload_data_transfer" TYPE integer;
+ALTER TABLE "{{users}}" ALTER COLUMN "used_download_data_transfer" TYPE integer;
+`
 )
 
 // PGSQLProvider defines the auth provider for PostgreSQL database
@@ -813,6 +819,8 @@ func (p *PGSQLProvider) migrateDatabase() error { //nolint:dupl
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
+	case version == 28:
+		return updatePGSQLDatabaseFrom28To29(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -835,6 +843,8 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 	}
 
 	switch dbVersion.Version {
+	case 29:
+		return downgradePGSQLDatabaseFrom29To28(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
@@ -871,4 +881,20 @@ func (p *PGSQLProvider) normalizeError(err error, fieldType int) error {
 		}
 	}
 	return err
+}
+
+func updatePGSQLDatabaseFrom28To29(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database schema version: 28 -> 29")
+	providerLog(logger.LevelInfo, "updating database schema version: 28 -> 29")
+
+	sql := strings.ReplaceAll(pgsqlV29SQL, "{{users}}", sqlTableUsers)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 29, true)
+}
+
+func downgradePGSQLDatabaseFrom29To28(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database schema version: 29 -> 28")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 29 -> 28")
+
+	sql := strings.ReplaceAll(pgsqlV29DownSQL, "{{users}}", sqlTableUsers)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 28, false)
 }

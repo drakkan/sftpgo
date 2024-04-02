@@ -194,6 +194,10 @@ const (
 		"CREATE INDEX `{{prefix}}ip_lists_deleted_at_idx` ON `{{ip_lists}}` (`deleted_at`);" +
 		"CREATE INDEX `{{prefix}}ip_lists_first_last_idx` ON `{{ip_lists}}` (`first`, `last`);" +
 		"INSERT INTO {{schema_version}} (version) VALUES (28);"
+	mysqlV29SQL = "ALTER TABLE `{{users}}` MODIFY `used_download_data_transfer` bigint NOT NULL;" +
+		"ALTER TABLE `{{users}}` MODIFY `used_upload_data_transfer` bigint NOT NULL;"
+	mysqlV29DownSQL = "ALTER TABLE `{{users}}` MODIFY `used_upload_data_transfer` integer NOT NULL;" +
+		"ALTER TABLE `{{users}}` MODIFY `used_download_data_transfer` integer NOT NULL;"
 )
 
 // MySQLProvider defines the auth provider for MySQL/MariaDB database
@@ -794,6 +798,8 @@ func (p *MySQLProvider) migrateDatabase() error {
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
+	case version == 28:
+		return updateMySQLDatabaseFrom28To29(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -816,6 +822,8 @@ func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 	}
 
 	switch dbVersion.Version {
+	case 29:
+		return downgradeMySQLDatabaseFrom29To28(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
@@ -852,4 +860,20 @@ func (p *MySQLProvider) normalizeError(err error, fieldType int) error {
 		}
 	}
 	return err
+}
+
+func updateMySQLDatabaseFrom28To29(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database schema version: 28 -> 29")
+	providerLog(logger.LevelInfo, "updating database schema version: 28 -> 29")
+
+	sql := strings.ReplaceAll(mysqlV29SQL, "{{users}}", sqlTableUsers)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 29, true)
+}
+
+func downgradeMySQLDatabaseFrom29To28(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database schema version: 29 -> 28")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 29 -> 28")
+
+	sql := strings.ReplaceAll(mysqlV29DownSQL, "{{users}}", sqlTableUsers)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 28, false)
 }
