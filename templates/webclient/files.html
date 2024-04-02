@@ -557,7 +557,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
         // Private functions
         var initDatatable = function () {
-            $('#errorMsg').addClass("d-none");
             dt = $("#file_manager_list").DataTable({
                 ajax: {
                     url: "{{.DirsURL}}?path={{.CurrentDir}}",
