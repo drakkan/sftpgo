@@ -301,7 +301,7 @@ func (fs *S3Fs) Rename(source, target string) error {
 	defer cancelFn()
 	_, err = fs.svc.CopyObjectWithContext(ctx, &s3.CopyObjectInput{
 		Bucket:       aws.String(fs.config.Bucket),
-		CopySource:   aws.String(url.PathEscape(copySource)),
+		CopySource:   aws.String(pathEscape(copySource)),
 		Key:          aws.String(target),
 		StorageClass: utils.NilIfEmpty(fs.config.StorageClass),
 		ContentType:  utils.NilIfEmpty(contentType),
@@ -742,4 +742,10 @@ func (*S3Fs) Close() error {
 // GetAvailableDiskSize return the available size for the specified path
 func (*S3Fs) GetAvailableDiskSize(dirName string) (*sftp.StatVFS, error) {
 	return nil, ErrStorageSizeUnavailable
+}
+
+func pathEscape(in string) string {
+	var u url.URL
+	u.Path = in
+	return strings.ReplaceAll(u.String(), "+", "%2B")
 }

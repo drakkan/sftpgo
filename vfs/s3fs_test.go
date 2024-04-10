@@ -194,6 +194,31 @@ func (Suite *S3FsSuite) TestDirectoryListSingleFile() {
 	Suite.Equal(`test.txt`, Files[0].Name())
 }
 
+func (Suite *S3FsSuite) TestRenameWithColonCharacter() {
+	Suite.S3.EXPECT().HeadObjectWithContext(gomock.Any(), &s3.HeadObjectInput{
+		Bucket: aws.String(`sftpgo`),
+		Key:    aws.String(`has:colon.txt`),
+	}).Return(&s3.HeadObjectOutput{
+		ContentLength: aws.Int64(145),
+		LastModified:  aws.Time(time.Now()),
+	}, nil).MinTimes(1).MaxTimes(1)
+
+	Suite.S3.EXPECT().CopyObjectWithContext(gomock.Any(), &s3.CopyObjectInput{
+		CopySource:  aws.String(`sftpgo/has:colon.txt`),
+		ContentType: aws.String(`text/plain; charset=utf-8`),
+		Bucket:      aws.String(`sftpgo`),
+		Key:         aws.String(`archive/has-no-colon.csv`),
+	}).Return(nil, nil).MinTimes(1).MaxTimes(1)
+
+	Suite.S3.EXPECT().DeleteObjectWithContext(gomock.Any(), &s3.DeleteObjectInput{
+		Bucket: aws.String(`sftpgo`),
+		Key:    aws.String(`has:colon.txt`),
+	}).Return(nil, nil).MinTimes(1).MaxTimes(1)
+
+	err := Suite.Fs.Rename(`has:colon.txt`, `archive/has-no-colon.csv`)
+	Suite.Nil(err)
+}
+
 func TestFSMetaSuite(t *testing.T) {
 	suite.Run(t, new(S3FsSuite))
 }
