@@ -900,6 +900,7 @@
         "add": "Aggiunta",
         "update": "Aggiornamento",
         "login_failed": "Accesso fallito",
+        "login_ok": "Accesso riuscito",
         "login_missing_user": "Accesso con utente inesistente",
         "no_login_tried": "Nessun accesso tentato",
         "algo_negotiation_failed": "Negoziazione algoritmo fallita",

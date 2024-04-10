@@ -1248,7 +1248,9 @@ func (c *Configuration) validateKeyboardInteractiveCredentials(conn ssh.ConnMeta
 
 func updateLoginMetrics(user *dataprovider.User, ip, method string, err error) {
 	metric.AddLoginAttempt(method)
-	if err != nil {
+	if err == nil {
+		plugin.Handler.NotifyLogEvent(notifier.LogEventTypeLoginOK, common.ProtocolSSH, user.Username, ip, "", err)
+	} else {
 		logger.ConnectionFailedLog(user.Username, ip, method, common.ProtocolSSH, err.Error())
 		if method != dataprovider.SSHLoginMethodPublicKey {
 			// some clients try all available public keys for a user, we

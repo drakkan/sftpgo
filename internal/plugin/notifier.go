@@ -44,6 +44,9 @@ func (c *NotifierConfig) hasActions() bool {
 	if len(c.ProviderEvents) > 0 && len(c.ProviderObjects) > 0 {
 		return true
 	}
+	if len(c.LogEvents) > 0 {
+		return true
+	}
 	return false
 }
 
@@ -250,10 +253,6 @@ func (p *notifierPlugin) notifyProviderAction(event *notifier.ProviderEvent, obj
 }
 
 func (p *notifierPlugin) notifyLogEvent(event *notifier.LogEvent) {
-	if !util.Contains(p.config.NotifierOptions.LogEvents, int(event.Event)) {
-		return
-	}
-
 	go func() {
 		Handler.addTask()
 		defer Handler.removeTask()

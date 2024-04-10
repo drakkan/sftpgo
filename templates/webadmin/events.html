@@ -385,6 +385,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     function selectLogEvents(){
         let idActions = $('#idActions');
         idActions.empty();
+        idActions.append(new Option($.t('events.login_ok'),"5",false,false));
         idActions.append(new Option($.t('events.login_failed'),"1",false,false));
         idActions.append(new Option($.t('events.login_missing_user'),"2",false,false));
         idActions.append(new Option($.t('events.no_login_tried'),"3",false,false));
@@ -875,6 +876,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                         return  $.t('events.no_login_tried');
                                     case 4:
                                         return  $.t('events.algo_negotiation_failed');
+                                    case 5:
+                                        return  $.t('events.login_ok');
                                     default:
                                         console.log(`unknown log action "${data}"`);
                                         return "";
@@ -914,7 +917,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         defaultContent: "",
                         render: function(data, type, row) {
                             if (type === 'display') {
-                                return escapeHTML(data);
+                                if (data){
+                                    return escapeHTML(data);
+                                }
                             }
                             return data;
                         }
@@ -924,7 +929,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         defaultContent: "",
                         render: function(data, type, row) {
                             if (type === 'display') {
-                                return escapeHTML(data);
+                                if (data){
+                                    return escapeHTML(data);
+                                }
                             }
                             return "";
                         }

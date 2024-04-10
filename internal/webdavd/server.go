@@ -422,7 +422,9 @@ func writeLog(r *http.Request, status int, err error) {
 
 func updateLoginMetrics(user *dataprovider.User, ip, loginMethod string, err error) {
 	metric.AddLoginAttempt(loginMethod)
-	if err != nil && err != common.ErrInternalFailure && err != common.ErrNoCredentials {
+	if err == nil {
+		plugin.Handler.NotifyLogEvent(notifier.LogEventTypeLoginOK, common.ProtocolWebDAV, user.Username, ip, "", nil)
+	} else if err != common.ErrInternalFailure && err != common.ErrNoCredentials {
 		logger.ConnectionFailedLog(user.Username, ip, loginMethod, common.ProtocolWebDAV, err.Error())
 		event := common.HostEventLoginFailed
 		logEv := notifier.LogEventTypeLoginFailed

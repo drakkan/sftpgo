@@ -472,6 +472,8 @@ func getLogEventString(event notifier.LogEventType) string {
 		return "No login tried"
 	case notifier.LogEventTypeNotNegotiated:
 		return "Algorithm negotiation failed"
+	case notifier.LogEventTypeLoginOK:
+		return "Login succeeded"
 	default:
 		return ""
 	}

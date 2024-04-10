@@ -314,6 +314,8 @@ github.com/pires/go-proxyproto v0.7.0/go.mod h1:Vz/1JPY/OACxWGQNIRY2BeyDmpoaWmEP
 github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c h1:+mdjkGKdHQG3305AYmdv1U2eRNDiU2ErMBj1gwrq8eQ=
 github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c/go.mod h1:7rwL4CYBLnjLxUqIJNnCWiEdr3bn6IUYi15bNlnbCCU=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
+github.com/pkg/sftp v1.13.7-0.20240410063531-637088883317 h1:kupFhKi4R3XqKmUmqGSHWn/WZbC9CnwSoW421tL1gGw=
+github.com/pkg/sftp v1.13.7-0.20240410063531-637088883317/go.mod h1:KMKI0t3T6hfA+lTR/ssZdunHo+uwq7ghoN09/FSu3DY=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 h1:Jamvg5psRIccs7FGNTlIRMkT8wgtp5eCXdBlqhYGL6U=
 github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
@@ -353,6 +355,8 @@ github.com/segmentio/asm v1.2.0 h1:9BQrFxC+YOHJlTlHGkTrFWf59nbL3XnCoFLTwDCI7ys=
 github.com/segmentio/asm v1.2.0/go.mod h1:BqMnlJP91P8d+4ibuonYZw9mfnzI9HfxselHZr5aAcs=
 github.com/sftpgo/sdk v0.1.6-0.20240317102632-f6eb95ea55c3 h1:svxTNm3r2kRlpuVSUKi0WKQlsAq8VI0EzDWPNqeNn/o=
 github.com/sftpgo/sdk v0.1.6-0.20240317102632-f6eb95ea55c3/go.mod h1:AWoY2YYe/P1ymfTlRER/meERQjCcZZTbgVPGcPQgaqc=
+github.com/sftpgo/sdk v0.1.6-0.20240409173349-421b3dff3896 h1:ykxybS9WKurHTatKJ9WjqYD+WH9YH/2QMxCkxUPTVLY=
+github.com/sftpgo/sdk v0.1.6-0.20240409173349-421b3dff3896/go.mod h1:AWoY2YYe/P1ymfTlRER/meERQjCcZZTbgVPGcPQgaqc=
 github.com/shirou/gopsutil/v3 v3.24.3 h1:eoUGJSmdfLzJ3mxIhmOAhgKEKgQkeOwKpz1NbhVnuPE=
 github.com/shirou/gopsutil/v3 v3.24.3/go.mod h1:JpND7O217xa72ewWz9zN2eIIkPWsDN/3pl0H8Qt0uwg=
 github.com/shoenig/go-m1cpu v0.1.6 h1:nxdKQNcEB6vzgA2E2bvzKIYRuNj7XNJ4S/aRSwKzFtM=

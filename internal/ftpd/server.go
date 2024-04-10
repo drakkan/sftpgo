@@ -415,7 +415,9 @@ func setStartDirectory(startDirectory string, cc ftpserver.ClientContext) {
 
 func updateLoginMetrics(user *dataprovider.User, ip, loginMethod string, err error) {
 	metric.AddLoginAttempt(loginMethod)
-	if err != nil && err != common.ErrInternalFailure {
+	if err == nil {
+		plugin.Handler.NotifyLogEvent(notifier.LogEventTypeLoginOK, common.ProtocolFTP, user.Username, ip, "", nil)
+	} else if err != common.ErrInternalFailure {
 		logger.ConnectionFailedLog(user.Username, ip, loginMethod,
 			common.ProtocolFTP, err.Error())
 		event := common.HostEventLoginFailed

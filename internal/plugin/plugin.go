@@ -331,18 +331,28 @@ func (m *Manager) NotifyLogEvent(event notifier.LogEventType, protocol, username
 	m.notifLock.RLock()
 	defer m.notifLock.RUnlock()
 
-	e := &notifier.LogEvent{
-		Timestamp: time.Now().UnixNano(),
-		Event:     event,
-		Protocol:  protocol,
-		Username:  username,
-		IP:        ip,
-		Message:   err.Error(),
-		Role:      role,
-	}
+	var e *notifier.LogEvent
 
 	for _, n := range m.notifiers {
-		n.notifyLogEvent(e)
+		if util.Contains(n.config.NotifierOptions.LogEvents, int(event)) {
+			if e == nil {
+				message := ""
+				if err != nil {
+					message = err.Error()
+				}
+
+				e = &notifier.LogEvent{
+					Timestamp: time.Now().UnixNano(),
+					Event:     event,
+					Protocol:  protocol,
+					Username:  username,
+					IP:        ip,
+					Message:   message,
+					Role:      role,
+				}
+			}
+			n.notifyLogEvent(e)
+		}
 	}
 }
 

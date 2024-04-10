@@ -900,6 +900,7 @@
         "add": "Addition",
         "update": "Update",
         "login_failed": "Login failed",
+        "login_ok": "Login succeeded",
         "login_missing_user": "Login with non-existent user",
         "no_login_tried": "No login tried",
         "algo_negotiation_failed": "Algorithm negotiation failed",

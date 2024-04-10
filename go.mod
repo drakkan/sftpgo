@@ -46,14 +46,14 @@ require (
 	github.com/minio/sio v0.3.1
 	github.com/otiai10/copy v1.14.0
 	github.com/pires/go-proxyproto v0.7.0
-	github.com/pkg/sftp v1.13.6
+	github.com/pkg/sftp v1.13.7-0.20240410063531-637088883317
 	github.com/pquerna/otp v1.4.0
 	github.com/prometheus/client_golang v1.19.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rs/cors v1.10.1
 	github.com/rs/xid v1.5.0
 	github.com/rs/zerolog v1.32.0
-	github.com/sftpgo/sdk v0.1.6-0.20240317102632-f6eb95ea55c3
+	github.com/sftpgo/sdk v0.1.6-0.20240409173349-421b3dff3896
 	github.com/shirou/gopsutil/v3 v3.24.3
 	github.com/spf13/afero v1.11.0
 	github.com/spf13/cobra v1.8.0
@@ -185,7 +185,6 @@ require (
 replace (
 	github.com/fclairamb/ftpserverlib => github.com/drakkan/ftpserverlib v0.0.0-20240313174824-cf52df3aa8f7
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20240210102745-f1ffc43f78d2
-	github.com/pkg/sftp => github.com/drakkan/sftp v0.0.0-20240214104840-fbb0b8bdb30c
 	github.com/robfig/cron/v3 => github.com/drakkan/cron/v3 v3.0.0-20230222140221-217a1e4d96c0
 	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20240405104909-a6b14455cac6
 )

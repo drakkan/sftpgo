@@ -3398,6 +3398,7 @@ func TestGetLogEventString(t *testing.T) {
 	assert.Equal(t, "Login with non-existent user", getLogEventString(notifier.LogEventTypeLoginNoUser))
 	assert.Equal(t, "No login tried", getLogEventString(notifier.LogEventTypeNoLoginTried))
 	assert.Equal(t, "Algorithm negotiation failed", getLogEventString(notifier.LogEventTypeNotNegotiated))
+	assert.Equal(t, "Login succeeded", getLogEventString(notifier.LogEventTypeLoginOK))
 	assert.Empty(t, getLogEventString(0))
 }
 
