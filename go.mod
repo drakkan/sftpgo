@@ -1,6 +1,6 @@
 module github.com/drakkan/sftpgo/v2
 
-go 1.22
+go 1.22.0
 
 require (
 	cloud.google.com/go/storage v1.39.1
