@@ -385,3 +385,5 @@ The [theme](https://keenthemes.com/products/templates-mega-bundle) used in WebAd
 
 - KeenThemes HTML/CSS/JS components are allowed for use only within the SFTPGo product and restricted to be used in a resealable HTML template that can compete with KeenThemes products anyhow.
 - The SFTPGo WebAdmin and WebClient user interfaces (HTML, CSS and JS components) based on this theme are allowed for use only within the SFTPGo product and therefore cannot be used in derivative works/products without an explicit grant from the [SFTPGo Team](mailto:support@sftpgo.com).
+
+More information about [compliance](https://sftpgo.com/compliance.html).
