@@ -1200,7 +1200,7 @@ func checkUserConditionOptions(user *dataprovider.User, conditions *dataprovider
 	return true
 }
 
-// checkConditionPatterns returns false if patterns are defined and no match is found
+// checkEventConditionPatterns returns false if patterns are defined and no match is found
 func checkEventConditionPatterns(name string, patterns []dataprovider.ConditionPattern) bool {
 	if len(patterns) == 0 {
 		return true
