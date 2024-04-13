@@ -248,7 +248,7 @@ func (c *Config) loadTemplates(configDir string) error {
 	return nil
 }
 
-// Initialize initialized and validates the SMTP configuration
+// Initialize initializes and validates the SMTP configuration
 func (c *Config) Initialize(configDir string, isService bool) error {
 	if !isService && c.Host == "" {
 		if err := loadConfigFromProvider(); err != nil {
@@ -257,8 +257,11 @@ func (c *Config) Initialize(configDir string, isService bool) error {
 		if !config.isEnabled() {
 			return nil
 		}
+		// If not running as a service, templates will only be loaded if required.
 		return c.loadTemplates(configDir)
 	}
+	// In service mode SMTP can be enabled from the WebAdmin at runtime so we
+	// always load templates.
 	if err := c.loadTemplates(configDir); err != nil {
 		return err
 	}
