@@ -17,13 +17,10 @@ package vfs
 import (
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/rs/xid"
 	"github.com/sftpgo/sdk"
-
-	"github.com/drakkan/sftpgo/v2/internal/util"
 )
 
 // BaseVirtualFolder defines the path for the virtual folder and the used quota limits.
@@ -69,56 +66,6 @@ func (v *BaseVirtualFolder) GetACopy() BaseVirtualFolder {
 		Users:           users,
 		Groups:          v.Groups,
 		FsConfig:        v.FsConfig.GetACopy(),
-	}
-}
-
-// GetUsersAsString returns the list of users as comma separated string
-func (v *BaseVirtualFolder) GetUsersAsString() string {
-	return strings.Join(v.Users, ",")
-}
-
-// GetGroupsAsString returns the list of groups as comma separated string
-func (v *BaseVirtualFolder) GetGroupsAsString() string {
-	return strings.Join(v.Groups, ",")
-}
-
-// GetLastQuotaUpdateAsString returns the last quota update as string
-func (v *BaseVirtualFolder) GetLastQuotaUpdateAsString() string {
-	if v.LastQuotaUpdate > 0 {
-		return util.GetTimeFromMsecSinceEpoch(v.LastQuotaUpdate).UTC().Format("2006-01-02 15:04:05Z")
-	}
-	return ""
-}
-
-// GetQuotaSummary returns used quota and last update as string
-func (v *BaseVirtualFolder) GetQuotaSummary() string {
-	var result string
-	result = "Files: " + strconv.Itoa(v.UsedQuotaFiles)
-	if v.UsedQuotaSize > 0 {
-		result += ". Size: " + util.ByteCountIEC(v.UsedQuotaSize)
-	}
-	return result
-}
-
-// GetStorageDescrition returns the storage description
-func (v *BaseVirtualFolder) GetStorageDescrition() string {
-	switch v.FsConfig.Provider {
-	case sdk.LocalFilesystemProvider:
-		return fmt.Sprintf("Local: %s", v.MappedPath)
-	case sdk.S3FilesystemProvider:
-		return fmt.Sprintf("S3: %s", v.FsConfig.S3Config.Bucket)
-	case sdk.GCSFilesystemProvider:
-		return fmt.Sprintf("GCS: %s", v.FsConfig.GCSConfig.Bucket)
-	case sdk.AzureBlobFilesystemProvider:
-		return fmt.Sprintf("AzBlob: %s", v.FsConfig.AzBlobConfig.Container)
-	case sdk.CryptedFilesystemProvider:
-		return fmt.Sprintf("Encrypted: %s", v.MappedPath)
-	case sdk.SFTPFilesystemProvider:
-		return fmt.Sprintf("SFTP: %s", v.FsConfig.SFTPConfig.Endpoint)
-	case sdk.HTTPFilesystemProvider:
-		return fmt.Sprintf("HTTP: %s", v.FsConfig.HTTPConfig.Endpoint)
-	default:
-		return ""
 	}
 }
 
