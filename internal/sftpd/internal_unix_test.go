@@ -26,7 +26,11 @@ import (
 
 func TestWrapCmd(t *testing.T) {
 	cmd := exec.Command("ls")
-	cmd = wrapCmd(cmd, 1000, 1001)
-	assert.Equal(t, uint32(1000), cmd.SysProcAttr.Credential.Uid)
-	assert.Equal(t, uint32(1001), cmd.SysProcAttr.Credential.Gid)
+	cmd = wrapCmd(cmd, 3001, 3002)
+	assert.Equal(t, uint32(3001), cmd.SysProcAttr.Credential.Uid)
+	assert.Equal(t, uint32(3002), cmd.SysProcAttr.Credential.Gid)
+
+	cmd = exec.Command("cd")
+	cmd = wrapCmd(cmd, processUID, processGID)
+	assert.Nil(t, cmd.SysProcAttr)
 }
