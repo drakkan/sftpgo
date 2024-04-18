@@ -3387,32 +3387,35 @@ func isPasswordOK(user *User, password string) (bool, error) {
 	match := false
 	updatePwd := true
 	var err error
-	if strings.HasPrefix(user.Password, bcryptPwdPrefix) {
-		if err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
+
+	switch {
+	case strings.HasPrefix(user.Password, bcryptPwdPrefix):
+		if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
 			return match, ErrInvalidCredentials
 		}
 		match = true
 		updatePwd = config.PasswordHashing.Algo != HashingAlgoBcrypt
-	} else if strings.HasPrefix(user.Password, argonPwdPrefix) {
+	case strings.HasPrefix(user.Password, argonPwdPrefix):
 		match, err = argon2id.ComparePasswordAndHash(password, user.Password)
 		if err != nil {
 			providerLog(logger.LevelError, "error comparing password with argon hash: %v", err)
 			return match, err
 		}
 		updatePwd = config.PasswordHashing.Algo != HashingAlgoArgon2ID
-	} else if util.IsStringPrefixInSlice(user.Password, unixPwdPrefixes) {
+	case util.IsStringPrefixInSlice(user.Password, unixPwdPrefixes):
 		match, err = compareUnixPasswordAndHash(user, password)
 		if err != nil {
 			return match, err
 		}
-	} else if util.IsStringPrefixInSlice(user.Password, pbkdfPwdPrefixes) {
+	case util.IsStringPrefixInSlice(user.Password, pbkdfPwdPrefixes):
 		match, err = comparePbkdf2PasswordAndHash(password, user.Password)
 		if err != nil {
 			return match, err
 		}
-	} else if util.IsStringPrefixInSlice(user.Password, digestPwdPrefixes) {
+	case util.IsStringPrefixInSlice(user.Password, digestPwdPrefixes):
 		match = compareDigestPasswordAndHash(user, password)
 	}
+
 	if err == nil && match {
 		cachedUserPasswords.Add(user.Username, password, user.Password)
 		if updatePwd {
