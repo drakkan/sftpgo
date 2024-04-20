@@ -141,7 +141,7 @@ func TestEmptyBanner(t *testing.T) {
 	err = config.LoadConfig(configDir, confName)
 	assert.NoError(t, err)
 	sftpdConf = config.GetSFTPDConfig()
-	assert.NotEmpty(t, strings.TrimSpace(sftpdConf.Banner))
+	assert.Empty(t, strings.TrimSpace(sftpdConf.Banner))
 	err = os.Remove(configFilePath)
 	assert.NoError(t, err)
 

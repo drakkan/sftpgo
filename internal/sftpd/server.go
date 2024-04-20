@@ -41,6 +41,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/metric"
 	"github.com/drakkan/sftpgo/v2/internal/plugin"
 	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/drakkan/sftpgo/v2/internal/version"
 	"github.com/drakkan/sftpgo/v2/internal/vfs"
 )
 
@@ -233,6 +234,13 @@ func (c *Configuration) ShouldBind() bool {
 	return false
 }
 
+func (c *Configuration) getServerVersion() string {
+	if c.Banner == "short" {
+		return "SSH-2.0-SFTPGo"
+	}
+	return fmt.Sprintf("SSH-2.0-SFTPGo_%v", version.Get().Version)
+}
+
 func (c *Configuration) getServerConfig() *ssh.ServerConfig {
 	serverConfig := &ssh.ServerConfig{
 		NoClientAuth: false,
@@ -250,7 +258,7 @@ func (c *Configuration) getServerConfig() *ssh.ServerConfig {
 
 			return sp, nil
 		},
-		ServerVersion: fmt.Sprintf("SSH-2.0-%s", c.Banner),
+		ServerVersion: c.getServerVersion(),
 	}
 
 	if c.PasswordAuthentication {

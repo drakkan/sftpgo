@@ -58,7 +58,6 @@ const (
 
 var (
 	globalConf             globalConfig
-	defaultSFTPDBanner     = fmt.Sprintf("SFTPGo_%v", version.Get().Version)
 	defaultFTPDBanner      = fmt.Sprintf("SFTPGo %v ready", version.Get().Version)
 	defaultInstallCodeHint = "Installation code"
 	defaultSFTPDBinding    = sftpd.Binding{
@@ -255,7 +254,7 @@ func Init() {
 		SFTPD: sftpd.Configuration{
 			Bindings:                          []sftpd.Binding{defaultSFTPDBinding},
 			MaxAuthTries:                      0,
-			Banner:                            defaultSFTPDBanner,
+			Banner:                            "",
 			HostKeys:                          []string{},
 			HostCertificates:                  []string{},
 			HostKeyAlgorithms:                 []string{},
@@ -761,9 +760,6 @@ func isExternalAuthScopeValid() bool {
 }
 
 func resetInvalidConfigs() {
-	if strings.TrimSpace(globalConf.SFTPD.Banner) == "" {
-		globalConf.SFTPD.Banner = defaultSFTPDBanner
-	}
 	if strings.TrimSpace(globalConf.FTPD.Banner) == "" {
 		globalConf.FTPD.Banner = defaultFTPDBanner
 	}
