@@ -74,14 +74,14 @@ require (
 	golang.org/x/sys v0.19.0
 	golang.org/x/term v0.19.0
 	golang.org/x/time v0.5.0
-	google.golang.org/api v0.174.0
+	google.golang.org/api v0.175.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
 require (
 	cloud.google.com/go v0.112.2 // indirect
-	cloud.google.com/go/auth v0.2.0 // indirect
-	cloud.google.com/go/auth/oauth2adapt v0.2.0 // indirect
+	cloud.google.com/go/auth v0.2.2 // indirect
+	cloud.google.com/go/auth/oauth2adapt v0.2.1 // indirect
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	cloud.google.com/go/iam v1.1.7 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
@@ -149,7 +149,7 @@ require (
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.53.0 // indirect
-	github.com/prometheus/procfs v0.13.0 // indirect
+	github.com/prometheus/procfs v0.14.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect

@@ -2581,9 +2581,8 @@ func Close() error {
 }
 
 func createProvider(basePath string) error {
-	var err error
 	sqlPlaceholders = getSQLPlaceholders()
-	if err = validateSQLTablesPrefix(); err != nil {
+	if err := validateSQLTablesPrefix(); err != nil {
 		return err
 	}
 	logSender = fmt.Sprintf("dataprovider_%v", config.Driver)
@@ -2598,7 +2597,11 @@ func createProvider(basePath string) error {
 	case BoltDataProviderName:
 		return initializeBoltProvider(basePath)
 	case MemoryDataProviderName:
-		initializeMemoryProvider(basePath)
+		if err := initializeMemoryProvider(basePath); err != nil {
+			msg := fmt.Sprintf("provider initialized but data loading failed: %v", err)
+			logger.Warn(logSender, "", msg)
+			logger.WarnToConsole(msg)
+		}
 		return nil
 	default:
 		return fmt.Errorf("unsupported data provider: %v", config.Driver)

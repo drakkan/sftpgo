@@ -89,7 +89,7 @@ type MemoryProvider struct {
 	dbHandle *memoryProviderHandle
 }
 
-func initializeMemoryProvider(basePath string) {
+func initializeMemoryProvider(basePath string) error {
 	configFile := ""
 	if util.IsFileInputValid(config.Name) {
 		configFile = config.Name
@@ -124,10 +124,7 @@ func initializeMemoryProvider(basePath string) {
 			configFile:        configFile,
 		},
 	}
-	if err := provider.reloadConfig(); err != nil {
-		logger.Error(logSender, "", "unable to load initial data: %v", err)
-		logger.ErrorToConsole("unable to load initial data: %v", err)
-	}
+	return provider.reloadConfig()
 }
 
 func (p *MemoryProvider) checkAvailability() error {
