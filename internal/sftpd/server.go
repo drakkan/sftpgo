@@ -523,7 +523,7 @@ func (c *Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig)
 }
 
 func (c *Configuration) configureLoginBanner(serverConfig *ssh.ServerConfig, configDir string) {
-	if len(c.LoginBannerFile) > 0 {
+	if c.LoginBannerFile != "" {
 		bannerFilePath := c.LoginBannerFile
 		if !filepath.IsAbs(bannerFilePath) {
 			bannerFilePath = filepath.Join(configDir, bannerFilePath)
