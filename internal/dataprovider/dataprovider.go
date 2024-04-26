@@ -4064,7 +4064,7 @@ func getPasswordHookResponse(username, password, ip, protocol string) ([]byte, e
 		fmt.Sprintf("SFTPGO_AUTHD_IP=%s", ip),
 		fmt.Sprintf("SFTPGO_AUTHD_PROTOCOL=%s", protocol),
 	)
-	return getCmdOutput(cmd, "check_password_hook")
+	return cmd.Output()
 }
 
 func executeCheckPasswordHook(username, password, ip, protocol string) (checkPasswordResponse, error) {
@@ -4125,7 +4125,7 @@ func getPreLoginHookResponse(loginMethod, ip, protocol string, userAsJSON []byte
 		fmt.Sprintf("SFTPGO_LOGIND_IP=%s", ip),
 		fmt.Sprintf("SFTPGO_LOGIND_PROTOCOL=%s", protocol),
 	)
-	return getCmdOutput(cmd, "pre_login_hook")
+	return cmd.Output()
 }
 
 func executePreLoginHook(username, loginMethod, ip, protocol string, oidcTokenFields *map[string]any) (User, error) {
@@ -4339,7 +4339,7 @@ func getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, 
 		fmt.Sprintf("SFTPGO_AUTHD_TLS_CERT=%s", strings.ReplaceAll(tlsCert, "\n", "\\n")),
 		fmt.Sprintf("SFTPGO_AUTHD_KEYBOARD_INTERACTIVE=%v", keyboardInteractive))
 
-	return getCmdOutput(cmd, "external_auth_hook")
+	return cmd.Output()
 }
 
 func updateUserFromExtAuthResponse(user *User, password, pkey string) {
@@ -4621,30 +4621,6 @@ func checkReservedUsernames(username string) error {
 		return util.NewValidationError("this username is reserved")
 	}
 	return nil
-}
-
-func getCmdOutput(cmd *exec.Cmd, sender string) ([]byte, error) {
-	var stdout bytes.Buffer
-	cmd.Stdout = &stdout
-
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return nil, err
-	}
-
-	err = cmd.Start()
-	if err != nil {
-		return nil, err
-	}
-
-	scanner := bufio.NewScanner(stderr)
-	for scanner.Scan() {
-		if out := scanner.Text(); out != "" {
-			logger.Log(logger.LevelWarn, sender, "", out)
-		}
-	}
-	err = cmd.Wait()
-	return stdout.Bytes(), err
 }
 
 func providerLog(level logger.LogLevel, format string, v ...any) {
