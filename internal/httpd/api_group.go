@@ -79,17 +79,6 @@ func updateGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	currentS3AccessSecret := group.UserSettings.FsConfig.S3Config.AccessSecret
-	currentAzAccountKey := group.UserSettings.FsConfig.AzBlobConfig.AccountKey
-	currentAzSASUrl := group.UserSettings.FsConfig.AzBlobConfig.SASURL
-	currentGCSCredentials := group.UserSettings.FsConfig.GCSConfig.Credentials
-	currentCryptoPassphrase := group.UserSettings.FsConfig.CryptConfig.Passphrase
-	currentSFTPPassword := group.UserSettings.FsConfig.SFTPConfig.Password
-	currentSFTPKey := group.UserSettings.FsConfig.SFTPConfig.PrivateKey
-	currentSFTPKeyPassphrase := group.UserSettings.FsConfig.SFTPConfig.KeyPassphrase
-	currentHTTPPassword := group.UserSettings.FsConfig.HTTPConfig.Password
-	currentHTTPAPIKey := group.UserSettings.FsConfig.HTTPConfig.APIKey
-
 	var updatedGroup dataprovider.Group
 	err = render.DecodeJSON(r.Body, &updatedGroup)
 	if err != nil {
@@ -99,9 +88,7 @@ func updateGroup(w http.ResponseWriter, r *http.Request) {
 	updatedGroup.ID = group.ID
 	updatedGroup.Name = group.Name
 	updatedGroup.UserSettings.FsConfig.SetEmptySecretsIfNil()
-	updateEncryptedSecrets(&updatedGroup.UserSettings.FsConfig, currentS3AccessSecret, currentAzAccountKey, currentAzSASUrl,
-		currentGCSCredentials, currentCryptoPassphrase, currentSFTPPassword, currentSFTPKey, currentSFTPKeyPassphrase,
-		currentHTTPPassword, currentHTTPAPIKey)
+	updateEncryptedSecrets(&updatedGroup.UserSettings.FsConfig, &group.UserSettings.FsConfig)
 	err = dataprovider.UpdateGroup(&updatedGroup, group.Users, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr),
 		claims.Role)
 	if err != nil {

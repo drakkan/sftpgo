@@ -3411,10 +3411,7 @@ func (s *httpdServer) handleWebUpdateUserPost(w http.ResponseWriter, r *http.Req
 	if updatedUser.Password == redactedSecret {
 		updatedUser.Password = user.Password
 	}
-	updateEncryptedSecrets(&updatedUser.FsConfig, user.FsConfig.S3Config.AccessSecret, user.FsConfig.AzBlobConfig.AccountKey,
-		user.FsConfig.AzBlobConfig.SASURL, user.FsConfig.GCSConfig.Credentials, user.FsConfig.CryptConfig.Passphrase,
-		user.FsConfig.SFTPConfig.Password, user.FsConfig.SFTPConfig.PrivateKey, user.FsConfig.SFTPConfig.KeyPassphrase,
-		user.FsConfig.HTTPConfig.Password, user.FsConfig.HTTPConfig.APIKey)
+	updateEncryptedSecrets(&updatedUser.FsConfig, &user.FsConfig)
 
 	updatedUser = getUserFromTemplate(updatedUser, userTemplateFields{
 		Username:   updatedUser.Username,
@@ -3556,10 +3553,7 @@ func (s *httpdServer) handleWebUpdateFolderPost(w http.ResponseWriter, r *http.R
 	updatedFolder.Name = folder.Name
 	updatedFolder.FsConfig = fsConfig
 	updatedFolder.FsConfig.SetEmptySecretsIfNil()
-	updateEncryptedSecrets(&updatedFolder.FsConfig, folder.FsConfig.S3Config.AccessSecret, folder.FsConfig.AzBlobConfig.AccountKey,
-		folder.FsConfig.AzBlobConfig.SASURL, folder.FsConfig.GCSConfig.Credentials, folder.FsConfig.CryptConfig.Passphrase,
-		folder.FsConfig.SFTPConfig.Password, folder.FsConfig.SFTPConfig.PrivateKey, folder.FsConfig.SFTPConfig.KeyPassphrase,
-		folder.FsConfig.HTTPConfig.Password, folder.FsConfig.HTTPConfig.APIKey)
+	updateEncryptedSecrets(&updatedFolder.FsConfig, &folder.FsConfig)
 
 	updatedFolder = getFolderFromTemplate(updatedFolder, updatedFolder.Name)
 
@@ -3720,12 +3714,7 @@ func (s *httpdServer) handleWebUpdateGroupPost(w http.ResponseWriter, r *http.Re
 	updatedGroup.Name = group.Name
 	updatedGroup.SetEmptySecretsIfNil()
 
-	updateEncryptedSecrets(&updatedGroup.UserSettings.FsConfig, group.UserSettings.FsConfig.S3Config.AccessSecret,
-		group.UserSettings.FsConfig.AzBlobConfig.AccountKey, group.UserSettings.FsConfig.AzBlobConfig.SASURL,
-		group.UserSettings.FsConfig.GCSConfig.Credentials, group.UserSettings.FsConfig.CryptConfig.Passphrase,
-		group.UserSettings.FsConfig.SFTPConfig.Password, group.UserSettings.FsConfig.SFTPConfig.PrivateKey,
-		group.UserSettings.FsConfig.SFTPConfig.KeyPassphrase, group.UserSettings.FsConfig.HTTPConfig.Password,
-		group.UserSettings.FsConfig.HTTPConfig.APIKey)
+	updateEncryptedSecrets(&updatedGroup.UserSettings.FsConfig, &group.UserSettings.FsConfig)
 
 	err = dataprovider.UpdateGroup(&updatedGroup, group.Users, claims.Username, ipAddr, claims.Role)
 	if err != nil {
