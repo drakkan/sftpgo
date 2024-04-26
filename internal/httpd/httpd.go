@@ -95,7 +95,6 @@ const (
 	rolesPath                             = "/api/v2/roles"
 	ipListsPath                           = "/api/v2/iplists"
 	healthzPath                           = "/healthz"
-	robotsTxtPath                         = "/robots.txt"
 	webRootPathDefault                    = "/"
 	webBasePathDefault                    = "/web"
 	webBasePathAdminDefault               = "/web/admin"

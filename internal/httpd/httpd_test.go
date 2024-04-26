@@ -131,7 +131,6 @@ const (
 	rolesPath                      = "/api/v2/roles"
 	ipListsPath                    = "/api/v2/iplists"
 	healthzPath                    = "/healthz"
-	robotsTxtPath                  = "/robots.txt"
 	webBasePath                    = "/web"
 	webBasePathAdmin               = "/web/admin"
 	webAdminSetupPath              = "/web/admin/setup"
@@ -12510,13 +12509,6 @@ func TestHealthCheck(t *testing.T) {
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Equal(t, "ok", rr.Body.String())
-}
-
-func TestRobotsTxtCheck(t *testing.T) {
-	req, _ := http.NewRequest(http.MethodGet, robotsTxtPath, nil)
-	rr := executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr)
-	assert.Equal(t, "User-agent: *\nDisallow: /", rr.Body.String())
 }
 
 func TestGetWebRootMock(t *testing.T) {

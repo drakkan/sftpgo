@@ -1284,10 +1284,6 @@ func (s *httpdServer) initializeRouter() {
 		render.PlainText(w, r, "ok")
 	})
 
-	s.router.Get(robotsTxtPath, func(w http.ResponseWriter, r *http.Request) {
-		render.PlainText(w, r, "User-agent: *\nDisallow: /")
-	})
-
 	if hasHTTPSRedirect {
 		if p := acme.GetHTTP01WebRoot(); p != "" {
 			serveStaticDir(s.router, acmeChallengeURI, p, true)
