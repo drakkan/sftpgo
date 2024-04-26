@@ -24,7 +24,6 @@ import (
 	"io/fs"
 	"net"
 	"os"
-	"path"
 	"path/filepath"
 	"runtime/debug"
 	"strings"
@@ -180,14 +179,8 @@ type Configuration struct {
 	KeyboardInteractiveHook string `json:"keyboard_interactive_auth_hook" mapstructure:"keyboard_interactive_auth_hook"`
 	// PasswordAuthentication specifies whether password authentication is allowed.
 	PasswordAuthentication bool `json:"password_authentication" mapstructure:"password_authentication"`
-	// Virtual root folder prefix to include in all file operations (ex: /files).
-	// The virtual paths used for per-directory permissions, file patterns etc. must not include the folder prefix.
-	// The prefix is only applied to SFTP requests, SCP and other SSH commands will be automatically disabled if
-	// you configure a prefix.
-	// This setting can help some migrations from OpenSSH. It is not recommended for general usage.
-	FolderPrefix     string `json:"folder_prefix" mapstructure:"folder_prefix"`
-	certChecker      *ssh.CertChecker
-	parsedUserCAKeys []ssh.PublicKey
+	certChecker            *ssh.CertChecker
+	parsedUserCAKeys       []ssh.PublicKey
 }
 
 type authenticationError struct {
@@ -353,7 +346,6 @@ func (c *Configuration) Initialize(configDir string) error {
 	c.configureKeyboardInteractiveAuth(serverConfig)
 	c.configureLoginBanner(serverConfig, configDir)
 	c.checkSSHCommands()
-	c.checkFolderPrefix()
 
 	exitChannel := make(chan error, 1)
 	serviceStatus.Bindings = nil
@@ -665,7 +657,6 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 							RemoteAddr:    conn.RemoteAddr(),
 							LocalAddr:     conn.LocalAddr(),
 							channel:       channel,
-							folderPrefix:  c.FolderPrefix,
 						}
 						go c.handleSftpConnection(channel, connection)
 					}
@@ -678,7 +669,6 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 						RemoteAddr:    conn.RemoteAddr(),
 						LocalAddr:     conn.LocalAddr(),
 						channel:       channel,
-						folderPrefix:  c.FolderPrefix,
 					}
 					ok = processSSHCommand(req.Payload, &connection, c.EnabledSSHCommands)
 				}
@@ -718,17 +708,6 @@ func (c *Configuration) handleSftpConnection(channel ssh.Channel, connection *Co
 }
 
 func (c *Configuration) createHandlers(connection *Connection) sftp.Handlers {
-	if c.FolderPrefix != "" {
-		prefixMiddleware := newPrefixMiddleware(c.FolderPrefix, connection)
-
-		return sftp.Handlers{
-			FileGet:  prefixMiddleware,
-			FilePut:  prefixMiddleware,
-			FileCmd:  prefixMiddleware,
-			FileList: prefixMiddleware,
-		}
-	}
-
 	return sftp.Handlers{
 		FileGet:  connection,
 		FilePut:  connection,
@@ -868,19 +847,6 @@ func (c *Configuration) checkSSHCommands() {
 	}
 	c.EnabledSSHCommands = sshCommands
 	logger.Debug(logSender, "", "enabled SSH commands %v", c.EnabledSSHCommands)
-}
-
-func (c *Configuration) checkFolderPrefix() {
-	if c.FolderPrefix != "" {
-		c.FolderPrefix = path.Join("/", c.FolderPrefix)
-		if c.FolderPrefix == "/" {
-			c.FolderPrefix = ""
-		}
-	}
-	if c.FolderPrefix != "" {
-		c.EnabledSSHCommands = nil
-		logger.Debug(logSender, "", "folder prefix %q configured, SSH commands are disabled", c.FolderPrefix)
-	}
 }
 
 func (c *Configuration) generateDefaultHostKeys(configDir string) error {

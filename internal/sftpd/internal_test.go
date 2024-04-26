@@ -2109,29 +2109,6 @@ func newFakeListener(err error) net.Listener {
 	}
 }
 
-func TestFolderPrefix(t *testing.T) {
-	c := Configuration{
-		FolderPrefix: "files",
-	}
-	c.checkFolderPrefix()
-	assert.Equal(t, "/files", c.FolderPrefix)
-	c.FolderPrefix = ""
-	c.checkFolderPrefix()
-	assert.Empty(t, c.FolderPrefix)
-	c.FolderPrefix = "/"
-	c.checkFolderPrefix()
-	assert.Empty(t, c.FolderPrefix)
-	c.FolderPrefix = "/."
-	c.checkFolderPrefix()
-	assert.Empty(t, c.FolderPrefix)
-	c.FolderPrefix = "."
-	c.checkFolderPrefix()
-	assert.Empty(t, c.FolderPrefix)
-	c.FolderPrefix = ".."
-	c.checkFolderPrefix()
-	assert.Empty(t, c.FolderPrefix)
-}
-
 func TestLoadRevokedUserCertsFile(t *testing.T) {
 	r := revokedCertificates{
 		certs: map[string]bool{},

@@ -30,7 +30,6 @@ require (
 	github.com/go-chi/jwtauth/v5 v5.3.1
 	github.com/go-chi/render v1.0.3
 	github.com/go-sql-driver/mysql v1.8.1
-	github.com/golang/mock v1.6.0
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/go-hclog v1.6.3

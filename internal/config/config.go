@@ -269,7 +269,6 @@ func Init() {
 			KeyboardInteractiveAuthentication: true,
 			KeyboardInteractiveHook:           "",
 			PasswordAuthentication:            true,
-			FolderPrefix:                      "",
 		},
 		FTPD: ftpd.Configuration{
 			Bindings:                 []ftpd.Binding{defaultFTPDBinding},
@@ -2024,7 +2023,6 @@ func setViperDefaults() {
 	viper.SetDefault("sftpd.keyboard_interactive_authentication", globalConf.SFTPD.KeyboardInteractiveAuthentication)
 	viper.SetDefault("sftpd.keyboard_interactive_auth_hook", globalConf.SFTPD.KeyboardInteractiveHook)
 	viper.SetDefault("sftpd.password_authentication", globalConf.SFTPD.PasswordAuthentication)
-	viper.SetDefault("sftpd.folder_prefix", globalConf.SFTPD.FolderPrefix)
 	viper.SetDefault("ftpd.banner", globalConf.FTPD.Banner)
 	viper.SetDefault("ftpd.banner_file", globalConf.FTPD.BannerFile)
 	viper.SetDefault("ftpd.active_transfers_port_non_20", globalConf.FTPD.ActiveTransfersPortNon20)
