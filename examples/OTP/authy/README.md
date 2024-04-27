@@ -56,3 +56,5 @@ We provide the following examples:
 - [Check password hook](./checkpwd/README.md) for 2FA using a password consisting of a fixed string and a One Time Token.
 
 Please note that these are sample programs not intended for production use, you should write your own hook based on them and you should prefer HTTP based hooks if performance is a concern.
+
+:warning: SFTPGo has also built-in 2FA support.

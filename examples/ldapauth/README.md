@@ -45,4 +45,4 @@ aci: (targetattr = "sshPublicKey") (version 3.0; acl "Allow members of sshpublic
 -
 ```
 
-Please feel free to send pull requests to improve this example authentication program, thanks!
+:warning: A plugin for LDAP/Active Directory authentication is also [available](https://github.com/sftpgo/sftpgo-plugin-auth).
