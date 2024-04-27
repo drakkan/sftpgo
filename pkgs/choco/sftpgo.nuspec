@@ -31,7 +31,7 @@ You can find more info [here](https://github.com/drakkan/sftpgo).
 ### Notes
 
 * This package installs SFTPGo as Windows Service.
-* After the first installation please take a look at the [Getting Started Guide](https://github.com/drakkan/sftpgo/blob/main/docs/howto/getting-started.md).</description>
+* After the first installation please take a look at the [Getting Started Guide](https://sftpgo.github.io/latest/initial-configuration/).</description>
 		<releaseNotes>https://github.com/drakkan/sftpgo/releases/tag/v2.5.6</releaseNotes>
 	</metadata>
 	<files>
