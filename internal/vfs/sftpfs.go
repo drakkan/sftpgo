@@ -67,27 +67,6 @@ type SFTPFsConfig struct {
 	PrivateKey             *kms.Secret `json:"private_key,omitempty"`
 	KeyPassphrase          *kms.Secret `json:"key_passphrase,omitempty"`
 	forbiddenSelfUsernames []string    `json:"-"`
-	signer                 ssh.Signer
-}
-
-func (c *SFTPFsConfig) populateSigner() error {
-	if c.PrivateKey.GetPayload() != "" {
-		signer, err := c.getSigner()
-		if err != nil {
-			return fmt.Errorf("sftpfs: unable to parse the private key: %w", err)
-		}
-		c.signer = signer
-		return nil
-	}
-	return nil
-}
-
-func (c *SFTPFsConfig) getSigner() (ssh.Signer, error) {
-	if c.KeyPassphrase.GetPayload() != "" {
-		return ssh.ParsePrivateKeyWithPassphrase([]byte(c.PrivateKey.GetPayload()),
-			[]byte(c.KeyPassphrase.GetPayload()))
-	}
-	return ssh.ParsePrivateKey([]byte(c.PrivateKey.GetPayload()))
 }
 
 // HideConfidentialData hides confidential data
@@ -351,9 +330,6 @@ func NewSFTPFs(connectionID, mountPath, localTempDir string, forbiddenSelfUserna
 		if err := config.KeyPassphrase.TryDecrypt(); err != nil {
 			return nil, err
 		}
-	}
-	if err := config.populateSigner(); err != nil {
-		return nil, err
 	}
 	config.forbiddenSelfUsernames = forbiddenSelfUsernames
 	sftpFs := &SFTPFs{
@@ -955,6 +931,17 @@ func (c *sftpConnection) OpenConnection() error {
 	return c.openConnNoLock()
 }
 
+func (c *sftpConnection) getKeySigner() (ssh.Signer, error) {
+	privPayload := c.config.PrivateKey.GetPayload()
+	if privPayload == "" {
+		return nil, nil
+	}
+	if key := c.config.KeyPassphrase.GetPayload(); key != "" {
+		return ssh.ParsePrivateKeyWithPassphrase([]byte(privPayload), []byte(key))
+	}
+	return ssh.ParsePrivateKey([]byte(privPayload))
+}
+
 func (c *sftpConnection) openConnNoLock() error {
 	if c.isConnected {
 		logger.Debug(c.logSender, "", "reusing connection")
@@ -989,14 +976,18 @@ func (c *sftpConnection) openConnNoLock() error {
 			logger.Log(logger.LevelWarn, c.logSender, "", "login without host key validation, please provide at least a fingerprint!")
 			return nil
 		},
-		Timeout:       10 * time.Second,
+		Timeout:       15 * time.Second,
 		ClientVersion: fmt.Sprintf("SSH-2.0-SFTPGo_%v", version.Get().Version),
 	}
-	if c.config.signer != nil {
-		clientConfig.Auth = append(clientConfig.Auth, ssh.PublicKeys(c.config.signer))
+	signer, err := c.getKeySigner()
+	if err != nil {
+		return fmt.Errorf("sftpfs: unable to parse the private key: %w", err)
 	}
-	if c.config.Password.GetPayload() != "" {
-		clientConfig.Auth = append(clientConfig.Auth, ssh.Password(c.config.Password.GetPayload()))
+	if signer != nil {
+		clientConfig.Auth = append(clientConfig.Auth, ssh.PublicKeys(signer))
+	}
+	if pwd := c.config.Password.GetPayload(); pwd != "" {
+		clientConfig.Auth = append(clientConfig.Auth, ssh.Password(pwd))
 	}
 	supportedAlgos := ssh.SupportedAlgorithms()
 	insecureAlgos := ssh.InsecureAlgorithms()
