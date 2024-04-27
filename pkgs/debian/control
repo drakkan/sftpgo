@@ -11,7 +11,7 @@ Package: sftpgo
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Recommends: bash-completion, mime-support
-Description: Fully featured and highly configurable SFTP server
+Description: Full-featured and highly configurable SFTP server
  SFTPGo has optional FTP/S and WebDAV support.
  It can serve local filesystem, S3 (Compatible) Object Storage,
  Google Cloud Storage, Azure Blob Storage, SFTP.

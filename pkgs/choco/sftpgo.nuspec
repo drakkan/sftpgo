@@ -16,7 +16,7 @@
 		<docsUrl>https://github.com/drakkan/sftpgo/tree/v2.5.6/docs</docsUrl>
 		<bugTrackerUrl>https://github.com/drakkan/sftpgo/issues</bugTrackerUrl>
 		<tags>sftp sftp-server ftp webdav s3 azure-blob google-cloud-storage cloud-storage scp data-at-rest-encryption multi-factor-authentication multi-step-authentication</tags>
-		<summary>Fully featured and highly configurable SFTP server with optional HTTP/S,FTP/S and WebDAV support.</summary>
+		<summary>Full-featured and highly configurable file transfer server: SFTP, HTTP/S,FTP/S, WebDAV.</summary>
 		<description>SFTPGo allows you to securely share your files over SFTP and optionally over HTTP/S, FTP/S and WebDAV as well.
 Several storage backends are supported and they are configurable per-user, so you can serve a local directory for a user and an S3 bucket (or part of it) for another one.
 

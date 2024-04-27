@@ -38,7 +38,7 @@ import (
 
 const (
 	serviceName     = "SFTPGo"
-	serviceDesc     = "Fully featured and highly configurable SFTP server with optional FTP/S and WebDAV support"
+	serviceDesc     = "Full-featured and highly configurable file transfer server"
 	rotateLogCmd    = svc.Cmd(128)
 	acceptRotateLog = svc.Accepted(rotateLogCmd)
 )

@@ -178,7 +178,7 @@ jobs:
             FEATURES=${{ steps.info.outputs.features }}
           labels: |
             org.opencontainers.image.title=SFTPGo
-            org.opencontainers.image.description=Fully featured and highly configurable SFTP server with optional HTTP, FTP/S and WebDAV support
+            org.opencontainers.image.description=Full-featured and highly configurable file transfer server: SFTP, HTTP/S,FTP/S, WebDAV
             org.opencontainers.image.url=https://github.com/drakkan/sftpgo
             org.opencontainers.image.documentation=https://github.com/drakkan/sftpgo/blob/${{ github.sha }}/docker/README.md
             org.opencontainers.image.source=https://github.com/drakkan/sftpgo
