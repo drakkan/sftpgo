@@ -137,13 +137,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 {{- define "extra_js"}}
 <script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/plugins/custom/formrepeater/formrepeater.bundle.js"></script>
 <script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
-    function onFilesystemChanged(val){
-        $('.form-group.fsconfig').hide();
-        $('.form-group.fsconfig-'+val).show();
-    }
 
     $(document).on("i18nload", function(){
-        onFilesystemChanged('{{.Folder.FsConfig.Provider.Name}}');
+        onFilesystemChanged('{{.Folder.FsConfig.Provider}}');
 
         $('#idFilesystem').on("change", function(){
             onFilesystemChanged(this.value);

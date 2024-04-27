@@ -58,25 +58,29 @@ func FindSharedDataPath(name, searchDir string) string {
 
 // LoadTemplate parses the given template paths.
 // It behaves like template.Must but it writes a log before exiting.
-// You can optionally provide a base template (e.g. to define some custom functions)
 func LoadTemplate(base *template.Template, paths ...string) *template.Template {
-	var t *template.Template
-	var err error
-
 	if base != nil {
-		base, err = base.Clone()
-		if err == nil {
-			t, err = base.ParseFiles(paths...)
+		baseTmpl, err := base.Clone()
+		if err != nil {
+			showTemplateLoadingError(err)
 		}
-	} else {
-		t, err = template.ParseFiles(paths...)
+		t, err := baseTmpl.ParseFiles(paths...)
+		if err != nil {
+			showTemplateLoadingError(err)
+		}
+		return t
 	}
 
+	t, err := template.ParseFiles(paths...)
 	if err != nil {
-		logger.ErrorToConsole("error loading required template: %v", err)
-		logger.ErrorToConsole(templateLoadErrorHints)
-		logger.Error(logSender, "", "error loading required template: %v", err)
-		os.Exit(1)
+		showTemplateLoadingError(err)
 	}
 	return t
+}
+
+func showTemplateLoadingError(err error) {
+	logger.ErrorToConsole("error loading required template: %v", err)
+	logger.ErrorToConsole(templateLoadErrorHints)
+	logger.Error(logSender, "", "error loading required template: %v", err)
+	os.Exit(1)
 }

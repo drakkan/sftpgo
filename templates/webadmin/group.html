@@ -384,10 +384,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 {{- define "extra_js"}}
 <script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/plugins/custom/formrepeater/formrepeater.bundle.js"></script>
 <script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
-    function onFilesystemChanged(val){
-        $('.form-group.fsconfig').hide();
-        $('.form-group.fsconfig-'+val).show();
-    }
 
     $(document).on("i18nload", function(){
         initRepeater('#virtual_folders');
@@ -399,7 +395,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         //{{- if .Error}}
         $('#accordionUser .collapse').removeAttr("data-bs-parent").collapse('show');
         //{{- end}}
-        onFilesystemChanged('{{.Group.UserSettings.FsConfig.Provider.Name}}');
+        onFilesystemChanged('{{.Group.UserSettings.FsConfig.Provider}}');
 
         $('#idFilesystem').on("change", function(){
             onFilesystemChanged(this.value);

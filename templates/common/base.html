@@ -278,6 +278,38 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         return window.location.protocol+"//"+window.location.hostname;
     }
 
+    function onFilesystemChanged(val){
+        const supportedFs = ["local", "s3", "gcs", "azblob", "crypt", "sftp", "http"];
+        let fsName = "local";
+        switch (val){
+            case '1':
+                fsName = "s3";
+                break;
+            case '2':
+                fsName = "gcs";
+                break;
+            case '3':
+                fsName = "azblob";
+                break;
+            case '4':
+                fsName = "crypt";
+                break;
+            case '5':
+                fsName = "sftp";
+                break;
+            case '6':
+                fsName = "http";
+                break;
+        }
+        for (let i = 0; i < supportedFs.length; i++){
+            if (supportedFs[i] == fsName){
+                $('.form-group.fsconfig-'+fsName).show();
+            } else {
+                $('.form-group.fsconfig-'+supportedFs[i]).hide();
+            }
+        }
+    }
+
     KTUtil.onDOMContentLoaded(function () {
         var dismissErrorBtn = $('#id_dismiss_error_msg');
         if (dismissErrorBtn){

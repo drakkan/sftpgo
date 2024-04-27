@@ -509,17 +509,6 @@ func loadAdminTemplates(templatesPath string) {
 	}
 
 	fsBaseTpl := template.New("fsBaseTemplate").Funcs(template.FuncMap{
-		"ListFSProviders": func() []dataprovider.FilesystemProvider {
-			return []dataprovider.FilesystemProvider{
-				{FilesystemProvider: sdk.LocalFilesystemProvider},
-				{FilesystemProvider: sdk.CryptedFilesystemProvider},
-				{FilesystemProvider: sdk.S3FilesystemProvider},
-				{FilesystemProvider: sdk.GCSFilesystemProvider},
-				{FilesystemProvider: sdk.AzureBlobFilesystemProvider},
-				{FilesystemProvider: sdk.SFTPFilesystemProvider},
-				{FilesystemProvider: sdk.HTTPFilesystemProvider},
-			}
-		},
 		"HumanizeBytes": util.ByteCountSI,
 	})
 	usersTmpl := util.LoadTemplate(nil, usersPaths...)
@@ -1694,7 +1683,7 @@ func getOsConfigFromPostFields(r *http.Request, readBufferField, writeBufferFiel
 
 func getFsConfigFromPostFields(r *http.Request) (vfs.Filesystem, error) {
 	var fs vfs.Filesystem
-	fs.Provider = sdk.GetProviderByName(r.Form.Get("fs_provider"))
+	fs.Provider = dataprovider.GetProviderFromValue(r.Form.Get("fs_provider"))
 	switch fs.Provider {
 	case sdk.LocalFilesystemProvider:
 		fs.OSConfig = getOsConfigFromPostFields(r, "osfs_read_buffer_size", "osfs_write_buffer_size")

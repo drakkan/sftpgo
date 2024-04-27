@@ -23,9 +23,13 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             <label for="idFilesystem" data-i18n="storage.label" class="col-md-3 col-form-label">Storage</label>
             <div class="col-md-9">
                 <select id="idFilesystem" name="fs_provider" class="form-select" data-control="i18n-select2" data-hide-search="true">
-                    {{- range ListFSProviders }}
-                    <option value="{{.Name}}" data-i18n="{{.I18nString}}" {{if eq .FilesystemProvider $.Provider }}selected{{end}}>{{.ShortInfo}}</option>
-                    {{- end}}
+                    <option value="0" data-i18n="storage.local" {{if eq .Provider 0 }}selected{{end}}>Local</option>
+                    <option value="4" data-i18n="storage.encrypted" {{if eq .Provider 4 }}selected{{end}}>Local encrypted</option>
+                    <option value="1" data-i18n="storage.s3" {{if eq .Provider 1 }}selected{{end}}>AWS S3 (Compatible)</option>
+                    <option value="2" data-i18n="storage.gcs" {{if eq .Provider 2 }}selected{{end}}>Google Cloud Storage</option>
+                    <option value="3" data-i18n="storage.azblob" {{if eq .Provider 3 }}selected{{end}}>Azure Blob Storage</option>
+                    <option value="5" data-i18n="storage.sftp" {{if eq .Provider 5 }}selected{{end}}>SFTP</option>
+                    <option value="6" data-i18n="storage.http" {{if eq .Provider 6 }}selected{{end}}>HTTP</option>
                 </select>
             </div>
         </div>
@@ -46,7 +50,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
         {{- end}}
-        <div class="form-group row mt-10 fsconfig fsconfig-osfs">
+        <div class="form-group row mt-10 fsconfig-local">
             <label for="idOsReadBufferSize" data-i18n="storage.os_read_buffer" class="col-md-3 col-form-label">Read buffer (MB)</label>
             <div class="col-md-3">
                 <input id="idOsReadBufferSize" type="number" min="0" max="10" class="form-control" name="osfs_read_buffer_size" value="{{.OSConfig.ReadBufferSize}}" aria-describedby="idOsReadBufferSizeHelp" />
@@ -60,28 +64,28 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-s3fs">
+        <div class="form-group row mt-10 fsconfig-s3">
             <label for="idS3Bucket" data-i18n="storage.bucket" class="col-md-3 col-form-label">Bucket</label>
             <div class="col-md-9">
                 <input id="idS3Bucket" type="text" class="form-control" name="s3_bucket" value="{{.S3Config.Bucket}}" />
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-s3fs">
+        <div class="form-group row mt-10 fsconfig-s3">
             <label for="idS3Region" data-i18n="storage.region" class="col-md-3 col-form-label">Region</label>
             <div class="col-md-9">
                 <input id="idS3Region" type="text" class="form-control" name="s3_region" value="{{.S3Config.Region}}" maxlength="512" />
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-s3fs">
+        <div class="form-group row mt-10 fsconfig-s3">
             <label for="idS3AccessKey" data-i18n="storage.access_key" class="col-md-3 col-form-label">Access Key</label>
             <div class="col-md-9">
                 <input id="idS3AccessKey" type="text" class="form-control" name="s3_access_key" value="{{.S3Config.AccessKey}}" maxlength="512" spellcheck="false" />
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-s3fs">
+        <div class="form-group row mt-10 fsconfig-s3">
             <label for="idS3AccessSecret" data-i18n="storage.access_secret" class="col-md-3 col-form-label">Access Secret</label>
             <div class="col-md-9">
                 <input id="idS3AccessSecret" type="password" class="form-control" name="s3_access_secret" autocomplete="new-password" spellcheck="false"
@@ -89,7 +93,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-s3fs">
+        <div class="form-group row mt-10 fsconfig-s3">
             <label for="idS3KeyPrefix" data-i18n="storage.key_prefix" class="col-md-3 col-form-label">Key Prefix</label>
             <div class="col-md-9">
                 <input id="idS3KeyPrefix" type="text" class="form-control" name="s3_key_prefix" value="{{.S3Config.KeyPrefix}}" aria-describedby="idS3KeyPrefixHelp"/>
@@ -97,7 +101,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-s3fs">
+        <div class="form-group row mt-10 fsconfig-s3">
             <label for="idS3Endpoint" data-i18n="storage.endpoint" class="col-md-3 col-form-label">Endpoint</label>
             <div class="col-md-9">
                 <input id="idS3Endpoint" type="text" class="form-control" name="s3_endpoint" value="{{.S3Config.Endpoint}}" aria-describedby="idS3EndpointHelp"/>
@@ -105,7 +109,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-s3fs">
+        <div class="form-group row mt-10 fsconfig-s3">
             <label for="idS3RoleARN" data-i18n="storage.role_arn" class="col-md-3 col-form-label">Role ARN</label>
             <div class="col-md-9">
                 <input id="idS3RoleARN" type="text" class="form-control" name="s3_role_arn" value="{{.S3Config.RoleARN}}" aria-describedby="idS3RoleARNHelp"/>
@@ -113,7 +117,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-s3fs">
+        <div class="form-group row mt-10 fsconfig-s3">
             <label for="idS3StorageClass" data-i18n="storage.class" class="col-md-3 col-form-label">Storage Class</label>
             <div class="col-md-3">
                 <input id="idS3StorageClass" type="text" class="form-control" name="s3_storage_class" value="{{.S3Config.StorageClass}}" aria-describedby="idS3StorageClassHelp" />
@@ -127,7 +131,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-s3fs">
+        <div class="form-group row mt-10 fsconfig-s3">
             <label for="idS3PartSize" data-i18n="storage.ul_part_size" class="col-md-3 col-form-label">Upload Part Size (MB)</label>
             <div class="col-md-3">
                 <input id="idS3PartSize" type="number" min="0" max="5000" class="form-control" name="s3_upload_part_size" value="{{.S3Config.UploadPartSize}}" aria-describedby="idS3PartSizeHelp" />
@@ -141,7 +145,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-s3fs">
+        <div class="form-group row mt-10 fsconfig-s3">
             <label for="idS3DLPartSize" data-i18n="storage.dl_part_size" class="col-md-3 col-form-label">Download Part Size (MB)</label>
             <div class="col-md-3">
                 <input id="idS3DLPartSize" type="number" min="0" max="5000" class="form-control" name="s3_download_part_size" value="{{.S3Config.DownloadPartSize}}" aria-describedby="idS3DLPartSizeHelp" />
@@ -155,7 +159,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-s3fs">
+        <div class="form-group row mt-10 fsconfig-s3">
             <label for="idS3UploadTimeout" data-i18n="storage.ul_part_timeout" class="col-md-3 col-form-label">UL Part Timeout (secs)</label>
             <div class="col-md-3">
                 <input id="idS3UploadTimeout" type="number" min="0" class="form-control" name="s3_upload_part_max_time" value="{{.S3Config.UploadPartMaxTime}}" aria-describedby="idS3UploadTimeoutHelp" />
@@ -169,7 +173,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
-        <div class="form-group row align-items-center mt-10 fsconfig fsconfig-s3fs">
+        <div class="form-group row align-items-center mt-10 fsconfig-s3">
             <div class="col-md-5">
                 <div class="form-check form-switch form-check-custom form-check-solid">
                     <input class="form-check-input" type="checkbox" id="idS3ForcePathStyle" name="s3_force_path_style" {{if .S3Config.ForcePathStyle}}checked{{end}}/>
@@ -189,14 +193,14 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-gcsfs">
+        <div class="form-group row mt-10 fsconfig-gcs">
             <label for="idGCSBucket" data-i18n="storage.bucket" class="col-md-3 col-form-label">Bucket</label>
             <div class="col-md-9">
                 <input id="idGCSBucket" type="text" class="form-control" name="gcs_bucket" value="{{.GCSConfig.Bucket}}" />
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-gcsfs">
+        <div class="form-group row mt-10 fsconfig-gcs">
             <label for="idGCSCredentialFile" data-i18n="storage.credentials_file" class="col-md-3 col-form-label">Credential files</label>
             <div class="col-md-9">
                 <input id="idGCSCredentialFile" type="file" accept="application/json" class="form-control" name="gcs_credential_file" aria-describedby="idGCSCredentialFileHelp" />
@@ -204,7 +208,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
-        <div class="form-group row align-items-center mt-10 fsconfig fsconfig-gcsfs">
+        <div class="form-group row align-items-center mt-10 fsconfig-gcs">
             <label data-i18n="storage.auto_credentials" class="col-md-3 col-form-label" for="idGCSAutoCredentials">Automatic credentials</label>
             <div class="col-md-9">
                 <div class="form-check form-switch form-check-custom form-check-solid">
@@ -216,7 +220,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-gcsfs">
+        <div class="form-group row mt-10 fsconfig-gcs">
             <label for="idGCSKeyPrefix" data-i18n="storage.key_prefix" class="col-md-3 col-form-label">Key Prefix</label>
             <div class="col-md-9">
                 <input id="idGCSKeyPrefix" type="text" class="form-control" name="gcs_key_prefix" value="{{.GCSConfig.KeyPrefix}}" aria-describedby="idGCSKeyPrefixHelp" />
@@ -224,7 +228,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-gcsfs">
+        <div class="form-group row mt-10 fsconfig-gcs">
             <label for="idGCSStorageClass" data-i18n="storage.class" class="col-md-3 col-form-label">Storage Class</label>
             <div class="col-md-3">
                 <input id="idGCSStorageClass" type="text" class="form-control" name="gcs_storage_class" value="{{.GCSConfig.StorageClass}}" aria-describedby="idGCSStorageClassHelp" />
@@ -238,7 +242,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-gcsfs">
+        <div class="form-group row mt-10 fsconfig-gcs">
             <label for="idGCSUploadPartSize" data-i18n="storage.ul_part_size" class="col-md-3 col-form-label">Upload Part Size (MB)</label>
             <div class="col-md-3">
                 <input id="idGCSUploadPartSize" type="number" min="0" class="form-control" name="gcs_upload_part_size" value="{{.GCSConfig.UploadPartSize}}" aria-describedby="idGCSUploadPartSizeHelp" />
@@ -252,21 +256,21 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-azblobfs">
+        <div class="form-group row mt-10 fsconfig-azblob">
             <label for="idAzContainer" data-i18n="storage.container" class="col-md-3 col-form-label">Container</label>
             <div class="col-md-9">
                 <input id="idAzContainer" type="text" class="form-control" name="az_container" value="{{.AzBlobConfig.Container}}" />
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-azblobfs">
+        <div class="form-group row mt-10 fsconfig-azblob">
             <label for="idAzAccountName" data-i18n="storage.account_name" class="col-md-3 col-form-label">Account Name</label>
             <div class="col-md-9">
                 <input id="idAzAccountName" type="text" class="form-control" name="az_account_name" value="{{.AzBlobConfig.AccountName}}" />
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-azblobfs">
+        <div class="form-group row mt-10 fsconfig-azblob">
             <label for="idAzAccountKey" data-i18n="storage.account_key" class="col-md-3 col-form-label">Account Key</label>
             <div class="col-md-9">
                 <input id="idAzAccountKey" type="password" class="form-control" name="az_account_key" autocomplete="new-password" spellcheck="false"
@@ -274,7 +278,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-azblobfs">
+        <div class="form-group row mt-10 fsconfig-azblob">
             <label for="idAzSASURL" data-i18n="storage.sas_url" class="col-md-3 col-form-label">SAS URL</label>
             <div class="col-md-9">
                 <input id="idAzSASURL" type="password" class="form-control" name="az_sas_url" autocomplete="new-password" spellcheck="false" aria-describedby="idAzSASURLHelp"
@@ -283,7 +287,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-azblobfs">
+        <div class="form-group row mt-10 fsconfig-azblob">
             <label for="idAzKeyPrefix" data-i18n="storage.key_prefix" class="col-md-3 col-form-label">Key Prefix</label>
             <div class="col-md-9">
                 <input id="idAzKeyPrefix" type="text" class="form-control" name="az_key_prefix" value="{{.AzBlobConfig.KeyPrefix}}" aria-describedby="idAzKeyPrefixHelp" />
@@ -291,7 +295,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-azblobfs">
+        <div class="form-group row mt-10 fsconfig-azblob">
             <label for="idAzAccessTier" data-i18n="storage.class" class="col-md-3 col-form-label">Storage Class</label>
             <div class="col-md-9">
                 <select id="idAzAccessTier" name="az_access_tier" class="form-select" data-control="i18n-select2" data-hide-search="true">
@@ -303,7 +307,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-azblobfs">
+        <div class="form-group row mt-10 fsconfig-azblob">
             <label for="idAzUploadPartSize" data-i18n="storage.ul_part_size" class="col-md-3 col-form-label">Upload Part Size (MB)</label>
             <div class="col-md-3">
                 <input id="idAzUploadPartSize" type="number" min="0" max="100" class="form-control" name="az_upload_part_size" value="{{.AzBlobConfig.UploadPartSize}}" aria-describedby="idAzUploadPartSizeHelp" />
@@ -317,7 +321,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-azblobfs">
+        <div class="form-group row mt-10 fsconfig-azblob">
             <label for="idAzDownloadPartSize" data-i18n="storage.dl_part_size" class="col-md-3 col-form-label">Download Part Size (MB)</label>
             <div class="col-md-3">
                 <input id="idAzDownloadPartSize" type="number" min="0" max="100" class="form-control" name="az_download_part_size" value="{{.AzBlobConfig.DownloadPartSize}}" aria-describedby="idAzDownloadPartSizeHelp" />
@@ -331,7 +335,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-azblobfs">
+        <div class="form-group row mt-10 fsconfig-azblob">
             <label for="idAzEndpoint" data-i18n="storage.endpoint" class="col-md-3 col-form-label">Endpoint</label>
             <div class="col-md-9">
                 <input id="idAzEndpoint" type="text" class="form-control" name="az_endpoint" value="{{.AzBlobConfig.Endpoint}}" aria-describedby="idAzEndpointHelp" />
@@ -339,7 +343,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
-        <div class="form-group row align-items-center mt-10 fsconfig fsconfig-azblobfs">
+        <div class="form-group row align-items-center mt-10 fsconfig-azblob">
             <label data-i18n="storage.emulator" class="col-md-3 col-form-label" for="idUseEmulator">Use Azure Blob emulator</label>
             <div class="col-md-9">
                 <div class="form-check form-switch form-check-custom form-check-solid">
@@ -348,7 +352,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-cryptfs">
+        <div class="form-group row mt-10 fsconfig-crypt">
             <label for="idCryptPassphrase" data-i18n="storage.passphrase" class="col-md-3 col-form-label">Passphrase</label>
             <div class="col-md-9">
                 <input id="idCryptPassphrase" type="password" class="form-control" name="crypt_passphrase" autocomplete="new-password" spellcheck="false" aria-describedby="idCryptPassphraseHelp"
@@ -357,7 +361,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-cryptfs">
+        <div class="form-group row mt-10 fsconfig-crypt">
             <label for="idCryptFsReadBufferSize" data-i18n="storage.os_read_buffer" class="col-md-3 col-form-label">Read buffer (MB)</label>
             <div class="col-md-3">
                 <input id="idCryptFsReadBufferSize" type="number" min="0" max="10" class="form-control" name="cryptfs_read_buffer_size" value="{{.CryptConfig.ReadBufferSize}}" aria-describedby="idCryptFsReadBufferSizeHelp" />
@@ -371,7 +375,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-sftpfs">
+        <div class="form-group row mt-10 fsconfig-sftp">
             <label for="idSFTPEndpoint" data-i18n="storage.endpoint" class="col-md-3 col-form-label">Endpoint</label>
             <div class="col-md-9">
                 <input id="idSFTPEndpoint" type="text" class="form-control" name="sftp_endpoint" value="{{.SFTPConfig.Endpoint}}" aria-describedby="idSFTPEndpointHelp"/>
@@ -379,14 +383,14 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-sftpfs">
+        <div class="form-group row mt-10 fsconfig-sftp">
             <label for="idSFTPUsername" data-i18n="login.username" class="col-md-3 col-form-label">Username</label>
             <div class="col-md-9">
                 <input id="idSFTPUsername" type="text" class="form-control" name="sftp_username" value="{{.SFTPConfig.Username}}" spellcheck="false" />
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-sftpfs">
+        <div class="form-group row mt-10 fsconfig-sftp">
             <label for="idSFTPPassword" data-i18n="login.password" class="col-md-3 col-form-label">Password</label>
             <div class="col-md-9">
                 <input id="idSFTPPassword" type="password" class="form-control" name="sftp_password" autocomplete="new-password" spellcheck="false"
@@ -394,7 +398,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-sftpfs">
+        <div class="form-group row mt-10 fsconfig-sftp">
             <label for="idSFTPPrivateKey" data-i18n="general.private_key" class="col-md-3 col-form-label">Private key</label>
             <div class="col-md-9">
                 <textarea class="form-control" id="idSFTPPrivateKey" name="sftp_private_key" spellcheck="false"
@@ -402,7 +406,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-sftpfs">
+        <div class="form-group row mt-10 fsconfig-sftp">
             <label for="idSFTPPassphrase" data-i18n="storage.passphrase" class="col-md-3 col-form-label">Passphrase</label>
             <div class="col-md-9">
                 <input id="idSFTPPassphrase" type="password" class="form-control" name="sftp_key_passphrase" autocomplete="new-password" spellcheck="false" aria-describedby="idSFTPPassphraseHelp"
@@ -411,7 +415,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-sftpfs">
+        <div class="form-group row mt-10 fsconfig-sftp">
             <label for="idSFTPPrefix" data-i18n="storage.sftp_home_dir" class="col-md-3 col-form-label">Root directory</label>
             <div class="col-md-9">
                 <input id="idSFTPPrefix" type="text" class="form-control" name="sftp_prefix" value="{{.SFTPConfig.Prefix}}" aria-describedby="idSFTPPrefixHelp"/>
@@ -419,7 +423,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-sftpfs">
+        <div class="form-group row mt-10 fsconfig-sftp">
             <label for="idSFTPFingerprints" data-i18n="storage.fingerprints" class="col-md-3 col-form-label">Fingerprints</label>
             <div class="col-md-9">
                 <textarea class="form-control" id="idSFTPFingerprints" name="sftp_fingerprints" spellcheck="false" aria-describedby="idSFTPFingerprintsHelp"
@@ -428,7 +432,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-sftpfs">
+        <div class="form-group row mt-10 fsconfig-sftp">
             <label for="idSFTPUploadBufferSize" data-i18n="storage.sftp_buffer" class="col-md-3 col-form-label">Buffer size (MB)</label>
             <div class="col-md-9">
                 <input id="idSFTPUploadBufferSize" type="number" min="0" max="16" class="form-control" name="sftp_buffer_size" value="{{.SFTPConfig.BufferSize}}" aria-describedby="idSFTPUploadBufferSizeHelp" />
@@ -436,7 +440,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
-        <div class="form-group row align-items-center mt-10 fsconfig fsconfig-sftpfs">
+        <div class="form-group row align-items-center mt-10 fsconfig-sftp">
             <div class="col-md-5">
                 <div class="form-check form-switch form-check-custom form-check-solid">
                     <input class="form-check-input" type="checkbox" id="idDisableConcurrentReads" name="sftp_disable_concurrent_reads" {{if .SFTPConfig.DisableCouncurrentReads}}checked{{end}}/>
@@ -456,21 +460,21 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-httpfs">
+        <div class="form-group row mt-10 fsconfig-http">
             <label for="idHTTPEndpoint" data-i18n="storage.endpoint" class="col-md-3 col-form-label">Endpoint</label>
             <div class="col-md-9">
                 <input id="idHTTPEndpoint" type="text" class="form-control" name="http_endpoint" value="{{.HTTPConfig.Endpoint}}"/>
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-httpfs">
+        <div class="form-group row mt-10 fsconfig-http">
             <label for="idHTTPUsername" data-i18n="login.username" class="col-md-3 col-form-label">Username</label>
             <div class="col-md-9">
                 <input id="idHTTPUsername" type="text" class="form-control" name="http_username" value="{{.HTTPConfig.Username}}" spellcheck="false" />
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-httpfs">
+        <div class="form-group row mt-10 fsconfig-http">
             <label for="idHTTPPassword" data-i18n="login.password" class="col-md-3 col-form-label">Password</label>
             <div class="col-md-9">
                 <input id="idHTTPPassword" type="password" class="form-control" name="http_password" autocomplete="new-password" spellcheck="false"
@@ -478,7 +482,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
-        <div class="form-group row mt-10 fsconfig fsconfig-httpfs">
+        <div class="form-group row mt-10 fsconfig-http">
             <label for="idHTTPAPIKey" data-i18n="storage.api_key" class="col-md-3 col-form-label">API Key</label>
             <div class="col-md-9">
                 <input id="idHTTPAPIKey" type="password" class="form-control" name="http_api_key" autocomplete="new-password" spellcheck="false"
@@ -486,7 +490,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
-        <div class="form-group row align-items-center mt-10 fsconfig fsconfig-httpfs">
+        <div class="form-group row align-items-center mt-10 fsconfig-http">
             <div class="col-md-5">
                 <div class="form-check form-switch form-check-custom form-check-solid">
                     <input class="form-check-input" type="checkbox" id="idHTTPSkipTLSVerify" name="http_skip_tls_verify" {{if .HTTPConfig.SkipTLSVerify}}checked{{end}} />
