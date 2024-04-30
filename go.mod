@@ -52,7 +52,7 @@ require (
 	github.com/rs/cors v1.11.0
 	github.com/rs/xid v1.5.0
 	github.com/rs/zerolog v1.32.0
-	github.com/sftpgo/sdk v0.1.6-0.20240426175227-52f492b8b83b
+	github.com/sftpgo/sdk v0.1.6
 	github.com/shirou/gopsutil/v3 v3.24.3
 	github.com/spf13/afero v1.11.0
 	github.com/spf13/cobra v1.8.0
