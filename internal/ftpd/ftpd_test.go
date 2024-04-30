@@ -3081,6 +3081,37 @@ func TestChtimes(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestMODEType(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	client, err := getFTPClient(user, false, nil)
+	if assert.NoError(t, err) {
+		code, response, err := client.SendCommand("MODE s")
+		assert.NoError(t, err)
+		assert.Equal(t, ftp.StatusCommandOK, code)
+		assert.Equal(t, "Transfer mode set to 'S'", response)
+		code, response, err = client.SendCommand("MODE S")
+		assert.NoError(t, err)
+		assert.Equal(t, ftp.StatusCommandOK, code)
+		assert.Equal(t, "Transfer mode set to 'S'", response)
+
+		code, _, err = client.SendCommand("MODE Z")
+		assert.NoError(t, err)
+		assert.Equal(t, ftp.StatusNotImplementedParameter, code)
+
+		code, _, err = client.SendCommand("MODE SS")
+		assert.NoError(t, err)
+		assert.Equal(t, ftp.StatusBadArguments, code)
+
+		err = client.Quit()
+		assert.NoError(t, err)
+	}
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestSTAT(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
