@@ -42,6 +42,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/plugin"
 	"github.com/drakkan/sftpgo/v2/internal/smtp"
 	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/drakkan/sftpgo/v2/internal/version"
 	"github.com/drakkan/sftpgo/v2/internal/vfs"
 )
 
@@ -168,6 +169,7 @@ var (
 func Initialize(c Configuration, isShared int) error {
 	isShuttingDown.Store(false)
 	util.SetUmask(c.Umask)
+	version.SetConfig(c.ServerVersion)
 	Config = c
 	Config.Actions.ExecuteOn = util.RemoveDuplicates(Config.Actions.ExecuteOn, true)
 	Config.Actions.ExecuteSync = util.RemoveDuplicates(Config.Actions.ExecuteSync, true)
@@ -577,6 +579,8 @@ type Configuration struct {
 	RateLimitersConfig []RateLimiterConfig `json:"rate_limiters" mapstructure:"rate_limiters"`
 	// Umask for new uploads. Leave blank to use the system default.
 	Umask string `json:"umask" mapstructure:"umask"`
+	// Defines the server version
+	ServerVersion string `json:"server_version" mapstructure:"server_version"`
 	// Metadata configuration
 	Metadata              MetadataConfig `json:"metadata" mapstructure:"metadata"`
 	idleTimeoutAsDuration time.Duration

@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/sftpgo/sdk/kms"
@@ -31,7 +30,6 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/config"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/ftpd"
 	"github.com/drakkan/sftpgo/v2/internal/httpclient"
 	"github.com/drakkan/sftpgo/v2/internal/httpd"
 	"github.com/drakkan/sftpgo/v2/internal/mfa"
@@ -122,42 +120,6 @@ func TestReadEnvFiles(t *testing.T) {
 	err = os.Unsetenv("SFTPGO_SFTPD__MAX_AUTH_TRIES")
 	assert.NoError(t, err)
 	os.RemoveAll(envd)
-}
-
-func TestEmptyBanner(t *testing.T) {
-	reset()
-
-	confName := tempConfigName + ".json"
-	configFilePath := filepath.Join(configDir, confName)
-	err := config.LoadConfig(configDir, "")
-	assert.NoError(t, err)
-	sftpdConf := config.GetSFTPDConfig()
-	sftpdConf.Banner = " "
-	c := make(map[string]sftpd.Configuration)
-	c["sftpd"] = sftpdConf
-	jsonConf, _ := json.Marshal(c)
-	err = os.WriteFile(configFilePath, jsonConf, os.ModePerm)
-	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, confName)
-	assert.NoError(t, err)
-	sftpdConf = config.GetSFTPDConfig()
-	assert.Empty(t, strings.TrimSpace(sftpdConf.Banner))
-	err = os.Remove(configFilePath)
-	assert.NoError(t, err)
-
-	ftpdConf := config.GetFTPDConfig()
-	ftpdConf.Banner = " "
-	c1 := make(map[string]ftpd.Configuration)
-	c1["ftpd"] = ftpdConf
-	jsonConf, _ = json.Marshal(c1)
-	err = os.WriteFile(configFilePath, jsonConf, os.ModePerm)
-	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, confName)
-	assert.NoError(t, err)
-	ftpdConf = config.GetFTPDConfig()
-	assert.NotEmpty(t, strings.TrimSpace(ftpdConf.Banner))
-	err = os.Remove(configFilePath)
-	assert.NoError(t, err)
 }
 
 func TestEnabledSSHCommands(t *testing.T) {

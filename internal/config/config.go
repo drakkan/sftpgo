@@ -41,7 +41,6 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/smtp"
 	"github.com/drakkan/sftpgo/v2/internal/telemetry"
 	"github.com/drakkan/sftpgo/v2/internal/util"
-	"github.com/drakkan/sftpgo/v2/internal/version"
 	"github.com/drakkan/sftpgo/v2/internal/webdavd"
 )
 
@@ -58,7 +57,6 @@ const (
 
 var (
 	globalConf             globalConfig
-	defaultFTPDBanner      = fmt.Sprintf("SFTPGo %v ready", version.Get().Version)
 	defaultInstallCodeHint = "Installation code"
 	defaultSFTPDBinding    = sftpd.Binding{
 		Address:          "",
@@ -231,6 +229,7 @@ func Init() {
 			},
 			RateLimitersConfig: []common.RateLimiterConfig{defaultRateLimiter},
 			Umask:              "",
+			ServerVersion:      "",
 			Metadata: common.MetadataConfig{
 				Read: 0,
 			},
@@ -254,7 +253,6 @@ func Init() {
 		SFTPD: sftpd.Configuration{
 			Bindings:                          []sftpd.Binding{defaultSFTPDBinding},
 			MaxAuthTries:                      0,
-			Banner:                            "",
 			HostKeys:                          []string{},
 			HostCertificates:                  []string{},
 			HostKeyAlgorithms:                 []string{},
@@ -272,7 +270,6 @@ func Init() {
 		},
 		FTPD: ftpd.Configuration{
 			Bindings:                 []ftpd.Binding{defaultFTPDBinding},
-			Banner:                   defaultFTPDBanner,
 			BannerFile:               "",
 			ActiveTransfersPortNon20: true,
 			PassivePortRange: ftpd.PortRange{
@@ -757,9 +754,6 @@ func isExternalAuthScopeValid() bool {
 }
 
 func resetInvalidConfigs() {
-	if strings.TrimSpace(globalConf.FTPD.Banner) == "" {
-		globalConf.FTPD.Banner = defaultFTPDBanner
-	}
 	if strings.TrimSpace(globalConf.HTTPDConfig.Setup.InstallationCodeHint) == "" {
 		globalConf.HTTPDConfig.Setup.InstallationCodeHint = defaultInstallCodeHint
 	}
@@ -1996,6 +1990,7 @@ func setViperDefaults() {
 	viper.SetDefault("common.defender.entries_soft_limit", globalConf.Common.DefenderConfig.EntriesSoftLimit)
 	viper.SetDefault("common.defender.entries_hard_limit", globalConf.Common.DefenderConfig.EntriesHardLimit)
 	viper.SetDefault("common.umask", globalConf.Common.Umask)
+	viper.SetDefault("common.server_version", globalConf.Common.ServerVersion)
 	viper.SetDefault("common.metadata.read", globalConf.Common.Metadata.Read)
 	viper.SetDefault("acme.email", globalConf.ACME.Email)
 	viper.SetDefault("acme.key_type", globalConf.ACME.KeyType)
@@ -2008,7 +2003,6 @@ func setViperDefaults() {
 	viper.SetDefault("acme.http01_challenge.proxy_header", globalConf.ACME.HTTP01Challenge.ProxyHeader)
 	viper.SetDefault("acme.tls_alpn01_challenge.port", globalConf.ACME.TLSALPN01Challenge.Port)
 	viper.SetDefault("sftpd.max_auth_tries", globalConf.SFTPD.MaxAuthTries)
-	viper.SetDefault("sftpd.banner", globalConf.SFTPD.Banner)
 	viper.SetDefault("sftpd.host_keys", globalConf.SFTPD.HostKeys)
 	viper.SetDefault("sftpd.host_certificates", globalConf.SFTPD.HostCertificates)
 	viper.SetDefault("sftpd.host_key_algorithms", globalConf.SFTPD.HostKeyAlgorithms)
@@ -2023,7 +2017,6 @@ func setViperDefaults() {
 	viper.SetDefault("sftpd.keyboard_interactive_authentication", globalConf.SFTPD.KeyboardInteractiveAuthentication)
 	viper.SetDefault("sftpd.keyboard_interactive_auth_hook", globalConf.SFTPD.KeyboardInteractiveHook)
 	viper.SetDefault("sftpd.password_authentication", globalConf.SFTPD.PasswordAuthentication)
-	viper.SetDefault("ftpd.banner", globalConf.FTPD.Banner)
 	viper.SetDefault("ftpd.banner_file", globalConf.FTPD.BannerFile)
 	viper.SetDefault("ftpd.active_transfers_port_non_20", globalConf.FTPD.ActiveTransfersPortNon20)
 	viper.SetDefault("ftpd.passive_port_range.start", globalConf.FTPD.PassivePortRange.Start)

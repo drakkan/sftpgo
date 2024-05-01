@@ -48,10 +48,11 @@ type Server struct {
 // NewServer returns a new FTP server driver
 func NewServer(config *Configuration, configDir string, binding Binding, id int) *Server {
 	binding.setCiphers()
+	vers := version.GetServerVersion("_", false)
 	server := &Server{
 		config:       config,
-		initialMsg:   config.Banner,
-		statusBanner: fmt.Sprintf("SFTPGo %v FTP Server", version.Get().Version),
+		initialMsg:   vers,
+		statusBanner: fmt.Sprintf("%s FTP Server", vers),
 		binding:      binding,
 		ID:           id,
 	}

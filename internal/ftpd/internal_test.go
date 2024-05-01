@@ -37,6 +37,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/drakkan/sftpgo/v2/internal/version"
 	"github.com/drakkan/sftpgo/v2/internal/vfs"
 )
 
@@ -440,7 +441,7 @@ func TestInitialization(t *testing.T) {
 	c.CertificateKeyFile = ""
 	c.BannerFile = "afile"
 	server := NewServer(c, configDir, binding, 0)
-	assert.Equal(t, "", server.initialMsg)
+	assert.Equal(t, version.GetServerVersion("_", false), server.initialMsg)
 	_, err = server.GetTLSConfig()
 	assert.Error(t, err)
 

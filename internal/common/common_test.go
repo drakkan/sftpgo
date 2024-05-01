@@ -38,6 +38,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/kms"
 	"github.com/drakkan/sftpgo/v2/internal/plugin"
 	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/drakkan/sftpgo/v2/internal/version"
 	"github.com/drakkan/sftpgo/v2/internal/vfs"
 )
 
@@ -1766,6 +1767,21 @@ func TestALPNProtocols(t *testing.T) {
 	assert.Equal(t, []string{"h2"}, protocols)
 	protocols = util.GetALPNProtocols([]string{"h2", "http/1.1"})
 	assert.Equal(t, []string{"h2", "http/1.1"}, protocols)
+}
+
+func TestServerVersion(t *testing.T) {
+	appName := "SFTPGo"
+	version.SetConfig("")
+	v := version.GetServerVersion("_", false)
+	assert.Equal(t, fmt.Sprintf("%s_%s", appName, version.Get().Version), v)
+	v = version.GetServerVersion("-", true)
+	assert.Equal(t, fmt.Sprintf("%s-%s-", appName, version.Get().Version), v)
+	version.SetConfig("short")
+	v = version.GetServerVersion("_", false)
+	assert.Equal(t, appName, v)
+	v = version.GetServerVersion("_", true)
+	assert.Equal(t, appName+"_", v)
+	version.SetConfig("")
 }
 
 func BenchmarkBcryptHashing(b *testing.B) {

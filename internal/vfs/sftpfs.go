@@ -977,7 +977,7 @@ func (c *sftpConnection) openConnNoLock() error {
 			return nil
 		},
 		Timeout:       15 * time.Second,
-		ClientVersion: fmt.Sprintf("SSH-2.0-SFTPGo_%v", version.Get().Version),
+		ClientVersion: fmt.Sprintf("SSH-2.0-%s", version.GetServerVersion("_", false)),
 	}
 	signer, err := c.getKeySigner()
 	if err != nil {

@@ -323,9 +323,8 @@ func (c *Config) getMailClientOptions() []mail.Option {
 
 func (c *Config) getSMTPClientAndMsg(to, bcc []string, subject, body string, contentType EmailContentType,
 	attachments ...*mail.File) (*mail.Client, *mail.Msg, error) {
-	version := version.Get()
 	msg := mail.NewMsg()
-	msg.SetUserAgent(fmt.Sprintf("SFTPGo-%s-%s", version.Version, version.CommitHash))
+	msg.SetUserAgent(version.GetServerVersion(" ", true))
 
 	var from string
 	if c.From != "" {

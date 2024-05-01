@@ -489,7 +489,7 @@ func (c *Configuration) setup() (*account, *lego.Client, error) {
 	config := lego.NewConfig(&account)
 	config.CADirURL = c.CAEndpoint
 	config.Certificate.KeyType = certcrypto.KeyType(c.KeyType)
-	config.UserAgent = fmt.Sprintf("SFTPGo/%v", version.Get().Version)
+	config.UserAgent = version.GetServerVersion("/", false)
 	client, err := lego.NewClient(config)
 	if err != nil {
 		acmeLog(logger.LevelError, "unable to get ACME client: %v", err)
@@ -555,7 +555,7 @@ func (c *Configuration) register(client *lego.Client) (*registration.Resource, e
 func (c *Configuration) tryRecoverRegistration(privateKey crypto.PrivateKey) (*registration.Resource, error) {
 	config := lego.NewConfig(&account{key: privateKey})
 	config.CADirURL = c.CAEndpoint
-	config.UserAgent = fmt.Sprintf("SFTPGo/%v", version.Get().Version)
+	config.UserAgent = version.GetServerVersion("/", false)
 
 	client, err := lego.NewClient(config)
 	if err != nil {

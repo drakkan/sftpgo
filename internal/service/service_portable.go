@@ -32,7 +32,6 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/sftpd"
 	"github.com/drakkan/sftpgo/v2/internal/util"
-	"github.com/drakkan/sftpgo/v2/internal/version"
 	"github.com/drakkan/sftpgo/v2/internal/webdavd"
 )
 
@@ -231,9 +230,6 @@ func configurePortableFTPService(port int, cert, key string) {
 		ftpConf.Bindings[0].Port = 49152 + rand.Intn(15000)
 	} else {
 		ftpConf.Bindings[0].Port = 0
-	}
-	if ftpConf.Banner == "" {
-		ftpConf.Banner = fmt.Sprintf("SFTPGo portable %v ready", version.Get().Version)
 	}
 	ftpConf.Bindings[0].CertificateFile = cert
 	ftpConf.Bindings[0].CertificateKeyFile = key

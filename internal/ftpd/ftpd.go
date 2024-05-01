@@ -262,10 +262,7 @@ type ServiceStatus struct {
 type Configuration struct {
 	// Addresses and ports to bind to
 	Bindings []Binding `json:"bindings" mapstructure:"bindings"`
-	// Greeting banner displayed when a connection first comes in
-	Banner string `json:"banner" mapstructure:"banner"`
-	// the contents of the specified file, if any, are diplayed when someone connects to the server.
-	// If set, it overrides the banner string provided by the banner option
+	// The contents of the specified file, if any, are diplayed when someone connects to the server.
 	BannerFile string `json:"banner_file" mapstructure:"banner_file"`
 	// If files containing a certificate and matching private key for the server are provided the server will accept
 	// both plain FTP an explicit FTP over TLS.

@@ -1133,11 +1133,10 @@ func checkDirectoryMarkers(contentType string, metadata map[string]*string) bool
 }
 
 func getAzContainerClientOptions() *container.ClientOptions {
-	version := version.Get()
 	return &container.ClientOptions{
 		ClientOptions: azcore.ClientOptions{
 			Telemetry: policy.TelemetryOptions{
-				ApplicationID: fmt.Sprintf("SFTPGo-%s", version.CommitHash),
+				ApplicationID: version.GetVersionHash(),
 			},
 		},
 	}

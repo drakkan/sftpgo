@@ -16,7 +16,6 @@ package httpd
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -118,11 +117,10 @@ func hasPrefixAndSuffix(key, prefix, suffix string) bool {
 }
 
 func getCommonBasePage(r *http.Request) commonBasePage {
-	v := version.Get()
 	return commonBasePage{
 		CSPNonce:  secure.CSPNonce(r.Context()),
 		StaticURL: webStaticFilesPath,
-		Version:   fmt.Sprintf("v%v-%v", v.Version, v.CommitHash),
+		Version:   version.GetServerVersion(" ", true),
 	}
 }
 

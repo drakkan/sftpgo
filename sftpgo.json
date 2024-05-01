@@ -23,6 +23,7 @@
     "allowlist_status": 0,
     "allow_self_connections": 0,
     "umask": "",
+    "server_version": "",
     "metadata": {
       "read": 0
     },
@@ -83,7 +84,6 @@
       }
     ],
     "max_auth_tries": 0,
-    "banner": "",
     "host_keys": [],
     "host_certificates": [],
     "host_key_algorithms": [],
@@ -129,7 +129,6 @@
         "debug": false
       }
     ],
-    "banner": "",
     "banner_file": "",
     "active_transfers_port_non_20": true,
     "passive_port_range": {

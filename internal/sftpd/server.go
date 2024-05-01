@@ -107,8 +107,6 @@ func (b *Binding) HasProxy() bool {
 
 // Configuration for the SFTP server
 type Configuration struct {
-	// Identification string used by the server
-	Banner string `json:"banner" mapstructure:"banner"`
 	// Addresses and ports to bind to
 	Bindings []Binding `json:"bindings" mapstructure:"bindings"`
 	// Maximum number of authentication attempts permitted per connection.
@@ -227,13 +225,6 @@ func (c *Configuration) ShouldBind() bool {
 	return false
 }
 
-func (c *Configuration) getServerVersion() string {
-	if c.Banner == "short" {
-		return "SSH-2.0-SFTPGo"
-	}
-	return fmt.Sprintf("SSH-2.0-SFTPGo_%v", version.Get().Version)
-}
-
 func (c *Configuration) getServerConfig() *ssh.ServerConfig {
 	serverConfig := &ssh.ServerConfig{
 		NoClientAuth: false,
@@ -251,7 +242,7 @@ func (c *Configuration) getServerConfig() *ssh.ServerConfig {
 
 			return sp, nil
 		},
-		ServerVersion: c.getServerVersion(),
+		ServerVersion: fmt.Sprintf("SSH-2.0-%s", version.GetServerVersion("_", false)),
 	}
 
 	if c.PasswordAuthentication {

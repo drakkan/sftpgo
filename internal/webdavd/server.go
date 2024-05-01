@@ -41,6 +41,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/metric"
 	"github.com/drakkan/sftpgo/v2/internal/plugin"
 	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/drakkan/sftpgo/v2/internal/version"
 )
 
 type webDavServer struct {
@@ -165,6 +166,7 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
+	w.Header().Set("Server", version.GetServerVersion("/", false))
 	ipAddr := s.checkRemoteAddress(r)
 
 	common.Connections.AddClientConnection(ipAddr)
@@ -194,7 +196,7 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	user, isCached, lockSystem, loginMethod, err := s.authenticate(r, ipAddr)
 	if err != nil {
 		if !s.binding.DisableWWWAuthHeader {
-			w.Header().Set("WWW-Authenticate", "Basic realm=\"SFTPGo WebDAV\"")
+			w.Header().Set("WWW-Authenticate", fmt.Sprintf("Basic realm=\"%s WebDAV\"", version.GetServerVersion("_", false)))
 		}
 		http.Error(w, fmt.Sprintf("Authentication error: %v", err), http.StatusUnauthorized)
 		return
