@@ -1,6 +1,6 @@
 module github.com/drakkan/sftpgo/v2
 
-go 1.22
+go 1.22.2
 
 require (
 	cloud.google.com/go/storage v1.40.0
@@ -52,7 +52,7 @@ require (
 	github.com/rs/cors v1.11.0
 	github.com/rs/xid v1.5.0
 	github.com/rs/zerolog v1.32.0
-	github.com/sftpgo/sdk v0.1.6-0.20240426175227-52f492b8b83b
+	github.com/sftpgo/sdk v0.1.6-0.20240502175518-0e29cf9357a3
 	github.com/shirou/gopsutil/v3 v3.24.4
 	github.com/spf13/afero v1.11.0
 	github.com/spf13/cobra v1.8.0

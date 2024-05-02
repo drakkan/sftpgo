@@ -5575,6 +5575,9 @@ components:
         role_arn:
           type: string
           description: 'Optional IAM Role ARN to assume'
+        session_token:
+          type: string
+          description: 'Optional Session token that is a part of temporary security credentials provisioned by AWS STS'
         endpoint:
           type: string
           description: optional endpoint
