@@ -39,8 +39,6 @@ You should support the project for its ongoing maintenance, even if you don't ha
 
 #### Silver sponsors
 
-[<img src="./img/Dendi_logo.png" alt="Dendi logo" width="212" height="66">](https://dendisoftware.com/)
-</br></br>
 [<img src="./img/IDCS.png" alt="IDCS logo" width="212" height="51">](https://idcs.ip-paris.fr/)
 
 #### Bronze sponsors
