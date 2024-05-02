@@ -133,6 +133,7 @@ func (s *Server) GetSettings() (*ftpserver.Settings, error) {
 		EnableHASH:               s.config.HASHSupport > 0,
 		EnableCOMB:               s.config.CombineSupport > 0,
 		DefaultTransferType:      ftpserver.TransferTypeBinary,
+		IgnoreASCIITranferType:   s.binding.IgnoreASCIITransferType == 1,
 		ActiveConnectionsCheck:   ftpserver.DataConnectionRequirement(s.binding.ActiveConnectionsSecurity),
 		PasvConnectionsCheck:     ftpserver.DataConnectionRequirement(s.binding.PassiveConnectionsSecurity),
 	}, nil

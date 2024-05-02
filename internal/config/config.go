@@ -1193,6 +1193,12 @@ func getFTPDBindingSecurityFromEnv(idx int, binding *ftpd.Binding) bool {
 		isSet = true
 	}
 
+	ignoreASCIITransferType, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%d__IGNORE_ASCII_TRANSFER_TYPE", idx), 0)
+	if ok {
+		binding.IgnoreASCIITransferType = int(ignoreASCIITransferType)
+		isSet = true
+	}
+
 	return isSet
 }
 

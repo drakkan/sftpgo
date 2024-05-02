@@ -126,6 +126,7 @@
         "tls_cipher_suites": [],
         "passive_connections_security": 0,
         "active_connections_security": 0,
+        "ignore_ascii_transfer_type": 0,
         "debug": false
       }
     ],

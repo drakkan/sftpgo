@@ -6446,6 +6446,15 @@ components:
             Active connections security:
               * `0` - require matching peer IP addresses of control and data connection
               * `1` - disable any checks
+        ignore_ascii_transfer_type:
+          type: integer
+          enum:
+            - 0
+            - 1
+          description: |
+            Ignore client requests to perform ASCII translations:
+              * `0` - ASCII translations are enabled
+              * `1` - ASCII translations are silently ignored
         debug:
           type: boolean
           description: 'If enabled any FTP command will be logged'

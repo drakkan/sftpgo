@@ -109,6 +109,11 @@ type Binding struct {
 	// Please note that disabling the security checks you will make the FTP service vulnerable to bounce attacks
 	// on active data connections, so change the default value only if you are on a trusted/internal network
 	ActiveConnectionsSecurity int `json:"active_connections_security" mapstructure:"active_connections_security"`
+	// Set to 1 to silently ignore any client requests to perform ASCII translations via the TYPE command.
+	// That is, FTP clients can request ASCII translations, and SFTPGo will respond as the client expects,
+	// but will not actually perform the translation for either uploads or downloads. This behavior can be
+	// useful in circumstances involving older/mainframe clients and EBCDIC files.
+	IgnoreASCIITransferType int `json:"ignore_ascii_transfer_type" mapstructure:"ignore_ascii_transfer_type"`
 	// Debug enables the FTP debug mode. In debug mode, every FTP command will be logged
 	Debug   bool `json:"debug" mapstructure:"debug"`
 	ciphers []uint16
