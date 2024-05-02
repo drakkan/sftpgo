@@ -79,7 +79,7 @@ Thank you to [Incode](https://www.incode.it/) for helping us to improve the UI/U
 
 ## License
 
-GNU AGPL-3.0-only
+SFTPGo source code is licensed under the GNU AGPL-3.0-only.
 
 The [theme](https://keenthemes.com/products/templates-mega-bundle) used in WebAdmin and WebClient user interfaces is proprietary, this means:
 
@@ -87,3 +87,7 @@ The [theme](https://keenthemes.com/products/templates-mega-bundle) used in WebAd
 - The SFTPGo WebAdmin and WebClient user interfaces (HTML, CSS and JS components) based on this theme are allowed for use only within the SFTPGo product and therefore cannot be used in derivative works/products without an explicit grant from the [SFTPGo Team](mailto:support@sftpgo.com).
 
 More information about [compliance](https://sftpgo.com/compliance.html).
+
+## Copyright
+
+Copyright (C) 2019 Nicola Murino
