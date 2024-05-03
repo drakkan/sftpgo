@@ -199,7 +199,8 @@ func (s *Server) AuthUser(cc ftpserver.ClientContext, username, password string)
 		return nil, err
 	}
 	setStartDirectory(user.Filters.StartDirectory, cc)
-	connection.Log(logger.LevelInfo, "User %q logged in with %q from ip %q", user.Username, loginMethod, ipAddr)
+	connection.Log(logger.LevelInfo, "User %q logged in with %q from ip %q, TLS enabled? %t",
+		user.Username, loginMethod, ipAddr, cc.HasTLSForControl())
 	dataprovider.UpdateLastLogin(&user)
 	return connection, nil
 }
