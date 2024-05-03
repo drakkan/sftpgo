@@ -185,6 +185,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </div>
             </div>
             {{- end}}
+            {{if .CanSubmit}}
             <div class="d-flex justify-content-end mt-12">
                 <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
                 <button type="submit" id="form_submit" class="btn btn-primary px-10">
@@ -197,6 +198,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     </span>
                 </button>
             </div>
+            {{- end}}
         </form>
     </div>
 </div>
@@ -218,11 +220,13 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         initRepeaterItems();
         //{{- end}}
 
+        //{{if .CanSubmit}}
         $("#page_form").submit(function (event) {
             let submitButton = document.querySelector('#form_submit');
             submitButton.setAttribute('data-kt-indicator', 'on');
             submitButton.disabled = true;
         });
+        //{{- end}}
     });
 </script>
 {{- end}}
