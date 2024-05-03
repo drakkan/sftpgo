@@ -3037,27 +3037,31 @@ func validateFilterProtocols(filters *sdk.BaseUserFilters) error {
 	return nil
 }
 
-func validateTLSCerts(certs []string) error {
+func validateTLSCerts(certs []string) ([]string, error) {
+	var validateCerts []string
 	for idx, cert := range certs {
+		if cert == "" {
+			continue
+		}
 		derBlock, _ := pem.Decode([]byte(cert))
 		if derBlock == nil {
-			return util.NewI18nError(
+			return nil, util.NewI18nError(
 				util.NewValidationError(fmt.Sprintf("invalid TLS certificate %d", idx)),
 				util.I18nErrorInvalidTLSCert,
 			)
 		}
-		cert, err := x509.ParseCertificate(derBlock.Bytes)
+		crt, err := x509.ParseCertificate(derBlock.Bytes)
 		if err != nil {
-			return util.NewI18nError(
+			return nil, util.NewI18nError(
 				util.NewValidationError(fmt.Sprintf("error parsing TLS certificate %d", idx)),
 				util.I18nErrorInvalidTLSCert,
 			)
 		}
-		if cert.PublicKeyAlgorithm == x509.RSA {
-			if rsaCert, ok := cert.PublicKey.(*rsa.PublicKey); ok {
+		if crt.PublicKeyAlgorithm == x509.RSA {
+			if rsaCert, ok := crt.PublicKey.(*rsa.PublicKey); ok {
 				if size := rsaCert.N.BitLen(); size < 2048 {
 					providerLog(logger.LevelError, "rsa cert with size %d not accepted, minimum 2048", size)
-					return util.NewI18nError(
+					return nil, util.NewI18nError(
 						util.NewValidationError(fmt.Sprintf("invalid size %d for rsa cert at position %d, minimum 2048",
 							size, idx)),
 						util.I18nErrorKeySizeInvalid,
@@ -3065,8 +3069,9 @@ func validateTLSCerts(certs []string) error {
 				}
 			}
 		}
+		validateCerts = append(validateCerts, cert)
 	}
-	return nil
+	return validateCerts, nil
 }
 
 func validateBaseFilters(filters *sdk.BaseUserFilters) error {
@@ -3093,9 +3098,11 @@ func validateBaseFilters(filters *sdk.BaseUserFilters) error {
 			return util.NewValidationError(fmt.Sprintf("invalid TLS username: %q", filters.TLSUsername))
 		}
 	}
-	if err := validateTLSCerts(filters.TLSCerts); err != nil {
+	certs, err := validateTLSCerts(filters.TLSCerts)
+	if err != nil {
 		return err
 	}
+	filters.TLSCerts = certs
 	for _, opts := range filters.WebClient {
 		if !util.Contains(sdk.WebClientOptions, opts) {
 			return util.NewValidationError(fmt.Sprintf("invalid web client options %q", opts))

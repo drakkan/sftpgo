@@ -5133,6 +5133,7 @@ components:
       type: string
       enum:
         - publickey-change-disabled
+        - tls-cert-change-disabled
         - write-disabled
         - mfa-disabled
         - password-change-disabled
@@ -5144,6 +5145,7 @@ components:
       description: |
         Options:
           * `publickey-change-disabled` - changing SSH public keys is not allowed
+          * `tls-cert-change-disabled` - changing TLS certificates is not allowed
           * `write-disabled` - upload, rename, delete are not allowed even if the user has permissions for these actions
           * `mfa-disabled` - enabling multi-factor authentication is not allowed. This option cannot be set if the user has MFA already enabled
           * `password-change-disabled` - changing password is not allowed

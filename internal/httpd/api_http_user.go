@@ -470,6 +470,7 @@ func getUserProfile(w http.ResponseWriter, r *http.Request) {
 			AllowAPIKeyAuth: user.Filters.AllowAPIKeyAuth,
 		},
 		PublicKeys: user.PublicKeys,
+		TLSCerts:   user.Filters.TLSCerts,
 	}
 	render.JSON(w, r, resp)
 }
@@ -492,12 +493,15 @@ func updateUserProfile(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	if !userMerged.CanManagePublicKeys() && !userMerged.CanChangeAPIKeyAuth() && !userMerged.CanChangeInfo() {
+	if !userMerged.CanUpdateProfile() {
 		sendAPIResponse(w, r, nil, "You are not allowed to change anything", http.StatusForbidden)
 		return
 	}
 	if userMerged.CanManagePublicKeys() {
 		user.PublicKeys = req.PublicKeys
+	}
+	if userMerged.CanManageTLSCerts() {
+		user.Filters.TLSCerts = req.TLSCerts
 	}
 	if userMerged.CanChangeAPIKeyAuth() {
 		user.Filters.AllowAPIKeyAuth = req.AllowAPIKeyAuth

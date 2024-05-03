@@ -1097,9 +1097,21 @@ func (u *User) CanChangeInfo() bool {
 }
 
 // CanManagePublicKeys returns true if this user is allowed to manage public keys
-// from the web client. Used in web client UI
+// from the WebClient. Used in WebClient UI
 func (u *User) CanManagePublicKeys() bool {
 	return !util.Contains(u.Filters.WebClient, sdk.WebClientPubKeyChangeDisabled)
+}
+
+// CanManageTLSCerts returns true if this user is allowed to manage TLS certificates
+// from the WebClient. Used in WebClient UI
+func (u *User) CanManageTLSCerts() bool {
+	return !util.Contains(u.Filters.WebClient, sdk.WebClientTLSCertChangeDisabled)
+}
+
+// CanUpdateProfile returns true if the user is allowed to update the profile.
+// Used in WebClient UI
+func (u *User) CanUpdateProfile() bool {
+	return u.CanManagePublicKeys() || u.CanChangeAPIKeyAuth() || u.CanChangeInfo() || u.CanManageTLSCerts()
 }
 
 // CanAddFilesFromWeb returns true if the client can add files from the web UI.

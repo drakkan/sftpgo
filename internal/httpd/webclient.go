@@ -173,6 +173,7 @@ type clientMessagePage struct {
 type clientProfilePage struct {
 	baseClientPage
 	PublicKeys      []string
+	TLSCerts        []string
 	CanSubmit       bool
 	AllowAPIKeyAuth bool
 	Email           string
@@ -821,10 +822,11 @@ func (s *httpdServer) renderClientProfilePage(w http.ResponseWriter, r *http.Req
 		return
 	}
 	data.PublicKeys = user.PublicKeys
+	data.TLSCerts = user.Filters.TLSCerts
 	data.AllowAPIKeyAuth = user.Filters.AllowAPIKeyAuth
 	data.Email = user.Email
 	data.Description = user.Description
-	data.CanSubmit = userMerged.CanChangeAPIKeyAuth() || userMerged.CanManagePublicKeys() || userMerged.CanChangeInfo()
+	data.CanSubmit = userMerged.CanUpdateProfile()
 	renderClientTemplate(w, templateClientProfile, data)
 }
 
@@ -1615,7 +1617,7 @@ func (s *httpdServer) handleWebClientProfilePost(w http.ResponseWriter, r *http.
 		s.renderClientProfilePage(w, r, util.NewI18nError(err, util.I18nErrorGetUser))
 		return
 	}
-	if !userMerged.CanManagePublicKeys() && !userMerged.CanChangeAPIKeyAuth() && !userMerged.CanChangeInfo() {
+	if !userMerged.CanUpdateProfile() {
 		s.renderClientForbiddenPage(w, r, util.NewI18nError(
 			errors.New("you are not allowed to change anything"),
 			util.I18nErrorNoPermissions,
@@ -1629,6 +1631,14 @@ func (s *httpdServer) handleWebClientProfilePost(w http.ResponseWriter, r *http.
 			}
 		}
 		user.PublicKeys = r.Form["public_keys"]
+	}
+	if userMerged.CanManageTLSCerts() {
+		for k := range r.Form {
+			if hasPrefixAndSuffix(k, "tls_certs[", "][tls_cert]") {
+				r.Form.Add("tls_certs", r.Form.Get(k))
+			}
+		}
+		user.Filters.TLSCerts = r.Form["tls_certs"]
 	}
 	if userMerged.CanChangeAPIKeyAuth() {
 		user.Filters.AllowAPIKeyAuth = r.Form.Get("allow_api_key_auth") != ""

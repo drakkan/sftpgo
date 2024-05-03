@@ -58,6 +58,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </div>
                 <div class="card-body">
                     <div id="public_keys">
+                        {{- template "infomsg-no-mb" "general.pub_keys_help"}}
                         <div class="form-group">
                             <div data-repeater-list="public_keys">
                                 {{- range $idx, $val := .PublicKeys}}
@@ -118,6 +119,72 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </div>
             </div>
             {{- end}}
+            {{- if .LoggedUser.CanManageTLSCerts}}
+            <div class="card mt-10">
+                <div class="card-header bg-light">
+                    <h3 data-i18n="user.tls_certs" class="card-title section-title-inner">TLS certificates</h3>
+                </div>
+                <div class="card-body">
+                    <div id="tls_certs">
+                        {{- template "infomsg-no-mb" "user.tls_certs_help"}}
+                        <div class="form-group">
+                            <div data-repeater-list="tls_certs">
+                                {{- range $idx, $val := .TLSCerts}}
+                                <div data-repeater-item>
+                                    <div class="form-group row">
+                                        <div class="col-md-9 mt-3 mt-md-8">
+                                            <textarea data-i18n="[placeholder]user.tls_cert_help" class="form-control" name="tls_cert" rows="4">{{$val}}</textarea>
+                                        </div>
+                                        <div class="col-md-3 mt-3 mt-md-8">
+                                            <a href="#" data-repeater-delete
+                                                class="btn btn-light-danger">
+                                                <i class="ki-duotone ki-trash fs-5">
+                                                    <span class="path1"></span>
+                                                    <span class="path2"></span>
+                                                    <span class="path3"></span>
+                                                    <span class="path4"></span>
+                                                    <span class="path5"></span>
+                                                </i>
+                                                <span data-i18n="general.delete">Delete</span>
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                                {{- else}}
+                                <div data-repeater-item>
+                                    <div class="form-group row">
+                                        <div class="col-md-9 mt-3 mt-md-8">
+                                            <textarea data-i18n="[placeholder]user.tls_cert_help" class="form-control" name="tls_cert" rows="4"></textarea>
+                                        </div>
+                                        <div class="col-md-3 mt-3 mt-md-8">
+                                            <a href="#" data-repeater-delete
+                                                class="btn btn-light-danger">
+                                                <i class="ki-duotone ki-trash fs-5">
+                                                    <span class="path1"></span>
+                                                    <span class="path2"></span>
+                                                    <span class="path3"></span>
+                                                    <span class="path4"></span>
+                                                    <span class="path5"></span>
+                                                </i>
+                                                <span data-i18n="general.delete">Delete</span>
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                                {{- end}}
+                            </div>
+                        </div>
+
+                        <div class="form-group mt-5">
+                            <a href="#" data-repeater-create class="btn btn-light-primary">
+                                <i class="ki-duotone ki-plus fs-3"></i>
+                                <span data-i18n="general.add">Add</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {{- end}}
             <div class="d-flex justify-content-end mt-12">
                 <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
                 <button type="submit" id="form_submit" class="btn btn-primary px-10">
@@ -136,13 +203,18 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 {{- end}}
 
 {{- define "extra_js"}}
-{{- if .LoggedUser.CanManagePublicKeys}}
+{{- if or .LoggedUser.CanManagePublicKeys .LoggedUser.CanManageTLSCerts}}
 <script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/plugins/custom/formrepeater/formrepeater.bundle.js"></script>
 {{- end}}
 <script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
     KTUtil.onDOMContentLoaded(function () {
+        //{{- if or .LoggedUser.CanManagePublicKeys .LoggedUser.CanManageTLSCerts}}
         //{{- if .LoggedUser.CanManagePublicKeys}}
         initRepeater('#public_keys');
+        //{{- end}}
+        //{{- if .LoggedUser.CanManageTLSCerts}}
+        initRepeater('#tls_certs');
+        //{{- end}}
         initRepeaterItems();
         //{{- end}}
 

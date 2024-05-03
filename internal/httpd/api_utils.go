@@ -71,6 +71,7 @@ type adminProfile struct {
 type userProfile struct {
 	baseProfile
 	PublicKeys []string `json:"public_keys,omitempty"`
+	TLSCerts   []string `json:"tls_certs,omitempty"`
 }
 
 func sendAPIResponse(w http.ResponseWriter, r *http.Request, err error, message string, code int) {
