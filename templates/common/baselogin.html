@@ -49,12 +49,12 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 		</div>
 		<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/plugins/global/plugins.bundle.js"></script>
 		<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/js/scripts.bundle.js"></script>
-		<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/i18next/i18next.js"></script>
-		<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/i18next/jquery-i18next.js"></script>
-		<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/i18next/i18nextBrowserLanguageDetector.js"></script>
-		<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/i18next/i18nextChainedBackend.js"></script>
-        <script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/i18next/i18nextLocalStorageBackend.js"></script>
-		<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/i18next/i18nextHttpBackend.js"></script>
+		<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/i18next/i18next.min.js"></script>
+		<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/i18next/jquery-i18next.min.js"></script>
+		<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/i18next/i18nextBrowserLanguageDetector.min.js"></script>
+		<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/i18next/i18nextChainedBackend.min.js"></script>
+        <script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/i18next/i18nextLocalStorageBackend.min.js"></script>
+		<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/i18next/i18nextHttpBackend.min.js"></script>
 		{{- template "basejs" . }}
 		<script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
 			KTUtil.onDOMContentLoaded(function () {
