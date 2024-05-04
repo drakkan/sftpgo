@@ -369,7 +369,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             filterSearch.off("keyup");
             filterSearch.on('keyup', function (e) {
                 dt.rows().deselect();
-                dt.search(e.target.value, true, false).draw();
+                dt.search(e.target.value).draw();
             });
             handleColVisibilityCheckbox($('#checkColStorage'), 1);
             handleColVisibilityCheckbox($('#checkColQuota'), 2);

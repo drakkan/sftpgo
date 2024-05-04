@@ -626,7 +626,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             filterSearch.off("keyup");
             filterSearch.on('keyup', function (e) {
                 dt.rows().deselect();
-                dt.search(e.target.value, true, false).draw();
+                dt.search(e.target.value).draw();
             });
             handleColVisibilityCheckbox($('#checkColStatus'), 1);
             handleColVisibilityCheckbox($('#checkColLastLogin'), 2);
