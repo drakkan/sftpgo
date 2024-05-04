@@ -1595,7 +1595,7 @@ func (s *httpdServer) handleWebClientChangePwd(w http.ResponseWriter, r *http.Re
 	s.renderClientChangePasswordPage(w, r, nil)
 }
 
-func (s *httpdServer) handleWebClientProfilePost(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebClientProfilePost(w http.ResponseWriter, r *http.Request) { //nolint:gocyclo
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	err := r.ParseForm()
 	if err != nil {
