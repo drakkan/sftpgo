@@ -521,6 +521,6 @@ jobs:
           go-version: '1.22'
       - uses: actions/checkout@v4
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v5
+        uses: golangci/golangci-lint-action@v6
         with:
           version: latest
