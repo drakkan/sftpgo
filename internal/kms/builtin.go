@@ -23,8 +23,9 @@ import (
 	"errors"
 	"io"
 
-	"github.com/drakkan/sftpgo/v2/internal/util"
 	sdkkms "github.com/sftpgo/sdk/kms"
+
+	"github.com/drakkan/sftpgo/v2/internal/util"
 )
 
 var (

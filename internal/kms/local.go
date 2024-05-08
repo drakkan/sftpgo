@@ -21,10 +21,11 @@ import (
 	"encoding/hex"
 	"io"
 
-	"github.com/drakkan/sftpgo/v2/internal/util"
 	sdkkms "github.com/sftpgo/sdk/kms"
 	"gocloud.dev/secrets/localsecrets"
 	"golang.org/x/crypto/hkdf"
+
+	"github.com/drakkan/sftpgo/v2/internal/util"
 )
 
 func init() {
