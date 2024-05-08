@@ -25,6 +25,7 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
+	"github.com/drakkan/sftpgo/v2/internal/util"
 )
 
 func getDefenderHosts(w http.ResponseWriter, r *http.Request) {
@@ -76,7 +77,7 @@ func getIPFromID(r *http.Request) (string, error) {
 	if err != nil {
 		return "", errors.New("invalid host id")
 	}
-	ip := string(decoded)
+	ip := util.BytesToString(decoded)
 	err = validateIPAddress(ip)
 	if err != nil {
 		return "", err

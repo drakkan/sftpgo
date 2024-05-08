@@ -811,7 +811,7 @@ func (p *EventParams) getStringReplacements(addObjectData, jsonEscaped bool) []s
 	if addObjectData {
 		data, err := p.Object.RenderAsJSON(p.Event != operationDelete)
 		if err == nil {
-			dataString := string(data)
+			dataString := util.BytesToString(data)
 			replacements[len(replacements)-3] = p.getStringReplacement(dataString, false)
 			replacements[len(replacements)-1] = p.getStringReplacement(dataString, true)
 		}
@@ -826,7 +826,7 @@ func (p *EventParams) getStringReplacements(addObjectData, jsonEscaped bool) []s
 	if len(p.Metadata) > 0 {
 		data, err := json.Marshal(p.Metadata)
 		if err == nil {
-			dataString := string(data)
+			dataString := util.BytesToString(data)
 			replacements[len(replacements)-3] = p.getStringReplacement(dataString, false)
 			replacements[len(replacements)-1] = p.getStringReplacement(dataString, true)
 		}
@@ -1466,7 +1466,8 @@ func executeHTTPRuleAction(c dataprovider.EventActionHTTPConfig, params *EventPa
 		endpoint, time.Since(startTime), resp.StatusCode)
 	if resp.StatusCode < http.StatusOK || resp.StatusCode > http.StatusNoContent {
 		if rb, err := io.ReadAll(io.LimitReader(resp.Body, 2048)); err == nil {
-			eventManagerLog(logger.LevelDebug, "error notification response from endpoint %q: %s", endpoint, string(rb))
+			eventManagerLog(logger.LevelDebug, "error notification response from endpoint %q: %s",
+				endpoint, util.BytesToString(rb))
 		}
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}

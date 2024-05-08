@@ -297,7 +297,7 @@ func (a *Admin) hashPassword() error {
 			if err != nil {
 				return err
 			}
-			a.Password = string(pwd)
+			a.Password = util.BytesToString(pwd)
 		} else {
 			pwd, err := argon2id.CreateHash(a.Password, argon2Params)
 			if err != nil {

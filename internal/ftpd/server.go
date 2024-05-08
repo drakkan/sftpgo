@@ -63,7 +63,7 @@ func NewServer(config *Configuration, configDir string, binding Binding, id int)
 		}
 		bannerContent, err := os.ReadFile(bannerFilePath)
 		if err == nil {
-			server.initialMsg = string(bannerContent)
+			server.initialMsg = util.BytesToString(bannerContent)
 		} else {
 			logger.WarnToConsole("unable to read FTPD banner file: %v", err)
 			logger.Warn(logSender, "", "unable to read banner file: %v", err)

@@ -44,6 +44,7 @@ import (
 	"strings"
 	"time"
 	"unicode"
+	"unsafe"
 
 	"github.com/google/uuid"
 	"github.com/lithammer/shortuuid/v3"
@@ -286,6 +287,16 @@ func ParseBytes(s string) (int64, error) {
 	}
 
 	return 0, fmt.Errorf("unhandled size name: %v", extra)
+}
+
+// BytesToString converts []byte to string without allocations.
+func BytesToString(b []byte) string {
+	// unsafe.SliceData relies on cap whereas we want to rely on len
+	if len(b) == 0 {
+		return ""
+	}
+	// https://github.com/golang/go/blob/4ed358b57efdad9ed710be7f4fc51495a7620ce2/src/strings/builder.go#L41
+	return unsafe.String(unsafe.SliceData(b), len(b))
 }
 
 // GetIPFromRemoteAddress returns the IP from the remote address.
@@ -660,7 +671,7 @@ func EncodeTLSCertToPem(tlsCert *x509.Certificate) (string, error) {
 		Type:  "CERTIFICATE",
 		Bytes: tlsCert.Raw,
 	}
-	return string(pem.EncodeToMemory(&publicKeyBlock)), nil
+	return BytesToString(pem.EncodeToMemory(&publicKeyBlock)), nil
 }
 
 // CheckTCP4Port quits the app if bind on the given IPv4 port fails.
@@ -704,7 +715,7 @@ func GetSSHPublicKeyAsString(pubKey []byte) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return string(ssh.MarshalAuthorizedKey(k)), nil
+	return BytesToString(ssh.MarshalAuthorizedKey(k)), nil
 }
 
 // GetRealIP returns the ip address as result of parsing the specified
@@ -880,7 +891,7 @@ func JSONEscape(val string) string {
 	if err != nil {
 		return ""
 	}
-	return string(b[1 : len(b)-1])
+	return BytesToString(b[1 : len(b)-1])
 }
 
 // ReadConfigFromFile reads a configuration parameter from the specified file
@@ -901,5 +912,5 @@ func ReadConfigFromFile(name, configDir string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return strings.TrimSpace(string(val)), nil
+	return strings.TrimSpace(BytesToString(val)), nil
 }

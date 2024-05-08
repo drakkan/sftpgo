@@ -23,6 +23,7 @@ import (
 	"errors"
 	"io"
 
+	"github.com/drakkan/sftpgo/v2/internal/util"
 	sdkkms "github.com/sftpgo/sdk/kms"
 )
 
@@ -132,7 +133,7 @@ func (s *builtinSecret) Decrypt() error {
 			return err
 		}
 		s.Status = sdkkms.SecretStatusPlain
-		s.Payload = string(plaintext)
+		s.Payload = util.BytesToString(plaintext)
 		s.Key = ""
 		s.AdditionalData = ""
 		return nil

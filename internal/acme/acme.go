@@ -329,7 +329,7 @@ func (c *Configuration) getLockTime() (time.Time, error) {
 		acmeLog(logger.LevelError, "unable to read lock file %q: %v", c.lockPath, err)
 		return time.Time{}, err
 	}
-	msec, err := strconv.ParseInt(strings.TrimSpace(string(content)), 10, 64)
+	msec, err := strconv.ParseInt(strings.TrimSpace(util.BytesToString(content)), 10, 64)
 	if err != nil {
 		acmeLog(logger.LevelError, "unable to parse lock time: %v", err)
 		return time.Time{}, fmt.Errorf("unable to parse lock time: %w", err)

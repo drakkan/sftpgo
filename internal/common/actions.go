@@ -345,7 +345,7 @@ func notificationAsEnvVars(event *notifier.FsEvent) []string {
 	if len(event.Metadata) > 0 {
 		data, err := json.Marshal(event.Metadata)
 		if err == nil {
-			result = append(result, fmt.Sprintf("SFTPGO_ACTION_METADATA=%s", string(data)))
+			result = append(result, fmt.Sprintf("SFTPGO_ACTION_METADATA=%s", util.BytesToString(data)))
 		}
 	}
 	return result

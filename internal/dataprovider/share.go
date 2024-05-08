@@ -155,7 +155,7 @@ func (s *Share) hashPassword() error {
 			if err != nil {
 				return err
 			}
-			s.Password = string(hashed)
+			s.Password = util.BytesToString(hashed)
 		} else {
 			hashed, err := argon2id.CreateHash(s.Password, argon2Params)
 			if err != nil {

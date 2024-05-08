@@ -367,7 +367,7 @@ func (e *I18nError) Args() string {
 	if len(e.args) > 0 {
 		data, err := json.Marshal(e.args)
 		if err == nil {
-			return string(data)
+			return BytesToString(data)
 		}
 	}
 	return "{}"

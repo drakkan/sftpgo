@@ -99,7 +99,7 @@ func (n *NodeData) validate() error {
 	if n.Proto != NodeProtoHTTP && n.Proto != NodeProtoHTTPS {
 		return util.NewValidationError(fmt.Sprintf("invalid node proto: %s", n.Proto))
 	}
-	n.Key = kms.NewPlainSecret(string(util.GenerateRandomBytes(32)))
+	n.Key = kms.NewPlainSecret(util.BytesToString(util.GenerateRandomBytes(32)))
 	n.Key.SetAdditionalData(n.Host)
 	if err := n.Key.Encrypt(); err != nil {
 		return fmt.Errorf("unable to encrypt node key: %w", err)
@@ -191,7 +191,7 @@ func (n *Node) generateAuthToken(username, role string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("unable to sign authentication token: %w", err)
 	}
-	return string(payload), nil
+	return util.BytesToString(payload), nil
 }
 
 func (n *Node) prepareRequest(ctx context.Context, username, role, relativeURL, method string,

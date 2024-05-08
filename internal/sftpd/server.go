@@ -513,7 +513,7 @@ func (c *Configuration) configureLoginBanner(serverConfig *ssh.ServerConfig, con
 		}
 		bannerContent, err := os.ReadFile(bannerFilePath)
 		if err == nil {
-			banner := string(bannerContent)
+			banner := util.BytesToString(bannerContent)
 			serverConfig.BannerCallback = func(_ ssh.ConnMetadata) string {
 				return banner
 			}
@@ -603,7 +603,8 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 
 	logger.Log(logger.LevelInfo, common.ProtocolSSH, connectionID,
 		"User %q logged in with %q, from ip %q, client version %q, negotiated algorithms: %+v",
-		user.Username, loginType, ipAddr, string(sconn.ClientVersion()), sconn.Conn.(ssh.AlgorithmsConnMetadata).Algorithms())
+		user.Username, loginType, ipAddr, util.BytesToString(sconn.ClientVersion()),
+		sconn.Conn.(ssh.AlgorithmsConnMetadata).Algorithms())
 	dataprovider.UpdateLastLogin(&user)
 
 	sshConnection := common.NewSSHConnection(connectionID, conn)
@@ -639,12 +640,12 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 
 				switch req.Type {
 				case "subsystem":
-					if string(req.Payload[4:]) == "sftp" {
+					if util.BytesToString(req.Payload[4:]) == "sftp" {
 						ok = true
 						connection := &Connection{
 							BaseConnection: common.NewBaseConnection(connID, common.ProtocolSFTP, conn.LocalAddr().String(),
 								conn.RemoteAddr().String(), user),
-							ClientVersion: string(sconn.ClientVersion()),
+							ClientVersion: util.BytesToString(sconn.ClientVersion()),
 							RemoteAddr:    conn.RemoteAddr(),
 							LocalAddr:     conn.LocalAddr(),
 							channel:       channel,
@@ -656,7 +657,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 					connection := Connection{
 						BaseConnection: common.NewBaseConnection(connID, "sshd_exec", conn.LocalAddr().String(),
 							conn.RemoteAddr().String(), user),
-						ClientVersion: string(sconn.ClientVersion()),
+						ClientVersion: util.BytesToString(sconn.ClientVersion()),
 						RemoteAddr:    conn.RemoteAddr(),
 						LocalAddr:     conn.LocalAddr(),
 						channel:       channel,
@@ -816,7 +817,7 @@ func loginUser(user *dataprovider.User, loginMethod, publicKey string, conn ssh.
 	}
 	p := &ssh.Permissions{}
 	p.Extensions = make(map[string]string)
-	p.Extensions["sftpgo_user"] = string(json)
+	p.Extensions["sftpgo_user"] = util.BytesToString(json)
 	p.Extensions["sftpgo_login_method"] = loginMethod
 	return p, nil
 }
@@ -1180,7 +1181,7 @@ func (c *Configuration) validatePasswordCredentials(conn ssh.ConnMetadata, pass 
 	var sshPerm *ssh.Permissions
 
 	ipAddr := util.GetIPFromRemoteAddress(conn.RemoteAddr().String())
-	if user, err = dataprovider.CheckUserAndPass(conn.User(), string(pass), ipAddr, common.ProtocolSSH); err == nil {
+	if user, err = dataprovider.CheckUserAndPass(conn.User(), util.BytesToString(pass), ipAddr, common.ProtocolSSH); err == nil {
 		sshPerm, err = loginUser(&user, method, "", conn)
 	}
 	user.Username = conn.User()

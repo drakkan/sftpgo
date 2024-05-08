@@ -148,7 +148,7 @@ func executeNotificationCommand(operation, executor, ip, objectType, objectName,
 		fmt.Sprintf("SFTPGO_PROVIDER_IP=%s", ip),
 		fmt.Sprintf("SFTPGO_PROVIDER_ROLE=%s", role),
 		fmt.Sprintf("SFTPGO_PROVIDER_TIMESTAMP=%d", util.GetTimeAsMsSinceEpoch(time.Now())),
-		fmt.Sprintf("SFTPGO_PROVIDER_OBJECT=%s", string(objectAsJSON)))
+		fmt.Sprintf("SFTPGO_PROVIDER_OBJECT=%s", util.BytesToString(objectAsJSON)))
 
 	startTime := time.Now()
 	err := cmd.Run()

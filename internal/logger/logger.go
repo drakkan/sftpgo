@@ -29,6 +29,7 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+	"unsafe"
 
 	ftpserverlog "github.com/fclairamb/go-log"
 	"github.com/rs/zerolog"
@@ -283,7 +284,7 @@ func (l *StdLoggerWrapper) Write(p []byte) (n int, err error) {
 		p = p[0 : n-1]
 	}
 
-	Log(LevelError, l.Sender, "", string(p))
+	Log(LevelError, l.Sender, "", bytesToString(p))
 	return
 }
 
@@ -362,4 +363,13 @@ func (l *LeveledLogger) With(keysAndValues ...any) ftpserverlog.Logger {
 		Sender:            l.Sender,
 		additionalKeyVals: append(l.additionalKeyVals, keysAndValues...),
 	}
+}
+
+func bytesToString(b []byte) string {
+	// unsafe.SliceData relies on cap whereas we want to rely on len
+	if len(b) == 0 {
+		return ""
+	}
+	// https://github.com/golang/go/blob/4ed358b57efdad9ed710be7f4fc51495a7620ce2/src/strings/builder.go#L41
+	return unsafe.String(unsafe.SliceData(b), len(b))
 }
