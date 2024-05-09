@@ -217,6 +217,10 @@ ALTER TABLE "{{users}}" ALTER COLUMN "used_download_data_transfer" TYPE integer;
 `
 )
 
+var (
+	pgSQLTargetSessionAttrs = []string{"any", "read-write", "read-only", "primary", "standby", "prefer-standby"}
+)
+
 // PGSQLProvider defines the auth provider for PostgreSQL database
 type PGSQLProvider struct {
 	dbHandle *sql.DB
@@ -307,7 +311,7 @@ func getPGSQLConnectionString(redactedPwd bool) string {
 		if config.DisableSNI {
 			connectionString += " sslsni=0"
 		}
-		if config.TargetSessionAttrs != "" {
+		if util.Contains(pgSQLTargetSessionAttrs, config.TargetSessionAttrs) {
 			connectionString += fmt.Sprintf(" target_session_attrs='%s'", config.TargetSessionAttrs)
 		}
 	} else {
