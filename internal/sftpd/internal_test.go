@@ -1722,7 +1722,7 @@ func TestSCPUploadFiledata(t *testing.T) {
 
 	transfer.Connection.AddTransfer(transfer)
 	err = scpCommand.getUploadFileData(2, transfer)
-	assert.True(t, errors.Is(err, os.ErrClosed))
+	assert.ErrorContains(t, err, os.ErrClosed.Error())
 
 	err = os.Remove(testfile)
 	assert.NoError(t, err)

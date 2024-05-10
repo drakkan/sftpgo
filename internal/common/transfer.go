@@ -16,6 +16,8 @@ package common
 
 import (
 	"errors"
+	"fmt"
+	"io/fs"
 	"path"
 	"sync"
 	"sync/atomic"
@@ -219,6 +221,10 @@ func (t *BaseTransfer) ConvertError(err error) error {
 		return t.Connection.GetNotExistError()
 	} else if t.Fs.IsPermission(err) {
 		return t.Connection.GetPermissionDeniedError()
+	}
+	var pathError *fs.PathError
+	if errors.As(err, &pathError) {
+		return fmt.Errorf("%s %s: %s", pathError.Op, t.GetVirtualPath(), pathError.Err.Error())
 	}
 	return err
 }

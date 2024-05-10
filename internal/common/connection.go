@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path"
 	"strings"
@@ -1665,9 +1666,10 @@ func (c *BaseConnection) GetGenericError(err error) error {
 			return fmt.Errorf("%w: %v", sftp.ErrSSHFxFailure, err.Error())
 		}
 		if err != nil {
-			if e, ok := err.(*os.PathError); ok {
-				c.Log(logger.LevelError, "generic path error: %+v", e)
-				return fmt.Errorf("%w: %v %v", sftp.ErrSSHFxFailure, e.Op, e.Err.Error())
+			var pathError *fs.PathError
+			if errors.As(err, &pathError) {
+				c.Log(logger.LevelError, "generic path error: %+v", pathError)
+				return fmt.Errorf("%w: %v %v", sftp.ErrSSHFxFailure, pathError.Op, pathError.Err.Error())
 			}
 			c.Log(logger.LevelError, "generic error: %+v", err)
 			return fmt.Errorf("%w: %v", sftp.ErrSSHFxFailure, ErrGenericFailure.Error())

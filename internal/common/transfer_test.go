@@ -16,6 +16,7 @@ package common
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -226,6 +227,13 @@ func TestTransferErrors(t *testing.T) {
 	conn := NewBaseConnection("id", ProtocolSFTP, "", "", u)
 	transfer := NewBaseTransfer(file, conn, nil, testFile, testFile, "/transfer_test_file", TransferUpload,
 		0, 0, 0, 0, true, fs, dataprovider.TransferQuota{})
+	pathError := &os.PathError{
+		Op:   "test",
+		Path: testFile,
+		Err:  os.ErrInvalid,
+	}
+	err = transfer.ConvertError(pathError)
+	assert.EqualError(t, err, fmt.Sprintf("%s %s: %s", pathError.Op, "/transfer_test_file", pathError.Err.Error()))
 	err = transfer.ConvertError(os.ErrNotExist)
 	assert.ErrorIs(t, err, sftp.ErrSSHFxNoSuchFile)
 	err = transfer.ConvertError(os.ErrPermission)
