@@ -1286,9 +1286,9 @@ func writeHTTPPart(m *multipart.Writer, part dataprovider.HTTPPart, h textproto.
 		if strings.Contains(strings.ToLower(cType), "application/json") {
 			replacements := params.getStringReplacements(addObjectData, true)
 			jsonReplacer := strings.NewReplacer(replacements...)
-			_, err = partWriter.Write([]byte(replaceWithReplacer(part.Body, jsonReplacer)))
+			_, err = partWriter.Write(util.StringToBytes(replaceWithReplacer(part.Body, jsonReplacer)))
 		} else {
-			_, err = partWriter.Write([]byte(replaceWithReplacer(part.Body, replacer)))
+			_, err = partWriter.Write(util.StringToBytes(replaceWithReplacer(part.Body, replacer)))
 		}
 		if err != nil {
 			eventManagerLog(logger.LevelError, "unable to write part %q, err: %v", part.Name, err)
@@ -2501,7 +2501,7 @@ func executeAdminCheckAction(c *dataprovider.EventActionIDPAccountCheck, params 
 	data := replaceWithReplacer(c.TemplateAdmin, replacer)
 
 	var newAdmin dataprovider.Admin
-	err = json.Unmarshal([]byte(data), &newAdmin)
+	err = json.Unmarshal(util.StringToBytes(data), &newAdmin)
 	if err != nil {
 		return nil, err
 	}
@@ -2533,7 +2533,7 @@ func executeUserCheckAction(c *dataprovider.EventActionIDPAccountCheck, params *
 	data := replaceWithReplacer(c.TemplateUser, replacer)
 
 	var newUser dataprovider.User
-	err = json.Unmarshal([]byte(data), &newUser)
+	err = json.Unmarshal(util.StringToBytes(data), &newUser)
 	if err != nil {
 		return nil, err
 	}

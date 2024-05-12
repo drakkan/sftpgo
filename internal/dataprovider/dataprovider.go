@@ -3429,7 +3429,7 @@ func checkUserAndTLSCertificate(user *User, protocol string, tlsCert *x509.Certi
 	switch protocol {
 	case protocolFTP, protocolWebDAV:
 		for _, cert := range user.Filters.TLSCerts {
-			derBlock, _ := pem.Decode([]byte(cert))
+			derBlock, _ := pem.Decode(util.StringToBytes(cert))
 			if derBlock != nil && bytes.Equal(derBlock.Bytes, tlsCert.Raw) {
 				return *user, nil
 			}
@@ -3551,7 +3551,7 @@ func checkUserAndPubKey(user *User, pubKey []byte, isSSHCert bool) (User, string
 		return *user, "", ErrInvalidCredentials
 	}
 	for idx, key := range user.PublicKeys {
-		storedKey, comment, _, _, err := ssh.ParseAuthorizedKey([]byte(key))
+		storedKey, comment, _, _, err := ssh.ParseAuthorizedKey(util.StringToBytes(key))
 		if err != nil {
 			providerLog(logger.LevelError, "error parsing stored public key %d for user %s: %v", idx, user.Username, err)
 			return *user, "", err

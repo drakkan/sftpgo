@@ -10,10 +10,10 @@ require (
 	github.com/alexedwards/argon2id v1.0.0
 	github.com/amoghe/go-crypt v0.0.0-20220222110647-20eada5f5964
 	github.com/aws/aws-sdk-go-v2 v1.26.1
-	github.com/aws/aws-sdk-go-v2/config v1.27.12
-	github.com/aws/aws-sdk-go-v2/credentials v1.17.12
+	github.com/aws/aws-sdk-go-v2/config v1.27.13
+	github.com/aws/aws-sdk-go-v2/credentials v1.17.13
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.1
-	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.16.16
+	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.16.17
 	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.21.5
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.53.2
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.28.7
@@ -33,7 +33,7 @@ require (
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/go-hclog v1.6.3
-	github.com/hashicorp/go-plugin v1.6.0
+	github.com/hashicorp/go-plugin v1.6.1
 	github.com/hashicorp/go-retryablehttp v0.7.6
 	github.com/jackc/pgx/v5 v5.5.5
 	github.com/jlaffaye/ftp v0.2.0
@@ -73,7 +73,7 @@ require (
 	golang.org/x/sys v0.20.0
 	golang.org/x/term v0.20.0
 	golang.org/x/time v0.5.0
-	google.golang.org/api v0.179.0
+	google.golang.org/api v0.180.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
@@ -96,7 +96,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.11.7 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.17.5 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.20.6 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.23.5 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.24.0 // indirect
 	github.com/aws/smithy-go v1.20.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/boombuler/barcode v1.0.1 // indirect

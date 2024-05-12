@@ -885,7 +885,7 @@ func (s *httpdServer) handleWebClientDownloadZip(w http.ResponseWriter, r *http.
 	name := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
 	files := r.Form.Get("files")
 	var filesList []string
-	err = json.Unmarshal([]byte(files), &filesList)
+	err = json.Unmarshal(util.StringToBytes(files), &filesList)
 	if err != nil {
 		s.renderClientBadRequestPage(w, r, err)
 		return
@@ -932,7 +932,7 @@ func (s *httpdServer) handleClientSharePartialDownload(w http.ResponseWriter, r 
 	}
 	files := r.Form.Get("files")
 	var filesList []string
-	err = json.Unmarshal([]byte(files), &filesList)
+	err = json.Unmarshal(util.StringToBytes(files), &filesList)
 	if err != nil {
 		s.renderClientBadRequestPage(w, r, err)
 		return
@@ -1393,7 +1393,7 @@ func (s *httpdServer) handleClientAddShareGet(w http.ResponseWriter, r *http.Req
 	if _, ok := r.URL.Query()["files"]; ok {
 		files := r.URL.Query().Get("files")
 		var filesList []string
-		err := json.Unmarshal([]byte(files), &filesList)
+		err := json.Unmarshal(util.StringToBytes(files), &filesList)
 		if err != nil {
 			s.renderClientBadRequestPage(w, r, err)
 			return

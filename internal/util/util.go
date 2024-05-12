@@ -290,6 +290,8 @@ func ParseBytes(s string) (int64, error) {
 }
 
 // BytesToString converts []byte to string without allocations.
+// https://github.com/kubernetes/kubernetes/blob/e4b74dd12fa8cb63c174091d5536a10b8ec19d34/staging/src/k8s.io/apiserver/pkg/authentication/token/cache/cached_token_authenticator.go#L278
+// Use only if strictly required, this method uses unsafe.
 func BytesToString(b []byte) string {
 	// unsafe.SliceData relies on cap whereas we want to rely on len
 	if len(b) == 0 {
@@ -297,6 +299,18 @@ func BytesToString(b []byte) string {
 	}
 	// https://github.com/golang/go/blob/4ed358b57efdad9ed710be7f4fc51495a7620ce2/src/strings/builder.go#L41
 	return unsafe.String(unsafe.SliceData(b), len(b))
+}
+
+// StringToBytes convert string to []byte without allocations.
+// https://github.com/kubernetes/kubernetes/blob/e4b74dd12fa8cb63c174091d5536a10b8ec19d34/staging/src/k8s.io/apiserver/pkg/authentication/token/cache/cached_token_authenticator.go#L289
+// Use only if strictly required, this method uses unsafe.
+func StringToBytes(s string) []byte {
+	// unsafe.StringData is unspecified for the empty string, so we provide a strict interpretation
+	if s == "" {
+		return nil
+	}
+	// https://github.com/golang/go/blob/4ed358b57efdad9ed710be7f4fc51495a7620ce2/src/os/file.go#L300
+	return unsafe.Slice(unsafe.StringData(s), len(s))
 }
 
 // GetIPFromRemoteAddress returns the IP from the remote address.

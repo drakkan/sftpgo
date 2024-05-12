@@ -589,7 +589,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 	var user dataprovider.User
 
 	// Unmarshal cannot fails here and even if it fails we'll have a user with no permissions
-	json.Unmarshal([]byte(sconn.Permissions.Extensions["sftpgo_user"]), &user) //nolint:errcheck
+	json.Unmarshal(util.StringToBytes(sconn.Permissions.Extensions["sftpgo_user"]), &user) //nolint:errcheck
 
 	loginType := sconn.Permissions.Extensions["sftpgo_login_method"]
 	connectionID := hex.EncodeToString(sconn.SessionID())
