@@ -4722,7 +4722,9 @@ func TestQuotaLimits(t *testing.T) {
 			err = sftpUploadFile(testFilePath1, testFileName1, testFileSize1, client)
 			if assert.Error(t, err) {
 				assert.Contains(t, err.Error(), "SSH_FX_FAILURE")
-				assert.Contains(t, err.Error(), common.ErrQuotaExceeded.Error())
+				if user.Username == localUser.Username {
+					assert.Contains(t, err.Error(), common.ErrQuotaExceeded.Error())
+				}
 			}
 			_, err = client.Stat(testFileName1)
 			assert.Error(t, err)

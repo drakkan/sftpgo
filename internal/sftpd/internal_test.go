@@ -1798,7 +1798,7 @@ func TestTransferFailingReader(t *testing.T) {
 	require.NoError(t, err)
 	buf := make([]byte, 32)
 	_, err = transfer.ReadAt(buf, 0)
-	assert.EqualError(t, err, sftp.ErrSSHFxOpUnsupported.Error())
+	assert.ErrorIs(t, err, sftp.ErrSSHFxOpUnsupported)
 	if c, ok := transfer.(io.Closer); ok {
 		err = c.Close()
 		assert.NoError(t, err)
@@ -1813,14 +1813,14 @@ func TestTransferFailingReader(t *testing.T) {
 	errRead := errors.New("read is not allowed")
 	tr := newTransfer(baseTransfer, nil, vfs.NewPipeReader(r), errRead)
 	_, err = tr.ReadAt(buf, 0)
-	assert.EqualError(t, err, errRead.Error())
+	assert.ErrorIs(t, err, sftp.ErrSSHFxFailure)
 
 	err = tr.Close()
 	assert.NoError(t, err)
 
 	tr = newTransfer(baseTransfer, nil, nil, errRead)
 	_, err = tr.ReadAt(buf, 0)
-	assert.EqualError(t, err, errRead.Error())
+	assert.ErrorIs(t, err, sftp.ErrSSHFxFailure)
 
 	err = tr.Close()
 	assert.NoError(t, err)
