@@ -217,16 +217,11 @@ func (t *BaseTransfer) SetCancelFn(cancelFn func()) {
 // converts it into a more understandable form for the client if it is a
 // well-known type of error
 func (t *BaseTransfer) ConvertError(err error) error {
-	if t.Fs.IsNotExist(err) {
-		return t.Connection.GetNotExistError()
-	} else if t.Fs.IsPermission(err) {
-		return t.Connection.GetPermissionDeniedError()
-	}
 	var pathError *fs.PathError
 	if errors.As(err, &pathError) {
 		return fmt.Errorf("%s %s: %s", pathError.Op, t.GetVirtualPath(), pathError.Err.Error())
 	}
-	return err
+	return t.Connection.GetFsError(t.Fs, err)
 }
 
 // CheckRead returns an error if read if not allowed
