@@ -1,3 +1,9 @@
+sftpgo (2.6.0-1ppa1) bionic; urgency=medium
+
+  * New upstream release
+
+ -- Nicola Murino <nicola.murino@gmail.com>  Wed, 15 May 2024 19:12:01 +0200
+
 sftpgo (2.5.6-1ppa1) bionic; urgency=medium
 
   * New upstream release
