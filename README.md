@@ -25,7 +25,7 @@ The open source license grant you freedom but not assurance of help. So why woul
 
 Supporting the project benefit businesses and the community because if the project is financially sustainable, using this business model, we don't have to restrict features and/or switch to an [Open-core](https://en.wikipedia.org/wiki/Open-core_model) model. The technology stays truly open source. Everyone wins.
 
-You should support the project for its ongoing maintenance, even if you don't have any questions or need new features. If SFTPGo is no longer maintained you will have troubles and your company will lose money: bugs and security vulnerabilities will no longer be fixed, new algorithms will not be added to support newer clients, and so on. You will be forced to switch to a similar proprietary product and pay for its license and the migration cost.
+It is important to understand that you should support SFTPGo and any other Open Source project you rely on for ongoing maintenance, even if you don't have any questions or need new features, to mitigate the business risk of a project you depend on going unmaintained, with its security and development velocity implications.
 
 ### Thank you to our sponsors
 
