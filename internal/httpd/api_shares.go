@@ -512,6 +512,7 @@ func (s *httpdServer) checkPublicShare(w http.ResponseWriter, r *http.Request, v
 				return share, nil, dataprovider.ErrInvalidCredentials
 			}
 		}
+		common.DelayLogin(nil)
 	}
 	user, err := getUserForShare(share)
 	if err != nil {

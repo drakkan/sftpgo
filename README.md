@@ -53,7 +53,7 @@ You can use SFTPGo for free, respecting the obligations of the Open Source licen
 
 Use [discussions](https://github.com/drakkan/sftpgo/discussions) to ask questions and get support from the community.
 
-If you report an invalid issue and/or ask for step-by-step support, your issue will be closed as invalid without further explanation. Invalid bug reports left open may confuse other users. Thanks for understanding.
+If you report an invalid issue and/or ask for step-by-step support, your issue will be closed as invalid without further explanation and/or the "support request" label will be added. Invalid bug reports may confuse other users. Thanks for understanding.
 
 ## Documentation
 
@@ -61,7 +61,7 @@ You can read more about supported features and documentation at [sftpgo.github.i
 
 ## Release Cadence
 
-SFTPGo releases are feature-driven, we don't have a fixed time based schedule. As a rough estimate, you can expect 1 or 2 new releases per year.
+SFTPGo releases are feature-driven, we don't have a fixed time based schedule. As a rough estimate, you can expect 1 or 2 new major releases per year and several bug fix releases.
 
 ## Acknowledgements
 

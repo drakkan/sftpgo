@@ -327,6 +327,13 @@ func Reload() error {
 	return nil
 }
 
+// DelayLogin applies the configured login delay
+func DelayLogin(err error) {
+	if Config.defender != nil {
+		Config.defender.DelayLogin(err)
+	}
+}
+
 // IsBanned returns true if the specified IP address is banned
 func IsBanned(ip, protocol string) bool {
 	if plugin.Handler.IsIPBanned(ip, protocol) {

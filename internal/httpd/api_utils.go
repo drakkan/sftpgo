@@ -686,6 +686,7 @@ func handleDefenderEventLoginFailed(ipAddr string, err error) error {
 		err = dataprovider.ErrInvalidCredentials
 	}
 	common.AddDefenderEvent(ipAddr, common.ProtocolHTTP, event)
+	common.DelayLogin(err)
 	return err
 }
 
@@ -700,6 +701,7 @@ func updateLoginMetrics(user *dataprovider.User, loginMethod, ip string, err err
 	}
 	if err == nil {
 		plugin.Handler.NotifyLogEvent(notifier.LogEventTypeLoginOK, protocol, user.Username, ip, "", nil)
+		common.DelayLogin(nil)
 	} else if err != common.ErrInternalFailure && err != common.ErrNoCredentials {
 		logger.ConnectionFailedLog(user.Username, ip, loginMethod, protocol, err.Error())
 		err = handleDefenderEventLoginFailed(ip, err)

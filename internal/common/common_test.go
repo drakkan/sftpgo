@@ -419,6 +419,9 @@ func TestDefenderIntegration(t *testing.T) {
 		ObservationTime:  15,
 		EntriesSoftLimit: 100,
 		EntriesHardLimit: 150,
+		LoginDelay: LoginDelay{
+			PasswordFailed: 200,
+		},
 	}
 	err = Initialize(Config, 0)
 	// ScoreInvalid cannot be greater than threshold
@@ -476,6 +479,16 @@ func TestDefenderIntegration(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Nil(t, banTime)
 	assert.False(t, DeleteDefenderHost(ip))
+
+	startTime := time.Now()
+	DelayLogin(nil)
+	elapsed := time.Since(startTime)
+	assert.Less(t, elapsed, time.Millisecond*50)
+
+	startTime = time.Now()
+	DelayLogin(ErrInternalFailure)
+	elapsed = time.Since(startTime)
+	assert.Greater(t, elapsed, time.Millisecond*150)
 
 	Config = configCopy
 }

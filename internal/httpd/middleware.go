@@ -440,6 +440,7 @@ func checkAPIKeyAuth(tokenAuth *jwtauth.JWTAuth, scope dataprovider.APIKeyScope)
 						"", http.StatusUnauthorized)
 					return
 				}
+				common.DelayLogin(nil)
 			} else {
 				if k.User != "" {
 					apiUser = k.User
@@ -512,6 +513,7 @@ func authenticateAdminWithAPIKey(username, keyID string, tokenAuth *jwtauth.JWTA
 	}
 	r.Header.Set("Authorization", fmt.Sprintf("Bearer %v", resp["access_token"]))
 	dataprovider.UpdateAdminLastLogin(&admin)
+	common.DelayLogin(nil)
 	return nil
 }
 

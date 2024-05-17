@@ -1216,6 +1216,7 @@ func updateLoginMetrics(user *dataprovider.User, ip, method string, err error) {
 	metric.AddLoginAttempt(method)
 	if err == nil {
 		plugin.Handler.NotifyLogEvent(notifier.LogEventTypeLoginOK, common.ProtocolSSH, user.Username, ip, "", err)
+		common.DelayLogin(nil)
 	} else {
 		logger.ConnectionFailedLog(user.Username, ip, method, common.ProtocolSSH, err.Error())
 		if method != dataprovider.SSHLoginMethodPublicKey {
@@ -1230,6 +1231,9 @@ func updateLoginMetrics(user *dataprovider.User, ip, method string, err error) {
 			}
 			common.AddDefenderEvent(ip, common.ProtocolSSH, event)
 			plugin.Handler.NotifyLogEvent(logEv, common.ProtocolSSH, user.Username, ip, "", err)
+			if method != dataprovider.SSHLoginMethodPublicKey {
+				common.DelayLogin(err)
+			}
 		}
 	}
 	metric.AddLoginResult(method, err)

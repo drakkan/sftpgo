@@ -39,7 +39,11 @@
       "score_no_auth": 0,
       "observation_time": 30,
       "entries_soft_limit": 100,
-      "entries_hard_limit": 150
+      "entries_hard_limit": 150,
+      "login_delay": {
+        "success": 0,
+        "password_failed": 1000
+      }
     },
     "rate_limiters": [
       {

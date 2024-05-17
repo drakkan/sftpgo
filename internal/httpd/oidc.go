@@ -428,6 +428,7 @@ func (t *oidcToken) getUser(r *http.Request) error {
 		t.TokenRole = admin.Role
 		t.HideUserPageSections = admin.Filters.Preferences.HideUserPageSections
 		dataprovider.UpdateAdminLastLogin(admin)
+		common.DelayLogin(nil)
 		return nil
 	}
 	params.Event = common.IDPLoginUser
