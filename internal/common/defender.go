@@ -53,6 +53,7 @@ type Defender interface {
 	GetBanTime(ip string) (*time.Time, error)
 	GetScore(ip string) (int, error)
 	DeleteHost(ip string) bool
+	DelayLogin(err error)
 }
 
 // DefenderConfig defines the "defender" configuration
@@ -90,6 +91,16 @@ type DefenderConfig struct {
 	// to return when you request for the entire host list from the defender
 	EntriesSoftLimit int `json:"entries_soft_limit" mapstructure:"entries_soft_limit"`
 	EntriesHardLimit int `json:"entries_hard_limit" mapstructure:"entries_hard_limit"`
+	// Configuration to impose a delay between login attempts
+	LoginDelay LoginDelay `json:"login_delay" mapstructure:"login_delay"`
+}
+
+// LoginDelay defines the delays to impose between login attempts.
+type LoginDelay struct {
+	// The number of milliseconds to pause prior to allowing a successful login
+	Success int `json:"success" mapstructure:"success"`
+	// The number of milliseconds to pause prior to reporting a failed login
+	PasswordFailed int `json:"password_failed" mapstructure:"password_failed"`
 }
 
 type baseDefender struct {
@@ -161,6 +172,19 @@ func (d *baseDefender) logBan(ip, protocol string) {
 		Str("protocol", protocol).
 		Str("event", "banned").
 		Send()
+}
+
+// DelayLogin applies the configured login delay.
+func (d *baseDefender) DelayLogin(err error) {
+	if err == nil {
+		if d.config.LoginDelay.Success > 0 {
+			time.Sleep(time.Duration(d.config.LoginDelay.Success) * time.Millisecond)
+		}
+		return
+	}
+	if d.config.LoginDelay.PasswordFailed > 0 {
+		time.Sleep(time.Duration(d.config.LoginDelay.PasswordFailed) * time.Millisecond)
+	}
 }
 
 type hostEvent struct {

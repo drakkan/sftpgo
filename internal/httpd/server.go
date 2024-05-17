@@ -821,6 +821,7 @@ func (s *httpdServer) loginAdmin(
 		return
 	}
 	dataprovider.UpdateAdminLastLogin(admin)
+	common.DelayLogin(nil)
 	redirectURL := webUsersPath
 	if errorFunc == nil {
 		redirectURL = webAdminMFAPath
@@ -1000,6 +1001,7 @@ func (s *httpdServer) generateAndSendToken(w http.ResponseWriter, r *http.Reques
 	}
 
 	dataprovider.UpdateAdminLastLogin(&admin)
+	common.DelayLogin(nil)
 	render.JSON(w, r, resp)
 }
 

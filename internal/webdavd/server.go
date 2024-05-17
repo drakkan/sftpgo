@@ -426,6 +426,7 @@ func updateLoginMetrics(user *dataprovider.User, ip, loginMethod string, err err
 	metric.AddLoginAttempt(loginMethod)
 	if err == nil {
 		plugin.Handler.NotifyLogEvent(notifier.LogEventTypeLoginOK, common.ProtocolWebDAV, user.Username, ip, "", nil)
+		common.DelayLogin(nil)
 	} else if err != common.ErrInternalFailure && err != common.ErrNoCredentials {
 		logger.ConnectionFailedLog(user.Username, ip, loginMethod, common.ProtocolWebDAV, err.Error())
 		event := common.HostEventLoginFailed
@@ -436,6 +437,9 @@ func updateLoginMetrics(user *dataprovider.User, ip, loginMethod string, err err
 		}
 		common.AddDefenderEvent(ip, common.ProtocolWebDAV, event)
 		plugin.Handler.NotifyLogEvent(logEv, common.ProtocolWebDAV, user.Username, ip, "", err)
+		if loginMethod != dataprovider.LoginMethodTLSCertificate {
+			common.DelayLogin(err)
+		}
 	}
 	metric.AddLoginResult(loginMethod, err)
 	dataprovider.ExecutePostLoginHook(user, loginMethod, ip, common.ProtocolWebDAV, err)

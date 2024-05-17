@@ -226,6 +226,10 @@ func Init() {
 				ObservationTime:    30,
 				EntriesSoftLimit:   100,
 				EntriesHardLimit:   150,
+				LoginDelay: common.LoginDelay{
+					Success:        0,
+					PasswordFailed: 1000,
+				},
 			},
 			RateLimitersConfig: []common.RateLimiterConfig{defaultRateLimiter},
 			Umask:              "",
@@ -1995,6 +1999,8 @@ func setViperDefaults() {
 	viper.SetDefault("common.defender.observation_time", globalConf.Common.DefenderConfig.ObservationTime)
 	viper.SetDefault("common.defender.entries_soft_limit", globalConf.Common.DefenderConfig.EntriesSoftLimit)
 	viper.SetDefault("common.defender.entries_hard_limit", globalConf.Common.DefenderConfig.EntriesHardLimit)
+	viper.SetDefault("common.defender.login_delay.success", globalConf.Common.DefenderConfig.LoginDelay.Success)
+	viper.SetDefault("common.defender.login_delay.password_failed", globalConf.Common.DefenderConfig.LoginDelay.PasswordFailed)
 	viper.SetDefault("common.umask", globalConf.Common.Umask)
 	viper.SetDefault("common.server_version", globalConf.Common.ServerVersion)
 	viper.SetDefault("common.metadata.read", globalConf.Common.Metadata.Read)

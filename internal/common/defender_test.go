@@ -435,6 +435,33 @@ func TestDefenderCleanup(t *testing.T) {
 	assert.Equal(t, 0, score)
 }
 
+func TestDefenderDelay(t *testing.T) {
+	d := memoryDefender{
+		baseDefender: baseDefender{
+			config: &DefenderConfig{
+				ObservationTime:  1,
+				EntriesSoftLimit: 2,
+				EntriesHardLimit: 3,
+				LoginDelay: LoginDelay{
+					Success:        50,
+					PasswordFailed: 200,
+				},
+			},
+		},
+		banned: make(map[string]time.Time),
+		hosts:  make(map[string]hostScore),
+	}
+	startTime := time.Now()
+	d.DelayLogin(nil)
+	elapsed := time.Since(startTime)
+	assert.Less(t, elapsed, time.Millisecond*100)
+
+	startTime = time.Now()
+	d.DelayLogin(ErrInternalFailure)
+	elapsed = time.Since(startTime)
+	assert.Greater(t, elapsed, time.Millisecond*150)
+}
+
 func TestDefenderConfig(t *testing.T) {
 	c := DefenderConfig{}
 	err := c.validate()
