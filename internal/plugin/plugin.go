@@ -118,7 +118,9 @@ func (c *Config) getEnvVarPrefix() string {
 		return c.EnvPrefix
 	}
 
-	prefix := strings.ToUpper(filepath.Base(c.Cmd)) + "_"
+	baseName := filepath.Base(c.Cmd)
+	name := strings.TrimSuffix(baseName, filepath.Ext(baseName))
+	prefix := strings.ToUpper(name) + "_"
 	return strings.ReplaceAll(prefix, "-", "_")
 }
 
