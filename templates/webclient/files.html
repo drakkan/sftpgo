@@ -362,10 +362,15 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 stateSave: false,
                 columns: [
                     {
-                        data: "meta"
+                        data: "meta",
+                        visible: false,
+                        searchable: false
                     },
                     {
                         data: "name",
+                        type: "string",
+                        visible: true,
+                        searchable: true,
                         render: function (data, type, row) {
                             if (type === 'display') {
                                 data = escapeHTML(data);
@@ -382,18 +387,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     }
                 ],
                 lengthChange: true,
-                columnDefs: [
-                    {
-                        targets: 0,
-                        visible: false,
-                        searchable: false
-                    },
-                    {
-                        targets: 1,
-                        visible: true,
-                        searchable: true
-                    }
-                ],
                 language: {
                     info: $.t('datatable.info'),
                     infoEmpty: $.t('datatable.info_empty'),
@@ -606,6 +599,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 columns: [
                     {
                         data: "meta",
+                        orderable: false,
+                        searchable: false,
                         render: function (data, type) {
                             if (type == 'display'){
                                 return `
@@ -616,9 +611,16 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                             return data;
                         }
                     },
-                    { data: "type" },
+                    {
+                        data: "type",
+                        visible: false,
+                        searchable: false
+                    },
                     {
                         data: "name",
+                        type: "string",
+                        visible: true,
+                        searchable: true,
                         render: function (data, type, row) {
                             if (type === 'display') {
                                 data = escapeHTML(data);
@@ -643,6 +645,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "size",
+                        type: "num",
+                        searchable: false,
                         render: function (data, type) {
                             if (type === 'display') {
                                 if (data || data === 0){
@@ -655,6 +659,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "last_modified",
+                        type: "date",
+                        searchable: false,
                         render: function (data, type, row) {
                             if (type === 'display') {
                                 if (data){
@@ -672,6 +678,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "edit_url",
+                        orderable: false,
+                        searchable: false,
                         className: 'text-end',
                         render: function (data, type, row) {
                             if (type === 'display') {
@@ -794,32 +802,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     }
                 ],
                 lengthChange: true,
-                columnDefs: [
-                    {
-                        targets: 0,
-                        orderable: false,
-                        searchable: false,
-                    },
-                    {
-                        targets: 1,
-                        visible: false,
-                        searchable: false
-                    },
-                    {
-                        targets: 2,
-                        visible: true,
-                        searchable: true
-                    },
-                    {
-                        targets: [3,4],
-                        searchable: false
-                    },
-                    {
-                        targets: 5,
-                        orderable: false,
-                        searchable: false
-                    }
-                ],
                 language: {
                     info: $.t('datatable.info'),
                     infoEmpty: $.t('datatable.info_empty'),

@@ -283,6 +283,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 columns: [
                     {
                         data: "ipornet",
+                        type: "string",
                         render: function(data, type, row) {
                             if (type === 'display') {
                                 return escapeHTML(data);
@@ -292,6 +293,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "protocols",
+                        type: "string",
                         render: function(data, type, row) {
                             if (type === 'display') {
                                 if (data == 0){
@@ -317,6 +319,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "mode",
+                        type: "string",
                         render: function(data, type, row) {
                             if (type === 'display') {
                                 if (data == 1){
@@ -329,6 +332,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "description",
+                        type: "string",
                         visible: false,
                         render: function(data, type, row) {
                             if (type === 'display') {

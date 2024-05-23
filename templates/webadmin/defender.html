@@ -152,6 +152,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 columns: [
                     {
                         data: "ip",
+                        type: "string",
                         defaultContent: "",
                         render: function(data, type, row) {
                             if (type === 'display') {
@@ -162,6 +163,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "ban_time",
+                        type: "num",
                         searchable: false,
                         defaultContent: "",
                         render: function(data, type, row) {
@@ -182,6 +184,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "score",
+                        type: "num",
                         defaultContent: 0,
                         render: function(data, type, row) {
                             if (data){

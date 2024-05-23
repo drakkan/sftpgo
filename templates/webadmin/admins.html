@@ -247,6 +247,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 columns: [
                     {
                         data: "username",
+                        type: "string",
                         render: function(data, type, row) {
                             if (type === 'display') {
                                 return escapeHTML(data);
@@ -256,6 +257,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "status",
+                        type: "string",
                         render: function(data, type, row) {
                             if (type === 'display') {
                                 switch (data){
@@ -270,6 +272,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "last_login",
+                        type: "num",
                         defaultContent: "",
                         render: function(data, type, row) {
                             if (type === 'display') {
@@ -288,6 +291,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "email",
+                        type: "string",
                         visible: false,
                         defaultContent: "",
                         render: function(data, type, row) {
@@ -302,6 +306,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "role",
+                        type: "string",
                         visible: false,
                         defaultContent: "",
                         render: function(data, type, row) {
@@ -316,6 +321,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "filters.totp_config",
+                        type: "string",
                         visible: false,
                         defaultContent: false,
                         render: function(data, type, row) {
@@ -330,6 +336,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "description",
+                        type: "string",
                         visible: false,
                         defaultContent: "",
                         render: function(data, type, row) {

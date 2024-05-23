@@ -285,6 +285,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 columns: [
                     {
                         data: "name",
+                        type: "string",
                         render: function(data, type, row) {
                             if (type === 'display') {
                                 return escapeHTML(data);
@@ -294,6 +295,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "scope",
+                        type: "string",
                         render: function (data, type, row) {
                             if (type === 'display') {
                                 switch (data){
@@ -310,6 +312,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "expires_at",
+                        type: "string",
                         defaultContent: 0,
                         searchable: false,
                         orderable: false,

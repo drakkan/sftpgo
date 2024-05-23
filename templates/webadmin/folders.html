@@ -184,6 +184,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 columns: [
                     {
                         data: "name",
+                        type: "string",
                         render: function(data, type, row) {
                             if (type === 'display') {
                                 return escapeHTML(data);
@@ -193,6 +194,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "filesystem.provider",
+                        type: "string",
                         defaultContent: "",
                         render: function(data, type, row) {
                             if (type === 'display') {
@@ -218,6 +220,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "used_quota_size",
+                        type: "string",
                         visible: false,
                         searchable: false,
                         orderable: false,
@@ -238,6 +241,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "users",
+                        type: "string",
                         defaultContent: "",
                         visible: false,
                         searchable: false,
@@ -259,6 +263,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "description",
+                        type: "string",
                         visible: false,
                         defaultContent: "",
                         render: function(data, type, row) {

@@ -13,699 +13,884 @@ This WebUI is allowed for use only within the SFTPGo product and
 therefore cannot be used in derivative works/products without an
 explicit grant from the SFTPGo Team (support@sftpgo.com).
 -->
-{{template "base" .}}
-
-{{- define "extra_css"}}
-<link href="{{.StaticURL}}/assets/plugins/custom/datatables/datatables.bundle.css" rel="stylesheet" type="text/css"/>
-{{- end}}
-
-{{- define "page_body"}}
-{{- template "errmsg" ""}}
+{{template "base" .}} {{- define "extra_css"}}
+<link
+  href="{{.StaticURL}}/assets/plugins/custom/datatables/datatables.bundle.css"
+  rel="stylesheet"
+  type="text/css"
+/>
+{{- end}} {{- define "page_body"}} {{- template "errmsg" ""}}
 <div class="card shadow-sm">
-    <div class="card-header bg-light">
-        <h3 data-i18n="user.view_manage" class="card-title section-title">View and manage users</h3>
+  <div class="card-header bg-light">
+    <h3 data-i18n="user.view_manage" class="card-title section-title">
+      View and manage users
+    </h3>
+  </div>
+  <div id="card_body" class="card-body">
+    <div id="loader" class="align-items-center text-center my-10">
+      <span
+        class="spinner-border w-15px h-15px text-muted align-middle me-2"
+      ></span>
+      <span data-i18n="general.loading" class="text-gray-700">Loading...</span>
     </div>
-    <div id="card_body" class="card-body">
-        <div id="loader" class="align-items-center text-center my-10">
-            <span class="spinner-border w-15px h-15px text-muted align-middle me-2"></span>
-            <span data-i18n="general.loading" class="text-gray-700">Loading...</span>
+    <div id="card_content" class="d-none">
+      <div class="d-flex flex-stack flex-wrap mb-5">
+        <div class="d-flex align-items-center position-relative my-2">
+          <i class="ki-solid ki-magnifier fs-1 position-absolute ms-6"></i>
+          <input
+            name="search"
+            data-i18n="[placeholder]general.search"
+            type="text"
+            data-table-filter="search"
+            class="form-control rounded-1 w-250px ps-15 me-5"
+            placeholder="Search"
+          />
         </div>
-        <div id="card_content" class="d-none">
-            <div class="d-flex flex-stack flex-wrap mb-5">
-                <div class="d-flex align-items-center position-relative my-2">
-                    <i class="ki-solid ki-magnifier fs-1 position-absolute ms-6"></i>
-                    <input name="search" data-i18n="[placeholder]general.search" type="text" data-table-filter="search"
-                        class="form-control rounded-1 w-250px ps-15 me-5" placeholder="Search" />
-                </div>
 
-                <div class="d-flex justify-content-end my-2" data-table-toolbar="base">
-                    <button type="button" class="btn btn-light-primary rotate" data-kt-menu-trigger="click" data-kt-menu-placement="bottom" data-kt-menu-permanent="true">
-                        <span data-i18n="general.colvis">Column visibility</span>
-                        <i class="ki-duotone ki-down fs-3 rotate-180 ms-3 me-0"></i>
-                    </button>
-                    <div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-800 menu-state-bg-light-primary fw-semibold w-auto min-w-200 mw-300px py-4" data-kt-menu="true">
-                        <div class="menu-item px-3 py-2 form-check form-check-sm form-check-custom form-check-solid">
-                            <input type="checkbox" class="form-check-input" value="" id="checkColStatus" />
-                            <label class="form-check-label" for="checkColStatus">
-                                <span data-i18n="general.status" class="text-gray-800 fs-6">Status</span>
-                            </label>
-                        </div>
-                        <div class="menu-item px-3 py-2 form-check form-check-sm form-check-custom form-check-solid">
-                            <input type="checkbox" class="form-check-input" value="" id="checkColLastLogin" />
-                            <label class="form-check-label" for="checkColLastLogin">
-                                <span data-i18n="general.last_login" class="text-gray-800 fs-6">Last login</span>
-                            </label>
-                        </div>
-                        <div class="menu-item px-3 py-2 form-check form-check-sm form-check-custom form-check-solid">
-                            <input type="checkbox" class="form-check-input" value="" id="checkColEmail" />
-                            <label class="form-check-label" for="checkColEmail">
-                                <span data-i18n="general.email" class="text-gray-800 fs-6">Email</span>
-                            </label>
-                        </div>
-                        <div class="menu-item px-3 py-2 form-check form-check-sm form-check-custom form-check-solid">
-                            <input type="checkbox" class="form-check-input" value="" id="checkColStorage" />
-                            <label class="form-check-label" for="checkColStorage">
-                                <span data-i18n="storage.label" class="text-gray-800 fs-6">Storage</span>
-                            </label>
-                        </div>
-                        <div class="menu-item px-3 py-2 form-check form-check-sm form-check-custom form-check-solid">
-                            <input type="checkbox" class="form-check-input" value="" id="checkColRole" />
-                            <label class="form-check-label" for="checkColRole">
-                                <span data-i18n="general.role" class="text-gray-800 fs-6">Role</span>
-                            </label>
-                        </div>
-                        <div class="menu-item px-3 py-2 form-check form-check-sm form-check-custom form-check-solid">
-                            <input type="checkbox" class="form-check-input" value="" id="checkCol2FA" />
-                            <label class="form-check-label" for="checkCol2FA">
-                                <span data-i18n="title.two_factor_auth_short" class="text-gray-800 fs-6">2FA</span>
-                            </label>
-                        </div>
-                        <div class="menu-item px-3 py-2 form-check form-check-sm form-check-custom form-check-solid">
-                            <input type="checkbox" class="form-check-input" value="" id="checkColDiskQuota" />
-                            <label class="form-check-label" for="checkColDiskQuota">
-                                <span data-i18n="fs.quota_usage.disk" class="text-gray-800 fs-6">Disk quota</span>
-                            </label>
-                        </div>
-                        <div class="menu-item px-3 py-2 form-check form-check-sm form-check-custom form-check-solid">
-                            <input type="checkbox" class="form-check-input" value="" id="checkColTransferQuota" />
-                            <label class="form-check-label" for="checkColTransferQuota">
-                                <span data-i18n="fs.quota_usage.transfer" class="text-gray-800 fs-6">Transfer quota</span>
-                            </label>
-                        </div>
-                        <div class="menu-item px-3 py-2 form-check form-check-sm form-check-custom form-check-solid">
-                            <input type="checkbox" class="form-check-input" value="" id="checkColGroups" />
-                            <label class="form-check-label" for="checkColGroups">
-                                <span data-i18n="title.groups" class="text-gray-800 fs-6">Groups</span>
-                            </label>
-                        </div>
-                    </div>
-                    {{- if .LoggedUser.HasPermission "add_users"}}
-                    <a href="{{.UserURL}}" class="btn btn-primary ms-5">
-                        <i class="ki-duotone ki-plus fs-2"></i>
-                        <span data-i18n="general.add">Add</span>
-                    </a>
-                    {{- end}}
-                </div>
+        <div class="d-flex justify-content-end my-2" data-table-toolbar="base">
+          <button
+            type="button"
+            class="btn btn-light-primary rotate"
+            data-kt-menu-trigger="click"
+            data-kt-menu-placement="bottom"
+            data-kt-menu-permanent="true"
+          >
+            <span data-i18n="general.colvis">Column visibility</span>
+            <i class="ki-duotone ki-down fs-3 rotate-180 ms-3 me-0"></i>
+          </button>
+          <div
+            class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-800 menu-state-bg-light-primary fw-semibold w-auto min-w-200 mw-300px py-4"
+            data-kt-menu="true"
+          >
+            <div
+              class="menu-item px-3 py-2 form-check form-check-sm form-check-custom form-check-solid"
+            >
+              <input
+                type="checkbox"
+                class="form-check-input"
+                value=""
+                id="checkColStatus"
+              />
+              <label class="form-check-label" for="checkColStatus">
+                <span data-i18n="general.status" class="text-gray-800 fs-6"
+                  >Status</span
+                >
+              </label>
             </div>
-
-            <table id="dataTable" class="table align-middle table-row-dashed fs-6 gy-5">
-                <thead>
-                    <tr class="text-start text-muted fw-bold fs-6 gs-0">
-                        <th data-i18n="login.username">Username</th>
-                        <th data-i18n="general.status">Status</th>
-                        <th data-i18n="general.last_login">Last login</th>
-                        <th data-i18n="general.email">Email</th>
-                        <th data-i18n="storage.label">Storage</th>
-                        <th data-i18n="general.role">Role</th>
-                        <th data-i18n="title.two_factor_auth_short">2FA</th>
-                        <th data-i18n="fs.quota_usage.disk">Disk quota</th>
-                        <th data-i18n="fs.quota_usage.transfer">Transfer quota</th>
-                        <th data-i18n="title.groups">Groups</th>
-                        <th class="min-w-100px"></th>
-                    </tr>
-                </thead>
-                <tbody id="table_body" class="text-gray-800 fw-semibold"></tbody>
-            </table>
+            <div
+              class="menu-item px-3 py-2 form-check form-check-sm form-check-custom form-check-solid"
+            >
+              <input
+                type="checkbox"
+                class="form-check-input"
+                value=""
+                id="checkColLastLogin"
+              />
+              <label class="form-check-label" for="checkColLastLogin">
+                <span data-i18n="general.last_login" class="text-gray-800 fs-6"
+                  >Last login</span
+                >
+              </label>
+            </div>
+            <div
+              class="menu-item px-3 py-2 form-check form-check-sm form-check-custom form-check-solid"
+            >
+              <input
+                type="checkbox"
+                class="form-check-input"
+                value=""
+                id="checkColEmail"
+              />
+              <label class="form-check-label" for="checkColEmail">
+                <span data-i18n="general.email" class="text-gray-800 fs-6"
+                  >Email</span
+                >
+              </label>
+            </div>
+            <div
+              class="menu-item px-3 py-2 form-check form-check-sm form-check-custom form-check-solid"
+            >
+              <input
+                type="checkbox"
+                class="form-check-input"
+                value=""
+                id="checkColStorage"
+              />
+              <label class="form-check-label" for="checkColStorage">
+                <span data-i18n="storage.label" class="text-gray-800 fs-6"
+                  >Storage</span
+                >
+              </label>
+            </div>
+            <div
+              class="menu-item px-3 py-2 form-check form-check-sm form-check-custom form-check-solid"
+            >
+              <input
+                type="checkbox"
+                class="form-check-input"
+                value=""
+                id="checkColRole"
+              />
+              <label class="form-check-label" for="checkColRole">
+                <span data-i18n="general.role" class="text-gray-800 fs-6"
+                  >Role</span
+                >
+              </label>
+            </div>
+            <div
+              class="menu-item px-3 py-2 form-check form-check-sm form-check-custom form-check-solid"
+            >
+              <input
+                type="checkbox"
+                class="form-check-input"
+                value=""
+                id="checkCol2FA"
+              />
+              <label class="form-check-label" for="checkCol2FA">
+                <span
+                  data-i18n="title.two_factor_auth_short"
+                  class="text-gray-800 fs-6"
+                  >2FA</span
+                >
+              </label>
+            </div>
+            <div
+              class="menu-item px-3 py-2 form-check form-check-sm form-check-custom form-check-solid"
+            >
+              <input
+                type="checkbox"
+                class="form-check-input"
+                value=""
+                id="checkColDiskQuota"
+              />
+              <label class="form-check-label" for="checkColDiskQuota">
+                <span data-i18n="fs.quota_usage.disk" class="text-gray-800 fs-6"
+                  >Disk quota</span
+                >
+              </label>
+            </div>
+            <div
+              class="menu-item px-3 py-2 form-check form-check-sm form-check-custom form-check-solid"
+            >
+              <input
+                type="checkbox"
+                class="form-check-input"
+                value=""
+                id="checkColTransferQuota"
+              />
+              <label class="form-check-label" for="checkColTransferQuota">
+                <span
+                  data-i18n="fs.quota_usage.transfer"
+                  class="text-gray-800 fs-6"
+                  >Transfer quota</span
+                >
+              </label>
+            </div>
+            <div
+              class="menu-item px-3 py-2 form-check form-check-sm form-check-custom form-check-solid"
+            >
+              <input
+                type="checkbox"
+                class="form-check-input"
+                value=""
+                id="checkColGroups"
+              />
+              <label class="form-check-label" for="checkColGroups">
+                <span data-i18n="title.groups" class="text-gray-800 fs-6"
+                  >Groups</span
+                >
+              </label>
+            </div>
+          </div>
+          {{- if .LoggedUser.HasPermission "add_users"}}
+          <a href="{{.UserURL}}" class="btn btn-primary ms-5">
+            <i class="ki-duotone ki-plus fs-2"></i>
+            <span data-i18n="general.add">Add</span>
+          </a>
+          {{- end}}
         </div>
+      </div>
+
+      <table
+        id="dataTable"
+        class="table align-middle table-row-dashed fs-6 gy-5"
+      >
+        <thead>
+          <tr class="text-start text-muted fw-bold fs-6 gs-0">
+            <th data-i18n="login.username">Username</th>
+            <th data-i18n="general.status">Status</th>
+            <th data-i18n="general.last_login">Last login</th>
+            <th data-i18n="general.email">Email</th>
+            <th data-i18n="storage.label">Storage</th>
+            <th data-i18n="general.role">Role</th>
+            <th data-i18n="title.two_factor_auth_short">2FA</th>
+            <th data-i18n="fs.quota_usage.disk">Disk quota</th>
+            <th data-i18n="fs.quota_usage.transfer">Transfer quota</th>
+            <th data-i18n="title.groups">Groups</th>
+            <th class="min-w-100px"></th>
+          </tr>
+        </thead>
+        <tbody id="table_body" class="text-gray-800 fw-semibold"></tbody>
+      </table>
     </div>
+  </div>
 </div>
-{{- end}}
-{{- define "extra_js"}}
-<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/plugins/custom/datatables/datatables.bundle.js"></script>
-<script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
-    function deleteAction(username) {
-        ModalAlert.fire({
-            text: $.t('general.delete_confirm_generic'),
-            icon: "warning",
-            confirmButtonText: $.t('general.delete_confirm_btn'),
-            cancelButtonText: $.t('general.cancel'),
-            customClass: {
-                confirmButton: "btn btn-danger",
-                cancelButton: 'btn btn-secondary'
-            }
-        }).then((result) => {
-            if (result.isConfirmed){
-                $('#loading_message').text("");
-                KTApp.showPageLoading();
-                let path = '{{.UserURL}}' + "/" + encodeURIComponent(username);
-
-                axios.delete(path, {
-                    timeout: 15000,
-                    headers: {
-                        'X-CSRF-TOKEN': '{{.CSRFToken}}'
-                    },
-                    validateStatus: function (status) {
-                        return status == 200;
-                    }
-                }).then(function(response){
-                    location.reload();
-                }).catch(function(error){
-                    KTApp.hidePageLoading();
-                    let errorMessage;
-                    if (error && error.response) {
-                        switch (error.response.status) {
-                            case 403:
-                                errorMessage = "general.delete_error_403";
-                                break;
-                            case 404:
-                                errorMessage = "general.delete_error_404";
-                                break;
-                        }
-                    }
-                    if (!errorMessage){
-                        errorMessage = "general.delete_error_generic";
-                    }
-                    ModalAlert.fire({
-                        text: $.t(errorMessage),
-                        icon: "warning",
-                        confirmButtonText: $.t('general.ok'),
-                        customClass: {
-                            confirmButton: "btn btn-primary"
-                        }
-                    });
-                });
-            }
-        });
-    }
-
-    function disableSeconFactorAction(username) {
-        ModalAlert.fire({
-            text: $.t('2fa.disable_confirm'),
-            icon: "warning",
-            confirmButtonText: $.t('general.disable_confirm_btn'),
-            cancelButtonText: $.t('general.cancel'),
-            customClass: {
-                confirmButton: "btn btn-danger",
-                cancelButton: 'btn btn-secondary'
-            }
-        }).then((result) => {
-            if (result.isConfirmed){
-                $('#loading_message').text("");
-                KTApp.showPageLoading();
-                let path = '{{.UserURL}}' + "/" + encodeURIComponent(username)+"/2fa/disable";
-
-                axios.put(path, null, {
-                    timeout: 15000,
-                    headers: {
-                        'X-CSRF-TOKEN': '{{.CSRFToken}}'
-                    },
-                    validateStatus: function (status) {
-                        return status == 200;
-                    }
-                }).then(function(response){
-                    location.reload();
-                }).catch(function(error){
-                    KTApp.hidePageLoading();
-                    ModalAlert.fire({
-                        text: $.t('2fa.save_err'),
-                        icon: "warning",
-                        confirmButtonText: $.t('general.ok'),
-                        customClass: {
-                            confirmButton: "btn btn-primary"
-                        }
-                    });
-                });
-            }
-        });
-    }
-
-    function quotaScanAction(username) {
-        $('#loading_message').text("");
+{{- end}} {{- define "extra_js"}}
+<script
+  {{-
+  if
+  .CSPNonce}}
+  nonce="{{.CSPNonce}}"
+  {{-
+  end}}
+  src="{{.StaticURL}}/assets/plugins/custom/datatables/datatables.bundle.js"
+></script>
+<script
+  type="text/javascript"
+  {{-
+  if
+  .CSPNonce}}
+  nonce="{{.CSPNonce}}"
+  {{-
+  end}}
+>
+  function deleteAction(username) {
+    ModalAlert.fire({
+      text: $.t("general.delete_confirm_generic"),
+      icon: "warning",
+      confirmButtonText: $.t("general.delete_confirm_btn"),
+      cancelButtonText: $.t("general.cancel"),
+      customClass: {
+        confirmButton: "btn btn-danger",
+        cancelButton: "btn btn-secondary",
+      },
+    }).then((result) => {
+      if (result.isConfirmed) {
+        $("#loading_message").text("");
         KTApp.showPageLoading();
-        let path = '{{.QuotaScanURL}}' + "/" + encodeURIComponent(username);
-        axios.post(path, null, {
+        let path = "{{.UserURL}}" + "/" + encodeURIComponent(username);
+
+        axios
+          .delete(path, {
             timeout: 15000,
             headers: {
-                'X-CSRF-TOKEN': '{{.CSRFToken}}'
+              "X-CSRF-TOKEN": "{{.CSRFToken}}",
             },
             validateStatus: function (status) {
-                return status == 202;
-            }
-        }).then(function (response) {
-            KTApp.hidePageLoading();
-            showToast(1, 'general.quota_scan_started');
-        }).catch(function (error) {
+              return status == 200;
+            },
+          })
+          .then(function (response) {
+            location.reload();
+          })
+          .catch(function (error) {
             KTApp.hidePageLoading();
             let errorMessage;
             if (error && error.response) {
-                switch (error.response.status) {
-                    case 409:
-                        errorMessage = "general.quota_scan_conflit";
-                        break;
-                }
+              switch (error.response.status) {
+                case 403:
+                  errorMessage = "general.delete_error_403";
+                  break;
+                case 404:
+                  errorMessage = "general.delete_error_404";
+                  break;
+              }
             }
             if (!errorMessage) {
-                errorMessage = "general.quota_scan_error";
+              errorMessage = "general.delete_error_generic";
             }
             ModalAlert.fire({
-                text: $.t(errorMessage),
-                icon: "warning",
-                confirmButtonText: $.t('general.ok'),
-                customClass: {
-                    confirmButton: "btn btn-primary"
-                }
+              text: $.t(errorMessage),
+              icon: "warning",
+              confirmButtonText: $.t("general.ok"),
+              customClass: {
+                confirmButton: "btn btn-primary",
+              },
             });
+          });
+      }
+    });
+  }
+
+  function disableSeconFactorAction(username) {
+    ModalAlert.fire({
+      text: $.t("2fa.disable_confirm"),
+      icon: "warning",
+      confirmButtonText: $.t("general.disable_confirm_btn"),
+      cancelButtonText: $.t("general.cancel"),
+      customClass: {
+        confirmButton: "btn btn-danger",
+        cancelButton: "btn btn-secondary",
+      },
+    }).then((result) => {
+      if (result.isConfirmed) {
+        $("#loading_message").text("");
+        KTApp.showPageLoading();
+        let path =
+          "{{.UserURL}}" + "/" + encodeURIComponent(username) + "/2fa/disable";
+
+        axios
+          .put(path, null, {
+            timeout: 15000,
+            headers: {
+              "X-CSRF-TOKEN": "{{.CSRFToken}}",
+            },
+            validateStatus: function (status) {
+              return status == 200;
+            },
+          })
+          .then(function (response) {
+            location.reload();
+          })
+          .catch(function (error) {
+            KTApp.hidePageLoading();
+            ModalAlert.fire({
+              text: $.t("2fa.save_err"),
+              icon: "warning",
+              confirmButtonText: $.t("general.ok"),
+              customClass: {
+                confirmButton: "btn btn-primary",
+              },
+            });
+          });
+      }
+    });
+  }
+
+  function quotaScanAction(username) {
+    $("#loading_message").text("");
+    KTApp.showPageLoading();
+    let path = "{{.QuotaScanURL}}" + "/" + encodeURIComponent(username);
+    axios
+      .post(path, null, {
+        timeout: 15000,
+        headers: {
+          "X-CSRF-TOKEN": "{{.CSRFToken}}",
+        },
+        validateStatus: function (status) {
+          return status == 202;
+        },
+      })
+      .then(function (response) {
+        KTApp.hidePageLoading();
+        showToast(1, "general.quota_scan_started");
+      })
+      .catch(function (error) {
+        KTApp.hidePageLoading();
+        let errorMessage;
+        if (error && error.response) {
+          switch (error.response.status) {
+            case 409:
+              errorMessage = "general.quota_scan_conflit";
+              break;
+          }
+        }
+        if (!errorMessage) {
+          errorMessage = "general.quota_scan_error";
+        }
+        ModalAlert.fire({
+          text: $.t(errorMessage),
+          icon: "warning",
+          confirmButtonText: $.t("general.ok"),
+          customClass: {
+            confirmButton: "btn btn-primary",
+          },
         });
-    }
+      });
+  }
 
-    var datatable = function(){
-        var dt;
+  var datatable = (function () {
+    var dt;
 
-        var initDatatable = function () {
-            $('#errorMsg').addClass("d-none");
-            dt = $('#dataTable').DataTable({
-                ajax: {
-                    url: "{{.UsersURL}}/json",
-                    dataSrc: "",
-                    error: function ($xhr, textStatus, errorThrown) {
-                        $(".dataTables_processing").hide();
-                        $('#loader').addClass("d-none");
-                        let txt = "";
-                        if ($xhr) {
-                            let json = $xhr.responseJSON;
-                            if (json) {
-                                if (json.message){
-                                    txt = json.message;
-                                }
-                            }
-                        }
-                        if (!txt){
-                            txt = "general.error500";
-                        }
-                        setI18NData($('#errorTxt'), txt);
-                        $('#errorMsg').removeClass("d-none");
+    var initDatatable = function () {
+      $("#errorMsg").addClass("d-none");
+      dt = $("#dataTable").DataTable({
+        ajax: {
+          url: "{{.UsersURL}}/json",
+          dataSrc: "",
+          error: function ($xhr, textStatus, errorThrown) {
+            $(".dataTables_processing").hide();
+            $("#loader").addClass("d-none");
+            let txt = "";
+            if ($xhr) {
+              let json = $xhr.responseJSON;
+              if (json) {
+                if (json.message) {
+                  txt = json.message;
+                }
+              }
+            }
+            if (!txt) {
+              txt = "general.error500";
+            }
+            setI18NData($("#errorTxt"), txt);
+            $("#errorMsg").removeClass("d-none");
+          },
+        },
+        columns: [
+          {
+            data: "username",
+            type: "string",
+            render: function (data, type, row) {
+              if (type === "display") {
+                return escapeHTML(data);
+              }
+              return data;
+            },
+          },
+          {
+            data: "status",
+            type: "string",
+            render: function (data, type, row) {
+              let result = data;
+              if (row.expiration_date) {
+                if (row.expiration_date < Date.now()) {
+                  result = -1;
+                }
+              }
+              if (type === "display") {
+                switch (result) {
+                  case 1:
+                    return $.t("general.active");
+                  case -1:
+                    return $.t("general.expired");
+                  default:
+                    return $.t("general.inactive");
+                }
+              }
+              return result;
+            },
+          },
+          {
+            data: "last_login",
+            type: "num",
+            defaultContent: "",
+            render: function (data, type, row) {
+              if (type === "display") {
+                if (data > 0) {
+                  return $.t("general.datetime", {
+                    val: parseInt(data, 10),
+                    formatParams: {
+                      val: {
+                        year: "numeric",
+                        month: "numeric",
+                        day: "numeric",
+                        hour: "numeric",
+                        minute: "numeric",
+                      },
+                    },
+                  });
+                }
+                return "";
+              }
+              return data;
+            },
+          },
+          {
+            data: "email",
+            type: "string",
+            visible: false,
+            defaultContent: "",
+            render: function (data, type, row) {
+              if (type === "display") {
+                if (data) {
+                  return escapeHTML(data);
+                }
+                return "";
+              }
+              return data;
+            },
+          },
+          {
+            data: "filesystem.provider",
+            type: "string",
+            visible: false,
+            defaultContent: "",
+            render: function (data, type, row) {
+              if (type === "display") {
+                switch (data) {
+                  case 1:
+                    return $.t("storage.s3");
+                  case 2:
+                    return $.t("storage.gcs");
+                  case 3:
+                    return $.t("storage.azblob");
+                  case 4:
+                    return $.t("storage.encrypted");
+                  case 5:
+                    return $.t("storage.sftp");
+                  case 6:
+                    return $.t("storage.http");
+                  default:
+                    return $.t("storage.local");
+                }
+              }
+              return data;
+            },
+          },
+          {
+            data: "role",
+            type: "string",
+            visible: false,
+            defaultContent: "",
+            render: function (data, type, row) {
+              if (type === "display") {
+                if (data) {
+                  return escapeHTML(data);
+                }
+                return "";
+              }
+              return data;
+            },
+          },
+          {
+            data: "filters.totp_config",
+            type: "string",
+            visible: false,
+            defaultContent: "",
+            render: function (data, type, row) {
+              let protocols = "";
+              if (data && data.enabled) {
+                protocols = data.protocols.join(", ");
+              }
+              if (type === "display") {
+                if (protocols) {
+                  return escapeHTML(protocols);
+                }
+              }
+              return protocols;
+            },
+          },
+          {
+            data: "quota_files",
+            type: "string",
+            visible: false,
+            searchable: false,
+            orderable: false,
+            defaultContent: "",
+            render: function (data, type, row) {
+              if (type === "display") {
+                let val = "";
+                if (row.quota_size > 0) {
+                  let used = row.used_quota_size;
+                  if (!used) {
+                    used = 0;
+                  }
+                  let usage =
+                    fileSizeIEC(used) + "/" + fileSizeIEC(row.quota_size);
+                  val += $.t("fs.quota_usage.size", { val: usage }) + ". ";
+                } else if (row.used_quota_size && row.used_quota_size > 0) {
+                  val +=
+                    $.t("fs.quota_usage.size", {
+                      val: fileSizeIEC(row.used_quota_size),
+                    }) + ". ";
+                }
+                if (row.quota_files > 0) {
+                  let used = row.used_quota_files;
+                  if (!used) {
+                    used = 0;
+                  }
+                  let usage = used + "/" + row.quota_files;
+                  val += $.t("fs.quota_usage.files", { val: usage });
+                } else if (row.used_quota_files && row.used_quota_files > 0) {
+                  val += $.t("fs.quota_usage.files", {
+                    val: row.used_quota_files,
+                  });
+                }
+                return val;
+              }
+              return "";
+            },
+          },
+          {
+            data: "total_data_transfer",
+            type: "string",
+            visible: false,
+            searchable: false,
+            orderable: false,
+            defaultContent: "",
+            render: function (data, type, row) {
+              if (type === "display") {
+                let val = "";
+                if (row.total_data_transfer > 0) {
+                  let used;
+                  if (row.used_download_data_transfer) {
+                    used += row.used_download_data_transfer;
+                  }
+                  if (row.used_upload_data_transfer) {
+                    used += row.used_upload_data_transfer;
+                  }
+                  let usage =
+                    fileSizeIEC(used) +
+                    "/" +
+                    fileSizeIEC(row.total_data_transfer * 1048576);
+                  val = $.t("fs.quota_usage.total", { val: usage });
+                } else {
+                  if (row.upload_data_transfer > 0) {
+                    let used = row.used_upload_data_transfer;
+                    if (!used) {
+                      used = 0;
                     }
-                },
-                columns: [
-                    {
-                        data: "username",
-                        render: function(data, type, row) {
-                            if (type === 'display') {
-                                return escapeHTML(data);
-                            }
-                            return data;
-                        }
-                    },
-                    {
-                        data: "status",
-                        render: function(data, type, row) {
-                            let result = data;
-                            if (row.expiration_date){
-                                if (row.expiration_date < Date.now()){
-                                    result = -1;
-                                }
-                            }
-                            if (type === 'display') {
-                                switch (result){
-                                    case 1:
-                                        return $.t('general.active');
-                                    case -1:
-                                        return $.t('general.expired');
-                                    default:
-                                        return $.t('general.inactive');
-                                }
-                            }
-                            return result;
-                        }
-                    },
-                    {
-                        data: "last_login",
-                        defaultContent: "",
-                        render: function(data, type, row) {
-                            if (type === 'display') {
-                                if (data > 0){
-                                    return $.t('general.datetime', {
-                                        val: parseInt(data, 10),
-                                        formatParams: {
-                                            val: { year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' },
-                                        }
-                                    });
-                                }
-                                return ""
-                            }
-                            return data;
-                        }
-                    },
-                    {
-                        data: "email",
-                        visible: false,
-                        defaultContent: "",
-                        render: function(data, type, row) {
-                            if (type === 'display') {
-                                if (data){
-                                    return escapeHTML(data);
-                                }
-                                return "";
-                            }
-                            return data;
-                        }
-                    },
-                    {
-                        data: "filesystem.provider",
-                        visible: false,
-                        defaultContent: "",
-                        render: function(data, type, row) {
-                            if (type === 'display') {
-                                switch (data){
-                                    case 1:
-                                        return $.t('storage.s3');
-                                    case 2:
-                                        return $.t('storage.gcs');
-                                    case 3:
-                                        return $.t('storage.azblob');
-                                    case 4:
-                                        return $.t('storage.encrypted');
-                                    case 5:
-                                        return $.t('storage.sftp');
-                                    case 6:
-                                        return $.t('storage.http');
-                                    default:
-                                        return $.t('storage.local');
-                                }
-                            }
-                            return data;
-                        }
-                    },
-                    {
-                        data: "role",
-                        visible: false,
-                        defaultContent: "",
-                        render: function(data, type, row) {
-                            if (type === 'display') {
-                                if (data){
-                                    return escapeHTML(data);
-                                }
-                                return ""
-                            }
-                            return data;
-                        }
-                    },
-                    {
-                        data: "filters.totp_config",
-                        visible: false,
-                        defaultContent: "",
-                        render: function(data, type, row) {
-                            let protocols = "";
-                            if (data && data.enabled){
-                                protocols = data.protocols.join(', ');
-                            }
-                            if (type === 'display') {
-                                if (protocols){
-                                    return escapeHTML(protocols);
-                                }
-                            }
-                            return protocols;
-                        }
-                    },
-                    {
-                        data: "quota_files",
-                        visible: false,
-                        searchable: false,
-                        orderable: false,
-                        defaultContent: "",
-                        render: function(data, type, row) {
-                            if (type === 'display') {
-                                let val = "";
-                                if (row.quota_size > 0) {
-                                    let used = row.used_quota_size;
-                                    if (!used){
-                                        used = 0;
-                                    }
-                                    let usage = fileSizeIEC(used)+"/"+fileSizeIEC(row.quota_size);
-                                    val += $.t('fs.quota_usage.size', {val: usage})+". ";
-                                } else if (row.used_quota_size && row.used_quota_size > 0) {
-                                    val += $.t('fs.quota_usage.size', {val: fileSizeIEC(row.used_quota_size)})+". ";
-                                }
-                                if (row.quota_files > 0){
-                                    let used = row.used_quota_files;
-                                    if (!used){
-                                        used = 0;
-                                    }
-                                    let usage = used+"/"+row.quota_files;
-                                    val += $.t('fs.quota_usage.files', {val: usage});
-                                } else if (row.used_quota_files && row.used_quota_files > 0) {
-                                    val += $.t('fs.quota_usage.files', {val: row.used_quota_files});
-                                }
-                                return val
-                            }
-                            return "";
-                        }
-                    },
-                    {
-                        data: "total_data_transfer",
-                        visible: false,
-                        searchable: false,
-                        orderable: false,
-                        defaultContent: "",
-                        render: function(data, type, row) {
-                            if (type === 'display') {
-                                let val = "";
-                                if (row.total_data_transfer > 0) {
-                                    let used;
-                                    if (row.used_download_data_transfer){
-                                        used+=row.used_download_data_transfer;
-                                    }
-                                    if (row.used_upload_data_transfer){
-                                        used+=row.used_upload_data_transfer;
-                                    }
-                                    let usage = fileSizeIEC(used)+"/"+fileSizeIEC(row.total_data_transfer*1048576);
-                                    val = $.t('fs.quota_usage.total', {val: usage});
-                                } else {
-                                    if (row.upload_data_transfer > 0) {
-                                        let used = row.used_upload_data_transfer;
-                                        if (!used){
-                                            used = 0;
-                                        }
-                                        let usage = fileSizeIEC(used)+"/"+fileSizeIEC(row.upload_data_transfer*1048576);
-                                        val = $.t('fs.quota_usage.uploads', {val: usage})+". ";
-                                    }
-                                    if (row.download_data_transfer > 0) {
-                                        let used = row.used_download_data_transfer;
-                                        if (!used){
-                                            used = 0;
-                                        }
-                                        let usage = fileSizeIEC(used)+"/"+fileSizeIEC(row.download_data_transfer*1048576);
-                                        val = $.t('fs.quota_usage.downloads', {val: usage});
-                                    }
-                                }
-                                return val;
-                            }
-                            return "";
-                        }
-                    },
-                    {
-                        data: "groups",
-                        visible: false,
-                        defaultContent: [],
-                        render: function(data, type, row) {
-                            if (!data){
-                                return "";
-                            }
-                            let groups = [];
-                            let result = "";
-                            for (i = 0; i < data.length; i++){
-                                groups.push(data[i].name);
-                            }
-                            result = groups.join(", ");
-                            if (type === 'display') {
-                                return escapeHTML(result);
-                            }
-                            return result;
-                        }
-                    },
-                    {
-                        data: "id",
-                        searchable: false,
-                        orderable: false,
-                        className: 'text-end',
-                        render: function (data, type, row) {
-                            if (type === 'display') {
-                                let numActions = 0;
-                                let actions = `<button class="btn btn-light btn-active-light-primary btn-flex btn-center btn-sm rotate" data-kt-menu-trigger="click" data-kt-menu-placement="bottom-end">
+                    let usage =
+                      fileSizeIEC(used) +
+                      "/" +
+                      fileSizeIEC(row.upload_data_transfer * 1048576);
+                    val = $.t("fs.quota_usage.uploads", { val: usage }) + ". ";
+                  }
+                  if (row.download_data_transfer > 0) {
+                    let used = row.used_download_data_transfer;
+                    if (!used) {
+                      used = 0;
+                    }
+                    let usage =
+                      fileSizeIEC(used) +
+                      "/" +
+                      fileSizeIEC(row.download_data_transfer * 1048576);
+                    val = $.t("fs.quota_usage.downloads", { val: usage });
+                  }
+                }
+                return val;
+              }
+              return "";
+            },
+          },
+          {
+            data: "groups",
+            type: "string",
+            visible: false,
+            defaultContent: [],
+            render: function (data, type, row) {
+              if (!data) {
+                return "";
+              }
+              let groups = [];
+              let result = "";
+              for (i = 0; i < data.length; i++) {
+                groups.push(data[i].name);
+              }
+              result = groups.join(", ");
+              if (type === "display") {
+                return escapeHTML(result);
+              }
+              return result;
+            },
+          },
+          {
+            data: "id",
+            searchable: false,
+            orderable: false,
+            className: "text-end",
+            render: function (data, type, row) {
+              if (type === "display") {
+                let numActions = 0;
+                let actions = `<button class="btn btn-light btn-active-light-primary btn-flex btn-center btn-sm rotate" data-kt-menu-trigger="click" data-kt-menu-placement="bottom-end">
                                                     <span data-i18n="general.actions" class="fs-6">Actions</span>
 										            <i class="ki-duotone ki-down fs-5 ms-1 rotate-180"></i>
                                                 </button>
                                                 <div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-700 menu-state-bg-light-primary fw-semibold fs-6 w-200px py-4" data-kt-menu="true">`;
 
-                                //{{- if .LoggedUser.HasPermission "edit_users"}}
-                                numActions++;
-                                actions+=`<div class="menu-item px-3">
+                //{{- if .LoggedUser.HasPermission "edit_users"}}
+                numActions++;
+                actions += `<div class="menu-item px-3">
 										      <a data-i18n="general.edit" href="#" class="menu-link px-3" data-table-action="edit_row">Edit</a>
 										  </div>`;
-                                //{{- end}}
-                                //{{- if .LoggedUser.HasPermission "manage_system"}}
-                                numActions++;
-                                actions+=`<div class="menu-item px-3">
+                //{{- end}}
+                //{{- if .LoggedUser.HasPermission "manage_system"}}
+                numActions++;
+                actions += `<div class="menu-item px-3">
 										      <a data-i18n="general.template" href="#" class="menu-link px-3" data-table-action="template_row">Template</a>
 										  </div>`;
-                                //{{- end}}
-                                //{{- if .LoggedUser.HasPermission "quota_scans"}}
-                                numActions++;
-                                actions+=`<div class="menu-item px-3">
+                //{{- end}}
+                //{{- if .LoggedUser.HasPermission "quota_scans"}}
+                numActions++;
+                actions += `<div class="menu-item px-3">
 										      <a data-i18n="general.quota_scan" href="#" class="menu-link px-3" data-table-action="quota_scan_row">Quota scan</a>
 										  </div>`;
-                                //{{- end}}
-                                //{{- if .LoggedUser.HasPermission "disable_mfa"}}
-                                if (row.filters.totp_config && row.filters.totp_config.enabled){
-                                    numActions++;
-                                    actions+=`<div class="menu-item px-3">
+                //{{- end}}
+                //{{- if .LoggedUser.HasPermission "disable_mfa"}}
+                if (
+                  row.filters.totp_config &&
+                  row.filters.totp_config.enabled
+                ) {
+                  numActions++;
+                  actions += `<div class="menu-item px-3">
                                                 <a data-i18n="2fa.disable_msg" href="#" class="menu-link text-danger px-3" data-table-action="disable_2fa_row">Disable 2FA</a>
 										      </div>`;
-                                }
-                                //{{- end}}
-                                //{{- if .LoggedUser.HasPermission "del_users"}}
-                                numActions++;
-                                actions+=`<div class="menu-item px-3">
+                }
+                //{{- end}}
+                //{{- if .LoggedUser.HasPermission "del_users"}}
+                numActions++;
+                actions += `<div class="menu-item px-3">
                                              <a data-i18n="general.delete" href="#" class="menu-link text-danger px-3" data-table-action="delete_row">Delete</a>
 										  </div>`;
-                                //{{- end}}
-                                if (numActions > 0){
-                                    actions+=`</div>`;
-                                    return actions;
-                                }
-                            }
-                            return "";
-                        }
-                    },
-                ],
-                deferRender: true,
-                stateSave: true,
-                stateDuration: 0,
-                colReorder: {
-                    enable: true,
-                    fixedColumnsLeft: 1
-                },
-                stateLoadParams: function (settings, data) {
-                        if (data.search.search){
-                            const filterSearch = document.querySelector('[data-table-filter="search"]');
-                            filterSearch.value = data.search.search;
-                        }
-                    },
-                language: {
-                    info: $.t('datatable.info'),
-                    infoEmpty: $.t('datatable.info_empty'),
-                    infoFiltered: $.t('datatable.info_filtered'),
-                    loadingRecords: "",
-                    processing: $.t('datatable.processing'),
-                    zeroRecords: "",
-                    emptyTable: $.t('datatable.no_records')
-                },
-                order: [[0, 'asc']],
-                initComplete: function(settings, json) {
-                    $('#loader').addClass("d-none");
-                    $('#card_content').removeClass("d-none");
-                    let api = $.fn.dataTable.Api(settings);
-                    api.columns.adjust().draw("page");
-                    drawAction();
+                //{{- end}}
+                if (numActions > 0) {
+                  actions += `</div>`;
+                  return actions;
                 }
-            });
+              }
+              return "";
+            },
+          },
+        ],
+        deferRender: true,
+        stateSave: true,
+        stateDuration: 0,
+        colReorder: {
+          enable: true,
+          fixedColumnsLeft: 1,
+        },
+        stateLoadParams: function (settings, data) {
+          if (data.search.search) {
+            const filterSearch = document.querySelector(
+              '[data-table-filter="search"]'
+            );
+            filterSearch.value = data.search.search;
+          }
+        },
+        language: {
+          info: $.t("datatable.info"),
+          infoEmpty: $.t("datatable.info_empty"),
+          infoFiltered: $.t("datatable.info_filtered"),
+          loadingRecords: "",
+          processing: $.t("datatable.processing"),
+          zeroRecords: "",
+          emptyTable: $.t("datatable.no_records"),
+        },
+        order: [[0, "asc"]],
+        initComplete: function (settings, json) {
+          $("#loader").addClass("d-none");
+          $("#card_content").removeClass("d-none");
+          let api = $.fn.dataTable.Api(settings);
+          api.columns.adjust().draw("page");
+          drawAction();
+        },
+      });
 
-            dt.on('draw', drawAction);
-            dt.on('column-reorder', function(e, settings, details){
-                drawAction();
-            });
-        }
+      dt.on("draw", drawAction);
+      dt.on("column-reorder", function (e, settings, details) {
+        drawAction();
+      });
+    };
 
-        function drawAction() {
-            KTMenu.createInstances();
-            handleRowActions();
-            $('#table_body').localize();
-        }
+    function drawAction() {
+      KTMenu.createInstances();
+      handleRowActions();
+      $("#table_body").localize();
+    }
 
-        function handleColVisibilityCheckbox(el, index) {
-            el.off("change");
-            el.prop('checked', dt.column(index).visible());
-            el.on("change", function(e){
-                dt.column(index).visible($(this).is(':checked'));
-                dt.draw('page');
-            });
-        }
+    function handleColVisibilityCheckbox(el, index) {
+      el.off("change");
+      el.prop("checked", dt.column(index).visible());
+      el.on("change", function (e) {
+        dt.column(index).visible($(this).is(":checked"));
+        dt.draw("page");
+      });
+    }
 
-        var handleDatatableActions = function () {
-            const filterSearch = $(document.querySelector('[data-table-filter="search"]'));
-            filterSearch.off("keyup");
-            filterSearch.on('keyup', function (e) {
-                dt.rows().deselect();
-                dt.search(e.target.value).draw();
-            });
-            handleColVisibilityCheckbox($('#checkColStatus'), 1);
-            handleColVisibilityCheckbox($('#checkColLastLogin'), 2);
-            handleColVisibilityCheckbox($('#checkColEmail'), 3);
-            handleColVisibilityCheckbox($('#checkColStorage'), 4);
-            handleColVisibilityCheckbox($('#checkColRole'), 5);
-            handleColVisibilityCheckbox($('#checkCol2FA'), 6);
-            handleColVisibilityCheckbox($('#checkColDiskQuota'), 7);
-            handleColVisibilityCheckbox($('#checkColTransferQuota'), 8);
-            handleColVisibilityCheckbox($('#checkColGroups'), 9);
-        }
+    var handleDatatableActions = function () {
+      const filterSearch = $(
+        document.querySelector('[data-table-filter="search"]')
+      );
+      filterSearch.off("keyup");
+      filterSearch.on("keyup", function (e) {
+        dt.rows().deselect();
+        dt.search(e.target.value).draw();
+      });
+      handleColVisibilityCheckbox($("#checkColStatus"), 1);
+      handleColVisibilityCheckbox($("#checkColLastLogin"), 2);
+      handleColVisibilityCheckbox($("#checkColEmail"), 3);
+      handleColVisibilityCheckbox($("#checkColStorage"), 4);
+      handleColVisibilityCheckbox($("#checkColRole"), 5);
+      handleColVisibilityCheckbox($("#checkCol2FA"), 6);
+      handleColVisibilityCheckbox($("#checkColDiskQuota"), 7);
+      handleColVisibilityCheckbox($("#checkColTransferQuota"), 8);
+      handleColVisibilityCheckbox($("#checkColGroups"), 9);
+    };
 
-        function handleRowActions() {
-            const editButtons = document.querySelectorAll('[data-table-action="edit_row"]');
-            editButtons.forEach(d => {
-                let el = $(d);
-                el.off("click");
-                el.on("click", function(e){
-                    e.preventDefault();
-                    let rowData = dt.row(e.target.closest('tr')).data();
-                    window.location.replace('{{.UserURL}}' + "/" + encodeURIComponent(rowData['username']));
-                });
-            });
+    function handleRowActions() {
+      const editButtons = document.querySelectorAll(
+        '[data-table-action="edit_row"]'
+      );
+      editButtons.forEach((d) => {
+        let el = $(d);
+        el.off("click");
+        el.on("click", function (e) {
+          e.preventDefault();
+          let rowData = dt.row(e.target.closest("tr")).data();
+          window.location.replace(
+            "{{.UserURL}}" + "/" + encodeURIComponent(rowData["username"])
+          );
+        });
+      });
 
-            const templateButtons = document.querySelectorAll('[data-table-action="template_row"]');
-            templateButtons.forEach(d => {
-                let el = $(d);
-                el.off("click");
-                el.on("click", function(e){
-                    e.preventDefault();
-                    let rowData = dt.row(e.target.closest('tr')).data();
-                    window.location.replace('{{.UserTemplateURL}}' + "?from=" + encodeURIComponent(rowData['username']));
-                });
-            });
+      const templateButtons = document.querySelectorAll(
+        '[data-table-action="template_row"]'
+      );
+      templateButtons.forEach((d) => {
+        let el = $(d);
+        el.off("click");
+        el.on("click", function (e) {
+          e.preventDefault();
+          let rowData = dt.row(e.target.closest("tr")).data();
+          window.location.replace(
+            "{{.UserTemplateURL}}" +
+              "?from=" +
+              encodeURIComponent(rowData["username"])
+          );
+        });
+      });
 
-            const quotaScanButtons = document.querySelectorAll('[data-table-action="quota_scan_row"]');
-            quotaScanButtons.forEach(d => {
-                let el = $(d);
-                el.off("click");
-                el.on("click", function(e){
-                    e.preventDefault();
-                    let rowData = dt.row(e.target.closest('tr')).data();
-                    quotaScanAction(rowData['username']);
-                });
-            });
+      const quotaScanButtons = document.querySelectorAll(
+        '[data-table-action="quota_scan_row"]'
+      );
+      quotaScanButtons.forEach((d) => {
+        let el = $(d);
+        el.off("click");
+        el.on("click", function (e) {
+          e.preventDefault();
+          let rowData = dt.row(e.target.closest("tr")).data();
+          quotaScanAction(rowData["username"]);
+        });
+      });
 
-            const diable2FAButtons = document.querySelectorAll('[data-table-action="disable_2fa_row"]');
-            diable2FAButtons.forEach(d => {
-                let el = $(d);
-                el.off("click");
-                el.on("click", function(e){
-                    e.preventDefault();
-                    let rowData = dt.row(e.target.closest('tr')).data();
-                    disableSeconFactorAction(rowData['username']);
-                });
-            });
+      const diable2FAButtons = document.querySelectorAll(
+        '[data-table-action="disable_2fa_row"]'
+      );
+      diable2FAButtons.forEach((d) => {
+        let el = $(d);
+        el.off("click");
+        el.on("click", function (e) {
+          e.preventDefault();
+          let rowData = dt.row(e.target.closest("tr")).data();
+          disableSeconFactorAction(rowData["username"]);
+        });
+      });
 
-            const deleteButtons = document.querySelectorAll('[data-table-action="delete_row"]');
-            deleteButtons.forEach(d => {
-                let el = $(d);
-                el.off("click");
-                el.on("click", function(e){
-                    e.preventDefault();
-                    const parent = e.target.closest('tr');
-                    deleteAction(dt.row(parent).data()['username']);
-                });
-            });
-        }
+      const deleteButtons = document.querySelectorAll(
+        '[data-table-action="delete_row"]'
+      );
+      deleteButtons.forEach((d) => {
+        let el = $(d);
+        el.off("click");
+        el.on("click", function (e) {
+          e.preventDefault();
+          const parent = e.target.closest("tr");
+          deleteAction(dt.row(parent).data()["username"]);
+        });
+      });
+    }
 
-        return {
-            init: function () {
-                initDatatable();
-                handleDatatableActions();
-            }
-        }
-    }();
+    return {
+      init: function () {
+        initDatatable();
+        handleDatatableActions();
+      },
+    };
+  })();
 
-    $(document).on("i18nshow", function(){
-        datatable.init();
-    });
+  $(document).on("i18nshow", function () {
+    datatable.init();
+  });
 </script>
 {{- end}}

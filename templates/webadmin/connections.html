@@ -172,6 +172,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "username",
+                        type: "string",
                         defaultContent: "",
                         render: function(data, type, row) {
                             if (type === 'display') {
@@ -182,6 +183,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "connection_time",
+                        type: "num",
                         searchable: false,
                         defaultContent: 0,
                         render: function(data, type, row) {
@@ -201,6 +203,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "remote_address",
+                        type: "string",
                         defaultContent: "",
                         render: function(data, type, row) {
                             if (type === 'display') {
@@ -211,6 +214,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "protocol",
+                        type: "string",
                         defaultContent: "",
                         render: function(data, type, row) {
                             if (type === 'display') {
@@ -221,6 +225,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "last_activity",
+                        type: "num",
                         searchable: false,
                         defaultContent: 0,
                         render: function(data, type, row) {
@@ -240,6 +245,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "active_transfers",
+                        type: "string",
                         searchable: false,
                         orderable: false,
                         render: function (data, type, row) {
