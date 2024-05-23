@@ -445,7 +445,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     url: getSearchURL(false),
                     dataSrc: handleResponseData,
                     error: function ($xhr, textStatus, errorThrown) {
-                        $(".dataTables_processing").hide();
+                        $(".dt-processing").hide();
                         let txt = "";
                         if ($xhr) {
                             let json = $xhr.responseJSON;
@@ -644,7 +644,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     url: getSearchURL(false),
                     dataSrc: handleResponseData,
                     error: function ($xhr, textStatus, errorThrown) {
-                        $(".dataTables_processing").hide();
+                        $(".dt-processing").hide();
                         let txt = "";
                         if ($xhr) {
                             let json = $xhr.responseJSON;
@@ -824,7 +824,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     url: getSearchURL(false),
                     dataSrc: handleResponseData,
                     error: function ($xhr, textStatus, errorThrown) {
-                        $(".dataTables_processing").hide();
+                        $(".dt-processing").hide();
                         let txt = "";
                         if ($xhr) {
                             let json = $xhr.responseJSON;
