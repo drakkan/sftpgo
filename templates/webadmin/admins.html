@@ -226,7 +226,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     url: "{{.AdminsURL}}/json",
                     dataSrc: "",
                     error: function ($xhr, textStatus, errorThrown) {
-                        $(".dataTables_processing").hide();
+                        $(".dt-processing").hide();
                         $('#loader').addClass("d-none");
                         let txt = "";
                         if ($xhr) {
