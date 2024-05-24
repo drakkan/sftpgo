@@ -332,7 +332,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         visible: true,
                         render: function(data, type, row) {
                             if (type === 'display') {
-                                return escapeHTML(data);
+                                if (data){
+                                    return escapeHTML(data);
+                                }
+                                return ""
                             }
                             return data;
                         }
