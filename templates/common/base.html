@@ -178,6 +178,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     };
 
     const renderI18n = () => {
+        document.documentElement.setAttribute('lang', i18next.resolvedLanguage);
         $('title').text('{{.Branding.Name}} - '+$.t('{{.Title}}'));
         $('body').localize();
         let select2elements = [].slice.call(document.querySelectorAll('[data-control="i18n-select2"]'));
