@@ -380,7 +380,7 @@ func GenerateRSAKeys(file string) error {
 	if err := createDirPathIfMissing(file, 0700); err != nil {
 		return err
 	}
-	key, err := rsa.GenerateKey(rand.Reader, 4096)
+	key, err := rsa.GenerateKey(rand.Reader, 3072)
 	if err != nil {
 		return err
 	}
