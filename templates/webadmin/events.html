@@ -537,6 +537,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         defaultContent: "",
                         render: function(data, type, row) {
                             if (type === 'display') {
+                                if (!data){
+                                    return "";
+                                }
                                 return escapeHTML(data);
                             }
                             return data;
@@ -546,6 +549,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         data: "protocol",
                         defaultContent: "",
                         render: function(data, type, row) {
+                            if (!data){
+                                    return "";
+                                }
                             if (type === 'display') {
                                 return escapeHTML(data);
                             }
@@ -557,6 +563,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         defaultContent: "",
                         render: function(data, type, row) {
                             if (type === 'display') {
+                                if (!data){
+                                    return "";
+                                }
                                 return escapeHTML(data);
                             }
                             return data;
@@ -763,6 +772,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         defaultContent: "",
                         render: function(data, type, row) {
                             if (type === 'display') {
+                                if (!data){
+                                    return "";
+                                }
                                 return escapeHTML(data);
                             }
                             return data;
@@ -773,6 +785,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         defaultContent: "",
                         render: function(data, type, row) {
                             if (type === 'display') {
+                                if (!data){
+                                    return "";
+                                }
                                 return escapeHTML(data);
                             }
                             return data;
@@ -919,6 +934,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         defaultContent: "",
                         render: function(data, type, row) {
                             if (type === 'display') {
+                                if (!data){
+                                    return "";
+                                }
                                 if (data){
                                     return escapeHTML(data);
                                 }
