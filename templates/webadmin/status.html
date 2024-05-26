@@ -32,11 +32,11 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 <div class="d-flex flex-column">
                     {{- range .Status.SSH.Bindings}}
                     <p class="fs-5 fw-semibold">
-                        <span class="text-success" data-i18n="status.address"></span> "{{.GetAddress}}"
+                        <span class="text-muted" data-i18n="status.address"></span> "{{.GetAddress}}"
                     </p>
                     {{- if .HasProxy}}
                     <p class="fs-5 fw-semibold">
-                        <span class="text-success" data-i18n="status.proxy_on"></span>
+                        <span class="text-muted" data-i18n="status.proxy_on"></span>
                     </p>
                     {{- end}}
                     {{- end}}
@@ -44,34 +44,34 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 {{- range .Status.SSH.HostKeys}}
                 <div class="d-flex flex-column mt-10">
                     <p class="fs-5 fw-semibold">
-                        <span class="text-success" data-i18n="status.host_key"></span> "{{.Path}}"
+                        <span class="text-muted" data-i18n="status.host_key"></span> "{{.Path}}"
                     </p>
                     <p class="fs-5 fw-semibold">
-                        <span class="text-success" data-i18n="status.fingeprint"></span> "{{.Fingerprint}}"
+                        <span class="text-muted" data-i18n="status.fingeprint"></span> "{{.Fingerprint}}"
                     </p>
                     <p class="fs-5 fw-semibold">
-                        <span class="text-success" data-i18n="status.algorithms"></span> "{{.GetAlgosAsString}}"
+                        <span class="text-muted" data-i18n="status.algorithms"></span> "{{.GetAlgosAsString}}"
                     </p>
                 </div>
                 {{- end}}
                 <div class="d-flex flex-column mt-10">
                     <p class="fs-5 fw-semibold">
-                        <span class="text-success" data-i18n="status.ssh_commands"></span> "{{.Status.SSH.GetSSHCommandsAsString}}"
+                        <span class="text-muted" data-i18n="status.ssh_commands"></span> "{{.Status.SSH.GetSSHCommandsAsString}}"
                     </p>
                     <p class="fs-5 fw-semibold">
-                        <span class="text-success" data-i18n="status.ssh_auths"></span> "{{.Status.SSH.GetSupportedAuthsAsString}}"
+                        <span class="text-muted" data-i18n="status.ssh_auths"></span> "{{.Status.SSH.GetSupportedAuthsAsString}}"
                     </p>
                     <p class="fs-5 fw-semibold">
-                        <span class="text-success" data-i18n="status.ssh_pub_key_algo"></span> "{{.Status.SSH.GetPublicKeysAlgosAsString}}"
+                        <span class="text-muted" data-i18n="status.ssh_pub_key_algo"></span> "{{.Status.SSH.GetPublicKeysAlgosAsString}}"
                     </p>
                     <p class="fs-5 fw-semibold">
-                        <span class="text-success" data-i18n="status.ssh_mac_algo"></span> "{{.Status.SSH.GetMACsAsString}}"
+                        <span class="text-muted" data-i18n="status.ssh_mac_algo"></span> "{{.Status.SSH.GetMACsAsString}}"
                     </p>
                     <p class="fs-5 fw-semibold">
-                        <span class="text-success" data-i18n="status.ssh_kex_algo"></span> "{{.Status.SSH.GetKEXsAsString}}"
+                        <span class="text-muted" data-i18n="status.ssh_kex_algo"></span> "{{.Status.SSH.GetKEXsAsString}}"
                     </p>
                     <p class="fs-5 fw-semibold">
-                        <span class="text-success" data-i18n="status.ssh_cipher_algo"></span> "{{.Status.SSH.GetCiphersAsString}}"
+                        <span class="text-muted" data-i18n="status.ssh_cipher_algo"></span> "{{.Status.SSH.GetCiphersAsString}}"
                     </p>
                 </div>
                 {{- end}}
@@ -88,31 +88,31 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 <div class="d-flex flex-column">
                     {{- range .Status.FTP.Bindings}}
                     <p class="fs-5 fw-semibold">
-                        <span class="text-success" data-i18n="status.address"></span> "{{.GetAddress}}"
+                        <span class="text-muted" data-i18n="status.address"></span> "{{.GetAddress}}"
                     </p>
                     {{- if .HasProxy}}
                     <p class="fs-5 fw-semibold">
-                        <span class="text-success" data-i18n="status.proxy_on"></span>
+                        <span class="text-muted" data-i18n="status.proxy_on"></span>
                     </p>
                     {{- end}}
                     <p class="fs-5 fw-semibold">
-                        <span class="text-success" data-i18n="status.tls"></span>&nbsp;<span data-i18n="{{.GetTLSDescription}}"></span>
+                        <span class="text-muted" data-i18n="status.tls"></span>&nbsp;<span data-i18n="{{.GetTLSDescription}}"></span>
                     </p>
                     {{- if .ForcePassiveIP}}
                     <p class="fs-5 fw-semibold">
-                        <span class="text-success" data-i18n="status.ftp_passive_ip"></span> "{{.ForcePassiveIP}}"
+                        <span class="text-muted" data-i18n="status.ftp_passive_ip"></span> "{{.ForcePassiveIP}}"
                     </p>
                     {{- end}}
                     {{- range .PassiveIPOverrides}}
                     <p class="fs-5 fw-semibold">
-                        <span class="text-success" data-i18n="status.ftp_passive_ip"></span> "{{.IP}} ({{.GetNetworksAsString}})"
+                        <span class="text-muted" data-i18n="status.ftp_passive_ip"></span> "{{.IP}} ({{.GetNetworksAsString}})"
                     </p>
                     {{- end}}
                     {{- end}}
                 </div>
                 <div class="d-flex flex-column mt-10">
                     <p class="fs-5 fw-semibold">
-                        <span class="text-success" data-i18n="status.ftp_passive_range"></span> "{{.Status.FTP.PassivePortRange.Start}}-{{.Status.FTP.PassivePortRange.End}}"
+                        <span class="text-muted" data-i18n="status.ftp_passive_range"></span> "{{.Status.FTP.PassivePortRange.Start}}-{{.Status.FTP.PassivePortRange.End}}"
                     </p>
                 </div>
                 {{- end}}
@@ -129,10 +129,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 <div class="d-flex flex-column">
                     {{- range .Status.WebDAV.Bindings}}
                     <p class="fs-5 fw-semibold">
-                        <span class="text-success" data-i18n="status.address"></span> "{{.GetAddress}}"
+                        <span class="text-muted" data-i18n="status.address"></span> "{{.GetAddress}}"
                     </p>
                     <p class="fs-5 fw-semibold">
-                        <span class="text-success" data-i18n="general.protocol"></span> {{if .EnableHTTPS}} HTTPS {{else}} HTTP {{end}}
+                        <span class="text-muted" data-i18n="general.protocol"></span> {{if .EnableHTTPS}} HTTPS {{else}} HTTP {{end}}
                     </p>
                     {{- end}}
                 </div>
@@ -151,7 +151,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </p>
                 <div class="d-flex flex-column">
                     <p class="fs-5 fw-semibold">
-                        <span class="text-success" data-i18n="general.driver"></span> "{{.Status.DataProvider.Driver}}"
+                        <span class="text-muted" data-i18n="general.driver"></span> "{{.Status.DataProvider.Driver}}"
                     </p>
                 </div>
             </div>
@@ -184,7 +184,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 {{- if .Status.RateLimiters.IsActive}}
                 <div class="d-flex flex-column">
                     <p class="fs-5 fw-semibold">
-                        <span class="text-success" data-i18n="ip_list.protocols"></span> "{{.Status.RateLimiters.GetProtocolsAsString}}"
+                        <span class="text-muted" data-i18n="ip_list.protocols"></span> "{{.Status.RateLimiters.GetProtocolsAsString}}"
                     </p>
                 </div>
                 {{- end}}
@@ -201,13 +201,13 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 {{range .Status.MFA.TOTPConfigs}}
                 <div class="d-flex flex-column">
                     <p class="fs-5 fw-semibold">
-                        <span class="text-success" data-i18n="general.configuration"></span> "{{.Name}}"
+                        <span class="text-muted" data-i18n="general.configuration"></span> "{{.Name}}"
                     </p>
                     <p class="fs-5 fw-semibold">
-                        <span class="text-success" data-i18n="general.issuer"></span> "{{.Issuer}}"
+                        <span class="text-muted" data-i18n="general.issuer"></span> "{{.Issuer}}"
                     </p>
                     <p class="fs-5 fw-semibold">
-                        <span class="text-success" data-i18n="status.algorithm"></span> "{{.Algo}}"
+                        <span class="text-muted" data-i18n="status.algorithm"></span> "{{.Algo}}"
                     </p>
                 </div>
                 {{- end}}
