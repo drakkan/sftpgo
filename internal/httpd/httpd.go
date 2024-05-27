@@ -398,8 +398,6 @@ type UIBranding struct {
 	// For example, if you create a directory named "branding" inside the static dir and
 	// put the "mylogo.png" file in it, you must set "/branding/mylogo.png" as logo path.
 	LogoPath string `json:"logo_path" mapstructure:"logo_path"`
-	// Path to the image to show on the login screen relative to "static_files_path"
-	LoginImagePath string `json:"login_image_path" mapstructure:"login_image_path"`
 	// Path to your favicon relative to "static_files_path"
 	FaviconPath string `json:"favicon_path" mapstructure:"favicon_path"`
 	// DisclaimerName defines the name for the link to your optional disclaimer
@@ -419,11 +417,6 @@ func (b *UIBranding) check() {
 		b.LogoPath = util.CleanPath(b.LogoPath)
 	} else {
 		b.LogoPath = "/img/logo.png"
-	}
-	if b.LoginImagePath != "" {
-		b.LoginImagePath = util.CleanPath(b.LoginImagePath)
-	} else {
-		b.LoginImagePath = "/img/login_image.png"
 	}
 	if b.FaviconPath != "" {
 		b.FaviconPath = util.CleanPath(b.FaviconPath)

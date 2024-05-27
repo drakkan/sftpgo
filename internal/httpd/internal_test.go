@@ -330,9 +330,8 @@ func TestBrandingValidation(t *testing.T) {
 	b := Binding{
 		Branding: Branding{
 			WebAdmin: UIBranding{
-				LogoPath:       "path1",
-				LoginImagePath: "login1.png",
-				DefaultCSS:     []string{"my.css"},
+				LogoPath:   "path1",
+				DefaultCSS: []string{"my.css"},
 			},
 			WebClient: UIBranding{
 				FaviconPath:    "favicon1.ico",
@@ -344,12 +343,10 @@ func TestBrandingValidation(t *testing.T) {
 	b.checkBranding()
 	assert.Equal(t, "/favicon.ico", b.Branding.WebAdmin.FaviconPath)
 	assert.Equal(t, "/path1", b.Branding.WebAdmin.LogoPath)
-	assert.Equal(t, "/login1.png", b.Branding.WebAdmin.LoginImagePath)
 	assert.Equal(t, []string{"/my.css"}, b.Branding.WebAdmin.DefaultCSS)
 	assert.Len(t, b.Branding.WebAdmin.ExtraCSS, 0)
 	assert.Equal(t, "/favicon1.ico", b.Branding.WebClient.FaviconPath)
 	assert.Equal(t, path.Join(webStaticFilesPath, "/path2"), b.Branding.WebClient.DisclaimerPath)
-	assert.Equal(t, "/img/login_image.png", b.Branding.WebClient.LoginImagePath)
 	if assert.Len(t, b.Branding.WebClient.ExtraCSS, 1) {
 		assert.Equal(t, "/1.css", b.Branding.WebClient.ExtraCSS[0])
 	}
