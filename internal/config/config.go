@@ -1650,12 +1650,6 @@ func getHTTPDUIBrandingFromEnv(prefix string, branding httpd.UIBranding) (httpd.
 		isSet = true
 	}
 
-	loginImagePath, ok := os.LookupEnv(fmt.Sprintf("%s__LOGIN_IMAGE_PATH", prefix))
-	if ok {
-		branding.LoginImagePath = loginImagePath
-		isSet = true
-	}
-
 	disclaimerName, ok := os.LookupEnv(fmt.Sprintf("%s__DISCLAIMER_NAME", prefix))
 	if ok {
 		branding.DisclaimerName = disclaimerName
