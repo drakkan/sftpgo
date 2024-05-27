@@ -352,6 +352,9 @@ func (t *BaseTransfer) checkUploadOutsideHomeDir(err error) int {
 	if err == nil {
 		return 0
 	}
+	if t.ErrTransfer == nil {
+		t.ErrTransfer = err
+	}
 	if Config.TempPath == "" {
 		return 0
 	}
@@ -410,7 +413,8 @@ func (t *BaseTransfer) Close() error {
 	var uploadFileSize int64
 	if t.transferType == TransferDownload {
 		logger.TransferLog(downloadLogSender, t.fsPath, elapsed, t.BytesSent.Load(), t.Connection.User.Username,
-			t.Connection.ID, t.Connection.protocol, t.Connection.localAddr, t.Connection.remoteAddr, t.ftpMode)
+			t.Connection.ID, t.Connection.protocol, t.Connection.localAddr, t.Connection.remoteAddr, t.ftpMode,
+			t.ErrTransfer)
 		ExecuteActionNotification(t.Connection, operationDownload, t.fsPath, t.requestPath, "", "", "", //nolint:errcheck
 			t.BytesSent.Load(), t.ErrTransfer, elapsed, t.metadata)
 	} else {
@@ -431,7 +435,8 @@ func (t *BaseTransfer) Close() error {
 		t.updateQuota(numFiles, uploadFileSize)
 		t.updateTimes()
 		logger.TransferLog(uploadLogSender, t.fsPath, elapsed, t.BytesReceived.Load(), t.Connection.User.Username,
-			t.Connection.ID, t.Connection.protocol, t.Connection.localAddr, t.Connection.remoteAddr, t.ftpMode)
+			t.Connection.ID, t.Connection.protocol, t.Connection.localAddr, t.Connection.remoteAddr, t.ftpMode,
+			t.ErrTransfer)
 	}
 	if t.ErrTransfer != nil {
 		t.Connection.Log(logger.LevelError, "transfer error: %v, path: %q", t.ErrTransfer, t.fsPath)
