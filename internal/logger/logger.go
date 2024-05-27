@@ -203,7 +203,7 @@ func ErrorToConsole(format string, v ...any) {
 
 // TransferLog logs uploads or downloads
 func TransferLog(operation, path string, elapsed int64, size int64, user, connectionID, protocol, localAddr,
-	remoteAddr, ftpMode string,
+	remoteAddr, ftpMode string, err error,
 ) {
 	ev := logger.Info().
 		Timestamp().
@@ -219,7 +219,7 @@ func TransferLog(operation, path string, elapsed int64, size int64, user, connec
 	if ftpMode != "" {
 		ev.Str("ftp_mode", ftpMode)
 	}
-	ev.Send()
+	ev.AnErr("error", err).Send()
 }
 
 // CommandLog logs an SFTP/SCP/SSH command
