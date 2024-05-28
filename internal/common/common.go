@@ -810,7 +810,8 @@ func getProxyPolicy(allowed, skipped []func(net.IP) bool, def proxyproto.Policy)
 	return func(upstream net.Addr) (proxyproto.Policy, error) {
 		upstreamIP, err := util.GetIPFromNetAddr(upstream)
 		if err != nil {
-			// something is wrong with the source IP, better reject the connection
+			// Something is wrong with the source IP, better reject the
+			// connection if a proxy header is found.
 			return proxyproto.REJECT, err
 		}
 
@@ -829,6 +830,9 @@ func getProxyPolicy(allowed, skipped []func(net.IP) bool, def proxyproto.Policy)
 			}
 		}
 
+		if def == proxyproto.REQUIRE {
+			return proxyproto.REJECT, nil
+		}
 		return def, nil
 	}
 }

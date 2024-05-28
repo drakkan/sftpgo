@@ -1077,7 +1077,7 @@ func TestProxyPolicy(t *testing.T) {
 	assert.Equal(t, proxyproto.SKIP, policy)
 	policy, err = p(&net.TCPAddr{IP: net.ParseIP("10.8.1.5")})
 	assert.NoError(t, err)
-	assert.Equal(t, proxyproto.REQUIRE, policy)
+	assert.Equal(t, proxyproto.REJECT, policy)
 }
 
 func TestProxyProtocolVersion(t *testing.T) {
