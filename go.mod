@@ -25,7 +25,7 @@ require (
 	github.com/eikenb/pipeat v0.0.0-20210730190139-06b3e6902001
 	github.com/fclairamb/ftpserverlib v0.24.0
 	github.com/fclairamb/go-log v0.5.0
-	github.com/go-acme/lego/v4 v4.16.1
+	github.com/go-acme/lego/v4 v4.17.3
 	github.com/go-chi/chi/v5 v5.0.12
 	github.com/go-chi/jwtauth/v5 v5.3.1
 	github.com/go-chi/render v1.0.3
@@ -79,7 +79,7 @@ require (
 
 require (
 	cloud.google.com/go v0.114.0 // indirect
-	cloud.google.com/go/auth v0.4.2 // indirect
+	cloud.google.com/go/auth v0.5.0 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.2 // indirect
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	cloud.google.com/go/iam v1.1.8 // indirect
@@ -173,9 +173,9 @@ require (
 	golang.org/x/text v0.15.0 // indirect
 	golang.org/x/tools v0.21.0 // indirect
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
-	google.golang.org/genproto v0.0.0-20240521202816-d264139d666e // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20240521202816-d264139d666e // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240521202816-d264139d666e // indirect
+	google.golang.org/genproto v0.0.0-20240528155852-a33235495d66 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20240528155852-a33235495d66 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240528155852-a33235495d66 // indirect
 	google.golang.org/grpc v1.64.0 // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
