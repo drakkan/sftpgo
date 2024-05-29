@@ -1197,9 +1197,9 @@ func TestProxyProtocol(t *testing.T) {
 		assert.NoError(t, checkBasicSFTP(client))
 	}
 	conn, client, err = getSftpClientWithAddr(user, usePubKey, "127.0.0.1:2224")
-	if !assert.Error(t, err) {
-		client.Close()
-		conn.Close()
+	if assert.NoError(t, err) {
+		defer client.Close()
+		defer conn.Close()
 	}
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
