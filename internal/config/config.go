@@ -636,6 +636,15 @@ func getRedactedGlobalConf() globalConfig {
 		binding.OIDC.ClientSecret = getRedactedPassword(binding.OIDC.ClientSecret)
 		conf.HTTPDConfig.Bindings = append(conf.HTTPDConfig.Bindings, binding)
 	}
+	conf.PluginsConfig = nil
+	for _, plugin := range globalConf.PluginsConfig {
+		var args []string
+		for _, arg := range plugin.Args {
+			args = append(args, getRedactedPassword(arg))
+		}
+		plugin.Args = args
+		conf.PluginsConfig = append(conf.PluginsConfig, plugin)
+	}
 	return conf
 }
 
