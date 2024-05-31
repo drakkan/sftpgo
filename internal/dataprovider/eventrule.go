@@ -398,11 +398,11 @@ func (c *EventActionHTTPConfig) GetContext() (context.Context, context.CancelFun
 
 // HasObjectData returns true if the {{ObjectData}} placeholder is defined
 func (c *EventActionHTTPConfig) HasObjectData() bool {
-	if strings.Contains(c.Body, "{{ObjectData}}") {
+	if strings.Contains(c.Body, "{{ObjectData}}") || strings.Contains(c.Body, "{{ObjectDataString}}") {
 		return true
 	}
 	for _, part := range c.Parts {
-		if strings.Contains(part.Body, "{{ObjectData}}") {
+		if strings.Contains(part.Body, "{{ObjectData}}") || strings.Contains(part.Body, "{{ObjectDataString}}") {
 			return true
 		}
 	}
