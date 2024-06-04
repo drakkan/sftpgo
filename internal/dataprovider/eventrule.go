@@ -49,13 +49,14 @@ const (
 	ActionTypeUserExpirationCheck
 	ActionTypeIDPAccountCheck
 	ActionTypeUserInactivityCheck
+	ActionTypeRotateLogs
 )
 
 var (
 	supportedEventActions = []int{ActionTypeHTTP, ActionTypeCommand, ActionTypeEmail, ActionTypeFilesystem,
 		ActionTypeBackup, ActionTypeUserQuotaReset, ActionTypeFolderQuotaReset, ActionTypeTransferQuotaReset,
-		ActionTypeDataRetentionCheck, ActionTypePasswordExpirationCheck,
-		ActionTypeUserExpirationCheck, ActionTypeUserInactivityCheck, ActionTypeIDPAccountCheck}
+		ActionTypeDataRetentionCheck, ActionTypePasswordExpirationCheck, ActionTypeUserExpirationCheck,
+		ActionTypeUserInactivityCheck, ActionTypeIDPAccountCheck, ActionTypeRotateLogs}
 )
 
 func isActionTypeValid(action int) bool {
@@ -88,6 +89,8 @@ func getActionTypeAsString(action int) string {
 		return util.I18nActionTypeUserInactivityCheck
 	case ActionTypeIDPAccountCheck:
 		return util.I18nActionTypeIDPCheck
+	case ActionTypeRotateLogs:
+		return util.I18nActionTypeRotateLogs
 	default:
 		return util.I18nActionTypeCommand
 	}

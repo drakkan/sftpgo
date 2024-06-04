@@ -5008,6 +5008,7 @@ components:
         - 12
         - 13
         - 14
+        - 15
       description: |
         Supported event action types:
           * `1` - HTTP
@@ -5023,6 +5024,7 @@ components:
           * `12` - User expiration check
           * `13` - Identity Provider account check
           * `14` - User inactivity check
+          * `15` - Rotate log file
     FilesystemActionTypes:
       type: integer
       enum:

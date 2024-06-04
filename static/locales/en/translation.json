@@ -1007,6 +1007,7 @@
             "user_expiration_check": "User expiration check",
             "user_inactivity_check": "User inactivity check",
             "idp_check": "Identity Provider account check",
+            "rotate_logs": "Rotate log file",
             "command": "Command"
         },
         "fs_types": {
