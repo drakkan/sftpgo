@@ -4442,7 +4442,7 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 		// preserve TOTP config and recovery codes
 		user.Filters.TOTPConfig = u.Filters.TOTPConfig
 		user.Filters.RecoveryCodes = u.Filters.RecoveryCodes
-		err = provider.updateUser(&user)
+		user, err = updateUserAfterExternalAuth(&user)
 		if err == nil {
 			if protocol != protocolWebDAV {
 				webDAVUsersCache.swap(&user, password)
@@ -4514,7 +4514,7 @@ func doPluginAuth(username, password string, pubKey []byte, ip, protocol string,
 		// preserve TOTP config and recovery codes
 		user.Filters.TOTPConfig = u.Filters.TOTPConfig
 		user.Filters.RecoveryCodes = u.Filters.RecoveryCodes
-		err = provider.updateUser(&user)
+		user, err = updateUserAfterExternalAuth(&user)
 		if err == nil {
 			if protocol != protocolWebDAV {
 				webDAVUsersCache.swap(&user, password)
@@ -4526,6 +4526,13 @@ func doPluginAuth(username, password string, pubKey []byte, ip, protocol string,
 	err = provider.addUser(&user)
 	if err != nil {
 		return user, err
+	}
+	return provider.userExists(user.Username, "")
+}
+
+func updateUserAfterExternalAuth(user *User) (User, error) {
+	if err := provider.updateUser(user); err != nil {
+		return *user, err
 	}
 	return provider.userExists(user.Username, "")
 }
