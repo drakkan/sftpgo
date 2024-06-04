@@ -274,6 +274,7 @@ const (
 	I18nActionTypeUserInactivityCheck  = "actions.types.user_inactivity_check"
 	I18nActionTypeIDPCheck             = "actions.types.idp_check"
 	I18nActionTypeCommand              = "actions.types.command"
+	I18nActionTypeRotateLogs           = "actions.types.rotate_logs"
 	I18nActionFsTypeRename             = "actions.fs_types.rename"
 	I18nActionFsTypeDelete             = "actions.fs_types.delete"
 	I18nActionFsTypePathExists         = "actions.fs_types.path_exists"

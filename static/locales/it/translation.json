@@ -1007,6 +1007,7 @@
             "user_expiration_check": "Controllo utenti scaduti",
             "user_inactivity_check": "Controllo inattività utente",
             "idp_check": "Controllo account Identity Provider",
+            "rotate_logs": "Rotazione file di log",
             "command": "Comando"
         },
         "fs_types": {

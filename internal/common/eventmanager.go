@@ -2551,7 +2551,7 @@ func executeUserCheckAction(c *dataprovider.EventActionIDPAccountCheck, params *
 	return &u, err
 }
 
-func executeRuleAction(action dataprovider.BaseEventAction, params *EventParams,
+func executeRuleAction(action dataprovider.BaseEventAction, params *EventParams, //nolint:gocyclo
 	conditions dataprovider.ConditionOptions,
 ) error {
 	var err error
@@ -2585,6 +2585,8 @@ func executeRuleAction(action dataprovider.BaseEventAction, params *EventParams,
 		err = executeUserExpirationCheckRuleAction(conditions, params)
 	case dataprovider.ActionTypeUserInactivityCheck:
 		err = executeUserInactivityCheckRuleAction(action.Options.UserInactivityConfig, conditions, params, time.Now())
+	case dataprovider.ActionTypeRotateLogs:
+		err = logger.RotateLogFile()
 	default:
 		err = fmt.Errorf("unsupported action type: %d", action.Type)
 	}
