@@ -17,7 +17,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -31,21 +30,23 @@ var (
 		Short: "Start the SFTPGo Windows Service",
 		Run: func(_ *cobra.Command, _ []string) {
 			configDir = util.CleanDirInput(configDir)
-			if !filepath.IsAbs(logFilePath) && util.IsFileInputValid(logFilePath) {
-				logFilePath = filepath.Join(configDir, logFilePath)
-			}
+			checkServeParamsFromEnvFiles(configDir)
 			service.SetGraceTime(graceTime)
 			s := service.Service{
-				ConfigDir:     configDir,
-				ConfigFile:    configFile,
-				LogFilePath:   logFilePath,
-				LogMaxSize:    logMaxSize,
-				LogMaxBackups: logMaxBackups,
-				LogMaxAge:     logMaxAge,
-				LogCompress:   logCompress,
-				LogLevel:      logLevel,
-				LogUTCTime:    logUTCTime,
-				Shutdown:      make(chan bool),
+				ConfigDir:         configDir,
+				ConfigFile:        configFile,
+				LogFilePath:       logFilePath,
+				LogMaxSize:        logMaxSize,
+				LogMaxBackups:     logMaxBackups,
+				LogMaxAge:         logMaxAge,
+				LogCompress:       logCompress,
+				LogLevel:          logLevel,
+				LogUTCTime:        logUTCTime,
+				LoadDataFrom:      loadDataFrom,
+				LoadDataMode:      loadDataMode,
+				LoadDataQuotaScan: loadDataQuotaScan,
+				LoadDataClean:     loadDataClean,
+				Shutdown:          make(chan bool),
 			}
 			winService := service.WindowsService{
 				Service: s,
