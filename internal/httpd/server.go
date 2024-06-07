@@ -120,7 +120,7 @@ func (s *httpdServer) listenAndServe() error {
 		httpServer.TLSConfig = config
 		logger.Debug(logSender, "", "configured TLS cipher suites for binding %q: %v, certID: %v",
 			s.binding.GetAddress(), httpServer.TLSConfig.CipherSuites, certID)
-		if s.binding.ClientAuthType == 1 {
+		if s.binding.isMutualTLSEnabled() {
 			httpServer.TLSConfig.ClientCAs = certMgr.GetRootCAs()
 			httpServer.TLSConfig.ClientAuth = tls.RequireAndVerifyClientCert
 			httpServer.TLSConfig.VerifyConnection = s.verifyTLSConnection

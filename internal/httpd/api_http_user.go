@@ -531,6 +531,7 @@ func changeUserPassword(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
+	invalidateToken(r)
 	sendAPIResponse(w, r, err, "Password updated", http.StatusOK)
 }
 

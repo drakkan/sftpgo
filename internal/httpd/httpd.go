@@ -664,6 +664,10 @@ func (b *Binding) showClientLoginURL() bool {
 	return true
 }
 
+func (b *Binding) isMutualTLSEnabled() bool {
+	return b.ClientAuthType == 1
+}
+
 type defenderStatus struct {
 	IsActive bool `json:"is_active"`
 }
