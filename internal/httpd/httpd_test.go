@@ -11372,11 +11372,17 @@ func TestWebAPIChangeUserPwdMock(t *testing.T) {
 	assert.NoError(t, err)
 	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
-	// invalid json
-	req, err := http.NewRequest(http.MethodPut, userPwdPath, bytes.NewBuffer([]byte("{")))
+
+	req, err := http.NewRequest(http.MethodGet, userProfilePath, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, token)
 	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// invalid json
+	req, err = http.NewRequest(http.MethodPut, userPwdPath, bytes.NewBuffer([]byte("{")))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
 
 	pwd := make(map[string]string)
@@ -11399,6 +11405,13 @@ func TestWebAPIChangeUserPwdMock(t *testing.T) {
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodGet, userProfilePath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusUnauthorized, rr)
+
 	_, err = getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.Error(t, err)
 	token, err = getJWTAPIUserTokenFromTestServer(defaultUsername, altAdminPassword)
@@ -11548,6 +11561,12 @@ func TestChangeAdminPwdMock(t *testing.T) {
 	setBearerForReq(req, altToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
+	// try using the old token
+	req, err = http.NewRequest(http.MethodGet, versionPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, altToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusUnauthorized, rr)
 
 	_, err = getJWTAPITokenFromTestServer(altAdminUsername, altAdminPassword)
 	assert.Error(t, err)
@@ -13598,6 +13617,13 @@ func TestWebClientChangePwd(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusFound, rr)
 	assert.Equal(t, webClientLoginPath, rr.Header().Get("Location"))
+
+	req, err = http.NewRequest(http.MethodGet, webClientPingPath, nil)
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusFound, rr)
 
 	_, err = getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.Error(t, err)
@@ -18849,6 +18875,12 @@ func TestWebAdminLoginMock(t *testing.T) {
 	checkResponseCode(t, http.StatusFound, rr)
 	cookie := rr.Header().Get("Cookie")
 	assert.Empty(t, cookie)
+
+	req, _ = http.NewRequest(http.MethodGet, webStatusPath, nil)
+	req.RemoteAddr = defaultRemoteAddr
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusFound, rr)
 
 	req, _ = http.NewRequest(http.MethodGet, logoutPath, nil)
 	setBearerForReq(req, apiToken)
