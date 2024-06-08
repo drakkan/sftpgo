@@ -66,7 +66,7 @@ const (
 
 var (
 	tokenDuration      = 20 * time.Minute
-	shareTokenDuration = 12 * time.Hour
+	shareTokenDuration = 2 * time.Hour
 	// csrf token duration is greater than normal token duration to reduce issues
 	// with the login form
 	csrfTokenDuration     = 6 * time.Hour
