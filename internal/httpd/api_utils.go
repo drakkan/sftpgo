@@ -36,6 +36,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
 	"github.com/klauspost/compress/zip"
+	"github.com/rs/xid"
 	"github.com/sftpgo/sdk/plugin/notifier"
 
 	"github.com/drakkan/sftpgo/v2/internal/common"
@@ -748,6 +749,31 @@ func checkHTTPClientUser(user *dataprovider.User, r *http.Request, connectionID 
 	return nil
 }
 
+func getActiveAdmin(username, ipAddr string) (dataprovider.Admin, error) {
+	admin, err := dataprovider.AdminExists(username)
+	if err != nil {
+		return admin, err
+	}
+	if err := admin.CanLogin(ipAddr); err != nil {
+		return admin, util.NewRecordNotFoundError(fmt.Sprintf("admin %q cannot login: %v", username, err))
+	}
+	return admin, nil
+}
+
+func getActiveUser(username string, r *http.Request) (dataprovider.User, error) {
+	user, err := dataprovider.GetUserWithGroupSettings(username, "")
+	if err != nil {
+		return user, err
+	}
+	if err := user.CheckLoginConditions(); err != nil {
+		return user, util.NewRecordNotFoundError(fmt.Sprintf("user %q cannot login: %v", username, err))
+	}
+	if err := checkHTTPClientUser(&user, r, xid.New().String(), false); err != nil {
+		return user, util.NewRecordNotFoundError(fmt.Sprintf("user %q cannot login: %v", username, err))
+	}
+	return user, nil
+}
+
 func handleForgotPassword(r *http.Request, username string, isAdmin bool) error {
 	var email, subject string
 	var err error
@@ -758,11 +784,11 @@ func handleForgotPassword(r *http.Request, username string, isAdmin bool) error 
 		return util.NewI18nError(util.NewValidationError("username is mandatory"), util.I18nErrorUsernameRequired)
 	}
 	if isAdmin {
-		admin, err = dataprovider.AdminExists(username)
+		admin, err = getActiveAdmin(username, util.GetIPFromRemoteAddress(r.RemoteAddr))
 		email = admin.Email
 		subject = fmt.Sprintf("Email Verification Code for admin %q", username)
 	} else {
-		user, err = dataprovider.GetUserWithGroupSettings(username, "")
+		user, err = getActiveUser(username, r)
 		email = user.Email
 		subject = fmt.Sprintf("Email Verification Code for user %q", username)
 		if err == nil {
@@ -777,8 +803,9 @@ func handleForgotPassword(r *http.Request, username string, isAdmin bool) error 
 	if err != nil {
 		if errors.Is(err, util.ErrNotFound) {
 			handleDefenderEventLoginFailed(util.GetIPFromRemoteAddress(r.RemoteAddr), err) //nolint:errcheck
-			logger.Debug(logSender, middleware.GetReqID(r.Context()), "username %q does not exists, reset password request silently ignored, is admin? %v",
-				username, isAdmin)
+			logger.Debug(logSender, middleware.GetReqID(r.Context()),
+				"username %q does not exists or cannot login, reset password request silently ignored, is admin? %t, err: %v",
+				username, isAdmin, err)
 			return nil
 		}
 		return util.NewI18nError(util.NewGenericError("Error retrieving your account, please try again later"), util.I18nErrorGetUser)
@@ -838,7 +865,7 @@ func handleResetPassword(r *http.Request, code, newPassword, confirmPassword str
 		return &admin, &user, util.NewValidationError("invalid confirmation code")
 	}
 	if isAdmin {
-		admin, err = dataprovider.AdminExists(resetCode.Username)
+		admin, err = getActiveAdmin(resetCode.Username, ipAddr)
 		if err != nil {
 			return &admin, &user, util.NewValidationError("unable to associate the confirmation code with an existing admin")
 		}
@@ -851,7 +878,7 @@ func handleResetPassword(r *http.Request, code, newPassword, confirmPassword str
 		err = resetCodesMgr.Delete(code)
 		return &admin, &user, err
 	}
-	user, err = dataprovider.GetUserWithGroupSettings(resetCode.Username, "")
+	user, err = getActiveUser(resetCode.Username, r)
 	if err != nil {
 		return &admin, &user, util.NewValidationError("Unable to associate the confirmation code with an existing user")
 	}

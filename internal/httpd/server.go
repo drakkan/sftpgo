@@ -308,7 +308,7 @@ func (s *httpdServer) handleWebClientPasswordResetPost(w http.ResponseWriter, r 
 	}
 	connectionID := fmt.Sprintf("%v_%v", getProtocolFromRequest(r), xid.New().String())
 	if err := checkHTTPClientUser(user, r, connectionID, true); err != nil {
-		s.renderClientResetPwdPage(w, r, util.NewI18nError(err, util.I18nErrorDirList403))
+		s.renderClientResetPwdPage(w, r, util.NewI18nError(err, util.I18nErrorLoginAfterReset))
 		return
 	}
 
