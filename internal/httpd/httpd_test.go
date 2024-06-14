@@ -3289,32 +3289,44 @@ func TestLoginRedirectNext(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Contains(t, rr.Body.String(), fmt.Sprintf("action=%q", redirectURI))
 	// now login the user and check the redirect
-	csrfToken, err := getCSRFTokenMock(webClientLoginPath, defaultRemoteAddr)
+	loginCookie, csrfToken, err := getCSRFTokenMock(webClientLoginPath, defaultRemoteAddr)
 	assert.NoError(t, err)
+	assert.NotEmpty(t, loginCookie)
 	form := getLoginForm(defaultUsername, defaultPassword, csrfToken)
 	req, err = http.NewRequest(http.MethodPost, redirectURI, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
 	req.RequestURI = redirectURI
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusFound, rr)
 	assert.Equal(t, uri, rr.Header().Get("Location"))
 	// unsafe URI
+	loginCookie, csrfToken, err = getCSRFTokenMock(webClientLoginPath, defaultRemoteAddr)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, loginCookie)
+	form = getLoginForm(defaultUsername, defaultPassword, csrfToken)
 	unsafeURI := webClientLoginPath + "?next=" + url.QueryEscape("http://example.net")
 	req, err = http.NewRequest(http.MethodPost, unsafeURI, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
 	req.RequestURI = unsafeURI
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusFound, rr)
 	assert.Equal(t, webClientFilesPath, rr.Header().Get("Location"))
+	loginCookie, csrfToken, err = getCSRFTokenMock(webClientLoginPath, defaultRemoteAddr)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, loginCookie)
+	form = getLoginForm(defaultUsername, defaultPassword, csrfToken)
 	unsupportedURI := webClientLoginPath + "?next=" + url.QueryEscape(webClientProfilePath)
 	req, err = http.NewRequest(http.MethodPost, unsupportedURI, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
 	req.RequestURI = unsupportedURI
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusFound, rr)
@@ -3397,7 +3409,7 @@ func TestMustChangePasswordRequirement(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
 
-	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webChangeClientPwdPath, webToken)
 	assert.NoError(t, err)
 	form := make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
@@ -3682,9 +3694,10 @@ func TestAdminMustChangePasswordRequirement(t *testing.T) {
 	setJWTCookieForReq(req, webToken)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
-
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	// The change password page should be accessible, we get the CSRF from it.
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webChangeAdminPwdPath, webToken)
 	assert.NoError(t, err)
+
 	form := make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("current_password", defaultTokenAuthPass)
@@ -6822,9 +6835,9 @@ func TestNamingRules(t *testing.T) {
 		return
 	}
 
-	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
-	assert.NoError(t, err)
 	token, err = getJWTWebClientTokenFromTestServer(user.Username, defaultPassword)
+	assert.NoError(t, err)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webClientProfilePath, token)
 	assert.NoError(t, err)
 	form := make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
@@ -6836,6 +6849,8 @@ func TestNamingRules(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidUser)
 	// test user reset password. Setting the new password will fail because the username is not valid
+	loginCookie, csrfToken, err := getCSRFTokenMock(webClientLoginPath, defaultRemoteAddr)
+	assert.NoError(t, err)
 	form = make(url.Values)
 	form.Set("username", user.Username)
 	form.Set(csrfFormToken, csrfToken)
@@ -6843,6 +6858,7 @@ func TestNamingRules(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -6855,6 +6871,7 @@ func TestNamingRules(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -6896,7 +6913,7 @@ func TestNamingRules(t *testing.T) {
 
 	token, err = getJWTWebTokenFromTestServer(admin.Username, defaultTokenAuthPass)
 	assert.NoError(t, err)
-	csrfToken, err = getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err = getCSRFTokenFromInternalPageMock(webAdminProfilePath, token)
 	assert.NoError(t, err)
 	form = make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
@@ -6927,6 +6944,8 @@ func TestNamingRules(t *testing.T) {
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), "the following characters are allowed")
 	// test admin reset password
+	loginCookie, csrfToken, err = getCSRFTokenMock(webLoginPath, defaultRemoteAddr)
+	assert.NoError(t, err)
 	form = make(url.Values)
 	form.Set("username", admin.Username)
 	form.Set(csrfFormToken, csrfToken)
@@ -6934,10 +6953,13 @@ func TestNamingRules(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webAdminForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
 	assert.GreaterOrEqual(t, len(lastResetCode), 20)
+	loginCookie, csrfToken, err = getCSRFTokenMock(webLoginPath, defaultRemoteAddr)
+	assert.NoError(t, err)
 	form = make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("code", lastResetCode)
@@ -6946,6 +6968,7 @@ func TestNamingRules(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webAdminResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -7097,12 +7120,13 @@ func TestSaveErrors(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Contains(t, string(resp), "the following characters are allowed")
 
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	loginCookie, csrfToken, err := getCSRFTokenMock(webLoginPath, defaultRemoteAddr)
 	assert.NoError(t, err)
 	form := getLoginForm(a.Username, a.Password, csrfToken)
 	req, err := http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr := executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -7110,6 +7134,8 @@ func TestSaveErrors(t *testing.T) {
 	cookie, err := getCookieFromResponse(rr)
 	assert.NoError(t, err)
 
+	csrfToken, err = getCSRFTokenFromInternalPageMock(webAdminTwoFactorRecoveryPath, cookie)
+	assert.NoError(t, err)
 	form = make(url.Values)
 	form.Set("recovery_code", recCode)
 	form.Set(csrfFormToken, csrfToken)
@@ -7122,12 +7148,13 @@ func TestSaveErrors(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), util.I18nError500Message)
 
-	csrfToken, err = getCSRFToken(httpBaseURL + webClientLoginPath)
+	loginCookie, csrfToken, err = getCSRFTokenMock(webLoginPath, defaultRemoteAddr)
 	assert.NoError(t, err)
 	form = getLoginForm(u.Username, u.Password, csrfToken)
 	req, err = http.NewRequest(http.MethodPost, webClientLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -7135,6 +7162,8 @@ func TestSaveErrors(t *testing.T) {
 	cookie, err = getCookieFromResponse(rr)
 	assert.NoError(t, err)
 
+	csrfToken, err = getCSRFTokenFromInternalPageMock(webClientTwoFactorRecoveryPath, cookie)
+	assert.NoError(t, err)
 	form = make(url.Values)
 	form.Set("recovery_code", recCode)
 	form.Set(csrfFormToken, csrfToken)
@@ -7277,7 +7306,7 @@ func TestProviderErrors(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr)
 	// password reset errors
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	loginCookie, csrfToken, err := getCSRFTokenMock(webLoginPath, defaultRemoteAddr)
 	assert.NoError(t, err)
 	form := make(url.Values)
 	form.Set("username", "username")
@@ -7285,6 +7314,7 @@ func TestProviderErrors(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -9271,12 +9301,13 @@ func TestAdminTwoFactorLogin(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
 
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	loginCookie, csrfToken, err := getCSRFTokenMock(webLoginPath, defaultRemoteAddr)
 	assert.NoError(t, err)
 	form := getLoginForm(altAdminUsername, altAdminPassword, csrfToken)
 	req, err = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -9331,6 +9362,8 @@ func TestAdminTwoFactorLogin(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCSRF)
 
+	csrfToken, err = getCSRFTokenFromInternalPageMock(webAdminTwoFactorRecoveryPath, cookie)
+	assert.NoError(t, err)
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("passcode", "invalid_passcode")
 	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
@@ -9369,10 +9402,13 @@ func TestAdminTwoFactorLogin(t *testing.T) {
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusNotFound, rr.Code)
 	// get a new cookie and login using a recovery code
+	loginCookie, csrfToken, err = getCSRFTokenMock(webLoginPath, defaultRemoteAddr)
+	assert.NoError(t, err)
 	form = getLoginForm(altAdminUsername, altAdminPassword, csrfToken)
 	req, err = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -9393,6 +9429,8 @@ func TestAdminTwoFactorLogin(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCSRF)
 
+	csrfToken, err = getCSRFTokenFromInternalPageMock(webAdminTwoFactorRecoveryPath, cookie)
+	assert.NoError(t, err)
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("recovery_code", "")
 	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
@@ -9443,15 +9481,20 @@ func TestAdminTwoFactorLogin(t *testing.T) {
 	}
 	assert.True(t, found)
 	// the same recovery code cannot be reused
+	loginCookie, csrfToken, err = getCSRFTokenMock(webLoginPath, defaultRemoteAddr)
+	assert.NoError(t, err)
 	form = getLoginForm(altAdminUsername, altAdminPassword, csrfToken)
 	req, err = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
 	assert.Equal(t, webAdminTwoFactorPath, rr.Header().Get("Location"))
 	cookie, err = getCookieFromResponse(rr)
+	assert.NoError(t, err)
+	csrfToken, err = getCSRFTokenFromInternalPageMock(webAdminTwoFactorRecoveryPath, cookie)
 	assert.NoError(t, err)
 	form = make(url.Values)
 	form.Set("recovery_code", recoveryCode)
@@ -9475,10 +9518,21 @@ func TestAdminTwoFactorLogin(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCredentials)
 
+	loginCookie, csrfToken, err = getCSRFTokenMock(webLoginPath, defaultRemoteAddr)
+	assert.NoError(t, err)
 	form = getLoginForm(altAdminUsername, altAdminPassword, csrfToken)
 	req, err = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCSRF)
+
+	req, err = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -9508,6 +9562,8 @@ func TestAdminTwoFactorLogin(t *testing.T) {
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), "two-factor authentication is not enabled")
 
+	csrfToken, err = getCSRFTokenFromInternalPageMock(webAdminTwoFactorRecoveryPath, cookie)
+	assert.NoError(t, err)
 	form = make(url.Values)
 	form.Set("recovery_code", recoveryCode)
 	form.Set(csrfFormToken, csrfToken)
@@ -9781,7 +9837,7 @@ func TestSMTPConfig(t *testing.T) {
 	tokenHeader := "X-CSRF-TOKEN"
 	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webConfigsPath, webToken)
 	assert.NoError(t, err)
 	req, err := http.NewRequest(http.MethodPost, smtpTestURL, bytes.NewBuffer([]byte("{")))
 	assert.NoError(t, err)
@@ -9865,7 +9921,7 @@ func TestOAuth2TokenRequest(t *testing.T) {
 	tokenHeader := "X-CSRF-TOKEN"
 	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webConfigsPath, webToken)
 	assert.NoError(t, err)
 	req, err := http.NewRequest(http.MethodPost, webOAuth2TokenPath, bytes.NewBuffer([]byte("{")))
 	assert.NoError(t, err)
@@ -10006,12 +10062,22 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
 
-	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
+	loginCookie, csrfToken, err := getCSRFTokenMock(webClientLoginPath, defaultRemoteAddr)
 	assert.NoError(t, err)
 	form := getLoginForm(defaultUsername, defaultPassword, csrfToken)
+	// CSRF verification fails if there is no cookie
 	req, err = http.NewRequest(http.MethodPost, webClientLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCSRF)
+
+	req, err = http.NewRequest(http.MethodPost, webClientLoginPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -10028,6 +10094,13 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	// without a cookie
 	req, err = http.NewRequest(http.MethodGet, webClientTwoFactorPath, nil)
 	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+	// invalid IP address
+	req, err = http.NewRequest(http.MethodGet, webClientTwoFactorPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	req.RemoteAddr = "6.7.8.9:4567"
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
 
@@ -10065,6 +10138,8 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCSRF)
 
+	csrfToken, err = getCSRFTokenFromInternalPageMock(webClientTwoFactorPath, cookie)
+	assert.NoError(t, err)
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("passcode", "invalid_user_passcode")
 	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
@@ -10104,10 +10179,13 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusNotFound, rr.Code)
 	// get a new cookie and login using a recovery code
+	loginCookie, csrfToken, err = getCSRFTokenMock(webClientLoginPath, defaultRemoteAddr)
+	assert.NoError(t, err)
 	form = getLoginForm(defaultUsername, defaultPassword, csrfToken)
 	req, err = http.NewRequest(http.MethodPost, webClientLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -10127,6 +10205,8 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCSRF)
 
+	csrfToken, err = getCSRFTokenFromInternalPageMock(webClientTwoFactorRecoveryPath, cookie)
+	assert.NoError(t, err)
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("recovery_code", "")
 	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
@@ -10192,15 +10272,21 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	}
 	assert.True(t, found)
 	// the same recovery code cannot be reused
+	loginCookie, csrfToken, err = getCSRFTokenMock(webLoginPath, defaultRemoteAddr)
+	assert.NoError(t, err)
 	form = getLoginForm(defaultUsername, defaultPassword, csrfToken)
 	req, err = http.NewRequest(http.MethodPost, webClientLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
 	assert.Equal(t, webClientTwoFactorPath, rr.Header().Get("Location"))
 	cookie, err = getCookieFromResponse(rr)
+	assert.NoError(t, err)
+
+	csrfToken, err = getCSRFTokenFromInternalPageMock(webClientTwoFactorRecoveryPath, cookie)
 	assert.NoError(t, err)
 	form = make(url.Values)
 	form.Set("recovery_code", recoveryCode)
@@ -10224,10 +10310,13 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCredentials)
 
+	loginCookie, csrfToken, err = getCSRFTokenMock(webLoginPath, defaultRemoteAddr)
+	assert.NoError(t, err)
 	form = getLoginForm(defaultUsername, defaultPassword, csrfToken)
 	req, err = http.NewRequest(http.MethodPost, webClientLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -10249,11 +10338,12 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), "two-factor authentication is not enabled")
 
+	csrfToken, err = getCSRFTokenFromInternalPageMock(webClientTwoFactorRecoveryPath, cookie)
+	assert.NoError(t, err)
 	form = make(url.Values)
 	form.Set("recovery_code", recoveryCode)
 	form.Set("passcode", passcode)
 	form.Set(csrfFormToken, csrfToken)
-
 	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, cookie)
@@ -10325,7 +10415,7 @@ func TestWebUserTwoFactoryLoginRedirect(t *testing.T) {
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 
-	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
+	loginCookie, csrfToken, err := getCSRFTokenMock(webLoginPath, defaultRemoteAddr)
 	assert.NoError(t, err)
 	form := getLoginForm(defaultUsername, defaultPassword, csrfToken)
 	uri := webClientFilesPath + "?path=%2F"
@@ -10335,6 +10425,7 @@ func TestWebUserTwoFactoryLoginRedirect(t *testing.T) {
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
 	req.RequestURI = loginURI
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -10342,20 +10433,29 @@ func TestWebUserTwoFactoryLoginRedirect(t *testing.T) {
 	cookie, err := getCookieFromResponse(rr)
 	assert.NoError(t, err)
 	// test unsafe redirects
+	loginCookie, csrfToken, err = getCSRFTokenMock(webLoginPath, defaultRemoteAddr)
+	assert.NoError(t, err)
+	form = getLoginForm(defaultUsername, defaultPassword, csrfToken)
 	externalURI := webClientLoginPath + "?next=" + url.QueryEscape("https://example.com")
 	req, err = http.NewRequest(http.MethodPost, externalURI, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
 	req.RequestURI = externalURI
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
 	assert.Equal(t, webClientTwoFactorPath, rr.Header().Get("Location"))
+
+	loginCookie, csrfToken, err = getCSRFTokenMock(webLoginPath, defaultRemoteAddr)
+	assert.NoError(t, err)
+	form = getLoginForm(defaultUsername, defaultPassword, csrfToken)
 	internalURI := webClientLoginPath + "?next=" + url.QueryEscape(webClientMFAPath)
 	req, err = http.NewRequest(http.MethodPost, internalURI, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
 	req.RequestURI = internalURI
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -10369,6 +10469,8 @@ func TestWebUserTwoFactoryLoginRedirect(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Contains(t, rr.Body.String(), fmt.Sprintf("action=%q", expectedURI))
 	// login with the passcode
+	csrfToken, err = getCSRFTokenFromInternalPageMock(expectedURI, cookie)
+	assert.NoError(t, err)
 	passcode, err := generateTOTPPasscode(key.Secret())
 	assert.NoError(t, err)
 	form = make(url.Values)
@@ -10800,17 +10902,21 @@ func TestMFAInvalidSecret(t *testing.T) {
 	checkResponseCode(t, http.StatusInternalServerError, rr)
 	assert.Contains(t, rr.Body.String(), "Unable to decrypt recovery codes")
 
-	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
+	loginCookie, csrfToken, err := getCSRFTokenMock(webLoginPath, defaultRemoteAddr)
 	assert.NoError(t, err)
 	form := getLoginForm(defaultUsername, defaultPassword, csrfToken)
 	req, err = http.NewRequest(http.MethodPost, webClientLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
 	assert.Equal(t, webClientTwoFactorPath, rr.Header().Get("Location"))
 	cookie, err := getCookieFromResponse(rr)
+	assert.NoError(t, err)
+
+	csrfToken, err = getCSRFTokenFromInternalPageMock(webClientTwoFactorPath, cookie)
 	assert.NoError(t, err)
 	form = make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
@@ -10823,6 +10929,8 @@ func TestMFAInvalidSecret(t *testing.T) {
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
 
+	csrfToken, err = getCSRFTokenFromInternalPageMock(webClientTwoFactorRecoveryPath, cookie)
+	assert.NoError(t, err)
 	form = make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("recovery_code", "RC-123456")
@@ -10868,17 +10976,21 @@ func TestMFAInvalidSecret(t *testing.T) {
 	err = dataprovider.UpdateAdmin(&admin, "", "", "")
 	assert.NoError(t, err)
 
-	csrfToken, err = getCSRFToken(httpBaseURL + webLoginPath)
+	loginCookie, csrfToken, err = getCSRFTokenMock(webLoginPath, defaultRemoteAddr)
 	assert.NoError(t, err)
 	form = getLoginForm(altAdminUsername, altAdminPassword, csrfToken)
 	req, err = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
 	assert.Equal(t, webAdminTwoFactorPath, rr.Header().Get("Location"))
 	cookie, err = getCookieFromResponse(rr)
+	assert.NoError(t, err)
+
+	csrfToken, err = getCSRFTokenFromInternalPageMock(webAdminTwoFactorRecoveryPath, cookie)
 	assert.NoError(t, err)
 	form = make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
@@ -10891,6 +11003,8 @@ func TestMFAInvalidSecret(t *testing.T) {
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
 
+	csrfToken, err = getCSRFTokenFromInternalPageMock(webAdminTwoFactorRecoveryPath, cookie)
+	assert.NoError(t, err)
 	form = make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("recovery_code", "RC-123456")
@@ -12744,8 +12858,6 @@ func TestWebClientLoginMock(t *testing.T) {
 	assert.NoError(t, err)
 	webToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
-	assert.NoError(t, err)
 	// a web token is not valid for API or WebAdmin usage
 	req, _ := http.NewRequest(http.MethodGet, serverStatusPath, nil)
 	setBearerForReq(req, webToken)
@@ -12806,6 +12918,8 @@ func TestWebClientLoginMock(t *testing.T) {
 	webToken, err = getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
 	apiUserToken, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webClientProfilePath, webToken)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -13125,7 +13239,7 @@ func TestMaxSessions(t *testing.T) {
 	checkResponseCode(t, http.StatusTooManyRequests, rr)
 	assert.Contains(t, rr.Body.String(), "too many open sessions")
 	// web client requests
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webClientProfilePath, webToken)
 	assert.NoError(t, err)
 	form := make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
@@ -13177,6 +13291,8 @@ func TestMaxSessions(t *testing.T) {
 	err = smtpCfg.Initialize(configDir, true)
 	assert.NoError(t, err)
 
+	loginCookie, csrfToken, err := getCSRFTokenMock(webClientLoginPath, defaultRemoteAddr)
+	assert.NoError(t, err)
 	form = make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("username", user.Username)
@@ -13184,10 +13300,14 @@ func TestMaxSessions(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
 	assert.GreaterOrEqual(t, len(lastResetCode), 20)
+
+	loginCookie, csrfToken, err = getCSRFTokenMock(webLoginPath, defaultRemoteAddr)
+	assert.NoError(t, err)
 	form = make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("password", defaultPassword)
@@ -13196,6 +13316,7 @@ func TestMaxSessions(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -13222,8 +13343,6 @@ func TestWebConfigsMock(t *testing.T) {
 	assert.NoError(t, err)
 	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
-	assert.NoError(t, err)
 
 	req, err := http.NewRequest(http.MethodGet, webConfigsPath, nil)
 	assert.NoError(t, err)
@@ -13239,6 +13358,8 @@ func TestWebConfigsMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
 	// parse form error
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webConfigsPath, webToken)
+	assert.NoError(t, err)
 	form.Set(csrfFormToken, csrfToken)
 	req, err = http.NewRequest(http.MethodPost, webConfigsPath+"?p=p%C3%AO%GH", bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
@@ -13483,7 +13604,7 @@ func TestSFTPLoopError(t *testing.T) {
 	err = smtpCfg.Initialize(configDir, true)
 	assert.NoError(t, err)
 
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	loginCookie, csrfToken, err := getCSRFTokenMock(webLoginPath, defaultRemoteAddr)
 	assert.NoError(t, err)
 	form := make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
@@ -13492,10 +13613,14 @@ func TestSFTPLoopError(t *testing.T) {
 	req, err := http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr := executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
 	assert.GreaterOrEqual(t, len(lastResetCode), 20)
+
+	loginCookie, csrfToken, err = getCSRFTokenMock(webLoginPath, defaultRemoteAddr)
+	assert.NoError(t, err)
 	form = make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("password", defaultPassword)
@@ -13504,6 +13629,7 @@ func TestSFTPLoopError(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -13563,8 +13689,6 @@ func TestWebClientChangePwd(t *testing.T) {
 	assert.NoError(t, err)
 	webToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
-	assert.NoError(t, err)
 
 	req, err := http.NewRequest(http.MethodGet, webChangeClientPwdPath, nil)
 	assert.NoError(t, err)
@@ -13587,6 +13711,8 @@ func TestWebClientChangePwd(t *testing.T) {
 	checkResponseCode(t, http.StatusForbidden, rr)
 	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCSRF)
 
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webChangeClientPwdPath, webToken)
+	assert.NoError(t, err)
 	form.Set(csrfFormToken, csrfToken)
 	req, _ = http.NewRequest(http.MethodPost, webChangeClientPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	req.RemoteAddr = defaultRemoteAddr
@@ -13641,6 +13767,9 @@ func TestWebClientChangePwd(t *testing.T) {
 
 	webToken, err = getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword+"1")
 	assert.NoError(t, err)
+	csrfToken, err = getCSRFTokenFromInternalPageMock(webClientProfilePath, webToken)
+	assert.NoError(t, err)
+	form.Set(csrfFormToken, csrfToken)
 	form.Set("current_password", defaultPassword+"1")
 	form.Set("new_password1", defaultPassword)
 	form.Set("new_password2", defaultPassword)
@@ -14085,8 +14214,6 @@ func TestShareMaxExpiration(t *testing.T) {
 	assert.NoError(t, err)
 	webClientToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
-	assert.NoError(t, err)
 
 	s := dataprovider.Share{
 		Name:      "test share",
@@ -14140,6 +14267,9 @@ func TestShareMaxExpiration(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), "share must expire before")
+
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webClientSharePath, webClientToken)
+	assert.NoError(t, err)
 	form := make(url.Values)
 	form.Set("name", s.Name)
 	form.Set("scope", strconv.Itoa(int(s.Scope)))
@@ -14252,12 +14382,13 @@ func TestWebClientShareCredentials(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCSRF)
 	// set the CSRF token
-	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
+	loginCookie, csrfToken, err := getCSRFTokenMock(loginURI, defaultRemoteAddr)
 	assert.NoError(t, err)
 	form.Set(csrfFormToken, csrfToken)
 	req, err = http.NewRequest(http.MethodPost, loginURI, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -14301,30 +14432,42 @@ func TestWebClientShareCredentials(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusFound, rr)
 	// try to login with invalid credentials
+	loginCookie, csrfToken, err = getCSRFTokenMock(webLoginPath, defaultRemoteAddr)
+	assert.NoError(t, err)
+	form.Set(csrfFormToken, csrfToken)
 	form.Set("share_password", "")
 	req, err = http.NewRequest(http.MethodPost, loginURI, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCredentials)
 	// login with the next param set
+	loginCookie, csrfToken, err = getCSRFTokenMock(webLoginPath, defaultRemoteAddr)
+	assert.NoError(t, err)
+	form.Set(csrfFormToken, csrfToken)
 	form.Set("share_password", defaultPassword)
 	nextURI := path.Join(webClientPubSharesPath, shareReadID, "browse")
 	loginURI = path.Join(webClientPubSharesPath, shareReadID, fmt.Sprintf("login?next=%s", url.QueryEscape(nextURI)))
 	req, err = http.NewRequest(http.MethodPost, loginURI, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusFound, rr)
 	assert.Equal(t, nextURI, rr.Header().Get("Location"))
 	// try to login to a missing share
+	loginCookie, csrfToken, err = getCSRFTokenMock(webLoginPath, defaultRemoteAddr)
+	assert.NoError(t, err)
+	form.Set(csrfFormToken, csrfToken)
 	loginURI = path.Join(webClientPubSharesPath, "missing", "login")
 	req, err = http.NewRequest(http.MethodPost, loginURI, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -15963,7 +16106,7 @@ func TestWebClientExistenceCheck(t *testing.T) {
 
 	webToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webClientProfilePath, webToken)
 	assert.NoError(t, err)
 
 	req, err := http.NewRequest(http.MethodPost, webClientExistPath, nil)
@@ -16322,7 +16465,7 @@ func TestWebGetFiles(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, dirEntries, 1)
 
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webClientProfilePath, webToken)
 	assert.NoError(t, err)
 	form := make(url.Values)
 	form.Set("files", fmt.Sprintf(`["%s","%s","%s"]`, testFileName, testDir, testFileName+extensions[2]))
@@ -16626,7 +16769,8 @@ func TestRenameDifferentResource(t *testing.T) {
 	assert.NoError(t, err)
 	webToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webClientProfilePath, webToken)
+	assert.NoError(t, err)
 
 	getStatusResponse := func(taskID string) int {
 		req, _ := http.NewRequest(http.MethodGet, webClientTasksPath+"/"+url.PathEscape(taskID), nil)
@@ -17380,7 +17524,7 @@ func TestWebClientTasksAPI(t *testing.T) {
 
 	webToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webClientProfilePath, webToken)
 	assert.NoError(t, err)
 	webToken1, err := getJWTWebClientTokenFromTestServer(user1.Username, defaultPassword)
 	assert.NoError(t, err)
@@ -18437,7 +18581,7 @@ func TestCompressionErrorMock(t *testing.T) {
 
 	webToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webClientProfilePath, webToken)
 	assert.NoError(t, err)
 
 	form := make(url.Values)
@@ -18687,12 +18831,13 @@ func TestWebAdminSetupMock(t *testing.T) {
 	checkResponseCode(t, http.StatusFound, rr)
 	assert.Equal(t, webAdminSetupPath, rr.Header().Get("Location"))
 
-	csrfToken, err := getCSRFToken(httpBaseURL + webAdminSetupPath)
+	loginCookie, csrfToken, err := getCSRFTokenMock(webAdminSetupPath, defaultRemoteAddr)
 	assert.NoError(t, err)
 	form := make(url.Values)
 	req, err = http.NewRequest(http.MethodPost, webAdminSetupPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
@@ -18700,6 +18845,7 @@ func TestWebAdminSetupMock(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webAdminSetupPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -18708,6 +18854,7 @@ func TestWebAdminSetupMock(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webAdminSetupPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -18716,6 +18863,7 @@ func TestWebAdminSetupMock(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webAdminSetupPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -18734,6 +18882,7 @@ func TestWebAdminSetupMock(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webAdminSetupPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -18747,6 +18896,7 @@ func TestWebAdminSetupMock(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webAdminSetupPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusFound, rr)
@@ -18898,12 +19048,13 @@ func TestWebAdminLoginMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusFound, rr)
 
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	loginCookie, csrfToken, err := getCSRFTokenMock(webLoginPath, defaultRemoteAddr)
 	assert.NoError(t, err)
 	// now try using wrong password
 	form := getLoginForm(defaultTokenAuthUser, "wrong pwd", csrfToken)
 	req, _ = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -18912,6 +19063,7 @@ func TestWebAdminLoginMock(t *testing.T) {
 	form = getLoginForm("wrong username", defaultTokenAuthPass, csrfToken)
 	req, _ = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -18926,10 +19078,12 @@ func TestWebAdminLoginMock(t *testing.T) {
 	assert.NoError(t, err)
 
 	rAddr := "127.1.1.1:1234"
-	csrfToken, err = getCSRFTokenMock(webLoginPath, rAddr)
+	loginCookie, csrfToken, err = getCSRFTokenMock(webLoginPath, rAddr)
 	assert.NoError(t, err)
+	assert.NotEmpty(t, loginCookie)
 	form = getLoginForm(altAdminUsername, altAdminPassword, csrfToken)
 	req, _ = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.RemoteAddr = rAddr
 	rr = executeRequest(req)
@@ -18937,20 +19091,24 @@ func TestWebAdminLoginMock(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCredentials)
 
 	rAddr = "10.9.9.9:1234"
-	csrfToken, err = getCSRFTokenMock(webLoginPath, rAddr)
+	loginCookie, csrfToken, err = getCSRFTokenMock(webLoginPath, rAddr)
 	assert.NoError(t, err)
+	assert.NotEmpty(t, loginCookie)
 	form = getLoginForm(altAdminUsername, altAdminPassword, csrfToken)
 	req, _ = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.RemoteAddr = rAddr
+	setLoginCookie(req, loginCookie)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusFound, rr)
 
 	rAddr = "127.0.1.1:4567"
-	csrfToken, err = getCSRFTokenMock(webLoginPath, rAddr)
+	loginCookie, csrfToken, err = getCSRFTokenMock(webLoginPath, rAddr)
 	assert.NoError(t, err)
+	assert.NotEmpty(t, loginCookie)
 	form = getLoginForm(altAdminUsername, altAdminPassword, csrfToken)
 	req, _ = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.RemoteAddr = rAddr
 	req.Header.Set("X-Forwarded-For", "10.9.9.9")
@@ -18999,9 +19157,9 @@ func TestWebUserShare(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
 
-	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
-	assert.NoError(t, err)
 	token, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webClientProfilePath, token)
 	assert.NoError(t, err)
 	userAPItoken, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
@@ -19240,9 +19398,9 @@ func TestWebUserShareNoPasswordDisabled(t *testing.T) {
 	user.Filters.DefaultSharesExpiration = 30
 	user, _, err = httpdtest.UpdateUser(u, http.StatusOK, "")
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
-	assert.NoError(t, err)
 	token, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webClientSharePath, token)
 	assert.NoError(t, err)
 	userAPItoken, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
@@ -19324,13 +19482,74 @@ func TestWebUserShareNoPasswordDisabled(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestInvalidCSRF(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+
+	for _, loginURL := range []string{webClientLoginPath, webLoginPath} {
+		// try using an invalid CSRF token
+		loginCookie1, csrfToken1, err := getCSRFTokenMock(loginURL, defaultRemoteAddr)
+		assert.NoError(t, err)
+		assert.NotEmpty(t, loginCookie1)
+		assert.NotEmpty(t, csrfToken1)
+		loginCookie2, csrfToken2, err := getCSRFTokenMock(loginURL, defaultRemoteAddr)
+		assert.NoError(t, err)
+		assert.NotEmpty(t, loginCookie2)
+		assert.NotEmpty(t, csrfToken2)
+		rAddr := "1.2.3.4"
+		loginCookie3, csrfToken3, err := getCSRFTokenMock(loginURL, rAddr)
+		assert.NoError(t, err)
+		assert.NotEmpty(t, loginCookie3)
+		assert.NotEmpty(t, csrfToken3)
+
+		form := getLoginForm(defaultUsername, defaultPassword, csrfToken1)
+		req, err := http.NewRequest(http.MethodPost, loginURL, bytes.NewBuffer([]byte(form.Encode())))
+		assert.NoError(t, err)
+		req.RemoteAddr = defaultRemoteAddr
+		req.RequestURI = loginURL
+		setLoginCookie(req, loginCookie2)
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		rr := executeRequest(req)
+		checkResponseCode(t, http.StatusOK, rr)
+		assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCSRF)
+
+		// use a CSRF token as login cookie (invalid audience)
+		form = getLoginForm(defaultUsername, defaultPassword, csrfToken1)
+		req, err = http.NewRequest(http.MethodPost, loginURL, bytes.NewBuffer([]byte(form.Encode())))
+		assert.NoError(t, err)
+		req.RemoteAddr = defaultRemoteAddr
+		req.RequestURI = loginURL
+		req.Header.Set("Cookie", fmt.Sprintf("jwt=%s", csrfToken1))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		rr = executeRequest(req)
+		checkResponseCode(t, http.StatusOK, rr)
+		assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCSRF)
+		// invalid IP
+		form = getLoginForm(defaultUsername, defaultPassword, csrfToken3)
+		req, err = http.NewRequest(http.MethodPost, loginURL, bytes.NewBuffer([]byte(form.Encode())))
+		assert.NoError(t, err)
+		req.RemoteAddr = defaultRemoteAddr
+		req.RequestURI = loginURL
+		setLoginCookie(req, loginCookie3)
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		rr = executeRequest(req)
+		checkResponseCode(t, http.StatusOK, rr)
+		assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCSRF)
+	}
+
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+}
+
 func TestWebUserProfile(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
 
-	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
-	assert.NoError(t, err)
 	token, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webClientProfilePath, token)
 	assert.NoError(t, err)
 
 	email := "user@user.com"
@@ -19407,6 +19626,8 @@ func TestWebUserProfile(t *testing.T) {
 	assert.NoError(t, err)
 	token, err = getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
+	csrfToken, err = getCSRFTokenFromInternalPageMock(webClientProfilePath, token)
+	assert.NoError(t, err)
 
 	form.Set("allow_api_key_auth", "0")
 	form.Set(csrfFormToken, csrfToken)
@@ -19431,9 +19652,12 @@ func TestWebUserProfile(t *testing.T) {
 	assert.NoError(t, err)
 	token, err = getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
+	csrfToken, err = getCSRFTokenFromInternalPageMock(webClientProfilePath, token)
+	assert.NoError(t, err)
 	form.Set("public_keys[0][public_key]", testPubKey)
 	form.Set("public_keys[1][public_key]", testPubKey1)
 	form.Set("tls_certs[0][tls_cert]", "")
+	form.Set(csrfFormToken, csrfToken)
 	req, _ = http.NewRequest(http.MethodPost, webClientProfilePath, bytes.NewBuffer([]byte(form.Encode())))
 	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -19454,8 +19678,11 @@ func TestWebUserProfile(t *testing.T) {
 	assert.NoError(t, err)
 	token, err = getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
+	csrfToken, err = getCSRFTokenFromInternalPageMock(webClientProfilePath, token)
+	assert.NoError(t, err)
 	form.Set("email", "newemail@user.com")
 	form.Set("description", "new description")
+	form.Set(csrfFormToken, csrfToken)
 	req, _ = http.NewRequest(http.MethodPost, webClientProfilePath, bytes.NewBuffer([]byte(form.Encode())))
 	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -19477,6 +19704,9 @@ func TestWebUserProfile(t *testing.T) {
 	assert.NoError(t, err)
 	token, err = getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
+	csrfToken, err = getCSRFTokenFromInternalPageMock(webChangeClientPwdPath, token)
+	assert.NoError(t, err)
+	form.Set(csrfFormToken, csrfToken)
 	req, _ = http.NewRequest(http.MethodPost, webClientProfilePath, bytes.NewBuffer([]byte(form.Encode())))
 	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -19507,7 +19737,7 @@ func TestWebAdminProfile(t *testing.T) {
 	assert.NoError(t, err)
 	token, err := getJWTWebTokenFromTestServer(admin.Username, altAdminPassword)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webAdminProfilePath, token)
 	assert.NoError(t, err)
 	req, err := http.NewRequest(http.MethodGet, webAdminProfilePath, nil)
 	assert.NoError(t, err)
@@ -19584,7 +19814,7 @@ func TestWebAdminPwdChange(t *testing.T) {
 
 	token, err := getJWTWebTokenFromTestServer(admin.Username, altAdminPassword)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webChangeAdminPwdPath, token)
 	assert.NoError(t, err)
 	req, err := http.NewRequest(http.MethodGet, webChangeAdminPwdPath, nil)
 	assert.NoError(t, err)
@@ -20053,7 +20283,7 @@ func TestBasicWebUsersMock(t *testing.T) {
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webUserPath, webToken)
 	assert.NoError(t, err)
 	form := make(url.Values)
 	form.Set("username", user.Username)
@@ -20115,7 +20345,7 @@ func TestWebAdminBasicMock(t *testing.T) {
 	admin := getTestAdmin()
 	admin.Username = altAdminUsername
 	admin.Password = altAdminPassword
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webAdminPath, token)
 	assert.NoError(t, err)
 	form := make(url.Values)
 	form.Set("username", admin.Username)
@@ -20389,7 +20619,7 @@ func TestWebAdminGroupsMock(t *testing.T) {
 	admin := getTestAdmin()
 	admin.Username = altAdminUsername
 	admin.Password = altAdminPassword
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webAdminPath, token)
 	assert.NoError(t, err)
 	form := make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
@@ -20527,7 +20757,7 @@ func TestAdminUpdateSelfMock(t *testing.T) {
 	assert.NoError(t, err)
 	token, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webAdminPath, token)
 	assert.NoError(t, err)
 	form := make(url.Values)
 	form.Set("username", admin.Username)
@@ -20585,9 +20815,8 @@ func TestWebMaintenanceMock(t *testing.T) {
 	setJWTCookieForReq(req, token)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webMaintenancePath, token)
 	assert.NoError(t, err)
-
 	form := make(url.Values)
 	form.Set("mode", "a")
 	b, contentType, _ := getMultipartFormData(form, "", "")
@@ -20706,7 +20935,7 @@ func TestWebUserAddMock(t *testing.T) {
 	assert.NoError(t, err)
 	apiToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webUserPath, webToken)
 	assert.NoError(t, err)
 	group1 := getTestGroup()
 	group1.Name += "_1"
@@ -21161,8 +21390,6 @@ func TestWebUserUpdateMock(t *testing.T) {
 	assert.NoError(t, err)
 	apiToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
-	assert.NoError(t, err)
 	user := getTestUser()
 	user.Filters.BandwidthLimits = []sdk.BandwidthLimit{
 		{
@@ -21201,6 +21428,8 @@ func TestWebUserUpdateMock(t *testing.T) {
 	checkResponseCode(t, http.StatusForbidden, rr)
 	assert.Contains(t, rr.Body.String(), "Invalid token")
 
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webClientProfilePath, userToken)
+	assert.NoError(t, err)
 	req, err = http.NewRequest(http.MethodPost, webClientTOTPSavePath, bytes.NewBuffer(asJSON))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, userToken)
@@ -21285,6 +21514,8 @@ func TestWebUserUpdateMock(t *testing.T) {
 	checkResponseCode(t, http.StatusForbidden, rr)
 	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCSRF)
 
+	csrfToken, err = getCSRFTokenFromInternalPageMock(webUserPath, webToken)
+	assert.NoError(t, err)
 	form.Set(csrfFormToken, csrfToken)
 	b, contentType, _ = getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
@@ -21443,7 +21674,7 @@ func TestUserTemplateWithFoldersMock(t *testing.T) {
 
 	token, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webTemplateFolder, token)
 	assert.NoError(t, err)
 	user := getTestUser()
 	form := make(url.Values)
@@ -21539,7 +21770,7 @@ func TestUserTemplateWithFoldersMock(t *testing.T) {
 func TestUserSaveFromTemplateMock(t *testing.T) {
 	token, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webTemplateFolder, token)
 	assert.NoError(t, err)
 	user1 := "u1"
 	user2 := "u2"
@@ -21612,6 +21843,8 @@ func TestUserSaveFromTemplateMock(t *testing.T) {
 func TestUserTemplateMock(t *testing.T) {
 	token, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webTemplateFolder, token)
+	assert.NoError(t, err)
 	user := getTestUser()
 	user.FsConfig.Provider = sdk.S3FilesystemProvider
 	user.FsConfig.S3Config.Bucket = "test"
@@ -21622,8 +21855,6 @@ func TestUserTemplateMock(t *testing.T) {
 	user.FsConfig.S3Config.UploadConcurrency = 4
 	user.FsConfig.S3Config.DownloadPartSize = 6
 	user.FsConfig.S3Config.DownloadConcurrency = 3
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
-	assert.NoError(t, err)
 	form := make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("username", user.Username)
@@ -21768,7 +21999,7 @@ func TestUserTemplateMock(t *testing.T) {
 func TestUserPlaceholders(t *testing.T) {
 	token, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webUserPath, token)
 	assert.NoError(t, err)
 	u := getTestUser()
 	u.HomeDir = filepath.Join(os.TempDir(), "%username%_%password%")
@@ -21841,7 +22072,7 @@ func TestUserPlaceholders(t *testing.T) {
 func TestFolderPlaceholders(t *testing.T) {
 	token, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webFolderPath, token)
 	assert.NoError(t, err)
 	folderName := "folderName"
 	form := make(url.Values)
@@ -21885,7 +22116,7 @@ func TestFolderSaveFromTemplateMock(t *testing.T) {
 	folder2 := "f2"
 	token, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webTemplateFolder, token)
 	assert.NoError(t, err)
 	form := make(url.Values)
 	form.Set("name", "name")
@@ -21936,7 +22167,7 @@ func TestFolderTemplateMock(t *testing.T) {
 	mappedPath := filepath.Join(os.TempDir(), "%name%mapped%name%path")
 	token, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webTemplateFolder, token)
 	assert.NoError(t, err)
 	form := make(url.Values)
 	form.Set("name", folderName)
@@ -22082,7 +22313,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	assert.NoError(t, err)
 	apiToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webUserPath, webToken)
 	assert.NoError(t, err)
 	user := getTestUser()
 	userAsJSON := getUserAsJSON(t, user)
@@ -22320,7 +22551,7 @@ func TestWebUserGCSMock(t *testing.T) {
 	assert.NoError(t, err)
 	apiToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webUserPath, webToken)
 	assert.NoError(t, err)
 	user := getTestUser()
 	userAsJSON := getUserAsJSON(t, user)
@@ -22448,7 +22679,7 @@ func TestWebUserHTTPFsMock(t *testing.T) {
 	assert.NoError(t, err)
 	apiToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webUserPath, webToken)
 	assert.NoError(t, err)
 	user := getTestUser()
 	userAsJSON := getUserAsJSON(t, user)
@@ -22575,7 +22806,7 @@ func TestWebUserAzureBlobMock(t *testing.T) {
 	assert.NoError(t, err)
 	apiToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webUserPath, webToken)
 	assert.NoError(t, err)
 	user := getTestUser()
 	userAsJSON := getUserAsJSON(t, user)
@@ -22772,7 +23003,7 @@ func TestWebUserCryptMock(t *testing.T) {
 	assert.NoError(t, err)
 	apiToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webUserPath, webToken)
 	assert.NoError(t, err)
 	user := getTestUser()
 	userAsJSON := getUserAsJSON(t, user)
@@ -22879,7 +23110,7 @@ func TestWebUserSFTPFsMock(t *testing.T) {
 	assert.NoError(t, err)
 	apiToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webUserPath, webToken)
 	assert.NoError(t, err)
 	user := getTestUser()
 	userAsJSON := getUserAsJSON(t, user)
@@ -23035,7 +23266,7 @@ func TestWebUserRole(t *testing.T) {
 	assert.NoError(t, err)
 	webToken, err := getJWTWebTokenFromTestServer(altAdminUsername, altAdminPassword)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webUserPath, webToken)
 	assert.NoError(t, err)
 	user := getTestUser()
 	form := make(url.Values)
@@ -23098,7 +23329,7 @@ func TestWebEventAction(t *testing.T) {
 	assert.NoError(t, err)
 	apiToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webAdminEventActionPath, webToken)
 	assert.NoError(t, err)
 	action := dataprovider.BaseEventAction{
 		ID:          81,
@@ -23643,7 +23874,7 @@ func TestWebEventAction(t *testing.T) {
 func TestWebEventRule(t *testing.T) {
 	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webAdminEventRulePath, webToken)
 	assert.NoError(t, err)
 	a := dataprovider.BaseEventAction{
 		Name: "web_action",
@@ -23961,7 +24192,7 @@ func TestWebEventRule(t *testing.T) {
 func TestWebIPListEntries(t *testing.T) {
 	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webUserPath, webToken)
 	assert.NoError(t, err)
 
 	req, err := http.NewRequest(http.MethodGet, webIPListPath+"/mode", nil)
@@ -24147,7 +24378,7 @@ func TestWebIPListEntries(t *testing.T) {
 func TestWebRole(t *testing.T) {
 	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webAdminRolePath, webToken)
 	assert.NoError(t, err)
 	role := getTestRole()
 	form := make(url.Values)
@@ -24267,7 +24498,7 @@ func TestNameParamSingleSlash(t *testing.T) {
 	assert.NoError(t, err)
 	apiToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webGroupPath, webToken)
 	assert.NoError(t, err)
 	group := getTestGroup()
 	group.Name = "/"
@@ -24330,7 +24561,7 @@ func TestAddWebGroup(t *testing.T) {
 	assert.NoError(t, err)
 	apiToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webGroupPath, webToken)
 	assert.NoError(t, err)
 	group := getTestGroup()
 	group.UserSettings = dataprovider.GroupUserSettings{
@@ -24516,7 +24747,7 @@ func TestAddWebFoldersMock(t *testing.T) {
 	assert.NoError(t, err)
 	apiToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webFolderPath, webToken)
 	assert.NoError(t, err)
 	mappedPath := filepath.Clean(os.TempDir())
 	folderName := filepath.Base(mappedPath)
@@ -24594,7 +24825,7 @@ func TestHTTPFsWebFolderMock(t *testing.T) {
 	assert.NoError(t, err)
 	apiToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webFolderPath, webToken)
 	assert.NoError(t, err)
 	mappedPath := filepath.Clean(os.TempDir())
 	folderName := filepath.Base(mappedPath)
@@ -24689,7 +24920,7 @@ func TestS3WebFolderMock(t *testing.T) {
 	assert.NoError(t, err)
 	apiToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webFolderPath, webToken)
 	assert.NoError(t, err)
 	mappedPath := filepath.Clean(os.TempDir())
 	folderName := filepath.Base(mappedPath)
@@ -24834,7 +25065,7 @@ func TestUpdateWebGroupMock(t *testing.T) {
 	assert.NoError(t, err)
 	apiToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webGroupPath, webToken)
 	assert.NoError(t, err)
 	group, _, err := httpdtest.AddGroup(getTestGroup(), http.StatusCreated)
 	assert.NoError(t, err)
@@ -24939,7 +25170,7 @@ func TestUpdateWebFolderMock(t *testing.T) {
 	assert.NoError(t, err)
 	apiToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webFolderPath, webToken)
 	assert.NoError(t, err)
 	folderName := "vfolderupdate"
 	folderDesc := "updated desc"
@@ -25156,7 +25387,7 @@ func TestAdminForgotPassword(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	loginCookie, csrfToken, err := getCSRFTokenMock(webLoginPath, defaultRemoteAddr)
 	assert.NoError(t, err)
 
 	form := make(url.Values)
@@ -25165,6 +25396,7 @@ func TestAdminForgotPassword(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webAdminForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusForbidden, rr.Code)
@@ -25173,6 +25405,7 @@ func TestAdminForgotPassword(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webAdminForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -25183,6 +25416,7 @@ func TestAdminForgotPassword(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webAdminForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -25192,6 +25426,7 @@ func TestAdminForgotPassword(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webAdminResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusForbidden, rr.Code)
@@ -25200,6 +25435,7 @@ func TestAdminForgotPassword(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webAdminResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -25210,6 +25446,7 @@ func TestAdminForgotPassword(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webAdminResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -25219,14 +25456,19 @@ func TestAdminForgotPassword(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webAdminResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
 
+	loginCookie, csrfToken, err = getCSRFTokenMock(webLoginPath, defaultRemoteAddr)
+	assert.NoError(t, err)
+	form.Set(csrfFormToken, csrfToken)
 	form.Set("username", altAdminUsername)
 	req, err = http.NewRequest(http.MethodPost, webAdminForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -25248,6 +25490,7 @@ func TestAdminForgotPassword(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webAdminForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -25262,6 +25505,7 @@ func TestAdminForgotPassword(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webAdminForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -25316,22 +25560,25 @@ func TestUserForgotPassword(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 
+	loginCookie, csrfToken, err := getCSRFTokenMock(webClientLoginPath, defaultRemoteAddr)
+	assert.NoError(t, err)
+
 	form := make(url.Values)
 	form.Set("username", "")
 	// no csrf token
 	req, err = http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusForbidden, rr.Code)
 	// empty username
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
-	assert.NoError(t, err)
 	form.Set(csrfFormToken, csrfToken)
 	req, err = http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -25341,6 +25588,7 @@ func TestUserForgotPassword(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -25353,11 +25601,12 @@ func TestUserForgotPassword(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
 	assert.GreaterOrEqual(t, len(lastResetCode), 20)
-	// no csrf token
+	// no login token
 	form = make(url.Values)
 	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
@@ -25372,6 +25621,7 @@ func TestUserForgotPassword(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -25382,6 +25632,7 @@ func TestUserForgotPassword(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -25392,6 +25643,7 @@ func TestUserForgotPassword(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -25401,10 +25653,13 @@ func TestUserForgotPassword(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
 
+	loginCookie, csrfToken, err = getCSRFTokenMock(webLoginPath, defaultRemoteAddr)
+	assert.NoError(t, err)
 	form = make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("username", user.Username)
@@ -25412,6 +25667,7 @@ func TestUserForgotPassword(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -25444,6 +25700,7 @@ func TestUserForgotPassword(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -25640,7 +25897,7 @@ func TestAPIForgotPassword(t *testing.T) {
 func TestProviderClosedMock(t *testing.T) {
 	token, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webConfigsPath, token)
 	assert.NoError(t, err)
 	// create a role admin
 	role, resp, err := httpdtest.AddRole(getTestRole(), http.StatusCreated)
@@ -25849,7 +26106,7 @@ func TestWebConnectionsMock(t *testing.T) {
 	checkResponseCode(t, http.StatusForbidden, rr)
 	assert.Contains(t, rr.Body.String(), "Invalid token")
 
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webUserPath, token)
 	assert.NoError(t, err)
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(webConnectionsPath, "id"), nil)
 	setJWTCookieForReq(req, token)
@@ -26124,29 +26381,53 @@ func getUserAsJSON(t *testing.T, user dataprovider.User) []byte {
 	return json
 }
 
-func getCSRFTokenMock(loginURLPath, remoteAddr string) (string, error) {
-	req, err := http.NewRequest(http.MethodGet, loginURLPath, nil)
+func getCSRFTokenFromInternalPageMock(urlPath, token string) (string, error) {
+	req, err := http.NewRequest(http.MethodGet, urlPath, nil)
 	if err != nil {
 		return "", err
+	}
+	req.RequestURI = urlPath
+	setJWTCookieForReq(req, token)
+	rr := executeRequest(req)
+	if rr.Code != http.StatusOK {
+		return "", fmt.Errorf("unexpected status code: %d", rr.Code)
+	}
+	return getCSRFTokenFromBody(rr.Body)
+}
+
+func getCSRFTokenMock(loginURLPath, remoteAddr string) (string, string, error) {
+	req, err := http.NewRequest(http.MethodGet, loginURLPath, nil)
+	if err != nil {
+		return "", "", err
 	}
 	req.RemoteAddr = remoteAddr
 	rr := executeRequest(req)
-	return getCSRFTokenFromBody(bytes.NewBuffer(rr.Body.Bytes()))
+	cookie := rr.Header().Get("Set-Cookie")
+	if cookie == "" {
+		return "", "", errors.New("unable to get login cookie")
+	}
+	token, err := getCSRFTokenFromBody(bytes.NewBuffer(rr.Body.Bytes()))
+	return cookie, token, err
 }
 
-func getCSRFToken(url string) (string, error) {
+func getCSRFToken(url string) (string, string, error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	resp, err := httpclient.GetHTTPClient().Do(req)
 	if err != nil {
-		return "", err
+		return "", "", err
+	}
+	cookie := resp.Header.Get("Set-Cookie")
+	if cookie == "" {
+		return "", "", errors.New("no login cookie")
 	}
 
 	defer resp.Body.Close()
 
-	return getCSRFTokenFromBody(resp.Body)
+	token, err := getCSRFTokenFromBody(resp.Body)
+	return cookie, token, err
 }
 
 func getCSRFTokenFromBody(body io.Reader) (string, error) {
@@ -26182,6 +26463,10 @@ func getCSRFTokenFromBody(body io.Reader) (string, error) {
 
 	f(doc)
 
+	if csrfToken == "" {
+		return "", errors.New("CSRF token not found")
+	}
+
 	return csrfToken, nil
 }
 
@@ -26206,6 +26491,10 @@ func setAPIKeyForReq(req *http.Request, apiKey, username string) {
 		apiKey += "." + username
 	}
 	req.Header.Set("X-SFTPGO-API-KEY", apiKey)
+}
+
+func setLoginCookie(req *http.Request, cookie string) {
+	req.Header.Set("Cookie", cookie)
 }
 
 func setJWTCookieForReq(req *http.Request, jwtToken string) {
@@ -26251,13 +26540,14 @@ func getJWTAPIUserTokenFromTestServer(username, password string) (string, error)
 }
 
 func getJWTWebToken(username, password string) (string, error) {
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	loginCookie, csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
 	if err != nil {
 		return "", err
 	}
 	form := getLoginForm(username, password, csrfToken)
 	req, _ := http.NewRequest(http.MethodPost, httpBaseURL+webLoginPath,
 		bytes.NewBuffer([]byte(form.Encode())))
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	client := &http.Client{
 		Timeout: 10 * time.Second,
@@ -26290,13 +26580,14 @@ func getCookieFromResponse(rr *httptest.ResponseRecorder) (string, error) {
 }
 
 func getJWTWebClientTokenFromTestServerWithAddr(username, password, remoteAddr string) (string, error) {
-	csrfToken, err := getCSRFTokenMock(webClientLoginPath, remoteAddr)
+	loginCookie, csrfToken, err := getCSRFTokenMock(webClientLoginPath, remoteAddr)
 	if err != nil {
 		return "", err
 	}
 	form := getLoginForm(username, password, csrfToken)
 	req, _ := http.NewRequest(http.MethodPost, webClientLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	req.RemoteAddr = remoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr := executeRequest(req)
 	if rr.Code != http.StatusFound {
@@ -26306,13 +26597,14 @@ func getJWTWebClientTokenFromTestServerWithAddr(username, password, remoteAddr s
 }
 
 func getJWTWebClientTokenFromTestServer(username, password string) (string, error) {
-	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
+	loginCookie, csrfToken, err := getCSRFTokenMock(webClientLoginPath, defaultRemoteAddr)
 	if err != nil {
 		return "", err
 	}
 	form := getLoginForm(username, password, csrfToken)
 	req, _ := http.NewRequest(http.MethodPost, webClientLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("Cookie", loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr := executeRequest(req)
 	if rr.Code != http.StatusFound {
@@ -26322,13 +26614,14 @@ func getJWTWebClientTokenFromTestServer(username, password string) (string, erro
 }
 
 func getJWTWebTokenFromTestServer(username, password string) (string, error) {
-	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	loginCookie, csrfToken, err := getCSRFTokenMock(webLoginPath, defaultRemoteAddr)
 	if err != nil {
 		return "", err
 	}
 	form := getLoginForm(username, password, csrfToken)
 	req, _ := http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	req.RemoteAddr = defaultRemoteAddr
+	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr := executeRequest(req)
 	if rr.Code != http.StatusFound {

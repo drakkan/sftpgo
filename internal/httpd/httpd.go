@@ -31,8 +31,6 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/jwtauth/v5"
-	"github.com/lestrrat-go/jwx/v2/jwa"
 
 	"github.com/drakkan/sftpgo/v2/internal/acme"
 	"github.com/drakkan/sftpgo/v2/internal/common"
@@ -196,7 +194,6 @@ var (
 	cleanupTicker                  *time.Ticker
 	cleanupDone                    chan bool
 	invalidatedJWTTokens           tokenManager
-	csrfTokenAuth                  *jwtauth.JWTAuth
 	webRootPath                    string
 	webBasePath                    string
 	webBaseAdminPath               string
@@ -967,7 +964,6 @@ func (c *Conf) Initialize(configDir string, isShared int) error {
 		c.SigningPassphrase = passphrase
 	}
 
-	csrfTokenAuth = jwtauth.New(jwa.HS256.String(), getSigningKey(c.SigningPassphrase), nil)
 	hideSupportLink = c.HideSupportLink
 
 	exitChannel := make(chan error, 1)

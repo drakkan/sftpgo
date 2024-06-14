@@ -33,7 +33,6 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-chi/jwtauth/v5"
-	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/rs/xid"
 	"github.com/sftpgo/sdk"
 	"github.com/stretchr/testify/assert"
@@ -1584,12 +1583,9 @@ func TestOIDCWithLoginFormsDisabled(t *testing.T) {
 		tokenCookie = k
 	}
 	// we should be able to create admins without setting a password
-	if csrfTokenAuth == nil {
-		csrfTokenAuth = jwtauth.New(jwa.HS256.String(), util.GenerateRandomBytes(32), nil)
-	}
 	adminUsername := "testAdmin"
 	form := make(url.Values)
-	form.Set(csrfFormToken, createCSRFToken(""))
+	form.Set(csrfFormToken, createCSRFToken(rr, r, server.csrfTokenAuth, tokenCookie, webBaseAdminPath))
 	form.Set("username", adminUsername)
 	form.Set("password", "")
 	form.Set("status", "1")

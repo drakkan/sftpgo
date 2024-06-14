@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"github.com/go-chi/render"
+	"github.com/rs/xid"
 	"github.com/sftpgo/sdk"
 	sdkkms "github.com/sftpgo/sdk/kms"
 
@@ -612,10 +613,10 @@ func isServerManagerResource(currentURL string) bool {
 		currentURL == webConfigsPath
 }
 
-func (s *httpdServer) getBasePageData(title, currentURL string, r *http.Request) basePage {
+func (s *httpdServer) getBasePageData(title, currentURL string, w http.ResponseWriter, r *http.Request) basePage {
 	var csrfToken string
 	if currentURL != "" {
-		csrfToken = createCSRFToken(util.GetIPFromRemoteAddress(r.RemoteAddr))
+		csrfToken = createCSRFToken(w, r, s.csrfTokenAuth, "", webBaseAdminPath)
 	}
 	return basePage{
 		commonBasePage:      getCommonBasePage(r),
@@ -675,7 +676,7 @@ func (s *httpdServer) renderMessagePageWithString(w http.ResponseWriter, r *http
 	err error, message, text string,
 ) {
 	data := messagePage{
-		basePage: s.getBasePageData(title, "", r),
+		basePage: s.getBasePageData(title, "", w, r),
 		Error:    getI18nError(err),
 		Success:  message,
 		Text:     text,
@@ -710,12 +711,12 @@ func (s *httpdServer) renderNotFoundPage(w http.ResponseWriter, r *http.Request,
 		util.NewI18nError(err, util.I18nError404Message), "")
 }
 
-func (s *httpdServer) renderForgotPwdPage(w http.ResponseWriter, r *http.Request, err *util.I18nError, ip string) {
+func (s *httpdServer) renderForgotPwdPage(w http.ResponseWriter, r *http.Request, err *util.I18nError) {
 	data := forgotPwdPage{
 		commonBasePage: getCommonBasePage(r),
 		CurrentURL:     webAdminForgotPwdPath,
 		Error:          err,
-		CSRFToken:      createCSRFToken(ip),
+		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, xid.New().String(), webBaseAdminPath),
 		LoginURL:       webAdminLoginPath,
 		Title:          util.I18nForgotPwdTitle,
 		Branding:       s.binding.Branding.WebAdmin,
@@ -723,12 +724,12 @@ func (s *httpdServer) renderForgotPwdPage(w http.ResponseWriter, r *http.Request
 	renderAdminTemplate(w, templateForgotPassword, data)
 }
 
-func (s *httpdServer) renderResetPwdPage(w http.ResponseWriter, r *http.Request, err *util.I18nError, ip string) {
+func (s *httpdServer) renderResetPwdPage(w http.ResponseWriter, r *http.Request, err *util.I18nError) {
 	data := resetPwdPage{
 		commonBasePage: getCommonBasePage(r),
 		CurrentURL:     webAdminResetPwdPath,
 		Error:          err,
-		CSRFToken:      createCSRFToken(ip),
+		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, xid.New().String(), webBaseAdminPath),
 		LoginURL:       webAdminLoginPath,
 		Title:          util.I18nResetPwdTitle,
 		Branding:       s.binding.Branding.WebAdmin,
@@ -736,26 +737,26 @@ func (s *httpdServer) renderResetPwdPage(w http.ResponseWriter, r *http.Request,
 	renderAdminTemplate(w, templateResetPassword, data)
 }
 
-func (s *httpdServer) renderTwoFactorPage(w http.ResponseWriter, r *http.Request, err *util.I18nError, ip string) {
+func (s *httpdServer) renderTwoFactorPage(w http.ResponseWriter, r *http.Request, err *util.I18nError) {
 	data := twoFactorPage{
 		commonBasePage: getCommonBasePage(r),
 		Title:          pageTwoFactorTitle,
 		CurrentURL:     webAdminTwoFactorPath,
 		Error:          err,
-		CSRFToken:      createCSRFToken(ip),
+		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, "", webBaseAdminPath),
 		RecoveryURL:    webAdminTwoFactorRecoveryPath,
 		Branding:       s.binding.Branding.WebAdmin,
 	}
 	renderAdminTemplate(w, templateTwoFactor, data)
 }
 
-func (s *httpdServer) renderTwoFactorRecoveryPage(w http.ResponseWriter, r *http.Request, err *util.I18nError, ip string) {
+func (s *httpdServer) renderTwoFactorRecoveryPage(w http.ResponseWriter, r *http.Request, err *util.I18nError) {
 	data := twoFactorPage{
 		commonBasePage: getCommonBasePage(r),
 		Title:          pageTwoFactorRecoveryTitle,
 		CurrentURL:     webAdminTwoFactorRecoveryPath,
 		Error:          err,
-		CSRFToken:      createCSRFToken(ip),
+		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, "", webBaseAdminPath),
 		Branding:       s.binding.Branding.WebAdmin,
 	}
 	renderAdminTemplate(w, templateTwoFactorRecovery, data)
@@ -763,7 +764,7 @@ func (s *httpdServer) renderTwoFactorRecoveryPage(w http.ResponseWriter, r *http
 
 func (s *httpdServer) renderMFAPage(w http.ResponseWriter, r *http.Request) {
 	data := mfaPage{
-		basePage:        s.getBasePageData(pageMFATitle, webAdminMFAPath, r),
+		basePage:        s.getBasePageData(pageMFATitle, webAdminMFAPath, w, r),
 		TOTPConfigs:     mfa.GetAvailableTOTPConfigNames(),
 		GenerateTOTPURL: webAdminTOTPGeneratePath,
 		ValidateTOTPURL: webAdminTOTPValidatePath,
@@ -782,7 +783,7 @@ func (s *httpdServer) renderMFAPage(w http.ResponseWriter, r *http.Request) {
 
 func (s *httpdServer) renderProfilePage(w http.ResponseWriter, r *http.Request, err error) {
 	data := profilePage{
-		basePage: s.getBasePageData(util.I18nProfileTitle, webAdminProfilePath, r),
+		basePage: s.getBasePageData(util.I18nProfileTitle, webAdminProfilePath, w, r),
 		Error:    getI18nError(err),
 	}
 	admin, err := dataprovider.AdminExists(data.LoggedUser.Username)
@@ -799,7 +800,7 @@ func (s *httpdServer) renderProfilePage(w http.ResponseWriter, r *http.Request, 
 
 func (s *httpdServer) renderChangePasswordPage(w http.ResponseWriter, r *http.Request, err *util.I18nError) {
 	data := changePasswordPage{
-		basePage: s.getBasePageData(util.I18nChangePwdTitle, webChangeAdminPwdPath, r),
+		basePage: s.getBasePageData(util.I18nChangePwdTitle, webChangeAdminPwdPath, w, r),
 		Error:    err,
 	}
 
@@ -808,7 +809,7 @@ func (s *httpdServer) renderChangePasswordPage(w http.ResponseWriter, r *http.Re
 
 func (s *httpdServer) renderMaintenancePage(w http.ResponseWriter, r *http.Request, err error) {
 	data := maintenancePage{
-		basePage:    s.getBasePageData(util.I18nMaintenanceTitle, webMaintenancePath, r),
+		basePage:    s.getBasePageData(util.I18nMaintenanceTitle, webMaintenancePath, w, r),
 		BackupPath:  webBackupPath,
 		RestorePath: webRestorePath,
 		Error:       getI18nError(err),
@@ -830,7 +831,7 @@ func (s *httpdServer) renderConfigsPage(w http.ResponseWriter, r *http.Request, 
 		configs.ACME.HTTP01Challenge.Port = 80
 	}
 	data := configsPage{
-		basePage:          s.getBasePageData(util.I18nConfigsTitle, webConfigsPath, r),
+		basePage:          s.getBasePageData(util.I18nConfigsTitle, webConfigsPath, w, r),
 		Configs:           configs,
 		ConfigSection:     section,
 		RedactedSecret:    redactedSecret,
@@ -842,12 +843,12 @@ func (s *httpdServer) renderConfigsPage(w http.ResponseWriter, r *http.Request, 
 	renderAdminTemplate(w, templateConfigs, data)
 }
 
-func (s *httpdServer) renderAdminSetupPage(w http.ResponseWriter, r *http.Request, username, ip string, err *util.I18nError) {
+func (s *httpdServer) renderAdminSetupPage(w http.ResponseWriter, r *http.Request, username string, err *util.I18nError) {
 	data := setupPage{
 		commonBasePage:       getCommonBasePage(r),
 		Title:                util.I18nSetupTitle,
 		CurrentURL:           webAdminSetupPath,
-		CSRFToken:            createCSRFToken(ip),
+		CSRFToken:            createCSRFToken(w, r, s.csrfTokenAuth, xid.New().String(), webBaseAdminPath),
 		Username:             username,
 		HasInstallationCode:  installationCode != "",
 		InstallationCodeHint: installationCodeHint,
@@ -876,7 +877,7 @@ func (s *httpdServer) renderAddUpdateAdminPage(w http.ResponseWriter, r *http.Re
 		title = util.I18nUpdateAdminTitle
 	}
 	data := adminPage{
-		basePage: s.getBasePageData(title, currentURL, r),
+		basePage: s.getBasePageData(title, currentURL, w, r),
 		Admin:    admin,
 		Groups:   groups,
 		Roles:    roles,
@@ -917,7 +918,7 @@ func (s *httpdServer) renderUserPage(w http.ResponseWriter, r *http.Request, use
 		}
 	}
 	user.FsConfig.RedactedSecret = redactedSecret
-	basePage := s.getBasePageData(title, currentURL, r)
+	basePage := s.getBasePageData(title, currentURL, w, r)
 	if (mode == userPageModeAdd || mode == userPageModeTemplate) && len(user.Groups) == 0 && admin != nil {
 		for _, group := range admin.Groups {
 			user.Groups = append(user.Groups, sdk.GroupMapping{
@@ -982,7 +983,7 @@ func (s *httpdServer) renderIPListPage(w http.ResponseWriter, r *http.Request, e
 		currentURL = fmt.Sprintf("%s/%d/%s", webIPListPath, entry.Type, url.PathEscape(entry.IPOrNet))
 	}
 	data := ipListPage{
-		basePage: s.getBasePageData(title, currentURL, r),
+		basePage: s.getBasePageData(title, currentURL, w, r),
 		Error:    getI18nError(err),
 		Entry:    &entry,
 		Mode:     mode,
@@ -1003,7 +1004,7 @@ func (s *httpdServer) renderRolePage(w http.ResponseWriter, r *http.Request, rol
 		currentURL = fmt.Sprintf("%s/%s", webAdminRolePath, url.PathEscape(role.Name))
 	}
 	data := rolePage{
-		basePage: s.getBasePageData(title, currentURL, r),
+		basePage: s.getBasePageData(title, currentURL, w, r),
 		Error:    getI18nError(err),
 		Role:     &role,
 		Mode:     mode,
@@ -1033,7 +1034,7 @@ func (s *httpdServer) renderGroupPage(w http.ResponseWriter, r *http.Request, gr
 	group.UserSettings.FsConfig.SetEmptySecretsIfNil()
 
 	data := groupPage{
-		basePage:           s.getBasePageData(title, currentURL, r),
+		basePage:           s.getBasePageData(title, currentURL, w, r),
 		Error:              getI18nError(err),
 		Group:              &group,
 		Mode:               mode,
@@ -1078,7 +1079,7 @@ func (s *httpdServer) renderEventActionPage(w http.ResponseWriter, r *http.Reque
 	}
 
 	data := eventActionPage{
-		basePage:       s.getBasePageData(title, currentURL, r),
+		basePage:       s.getBasePageData(title, currentURL, w, r),
 		Action:         action,
 		ActionTypes:    dataprovider.EventActionTypes,
 		FsActions:      dataprovider.FsActionTypes,
@@ -1108,7 +1109,7 @@ func (s *httpdServer) renderEventRulePage(w http.ResponseWriter, r *http.Request
 	}
 
 	data := eventRulePage{
-		basePage:        s.getBasePageData(title, currentURL, r),
+		basePage:        s.getBasePageData(title, currentURL, w, r),
 		Rule:            rule,
 		TriggerTypes:    dataprovider.EventTriggerTypes,
 		Actions:         actions,
@@ -1142,7 +1143,7 @@ func (s *httpdServer) renderFolderPage(w http.ResponseWriter, r *http.Request, f
 	folder.FsConfig.SetEmptySecretsIfNil()
 
 	data := folderPage{
-		basePage: s.getBasePageData(title, currentURL, r),
+		basePage: s.getBasePageData(title, currentURL, w, r),
 		Error:    getI18nError(err),
 		Folder:   folder,
 		Mode:     mode,
@@ -2764,25 +2765,24 @@ func (s *httpdServer) handleWebAdminForgotPwd(w http.ResponseWriter, r *http.Req
 		s.renderNotFoundPage(w, r, errors.New("this page does not exist"))
 		return
 	}
-	s.renderForgotPwdPage(w, r, nil, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	s.renderForgotPwdPage(w, r, nil)
 }
 
 func (s *httpdServer) handleWebAdminForgotPwdPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 
-	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	err := r.ParseForm()
 	if err != nil {
-		s.renderForgotPwdPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidForm), ipAddr)
+		s.renderForgotPwdPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidForm))
 		return
 	}
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
+	if err := verifyLoginCookieAndCSRFToken(r, s.csrfTokenAuth); err != nil {
 		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
 	err = handleForgotPassword(r, r.Form.Get("username"), true)
 	if err != nil {
-		s.renderForgotPwdPage(w, r, util.NewI18nError(err, util.I18nErrorPwdResetGeneric), ipAddr)
+		s.renderForgotPwdPage(w, r, util.NewI18nError(err, util.I18nErrorPwdResetGeneric))
 		return
 	}
 	http.Redirect(w, r, webAdminResetPwdPath, http.StatusFound)
@@ -2794,17 +2794,17 @@ func (s *httpdServer) handleWebAdminPasswordReset(w http.ResponseWriter, r *http
 		s.renderNotFoundPage(w, r, errors.New("this page does not exist"))
 		return
 	}
-	s.renderResetPwdPage(w, r, nil, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	s.renderResetPwdPage(w, r, nil)
 }
 
 func (s *httpdServer) handleWebAdminTwoFactor(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	s.renderTwoFactorPage(w, r, nil, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	s.renderTwoFactorPage(w, r, nil)
 }
 
 func (s *httpdServer) handleWebAdminTwoFactorRecovery(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	s.renderTwoFactorRecoveryPage(w, r, nil, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	s.renderTwoFactorRecoveryPage(w, r, nil)
 }
 
 func (s *httpdServer) handleWebAdminMFA(w http.ResponseWriter, r *http.Request) {
@@ -2830,7 +2830,7 @@ func (s *httpdServer) handleWebAdminProfilePost(w http.ResponseWriter, r *http.R
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
+	if err := verifyCSRFToken(r, s.csrfTokenAuth); err != nil {
 		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
@@ -2875,7 +2875,7 @@ func (s *httpdServer) handleWebRestore(w http.ResponseWriter, r *http.Request) {
 	defer r.MultipartForm.RemoveAll() //nolint:errcheck
 
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
+	if err := verifyCSRFToken(r, s.csrfTokenAuth); err != nil {
 		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
@@ -2936,7 +2936,7 @@ func getAllAdmins(w http.ResponseWriter, r *http.Request) {
 func (s *httpdServer) handleGetWebAdmins(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 
-	data := s.getBasePageData(util.I18nAdminsTitle, webAdminsPath, r)
+	data := s.getBasePageData(util.I18nAdminsTitle, webAdminsPath, w, r)
 	renderAdminTemplate(w, templateAdmins, data)
 }
 
@@ -2946,7 +2946,7 @@ func (s *httpdServer) handleWebAdminSetupGet(w http.ResponseWriter, r *http.Requ
 		http.Redirect(w, r, webAdminLoginPath, http.StatusFound)
 		return
 	}
-	s.renderAdminSetupPage(w, r, "", util.GetIPFromRemoteAddress(r.RemoteAddr), nil)
+	s.renderAdminSetupPage(w, r, "", nil)
 }
 
 func (s *httpdServer) handleWebAddAdminGet(w http.ResponseWriter, r *http.Request) {
@@ -2987,7 +2987,7 @@ func (s *httpdServer) handleWebAddAdminPost(w http.ResponseWriter, r *http.Reque
 		admin.Password = util.GenerateUniqueID()
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
+	if err := verifyCSRFToken(r, s.csrfTokenAuth); err != nil {
 		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
@@ -3018,7 +3018,7 @@ func (s *httpdServer) handleWebUpdateAdminPost(w http.ResponseWriter, r *http.Re
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
+	if err := verifyCSRFToken(r, s.csrfTokenAuth); err != nil {
 		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
@@ -3071,7 +3071,7 @@ func (s *httpdServer) handleWebUpdateAdminPost(w http.ResponseWriter, r *http.Re
 func (s *httpdServer) handleWebDefenderPage(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	data := defenderHostsPage{
-		basePage:         s.getBasePageData(util.I18nDefenderTitle, webDefenderPath, r),
+		basePage:         s.getBasePageData(util.I18nDefenderTitle, webDefenderPath, w, r),
 		DefenderHostsURL: webDefenderHostsPath,
 	}
 
@@ -3105,7 +3105,7 @@ func (s *httpdServer) handleGetWebUsers(w http.ResponseWriter, r *http.Request) 
 		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
 	}
-	data := s.getBasePageData(util.I18nUsersTitle, webUsersPath, r)
+	data := s.getBasePageData(util.I18nUsersTitle, webUsersPath, w, r)
 	renderAdminTemplate(w, templateUsers, data)
 }
 
@@ -3144,7 +3144,7 @@ func (s *httpdServer) handleWebTemplateFolderPost(w http.ResponseWriter, r *http
 	defer r.MultipartForm.RemoveAll() //nolint:errcheck
 
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
+	if err := verifyCSRFToken(r, s.csrfTokenAuth); err != nil {
 		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
@@ -3244,7 +3244,7 @@ func (s *httpdServer) handleWebTemplateUserPost(w http.ResponseWriter, r *http.R
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
+	if err := verifyCSRFToken(r, s.csrfTokenAuth); err != nil {
 		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
@@ -3341,7 +3341,7 @@ func (s *httpdServer) handleWebAddUserPost(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
+	if err := verifyCSRFToken(r, s.csrfTokenAuth); err != nil {
 		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
@@ -3387,7 +3387,7 @@ func (s *httpdServer) handleWebUpdateUserPost(w http.ResponseWriter, r *http.Req
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
+	if err := verifyCSRFToken(r, s.csrfTokenAuth); err != nil {
 		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
@@ -3425,7 +3425,7 @@ func (s *httpdServer) handleWebUpdateUserPost(w http.ResponseWriter, r *http.Req
 func (s *httpdServer) handleWebGetStatus(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	data := statusPage{
-		basePage: s.getBasePageData(util.I18nStatusTitle, webStatusPath, r),
+		basePage: s.getBasePageData(util.I18nStatusTitle, webStatusPath, w, r),
 		Status:   getServicesStatus(),
 	}
 	renderAdminTemplate(w, templateStatus, data)
@@ -3439,7 +3439,7 @@ func (s *httpdServer) handleWebGetConnections(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	data := s.getBasePageData(util.I18nSessionsTitle, webConnectionsPath, r)
+	data := s.getBasePageData(util.I18nSessionsTitle, webConnectionsPath, w, r)
 	renderAdminTemplate(w, templateConnections, data)
 }
 
@@ -3464,7 +3464,7 @@ func (s *httpdServer) handleWebAddFolderPost(w http.ResponseWriter, r *http.Requ
 	defer r.MultipartForm.RemoveAll() //nolint:errcheck
 
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
+	if err := verifyCSRFToken(r, s.csrfTokenAuth); err != nil {
 		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
@@ -3525,7 +3525,7 @@ func (s *httpdServer) handleWebUpdateFolderPost(w http.ResponseWriter, r *http.R
 	defer r.MultipartForm.RemoveAll() //nolint:errcheck
 
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
+	if err := verifyCSRFToken(r, s.csrfTokenAuth); err != nil {
 		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
@@ -3588,7 +3588,7 @@ func getAllFolders(w http.ResponseWriter, r *http.Request) {
 func (s *httpdServer) handleWebGetFolders(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 
-	data := s.getBasePageData(util.I18nFoldersTitle, webFoldersPath, r)
+	data := s.getBasePageData(util.I18nFoldersTitle, webFoldersPath, w, r)
 	renderAdminTemplate(w, templateFolders, data)
 }
 
@@ -3626,7 +3626,7 @@ func getAllGroups(w http.ResponseWriter, r *http.Request) {
 func (s *httpdServer) handleWebGetGroups(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 
-	data := s.getBasePageData(util.I18nGroupsTitle, webGroupsPath, r)
+	data := s.getBasePageData(util.I18nGroupsTitle, webGroupsPath, w, r)
 	renderAdminTemplate(w, templateGroups, data)
 }
 
@@ -3648,7 +3648,7 @@ func (s *httpdServer) handleWebAddGroupPost(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
+	if err := verifyCSRFToken(r, s.csrfTokenAuth); err != nil {
 		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
@@ -3695,7 +3695,7 @@ func (s *httpdServer) handleWebUpdateGroupPost(w http.ResponseWriter, r *http.Re
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
+	if err := verifyCSRFToken(r, s.csrfTokenAuth); err != nil {
 		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
@@ -3748,7 +3748,7 @@ func getAllActions(w http.ResponseWriter, r *http.Request) {
 func (s *httpdServer) handleWebGetEventActions(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 
-	data := s.getBasePageData(util.I18nActionsTitle, webAdminEventActionsPath, r)
+	data := s.getBasePageData(util.I18nActionsTitle, webAdminEventActionsPath, w, r)
 	renderAdminTemplate(w, templateEventActions, data)
 }
 
@@ -3773,7 +3773,7 @@ func (s *httpdServer) handleWebAddEventActionPost(w http.ResponseWriter, r *http
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
+	if err := verifyCSRFToken(r, s.csrfTokenAuth); err != nil {
 		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
@@ -3819,7 +3819,7 @@ func (s *httpdServer) handleWebUpdateEventActionPost(w http.ResponseWriter, r *h
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
+	if err := verifyCSRFToken(r, s.csrfTokenAuth); err != nil {
 		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
@@ -3858,7 +3858,7 @@ func getAllRules(w http.ResponseWriter, r *http.Request) {
 func (s *httpdServer) handleWebGetEventRules(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 
-	data := s.getBasePageData(util.I18nRulesTitle, webAdminEventRulesPath, r)
+	data := s.getBasePageData(util.I18nRulesTitle, webAdminEventRulesPath, w, r)
 	renderAdminTemplate(w, templateEventRules, data)
 }
 
@@ -3884,7 +3884,7 @@ func (s *httpdServer) handleWebAddEventRulePost(w http.ResponseWriter, r *http.R
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
-	err = verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr)
+	err = verifyCSRFToken(r, s.csrfTokenAuth)
 	if err != nil {
 		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
@@ -3931,7 +3931,7 @@ func (s *httpdServer) handleWebUpdateEventRulePost(w http.ResponseWriter, r *htt
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
+	if err := verifyCSRFToken(r, s.csrfTokenAuth); err != nil {
 		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
@@ -3978,7 +3978,7 @@ func getAllRoles(w http.ResponseWriter, r *http.Request) {
 
 func (s *httpdServer) handleWebGetRoles(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	data := s.getBasePageData(util.I18nRolesTitle, webAdminRolesPath, r)
+	data := s.getBasePageData(util.I18nRolesTitle, webAdminRolesPath, w, r)
 
 	renderAdminTemplate(w, templateRoles, data)
 }
@@ -4001,7 +4001,7 @@ func (s *httpdServer) handleWebAddRolePost(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
+	if err := verifyCSRFToken(r, s.csrfTokenAuth); err != nil {
 		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
@@ -4047,7 +4047,7 @@ func (s *httpdServer) handleWebUpdateRolePost(w http.ResponseWriter, r *http.Req
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
+	if err := verifyCSRFToken(r, s.csrfTokenAuth); err != nil {
 		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
@@ -4065,7 +4065,7 @@ func (s *httpdServer) handleWebGetEvents(w http.ResponseWriter, r *http.Request)
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 
 	data := eventsPage{
-		basePage:                s.getBasePageData(util.I18nEventsTitle, webEventsPath, r),
+		basePage:                s.getBasePageData(util.I18nEventsTitle, webEventsPath, w, r),
 		FsEventsSearchURL:       webEventsFsSearchPath,
 		ProviderEventsSearchURL: webEventsProviderSearchPath,
 		LogEventsSearchURL:      webEventsLogSearchPath,
@@ -4077,7 +4077,7 @@ func (s *httpdServer) handleWebIPListsPage(w http.ResponseWriter, r *http.Reques
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	rtlStatus, rtlProtocols := common.Config.GetRateLimitersStatus()
 	data := ipListsPage{
-		basePage:              s.getBasePageData(util.I18nIPListsTitle, webIPListsPath, r),
+		basePage:              s.getBasePageData(util.I18nIPListsTitle, webIPListsPath, w, r),
 		RateLimitersStatus:    rtlStatus,
 		RateLimitersProtocols: strings.Join(rtlProtocols, ", "),
 		IsAllowListEnabled:    common.Config.IsAllowListEnabled(),
@@ -4115,7 +4115,7 @@ func (s *httpdServer) handleWebAddIPListEntryPost(w http.ResponseWriter, r *http
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
+	if err := verifyCSRFToken(r, s.csrfTokenAuth); err != nil {
 		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
@@ -4170,7 +4170,7 @@ func (s *httpdServer) handleWebUpdateIPListEntryPost(w http.ResponseWriter, r *h
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
+	if err := verifyCSRFToken(r, s.csrfTokenAuth); err != nil {
 		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
@@ -4212,7 +4212,7 @@ func (s *httpdServer) handleWebConfigsPost(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
+	if err := verifyCSRFToken(r, s.csrfTokenAuth); err != nil {
 		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
@@ -4262,20 +4262,21 @@ func (s *httpdServer) handleOAuth2TokenRedirect(w http.ResponseWriter, r *http.R
 
 	stateToken := r.URL.Query().Get("state")
 
-	state, err := verifyOAuth2Token(stateToken, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	state, err := verifyOAuth2Token(s.csrfTokenAuth, stateToken, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err != nil {
 		s.renderMessagePage(w, r, util.I18nOAuth2ErrorTitle, http.StatusBadRequest, err, "")
 		return
 	}
 
-	defer oauth2Mgr.removePendingAuth(state)
-
 	pendingAuth, err := oauth2Mgr.getPendingAuth(state)
 	if err != nil {
+		oauth2Mgr.removePendingAuth(state)
 		s.renderMessagePage(w, r, util.I18nOAuth2ErrorTitle, http.StatusInternalServerError,
 			util.NewI18nError(err, util.I18nOAuth2ErrorValidateState), "")
 		return
 	}
+	oauth2Mgr.removePendingAuth(state)
+
 	oauth2Config := smtp.OAuth2Config{
 		Provider:     pendingAuth.Provider,
 		ClientID:     pendingAuth.ClientID,

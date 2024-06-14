@@ -541,6 +541,7 @@ func (s *httpdServer) oidcTokenAuthenticator(audience tokenAudience) func(next h
 				return
 			}
 			jwtTokenClaims := jwtTokenClaims{
+				JwtID:                token.Cookie,
 				Username:             token.Username,
 				Permissions:          token.Permissions,
 				Role:                 token.TokenRole,
@@ -594,6 +595,7 @@ func (s *httpdServer) handleOIDCRedirect(w http.ResponseWriter, r *http.Request)
 	authReq, err := oidcMgr.getPendingAuth(state)
 	if err != nil {
 		logger.Debug(logSender, "", "oidc authentication state did not match")
+		oidcMgr.removePendingAuth(state)
 		s.renderClientMessagePage(w, r, util.I18nInvalidAuthReqTitle, http.StatusBadRequest,
 			util.NewI18nError(err, util.I18nInvalidAuth), "")
 		return

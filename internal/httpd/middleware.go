@@ -95,13 +95,11 @@ func validateJWTToken(w http.ResponseWriter, r *http.Request, audience tokenAudi
 		doRedirect("Your token audience is not valid", nil)
 		return errInvalidToken
 	}
-	if tokenValidationMode != tokenValidationNoIPMatch {
-		ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
-		if !util.Contains(token.Audience(), ipAddr) {
-			logger.Debug(logSender, "", "the token with id %q is not valid for the ip address %q", token.JwtID(), ipAddr)
-			doRedirect("Your token is not valid", nil)
-			return errInvalidToken
-		}
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	if err := validateIPForToken(token, ipAddr); err != nil {
+		logger.Debug(logSender, "", "the token with id %q is not valid for the ip address %q", token.JwtID(), ipAddr)
+		doRedirect("Your token is not valid", nil)
+		return err
 	}
 	return nil
 }
@@ -123,9 +121,15 @@ func (s *httpdServer) validateJWTPartialToken(w http.ResponseWriter, r *http.Req
 		return errInvalidToken
 	}
 	if !util.Contains(token.Audience(), audience) {
-		logger.Debug(logSender, "", "the token is not valid for audience %q", audience)
+		logger.Debug(logSender, "", "the partial token with id %q is not valid for audience %q", token.JwtID(), audience)
 		notFoundFunc(w, r, nil)
 		return errInvalidToken
+	}
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	if err := validateIPForToken(token, ipAddr); err != nil {
+		logger.Debug(logSender, "", "the partial token with id %q is not valid for the ip address %q", token.JwtID(), ipAddr)
+		notFoundFunc(w, r, nil)
+		return err
 	}
 
 	return nil
@@ -324,10 +328,10 @@ func (s *httpdServer) checkPerm(perm string) func(next http.Handler) http.Handle
 	}
 }
 
-func verifyCSRFHeader(next http.Handler) http.Handler {
+func (s *httpdServer) verifyCSRFHeader(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tokenString := r.Header.Get(csrfHeaderToken)
-		token, err := jwtauth.VerifyToken(csrfTokenAuth, tokenString)
+		token, err := jwtauth.VerifyToken(s.csrfTokenAuth, tokenString)
 		if err != nil || token == nil {
 			logger.Debug(logSender, "", "error validating CSRF header: %v", err)
 			sendAPIResponse(w, r, err, "Invalid token", http.StatusForbidden)
@@ -340,12 +344,10 @@ func verifyCSRFHeader(next http.Handler) http.Handler {
 			return
 		}
 
-		if tokenValidationMode != tokenValidationNoIPMatch {
-			if !util.Contains(token.Audience(), util.GetIPFromRemoteAddress(r.RemoteAddr)) {
-				logger.Debug(logSender, "", "error validating CSRF header IP audience")
-				sendAPIResponse(w, r, errors.New("the token is not valid"), "", http.StatusForbidden)
-				return
-			}
+		if err := validateIPForToken(token, util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
+			logger.Debug(logSender, "", "error validating CSRF header IP audience")
+			sendAPIResponse(w, r, errors.New("the token is not valid"), "", http.StatusForbidden)
+			return
 		}
 
 		next.ServeHTTP(w, r)

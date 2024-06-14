@@ -138,8 +138,7 @@ func saveTOTPConfig(w http.ResponseWriter, r *http.Request) {
 	if claims.MustSetTwoFactorAuth {
 		// force logout
 		defer func() {
-			c := jwtTokenClaims{}
-			c.removeCookie(w, r, baseURL)
+			removeCookie(w, r, baseURL)
 		}()
 	}
 

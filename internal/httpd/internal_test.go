@@ -412,6 +412,35 @@ func TestGCSWebInvalidFormFile(t *testing.T) {
 	assert.EqualError(t, err, http.ErrNotMultipart.Error())
 }
 
+func TestVerifyCSRFToken(t *testing.T) {
+	server := httpdServer{}
+	server.initializeRouter()
+	req, err := http.NewRequest(http.MethodPost, webAdminEventActionPath, nil)
+	require.NoError(t, err)
+	req = req.WithContext(context.WithValue(req.Context(), jwtauth.ErrorCtxKey, fs.ErrPermission))
+
+	rr := httptest.NewRecorder()
+	tokenString := createCSRFToken(rr, req, server.csrfTokenAuth, "", webBaseAdminPath)
+	assert.NotEmpty(t, tokenString)
+
+	token, err := server.csrfTokenAuth.Decode(tokenString)
+	require.NoError(t, err)
+	_, ok := token.Get(claimRef)
+	assert.False(t, ok)
+
+	req.Form = url.Values{}
+	req.Form.Set(csrfFormToken, tokenString)
+	err = verifyCSRFToken(req, server.csrfTokenAuth)
+	assert.ErrorIs(t, err, fs.ErrPermission)
+
+	req, err = http.NewRequest(http.MethodPost, webAdminEventActionPath, nil)
+	require.NoError(t, err)
+	req.Form = url.Values{}
+	req.Form.Set(csrfFormToken, tokenString)
+	err = verifyCSRFToken(req, server.csrfTokenAuth)
+	assert.ErrorContains(t, err, "the form token is not valid")
+}
+
 func TestInvalidToken(t *testing.T) {
 	server := httpdServer{}
 	server.initializeRouter()
@@ -923,13 +952,24 @@ func TestUpdateWebAdminInvalidClaims(t *testing.T) {
 	token, err := c.createTokenResponse(server.tokenAuth, tokenAudienceWebAdmin, "")
 	assert.NoError(t, err)
 
+	req, err := http.NewRequest(http.MethodGet, webAdminPath, nil)
+	assert.NoError(t, err)
+	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
+	parsedToken, err := jwtauth.VerifyRequest(server.tokenAuth, req, jwtauth.TokenFromCookie)
+	assert.NoError(t, err)
+	ctx := req.Context()
+	ctx = jwtauth.NewContext(ctx, parsedToken, err)
+	req = req.WithContext(ctx)
+
 	form := make(url.Values)
-	form.Set(csrfFormToken, createCSRFToken(""))
+	form.Set(csrfFormToken, createCSRFToken(rr, req, server.csrfTokenAuth, "", webBaseAdminPath))
 	form.Set("status", "1")
 	form.Set("default_users_expiration", "30")
-	req, _ := http.NewRequest(http.MethodPost, path.Join(webAdminPath, "admin"), bytes.NewBuffer([]byte(form.Encode())))
+	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminPath, "admin"), bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
 	rctx := chi.NewRouteContext()
 	rctx.URLParams.Add("username", "admin")
+	req = req.WithContext(ctx)
 	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
@@ -1028,7 +1068,7 @@ func TestOAuth2Redirect(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), util.I18nOAuth2ErrorTitle)
 
 	ip := "127.1.1.4"
-	tokenString := createOAuth2Token(xid.New().String(), ip)
+	tokenString := createOAuth2Token(server.csrfTokenAuth, xid.New().String(), ip)
 	rr = httptest.NewRecorder()
 	req, err = http.NewRequest(http.MethodGet, webOAuth2RedirectPath+"?state="+tokenString, nil) //nolint:goconst
 	assert.NoError(t, err)
@@ -1039,8 +1079,10 @@ func TestOAuth2Redirect(t *testing.T) {
 }
 
 func TestOAuth2Token(t *testing.T) {
+	server := httpdServer{}
+	server.initializeRouter()
 	// invalid token
-	_, err := verifyOAuth2Token("token", "")
+	_, err := verifyOAuth2Token(server.csrfTokenAuth, "token", "")
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "unable to verify OAuth2 state")
 	}
@@ -1053,22 +1095,22 @@ func TestOAuth2Token(t *testing.T) {
 	claims[jwt.ExpirationKey] = now.Add(tokenDuration)
 	claims[jwt.AudienceKey] = []string{tokenAudienceAPI}
 
-	_, tokenString, err := csrfTokenAuth.Encode(claims)
+	_, tokenString, err := server.csrfTokenAuth.Encode(claims)
 	assert.NoError(t, err)
-	_, err = verifyOAuth2Token(tokenString, "")
+	_, err = verifyOAuth2Token(server.csrfTokenAuth, tokenString, "")
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "invalid OAuth2 state")
 	}
 	// bad IP
-	tokenString = createOAuth2Token("state", "127.1.1.1")
-	_, err = verifyOAuth2Token(tokenString, "127.1.1.2")
+	tokenString = createOAuth2Token(server.csrfTokenAuth, "state", "127.1.1.1")
+	_, err = verifyOAuth2Token(server.csrfTokenAuth, tokenString, "127.1.1.2")
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "invalid OAuth2 state")
 	}
 	// ok
 	state := xid.New().String()
-	tokenString = createOAuth2Token(state, "127.1.1.3")
-	s, err := verifyOAuth2Token(tokenString, "127.1.1.3")
+	tokenString = createOAuth2Token(server.csrfTokenAuth, state, "127.1.1.3")
+	s, err := verifyOAuth2Token(server.csrfTokenAuth, tokenString, "127.1.1.3")
 	assert.NoError(t, err)
 	assert.Equal(t, state, s)
 	// no jti
@@ -1077,19 +1119,17 @@ func TestOAuth2Token(t *testing.T) {
 	claims[jwt.NotBeforeKey] = now.Add(-30 * time.Second)
 	claims[jwt.ExpirationKey] = now.Add(tokenDuration)
 	claims[jwt.AudienceKey] = []string{tokenAudienceOAuth2, "127.1.1.4"}
-	_, tokenString, err = csrfTokenAuth.Encode(claims)
+	_, tokenString, err = server.csrfTokenAuth.Encode(claims)
 	assert.NoError(t, err)
-	_, err = verifyOAuth2Token(tokenString, "127.1.1.4")
+	_, err = verifyOAuth2Token(server.csrfTokenAuth, tokenString, "127.1.1.4")
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "invalid OAuth2 state")
 	}
 	// encode error
-	csrfTokenAuth = jwtauth.New("HT256", util.GenerateRandomBytes(32), nil)
-	tokenString = createOAuth2Token(xid.New().String(), "")
+	server.csrfTokenAuth = jwtauth.New("HT256", util.GenerateRandomBytes(32), nil)
+	tokenString = createOAuth2Token(server.csrfTokenAuth, xid.New().String(), "")
 	assert.Empty(t, tokenString)
 
-	server := httpdServer{}
-	server.initializeRouter()
 	rr := httptest.NewRecorder()
 	testReq := make(map[string]any)
 	testReq["base_redirect_url"] = "http://localhost:8082"
@@ -1097,16 +1137,17 @@ func TestOAuth2Token(t *testing.T) {
 	assert.NoError(t, err)
 	req, err := http.NewRequest(http.MethodPost, webOAuth2TokenPath, bytes.NewBuffer(asJSON))
 	assert.NoError(t, err)
-	handleSMTPOAuth2TokenRequestPost(rr, req)
+	server.handleSMTPOAuth2TokenRequestPost(rr, req)
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), "unable to create state token")
-
-	csrfTokenAuth = jwtauth.New(jwa.HS256.String(), util.GenerateRandomBytes(32), nil)
 }
 
 func TestCSRFToken(t *testing.T) {
+	server := httpdServer{}
+	server.initializeRouter()
 	// invalid token
-	err := verifyCSRFToken("token", "")
+	req := &http.Request{}
+	err := verifyCSRFToken(req, server.csrfTokenAuth)
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "unable to verify form token")
 	}
@@ -1119,16 +1160,23 @@ func TestCSRFToken(t *testing.T) {
 	claims[jwt.ExpirationKey] = now.Add(tokenDuration)
 	claims[jwt.AudienceKey] = []string{tokenAudienceAPI}
 
-	_, tokenString, err := csrfTokenAuth.Encode(claims)
+	_, tokenString, err := server.csrfTokenAuth.Encode(claims)
 	assert.NoError(t, err)
-	err = verifyCSRFToken(tokenString, "")
+	values := url.Values{}
+	values.Set(csrfFormToken, tokenString)
+	req.Form = values
+	err = verifyCSRFToken(req, server.csrfTokenAuth)
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "form token is not valid")
 	}
 
 	// bad IP
-	tokenString = createCSRFToken("127.1.1.1")
-	err = verifyCSRFToken(tokenString, "127.1.1.2")
+	req.RemoteAddr = "127.1.1.1"
+	tokenString = createCSRFToken(httptest.NewRecorder(), req, server.csrfTokenAuth, "", webBaseAdminPath)
+	values.Set(csrfFormToken, tokenString)
+	req.Form = values
+	req.RemoteAddr = "127.1.1.2"
+	err = verifyCSRFToken(req, server.csrfTokenAuth)
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "form token is not valid")
 	}
@@ -1137,8 +1185,9 @@ func TestCSRFToken(t *testing.T) {
 	claims[jwt.NotBeforeKey] = now.Add(-30 * time.Second)
 	claims[jwt.ExpirationKey] = now.Add(tokenDuration)
 	claims[jwt.AudienceKey] = []string{tokenAudienceAPI}
-	_, tokenString, err = csrfTokenAuth.Encode(claims)
+	_, tokenString, err = server.csrfTokenAuth.Encode(claims)
 	assert.NoError(t, err)
+	assert.NotEmpty(t, tokenString)
 
 	r := GetHTTPRouter(Binding{
 		Address:         "",
@@ -1148,9 +1197,9 @@ func TestCSRFToken(t *testing.T) {
 		EnableRESTAPI:   true,
 		RenderOpenAPI:   true,
 	})
-	fn := verifyCSRFHeader(r)
+	fn := server.verifyCSRFHeader(r)
 	rr := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodDelete, path.Join(userPath, "username"), nil)
+	req, _ = http.NewRequest(http.MethodDelete, path.Join(userPath, "username"), nil)
 	fn.ServeHTTP(rr, req)
 	assert.Equal(t, http.StatusForbidden, rr.Code)
 	assert.Contains(t, rr.Body.String(), "Invalid token")
@@ -1163,18 +1212,20 @@ func TestCSRFToken(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "the token is not valid")
 
 	// invalid IP
-	tokenString = createCSRFToken("172.16.1.2")
+	tokenString = createCSRFToken(httptest.NewRecorder(), req, server.csrfTokenAuth, "", webBaseAdminPath)
 	req.Header.Set(csrfHeaderToken, tokenString)
+	req.RemoteAddr = "172.16.1.2"
 	rr = httptest.NewRecorder()
 	fn.ServeHTTP(rr, req)
 	assert.Equal(t, http.StatusForbidden, rr.Code)
 	assert.Contains(t, rr.Body.String(), "the token is not valid")
 
-	csrfTokenAuth = jwtauth.New("PS256", util.GenerateRandomBytes(32), nil)
-	tokenString = createCSRFToken("")
+	csrfTokenAuth := jwtauth.New("PS256", util.GenerateRandomBytes(32), nil)
+	tokenString = createCSRFToken(httptest.NewRecorder(), req, csrfTokenAuth, "", webBaseAdminPath)
 	assert.Empty(t, tokenString)
-
-	csrfTokenAuth = jwtauth.New(jwa.HS256.String(), util.GenerateRandomBytes(32), nil)
+	rr = httptest.NewRecorder()
+	createLoginCookie(rr, req, csrfTokenAuth, "", webBaseAdminPath, req.RemoteAddr)
+	assert.Empty(t, rr.Header().Get("Set-Cookie"))
 }
 
 func TestCreateShareCookieError(t *testing.T) {
@@ -1205,19 +1256,38 @@ func TestCreateShareCookieError(t *testing.T) {
 	assert.NoError(t, err)
 
 	server := httpdServer{
-		tokenAuth: jwtauth.New("TS256", util.GenerateRandomBytes(32), nil),
+		tokenAuth:     jwtauth.New("TS256", util.GenerateRandomBytes(32), nil),
+		csrfTokenAuth: jwtauth.New(jwa.HS256.String(), util.GenerateRandomBytes(32), nil),
 	}
+
+	c := jwtTokenClaims{
+		JwtID: xid.New().String(),
+	}
+	resp, err := c.createTokenResponse(server.csrfTokenAuth, tokenAudienceWebLogin, "127.0.0.1")
+	assert.NoError(t, err)
+	parsedToken, err := jwtauth.VerifyToken(server.csrfTokenAuth, resp["access_token"].(string))
+	assert.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, share.ShareID, "login"), nil)
+	assert.NoError(t, err)
+	req.RemoteAddr = "127.0.0.1:4567"
+	ctx := req.Context()
+	ctx = jwtauth.NewContext(ctx, parsedToken, err)
+	req = req.WithContext(ctx)
+
 	form := make(url.Values)
 	form.Set("share_password", pwd)
-	form.Set(csrfFormToken, createCSRFToken("127.0.0.1"))
+	form.Set(csrfFormToken, createCSRFToken(httptest.NewRecorder(), req, server.csrfTokenAuth, "", webBaseClientPath))
 	rctx := chi.NewRouteContext()
 	rctx.URLParams.Add("id", share.ShareID)
 	rr := httptest.NewRecorder()
-	req, err := http.NewRequest(http.MethodPost, path.Join(webClientPubSharesPath, share.ShareID, "login"),
+	req, err = http.NewRequest(http.MethodPost, path.Join(webClientPubSharesPath, share.ShareID, "login"),
 		bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = "127.0.0.1:2345"
+	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", resp["access_token"]))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req = req.WithContext(ctx)
 	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
 	server.handleClientShareLoginPost(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
@@ -1229,7 +1299,8 @@ func TestCreateShareCookieError(t *testing.T) {
 
 func TestCreateTokenError(t *testing.T) {
 	server := httpdServer{
-		tokenAuth: jwtauth.New("PS256", util.GenerateRandomBytes(32), nil),
+		tokenAuth:     jwtauth.New("PS256", util.GenerateRandomBytes(32), nil),
+		csrfTokenAuth: jwtauth.New(jwa.HS256.String(), util.GenerateRandomBytes(32), nil),
 	}
 	rr := httptest.NewRecorder()
 	admin := dataprovider.Admin{
@@ -1253,14 +1324,36 @@ func TestCreateTokenError(t *testing.T) {
 	server.generateAndSendUserToken(rr, req, "", user)
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
 
+	c := jwtTokenClaims{
+		JwtID: xid.New().String(),
+	}
+	token, err := c.createTokenResponse(server.csrfTokenAuth, tokenAudienceWebLogin, "")
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodGet, webAdminLoginPath, nil)
+	assert.NoError(t, err)
+	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
+	parsedToken, err := jwtauth.VerifyRequest(server.csrfTokenAuth, req, jwtauth.TokenFromCookie)
+	assert.NoError(t, err)
+	ctx := req.Context()
+	ctx = jwtauth.NewContext(ctx, parsedToken, err)
+	req = req.WithContext(ctx)
+
 	rr = httptest.NewRecorder()
 	form := make(url.Values)
 	form.Set("username", admin.Username)
 	form.Set("password", admin.Password)
-	form.Set(csrfFormToken, createCSRFToken("127.0.0.1"))
+	form.Set(csrfFormToken, createCSRFToken(rr, req, server.csrfTokenAuth, xid.New().String(), webBaseAdminPath))
+	cookie := rr.Header().Get("Set-Cookie")
+	assert.NotEmpty(t, cookie)
 	req, _ = http.NewRequest(http.MethodPost, webAdminLoginPath, bytes.NewBuffer([]byte(form.Encode())))
-	req.RemoteAddr = "127.0.0.1:1234"
+	req.Header.Set("Cookie", cookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	parsedToken, err = jwtauth.VerifyRequest(server.csrfTokenAuth, req, jwtauth.TokenFromCookie)
+	assert.NoError(t, err)
+	ctx = req.Context()
+	ctx = jwtauth.NewContext(ctx, parsedToken, err)
+	req = req.WithContext(ctx)
 	server.handleWebAdminLoginPost(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
 	// req with no content type
@@ -1287,7 +1380,7 @@ func TestCreateTokenError(t *testing.T) {
 
 	req, _ = http.NewRequest(http.MethodGet, webAdminLoginPath+"?a=a%C3%A2%G3", nil)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	_, err := getAdminFromPostFields(req)
+	_, err = getAdminFromPostFields(req)
 	assert.Error(t, err)
 
 	req, _ = http.NewRequest(http.MethodPost, webAdminEventActionPath+"?a=a%C3%A2%GG", nil)
@@ -1421,13 +1514,21 @@ func TestCreateTokenError(t *testing.T) {
 	err = dataprovider.AddUser(&user, "", "", "")
 	assert.NoError(t, err)
 
+	req, err = http.NewRequest(http.MethodGet, webClientLoginPath, nil)
+	assert.NoError(t, err)
+	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
+	parsedToken, err = jwtauth.VerifyRequest(server.csrfTokenAuth, req, jwtauth.TokenFromCookie)
+	assert.NoError(t, err)
+	ctx = req.Context()
+	ctx = jwtauth.NewContext(ctx, parsedToken, err)
+	req = req.WithContext(ctx)
+
 	rr = httptest.NewRecorder()
 	form = make(url.Values)
 	form.Set("username", user.Username)
 	form.Set("password", "clientpwd")
-	form.Set(csrfFormToken, createCSRFToken("127.0.0.1"))
+	form.Set(csrfFormToken, createCSRFToken(rr, req, server.csrfTokenAuth, "", webBaseClientPath))
 	req, _ = http.NewRequest(http.MethodPost, webClientLoginPath, bytes.NewBuffer([]byte(form.Encode())))
-	req.RemoteAddr = "127.0.0.1:4567"
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	server.handleWebClientLoginPost(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
@@ -1616,6 +1717,7 @@ func TestCookieExpiration(t *testing.T) {
 	claims = make(map[string]any)
 	claims[claimUsernameKey] = admin.Username
 	claims[claimPermissionsKey] = admin.Permissions
+	claims[jwt.JwtIDKey] = xid.New().String()
 	claims[jwt.SubjectKey] = admin.GetSignature()
 	claims[jwt.ExpirationKey] = time.Now().Add(1 * time.Minute)
 	claims[jwt.AudienceKey] = []string{tokenAudienceAPI}
@@ -1648,9 +1750,11 @@ func TestCookieExpiration(t *testing.T) {
 
 	admin, err = dataprovider.AdminExists(admin.Username)
 	assert.NoError(t, err)
+	tokenID := xid.New().String()
 	claims = make(map[string]any)
 	claims[claimUsernameKey] = admin.Username
 	claims[claimPermissionsKey] = admin.Permissions
+	claims[jwt.JwtIDKey] = tokenID
 	claims[jwt.SubjectKey] = admin.GetSignature()
 	claims[jwt.ExpirationKey] = time.Now().Add(1 * time.Minute)
 	claims[jwt.AudienceKey] = []string{tokenAudienceAPI}
@@ -1669,6 +1773,11 @@ func TestCookieExpiration(t *testing.T) {
 	server.checkCookieExpiration(rr, req.WithContext(ctx))
 	cookie = rr.Header().Get("Set-Cookie")
 	assert.True(t, strings.HasPrefix(cookie, "jwt="))
+	req.Header.Set("Cookie", cookie)
+	token, err = jwtauth.VerifyRequest(server.tokenAuth, req, jwtauth.TokenFromCookie)
+	if assert.NoError(t, err) {
+		assert.Equal(t, tokenID, token.JwtID())
+	}
 
 	err = dataprovider.DeleteAdmin(admin.Username, "", "", "")
 	assert.NoError(t, err)
@@ -1689,6 +1798,7 @@ func TestCookieExpiration(t *testing.T) {
 	claims = make(map[string]any)
 	claims[claimUsernameKey] = user.Username
 	claims[claimPermissionsKey] = user.Filters.WebClient
+	claims[jwt.JwtIDKey] = tokenID
 	claims[jwt.SubjectKey] = user.GetSignature()
 	claims[jwt.ExpirationKey] = time.Now().Add(1 * time.Minute)
 	claims[jwt.AudienceKey] = []string{tokenAudienceWebClient}
@@ -1721,6 +1831,7 @@ func TestCookieExpiration(t *testing.T) {
 	claims = make(map[string]any)
 	claims[claimUsernameKey] = user.Username
 	claims[claimPermissionsKey] = user.Filters.WebClient
+	claims[jwt.JwtIDKey] = tokenID
 	claims[jwt.SubjectKey] = user.GetSignature()
 	claims[jwt.ExpirationKey] = time.Now().Add(1 * time.Minute)
 	claims[jwt.AudienceKey] = []string{tokenAudienceWebClient}
@@ -1740,6 +1851,35 @@ func TestCookieExpiration(t *testing.T) {
 	server.checkCookieExpiration(rr, req.WithContext(ctx))
 	cookie = rr.Header().Get("Set-Cookie")
 	assert.NotEmpty(t, cookie)
+	req.Header.Set("Cookie", cookie)
+	token, err = jwtauth.VerifyRequest(server.tokenAuth, req, jwtauth.TokenFromCookie)
+	if assert.NoError(t, err) {
+		assert.Equal(t, tokenID, token.JwtID())
+	}
+
+	// test a disabled user
+	user.Status = 0
+	err = dataprovider.UpdateUser(&user, "", "", "")
+	assert.NoError(t, err)
+	user, err = dataprovider.UserExists(user.Username, "")
+	assert.NoError(t, err)
+
+	claims = make(map[string]any)
+	claims[claimUsernameKey] = user.Username
+	claims[claimPermissionsKey] = user.Filters.WebClient
+	claims[jwt.JwtIDKey] = tokenID
+	claims[jwt.SubjectKey] = user.GetSignature()
+	claims[jwt.ExpirationKey] = time.Now().Add(1 * time.Minute)
+	claims[jwt.AudienceKey] = []string{tokenAudienceWebClient}
+	token, _, err = server.tokenAuth.Encode(claims)
+	assert.NoError(t, err)
+
+	rr = httptest.NewRecorder()
+	req, _ = http.NewRequest(http.MethodGet, webClientFilesPath, nil)
+	ctx = jwtauth.NewContext(req.Context(), token, nil)
+	server.checkCookieExpiration(rr, req.WithContext(ctx))
+	cookie = rr.Header().Get("Set-Cookie")
+	assert.Empty(t, cookie)
 
 	err = dataprovider.DeleteUser(user.Username, "", "", "")
 	assert.NoError(t, err)
@@ -2104,34 +2244,95 @@ func TestProxyHeaders(t *testing.T) {
 	testServer.Config.Handler.ServeHTTP(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code)
 
+	req, err = http.NewRequest(http.MethodGet, webAdminLoginPath, nil)
+	assert.NoError(t, err)
+	req.RemoteAddr = testIP
+	rr = httptest.NewRecorder()
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
+	cookie := rr.Header().Get("Set-Cookie")
+	assert.NotEmpty(t, cookie)
+	req.Header.Set("Cookie", cookie)
+	parsedToken, err := jwtauth.VerifyRequest(server.csrfTokenAuth, req, jwtauth.TokenFromCookie)
+	assert.NoError(t, err)
+	ctx := req.Context()
+	ctx = jwtauth.NewContext(ctx, parsedToken, err)
+	req = req.WithContext(ctx)
+
 	form := make(url.Values)
 	form.Set("username", username)
 	form.Set("password", password)
-	form.Set(csrfFormToken, createCSRFToken(testIP))
+	form.Set(csrfFormToken, createCSRFToken(httptest.NewRecorder(), req, server.csrfTokenAuth, "", webBaseAdminPath))
 	req, err = http.NewRequest(http.MethodPost, webAdminLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = testIP
+	req.Header.Set("Cookie", cookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = httptest.NewRecorder()
 	testServer.Config.Handler.ServeHTTP(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
 	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCredentials)
 
-	form.Set(csrfFormToken, createCSRFToken(validForwardedFor))
+	req, err = http.NewRequest(http.MethodGet, webAdminLoginPath, nil)
+	assert.NoError(t, err)
+	req.RemoteAddr = validForwardedFor
+	rr = httptest.NewRecorder()
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
+	loginCookie := rr.Header().Get("Set-Cookie")
+	assert.NotEmpty(t, loginCookie)
+	req.Header.Set("Cookie", loginCookie)
+	parsedToken, err = jwtauth.VerifyRequest(server.csrfTokenAuth, req, jwtauth.TokenFromCookie)
+	assert.NoError(t, err)
+	ctx = req.Context()
+	ctx = jwtauth.NewContext(ctx, parsedToken, err)
+	req = req.WithContext(ctx)
+
+	form.Set(csrfFormToken, createCSRFToken(httptest.NewRecorder(), req, server.csrfTokenAuth, "", webBaseAdminPath))
 	req, err = http.NewRequest(http.MethodPost, webAdminLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = testIP
+	req.Header.Set("Cookie", loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("X-Forwarded-For", validForwardedFor)
 	rr = httptest.NewRecorder()
 	testServer.Config.Handler.ServeHTTP(rr, req)
 	assert.Equal(t, http.StatusFound, rr.Code, rr.Body.String())
-	cookie := rr.Header().Get("Set-Cookie")
+	cookie = rr.Header().Get("Set-Cookie")
 	assert.NotContains(t, cookie, "Secure")
 
+	// The login cookie is invalidated after a successful login, the same request will fail
 	req, err = http.NewRequest(http.MethodPost, webAdminLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = testIP
+	req.Header.Set("Cookie", loginCookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("X-Forwarded-For", validForwardedFor)
+	rr = httptest.NewRecorder()
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCSRF)
+
+	req, err = http.NewRequest(http.MethodGet, webAdminLoginPath, nil)
+	assert.NoError(t, err)
+	req.RemoteAddr = validForwardedFor
+	rr = httptest.NewRecorder()
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
+	loginCookie = rr.Header().Get("Set-Cookie")
+	assert.NotEmpty(t, loginCookie)
+	req.Header.Set("Cookie", loginCookie)
+	parsedToken, err = jwtauth.VerifyRequest(server.csrfTokenAuth, req, jwtauth.TokenFromCookie)
+	assert.NoError(t, err)
+	ctx = req.Context()
+	ctx = jwtauth.NewContext(ctx, parsedToken, err)
+	req = req.WithContext(ctx)
+
+	form.Set(csrfFormToken, createCSRFToken(httptest.NewRecorder(), req, server.csrfTokenAuth, "", webBaseAdminPath))
+	req, err = http.NewRequest(http.MethodPost, webAdminLoginPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.RemoteAddr = testIP
+	req.Header.Set("Cookie", loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("X-Forwarded-For", validForwardedFor)
 	req.Header.Set(xForwardedProto, "https")
@@ -2141,9 +2342,26 @@ func TestProxyHeaders(t *testing.T) {
 	cookie = rr.Header().Get("Set-Cookie")
 	assert.Contains(t, cookie, "Secure")
 
+	req, err = http.NewRequest(http.MethodGet, webAdminLoginPath, nil)
+	assert.NoError(t, err)
+	req.RemoteAddr = validForwardedFor
+	rr = httptest.NewRecorder()
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
+	loginCookie = rr.Header().Get("Set-Cookie")
+	assert.NotEmpty(t, loginCookie)
+	req.Header.Set("Cookie", loginCookie)
+	parsedToken, err = jwtauth.VerifyRequest(server.csrfTokenAuth, req, jwtauth.TokenFromCookie)
+	assert.NoError(t, err)
+	ctx = req.Context()
+	ctx = jwtauth.NewContext(ctx, parsedToken, err)
+	req = req.WithContext(ctx)
+
+	form.Set(csrfFormToken, createCSRFToken(httptest.NewRecorder(), req, server.csrfTokenAuth, "", webBaseAdminPath))
 	req, err = http.NewRequest(http.MethodPost, webAdminLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = testIP
+	req.Header.Set("Cookie", loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("X-Forwarded-For", validForwardedFor)
 	req.Header.Set(xForwardedProto, "http")
@@ -2715,10 +2933,22 @@ func TestInvalidClaims(t *testing.T) {
 	}
 	token, err := c.createTokenResponse(server.tokenAuth, tokenAudienceWebClient, "")
 	assert.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodGet, webClientProfilePath, nil)
+	assert.NoError(t, err)
+	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
+	parsedToken, err := jwtauth.VerifyRequest(server.tokenAuth, req, jwtauth.TokenFromCookie)
+	assert.NoError(t, err)
+	ctx := req.Context()
+	ctx = jwtauth.NewContext(ctx, parsedToken, err)
+	req = req.WithContext(ctx)
+
 	form := make(url.Values)
-	form.Set(csrfFormToken, createCSRFToken(""))
+	form.Set(csrfFormToken, createCSRFToken(rr, req, server.csrfTokenAuth, "", webBaseClientPath))
 	form.Set("public_keys", "")
-	req, _ := http.NewRequest(http.MethodPost, webClientProfilePath, bytes.NewBuffer([]byte(form.Encode())))
+	req, err = http.NewRequest(http.MethodPost, webClientProfilePath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req = req.WithContext(ctx)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
 	server.handleWebClientProfilePost(rr, req)
@@ -2735,14 +2965,27 @@ func TestInvalidClaims(t *testing.T) {
 	}
 	token, err = c.createTokenResponse(server.tokenAuth, tokenAudienceWebAdmin, "")
 	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodGet, webAdminProfilePath, nil)
+	assert.NoError(t, err)
+	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
+	parsedToken, err = jwtauth.VerifyRequest(server.tokenAuth, req, jwtauth.TokenFromCookie)
+	assert.NoError(t, err)
+	ctx = req.Context()
+	ctx = jwtauth.NewContext(ctx, parsedToken, err)
+	req = req.WithContext(ctx)
+
 	form = make(url.Values)
-	form.Set(csrfFormToken, createCSRFToken(""))
+	form.Set(csrfFormToken, createCSRFToken(rr, req, server.csrfTokenAuth, "", webBaseAdminPath))
 	form.Set("allow_api_key_auth", "")
-	req, _ = http.NewRequest(http.MethodPost, webAdminProfilePath, bytes.NewBuffer([]byte(form.Encode())))
+	req, err = http.NewRequest(http.MethodPost, webAdminProfilePath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req = req.WithContext(ctx)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
 	server.handleWebAdminProfilePost(rr, req)
 	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 }
 
 func TestTLSReq(t *testing.T) {
@@ -3041,24 +3284,31 @@ func TestWebAdminSetupWithInstallCode(t *testing.T) {
 	}
 	server.initializeRouter()
 
-	rr := httptest.NewRecorder()
-	r, err := http.NewRequest(http.MethodGet, webAdminSetupPath, nil)
-	assert.NoError(t, err)
-	server.router.ServeHTTP(rr, r)
-	assert.Equal(t, http.StatusOK, rr.Code)
-
 	for _, webURL := range []string{"/", webBasePath, webBaseAdminPath, webAdminLoginPath, webClientLoginPath} {
-		rr = httptest.NewRecorder()
-		r, err = http.NewRequest(http.MethodGet, webURL, nil)
+		rr := httptest.NewRecorder()
+		r, err := http.NewRequest(http.MethodGet, webURL, nil)
 		assert.NoError(t, err)
 		server.router.ServeHTTP(rr, r)
 		assert.Equal(t, http.StatusFound, rr.Code)
 		assert.Equal(t, webAdminSetupPath, rr.Header().Get("Location"))
 	}
 
+	rr := httptest.NewRecorder()
+	r, err := http.NewRequest(http.MethodGet, webAdminSetupPath, nil)
+	assert.NoError(t, err)
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	cookie := rr.Header().Get("Set-Cookie")
+	r.Header.Set("Cookie", cookie)
+	parsedToken, err := jwtauth.VerifyRequest(server.csrfTokenAuth, r, jwtauth.TokenFromCookie)
+	assert.NoError(t, err)
+	ctx := r.Context()
+	ctx = jwtauth.NewContext(ctx, parsedToken, err)
+	r = r.WithContext(ctx)
+
 	form := make(url.Values)
-	csrfToken := createCSRFToken("")
-	form.Set("_form_token", csrfToken)
+	csrfToken := createCSRFToken(rr, r, server.csrfTokenAuth, "", webBaseAdminPath)
+	form.Set(csrfFormToken, csrfToken)
 	form.Set("install_code", installationCode+"5")
 	form.Set("username", defaultAdminUsername)
 	form.Set("password", "password")
@@ -3066,6 +3316,8 @@ func TestWebAdminSetupWithInstallCode(t *testing.T) {
 	rr = httptest.NewRecorder()
 	r, err = http.NewRequest(http.MethodPost, webAdminSetupPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	r = r.WithContext(ctx)
+	r.Header.Set("Cookie", cookie)
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	server.router.ServeHTTP(rr, r)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -3077,6 +3329,8 @@ func TestWebAdminSetupWithInstallCode(t *testing.T) {
 	rr = httptest.NewRecorder()
 	r, err = http.NewRequest(http.MethodPost, webAdminSetupPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	r = r.WithContext(ctx)
+	r.Header.Set("Cookie", cookie)
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	server.router.ServeHTTP(rr, r)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -3098,12 +3352,6 @@ func TestWebAdminSetupWithInstallCode(t *testing.T) {
 		return "5678"
 	})
 
-	rr = httptest.NewRecorder()
-	r, err = http.NewRequest(http.MethodGet, webAdminSetupPath, nil)
-	assert.NoError(t, err)
-	server.router.ServeHTTP(rr, r)
-	assert.Equal(t, http.StatusOK, rr.Code)
-
 	for _, webURL := range []string{"/", webBasePath, webBaseAdminPath, webAdminLoginPath, webClientLoginPath} {
 		rr = httptest.NewRecorder()
 		r, err = http.NewRequest(http.MethodGet, webURL, nil)
@@ -3113,9 +3361,22 @@ func TestWebAdminSetupWithInstallCode(t *testing.T) {
 		assert.Equal(t, webAdminSetupPath, rr.Header().Get("Location"))
 	}
 
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodGet, webAdminSetupPath, nil)
+	assert.NoError(t, err)
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	cookie = rr.Header().Get("Set-Cookie")
+	r.Header.Set("Cookie", cookie)
+	parsedToken, err = jwtauth.VerifyRequest(server.csrfTokenAuth, r, jwtauth.TokenFromCookie)
+	assert.NoError(t, err)
+	ctx = r.Context()
+	ctx = jwtauth.NewContext(ctx, parsedToken, err)
+	r = r.WithContext(ctx)
+
 	form = make(url.Values)
-	csrfToken = createCSRFToken("")
-	form.Set("_form_token", csrfToken)
+	csrfToken = createCSRFToken(rr, r, server.csrfTokenAuth, "", webBaseAdminPath)
+	form.Set(csrfFormToken, csrfToken)
 	form.Set("install_code", installationCode)
 	form.Set("username", defaultAdminUsername)
 	form.Set("password", "password")
@@ -3123,6 +3384,8 @@ func TestWebAdminSetupWithInstallCode(t *testing.T) {
 	rr = httptest.NewRecorder()
 	r, err = http.NewRequest(http.MethodPost, webAdminSetupPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	r = r.WithContext(ctx)
+	r.Header.Set("Cookie", cookie)
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	server.router.ServeHTTP(rr, r)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -3134,6 +3397,8 @@ func TestWebAdminSetupWithInstallCode(t *testing.T) {
 	rr = httptest.NewRecorder()
 	r, err = http.NewRequest(http.MethodPost, webAdminSetupPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	r = r.WithContext(ctx)
+	r.Header.Set("Cookie", cookie)
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	server.router.ServeHTTP(rr, r)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -3199,6 +3464,7 @@ func TestDecodeToken(t *testing.T) {
 		claimNodeID:                 nodeID,
 		claimMustChangePasswordKey:  false,
 		claimMustSetSecondFactorKey: true,
+		claimRef:                    "ref",
 	}
 	c := jwtTokenClaims{}
 	c.Decode(token)
@@ -3206,6 +3472,11 @@ func TestDecodeToken(t *testing.T) {
 	assert.Equal(t, nodeID, c.NodeID)
 	assert.False(t, c.MustChangePassword)
 	assert.True(t, c.MustSetTwoFactorAuth)
+	assert.Equal(t, "ref", c.Ref)
+
+	asMap := c.asMap()
+	asMap[claimMustChangePasswordKey] = false
+	assert.Equal(t, token, asMap)
 
 	token[claimMustChangePasswordKey] = 10
 	c = jwtTokenClaims{}

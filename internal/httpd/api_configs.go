@@ -85,7 +85,7 @@ type oauth2TokenRequest struct {
 	BaseRedirectURL string `json:"base_redirect_url"`
 }
 
-func handleSMTPOAuth2TokenRequestPost(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleSMTPOAuth2TokenRequestPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 
 	var req oauth2TokenRequest
@@ -115,7 +115,7 @@ func handleSMTPOAuth2TokenRequestPost(w http.ResponseWriter, r *http.Request) {
 	clientSecret.SetAdditionalData(xid.New().String())
 	pendingAuth := newOAuth2PendingAuth(req.Provider, cfg.RedirectURL, cfg.ClientID, clientSecret)
 	oauth2Mgr.addPendingAuth(pendingAuth)
-	stateToken := createOAuth2Token(pendingAuth.State, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	stateToken := createOAuth2Token(s.csrfTokenAuth, pendingAuth.State, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if stateToken == "" {
 		sendAPIResponse(w, r, nil, "unable to create state token", http.StatusInternalServerError)
 		return

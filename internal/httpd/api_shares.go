@@ -441,13 +441,11 @@ func (s *httpdServer) checkWebClientShareCredentials(w http.ResponseWriter, r *h
 		doRedirect()
 		return errInvalidToken
 	}
-	if tokenValidationMode != tokenValidationNoIPMatch {
-		ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
-		if !util.Contains(token.Audience(), ipAddr) {
-			logger.Debug(logSender, "", "token for share %q is not valid for the ip address %q", share.ShareID, ipAddr)
-			doRedirect()
-			return errInvalidToken
-		}
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	if err := validateIPForToken(token, ipAddr); err != nil {
+		logger.Debug(logSender, "", "token for share %q is not valid for the ip address %q", share.ShareID, ipAddr)
+		doRedirect()
+		return err
 	}
 	ctx := jwtauth.NewContext(r.Context(), token, nil)
 	claims, err := getTokenClaims(r.WithContext(ctx))
