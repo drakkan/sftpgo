@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	"github.com/go-chi/jwtauth/v5"
-	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/rs/xid"
 	"github.com/sftpgo/sdk"
 
@@ -75,12 +74,6 @@ func validateJWTToken(w http.ResponseWriter, r *http.Request, audience tokenAudi
 		return errInvalidToken
 	}
 
-	err = jwt.Validate(token)
-	if err != nil {
-		logger.Debug(logSender, "", "error validating jwt token: %v", err)
-		doRedirect(http.StatusText(http.StatusUnauthorized), err)
-		return errInvalidToken
-	}
 	if isTokenInvalidated(r) {
 		logger.Debug(logSender, "", "the token has been invalidated")
 		doRedirect("Your token is no longer valid", nil)
@@ -112,7 +105,7 @@ func (s *httpdServer) validateJWTPartialToken(w http.ResponseWriter, r *http.Req
 	} else {
 		notFoundFunc = s.renderClientNotFoundPage
 	}
-	if err != nil || token == nil || jwt.Validate(token) != nil {
+	if err != nil || token == nil {
 		notFoundFunc(w, r, nil)
 		return errInvalidToken
 	}
