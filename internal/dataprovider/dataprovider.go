@@ -929,12 +929,13 @@ func checkDatabase(checkAdmins bool) error {
 	if config.UpdateMode == 0 {
 		err := provider.initializeDatabase()
 		if err != nil && err != ErrNoInitRequired {
-			logger.WarnToConsole("Unable to initialize data provider: %v", err)
-			providerLog(logger.LevelError, "Unable to initialize data provider: %v", err)
+			logger.WarnToConsole("unable to initialize data provider: %v", err)
+			providerLog(logger.LevelError, "unable to initialize data provider: %v", err)
 			return err
 		}
 		if err == nil {
-			logger.DebugToConsole("Data provider successfully initialized")
+			logger.DebugToConsole("data provider successfully initialized")
+			providerLog(logger.LevelInfo, "data provider successfully initialized")
 		}
 		err = provider.migrateDatabase()
 		if err != nil && err != ErrNoInitRequired {

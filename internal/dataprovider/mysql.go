@@ -95,8 +95,8 @@ const (
 		"`last_login` bigint NOT NULL, `filters` longtext NULL, `filesystem` longtext NULL, `additional_info` longtext NULL, " +
 		"`created_at` bigint NOT NULL, `updated_at` bigint NOT NULL, `email` varchar(255) NULL, " +
 		"`upload_data_transfer` integer NOT NULL, `download_data_transfer` integer NOT NULL, " +
-		"`total_data_transfer` integer NOT NULL, `used_upload_data_transfer` integer NOT NULL, " +
-		"`used_download_data_transfer` integer NOT NULL, `deleted_at` bigint NOT NULL, `first_download` bigint NOT NULL, " +
+		"`total_data_transfer` integer NOT NULL, `used_upload_data_transfer` bigint NOT NULL, " +
+		"`used_download_data_transfer` bigint NOT NULL, `deleted_at` bigint NOT NULL, `first_download` bigint NOT NULL, " +
 		"`first_upload` bigint NOT NULL, `last_password_change` bigint NOT NULL, `role_id` integer NULL);" +
 		"CREATE TABLE `{{groups_folders_mapping}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
 		"`group_id` integer NOT NULL, `folder_id` integer NOT NULL, " +
@@ -193,11 +193,7 @@ const (
 		"CREATE INDEX `{{prefix}}ip_lists_updated_at_idx` ON `{{ip_lists}}` (`updated_at`);" +
 		"CREATE INDEX `{{prefix}}ip_lists_deleted_at_idx` ON `{{ip_lists}}` (`deleted_at`);" +
 		"CREATE INDEX `{{prefix}}ip_lists_first_last_idx` ON `{{ip_lists}}` (`first`, `last`);" +
-		"INSERT INTO {{schema_version}} (version) VALUES (28);"
-	mysqlV29SQL = "ALTER TABLE `{{users}}` MODIFY `used_download_data_transfer` bigint NOT NULL;" +
-		"ALTER TABLE `{{users}}` MODIFY `used_upload_data_transfer` bigint NOT NULL;"
-	mysqlV29DownSQL = "ALTER TABLE `{{users}}` MODIFY `used_upload_data_transfer` integer NOT NULL;" +
-		"ALTER TABLE `{{users}}` MODIFY `used_download_data_transfer` integer NOT NULL;"
+		"INSERT INTO {{schema_version}} (version) VALUES (29);"
 )
 
 // MySQLProvider defines the auth provider for MySQL/MariaDB database
@@ -776,11 +772,11 @@ func (p *MySQLProvider) initializeDatabase() error {
 	if errors.Is(err, sql.ErrNoRows) {
 		return errSchemaVersionEmpty
 	}
-	logger.InfoToConsole("creating initial database schema, version 28")
-	providerLog(logger.LevelInfo, "creating initial database schema, version 28")
+	logger.InfoToConsole("creating initial database schema, version 29")
+	providerLog(logger.LevelInfo, "creating initial database schema, version 29")
 	initialSQL := sqlReplaceAll(mysqlInitialSQL)
 
-	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, strings.Split(initialSQL, ";"), 28, true)
+	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, strings.Split(initialSQL, ";"), 29, true)
 }
 
 func (p *MySQLProvider) migrateDatabase() error {
@@ -793,13 +789,11 @@ func (p *MySQLProvider) migrateDatabase() error {
 	case version == sqlDatabaseVersion:
 		providerLog(logger.LevelDebug, "sql database is up to date, current version: %d", version)
 		return ErrNoInitRequired
-	case version < 28:
+	case version < 29:
 		err = fmt.Errorf("database schema version %d is too old, please see the upgrading docs", version)
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
-	case version == 28:
-		return updateMySQLDatabaseFrom28To29(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -822,8 +816,6 @@ func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 	}
 
 	switch dbVersion.Version {
-	case 29:
-		return downgradeMySQLDatabaseFrom29To28(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
@@ -860,20 +852,4 @@ func (p *MySQLProvider) normalizeError(err error, fieldType int) error {
 		}
 	}
 	return err
-}
-
-func updateMySQLDatabaseFrom28To29(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database schema version: 28 -> 29")
-	providerLog(logger.LevelInfo, "updating database schema version: 28 -> 29")
-
-	sql := strings.ReplaceAll(mysqlV29SQL, "{{users}}", sqlTableUsers)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 29, true)
-}
-
-func downgradeMySQLDatabaseFrom29To28(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database schema version: 29 -> 28")
-	providerLog(logger.LevelInfo, "downgrading database schema version: 29 -> 28")
-
-	sql := strings.ReplaceAll(mysqlV29DownSQL, "{{users}}", sqlTableUsers)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 28, false)
 }

@@ -95,7 +95,7 @@ CREATE TABLE "{{users}}" ("id" integer NOT NULL PRIMARY KEY GENERATED ALWAYS AS 
 "download_bandwidth" integer NOT NULL, "last_login" bigint NOT NULL, "filters" text NULL, "filesystem" text NULL,
 "additional_info" text NULL, "created_at" bigint NOT NULL, "updated_at" bigint NOT NULL, "email" varchar(255) NULL,
 "upload_data_transfer" integer NOT NULL, "download_data_transfer" integer NOT NULL, "total_data_transfer" integer NOT NULL,
-"used_upload_data_transfer" integer NOT NULL, "used_download_data_transfer" integer NOT NULL, "deleted_at" bigint NOT NULL,
+"used_upload_data_transfer" bigint NOT NULL, "used_download_data_transfer" bigint NOT NULL, "deleted_at" bigint NOT NULL,
 "first_download" bigint NOT NULL, "first_upload" bigint NOT NULL, "last_password_change" bigint NOT NULL, "role_id" integer NULL);
 CREATE TABLE "{{groups_folders_mapping}}" ("id" integer NOT NULL PRIMARY KEY GENERATED ALWAYS AS IDENTITY, "group_id" integer NOT NULL,
 "folder_id" integer NOT NULL, "virtual_path" text NOT NULL, "quota_size" bigint NOT NULL, "quota_files" integer NOT NULL);
@@ -205,16 +205,10 @@ CREATE INDEX "{{prefix}}ip_lists_ipornet_idx" ON "{{ip_lists}}" ("ipornet");
 CREATE INDEX "{{prefix}}ip_lists_updated_at_idx" ON "{{ip_lists}}" ("updated_at");
 CREATE INDEX "{{prefix}}ip_lists_deleted_at_idx" ON "{{ip_lists}}" ("deleted_at");
 CREATE INDEX "{{prefix}}ip_lists_first_last_idx" ON "{{ip_lists}}" ("first", "last");
-INSERT INTO {{schema_version}} (version) VALUES (28);
+INSERT INTO {{schema_version}} (version) VALUES (29);
 `
 	// not supported in CockroachDB
 	ipListsLikeIndex = `CREATE INDEX "{{prefix}}ip_lists_ipornet_like_idx" ON "{{ip_lists}}" ("ipornet" varchar_pattern_ops);`
-	pgsqlV29SQL      = `ALTER TABLE "{{users}}" ALTER COLUMN "used_download_data_transfer" TYPE bigint;
-ALTER TABLE "{{users}}" ALTER COLUMN "used_upload_data_transfer" TYPE bigint;
-`
-	pgsqlV29DownSQL = `ALTER TABLE "{{users}}" ALTER COLUMN "used_upload_data_transfer" TYPE integer;
-ALTER TABLE "{{users}}" ALTER COLUMN "used_download_data_transfer" TYPE integer;
-`
 )
 
 var (
@@ -795,8 +789,8 @@ func (p *PGSQLProvider) initializeDatabase() error {
 	if errors.Is(err, sql.ErrNoRows) {
 		return errSchemaVersionEmpty
 	}
-	logger.InfoToConsole("creating initial database schema, version 28")
-	providerLog(logger.LevelInfo, "creating initial database schema, version 28")
+	logger.InfoToConsole("creating initial database schema, version 29")
+	providerLog(logger.LevelInfo, "creating initial database schema, version 29")
 	var initialSQL string
 	if config.Driver == CockroachDataProviderName {
 		initialSQL = sqlReplaceAll(pgsqlInitial)
@@ -805,7 +799,7 @@ func (p *PGSQLProvider) initializeDatabase() error {
 		initialSQL = sqlReplaceAll(pgsqlInitial + ipListsLikeIndex)
 	}
 
-	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{initialSQL}, 28, true)
+	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{initialSQL}, 29, true)
 }
 
 func (p *PGSQLProvider) migrateDatabase() error { //nolint:dupl
@@ -818,13 +812,11 @@ func (p *PGSQLProvider) migrateDatabase() error { //nolint:dupl
 	case version == sqlDatabaseVersion:
 		providerLog(logger.LevelDebug, "sql database is up to date, current version: %d", version)
 		return ErrNoInitRequired
-	case version < 28:
+	case version < 29:
 		err = fmt.Errorf("database schema version %d is too old, please see the upgrading docs", version)
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
-	case version == 28:
-		return updatePGSQLDatabaseFrom28To29(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -847,8 +839,6 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 	}
 
 	switch dbVersion.Version {
-	case 29:
-		return downgradePGSQLDatabaseFrom29To28(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
@@ -885,20 +875,4 @@ func (p *PGSQLProvider) normalizeError(err error, fieldType int) error {
 		}
 	}
 	return err
-}
-
-func updatePGSQLDatabaseFrom28To29(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database schema version: 28 -> 29")
-	providerLog(logger.LevelInfo, "updating database schema version: 28 -> 29")
-
-	sql := strings.ReplaceAll(pgsqlV29SQL, "{{users}}", sqlTableUsers)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 29, true)
-}
-
-func downgradePGSQLDatabaseFrom29To28(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database schema version: 29 -> 28")
-	providerLog(logger.LevelInfo, "downgrading database schema version: 29 -> 28")
-
-	sql := strings.ReplaceAll(pgsqlV29DownSQL, "{{users}}", sqlTableUsers)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 28, false)
 }

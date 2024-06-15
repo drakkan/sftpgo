@@ -178,7 +178,7 @@ CREATE INDEX "{{prefix}}ip_lists_ip_type_idx" ON "{{ip_lists}}" ("ip_type");
 CREATE INDEX "{{prefix}}ip_lists_ip_updated_at_idx" ON "{{ip_lists}}" ("updated_at");
 CREATE INDEX "{{prefix}}ip_lists_ip_deleted_at_idx" ON "{{ip_lists}}" ("deleted_at");
 CREATE INDEX "{{prefix}}ip_lists_first_last_idx" ON "{{ip_lists}}" ("first", "last");
-INSERT INTO {{schema_version}} (version) VALUES (28);
+INSERT INTO {{schema_version}} (version) VALUES (29);
 `
 )
 
@@ -693,10 +693,10 @@ func (p *SQLiteProvider) initializeDatabase() error {
 	if errors.Is(err, sql.ErrNoRows) {
 		return errSchemaVersionEmpty
 	}
-	logger.InfoToConsole("creating initial database schema, version 28")
-	providerLog(logger.LevelInfo, "creating initial database schema, version 28")
+	logger.InfoToConsole("creating initial database schema, version 29")
+	providerLog(logger.LevelInfo, "creating initial database schema, version 29")
 	sql := sqlReplaceAll(sqliteInitialSQL)
-	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{sql}, 28, true)
+	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{sql}, 29, true)
 }
 
 func (p *SQLiteProvider) migrateDatabase() error { //nolint:dupl
@@ -709,13 +709,11 @@ func (p *SQLiteProvider) migrateDatabase() error { //nolint:dupl
 	case version == sqlDatabaseVersion:
 		providerLog(logger.LevelDebug, "sql database is up to date, current version: %d", version)
 		return ErrNoInitRequired
-	case version < 28:
+	case version < 29:
 		err = fmt.Errorf("database schema version %d is too old, please see the upgrading docs", version)
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
-	case version == 28:
-		return updateSQLiteDatabaseFrom28To29(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -738,8 +736,6 @@ func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 	}
 
 	switch dbVersion.Version {
-	case 29:
-		return downgradeSQLiteDatabaseFrom29To28(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
@@ -775,26 +771,6 @@ func (p *SQLiteProvider) normalizeError(err error, fieldType int) error {
 		}
 	}
 	return err
-}
-
-func updateSQLiteDatabaseFrom28To29(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database schema version: 28 -> 29")
-	providerLog(logger.LevelInfo, "updating database schema version: 28 -> 29")
-
-	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
-	defer cancel()
-
-	return sqlCommonUpdateDatabaseVersion(ctx, dbHandle, 29)
-}
-
-func downgradeSQLiteDatabaseFrom29To28(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database schema version: 29 -> 28")
-	providerLog(logger.LevelInfo, "downgrading database schema version: 29 -> 28")
-
-	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
-	defer cancel()
-
-	return sqlCommonUpdateDatabaseVersion(ctx, dbHandle, 28)
 }
 
 /*func setPragmaFK(dbHandle *sql.DB, value string) error {

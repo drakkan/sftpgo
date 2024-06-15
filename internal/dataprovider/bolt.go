@@ -3134,15 +3134,11 @@ func (p *BoltProvider) migrateDatabase() error {
 	case version == boltDatabaseVersion:
 		providerLog(logger.LevelDebug, "bolt database is up to date, current version: %d", version)
 		return ErrNoInitRequired
-	case version < 28:
+	case version < 29:
 		err = fmt.Errorf("database schema version %d is too old, please see the upgrading docs", version)
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
-	case version == 28:
-		logger.InfoToConsole("updating database schema version: %d -> 29", version)
-		providerLog(logger.LevelInfo, "updating database schema version: %d -> 29", version)
-		return updateBoltDatabaseVersion(p.dbHandle, 29)
 	default:
 		if version > boltDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -3164,10 +3160,6 @@ func (p *BoltProvider) revertDatabase(targetVersion int) error { //nolint:gocycl
 		return errors.New("current version match target version, nothing to do")
 	}
 	switch dbVersion.Version {
-	case 29:
-		logger.InfoToConsole("downgrading database schema version: %d -> 28", dbVersion.Version)
-		providerLog(logger.LevelInfo, "downgrading database schema version: %d -> 28", dbVersion.Version)
-		return updateBoltDatabaseVersion(p.dbHandle, 28)
 	default:
 		return fmt.Errorf("database schema version not handled: %v", dbVersion.Version)
 	}
@@ -3899,7 +3891,7 @@ func getBoltDatabaseVersion(dbHandle *bolt.DB) (schemaVersion, error) {
 		v := bucket.Get(dbVersionKey)
 		if v == nil {
 			dbVersion = schemaVersion{
-				Version: 28,
+				Version: 29,
 			}
 			return nil
 		}
@@ -3908,7 +3900,7 @@ func getBoltDatabaseVersion(dbHandle *bolt.DB) (schemaVersion, error) {
 	return dbVersion, err
 }
 
-func updateBoltDatabaseVersion(dbHandle *bolt.DB, version int) error {
+/*func updateBoltDatabaseVersion(dbHandle *bolt.DB, version int) error {
 	err := dbHandle.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(dbVersionBucket)
 		if bucket == nil {
@@ -3924,4 +3916,4 @@ func updateBoltDatabaseVersion(dbHandle *bolt.DB, version int) error {
 		return bucket.Put(dbVersionKey, buf)
 	})
 	return err
-}
+}*/
