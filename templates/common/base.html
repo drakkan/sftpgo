@@ -193,7 +193,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             .use(i18nextBrowserLanguageDetector)
             .init({
                 debug: false,
-                supportedLngs: ["en", "it"],
+                supportedLngs: Object.keys(lngs),
                 fallbackLng: 'en',
                 load: 'languageOnly',
                 backend: {
@@ -795,12 +795,12 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 <!DOCTYPE html>
 <html lang="en">
     <head>
-		<title></title>
-		<meta charset="utf-8" />
-		<meta name="description" content="" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title></title>
+        <meta charset="utf-8" />
+        <meta name="description" content="" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="robots" content="noindex">
-		<link rel="shortcut icon" href="{{.StaticURL}}{{.Branding.FaviconPath}}" />
+        <link rel="shortcut icon" href="{{.StaticURL}}{{.Branding.FaviconPath}}" />
 		{{- template "fonts" . }}
         {{- block "extra_css" .}}{{- end}}
         {{- range .Branding.DefaultCSS}}
