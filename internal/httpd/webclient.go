@@ -570,7 +570,7 @@ func (s *httpdServer) renderClientResetPwdPage(w http.ResponseWriter, r *http.Re
 		commonBasePage: getCommonBasePage(r),
 		CurrentURL:     webClientResetPwdPath,
 		Error:          err,
-		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, xid.New().String(), webBaseClientPath),
+		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, "", webBaseClientPath),
 		LoginURL:       webClientLoginPath,
 		Title:          util.I18nResetPwdTitle,
 		Branding:       s.binding.Branding.WebClient,

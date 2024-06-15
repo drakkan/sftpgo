@@ -1530,7 +1530,8 @@ func (s *httpdServer) setupWebClientRoutes() {
 			s.router.Get(webClientForgotPwdPath, s.handleWebClientForgotPwd)
 			s.router.With(jwtauth.Verify(s.csrfTokenAuth, jwtauth.TokenFromCookie)).
 				Post(webClientForgotPwdPath, s.handleWebClientForgotPwdPost)
-			s.router.Get(webClientResetPwdPath, s.handleWebClientPasswordReset)
+			s.router.With(jwtauth.Verify(s.csrfTokenAuth, jwtauth.TokenFromCookie)).
+				Get(webClientResetPwdPath, s.handleWebClientPasswordReset)
 			s.router.With(jwtauth.Verify(s.csrfTokenAuth, jwtauth.TokenFromCookie)).
 				Post(webClientResetPwdPath, s.handleWebClientPasswordResetPost)
 			s.router.With(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromCookie),
@@ -1667,7 +1668,8 @@ func (s *httpdServer) setupWebAdminRoutes() {
 			s.router.Get(webAdminForgotPwdPath, s.handleWebAdminForgotPwd)
 			s.router.With(jwtauth.Verify(s.csrfTokenAuth, jwtauth.TokenFromCookie)).
 				Post(webAdminForgotPwdPath, s.handleWebAdminForgotPwdPost)
-			s.router.Get(webAdminResetPwdPath, s.handleWebAdminPasswordReset)
+			s.router.With(jwtauth.Verify(s.csrfTokenAuth, jwtauth.TokenFromCookie)).
+				Get(webAdminResetPwdPath, s.handleWebAdminPasswordReset)
 			s.router.With(jwtauth.Verify(s.csrfTokenAuth, jwtauth.TokenFromCookie)).
 				Post(webAdminResetPwdPath, s.handleWebAdminPasswordResetPost)
 		}
