@@ -309,7 +309,7 @@ func (s *httpdServer) handleWebClientPasswordResetPost(w http.ResponseWriter, r 
 	}
 	connectionID := fmt.Sprintf("%v_%v", getProtocolFromRequest(r), xid.New().String())
 	if err := checkHTTPClientUser(user, r, connectionID, true); err != nil {
-		s.renderClientResetPwdPage(w, r, util.NewI18nError(err, util.I18nErrorDirList403), ipAddr)
+		s.renderClientResetPwdPage(w, r, util.NewI18nError(err, util.I18nErrorLoginAfterReset), ipAddr)
 		return
 	}
 
@@ -1037,6 +1037,10 @@ func (s *httpdServer) refreshClientToken(w http.ResponseWriter, r *http.Request,
 		logger.Debug(logSender, "", "signature mismatch for user %q, unable to refresh cookie", user.Username)
 		return
 	}
+	if err := user.CheckLoginConditions(); err != nil {
+		logger.Debug(logSender, "", "unable to refresh cookie for user %q: %v", user.Username, err)
+		return
+	}
 	if err := checkHTTPClientUser(&user, r, xid.New().String(), true); err != nil {
 		logger.Debug(logSender, "", "unable to refresh cookie for user %q: %v", user.Username, err)
 		return
@@ -1053,17 +1057,13 @@ func (s *httpdServer) refreshAdminToken(w http.ResponseWriter, r *http.Request, 
 	if err != nil {
 		return
 	}
-	if admin.Status != 1 {
-		logger.Debug(logSender, "", "admin %q is disabled, unable to refresh cookie", admin.Username)
-		return
-	}
 	if admin.GetSignature() != tokenClaims.Signature {
 		logger.Debug(logSender, "", "signature mismatch for admin %q, unable to refresh cookie", admin.Username)
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
-	if !admin.CanLoginFromIP(ipAddr) {
-		logger.Debug(logSender, "", "admin %q cannot login from %v, unable to refresh cookie", admin.Username, r.RemoteAddr)
+	if err := admin.CanLogin(ipAddr); err != nil {
+		logger.Debug(logSender, "", "unable to refresh cookie for admin %q, err: %v", admin.Username, err)
 		return
 	}
 	tokenClaims.Permissions = admin.Permissions

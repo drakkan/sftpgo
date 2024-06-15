@@ -1741,6 +1741,29 @@ func TestCookieExpiration(t *testing.T) {
 	cookie = rr.Header().Get("Set-Cookie")
 	assert.NotEmpty(t, cookie)
 
+	// test a disabled user
+	user.Status = 0
+	err = dataprovider.UpdateUser(&user, "", "", "")
+	assert.NoError(t, err)
+	user, err = dataprovider.UserExists(user.Username, "")
+	assert.NoError(t, err)
+
+	claims = make(map[string]any)
+	claims[claimUsernameKey] = user.Username
+	claims[claimPermissionsKey] = user.Filters.WebClient
+	claims[jwt.SubjectKey] = user.GetSignature()
+	claims[jwt.ExpirationKey] = time.Now().Add(1 * time.Minute)
+	claims[jwt.AudienceKey] = []string{tokenAudienceWebClient}
+	token, _, err = server.tokenAuth.Encode(claims)
+	assert.NoError(t, err)
+
+	rr = httptest.NewRecorder()
+	req, _ = http.NewRequest(http.MethodGet, webClientFilesPath, nil)
+	ctx = jwtauth.NewContext(req.Context(), token, nil)
+	server.checkCookieExpiration(rr, req.WithContext(ctx))
+	cookie = rr.Header().Get("Set-Cookie")
+	assert.Empty(t, cookie)
+
 	err = dataprovider.DeleteUser(user.Username, "", "", "")
 	assert.NoError(t, err)
 }

@@ -4268,14 +4268,15 @@ func (s *httpdServer) handleOAuth2TokenRedirect(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	defer oauth2Mgr.removePendingAuth(state)
-
 	pendingAuth, err := oauth2Mgr.getPendingAuth(state)
 	if err != nil {
+		oauth2Mgr.removePendingAuth(state)
 		s.renderMessagePage(w, r, util.I18nOAuth2ErrorTitle, http.StatusInternalServerError,
 			util.NewI18nError(err, util.I18nOAuth2ErrorValidateState), "")
 		return
 	}
+	oauth2Mgr.removePendingAuth(state)
+
 	oauth2Config := smtp.OAuth2Config{
 		Provider:     pendingAuth.Provider,
 		ClientID:     pendingAuth.ClientID,
