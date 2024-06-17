@@ -329,7 +329,7 @@ func (c *Configuration) Initialize(configDir string) error {
 	logger.Debug(logSender, "", "minimum key size allowed for diffie-ellman-group-exchange: %d",
 		ssh.GetDHKexServerMinBits())
 	sftp.SetSFTPExtensions(sftpExtensions...) //nolint:errcheck // we configure valid SFTP Extensions so we cannot get an error
-	sftp.MaxFilelist = vfs.ListerBatchSize
+	sftp.MaxFilelist = 250
 
 	if err := c.configureSecurityOptions(serverConfig); err != nil {
 		return err
