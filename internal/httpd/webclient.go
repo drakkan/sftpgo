@@ -81,21 +81,22 @@ func isZeroTime(t time.Time) bool {
 
 type baseClientPage struct {
 	commonBasePage
-	Title        string
-	CurrentURL   string
-	FilesURL     string
-	SharesURL    string
-	ShareURL     string
-	ProfileURL   string
-	PingURL      string
-	ChangePwdURL string
-	LogoutURL    string
-	LoginURL     string
-	EditURL      string
-	MFAURL       string
-	CSRFToken    string
-	LoggedUser   *dataprovider.User
-	Branding     UIBranding
+	Title           string
+	CurrentURL      string
+	FilesURL        string
+	SharesURL       string
+	ShareURL        string
+	ProfileURL      string
+	PingURL         string
+	ChangePwdURL    string
+	LogoutURL       string
+	LoginURL        string
+	EditURL         string
+	MFAURL          string
+	CSRFToken       string
+	LoggedUser      *dataprovider.User
+	IsLoggedToShare bool
+	Branding        UIBranding
 }
 
 type dirMapping struct {
@@ -530,21 +531,22 @@ func (s *httpdServer) getBaseClientPageData(title, currentURL string, w http.Res
 	}
 
 	data := baseClientPage{
-		commonBasePage: getCommonBasePage(r),
-		Title:          title,
-		CurrentURL:     currentURL,
-		FilesURL:       webClientFilesPath,
-		SharesURL:      webClientSharesPath,
-		ShareURL:       webClientSharePath,
-		ProfileURL:     webClientProfilePath,
-		PingURL:        webClientPingPath,
-		ChangePwdURL:   webChangeClientPwdPath,
-		LogoutURL:      webClientLogoutPath,
-		EditURL:        webClientEditFilePath,
-		MFAURL:         webClientMFAPath,
-		CSRFToken:      csrfToken,
-		LoggedUser:     getUserFromToken(r),
-		Branding:       s.binding.Branding.WebClient,
+		commonBasePage:  getCommonBasePage(r),
+		Title:           title,
+		CurrentURL:      currentURL,
+		FilesURL:        webClientFilesPath,
+		SharesURL:       webClientSharesPath,
+		ShareURL:        webClientSharePath,
+		ProfileURL:      webClientProfilePath,
+		PingURL:         webClientPingPath,
+		ChangePwdURL:    webChangeClientPwdPath,
+		LogoutURL:       webClientLogoutPath,
+		EditURL:         webClientEditFilePath,
+		MFAURL:          webClientMFAPath,
+		CSRFToken:       csrfToken,
+		LoggedUser:      getUserFromToken(r),
+		IsLoggedToShare: false,
+		Branding:        s.binding.Branding.WebClient,
 	}
 	if !strings.HasPrefix(r.RequestURI, webClientPubSharesPath) {
 		data.LoginURL = webClientLoginPath
@@ -739,6 +741,8 @@ func (s *httpdServer) renderSharedFilesPage(w http.ResponseWriter, r *http.Reque
 	baseData := s.getBaseClientPageData(util.I18nSharedFilesTitle, currentURL, w, r)
 	baseData.FilesURL = currentURL
 	baseSharePath := path.Join(webClientPubSharesPath, share.ShareID)
+	baseData.LogoutURL = path.Join(webClientPubSharesPath, share.ShareID, "logout")
+	baseData.IsLoggedToShare = share.Password != ""
 
 	data := filesPage{
 		baseClientPage: baseData,
@@ -766,20 +770,31 @@ func (s *httpdServer) renderSharedFilesPage(w http.ResponseWriter, r *http.Reque
 	renderClientTemplate(w, templateClientFiles, data)
 }
 
-func (s *httpdServer) renderShareDownloadPage(w http.ResponseWriter, r *http.Request, downloadLink string) {
+func (s *httpdServer) renderShareDownloadPage(w http.ResponseWriter, r *http.Request, share *dataprovider.Share,
+	downloadLink string,
+) {
 	data := shareDownloadPage{
 		baseClientPage: s.getBaseClientPageData(util.I18nShareDownloadTitle, "", w, r),
 		DownloadLink:   downloadLink,
 	}
+	data.LogoutURL = ""
+	if share.Password != "" {
+		data.LogoutURL = path.Join(webClientPubSharesPath, share.ShareID, "logout")
+	}
+
 	renderClientTemplate(w, templateShareDownload, data)
 }
 
-func (s *httpdServer) renderUploadToSharePage(w http.ResponseWriter, r *http.Request, share dataprovider.Share) {
+func (s *httpdServer) renderUploadToSharePage(w http.ResponseWriter, r *http.Request, share *dataprovider.Share) {
 	currentURL := path.Join(webClientPubSharesPath, share.ShareID, "upload")
 	data := shareUploadPage{
 		baseClientPage: s.getBaseClientPageData(util.I18nShareUploadTitle, currentURL, w, r),
-		Share:          &share,
+		Share:          share,
 		UploadBasePath: path.Join(webClientPubSharesPath, share.ShareID),
+	}
+	data.LogoutURL = ""
+	if share.Password != "" {
+		data.LogoutURL = path.Join(webClientPubSharesPath, share.ShareID, "logout")
 	}
 	renderClientTemplate(w, templateUploadToShare, data)
 }
@@ -1022,7 +1037,7 @@ func (s *httpdServer) handleClientUploadToShare(w http.ResponseWriter, r *http.R
 		http.Redirect(w, r, path.Join(webClientPubSharesPath, share.ShareID, "browse"), http.StatusFound)
 		return
 	}
-	s.renderUploadToSharePage(w, r, share)
+	s.renderUploadToSharePage(w, r, &share)
 }
 
 func (s *httpdServer) handleShareGetFiles(w http.ResponseWriter, r *http.Request) {
@@ -1877,22 +1892,41 @@ func (s *httpdServer) handleClientShareLoginPost(w http.ResponseWriter, r *http.
 		s.renderShareLoginPage(w, r, util.NewI18nError(dataprovider.ErrInvalidCredentials, util.I18nErrorInvalidCredentials))
 		return
 	}
+	next := path.Clean(r.URL.Query().Get("next"))
+	baseShareURL := path.Join(webClientPubSharesPath, share.ShareID)
+	isRedirect, redirectTo := checkShareRedirectURL(next, baseShareURL)
 	c := jwtTokenClaims{
 		Username: shareID,
+	}
+	if isRedirect {
+		c.Ref = next
 	}
 	err = c.createAndSetCookie(w, r, s.tokenAuth, tokenAudienceWebShare, ipAddr)
 	if err != nil {
 		s.renderShareLoginPage(w, r, util.NewI18nError(err, util.I18nError500Message))
 		return
 	}
-	next := path.Clean(r.URL.Query().Get("next"))
-	baseShareURL := path.Join(webClientPubSharesPath, share.ShareID)
-	isRedirect, redirectTo := checkShareRedirectURL(next, baseShareURL)
 	if isRedirect {
 		http.Redirect(w, r, redirectTo, http.StatusFound)
 		return
 	}
 	s.renderClientMessagePage(w, r, util.I18nSharedFilesTitle, http.StatusOK, nil, util.I18nShareLoginOK)
+}
+
+func (s *httpdServer) handleClientShareLogout(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
+
+	shareID := getURLParam(r, "id")
+	claims, err := s.getShareClaims(r, shareID)
+	if err != nil {
+		s.renderClientMessagePage(w, r, util.I18nShareAccessErrorTitle, http.StatusForbidden,
+			util.NewI18nError(err, util.I18nErrorInvalidToken), "")
+		return
+	}
+	removeCookie(w, r, webBaseClientPath)
+
+	redirectURL := path.Join(webClientPubSharesPath, shareID, fmt.Sprintf("login?next=%s", url.QueryEscape(claims.Ref)))
+	http.Redirect(w, r, redirectURL, http.StatusFound)
 }
 
 func (s *httpdServer) handleClientSharedFile(w http.ResponseWriter, r *http.Request) {
@@ -1906,7 +1940,7 @@ func (s *httpdServer) handleClientSharedFile(w http.ResponseWriter, r *http.Requ
 	if r.URL.RawQuery != "" {
 		query = "?" + r.URL.RawQuery
 	}
-	s.renderShareDownloadPage(w, r, path.Join(webClientPubSharesPath, share.ShareID)+query)
+	s.renderShareDownloadPage(w, r, &share, path.Join(webClientPubSharesPath, share.ShareID)+query)
 }
 
 func (s *httpdServer) handleClientCheckExist(w http.ResponseWriter, r *http.Request) {

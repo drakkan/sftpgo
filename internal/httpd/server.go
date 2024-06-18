@@ -1551,6 +1551,7 @@ func (s *httpdServer) setupWebClientRoutes() {
 		s.router.Get(webClientPubSharesPath+"/{id}/login", s.handleClientShareLoginGet)
 		s.router.With(jwtauth.Verify(s.csrfTokenAuth, jwtauth.TokenFromCookie)).
 			Post(webClientPubSharesPath+"/{id}/login", s.handleClientShareLoginPost)
+		s.router.Get(webClientPubSharesPath+"/{id}/logout", s.handleClientShareLogout)
 		s.router.Get(webClientPubSharesPath+"/{id}", s.downloadFromShare)
 		s.router.Post(webClientPubSharesPath+"/{id}/partial", s.handleClientSharePartialDownload)
 		s.router.Get(webClientPubSharesPath+"/{id}/browse", s.handleShareGetFiles)

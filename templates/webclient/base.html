@@ -26,6 +26,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         </i>
     </div>
     <div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-title-gray-700 menu-icon-gray-500 menu-active-bg menu-state-color fw-semibold py-4 w-250px" data-kt-menu="true">
+        {{- if not .IsLoggedToShare }}
         <div class="menu-item px-3 my-0">
             <div class="menu-content d-flex align-items-center px-3 py-2">
                 <div class="me-5">
@@ -53,6 +54,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 <span data-i18n="title.change_password" class="menu-title">Change password</span>
             </a>
         </div>
+        {{- end}}
         {{- end}}
         <div class="menu-item px-3 my-0">
             <a id="id_logout_link" href="#" class="menu-link px-3 py-2">

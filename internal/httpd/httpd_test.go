@@ -14431,6 +14431,30 @@ func TestWebClientShareCredentials(t *testing.T) {
 	req.RemoteAddr = "1.2.3.4:1234"
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusFound, rr)
+	// logout to a different share, the cookie is not valid.
+	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, shareWriteID, "logout"), nil)
+	assert.NoError(t, err)
+	req.RequestURI = uri
+	setJWTCookieForReq(req, cookie)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
+	// logout
+	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, shareReadID, "logout"), nil)
+	assert.NoError(t, err)
+	req.RequestURI = uri
+	setJWTCookieForReq(req, cookie)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusFound, rr)
+	// the cookie is no longer valid
+	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, shareReadID, "download?b=c"), nil)
+	assert.NoError(t, err)
+	req.RequestURI = uri
+	setJWTCookieForReq(req, cookie)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusFound, rr)
+	assert.Contains(t, rr.Header().Get("Location"), "/login")
+
 	// try to login with invalid credentials
 	loginCookie, csrfToken, err = getCSRFTokenMock(webLoginPath, defaultRemoteAddr)
 	assert.NoError(t, err)

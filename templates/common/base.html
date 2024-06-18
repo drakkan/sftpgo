@@ -845,6 +845,17 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         </div>
                     </div>
                 </div>
+                {{- else if .IsLoggedToShare}}
+                <div class="app-container container-fluid d-flex mt-5">
+                    <div class="d-flex align-items-center d-block ms-3">
+                        <img alt="Logo" src="{{.StaticURL}}{{.Branding.LogoPath}}" class="h-50px" />
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-end">
+                            {{- template "navitems" .}}
+                        </div>
+                    </div>
+                </div>
                 {{- end}}
                 <div class="{{- if .LoggedUser.Username}}app-wrapper{{- end}} flex-column flex-row-fluid " id="kt_app_wrapper">
                     {{- if .LoggedUser.Username}}

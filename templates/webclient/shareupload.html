@@ -25,9 +25,16 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 		    {{.Branding.ShortName}}
         </span>
     </div>
-    <div class="card shadow-sm w-lg-600px">
+    <div class="card shadow-sm w-lg-600px w-md-450px">
         <div class="card-header bg-light">
             <h3 data-i18n="title.upload_to_share" class="card-title section-title">Upload one or more files to share</h3>
+            {{- if .LogoutURL}}
+            <div class="card-toolbar">
+                <a id="id_logout_link" href="#" class="btn btn-light-primary">
+                    <span data-i18n="login.signout">Sign out</span>
+                </a>
+            </div>
+            {{- end}}
         </div>
         <div class="card-body">
             {{- template "errmsg" ""}}

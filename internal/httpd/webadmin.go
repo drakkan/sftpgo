@@ -151,6 +151,7 @@ type basePage struct {
 	HasSearcher         bool
 	HasExternalLogin    bool
 	LoggedUser          *dataprovider.Admin
+	IsLoggedToShare     bool
 	Branding            UIBranding
 }
 
