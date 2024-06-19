@@ -667,6 +667,8 @@ func TestBasicHandlingCryptFs(t *testing.T) {
 	localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
 	err = downloadFile(testFileName, localDownloadPath, testFileSize, client)
 	assert.NoError(t, err)
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
+		1*time.Second, 100*time.Millisecond)
 	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
