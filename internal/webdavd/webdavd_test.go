@@ -642,9 +642,6 @@ func TestBasicHandling(t *testing.T) {
 }
 
 func TestBasicHandlingCryptFs(t *testing.T) {
-	if runtime.GOOS == "darwin" && dataprovider.GetProviderStatus().Driver == "bolt" {
-		t.Skip("this test must be fixed on macOS when using the bolt provider")
-	}
 	u := getTestUserWithCryptFs()
 	u.QuotaSize = 6553600
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
@@ -670,6 +667,8 @@ func TestBasicHandlingCryptFs(t *testing.T) {
 	localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
 	err = downloadFile(testFileName, localDownloadPath, testFileSize, client)
 	assert.NoError(t, err)
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
+		1*time.Second, 100*time.Millisecond)
 	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
