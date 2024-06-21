@@ -342,7 +342,10 @@ func (c *Configuration) Initialize(configDir string) error {
 		return err
 	}
 	c.configureKeyboardInteractiveAuth(serverConfig)
-	c.configureLoginBanner(serverConfig, configDir)
+	banner, err := c.getLoginBanner(configDir)
+	if err == nil {
+		serverConfig.ServerVersion = fmt.Sprintf("SSH-2.0-%s", banner)
+	}
 	c.checkSSHCommands()
 
 	exitChannel := make(chan error, 1)
@@ -512,7 +515,8 @@ func (c *Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig)
 	return nil
 }
 
-func (c *Configuration) configureLoginBanner(serverConfig *ssh.ServerConfig, configDir string) {
+func (c *Configuration) getLoginBanner(configDir string) (string, error) {
+	var err error
 	if c.LoginBannerFile != "" {
 		bannerFilePath := c.LoginBannerFile
 		if !filepath.IsAbs(bannerFilePath) {
@@ -521,14 +525,16 @@ func (c *Configuration) configureLoginBanner(serverConfig *ssh.ServerConfig, con
 		bannerContent, err := os.ReadFile(bannerFilePath)
 		if err == nil {
 			banner := util.BytesToString(bannerContent)
-			serverConfig.BannerCallback = func(_ ssh.ConnMetadata) string {
-				return banner
-			}
+			return banner, nil
 		} else {
 			logger.WarnToConsole("unable to read SFTPD login banner file: %v", err)
 			logger.Warn(logSender, "", "unable to read login banner file: %v", err)
 		}
+		err = errors.New("Banner file inaccessible")
+		return "", err
 	}
+	err = errors.New("No banner file configured")
+	return "", err
 }
 
 func (c *Configuration) configureKeyboardInteractiveAuth(serverConfig *ssh.ServerConfig) {
