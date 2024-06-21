@@ -324,7 +324,7 @@ func (c *Config) getMailClientOptions() []mail.Option {
 func (c *Config) getSMTPClientAndMsg(to, bcc []string, subject, body string, contentType EmailContentType,
 	attachments ...*mail.File) (*mail.Client, *mail.Msg, error) {
 	msg := mail.NewMsg()
-	msg.SetUserAgent(version.GetServerVersion(" ", true))
+	msg.SetUserAgent(version.GetServerVersion(" ", false))
 
 	var from string
 	if c.From != "" {
