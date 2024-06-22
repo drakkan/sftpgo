@@ -23,6 +23,7 @@ import (
 	"crypto/sha512"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -779,6 +780,34 @@ func TestSFTPFsEscapeHomeDir(t *testing.T) {
 	_, err = httpdtest.RemoveUser(baseUser, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(baseUser.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestReadDirLongNames(t *testing.T) {
+	usePubKey := true
+	user, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
+	assert.NoError(t, err)
+
+	conn, client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		numFiles := 1000
+		for i := 0; i < 1000; i++ {
+			fPath := filepath.Join(user.GetHomeDir(), hex.EncodeToString(util.GenerateRandomBytes(127)))
+			err = os.WriteFile(fPath, util.GenerateRandomBytes(30), 0666)
+			assert.NoError(t, err)
+		}
+
+		entries, err := client.ReadDir("/")
+		assert.NoError(t, err)
+		assert.Len(t, entries, numFiles)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 
