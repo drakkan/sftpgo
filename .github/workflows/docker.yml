@@ -163,7 +163,7 @@ jobs:
         if: ${{ github.event_name != 'pull_request' }}
 
       - name: Build and push
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           builder: ${{ steps.builder.outputs.name }}
