@@ -342,7 +342,11 @@ func (u *User) isTimeBasedAccessAllowed(when time.Time) bool {
 	if when.IsZero() {
 		when = time.Now()
 	}
-	when = when.UTC()
+	if UseLocalTime() {
+		when = when.Local()
+	} else {
+		when = when.UTC()
+	}
 	weekDay := when.Weekday()
 	hhMM := when.Format("15:04")
 	for _, p := range u.Filters.AccessTime {

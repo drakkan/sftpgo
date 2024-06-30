@@ -19,6 +19,8 @@ import (
 
 	"github.com/robfig/cron/v3"
 
+	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
+	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 )
 
@@ -36,7 +38,15 @@ func stopEventScheduler() {
 func startEventScheduler() {
 	stopEventScheduler()
 
-	eventScheduler = cron.New(cron.WithLocation(time.UTC), cron.WithLogger(cron.DiscardLogger))
+	options := []cron.Option{
+		cron.WithLogger(cron.DiscardLogger),
+	}
+	if !dataprovider.UseLocalTime() {
+		eventManagerLog(logger.LevelDebug, "use UTC time for the scheduler")
+		options = append(options, cron.WithLocation(time.UTC))
+	}
+
+	eventScheduler = cron.New(options...)
 	eventManager.loadRules()
 	_, err := eventScheduler.AddFunc("@every 10m", eventManager.loadRules)
 	util.PanicOnError(err)

@@ -170,6 +170,7 @@ func Initialize(c Configuration, isShared int) error {
 	isShuttingDown.Store(false)
 	util.SetUmask(c.Umask)
 	version.SetConfig(c.ServerVersion)
+	dataprovider.SetTZ(c.TZ)
 	Config = c
 	Config.Actions.ExecuteOn = util.RemoveDuplicates(Config.Actions.ExecuteOn, true)
 	Config.Actions.ExecuteSync = util.RemoveDuplicates(Config.Actions.ExecuteSync, true)
@@ -588,6 +589,10 @@ type Configuration struct {
 	Umask string `json:"umask" mapstructure:"umask"`
 	// Defines the server version
 	ServerVersion string `json:"server_version" mapstructure:"server_version"`
+	// TZ defines the time zone to use for the EventManager scheduler and to
+	// control time-based access restrictions. Set to "local" to use the
+	// server's local time, otherwise UTC will be used.
+	TZ string `json:"tz" mapstructure:"tz"`
 	// Metadata configuration
 	Metadata              MetadataConfig `json:"metadata" mapstructure:"metadata"`
 	idleTimeoutAsDuration time.Duration

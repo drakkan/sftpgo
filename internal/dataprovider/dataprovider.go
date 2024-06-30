@@ -187,6 +187,7 @@ var (
 	ErrDuplicatedKey = errors.New("duplicated key not allowed")
 	// ErrForeignKeyViolated occurs when there is a foreign key constraint violation
 	ErrForeignKeyViolated   = errors.New("violates foreign key constraint")
+	tz                      = ""
 	isAdminCreated          atomic.Bool
 	validTLSUsernames       = []string{string(sdk.TLSUsernameNone), string(sdk.TLSUsernameCN)}
 	config                  Config
@@ -588,6 +589,16 @@ func (c *Config) doBackup() (string, error) {
 	}
 	providerLog(logger.LevelDebug, "backup saved to %q", outputFile)
 	return outputFile, nil
+}
+
+// SetTZ sets the configured timezone.
+func SetTZ(val string) {
+	tz = val
+}
+
+// UseLocalTime returns true if local time should be used instead of UTC.
+func UseLocalTime() bool {
+	return tz == "local"
 }
 
 // ExecuteBackup executes a backup

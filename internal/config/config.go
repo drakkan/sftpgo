@@ -234,6 +234,7 @@ func Init() {
 			RateLimitersConfig: []common.RateLimiterConfig{defaultRateLimiter},
 			Umask:              "",
 			ServerVersion:      "",
+			TZ:                 "",
 			Metadata: common.MetadataConfig{
 				Read: 0,
 			},
@@ -2007,6 +2008,7 @@ func setViperDefaults() {
 	viper.SetDefault("common.defender.login_delay.password_failed", globalConf.Common.DefenderConfig.LoginDelay.PasswordFailed)
 	viper.SetDefault("common.umask", globalConf.Common.Umask)
 	viper.SetDefault("common.server_version", globalConf.Common.ServerVersion)
+	viper.SetDefault("common.tz", globalConf.Common.TZ)
 	viper.SetDefault("common.metadata.read", globalConf.Common.Metadata.Read)
 	viper.SetDefault("acme.email", globalConf.ACME.Email)
 	viper.SetDefault("acme.key_type", globalConf.ACME.KeyType)

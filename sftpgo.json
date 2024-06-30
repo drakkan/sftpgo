@@ -24,6 +24,7 @@
     "allow_self_connections": 0,
     "umask": "",
     "server_version": "",
+    "tz": "",
     "metadata": {
       "read": 0
     },

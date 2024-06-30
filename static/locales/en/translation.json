@@ -730,7 +730,7 @@
         "external_auth_cache_time": "External auth cache time",
         "external_auth_cache_time_help": "Cache time, in seconds, for users authenticated using an external auth hook. 0 means no cache",
         "access_time": "Access time restrictions",
-        "access_time_help": "No restrictions means access is always allowed, the time must be set in the format HH:MM. Use UTC time"
+        "access_time_help": "No restrictions means access is always allowed, the time must be set in the format HH:MM"
     },
     "admin": {
         "role_permissions": "A role admin cannot have the following permissions: {{val}}",
@@ -1071,7 +1071,7 @@
         "sync_unsupported_fs_event": "Synchronous execution is only supported for upload and pre-* filesystem events",
         "only_failure_actions": "At least a non-failure action is required",
         "sync_action_required": "Event \"{{val}}\" requires at least a synchronous action",
-        "scheduler_help": "The scheduler uses UTC time. Hours: 0-23. Day of week: 0-6 (Sun-Sat). Day of month: 1-31. Month: 1-12. Asterisk (*) indicates a match for all the values of the field. e.g. every day of week, every day of month and so on",
+        "scheduler_help": "Hours: 0-23. Day of week: 0-6 (Sun-Sat). Day of month: 1-31. Month: 1-12. Asterisk (*) indicates a match for all the values of the field. e.g. every day of week, every day of month and so on",
         "concurrent_run": "Allow concurrent execution from multiple instances",
         "protocol_filters": "Protocol filters",
         "object_filters": "Object filters",

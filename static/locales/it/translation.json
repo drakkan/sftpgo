@@ -730,7 +730,7 @@
         "external_auth_cache_time": "Cache per autenticazione esterna",
         "external_auth_cache_time_help": "Tempo di memorizzazione nella cache, in secondi, per gli utenti autenticati utilizzando un hook di autenticazione esterno. 0 significa nessuna cache",
         "access_time": "Limitazioni temporali all'accesso",
-        "access_time_help": "Nessuna restrizione significa che l'accesso è sempre consentito, l'ora deve essere impostata nel formato HH:MM. Utilizzare l'ora UTC"
+        "access_time_help": "Nessuna restrizione significa che l'accesso è sempre consentito, l'ora deve essere impostata nel formato HH:MM"
     },
     "admin": {
         "role_permissions": "Un amministratore di ruolo non può avere le seguenti autorizzazioni: {{val}}",
@@ -1071,7 +1071,7 @@
         "sync_unsupported_fs_event": "L'esecuzione sincrona è supporta solo per gli eventi \"upload\" e \"pre-*\"",
         "only_failure_actions": "E' richiesta almeno un'azione che non venga eseguita su errore",
         "sync_action_required": "L'evento \"{{val}}\" richiede almeno un'azione da eseguire sincronamente",
-        "scheduler_help": "Lo scheduler utilizza l'ora UTC. Orari: 0-23. Giorno della settimana: 0-6 (dom-sab). Giorno del mese: 1-31. Mese: 1-12. L'asterisco (*) indica una corrispondenza per tutti i valori del campo. per esempio. ogni giorno della settimana, ogni giorno del mese e così via",
+        "scheduler_help": "Orari: 0-23. Giorno della settimana: 0-6 (dom-sab). Giorno del mese: 1-31. Mese: 1-12. L'asterisco (*) indica una corrispondenza per tutti i valori del campo. per esempio. ogni giorno della settimana, ogni giorno del mese e così via",
         "concurrent_run": "Consentire l'esecuzione simultanea da più istanze",
         "protocol_filters": "Filtro su protocolli",
         "object_filters": "Filtro su oggetti",
