@@ -626,7 +626,9 @@ func TestOIDCRefreshToken(t *testing.T) {
 		},
 	}
 	verifier = mockOIDCVerifier{
-		token: &oidc.IDToken{},
+		token: &oidc.IDToken{
+			Nonce: xid.New().String(), // nonce is different from the expected one
+		},
 	}
 	err = token.refresh(context.Background(), &config, &verifier, r)
 	if assert.Error(t, err) {
@@ -634,7 +636,7 @@ func TestOIDCRefreshToken(t *testing.T) {
 	}
 	verifier = mockOIDCVerifier{
 		token: &oidc.IDToken{
-			Nonce: token.Nonce,
+			Nonce: "", // empty token is fine on refresh but claims are not set
 		},
 	}
 	err = token.refresh(context.Background(), &config, &verifier, r)
