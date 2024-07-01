@@ -16,6 +16,7 @@ package httpd
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
@@ -203,7 +204,7 @@ type oidcPendingAuth struct {
 func newOIDCPendingAuth(audience tokenAudience) oidcPendingAuth {
 	return oidcPendingAuth{
 		State:    xid.New().String(),
-		Nonce:    xid.New().String(),
+		Nonce:    hex.EncodeToString(util.GenerateRandomBytes(20)),
 		Audience: audience,
 		IssuedAt: util.GetTimeAsMsSinceEpoch(time.Now()),
 	}
@@ -345,14 +346,15 @@ func (t *oidcToken) refresh(ctx context.Context, config OAuth2Config, verifier O
 		logger.Debug(logSender, "", "unable to verify refreshed id token for cookie %q: %v", t.Cookie, err)
 		return err
 	}
-	if idToken.Nonce != t.Nonce {
-		logger.Debug(logSender, "", "unable to verify refreshed id token for cookie %q: nonce mismatch", t.Cookie)
+	if idToken.Nonce != "" && idToken.Nonce != t.Nonce {
+		logger.Warn(logSender, "", "unable to verify refreshed id token for cookie %q: nonce mismatch, expected: %q, actual: %q",
+			t.Cookie, t.Nonce, idToken.Nonce)
 		return errors.New("the refreshed token nonce mismatch")
 	}
 	claims := make(map[string]any)
 	err = idToken.Claims(&claims)
 	if err != nil {
-		logger.Debug(logSender, "", "unable to get refreshed id token claims for cookie %q: %v", t.Cookie, err)
+		logger.Warn(logSender, "", "unable to get refreshed id token claims for cookie %q: %v", t.Cookie, err)
 		return err
 	}
 	sid, ok := claims["sid"].(string)
