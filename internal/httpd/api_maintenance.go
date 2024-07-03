@@ -551,9 +551,10 @@ func RestoreUsers(users []dataprovider.User, inputFile string, mode, scanQuota i
 			return fmt.Errorf("unable to restore user %q: %w", user.Username, err)
 		}
 		if scanQuota == 1 || (scanQuota == 2 && user.HasQuotaRestrictions()) {
-			if common.QuotaScans.AddUserQuotaScan(user.Username, user.Role) {
+			user, err = dataprovider.GetUserWithGroupSettings(user.Username, "")
+			if err == nil && common.QuotaScans.AddUserQuotaScan(user.Username, user.Role) {
 				logger.Debug(logSender, "", "starting quota scan for restored user: %q", user.Username)
-				go doUserQuotaScan(user) //nolint:errcheck
+				go doUserQuotaScan(&user) //nolint:errcheck
 			}
 		}
 	}

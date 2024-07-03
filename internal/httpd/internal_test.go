@@ -1951,7 +1951,7 @@ func TestRenderInvalidTemplate(t *testing.T) {
 }
 
 func TestQuotaScanInvalidFs(t *testing.T) {
-	user := dataprovider.User{
+	user := &dataprovider.User{
 		BaseUser: sdk.BaseUser{
 			Username: "test",
 			HomeDir:  os.TempDir(),

@@ -219,7 +219,7 @@ func doStartUserQuotaScan(w http.ResponseWriter, r *http.Request, username strin
 			http.StatusConflict)
 		return
 	}
-	go doUserQuotaScan(user) //nolint:errcheck
+	go doUserQuotaScan(&user) //nolint:errcheck
 	sendAPIResponse(w, r, err, "Scan started", http.StatusAccepted)
 }
 
@@ -242,14 +242,14 @@ func doStartFolderQuotaScan(w http.ResponseWriter, r *http.Request, name string)
 	sendAPIResponse(w, r, err, "Scan started", http.StatusAccepted)
 }
 
-func doUserQuotaScan(user dataprovider.User) error {
+func doUserQuotaScan(user *dataprovider.User) error {
 	defer common.QuotaScans.RemoveUserQuotaScan(user.Username)
 	numFiles, size, err := user.ScanQuota()
 	if err != nil {
 		logger.Warn(logSender, "", "error scanning user quota %q: %v", user.Username, err)
 		return err
 	}
-	err = dataprovider.UpdateUserQuota(&user, numFiles, size, true)
+	err = dataprovider.UpdateUserQuota(user, numFiles, size, true)
 	logger.Debug(logSender, "", "user quota scanned, user: %q, error: %v", user.Username, err)
 	return err
 }
