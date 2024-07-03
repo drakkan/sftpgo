@@ -885,7 +885,6 @@ func TestTransferErrors(t *testing.T) {
 	fs := newMockOsFs(nil, nil, false, connID, user.GetHomeDir())
 	connection := &Connection{
 		BaseConnection: common.NewBaseConnection(connID, common.ProtocolFTP, "", "", user),
-		clientContext:  mockCC,
 	}
 	baseTransfer := common.NewBaseTransfer(file, connection.BaseConnection, nil, file.Name(), file.Name(), testfile,
 		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
