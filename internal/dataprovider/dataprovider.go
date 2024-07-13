@@ -1517,10 +1517,11 @@ func UpdateUserQuota(user *User, filesAdd int, sizeAdd int64, reset bool) error 
 
 // UpdateUserFolderQuota updates the quota for the given user and virtual folder.
 func UpdateUserFolderQuota(folder *vfs.VirtualFolder, user *User, filesAdd int, sizeAdd int64, reset bool) {
-	UpdateVirtualFolderQuota(&folder.BaseVirtualFolder, filesAdd, sizeAdd, reset) //nolint:errcheck
 	if folder.IsIncludedInUserQuota() {
 		UpdateUserQuota(user, filesAdd, sizeAdd, reset) //nolint:errcheck
+		return
 	}
+	UpdateVirtualFolderQuota(&folder.BaseVirtualFolder, filesAdd, sizeAdd, reset) //nolint:errcheck
 }
 
 // UpdateVirtualFolderQuota updates the quota for the given virtual folder adding filesAdd and sizeAdd.

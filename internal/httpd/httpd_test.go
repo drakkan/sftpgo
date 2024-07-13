@@ -18245,7 +18245,7 @@ func TestWebAPIVFolder(t *testing.T) {
 
 	folder, _, err := httpdtest.GetFolderByName(folderName, http.StatusOK)
 	assert.NoError(t, err)
-	assert.Equal(t, int64(len(fileContents)), folder.UsedQuotaSize)
+	assert.Equal(t, int64(0), folder.UsedQuotaSize)
 
 	_, err = reader.Seek(0, io.SeekStart)
 	assert.NoError(t, err)
@@ -18262,7 +18262,7 @@ func TestWebAPIVFolder(t *testing.T) {
 
 	folder, _, err = httpdtest.GetFolderByName(folderName, http.StatusOK)
 	assert.NoError(t, err)
-	assert.Equal(t, int64(len(fileContents)), folder.UsedQuotaSize)
+	assert.Equal(t, int64(0), folder.UsedQuotaSize)
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
