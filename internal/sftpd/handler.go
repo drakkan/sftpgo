@@ -560,13 +560,10 @@ func (c *Connection) getStatVFSFromQuotaResult(fs vfs.Fs, name string, quotaResu
 func (c *Connection) updateQuotaAfterTruncate(requestPath string, fileSize int64) {
 	vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(requestPath))
 	if err == nil {
-		dataprovider.UpdateVirtualFolderQuota(&vfolder.BaseVirtualFolder, 0, -fileSize, false) //nolint:errcheck
-		if vfolder.IsIncludedInUserQuota() {
-			dataprovider.UpdateUserQuota(&c.User, 0, -fileSize, false) //nolint:errcheck
-		}
-	} else {
-		dataprovider.UpdateUserQuota(&c.User, 0, -fileSize, false) //nolint:errcheck
+		dataprovider.UpdateUserFolderQuota(&vfolder, &c.User, 0, -fileSize, false)
+		return
 	}
+	dataprovider.UpdateUserQuota(&c.User, 0, -fileSize, false) //nolint:errcheck
 }
 
 func getOSOpenFlags(requestFlags sftp.FileOpenFlags) (flags int) {

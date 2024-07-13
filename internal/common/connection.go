@@ -449,10 +449,7 @@ func (c *BaseConnection) RemoveFile(fs vfs.Fs, fsPath, virtualPath string, info 
 	if updateQuota && info.Mode()&os.ModeSymlink == 0 {
 		vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(virtualPath))
 		if err == nil {
-			dataprovider.UpdateVirtualFolderQuota(&vfolder.BaseVirtualFolder, -1, -size, false) //nolint:errcheck
-			if vfolder.IsIncludedInUserQuota() {
-				dataprovider.UpdateUserQuota(&c.User, -1, -size, false) //nolint:errcheck
-			}
+			dataprovider.UpdateUserFolderQuota(&vfolder, &c.User, -1, -size, false)
 		} else {
 			dataprovider.UpdateUserQuota(&c.User, -1, -size, false) //nolint:errcheck
 		}
@@ -1121,10 +1118,7 @@ func (c *BaseConnection) truncateFile(fs vfs.Fs, fsPath, virtualPath string, siz
 		sizeDiff := initialSize - size
 		vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(virtualPath))
 		if err == nil {
-			dataprovider.UpdateVirtualFolderQuota(&vfolder.BaseVirtualFolder, 0, -sizeDiff, false) //nolint:errcheck
-			if vfolder.IsIncludedInUserQuota() {
-				dataprovider.UpdateUserQuota(&c.User, 0, -sizeDiff, false) //nolint:errcheck
-			}
+			dataprovider.UpdateUserFolderQuota(&vfolder, &c.User, 0, -sizeDiff, false)
 		} else {
 			dataprovider.UpdateUserQuota(&c.User, 0, -sizeDiff, false) //nolint:errcheck
 		}
@@ -1518,61 +1512,40 @@ func (c *BaseConnection) updateQuotaMoveBetweenVFolders(sourceFolder, dstFolder 
 	if sourceFolder.Name == dstFolder.Name {
 		// both files are inside the same virtual folder
 		if initialSize != -1 {
-			dataprovider.UpdateVirtualFolderQuota(&dstFolder.BaseVirtualFolder, -numFiles, -initialSize, false) //nolint:errcheck
-			if dstFolder.IsIncludedInUserQuota() {
-				dataprovider.UpdateUserQuota(&c.User, -numFiles, -initialSize, false) //nolint:errcheck
-			}
+			dataprovider.UpdateUserFolderQuota(dstFolder, &c.User, -numFiles, -initialSize, false)
 		}
 		return
 	}
 	// files are inside different virtual folders
-	dataprovider.UpdateVirtualFolderQuota(&sourceFolder.BaseVirtualFolder, -numFiles, -filesSize, false) //nolint:errcheck
-	if sourceFolder.IsIncludedInUserQuota() {
-		dataprovider.UpdateUserQuota(&c.User, -numFiles, -filesSize, false) //nolint:errcheck
-	}
+	dataprovider.UpdateUserFolderQuota(sourceFolder, &c.User, -numFiles, -filesSize, false)
 	if initialSize == -1 {
-		dataprovider.UpdateVirtualFolderQuota(&dstFolder.BaseVirtualFolder, numFiles, filesSize, false) //nolint:errcheck
-		if dstFolder.IsIncludedInUserQuota() {
-			dataprovider.UpdateUserQuota(&c.User, numFiles, filesSize, false) //nolint:errcheck
-		}
-	} else {
-		// we cannot have a directory here, initialSize != -1 only for files
-		dataprovider.UpdateVirtualFolderQuota(&dstFolder.BaseVirtualFolder, 0, filesSize-initialSize, false) //nolint:errcheck
-		if dstFolder.IsIncludedInUserQuota() {
-			dataprovider.UpdateUserQuota(&c.User, 0, filesSize-initialSize, false) //nolint:errcheck
-		}
+		dataprovider.UpdateUserFolderQuota(dstFolder, &c.User, numFiles, filesSize, false)
+		return
 	}
+	// we cannot have a directory here, initialSize != -1 only for files
+	dataprovider.UpdateUserFolderQuota(dstFolder, &c.User, 0, filesSize-initialSize, false)
 }
 
 func (c *BaseConnection) updateQuotaMoveFromVFolder(sourceFolder *vfs.VirtualFolder, initialSize, filesSize int64, numFiles int) {
 	// move between a virtual folder and the user home dir
-	dataprovider.UpdateVirtualFolderQuota(&sourceFolder.BaseVirtualFolder, -numFiles, -filesSize, false) //nolint:errcheck
-	if sourceFolder.IsIncludedInUserQuota() {
-		dataprovider.UpdateUserQuota(&c.User, -numFiles, -filesSize, false) //nolint:errcheck
-	}
+	dataprovider.UpdateUserFolderQuota(sourceFolder, &c.User, -numFiles, -filesSize, false)
 	if initialSize == -1 {
 		dataprovider.UpdateUserQuota(&c.User, numFiles, filesSize, false) //nolint:errcheck
-	} else {
-		// we cannot have a directory here, initialSize != -1 only for files
-		dataprovider.UpdateUserQuota(&c.User, 0, filesSize-initialSize, false) //nolint:errcheck
+		return
 	}
+	// we cannot have a directory here, initialSize != -1 only for files
+	dataprovider.UpdateUserQuota(&c.User, 0, filesSize-initialSize, false) //nolint:errcheck
 }
 
 func (c *BaseConnection) updateQuotaMoveToVFolder(dstFolder *vfs.VirtualFolder, initialSize, filesSize int64, numFiles int) {
 	// move between the user home dir and a virtual folder
 	dataprovider.UpdateUserQuota(&c.User, -numFiles, -filesSize, false) //nolint:errcheck
 	if initialSize == -1 {
-		dataprovider.UpdateVirtualFolderQuota(&dstFolder.BaseVirtualFolder, numFiles, filesSize, false) //nolint:errcheck
-		if dstFolder.IsIncludedInUserQuota() {
-			dataprovider.UpdateUserQuota(&c.User, numFiles, filesSize, false) //nolint:errcheck
-		}
-	} else {
-		// we cannot have a directory here, initialSize != -1 only for files
-		dataprovider.UpdateVirtualFolderQuota(&dstFolder.BaseVirtualFolder, 0, filesSize-initialSize, false) //nolint:errcheck
-		if dstFolder.IsIncludedInUserQuota() {
-			dataprovider.UpdateUserQuota(&c.User, 0, filesSize-initialSize, false) //nolint:errcheck
-		}
+		dataprovider.UpdateUserFolderQuota(dstFolder, &c.User, numFiles, filesSize, false)
+		return
 	}
+	// we cannot have a directory here, initialSize != -1 only for files
+	dataprovider.UpdateUserFolderQuota(dstFolder, &c.User, 0, filesSize-initialSize, false)
 }
 
 func (c *BaseConnection) updateQuotaAfterRename(fs vfs.Fs, virtualSourcePath, virtualTargetPath, targetPath string,

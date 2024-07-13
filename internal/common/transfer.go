@@ -521,11 +521,8 @@ func (t *BaseTransfer) updateQuota(numFiles int, fileSize int64) bool {
 	if t.transferType == TransferUpload && (numFiles != 0 || sizeDiff != 0) {
 		vfolder, err := t.Connection.User.GetVirtualFolderForPath(path.Dir(t.requestPath))
 		if err == nil {
-			dataprovider.UpdateVirtualFolderQuota(&vfolder.BaseVirtualFolder, numFiles, //nolint:errcheck
+			dataprovider.UpdateUserFolderQuota(&vfolder, &t.Connection.User, numFiles,
 				sizeDiff, false)
-			if vfolder.IsIncludedInUserQuota() {
-				dataprovider.UpdateUserQuota(&t.Connection.User, numFiles, sizeDiff, false) //nolint:errcheck
-			}
 		} else {
 			dataprovider.UpdateUserQuota(&t.Connection.User, numFiles, sizeDiff, false) //nolint:errcheck
 		}

@@ -908,10 +908,7 @@ func updateUserQuotaAfterFileWrite(conn *BaseConnection, virtualPath string, num
 		dataprovider.UpdateUserQuota(&conn.User, numFiles, fileSize, false) //nolint:errcheck
 		return
 	}
-	dataprovider.UpdateVirtualFolderQuota(&vfolder.BaseVirtualFolder, numFiles, fileSize, false) //nolint:errcheck
-	if vfolder.IsIncludedInUserQuota() {
-		dataprovider.UpdateUserQuota(&conn.User, numFiles, fileSize, false) //nolint:errcheck
-	}
+	dataprovider.UpdateUserFolderQuota(&vfolder, &conn.User, numFiles, fileSize, false)
 }
 
 func checkWriterPermsAndQuota(conn *BaseConnection, virtualPath string, numFiles int, expectedSize, truncatedSize int64) error {
