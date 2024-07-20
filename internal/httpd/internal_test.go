@@ -341,7 +341,7 @@ func TestBrandingValidation(t *testing.T) {
 		},
 	}
 	b.checkBranding()
-	assert.Equal(t, "/favicon.ico", b.Branding.WebAdmin.FaviconPath)
+	assert.Equal(t, "/favicon.png", b.Branding.WebAdmin.FaviconPath)
 	assert.Equal(t, "/path1", b.Branding.WebAdmin.LogoPath)
 	assert.Equal(t, []string{"/my.css"}, b.Branding.WebAdmin.DefaultCSS)
 	assert.Len(t, b.Branding.WebAdmin.ExtraCSS, 0)

@@ -418,7 +418,7 @@ func (b *UIBranding) check() {
 	if b.FaviconPath != "" {
 		b.FaviconPath = util.CleanPath(b.FaviconPath)
 	} else {
-		b.FaviconPath = "/favicon.ico"
+		b.FaviconPath = "/favicon.png"
 	}
 	if b.DisclaimerPath != "" {
 		if !strings.HasPrefix(b.DisclaimerPath, "https://") && !strings.HasPrefix(b.DisclaimerPath, "http://") {

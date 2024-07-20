@@ -13134,7 +13134,7 @@ func TestDefender(t *testing.T) {
 	checkResponseCode(t, http.StatusForbidden, rr)
 	assert.Contains(t, rr.Body.String(), "your IP address is blocked")
 	// requests for static files should be always allowed
-	req, err = http.NewRequest(http.MethodGet, "/static/favicon.ico", nil)
+	req, err = http.NewRequest(http.MethodGet, "/static/favicon.png", nil)
 	assert.NoError(t, err)
 	req.RemoteAddr = remoteAddr
 	rr = executeRequest(req)
@@ -26229,7 +26229,7 @@ func TestGetWebStatusMock(t *testing.T) {
 }
 
 func TestStaticFilesMock(t *testing.T) {
-	req, err := http.NewRequest(http.MethodGet, "/static/favicon.ico", nil)
+	req, err := http.NewRequest(http.MethodGet, "/static/favicon.png", nil)
 	assert.NoError(t, err)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
