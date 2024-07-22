@@ -37,11 +37,10 @@ type Connection struct {
 	// client's version string
 	ClientVersion string
 	// Remote address for this connection
-	RemoteAddr   net.Addr
-	LocalAddr    net.Addr
-	channel      io.ReadWriteCloser
-	command      string
-	folderPrefix string
+	RemoteAddr net.Addr
+	LocalAddr  net.Addr
+	channel    io.ReadWriteCloser
+	command    string
 }
 
 // GetClientVersion returns the connected client's version
@@ -221,7 +220,7 @@ func (c *Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 			return nil, err
 		}
 		modTime := time.Unix(0, 0)
-		if request.Filepath != "/" || c.folderPrefix != "" {
+		if request.Filepath != "/" {
 			lister.Add(vfs.NewFileInfo("..", true, 0, modTime, false))
 		}
 		lister.Add(vfs.NewFileInfo(".", true, 0, modTime, false))
