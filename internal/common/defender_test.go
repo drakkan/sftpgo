@@ -448,8 +448,6 @@ func TestDefenderDelay(t *testing.T) {
 				},
 			},
 		},
-		banned: make(map[string]time.Time),
-		hosts:  make(map[string]hostScore),
 	}
 	startTime := time.Now()
 	d.DelayLogin(nil)

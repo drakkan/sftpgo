@@ -2574,7 +2574,6 @@ func TestHTTPDFile(t *testing.T) {
 	user.Permissions["/"] = []string{dataprovider.PermAny}
 	connection := &Connection{
 		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, "", "", user),
-		request:        nil,
 	}
 
 	fs, err := user.GetFilesystem("")

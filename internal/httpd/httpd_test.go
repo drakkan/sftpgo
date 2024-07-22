@@ -12422,8 +12422,7 @@ func TestStartQuotaScanNonExistentFolderMock(t *testing.T) {
 	token, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
 	folder := vfs.BaseVirtualFolder{
-		MappedPath: os.TempDir(),
-		Name:       "afolder",
+		Name: "afolder",
 	}
 	req, _ := http.NewRequest(http.MethodPost, path.Join(quotasBasePath, "folders", folder.Name, "scan"), nil)
 	setBearerForReq(req, token)
@@ -23101,7 +23100,6 @@ func TestWebEventAction(t *testing.T) {
 	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
 	assert.NoError(t, err)
 	action := dataprovider.BaseEventAction{
-		ID:          81,
 		Name:        "web_action_http",
 		Description: "http web action",
 		Type:        dataprovider.ActionTypeHTTP,
@@ -24034,7 +24032,8 @@ func TestWebIPListEntries(t *testing.T) {
 	form.Set("protocols", "a")
 	form.Add("protocols", "1")
 	form.Add("protocols", "4")
-	req, err = http.NewRequest(http.MethodPost, webIPListPath+"/2", bytes.NewBuffer([]byte(form.Encode())))
+	req, err = http.NewRequest(http.MethodPost, webIPListPath+"/"+strconv.Itoa(int(entry.Type)),
+		bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, webToken)
