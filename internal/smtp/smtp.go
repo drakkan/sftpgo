@@ -415,12 +415,6 @@ func SendEmail(to, bcc []string, subject, body string, contentType EmailContentT
 	return config.sendEmail(to, bcc, subject, body, contentType, attachments...)
 }
 
-// ReloadProviderConf reloads the configuration from the provider
-// and apply it if different from the active one
-func ReloadProviderConf() {
-	loadConfigFromProvider() //nolint:errcheck
-}
-
 func loadConfigFromProvider() error {
 	configs, err := dataprovider.GetConfigs()
 	if err != nil {

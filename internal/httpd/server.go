@@ -24,6 +24,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -172,7 +173,7 @@ func (s *httpdServer) renderClientLoginPage(w http.ResponseWriter, r *http.Reque
 		CurrentURL:     webClientLoginPath,
 		Error:          err,
 		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, xid.New().String(), webBaseClientPath),
-		Branding:       s.binding.Branding.WebClient,
+		Branding:       s.binding.webClientBranding(),
 		FormDisabled:   s.binding.isWebClientLoginFormDisabled(),
 		CheckRedirect:  true,
 	}
@@ -181,7 +182,7 @@ func (s *httpdServer) renderClientLoginPage(w http.ResponseWriter, r *http.Reque
 	}
 	if s.binding.showAdminLoginURL() {
 		data.AltLoginURL = webAdminLoginPath
-		data.AltLoginName = s.binding.Branding.WebAdmin.ShortName
+		data.AltLoginName = s.binding.webAdminBranding().ShortName
 	}
 	if smtp.IsEnabled() && !data.FormDisabled {
 		data.ForgotPwdURL = webClientForgotPwdPath
@@ -590,13 +591,13 @@ func (s *httpdServer) renderAdminLoginPage(w http.ResponseWriter, r *http.Reques
 		CurrentURL:     webAdminLoginPath,
 		Error:          err,
 		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, xid.New().String(), webBaseAdminPath),
-		Branding:       s.binding.Branding.WebAdmin,
+		Branding:       s.binding.webAdminBranding(),
 		FormDisabled:   s.binding.isWebAdminLoginFormDisabled(),
 		CheckRedirect:  false,
 	}
 	if s.binding.showClientLoginURL() {
 		data.AltLoginURL = webClientLoginPath
-		data.AltLoginName = s.binding.Branding.WebClient.ShortName
+		data.AltLoginName = s.binding.webClientBranding().ShortName
 	}
 	if smtp.IsEnabled() && !data.FormDisabled {
 		data.ForgotPwdURL = webAdminForgotPwdPath
@@ -1520,6 +1521,16 @@ func (s *httpdServer) setupWebClientRoutes() {
 			r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 			http.Redirect(w, r, webClientLoginPath, http.StatusFound)
 		})
+		s.router.Get(path.Join(webStaticFilesPath, "branding/webclient/logo.png"),
+			func(w http.ResponseWriter, r *http.Request) {
+				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+				renderPNGImage(w, r, dbBrandingConfig.getWebClientLogo())
+			})
+		s.router.Get(path.Join(webStaticFilesPath, "branding/webclient/favicon.png"),
+			func(w http.ResponseWriter, r *http.Request) {
+				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+				renderPNGImage(w, r, dbBrandingConfig.getWebClientFavicon())
+			})
 		s.router.Get(webClientLoginPath, s.handleClientWebLogin)
 		if s.binding.OIDC.isEnabled() && !s.binding.isWebClientOIDCLoginDisabled() {
 			s.router.Get(webClientOIDCLoginPath, s.handleWebClientOIDCLogin)
@@ -1643,6 +1654,16 @@ func (s *httpdServer) setupWebAdminRoutes() {
 			r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
 			s.redirectToWebPath(w, r, webAdminLoginPath)
 		})
+		s.router.Get(path.Join(webStaticFilesPath, "branding/webadmin/logo.png"),
+			func(w http.ResponseWriter, r *http.Request) {
+				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+				renderPNGImage(w, r, dbBrandingConfig.getWebAdminLogo())
+			})
+		s.router.Get(path.Join(webStaticFilesPath, "branding/webadmin/favicon.png"),
+			func(w http.ResponseWriter, r *http.Request) {
+				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+				renderPNGImage(w, r, dbBrandingConfig.getWebAdminFavicon())
+			})
 		s.router.Get(webAdminLoginPath, s.handleWebAdminLogin)
 		if s.binding.OIDC.hasRoles() && !s.binding.isWebAdminOIDCLoginDisabled() {
 			s.router.Get(webAdminOIDCLoginPath, s.handleWebAdminOIDCLogin)

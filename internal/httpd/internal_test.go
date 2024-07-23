@@ -412,6 +412,16 @@ func TestGCSWebInvalidFormFile(t *testing.T) {
 	assert.EqualError(t, err, http.ErrNotMultipart.Error())
 }
 
+func TestBrandingInvalidFormFile(t *testing.T) {
+	form := make(url.Values)
+	req, _ := http.NewRequest(http.MethodPost, webConfigsPath, strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	err := req.ParseForm()
+	assert.NoError(t, err)
+	_, err = getBrandingConfigFromPostFields(req, &dataprovider.BrandingConfigs{})
+	assert.EqualError(t, err, http.ErrNotMultipart.Error())
+}
+
 func TestVerifyCSRFToken(t *testing.T) {
 	server := httpdServer{}
 	server.initializeRouter()

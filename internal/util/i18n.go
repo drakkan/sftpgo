@@ -303,6 +303,9 @@ const (
 	I18nErrorEvSyncUnsupportedFs       = "rules.sync_unsupported_fs_event"
 	I18nErrorRuleFailureActionsOnly    = "rules.only_failure_actions"
 	I18nErrorRuleSyncActionRequired    = "rules.sync_action_required"
+	I18nErrorInvalidPNG                = "branding.invalid_png"
+	I18nErrorInvalidPNGSize            = "branding.invalid_png_size"
+	I18nErrorInvalidDisclaimerURL      = "branding.invalid_disclaimer_url"
 )
 
 // NewI18nError returns a I18nError wrappring the provided error

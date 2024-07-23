@@ -15,6 +15,36 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 -->
 {{template "base" .}}
 
+{{- define "extra_css"}}
+<style {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
+    .image-input-placeholder {
+        background-image: url('{{.StaticURL}}{{.Branding.DefaultLogoPath}}');
+    }
+
+    /*{{- if ne .Branding.DefaultLogoPath .Branding.LogoPath}}*/
+    .image-input-webadmin-current {
+        background-image: url('{{.StaticURL}}{{.Branding.LogoPath}}');
+    }
+    /*{{- end}}*/
+    /*{{- if ne .Branding.DefaultFaviconPath .Branding.FaviconPath}}*/
+    .image-input-webadmin-fav-current {
+        background-image: url('{{.StaticURL}}{{.Branding.FaviconPath}}');
+    }
+    /*{{- end}}*/
+
+    /*{{- if ne .Branding.DefaultLogoPath .WebClientBranding.LogoPath}}*/
+    .image-input-webclient-current {
+        background-image: url('{{.StaticURL}}{{.WebClientBranding.LogoPath}}');
+    }
+    /*{{- end}}*/
+    /*{{- if ne .Branding.DefaultFaviconPath .WebClientBranding.FaviconPath}}*/
+    .image-input-webclient-fav-current {
+        background-image: url('{{.StaticURL}}{{.WebClientBranding.FaviconPath}}');
+    }
+    /*{{- end}}*/
+</style>
+{{- end}}
+
 {{- define "page_body"}}
 <div class="card shadow-sm">
     <div class="card-header bg-light">
@@ -352,6 +382,221 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </div>
             </div>
 
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="accordion_header_branding">
+                    <button class="accordion-button section-title-inner text-primary collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#accordion_branding_body" aria-expanded="{{if eq .ConfigSection 4}}true{{else}}false{{end}}" aria-controls="accordion_branding_body">
+                        <span data-i18n="branding.title">Branding</span>
+                    </button>
+                </h2>
+                <div id="accordion_branding_body" class="accordion-collapse collapse {{if eq .ConfigSection 4}}show{{end}}" aria-labelledby="accordion_header_branding" data-bs-parent="#accordion_configs">
+                    <div class="accordion-body">
+                        {{- template "infomsg" "branding.help"}}
+                        <form id="configs_branding_form" enctype="multipart/form-data" action="{{.CurrentURL}}" method="POST" autocomplete="off">
+                            <div class="card">
+                                <div class="card-header bg-light">
+                                    <h3 class="card-title section-title-inner">WebAdmin</h3>
+                                </div>
+                                <div class="card-body">
+                                    <div class="form-group row">
+                                        <label for="idBrandingWebAdminName" data-i18n="general.name" class="col-md-3 col-form-label">Name</label>
+                                        <div class="col-md-9">
+                                            <input id="idBrandingWebAdminName" type="text" placeholder="SFTPGo WebAdmin" name="branding_webadmin_name" value="{{.Configs.Branding.WebAdmin.Name}}" maxlength="255"
+                                                class="form-control" />
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group row mt-10">
+                                        <label for="idBrandingWebAdminShortName" data-i18n="branding.short_name" class="col-md-3 col-form-label">Short Name</label>
+                                        <div class="col-md-9">
+                                            <input id="idBrandingWebAdminShortName" type="text" placeholder="WebAdmin" name="branding_webadmin_short_name" value="{{.Configs.Branding.WebAdmin.ShortName}}" maxlength="255"
+                                                class="form-control" />
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group row mt-10">
+                                        <label for="idBrandingWebAdminLogo" data-i18n="branding.logo" class="col-md-3 col-form-label">Logo</label>
+                                        <div class="col-md-9">
+                                            <div class="image-input image-input-outline {{if eq .Branding.DefaultLogoPath .Branding.LogoPath}}image-input-empty{{end}} image-input-placeholder" data-kt-image-input="true">
+                                                <div class="image-input-wrapper w-125px h-125px image-input-webadmin-current"></div>
+
+                                                <label class="btn btn-icon btn-circle btn-color-muted btn-active-color-primary w-25px h-25px bg-body shadow"
+                                                    data-kt-image-input-action="change">
+                                                    <i class="ki-duotone ki-pencil fs-6"><span class="path1"></span><span class="path2"></span></i>
+                                                    <input type="file" id="idBrandingWebAdminLogo" name="branding_webadmin_logo" accept=".png" aria-describedby="idBrandingWebAdminLogoHelp"/>
+                                                    <input type="hidden"name="branding_webadmin_logo_remove" />
+                                                </label>
+
+                                                <span class="btn btn-icon btn-circle btn-color-muted btn-active-color-primary w-25px h-25px bg-body shadow"
+                                                    data-kt-image-input-action="cancel">
+                                                    <i class="ki-outline ki-cross fs-3"></i>
+                                                </span>
+
+                                                <span class="btn btn-icon btn-circle btn-color-muted btn-active-color-primary w-25px h-25px bg-body shadow"
+                                                    data-kt-image-input-action="remove">
+                                                    <i class="ki-outline ki-cross fs-3"></i>
+                                                </span>
+                                            </div>
+                                            <div id="idBrandingWebAdminLogoHelp" class="form-text mt-3" data-i18n="branding.logo_help"></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group row mt-10">
+                                        <label for="idBrandingWebAdminFavicon" data-i18n="branding.favicon" class="col-md-3 col-form-label">Favicon</label>
+                                        <div class="col-md-9">
+                                            <div class="image-input image-input-outline {{if eq .Branding.DefaultFaviconPath .Branding.FaviconPath}}image-input-empty{{end}} image-input-placeholder" data-kt-image-input="true">
+                                                <div class="image-input-wrapper w-50px h-50px image-input-webadmin-fav-current"></div>
+
+                                                <label class="btn btn-icon btn-circle btn-color-muted btn-active-color-primary w-25px h-25px bg-body shadow"
+                                                    data-kt-image-input-action="change">
+                                                    <i class="ki-duotone ki-pencil fs-6"><span class="path1"></span><span class="path2"></span></i>
+                                                    <input type="file" id="idBrandingWebAdminFavicon" name="branding_webadmin_favicon" accept=".png" />
+                                                    <input type="hidden"name="branding_webadmin_favicon_remove" />
+                                                </label>
+
+                                                <span class="btn btn-icon btn-circle btn-color-muted btn-active-color-primary w-25px h-25px bg-body shadow"
+                                                    data-kt-image-input-action="cancel">
+                                                    <i class="ki-outline ki-cross fs-3"></i>
+                                                </span>
+
+                                                <span class="btn btn-icon btn-circle btn-color-muted btn-active-color-primary w-25px h-25px bg-body shadow"
+                                                    data-kt-image-input-action="remove">
+                                                    <i class="ki-outline ki-cross fs-3"></i>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group row mt-10">
+                                        <label for="idBrandingWebAdminDisclaimerName" data-i18n="branding.disclaimer_name" class="col-md-3 col-form-label">Disclaimer Name</label>
+                                        <div class="col-md-9">
+                                            <input id="idBrandingWebAdminDisclaimerName" type="text" placeholder="" name="branding_webadmin_disclaimer_name" value="{{.Configs.Branding.WebAdmin.DisclaimerName}}" maxlength="255"
+                                                class="form-control" />
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group row mt-10">
+                                        <label for="idBrandingWebAdminDisclaimerURL" data-i18n="branding.disclaimer_url" class="col-md-3 col-form-label">Disclaimer URL</label>
+                                        <div class="col-md-9">
+                                            <input id="idBrandingWebAdminDisclaimerURL" type="text" placeholder="" name="branding_webadmin_disclaimer_url" value="{{.Configs.Branding.WebAdmin.DisclaimerURL}}" maxlength="1024"
+                                                class="form-control" />
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+
+                            <div class="card mt-10">
+                                <div class="card-header bg-light">
+                                    <h3 class="card-title section-title-inner">WebClient</h3>
+                                </div>
+                                <div class="card-body">
+                                    <div class="form-group row">
+                                        <label for="idBrandingWebClientName" data-i18n="general.name" class="col-md-3 col-form-label">Name</label>
+                                        <div class="col-md-9">
+                                            <input id="idBrandingWebClientName" type="text" placeholder="SFTPGo WebClient" name="branding_webclient_name" value="{{.Configs.Branding.WebClient.Name}}" maxlength="255"
+                                                class="form-control" />
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group row mt-10">
+                                        <label for="idBrandingWebClientShortName" data-i18n="branding.short_name" class="col-md-3 col-form-label">Short Name</label>
+                                        <div class="col-md-9">
+                                            <input id="idBrandingWebClientShortName" type="text" placeholder="WebClient" name="branding_webclient_short_name" value="{{.Configs.Branding.WebClient.ShortName}}" maxlength="255"
+                                                class="form-control" />
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group row mt-10">
+                                        <label for="idBrandingWebClientLogo" data-i18n="branding.logo" class="col-md-3 col-form-label">Logo</label>
+                                        <div class="col-md-9">
+                                            <div class="image-input image-input-outline {{if eq .Branding.DefaultLogoPath .WebClientBranding.LogoPath}}image-input-empty{{end}} image-input-placeholder" data-kt-image-input="true">
+                                                <div class="image-input-wrapper w-125px h-125px image-input-webclient-current"></div>
+
+                                                <label class="btn btn-icon btn-circle btn-color-muted btn-active-color-primary w-25px h-25px bg-body shadow"
+                                                    data-kt-image-input-action="change">
+                                                    <i class="ki-duotone ki-pencil fs-6"><span class="path1"></span><span class="path2"></span></i>
+                                                    <input type="file" id="idBrandingWebClientLogo" name="branding_webclient_logo" accept=".png" aria-describedby="idBrandingWebClientLogoHelp"/>
+                                                    <input type="hidden"name="branding_webclient_logo_remove" />
+                                                </label>
+
+                                                <span class="btn btn-icon btn-circle btn-color-muted btn-active-color-primary w-25px h-25px bg-body shadow"
+                                                    data-kt-image-input-action="cancel">
+                                                    <i class="ki-outline ki-cross fs-3"></i>
+                                                </span>
+
+                                                <span class="btn btn-icon btn-circle btn-color-muted btn-active-color-primary w-25px h-25px bg-body shadow"
+                                                    data-kt-image-input-action="remove">
+                                                    <i class="ki-outline ki-cross fs-3"></i>
+                                                </span>
+                                            </div>
+                                            <div id="idBrandingWebClientLogoHelp" class="form-text mt-3" data-i18n="branding.logo_help"></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group row mt-10">
+                                        <label for="idBrandingWebClientFavicon" data-i18n="branding.favicon" class="col-md-3 col-form-label">Favicon</label>
+                                        <div class="col-md-9">
+                                            <div class="image-input image-input-outline {{if eq .Branding.DefaultFaviconPath .WebClientBranding.FaviconPath}}image-input-empty{{end}} image-input-placeholder" data-kt-image-input="true">
+                                                <div class="image-input-wrapper w-50px h-50px image-input-webclient-fav-current"></div>
+
+                                                <label class="btn btn-icon btn-circle btn-color-muted btn-active-color-primary w-25px h-25px bg-body shadow"
+                                                    data-kt-image-input-action="change">
+                                                    <i class="ki-duotone ki-pencil fs-6"><span class="path1"></span><span class="path2"></span></i>
+                                                    <input type="file" id="idBrandingWebClientFavicon" name="branding_webclient_favicon" accept=".png" />
+                                                    <input type="hidden"name="branding_webclient_favicon_remove" />
+                                                </label>
+
+                                                <span class="btn btn-icon btn-circle btn-color-muted btn-active-color-primary w-25px h-25px bg-body shadow"
+                                                    data-kt-image-input-action="cancel">
+                                                    <i class="ki-outline ki-cross fs-3"></i>
+                                                </span>
+
+                                                <span class="btn btn-icon btn-circle btn-color-muted btn-active-color-primary w-25px h-25px bg-body shadow"
+                                                    data-kt-image-input-action="remove">
+                                                    <i class="ki-outline ki-cross fs-3"></i>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group row mt-10">
+                                        <label for="idBrandingWebClientDisclaimerName" data-i18n="branding.disclaimer_name" class="col-md-3 col-form-label">Disclaimer Name</label>
+                                        <div class="col-md-9">
+                                            <input id="idBrandingWebClientDisclaimerName" type="text" placeholder="" name="branding_webclient_disclaimer_name" value="{{.Configs.Branding.WebClient.DisclaimerName}}" maxlength="255"
+                                                class="form-control" />
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group row mt-10">
+                                        <label for="idBrandingWebClientDisclaimerURL" data-i18n="branding.disclaimer_url" class="col-md-3 col-form-label">Disclaimer URL</label>
+                                        <div class="col-md-9">
+                                            <input id="idBrandingWebClientDisclaimerURL" type="text" placeholder="" name="branding_webclient_disclaimer_url" value="{{.Configs.Branding.WebClient.DisclaimerURL}}" maxlength="1024"
+                                                class="form-control" />
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+
+                            <div class="d-flex justify-content-end mt-12">
+                                <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
+                                <input type="hidden" name="form_action" value="branding_submit">
+                                <button type="submit" id="branding_form_submit" class="btn btn-primary px-10">
+                                    <span data-i18n="general.submit" class="indicator-label">
+                                        Submit
+                                    </span>
+                                    <span data-i18n="general.wait" class="indicator-progress">
+                                        Please wait...
+                                        <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
+                                    </span>
+                                </button>
+                            </div>
+
+                        </form>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 </div>
@@ -588,6 +833,12 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
         $('#configs_smtp_form').submit(function (event) {
 			let submitButton = document.querySelector('#smtp_form_submit');
+			submitButton.setAttribute('data-kt-indicator', 'on');
+			submitButton.disabled = true;
+        });
+
+        $('#configs_branding_form').submit(function (event) {
+			let submitButton = document.querySelector('#branding_form_submit');
 			submitButton.setAttribute('data-kt-indicator', 'on');
 			submitButton.disabled = true;
         });

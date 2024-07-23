@@ -363,6 +363,16 @@ func streamJSONArray(w http.ResponseWriter, chunkSize int, dataGetter func(limit
 	streamData(w, []byte("]"))
 }
 
+func renderPNGImage(w http.ResponseWriter, r *http.Request, b []byte) {
+	if len(b) == 0 {
+		ctx := context.WithValue(r.Context(), render.StatusCtxKey, http.StatusNotFound)
+		render.PlainText(w, r.WithContext(ctx), http.StatusText(http.StatusNotFound))
+		return
+	}
+	w.Header().Set("Content-Type", "image/png")
+	streamData(w, b)
+}
+
 func getCompressedFileName(username string, files []string) string {
 	if len(files) == 1 {
 		name := path.Base(files[0])

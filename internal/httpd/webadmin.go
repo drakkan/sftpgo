@@ -329,6 +329,7 @@ type configsPage struct {
 	RedactedSecret    string
 	OAuth2TokenURL    string
 	OAuth2RedirectURL string
+	WebClientBranding UIBranding
 	Error             *util.I18nError
 }
 
@@ -662,7 +663,7 @@ func (s *httpdServer) getBasePageData(title, currentURL string, w http.ResponseW
 		HasSearcher:         plugin.Handler.HasSearcher(),
 		HasExternalLogin:    isLoggedInWithOIDC(r),
 		CSRFToken:           csrfToken,
-		Branding:            s.binding.Branding.WebAdmin,
+		Branding:            s.binding.webAdminBranding(),
 	}
 }
 
@@ -720,7 +721,7 @@ func (s *httpdServer) renderForgotPwdPage(w http.ResponseWriter, r *http.Request
 		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, xid.New().String(), webBaseAdminPath),
 		LoginURL:       webAdminLoginPath,
 		Title:          util.I18nForgotPwdTitle,
-		Branding:       s.binding.Branding.WebAdmin,
+		Branding:       s.binding.webAdminBranding(),
 	}
 	renderAdminTemplate(w, templateForgotPassword, data)
 }
@@ -733,7 +734,7 @@ func (s *httpdServer) renderResetPwdPage(w http.ResponseWriter, r *http.Request,
 		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, "", webBaseAdminPath),
 		LoginURL:       webAdminLoginPath,
 		Title:          util.I18nResetPwdTitle,
-		Branding:       s.binding.Branding.WebAdmin,
+		Branding:       s.binding.webAdminBranding(),
 	}
 	renderAdminTemplate(w, templateResetPassword, data)
 }
@@ -746,7 +747,7 @@ func (s *httpdServer) renderTwoFactorPage(w http.ResponseWriter, r *http.Request
 		Error:          err,
 		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, "", webBaseAdminPath),
 		RecoveryURL:    webAdminTwoFactorRecoveryPath,
-		Branding:       s.binding.Branding.WebAdmin,
+		Branding:       s.binding.webAdminBranding(),
 	}
 	renderAdminTemplate(w, templateTwoFactor, data)
 }
@@ -758,7 +759,7 @@ func (s *httpdServer) renderTwoFactorRecoveryPage(w http.ResponseWriter, r *http
 		CurrentURL:     webAdminTwoFactorRecoveryPath,
 		Error:          err,
 		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, "", webBaseAdminPath),
-		Branding:       s.binding.Branding.WebAdmin,
+		Branding:       s.binding.webAdminBranding(),
 	}
 	renderAdminTemplate(w, templateTwoFactorRecovery, data)
 }
@@ -838,6 +839,7 @@ func (s *httpdServer) renderConfigsPage(w http.ResponseWriter, r *http.Request, 
 		RedactedSecret:    redactedSecret,
 		OAuth2TokenURL:    webOAuth2TokenPath,
 		OAuth2RedirectURL: webOAuth2RedirectPath,
+		WebClientBranding: s.binding.webClientBranding(),
 		Error:             getI18nError(err),
 	}
 
@@ -855,7 +857,7 @@ func (s *httpdServer) renderAdminSetupPage(w http.ResponseWriter, r *http.Reques
 		InstallationCodeHint: installationCodeHint,
 		HideSupportLink:      hideSupportLink,
 		Error:                err,
-		Branding:             s.binding.Branding.WebAdmin,
+		Branding:             s.binding.webAdminBranding(),
 	}
 
 	renderAdminTemplate(w, templateSetup, data)
@@ -1582,7 +1584,7 @@ func getGCSConfig(r *http.Request) (vfs.GCSFsConfig, error) {
 		config.AutomaticCredentials = 0
 	}
 	credentials, _, err := r.FormFile("gcs_credential_file")
-	if err == http.ErrMissingFile {
+	if errors.Is(err, http.ErrMissingFile) {
 		return config, nil
 	}
 	if err != nil {
@@ -2758,6 +2760,71 @@ func getSMTPConfigsFromPostFields(r *http.Request) *dataprovider.SMTPConfigs {
 			RefreshToken: getSecretFromFormField(r, "smtp_oauth2_refresh_token"),
 		},
 	}
+}
+
+func getImageInputBytes(r *http.Request, fieldName, removeFieldName string, defaultVal []byte) ([]byte, error) {
+	var result []byte
+	remove := r.Form.Get(removeFieldName)
+	if remove == "" || remove == "0" {
+		result = defaultVal
+	}
+	f, _, err := r.FormFile(fieldName)
+	if err != nil {
+		if errors.Is(err, http.ErrMissingFile) {
+			return result, nil
+		}
+		return nil, err
+	}
+	defer f.Close()
+
+	return io.ReadAll(f)
+}
+
+func getBrandingConfigFromPostFields(r *http.Request, config *dataprovider.BrandingConfigs) (
+	*dataprovider.BrandingConfigs, error,
+) {
+	if config == nil {
+		config = &dataprovider.BrandingConfigs{}
+	}
+	adminLogo, err := getImageInputBytes(r, "branding_webadmin_logo", "branding_webadmin_logo_remove", config.WebAdmin.Logo)
+	if err != nil {
+		return nil, util.NewI18nError(err, util.I18nErrorInvalidForm)
+	}
+	adminFavicon, err := getImageInputBytes(r, "branding_webadmin_favicon", "branding_webadmin_favicon_remove",
+		config.WebAdmin.Favicon)
+	if err != nil {
+		return nil, util.NewI18nError(err, util.I18nErrorInvalidForm)
+	}
+	clientLogo, err := getImageInputBytes(r, "branding_webclient_logo", "branding_webclient_logo_remove",
+		config.WebClient.Logo)
+	if err != nil {
+		return nil, util.NewI18nError(err, util.I18nErrorInvalidForm)
+	}
+	clientFavicon, err := getImageInputBytes(r, "branding_webclient_favicon", "branding_webclient_favicon_remove",
+		config.WebClient.Favicon)
+	if err != nil {
+		return nil, util.NewI18nError(err, util.I18nErrorInvalidForm)
+	}
+
+	branding := &dataprovider.BrandingConfigs{
+		WebAdmin: dataprovider.BrandingConfig{
+			Name:           strings.TrimSpace(r.Form.Get("branding_webadmin_name")),
+			ShortName:      strings.TrimSpace(r.Form.Get("branding_webadmin_short_name")),
+			Logo:           adminLogo,
+			Favicon:        adminFavicon,
+			DisclaimerName: strings.TrimSpace(r.Form.Get("branding_webadmin_disclaimer_name")),
+			DisclaimerURL:  strings.TrimSpace(r.Form.Get("branding_webadmin_disclaimer_url")),
+		},
+		WebClient: dataprovider.BrandingConfig{
+			Name:           strings.TrimSpace(r.Form.Get("branding_webclient_name")),
+			ShortName:      strings.TrimSpace(r.Form.Get("branding_webclient_short_name")),
+			Logo:           clientLogo,
+			Favicon:        clientFavicon,
+			DisclaimerName: strings.TrimSpace(r.Form.Get("branding_webclient_disclaimer_name")),
+			DisclaimerURL:  strings.TrimSpace(r.Form.Get("branding_webclient_disclaimer_url")),
+		},
+	}
+	return branding, nil
 }
 
 func (s *httpdServer) handleWebAdminForgotPwd(w http.ResponseWriter, r *http.Request) {
@@ -4207,11 +4274,13 @@ func (s *httpdServer) handleWebConfigsPost(w http.ResponseWriter, r *http.Reques
 		s.renderInternalServerErrorPage(w, r, err)
 		return
 	}
-	err = r.ParseForm()
+	err = r.ParseMultipartForm(maxRequestSize)
 	if err != nil {
 		s.renderBadRequestPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidForm))
 		return
 	}
+	defer r.MultipartForm.RemoveAll() //nolint:errcheck
+
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := verifyCSRFToken(r, s.csrfTokenAuth); err != nil {
 		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
@@ -4237,6 +4306,15 @@ func (s *httpdServer) handleWebConfigsPost(w http.ResponseWriter, r *http.Reques
 		smtpConfigs := getSMTPConfigsFromPostFields(r)
 		updateSMTPSecrets(smtpConfigs, configs.SMTP)
 		configs.SMTP = smtpConfigs
+	case "branding_submit":
+		configSection = 4
+		brandingConfigs, err := getBrandingConfigFromPostFields(r, configs.Branding)
+		if err != nil {
+			logger.Info(logSender, "", "unable to get branding config: %v", err)
+			s.renderConfigsPage(w, r, configs, err, configSection)
+			return
+		}
+		configs.Branding = brandingConfigs
 	default:
 		s.renderBadRequestPage(w, r, errors.New("unsupported form action"))
 		return
@@ -4247,15 +4325,22 @@ func (s *httpdServer) handleWebConfigsPost(w http.ResponseWriter, r *http.Reques
 		s.renderConfigsPage(w, r, configs, err, configSection)
 		return
 	}
-	if configSection == 3 {
+	postConfigsUpdate(configSection, configs)
+	s.renderMessagePage(w, r, util.I18nConfigsTitle, http.StatusOK, nil, util.I18nConfigsOK)
+}
+
+func postConfigsUpdate(section int, configs dataprovider.Configs) {
+	switch section {
+	case 3:
 		err := configs.SMTP.TryDecrypt()
 		if err == nil {
 			smtp.Activate(configs.SMTP)
 		} else {
 			logger.Error(logSender, "", "unable to decrypt SMTP configuration, cannot activate configuration: %v", err)
 		}
+	case 4:
+		dbBrandingConfig.Set(configs.Branding)
 	}
-	s.renderMessagePage(w, r, util.I18nConfigsTitle, http.StatusOK, nil, util.I18nConfigsOK)
 }
 
 func (s *httpdServer) handleOAuth2TokenRedirect(w http.ResponseWriter, r *http.Request) {

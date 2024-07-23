@@ -546,7 +546,7 @@ func (s *httpdServer) getBaseClientPageData(title, currentURL string, w http.Res
 		CSRFToken:       csrfToken,
 		LoggedUser:      getUserFromToken(r),
 		IsLoggedToShare: false,
-		Branding:        s.binding.Branding.WebClient,
+		Branding:        s.binding.webClientBranding(),
 	}
 	if !strings.HasPrefix(r.RequestURI, webClientPubSharesPath) {
 		data.LoginURL = webClientLoginPath
@@ -562,7 +562,7 @@ func (s *httpdServer) renderClientForgotPwdPage(w http.ResponseWriter, r *http.R
 		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, xid.New().String(), webBaseClientPath),
 		LoginURL:       webClientLoginPath,
 		Title:          util.I18nForgotPwdTitle,
-		Branding:       s.binding.Branding.WebClient,
+		Branding:       s.binding.webClientBranding(),
 	}
 	renderClientTemplate(w, templateForgotPassword, data)
 }
@@ -575,7 +575,7 @@ func (s *httpdServer) renderClientResetPwdPage(w http.ResponseWriter, r *http.Re
 		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, "", webBaseClientPath),
 		LoginURL:       webClientLoginPath,
 		Title:          util.I18nResetPwdTitle,
-		Branding:       s.binding.Branding.WebClient,
+		Branding:       s.binding.webClientBranding(),
 	}
 	renderClientTemplate(w, templateResetPassword, data)
 }
@@ -587,7 +587,7 @@ func (s *httpdServer) renderShareLoginPage(w http.ResponseWriter, r *http.Reques
 		CurrentURL:     r.RequestURI,
 		Error:          err,
 		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, xid.New().String(), webBaseClientPath),
-		Branding:       s.binding.Branding.WebClient,
+		Branding:       s.binding.webClientBranding(),
 	}
 	renderClientTemplate(w, templateShareLogin, data)
 }
@@ -637,7 +637,7 @@ func (s *httpdServer) renderClientTwoFactorPage(w http.ResponseWriter, r *http.R
 		Error:          err,
 		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, "", webBaseClientPath),
 		RecoveryURL:    webClientTwoFactorRecoveryPath,
-		Branding:       s.binding.Branding.WebClient,
+		Branding:       s.binding.webClientBranding(),
 	}
 	if next := r.URL.Query().Get("next"); strings.HasPrefix(next, webClientFilesPath) {
 		data.CurrentURL += "?next=" + url.QueryEscape(next)
@@ -652,7 +652,7 @@ func (s *httpdServer) renderClientTwoFactorRecoveryPage(w http.ResponseWriter, r
 		CurrentURL:     webClientTwoFactorRecoveryPath,
 		Error:          err,
 		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, "", webBaseClientPath),
-		Branding:       s.binding.Branding.WebClient,
+		Branding:       s.binding.webClientBranding(),
 	}
 	renderClientTemplate(w, templateTwoFactorRecovery, data)
 }
@@ -1102,7 +1102,7 @@ func (s *httpdServer) handleShareViewPDF(w http.ResponseWriter, r *http.Request)
 		Title:          path.Base(name),
 		URL: fmt.Sprintf("%s?path=%s&_=%d", path.Join(webClientPubSharesPath, share.ShareID, "getpdf"),
 			url.QueryEscape(name), time.Now().UTC().Unix()),
-		Branding: s.binding.Branding.WebClient,
+		Branding: s.binding.webClientBranding(),
 	}
 	renderClientTemplate(w, templateClientViewPDF, data)
 }
@@ -1778,7 +1778,7 @@ func (s *httpdServer) handleClientViewPDF(w http.ResponseWriter, r *http.Request
 		commonBasePage: getCommonBasePage(r),
 		Title:          path.Base(name),
 		URL:            fmt.Sprintf("%s?path=%s&_=%d", webClientGetPDFPath, url.QueryEscape(name), time.Now().UTC().Unix()),
-		Branding:       s.binding.Branding.WebClient,
+		Branding:       s.binding.webClientBranding(),
 	}
 	renderClientTemplate(w, templateClientViewPDF, data)
 }

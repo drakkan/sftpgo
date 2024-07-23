@@ -15,8 +15,11 @@
 package dataprovider
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"image/png"
+	"net/url"
 
 	"golang.org/x/crypto/ssh"
 
@@ -305,6 +308,27 @@ func (c *SMTPConfigs) TryDecrypt() error {
 	return nil
 }
 
+func (c *SMTPConfigs) prepareForRendering() {
+	if c.Password != nil {
+		c.Password.Hide()
+		if c.Password.IsEmpty() {
+			c.Password = nil
+		}
+	}
+	if c.OAuth2.ClientSecret != nil {
+		c.OAuth2.ClientSecret.Hide()
+		if c.OAuth2.ClientSecret.IsEmpty() {
+			c.OAuth2.ClientSecret = nil
+		}
+	}
+	if c.OAuth2.RefreshToken != nil {
+		c.OAuth2.RefreshToken.Hide()
+		if c.OAuth2.RefreshToken.IsEmpty() {
+			c.OAuth2.RefreshToken = nil
+		}
+	}
+}
+
 func (c *SMTPConfigs) getACopy() *SMTPConfigs {
 	var password *kms.Secret
 	if c.Password != nil {
@@ -387,13 +411,137 @@ func (c *ACMEConfigs) getACopy() *ACMEConfigs {
 	}
 }
 
+// BrandingConfig defines the branding configuration
+type BrandingConfig struct {
+	Name           string `json:"name"`
+	ShortName      string `json:"short_name"`
+	Logo           []byte `json:"logo"`
+	Favicon        []byte `json:"favicon"`
+	DisclaimerName string `json:"disclaimer_name"`
+	DisclaimerURL  string `json:"disclaimer_url"`
+}
+
+func (c *BrandingConfig) isEmpty() bool {
+	if c.Name != "" {
+		return false
+	}
+	if c.ShortName != "" {
+		return false
+	}
+	if len(c.Logo) > 0 {
+		return false
+	}
+	if len(c.Favicon) > 0 {
+		return false
+	}
+	if c.DisclaimerName != "" && c.DisclaimerURL != "" {
+		return false
+	}
+	return true
+}
+
+func (*BrandingConfig) validatePNG(b []byte, maxWidth, maxHeight int) error {
+	if len(b) == 0 {
+		return nil
+	}
+	// DecodeConfig is more efficient, but I'm not sure if this would lead to
+	// accepting invalid images in some edge cases and performance does not
+	// matter here.
+	img, err := png.Decode(bytes.NewBuffer(b))
+	if err != nil {
+		return util.NewI18nError(
+			util.NewValidationError("invalid PNG image"),
+			util.I18nErrorInvalidPNG,
+		)
+	}
+	bounds := img.Bounds()
+	if bounds.Dx() > maxWidth || bounds.Dy() > maxHeight {
+		return util.NewI18nError(
+			util.NewValidationError("invalid PNG image size"),
+			util.I18nErrorInvalidPNGSize,
+		)
+	}
+	return nil
+}
+
+func (c *BrandingConfig) validateDisclaimerURL() error {
+	if c.DisclaimerURL == "" {
+		return nil
+	}
+	u, err := url.Parse(c.DisclaimerURL)
+	if err != nil {
+		return util.NewI18nError(
+			util.NewValidationError("invalid disclaimer URL"),
+			util.I18nErrorInvalidDisclaimerURL,
+		)
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return util.NewI18nError(
+			util.NewValidationError("invalid disclaimer URL scheme"),
+			util.I18nErrorInvalidDisclaimerURL,
+		)
+	}
+	return nil
+}
+
+func (c *BrandingConfig) validate() error {
+	if err := c.validateDisclaimerURL(); err != nil {
+		return err
+	}
+	if err := c.validatePNG(c.Logo, 512, 512); err != nil {
+		return err
+	}
+	return c.validatePNG(c.Favicon, 256, 256)
+}
+
+func (c *BrandingConfig) getACopy() BrandingConfig {
+	logo := make([]byte, len(c.Logo))
+	copy(logo, c.Logo)
+	favicon := make([]byte, len(c.Favicon))
+	copy(favicon, c.Favicon)
+
+	return BrandingConfig{
+		Name:           c.Name,
+		ShortName:      c.ShortName,
+		Logo:           logo,
+		Favicon:        favicon,
+		DisclaimerName: c.DisclaimerName,
+		DisclaimerURL:  c.DisclaimerURL,
+	}
+}
+
+// BrandingConfigs defines the branding configuration for WebAdmin and WebClient UI
+type BrandingConfigs struct {
+	WebAdmin  BrandingConfig
+	WebClient BrandingConfig
+}
+
+func (c *BrandingConfigs) isEmpty() bool {
+	return c.WebAdmin.isEmpty() && c.WebClient.isEmpty()
+}
+
+func (c *BrandingConfigs) validate() error {
+	if err := c.WebAdmin.validate(); err != nil {
+		return err
+	}
+	return c.WebClient.validate()
+}
+
+func (c *BrandingConfigs) getACopy() *BrandingConfigs {
+	return &BrandingConfigs{
+		WebAdmin:  c.WebAdmin.getACopy(),
+		WebClient: c.WebClient.getACopy(),
+	}
+}
+
 // Configs allows to set configuration keys disabled by default without
 // modifying the config file or setting env vars
 type Configs struct {
-	SFTPD     *SFTPDConfigs `json:"sftpd,omitempty"`
-	SMTP      *SMTPConfigs  `json:"smtp,omitempty"`
-	ACME      *ACMEConfigs  `json:"acme,omitempty"`
-	UpdatedAt int64         `json:"updated_at,omitempty"`
+	SFTPD     *SFTPDConfigs    `json:"sftpd,omitempty"`
+	SMTP      *SMTPConfigs     `json:"smtp,omitempty"`
+	ACME      *ACMEConfigs     `json:"acme,omitempty"`
+	Branding  *BrandingConfigs `json:"branding,omitempty"`
+	UpdatedAt int64            `json:"updated_at,omitempty"`
 }
 
 func (c *Configs) validate() error {
@@ -409,6 +557,11 @@ func (c *Configs) validate() error {
 	}
 	if c.ACME != nil {
 		if err := c.ACME.validate(); err != nil {
+			return err
+		}
+	}
+	if c.Branding != nil {
+		if err := c.Branding.validate(); err != nil {
 			return err
 		}
 	}
@@ -428,25 +581,11 @@ func (c *Configs) PrepareForRendering() {
 	if c.ACME != nil && c.ACME.isEmpty() {
 		c.ACME = nil
 	}
+	if c.Branding != nil && c.Branding.isEmpty() {
+		c.Branding = nil
+	}
 	if c.SMTP != nil {
-		if c.SMTP.Password != nil {
-			c.SMTP.Password.Hide()
-			if c.SMTP.Password.IsEmpty() {
-				c.SMTP.Password = nil
-			}
-		}
-		if c.SMTP.OAuth2.ClientSecret != nil {
-			c.SMTP.OAuth2.ClientSecret.Hide()
-			if c.SMTP.OAuth2.ClientSecret.IsEmpty() {
-				c.SMTP.OAuth2.ClientSecret = nil
-			}
-		}
-		if c.SMTP.OAuth2.RefreshToken != nil {
-			c.SMTP.OAuth2.RefreshToken.Hide()
-			if c.SMTP.OAuth2.RefreshToken.IsEmpty() {
-				c.SMTP.OAuth2.RefreshToken = nil
-			}
-		}
+		c.SMTP.prepareForRendering()
 	}
 }
 
@@ -469,6 +608,9 @@ func (c *Configs) SetNilsToEmpty() {
 	}
 	if c.ACME == nil {
 		c.ACME = &ACMEConfigs{}
+	}
+	if c.Branding == nil {
+		c.Branding = &BrandingConfigs{}
 	}
 }
 
@@ -497,6 +639,9 @@ func (c *Configs) getACopy() Configs {
 	}
 	if c.ACME != nil {
 		result.ACME = c.ACME.getACopy()
+	}
+	if c.Branding != nil {
+		result.Branding = c.Branding.getACopy()
 	}
 	result.UpdatedAt = c.UpdatedAt
 	return result

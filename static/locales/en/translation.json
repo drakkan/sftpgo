@@ -883,6 +883,19 @@
         "help": "From this section you can enable algorithms disabled by default. You don't need to set values already defined using env vars or config file. A service restart is required to apply changes",
         "host_key_algos": "Host Key Algorithms"
     },
+    "branding": {
+        "title": "Branding",
+        "help": "From this section you can customize SFTPGo to fit your brand and add a disclaimer to the login pages",
+        "short_name": "Short name",
+        "logo": "Logo",
+        "logo_help": "PNG image, max accepted size 512x512, default logo size is 256x256",
+        "favicon": "Favicon",
+        "disclaimer_name": "Disclaimer title",
+        "disclaimer_url": "Disclaimer URL",
+        "invalid_png": "Invalid PNG image",
+        "invalid_png_size": "Invalid PNG image size",
+        "invalid_disclaimer_url": "The disclaimer URL must be an http or https link"
+    },
     "events": {
         "search": "Search logs",
         "fs_events": "Filesystem events",

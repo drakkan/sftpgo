@@ -28,6 +28,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -285,12 +286,88 @@ var (
 	installationCodeHint       string
 	fnInstallationCodeResolver FnInstallationCodeResolver
 	configurationDir           string
+	dbBrandingConfig           brandingCache
 )
 
 func init() {
 	updateWebAdminURLs("")
 	updateWebClientURLs("")
 	acme.SetReloadHTTPDCertsFn(ReloadCertificateMgr)
+	common.SetUpdateBrandingFn(dbBrandingConfig.Set)
+}
+
+type brandingCache struct {
+	mu      sync.RWMutex
+	configs *dataprovider.BrandingConfigs
+}
+
+func (b *brandingCache) Set(configs *dataprovider.BrandingConfigs) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	b.configs = configs
+}
+
+func (b *brandingCache) getWebAdminLogo() []byte {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	return b.configs.WebAdmin.Logo
+}
+
+func (b *brandingCache) getWebAdminFavicon() []byte {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	return b.configs.WebAdmin.Favicon
+}
+
+func (b *brandingCache) getWebClientLogo() []byte {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	return b.configs.WebClient.Logo
+}
+
+func (b *brandingCache) getWebClientFavicon() []byte {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	return b.configs.WebClient.Favicon
+}
+
+func (b *brandingCache) mergeBrandingConfig(branding UIBranding, isWebClient bool) UIBranding {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	var urlPrefix string
+	var cfg dataprovider.BrandingConfig
+	if isWebClient {
+		cfg = b.configs.WebClient
+		urlPrefix = "webclient"
+	} else {
+		cfg = b.configs.WebAdmin
+		urlPrefix = "webadmin"
+	}
+	if cfg.Name != "" {
+		branding.Name = cfg.Name
+	}
+	if cfg.ShortName != "" {
+		branding.ShortName = cfg.ShortName
+	}
+	if cfg.DisclaimerName != "" {
+		branding.DisclaimerName = cfg.DisclaimerName
+	}
+	if cfg.DisclaimerURL != "" {
+		branding.DisclaimerPath = cfg.DisclaimerURL
+	}
+	if len(cfg.Logo) > 0 {
+		branding.LogoPath = path.Join("/", "branding", urlPrefix, "logo.png")
+	}
+	if len(cfg.Favicon) > 0 {
+		branding.FaviconPath = path.Join("/", "branding", urlPrefix, "favicon.png")
+	}
+	return branding
 }
 
 // FnInstallationCodeResolver defines a method to get the installation code.
@@ -406,19 +483,23 @@ type UIBranding struct {
 	// the default CSS files
 	DefaultCSS []string `json:"default_css" mapstructure:"default_css"`
 	// Additional CSS file paths, relative to "static_files_path", to include
-	ExtraCSS []string `json:"extra_css" mapstructure:"extra_css"`
+	ExtraCSS           []string `json:"extra_css" mapstructure:"extra_css"`
+	DefaultLogoPath    string   `json:"-" mapstructure:"-"`
+	DefaultFaviconPath string   `json:"-" mapstructure:"-"`
 }
 
 func (b *UIBranding) check() {
+	b.DefaultLogoPath = "/img/logo.png"
+	b.DefaultFaviconPath = "/favicon.png"
 	if b.LogoPath != "" {
 		b.LogoPath = util.CleanPath(b.LogoPath)
 	} else {
-		b.LogoPath = "/img/logo.png"
+		b.LogoPath = b.DefaultLogoPath
 	}
 	if b.FaviconPath != "" {
 		b.FaviconPath = util.CleanPath(b.FaviconPath)
 	} else {
-		b.FaviconPath = "/favicon.png"
+		b.FaviconPath = b.DefaultFaviconPath
 	}
 	if b.DisclaimerPath != "" {
 		if !strings.HasPrefix(b.DisclaimerPath, "https://") && !strings.HasPrefix(b.DisclaimerPath, "http://") {
@@ -546,6 +627,14 @@ func (b *Binding) checkBranding() {
 	if b.Branding.WebClient.ShortName == "" {
 		b.Branding.WebClient.ShortName = "WebClient"
 	}
+}
+
+func (b *Binding) webAdminBranding() UIBranding {
+	return dbBrandingConfig.mergeBrandingConfig(b.Branding.WebAdmin, false)
+}
+
+func (b *Binding) webClientBranding() UIBranding {
+	return dbBrandingConfig.mergeBrandingConfig(b.Branding.WebClient, true)
 }
 
 func (b *Binding) parseAllowedProxy() error {
@@ -879,6 +968,7 @@ func (c *Conf) loadFromProvider() error {
 		return fmt.Errorf("unable to load config from provider: %w", err)
 	}
 	configs.SetNilsToEmpty()
+	dbBrandingConfig.Set(configs.Branding)
 	if configs.ACME.Domain == "" || !configs.ACME.HasProtocol(common.ProtocolHTTP) {
 		return nil
 	}

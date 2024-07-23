@@ -163,7 +163,13 @@ var (
 	rateLimiters     map[string][]*rateLimiter
 	isShuttingDown   atomic.Bool
 	ftpLoginCommands = []string{"PASS", "USER"}
+	fnUpdateBranding func(*dataprovider.BrandingConfigs)
 )
+
+// SetUpdateBrandingFn sets the function to call to update branding configs.
+func SetUpdateBrandingFn(fn func(*dataprovider.BrandingConfigs)) {
+	fnUpdateBranding = fn
+}
 
 // Initialize sets the common configuration
 func Initialize(c Configuration, isShared int) error {
@@ -403,6 +409,23 @@ func AddDefenderEvent(ip, protocol string, event HostEvent) bool {
 	return Config.defender.AddEvent(ip, protocol, event)
 }
 
+func reloadProviderConfigs() {
+	configs, err := dataprovider.GetConfigs()
+	if err != nil {
+		logger.Error(logSender, "", "unable to load config from provider: %v", err)
+		return
+	}
+	configs.SetNilsToEmpty()
+	if fnUpdateBranding != nil {
+		fnUpdateBranding(configs.Branding)
+	}
+	if err := configs.SMTP.TryDecrypt(); err != nil {
+		logger.Error(logSender, "", "unable to decrypt smtp config: %v", err)
+		return
+	}
+	smtp.Activate(configs.SMTP)
+}
+
 func startPeriodicChecks(duration time.Duration, isShared int) {
 	startEventScheduler()
 	spec := fmt.Sprintf("@every %s", duration)
@@ -411,7 +434,7 @@ func startPeriodicChecks(duration time.Duration, isShared int) {
 	logger.Info(logSender, "", "scheduled overquota transfers check, schedule %q", spec)
 	if isShared == 1 {
 		logger.Info(logSender, "", "add reload configs task")
-		_, err := eventScheduler.AddFunc("@every 10m", smtp.ReloadProviderConf)
+		_, err := eventScheduler.AddFunc("@every 10m", reloadProviderConfigs)
 		util.PanicOnError(err)
 	}
 	if Config.IdleTimeout > 0 {
