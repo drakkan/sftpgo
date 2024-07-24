@@ -221,9 +221,9 @@ func (c *Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 		}
 		modTime := time.Unix(0, 0)
 		if request.Filepath != "/" {
-			lister.Add(vfs.NewFileInfo("..", true, 0, modTime, false))
+			lister.Prepend(vfs.NewFileInfo("..", true, 0, modTime, false))
 		}
-		lister.Add(vfs.NewFileInfo(".", true, 0, modTime, false))
+		lister.Prepend(vfs.NewFileInfo(".", true, 0, modTime, false))
 		return lister, nil
 	case "Stat":
 		if !c.User.HasPerm(dataprovider.PermListItems, path.Dir(request.Filepath)) {
