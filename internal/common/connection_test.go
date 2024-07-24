@@ -22,6 +22,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"testing"
 	"time"
@@ -389,7 +390,7 @@ func TestErrorsMapping(t *testing.T) {
 		err := conn.GetFsError(fs, os.ErrNotExist)
 		if protocol == ProtocolSFTP {
 			assert.ErrorIs(t, err, sftp.ErrSSHFxNoSuchFile)
-		} else if util.Contains(osErrorsProtocols, protocol) {
+		} else if slices.Contains(osErrorsProtocols, protocol) {
 			assert.EqualError(t, err, os.ErrNotExist.Error())
 		} else {
 			assert.EqualError(t, err, ErrNotExist.Error())

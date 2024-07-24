@@ -25,6 +25,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -1488,13 +1489,13 @@ func getFiltersFromUserPostFields(r *http.Request) (sdk.BaseUserFilters, error) 
 	filters.PasswordStrength = passwordStrength
 	filters.AccessTime = getAccessTimeRestrictionsFromPostFields(r)
 	hooks := r.Form["hooks"]
-	if util.Contains(hooks, "external_auth_disabled") {
+	if slices.Contains(hooks, "external_auth_disabled") {
 		filters.Hooks.ExternalAuthDisabled = true
 	}
-	if util.Contains(hooks, "pre_login_disabled") {
+	if slices.Contains(hooks, "pre_login_disabled") {
 		filters.Hooks.PreLoginDisabled = true
 	}
-	if util.Contains(hooks, "check_password_disabled") {
+	if slices.Contains(hooks, "check_password_disabled") {
 		filters.Hooks.CheckPasswordDisabled = true
 	}
 	filters.IsAnonymous = r.Form.Get("is_anonymous") != ""
@@ -2215,7 +2216,7 @@ func getFoldersRetentionFromPostFields(r *http.Request) ([]dataprovider.FolderRe
 			res = append(res, dataprovider.FolderRetention{
 				Path:            p,
 				Retention:       retention,
-				DeleteEmptyDirs: util.Contains(opts, "1"),
+				DeleteEmptyDirs: slices.Contains(opts, "1"),
 			})
 		}
 	}
@@ -2557,9 +2558,9 @@ func getEventRuleActionsFromPostFields(r *http.Request) []dataprovider.EventActi
 					},
 					Order: order + 1,
 					Options: dataprovider.EventActionOptions{
-						IsFailureAction: util.Contains(options, "1"),
-						StopOnFailure:   util.Contains(options, "2"),
-						ExecuteSync:     util.Contains(options, "3"),
+						IsFailureAction: slices.Contains(options, "1"),
+						StopOnFailure:   slices.Contains(options, "2"),
+						ExecuteSync:     slices.Contains(options, "3"),
 					},
 				})
 			}

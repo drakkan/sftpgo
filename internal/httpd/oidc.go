@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -143,7 +144,7 @@ func (o *OIDC) initialize() error {
 	if o.RedirectBaseURL == "" {
 		return errors.New("oidc: redirect base URL cannot be empty")
 	}
-	if !util.Contains(o.Scopes, oidc.ScopeOpenID) {
+	if !slices.Contains(o.Scopes, oidc.ScopeOpenID) {
 		return fmt.Errorf("oidc: required scope %q is not set", oidc.ScopeOpenID)
 	}
 	if o.ClientSecretFile != "" {

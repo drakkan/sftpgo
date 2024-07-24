@@ -25,6 +25,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -86,7 +87,7 @@ func InitializeActionHandler(handler ActionHandler) {
 func ExecutePreAction(conn *BaseConnection, operation, filePath, virtualPath string, fileSize int64, openFlags int) (int, error) {
 	var event *notifier.FsEvent
 	hasNotifiersPlugin := plugin.Handler.HasNotifiers()
-	hasHook := util.Contains(Config.Actions.ExecuteOn, operation)
+	hasHook := slices.Contains(Config.Actions.ExecuteOn, operation)
 	hasRules := eventManager.hasFsRules()
 	if !hasHook && !hasNotifiersPlugin && !hasRules {
 		return 0, nil
@@ -132,7 +133,7 @@ func ExecuteActionNotification(conn *BaseConnection, operation, filePath, virtua
 	fileSize int64, err error, elapsed int64, metadata map[string]string,
 ) error {
 	hasNotifiersPlugin := plugin.Handler.HasNotifiers()
-	hasHook := util.Contains(Config.Actions.ExecuteOn, operation)
+	hasHook := slices.Contains(Config.Actions.ExecuteOn, operation)
 	hasRules := eventManager.hasFsRules()
 	if !hasHook && !hasNotifiersPlugin && !hasRules {
 		return nil
@@ -173,7 +174,7 @@ func ExecuteActionNotification(conn *BaseConnection, operation, filePath, virtua
 		}
 	}
 	if hasHook {
-		if util.Contains(Config.Actions.ExecuteSync, operation) {
+		if slices.Contains(Config.Actions.ExecuteSync, operation) {
 			_, err := actionHandler.Handle(notification)
 			return err
 		}
@@ -247,7 +248,7 @@ func newActionNotification(
 type defaultActionHandler struct{}
 
 func (h *defaultActionHandler) Handle(event *notifier.FsEvent) (int, error) {
-	if !util.Contains(Config.Actions.ExecuteOn, event.Action) {
+	if !slices.Contains(Config.Actions.ExecuteOn, event.Action) {
 		return 0, nil
 	}
 

@@ -36,6 +36,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -1340,7 +1341,7 @@ func TestGroupSettingsOverride(t *testing.T) {
 	var folderNames []string
 	if assert.Len(t, user.VirtualFolders, 4) {
 		for _, f := range user.VirtualFolders {
-			if !util.Contains(folderNames, f.Name) {
+			if !slices.Contains(folderNames, f.Name) {
 				folderNames = append(folderNames, f.Name)
 			}
 			switch f.Name {
@@ -1348,7 +1349,7 @@ func TestGroupSettingsOverride(t *testing.T) {
 				assert.Equal(t, mappedPath1, f.MappedPath)
 				assert.Equal(t, 3, f.BaseVirtualFolder.FsConfig.OSConfig.ReadBufferSize)
 				assert.Equal(t, 5, f.BaseVirtualFolder.FsConfig.OSConfig.WriteBufferSize)
-				assert.True(t, util.Contains([]string{"/vdir1", "/vdir2"}, f.VirtualPath))
+				assert.True(t, slices.Contains([]string{"/vdir1", "/vdir2"}, f.VirtualPath))
 			case folderName2:
 				assert.Equal(t, mappedPath2, f.MappedPath)
 				assert.Equal(t, "/vdir3", f.VirtualPath)
@@ -2103,16 +2104,16 @@ func TestActionRuleRelations(t *testing.T) {
 	action1, _, err = httpdtest.GetEventActionByName(action1.Name, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Len(t, action1.Rules, 1)
-	assert.True(t, util.Contains(action1.Rules, rule1.Name))
+	assert.True(t, slices.Contains(action1.Rules, rule1.Name))
 	action2, _, err = httpdtest.GetEventActionByName(action2.Name, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Len(t, action2.Rules, 1)
-	assert.True(t, util.Contains(action2.Rules, rule2.Name))
+	assert.True(t, slices.Contains(action2.Rules, rule2.Name))
 	action3, _, err = httpdtest.GetEventActionByName(action3.Name, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Len(t, action3.Rules, 2)
-	assert.True(t, util.Contains(action3.Rules, rule1.Name))
-	assert.True(t, util.Contains(action3.Rules, rule2.Name))
+	assert.True(t, slices.Contains(action3.Rules, rule1.Name))
+	assert.True(t, slices.Contains(action3.Rules, rule2.Name))
 	// referenced actions cannot be removed
 	_, err = httpdtest.RemoveEventAction(action1, http.StatusBadRequest)
 	assert.NoError(t, err)
@@ -2140,7 +2141,7 @@ func TestActionRuleRelations(t *testing.T) {
 	action3, _, err = httpdtest.GetEventActionByName(action3.Name, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Len(t, action3.Rules, 1)
-	assert.True(t, util.Contains(action3.Rules, rule1.Name))
+	assert.True(t, slices.Contains(action3.Rules, rule1.Name))
 
 	_, err = httpdtest.RemoveEventRule(rule1, http.StatusOK)
 	assert.NoError(t, err)
@@ -8912,7 +8913,7 @@ func TestBasicUserHandlingMock(t *testing.T) {
 	assert.Equal(t, user.MaxSessions, updatedUser.MaxSessions)
 	assert.Equal(t, user.UploadBandwidth, updatedUser.UploadBandwidth)
 	assert.Equal(t, 1, len(updatedUser.Permissions["/"]))
-	assert.True(t, util.Contains(updatedUser.Permissions["/"], dataprovider.PermAny))
+	assert.True(t, slices.Contains(updatedUser.Permissions["/"], dataprovider.PermAny))
 	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+user.Username, nil)
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
@@ -12140,7 +12141,7 @@ func TestUserPermissionsMock(t *testing.T) {
 	err = render.DecodeJSON(rr.Body, &updatedUser)
 	assert.NoError(t, err)
 	if val, ok := updatedUser.Permissions["/otherdir"]; ok {
-		assert.True(t, util.Contains(val, dataprovider.PermListItems))
+		assert.True(t, slices.Contains(val, dataprovider.PermListItems))
 		assert.Equal(t, 1, len(val))
 	} else {
 		assert.Fail(t, "expected dir not found in permissions")
@@ -21552,10 +21553,10 @@ func TestWebUserAddMock(t *testing.T) {
 	assert.Equal(t, 60, newUser.Filters.PasswordStrength)
 	assert.Greater(t, newUser.LastPasswordChange, int64(0))
 	assert.True(t, newUser.Filters.RequirePasswordChange)
-	assert.True(t, util.Contains(newUser.PublicKeys, testPubKey))
+	assert.True(t, slices.Contains(newUser.PublicKeys, testPubKey))
 	if val, ok := newUser.Permissions["/subdir"]; ok {
-		assert.True(t, util.Contains(val, dataprovider.PermListItems))
-		assert.True(t, util.Contains(val, dataprovider.PermDownload))
+		assert.True(t, slices.Contains(val, dataprovider.PermListItems))
+		assert.True(t, slices.Contains(val, dataprovider.PermDownload))
 	} else {
 		assert.Fail(t, "user permissions must contain /somedir", "actual: %v", newUser.Permissions)
 	}
@@ -21574,20 +21575,20 @@ func TestWebUserAddMock(t *testing.T) {
 		case "/dir1":
 			assert.Len(t, filter.DeniedPatterns, 1)
 			assert.Len(t, filter.AllowedPatterns, 1)
-			assert.True(t, util.Contains(filter.AllowedPatterns, "*.png"))
-			assert.True(t, util.Contains(filter.DeniedPatterns, "*.zip"))
+			assert.True(t, slices.Contains(filter.AllowedPatterns, "*.png"))
+			assert.True(t, slices.Contains(filter.DeniedPatterns, "*.zip"))
 			assert.Equal(t, sdk.DenyPolicyDefault, filter.DenyPolicy)
 		case "/dir2":
 			assert.Len(t, filter.DeniedPatterns, 1)
 			assert.Len(t, filter.AllowedPatterns, 2)
-			assert.True(t, util.Contains(filter.AllowedPatterns, "*.jpg"))
-			assert.True(t, util.Contains(filter.AllowedPatterns, "*.png"))
-			assert.True(t, util.Contains(filter.DeniedPatterns, "*.mkv"))
+			assert.True(t, slices.Contains(filter.AllowedPatterns, "*.jpg"))
+			assert.True(t, slices.Contains(filter.AllowedPatterns, "*.png"))
+			assert.True(t, slices.Contains(filter.DeniedPatterns, "*.mkv"))
 			assert.Equal(t, sdk.DenyPolicyHide, filter.DenyPolicy)
 		case "/dir3":
 			assert.Len(t, filter.DeniedPatterns, 1)
 			assert.Len(t, filter.AllowedPatterns, 0)
-			assert.True(t, util.Contains(filter.DeniedPatterns, "*.rar"))
+			assert.True(t, slices.Contains(filter.DeniedPatterns, "*.rar"))
 			assert.Equal(t, sdk.DenyPolicyDefault, filter.DenyPolicy)
 		}
 	}
@@ -21828,16 +21829,16 @@ func TestWebUserUpdateMock(t *testing.T) {
 	assert.Equal(t, 40, updateUser.Filters.PasswordStrength)
 	assert.True(t, updateUser.Filters.RequirePasswordChange)
 	if val, ok := updateUser.Permissions["/otherdir"]; ok {
-		assert.True(t, util.Contains(val, dataprovider.PermListItems))
-		assert.True(t, util.Contains(val, dataprovider.PermUpload))
+		assert.True(t, slices.Contains(val, dataprovider.PermListItems))
+		assert.True(t, slices.Contains(val, dataprovider.PermUpload))
 	} else {
 		assert.Fail(t, "user permissions must contains /otherdir", "actual: %v", updateUser.Permissions)
 	}
-	assert.True(t, util.Contains(updateUser.Filters.AllowedIP, "192.168.1.3/32"))
-	assert.True(t, util.Contains(updateUser.Filters.DeniedIP, "10.0.0.2/32"))
-	assert.True(t, util.Contains(updateUser.Filters.DeniedLoginMethods, dataprovider.SSHLoginMethodKeyboardInteractive))
-	assert.True(t, util.Contains(updateUser.Filters.DeniedProtocols, common.ProtocolFTP))
-	assert.True(t, util.Contains(updateUser.Filters.FilePatterns[0].DeniedPatterns, "*.zip"))
+	assert.True(t, slices.Contains(updateUser.Filters.AllowedIP, "192.168.1.3/32"))
+	assert.True(t, slices.Contains(updateUser.Filters.DeniedIP, "10.0.0.2/32"))
+	assert.True(t, slices.Contains(updateUser.Filters.DeniedLoginMethods, dataprovider.SSHLoginMethodKeyboardInteractive))
+	assert.True(t, slices.Contains(updateUser.Filters.DeniedProtocols, common.ProtocolFTP))
+	assert.True(t, slices.Contains(updateUser.Filters.FilePatterns[0].DeniedPatterns, "*.zip"))
 	assert.Len(t, updateUser.Filters.BandwidthLimits, 0)
 	assert.Len(t, updateUser.Filters.TLSCerts, 1)
 	req, err = http.NewRequest(http.MethodDelete, path.Join(userPath, user.Username), nil)

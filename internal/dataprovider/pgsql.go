@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -305,7 +306,7 @@ func getPGSQLConnectionString(redactedPwd bool) string {
 		if config.DisableSNI {
 			connectionString += " sslsni=0"
 		}
-		if util.Contains(pgSQLTargetSessionAttrs, config.TargetSessionAttrs) {
+		if slices.Contains(pgSQLTargetSessionAttrs, config.TargetSessionAttrs) {
 			connectionString += fmt.Sprintf(" target_session_attrs='%s'", config.TargetSessionAttrs)
 		}
 	} else {

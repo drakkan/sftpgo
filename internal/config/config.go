@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -716,7 +717,7 @@ func checkOverrideDefaultSettings() {
 		}
 	}
 
-	if util.Contains(viper.AllKeys(), "mfa.totp") {
+	if slices.Contains(viper.AllKeys(), "mfa.totp") {
 		globalConf.MFAConfig.TOTP = nil
 	}
 }

@@ -24,6 +24,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"testing"
 	"time"
 
@@ -418,7 +419,7 @@ func TestSupportedSSHCommands(t *testing.T) {
 	assert.Equal(t, len(supportedSSHCommands), len(cmds))
 
 	for _, c := range cmds {
-		assert.True(t, util.Contains(supportedSSHCommands, c))
+		assert.True(t, slices.Contains(supportedSSHCommands, c))
 	}
 }
 
@@ -842,7 +843,7 @@ func TestRsyncOptions(t *testing.T) {
 	}
 	cmd, err := sshCmd.getSystemCommand()
 	assert.NoError(t, err)
-	assert.True(t, util.Contains(cmd.cmd.Args, "--safe-links"),
+	assert.True(t, slices.Contains(cmd.cmd.Args, "--safe-links"),
 		"--safe-links must be added if the user has the create symlinks permission")
 
 	permissions["/"] = []string{dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermCreateDirs,
@@ -859,7 +860,7 @@ func TestRsyncOptions(t *testing.T) {
 	}
 	cmd, err = sshCmd.getSystemCommand()
 	assert.NoError(t, err)
-	assert.True(t, util.Contains(cmd.cmd.Args, "--munge-links"),
+	assert.True(t, slices.Contains(cmd.cmd.Args, "--munge-links"),
 		"--munge-links must be added if the user has the create symlinks permission")
 
 	sshCmd.connection.User.VirtualFolders = append(sshCmd.connection.User.VirtualFolders, vfs.VirtualFolder{

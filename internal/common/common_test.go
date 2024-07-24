@@ -23,6 +23,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -1226,8 +1227,8 @@ func TestFolderCopy(t *testing.T) {
 	folder.ID = 2
 	folder.Users = []string{"user3"}
 	require.Len(t, folderCopy.Users, 2)
-	require.True(t, util.Contains(folderCopy.Users, "user1"))
-	require.True(t, util.Contains(folderCopy.Users, "user2"))
+	require.True(t, slices.Contains(folderCopy.Users, "user1"))
+	require.True(t, slices.Contains(folderCopy.Users, "user2"))
 	require.Equal(t, int64(1), folderCopy.ID)
 	require.Equal(t, folder.Name, folderCopy.Name)
 	require.Equal(t, folder.MappedPath, folderCopy.MappedPath)
@@ -1243,7 +1244,7 @@ func TestFolderCopy(t *testing.T) {
 	folderCopy = folder.GetACopy()
 	folder.FsConfig.CryptConfig.Passphrase = kms.NewEmptySecret()
 	require.Len(t, folderCopy.Users, 1)
-	require.True(t, util.Contains(folderCopy.Users, "user3"))
+	require.True(t, slices.Contains(folderCopy.Users, "user3"))
 	require.Equal(t, int64(2), folderCopy.ID)
 	require.Equal(t, folder.Name, folderCopy.Name)
 	require.Equal(t, folder.MappedPath, folderCopy.MappedPath)

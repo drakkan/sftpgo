@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/go-chi/jwtauth/v5"
@@ -227,24 +228,24 @@ func (c *jwtTokenClaims) Decode(token map[string]any) {
 }
 
 func (c *jwtTokenClaims) isCriticalPermRemoved(permissions []string) bool {
-	if util.Contains(permissions, dataprovider.PermAdminAny) {
+	if slices.Contains(permissions, dataprovider.PermAdminAny) {
 		return false
 	}
-	if (util.Contains(c.Permissions, dataprovider.PermAdminManageAdmins) ||
-		util.Contains(c.Permissions, dataprovider.PermAdminAny)) &&
-		!util.Contains(permissions, dataprovider.PermAdminManageAdmins) &&
-		!util.Contains(permissions, dataprovider.PermAdminAny) {
+	if (slices.Contains(c.Permissions, dataprovider.PermAdminManageAdmins) ||
+		slices.Contains(c.Permissions, dataprovider.PermAdminAny)) &&
+		!slices.Contains(permissions, dataprovider.PermAdminManageAdmins) &&
+		!slices.Contains(permissions, dataprovider.PermAdminAny) {
 		return true
 	}
 	return false
 }
 
 func (c *jwtTokenClaims) hasPerm(perm string) bool {
-	if util.Contains(c.Permissions, dataprovider.PermAdminAny) {
+	if slices.Contains(c.Permissions, dataprovider.PermAdminAny) {
 		return true
 	}
 
-	return util.Contains(c.Permissions, perm)
+	return slices.Contains(c.Permissions, perm)
 }
 
 func (c *jwtTokenClaims) createToken(tokenAuth *jwtauth.JWTAuth, audience tokenAudience, ip string) (jwt.Token, string, error) {
@@ -458,7 +459,7 @@ func verifyCSRFToken(r *http.Request, csrfTokenAuth *jwtauth.JWTAuth) error {
 		return fmt.Errorf("unable to verify form token: %v", err)
 	}
 
-	if !util.Contains(token.Audience(), tokenAudienceCSRF) {
+	if !slices.Contains(token.Audience(), tokenAudienceCSRF) {
 		logger.Debug(logSender, "", "error validating CSRF token audience")
 		return errors.New("the form token is not valid")
 	}
@@ -495,7 +496,7 @@ func verifyLoginCookie(r *http.Request) error {
 		logger.Debug(logSender, "", "the login token has been invalidated")
 		return errInvalidToken
 	}
-	if !util.Contains(token.Audience(), tokenAudienceWebLogin) {
+	if !slices.Contains(token.Audience(), tokenAudienceWebLogin) {
 		logger.Debug(logSender, "", "the token with id %q is not valid for audience %q", token.JwtID(), tokenAudienceWebLogin)
 		return errInvalidToken
 	}
@@ -543,7 +544,7 @@ func verifyOAuth2Token(csrfTokenAuth *jwtauth.JWTAuth, tokenString, ip string) (
 		)
 	}
 
-	if !util.Contains(token.Audience(), tokenAudienceOAuth2) {
+	if !slices.Contains(token.Audience(), tokenAudienceOAuth2) {
 		logger.Debug(logSender, "", "error validating OAuth2 token audience")
 		return "", util.NewI18nError(errors.New("invalid OAuth2 state"), util.I18nOAuth2InvalidState)
 	}
@@ -563,7 +564,7 @@ func verifyOAuth2Token(csrfTokenAuth *jwtauth.JWTAuth, tokenString, ip string) (
 
 func validateIPForToken(token jwt.Token, ip string) error {
 	if tokenValidationMode != tokenValidationNoIPMatch {
-		if !util.Contains(token.Audience(), ip) {
+		if !slices.Contains(token.Audience(), ip) {
 			return errInvalidToken
 		}
 	}

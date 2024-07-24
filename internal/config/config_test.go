@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/sftpgo/sdk/kms"
@@ -36,7 +37,6 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/plugin"
 	"github.com/drakkan/sftpgo/v2/internal/sftpd"
 	"github.com/drakkan/sftpgo/v2/internal/smtp"
-	"github.com/drakkan/sftpgo/v2/internal/util"
 	"github.com/drakkan/sftpgo/v2/internal/webdavd"
 )
 
@@ -679,8 +679,8 @@ func TestPluginsFromEnv(t *testing.T) {
 	pluginConf := pluginsConf[0]
 	require.Equal(t, "notifier", pluginConf.Type)
 	require.Len(t, pluginConf.NotifierOptions.FsEvents, 2)
-	require.True(t, util.Contains(pluginConf.NotifierOptions.FsEvents, "upload"))
-	require.True(t, util.Contains(pluginConf.NotifierOptions.FsEvents, "download"))
+	require.True(t, slices.Contains(pluginConf.NotifierOptions.FsEvents, "upload"))
+	require.True(t, slices.Contains(pluginConf.NotifierOptions.FsEvents, "download"))
 	require.Len(t, pluginConf.NotifierOptions.ProviderEvents, 2)
 	require.Equal(t, "add", pluginConf.NotifierOptions.ProviderEvents[0])
 	require.Equal(t, "update", pluginConf.NotifierOptions.ProviderEvents[1])
@@ -729,8 +729,8 @@ func TestPluginsFromEnv(t *testing.T) {
 	pluginConf = pluginsConf[0]
 	require.Equal(t, "notifier", pluginConf.Type)
 	require.Len(t, pluginConf.NotifierOptions.FsEvents, 2)
-	require.True(t, util.Contains(pluginConf.NotifierOptions.FsEvents, "upload"))
-	require.True(t, util.Contains(pluginConf.NotifierOptions.FsEvents, "download"))
+	require.True(t, slices.Contains(pluginConf.NotifierOptions.FsEvents, "upload"))
+	require.True(t, slices.Contains(pluginConf.NotifierOptions.FsEvents, "download"))
 	require.Len(t, pluginConf.NotifierOptions.ProviderEvents, 2)
 	require.Equal(t, "add", pluginConf.NotifierOptions.ProviderEvents[0])
 	require.Equal(t, "update", pluginConf.NotifierOptions.ProviderEvents[1])
@@ -787,8 +787,8 @@ func TestRateLimitersFromEnv(t *testing.T) {
 	require.Equal(t, 2, limiters[0].Type)
 	protocols := limiters[0].Protocols
 	require.Len(t, protocols, 2)
-	require.True(t, util.Contains(protocols, common.ProtocolFTP))
-	require.True(t, util.Contains(protocols, common.ProtocolSSH))
+	require.True(t, slices.Contains(protocols, common.ProtocolFTP))
+	require.True(t, slices.Contains(protocols, common.ProtocolSSH))
 	require.True(t, limiters[0].GenerateDefenderEvents)
 	require.Equal(t, 50, limiters[0].EntriesSoftLimit)
 	require.Equal(t, 100, limiters[0].EntriesHardLimit)
@@ -799,10 +799,10 @@ func TestRateLimitersFromEnv(t *testing.T) {
 	require.Equal(t, 2, limiters[1].Type)
 	protocols = limiters[1].Protocols
 	require.Len(t, protocols, 4)
-	require.True(t, util.Contains(protocols, common.ProtocolFTP))
-	require.True(t, util.Contains(protocols, common.ProtocolSSH))
-	require.True(t, util.Contains(protocols, common.ProtocolWebDAV))
-	require.True(t, util.Contains(protocols, common.ProtocolHTTP))
+	require.True(t, slices.Contains(protocols, common.ProtocolFTP))
+	require.True(t, slices.Contains(protocols, common.ProtocolSSH))
+	require.True(t, slices.Contains(protocols, common.ProtocolWebDAV))
+	require.True(t, slices.Contains(protocols, common.ProtocolHTTP))
 	require.False(t, limiters[1].GenerateDefenderEvents)
 	require.Equal(t, 100, limiters[1].EntriesSoftLimit)
 	require.Equal(t, 150, limiters[1].EntriesHardLimit)

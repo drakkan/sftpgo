@@ -17,10 +17,9 @@ package command
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
-
-	"github.com/drakkan/sftpgo/v2/internal/util"
 )
 
 const (
@@ -117,7 +116,7 @@ func (c Config) Initialize() error {
 		}
 		// don't validate args, we allow to pass empty arguments
 		if cmd.Hook != "" {
-			if !util.Contains(supportedHooks, cmd.Hook) {
+			if !slices.Contains(supportedHooks, cmd.Hook) {
 				return fmt.Errorf("invalid hook name %q, supported values: %+v", cmd.Hook, supportedHooks)
 			}
 		}

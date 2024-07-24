@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
@@ -27,7 +28,6 @@ import (
 	"golang.org/x/oauth2/microsoft"
 
 	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/util"
 )
 
 // Supported OAuth2 providers
@@ -56,7 +56,7 @@ type OAuth2Config struct {
 
 // Validate validates and initializes the configuration
 func (c *OAuth2Config) Validate() error {
-	if !util.Contains(supportedOAuth2Providers, c.Provider) {
+	if !slices.Contains(supportedOAuth2Providers, c.Provider) {
 		return fmt.Errorf("smtp oauth2: unsupported provider %d", c.Provider)
 	}
 	if c.ClientID == "" {

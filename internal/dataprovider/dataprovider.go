@@ -44,6 +44,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -519,7 +520,7 @@ type Config struct {
 // GetShared returns the provider share mode.
 // This method is called before the provider is initialized
 func (c *Config) GetShared() int {
-	if !util.Contains(sharedProviders, c.Driver) {
+	if !slices.Contains(sharedProviders, c.Driver) {
 		return 0
 	}
 	return c.IsShared
@@ -885,7 +886,7 @@ func SetTempPath(fsPath string) {
 }
 
 func checkSharedMode() {
-	if !util.Contains(sharedProviders, config.Driver) {
+	if !slices.Contains(sharedProviders, config.Driver) {
 		config.IsShared = 0
 	}
 }
@@ -1714,7 +1715,7 @@ func IPListEntryExists(ipOrNet string, listType IPListType) (IPListEntry, error)
 
 // GetIPListEntries returns the IP list entries applying the specified criteria and search limit
 func GetIPListEntries(listType IPListType, filter, from, order string, limit int) ([]IPListEntry, error) {
-	if !util.Contains(supportedIPListType, listType) {
+	if !slices.Contains(supportedIPListType, listType) {
 		return nil, util.NewValidationError(fmt.Sprintf("invalid list type %d", listType))
 	}
 	return provider.getIPListEntries(listType, filter, from, order, limit)
@@ -2373,7 +2374,7 @@ func GetFolders(limit, offset int, order string, minimal bool) ([]vfs.BaseVirtua
 }
 
 func dumpUsers(data *BackupData, scopes []string) error {
-	if len(scopes) == 0 || util.Contains(scopes, DumpScopeUsers) {
+	if len(scopes) == 0 || slices.Contains(scopes, DumpScopeUsers) {
 		users, err := provider.dumpUsers()
 		if err != nil {
 			return err
@@ -2384,7 +2385,7 @@ func dumpUsers(data *BackupData, scopes []string) error {
 }
 
 func dumpFolders(data *BackupData, scopes []string) error {
-	if len(scopes) == 0 || util.Contains(scopes, DumpScopeFolders) {
+	if len(scopes) == 0 || slices.Contains(scopes, DumpScopeFolders) {
 		folders, err := provider.dumpFolders()
 		if err != nil {
 			return err
@@ -2395,7 +2396,7 @@ func dumpFolders(data *BackupData, scopes []string) error {
 }
 
 func dumpGroups(data *BackupData, scopes []string) error {
-	if len(scopes) == 0 || util.Contains(scopes, DumpScopeGroups) {
+	if len(scopes) == 0 || slices.Contains(scopes, DumpScopeGroups) {
 		groups, err := provider.dumpGroups()
 		if err != nil {
 			return err
@@ -2406,7 +2407,7 @@ func dumpGroups(data *BackupData, scopes []string) error {
 }
 
 func dumpAdmins(data *BackupData, scopes []string) error {
-	if len(scopes) == 0 || util.Contains(scopes, DumpScopeAdmins) {
+	if len(scopes) == 0 || slices.Contains(scopes, DumpScopeAdmins) {
 		admins, err := provider.dumpAdmins()
 		if err != nil {
 			return err
@@ -2417,7 +2418,7 @@ func dumpAdmins(data *BackupData, scopes []string) error {
 }
 
 func dumpAPIKeys(data *BackupData, scopes []string) error {
-	if len(scopes) == 0 || util.Contains(scopes, DumpScopeAPIKeys) {
+	if len(scopes) == 0 || slices.Contains(scopes, DumpScopeAPIKeys) {
 		apiKeys, err := provider.dumpAPIKeys()
 		if err != nil {
 			return err
@@ -2428,7 +2429,7 @@ func dumpAPIKeys(data *BackupData, scopes []string) error {
 }
 
 func dumpShares(data *BackupData, scopes []string) error {
-	if len(scopes) == 0 || util.Contains(scopes, DumpScopeShares) {
+	if len(scopes) == 0 || slices.Contains(scopes, DumpScopeShares) {
 		shares, err := provider.dumpShares()
 		if err != nil {
 			return err
@@ -2439,7 +2440,7 @@ func dumpShares(data *BackupData, scopes []string) error {
 }
 
 func dumpActions(data *BackupData, scopes []string) error {
-	if len(scopes) == 0 || util.Contains(scopes, DumpScopeActions) {
+	if len(scopes) == 0 || slices.Contains(scopes, DumpScopeActions) {
 		actions, err := provider.dumpEventActions()
 		if err != nil {
 			return err
@@ -2450,7 +2451,7 @@ func dumpActions(data *BackupData, scopes []string) error {
 }
 
 func dumpRules(data *BackupData, scopes []string) error {
-	if len(scopes) == 0 || util.Contains(scopes, DumpScopeRules) {
+	if len(scopes) == 0 || slices.Contains(scopes, DumpScopeRules) {
 		rules, err := provider.dumpEventRules()
 		if err != nil {
 			return err
@@ -2461,7 +2462,7 @@ func dumpRules(data *BackupData, scopes []string) error {
 }
 
 func dumpRoles(data *BackupData, scopes []string) error {
-	if len(scopes) == 0 || util.Contains(scopes, DumpScopeRoles) {
+	if len(scopes) == 0 || slices.Contains(scopes, DumpScopeRoles) {
 		roles, err := provider.dumpRoles()
 		if err != nil {
 			return err
@@ -2472,7 +2473,7 @@ func dumpRoles(data *BackupData, scopes []string) error {
 }
 
 func dumpIPLists(data *BackupData, scopes []string) error {
-	if len(scopes) == 0 || util.Contains(scopes, DumpScopeIPLists) {
+	if len(scopes) == 0 || slices.Contains(scopes, DumpScopeIPLists) {
 		ipLists, err := provider.dumpIPListEntries()
 		if err != nil {
 			return err
@@ -2483,7 +2484,7 @@ func dumpIPLists(data *BackupData, scopes []string) error {
 }
 
 func dumpConfigs(data *BackupData, scopes []string) error {
-	if len(scopes) == 0 || util.Contains(scopes, DumpScopeConfigs) {
+	if len(scopes) == 0 || slices.Contains(scopes, DumpScopeConfigs) {
 		configs, err := provider.getConfigs()
 		if err != nil {
 			return err
@@ -2787,7 +2788,7 @@ func validateUserTOTPConfig(c *UserTOTPConfig, username string) error {
 	if c.ConfigName == "" {
 		return util.NewValidationError("totp: config name is mandatory")
 	}
-	if !util.Contains(mfa.GetAvailableTOTPConfigNames(), c.ConfigName) {
+	if !slices.Contains(mfa.GetAvailableTOTPConfigNames(), c.ConfigName) {
 		return util.NewValidationError(fmt.Sprintf("totp: config name %q not found", c.ConfigName))
 	}
 	if c.Secret.IsEmpty() {
@@ -2803,7 +2804,7 @@ func validateUserTOTPConfig(c *UserTOTPConfig, username string) error {
 		return util.NewValidationError("totp: specify at least one protocol")
 	}
 	for _, protocol := range c.Protocols {
-		if !util.Contains(MFAProtocols, protocol) {
+		if !slices.Contains(MFAProtocols, protocol) {
 			return util.NewValidationError(fmt.Sprintf("totp: invalid protocol %q", protocol))
 		}
 	}
@@ -2836,7 +2837,7 @@ func validateUserPermissions(permsToCheck map[string][]string) (map[string][]str
 			return permissions, util.NewValidationError("invalid permissions")
 		}
 		for _, p := range perms {
-			if !util.Contains(ValidPerms, p) {
+			if !slices.Contains(ValidPerms, p) {
 				return permissions, util.NewValidationError(fmt.Sprintf("invalid permission: %q", p))
 			}
 		}
@@ -2850,7 +2851,7 @@ func validateUserPermissions(permsToCheck map[string][]string) (map[string][]str
 		if dir != cleanedDir && cleanedDir == "/" {
 			return permissions, util.NewValidationError(fmt.Sprintf("cannot set permissions for invalid subdirectory: %q is an alias for \"/\"", dir))
 		}
-		if util.Contains(perms, PermAny) {
+		if slices.Contains(perms, PermAny) {
 			permissions[cleanedDir] = []string{PermAny}
 		} else {
 			permissions[cleanedDir] = util.RemoveDuplicates(perms, false)
@@ -2926,7 +2927,7 @@ func validateFiltersPatternExtensions(baseFilters *sdk.BaseUserFilters) error {
 				util.I18nErrorFilePatternPathInvalid,
 			)
 		}
-		if util.Contains(filteredPaths, cleanedPath) {
+		if slices.Contains(filteredPaths, cleanedPath) {
 			return util.NewI18nError(
 				util.NewValidationError(fmt.Sprintf("duplicate file patterns filter for path %q", f.Path)),
 				util.I18nErrorFilePatternDuplicated,
@@ -3045,13 +3046,13 @@ func validateFilterProtocols(filters *sdk.BaseUserFilters) error {
 		return util.NewValidationError("invalid denied_protocols")
 	}
 	for _, p := range filters.DeniedProtocols {
-		if !util.Contains(ValidProtocols, p) {
+		if !slices.Contains(ValidProtocols, p) {
 			return util.NewValidationError(fmt.Sprintf("invalid denied protocol %q", p))
 		}
 	}
 
 	for _, p := range filters.TwoFactorAuthProtocols {
-		if !util.Contains(MFAProtocols, p) {
+		if !slices.Contains(MFAProtocols, p) {
 			return util.NewValidationError(fmt.Sprintf("invalid two factor protocol %q", p))
 		}
 	}
@@ -3107,7 +3108,7 @@ func validateBaseFilters(filters *sdk.BaseUserFilters) error {
 		return util.NewValidationError("invalid denied_login_methods")
 	}
 	for _, loginMethod := range filters.DeniedLoginMethods {
-		if !util.Contains(ValidLoginMethods, loginMethod) {
+		if !slices.Contains(ValidLoginMethods, loginMethod) {
 			return util.NewValidationError(fmt.Sprintf("invalid login method: %q", loginMethod))
 		}
 	}
@@ -3115,7 +3116,7 @@ func validateBaseFilters(filters *sdk.BaseUserFilters) error {
 		return err
 	}
 	if filters.TLSUsername != "" {
-		if !util.Contains(validTLSUsernames, string(filters.TLSUsername)) {
+		if !slices.Contains(validTLSUsernames, string(filters.TLSUsername)) {
 			return util.NewValidationError(fmt.Sprintf("invalid TLS username: %q", filters.TLSUsername))
 		}
 	}
@@ -3125,7 +3126,7 @@ func validateBaseFilters(filters *sdk.BaseUserFilters) error {
 	}
 	filters.TLSCerts = certs
 	for _, opts := range filters.WebClient {
-		if !util.Contains(sdk.WebClientOptions, opts) {
+		if !slices.Contains(sdk.WebClientOptions, opts) {
 			return util.NewValidationError(fmt.Sprintf("invalid web client options %q", opts))
 		}
 	}
@@ -3193,19 +3194,19 @@ func validateAccessTimeFilters(filters *sdk.BaseUserFilters) error {
 }
 
 func validateCombinedUserFilters(user *User) error {
-	if user.Filters.TOTPConfig.Enabled && util.Contains(user.Filters.WebClient, sdk.WebClientMFADisabled) {
+	if user.Filters.TOTPConfig.Enabled && slices.Contains(user.Filters.WebClient, sdk.WebClientMFADisabled) {
 		return util.NewI18nError(
 			util.NewValidationError("two-factor authentication cannot be disabled for a user with an active configuration"),
 			util.I18nErrorDisableActive2FA,
 		)
 	}
-	if user.Filters.RequirePasswordChange && util.Contains(user.Filters.WebClient, sdk.WebClientPasswordChangeDisabled) {
+	if user.Filters.RequirePasswordChange && slices.Contains(user.Filters.WebClient, sdk.WebClientPasswordChangeDisabled) {
 		return util.NewI18nError(
 			util.NewValidationError("you cannot require password change and at the same time disallow it"),
 			util.I18nErrorPwdChangeConflict,
 		)
 	}
-	if len(user.Filters.TwoFactorAuthProtocols) > 0 && util.Contains(user.Filters.WebClient, sdk.WebClientMFADisabled) {
+	if len(user.Filters.TwoFactorAuthProtocols) > 0 && slices.Contains(user.Filters.WebClient, sdk.WebClientMFADisabled) {
 		return util.NewI18nError(
 			util.NewValidationError("you cannot require two-factor authentication and at the same time disallow it"),
 			util.I18nError2FAConflict,
@@ -3526,7 +3527,7 @@ func checkUserPasscode(user *User, password, protocol string) (string, error) {
 	if user.Filters.TOTPConfig.Enabled {
 		switch protocol {
 		case protocolFTP:
-			if util.Contains(user.Filters.TOTPConfig.Protocols, protocol) {
+			if slices.Contains(user.Filters.TOTPConfig.Protocols, protocol) {
 				// the TOTP passcode has six digits
 				pwdLen := len(password)
 				if pwdLen < 7 {
@@ -3732,7 +3733,7 @@ func doBuiltinKeyboardInteractiveAuth(user *User, client ssh.KeyboardInteractive
 	if err := user.LoadAndApplyGroupSettings(); err != nil {
 		return 0, err
 	}
-	hasSecondFactor := user.Filters.TOTPConfig.Enabled && util.Contains(user.Filters.TOTPConfig.Protocols, protocolSSH)
+	hasSecondFactor := user.Filters.TOTPConfig.Enabled && slices.Contains(user.Filters.TOTPConfig.Protocols, protocolSSH)
 	if !isPartialAuth || !hasSecondFactor {
 		answers, err := client("", "", []string{"Password: "}, []bool{false})
 		if err != nil {
@@ -3750,7 +3751,7 @@ func doBuiltinKeyboardInteractiveAuth(user *User, client ssh.KeyboardInteractive
 }
 
 func checkKeyboardInteractiveSecondFactor(user *User, client ssh.KeyboardInteractiveChallenge, protocol string) (int, error) {
-	if !user.Filters.TOTPConfig.Enabled || !util.Contains(user.Filters.TOTPConfig.Protocols, protocolSSH) {
+	if !user.Filters.TOTPConfig.Enabled || !slices.Contains(user.Filters.TOTPConfig.Protocols, protocolSSH) {
 		return 1, nil
 	}
 	err := user.Filters.TOTPConfig.Secret.TryDecrypt()
@@ -3874,7 +3875,7 @@ func getKeyboardInteractiveAnswers(client ssh.KeyboardInteractiveChallenge, resp
 	}
 	if len(answers) == 1 && response.CheckPwd > 0 {
 		if response.CheckPwd == 2 {
-			if !user.Filters.TOTPConfig.Enabled || !util.Contains(user.Filters.TOTPConfig.Protocols, protocolSSH) {
+			if !user.Filters.TOTPConfig.Enabled || !slices.Contains(user.Filters.TOTPConfig.Protocols, protocolSSH) {
 				providerLog(logger.LevelInfo, "keyboard interactive auth error: unable to check TOTP passcode, TOTP is not enabled for user %q",
 					user.Username)
 				return answers, errors.New("TOTP not enabled for SSH protocol")
@@ -4640,7 +4641,7 @@ func getConfigPath(name, configDir string) string {
 }
 
 func checkReservedUsernames(username string) error {
-	if util.Contains(reservedUsers, username) {
+	if slices.Contains(reservedUsers, username) {
 		return util.NewValidationError("this username is reserved")
 	}
 	return nil

@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -275,7 +276,7 @@ func saveUserTOTPConfig(username string, r *http.Request, recoveryCodes []datapr
 		return util.NewValidationError("two-factor authentication must be enabled")
 	}
 	for _, p := range userMerged.Filters.TwoFactorAuthProtocols {
-		if !util.Contains(user.Filters.TOTPConfig.Protocols, p) {
+		if !slices.Contains(user.Filters.TOTPConfig.Protocols, p) {
 			return util.NewValidationError(fmt.Sprintf("totp: the following protocols are required: %q",
 				strings.Join(userMerged.Filters.TwoFactorAuthProtocols, ", ")))
 		}

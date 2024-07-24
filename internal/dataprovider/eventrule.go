@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -60,7 +61,7 @@ var (
 )
 
 func isActionTypeValid(action int) bool {
-	return util.Contains(supportedEventActions, action)
+	return slices.Contains(supportedEventActions, action)
 }
 
 func getActionTypeAsString(action int) string {
@@ -115,7 +116,7 @@ var (
 )
 
 func isEventTriggerValid(trigger int) bool {
-	return util.Contains(supportedEventTriggers, trigger)
+	return slices.Contains(supportedEventTriggers, trigger)
 }
 
 func getTriggerTypeAsString(trigger int) string {
@@ -169,7 +170,7 @@ var (
 )
 
 func isFilesystemActionValid(value int) bool {
-	return util.Contains(supportedFsActions, value)
+	return slices.Contains(supportedFsActions, value)
 }
 
 func getFsActionTypeAsString(value int) string {
@@ -380,7 +381,7 @@ func (c *EventActionHTTPConfig) validate(additionalData string) error {
 			return util.NewValidationError(fmt.Sprintf("could not encrypt HTTP password: %v", err))
 		}
 	}
-	if !util.Contains(SupportedHTTPActionMethods, c.Method) {
+	if !slices.Contains(SupportedHTTPActionMethods, c.Method) {
 		return util.NewValidationError(fmt.Sprintf("unsupported HTTP method: %s", c.Method))
 	}
 	for _, kv := range c.QueryParameters {
@@ -1280,7 +1281,7 @@ func (a *EventAction) validateAssociation(trigger int, fsEvents []string) error 
 		}
 		if trigger == EventTriggerFsEvent {
 			for _, ev := range fsEvents {
-				if !util.Contains(allowedSyncFsEvents, ev) {
+				if !slices.Contains(allowedSyncFsEvents, ev) {
 					return util.NewI18nError(
 						util.NewValidationError("sync execution is only supported for upload and pre-* events"),
 						util.I18nErrorEvSyncUnsupportedFs,
@@ -1361,12 +1362,12 @@ func (f *ConditionOptions) validate() error {
 	}
 
 	for _, p := range f.Protocols {
-		if !util.Contains(SupportedRuleConditionProtocols, p) {
+		if !slices.Contains(SupportedRuleConditionProtocols, p) {
 			return util.NewValidationError(fmt.Sprintf("unsupported rule condition protocol: %q", p))
 		}
 	}
 	for _, p := range f.ProviderObjects {
-		if !util.Contains(SupporteRuleConditionProviderObjects, p) {
+		if !slices.Contains(SupporteRuleConditionProviderObjects, p) {
 			return util.NewValidationError(fmt.Sprintf("unsupported provider object: %q", p))
 		}
 	}
@@ -1468,7 +1469,7 @@ func (c *EventConditions) validate(trigger int) error {
 			)
 		}
 		for _, ev := range c.FsEvents {
-			if !util.Contains(SupportedFsEvents, ev) {
+			if !slices.Contains(SupportedFsEvents, ev) {
 				return util.NewValidationError(fmt.Sprintf("unsupported fs event: %q", ev))
 			}
 		}
@@ -1488,7 +1489,7 @@ func (c *EventConditions) validate(trigger int) error {
 			)
 		}
 		for _, ev := range c.ProviderEvents {
-			if !util.Contains(SupportedProviderEvents, ev) {
+			if !slices.Contains(SupportedProviderEvents, ev) {
 				return util.NewValidationError(fmt.Sprintf("unsupported provider event: %q", ev))
 			}
 		}
@@ -1537,7 +1538,7 @@ func (c *EventConditions) validate(trigger int) error {
 		c.Options.MinFileSize = 0
 		c.Options.MaxFileSize = 0
 		c.Schedules = nil
-		if !util.Contains(supportedIDPLoginEvents, c.IDPLoginEvent) {
+		if !slices.Contains(supportedIDPLoginEvents, c.IDPLoginEvent) {
 			return util.NewValidationError(fmt.Sprintf("invalid Identity Provider login event %d", c.IDPLoginEvent))
 		}
 	default:
@@ -1690,7 +1691,7 @@ func (r *EventRule) validateMandatorySyncActions() error {
 		return nil
 	}
 	for _, ev := range r.Conditions.FsEvents {
-		if util.Contains(mandatorySyncFsEvents, ev) {
+		if slices.Contains(mandatorySyncFsEvents, ev) {
 			return util.NewI18nError(
 				util.NewValidationError(fmt.Sprintf("event %q requires at least a sync action", ev)),
 				util.I18nErrorRuleSyncActionRequired,
@@ -1708,7 +1709,7 @@ func (r *EventRule) checkIPBlockedAndCertificateActions() error {
 		ActionTypeDataRetentionCheck, ActionTypeFilesystem, ActionTypePasswordExpirationCheck,
 		ActionTypeUserExpirationCheck}
 	for _, action := range r.Actions {
-		if util.Contains(unavailableActions, action.Type) {
+		if slices.Contains(unavailableActions, action.Type) {
 			return fmt.Errorf("action %q, type %q is not supported for event trigger %q",
 				action.Name, getActionTypeAsString(action.Type), getTriggerTypeAsString(r.Trigger))
 		}
@@ -1724,7 +1725,7 @@ func (r *EventRule) checkProviderEventActions(providerObjectType string) error {
 		ActionTypeDataRetentionCheck, ActionTypeFilesystem,
 		ActionTypePasswordExpirationCheck, ActionTypeUserExpirationCheck}
 	for _, action := range r.Actions {
-		if util.Contains(userSpecificActions, action.Type) && providerObjectType != actionObjectUser {
+		if slices.Contains(userSpecificActions, action.Type) && providerObjectType != actionObjectUser {
 			return fmt.Errorf("action %q, type %q is only supported for provider user events",
 				action.Name, getActionTypeAsString(action.Type))
 		}

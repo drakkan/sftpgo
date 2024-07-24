@@ -27,6 +27,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -1463,7 +1464,7 @@ func (s *httpdServer) handleClientAddSharePost(w http.ResponseWriter, r *http.Re
 	share.LastUseAt = 0
 	share.Username = claims.Username
 	if share.Password == "" {
-		if util.Contains(claims.Permissions, sdk.WebClientShareNoPasswordDisabled) {
+		if slices.Contains(claims.Permissions, sdk.WebClientShareNoPasswordDisabled) {
 			s.renderAddUpdateSharePage(w, r, share,
 				util.NewI18nError(util.NewValidationError("You are not allowed to share files/folders without password"), util.I18nErrorShareNoPwd),
 				true)
@@ -1532,7 +1533,7 @@ func (s *httpdServer) handleClientUpdateSharePost(w http.ResponseWriter, r *http
 		updatedShare.Password = share.Password
 	}
 	if updatedShare.Password == "" {
-		if util.Contains(claims.Permissions, sdk.WebClientShareNoPasswordDisabled) {
+		if slices.Contains(claims.Permissions, sdk.WebClientShareNoPasswordDisabled) {
 			s.renderAddUpdateSharePage(w, r, updatedShare,
 				util.NewI18nError(util.NewValidationError("You are not allowed to share files/folders without password"), util.I18nErrorShareNoPwd),
 				false)
@@ -2015,7 +2016,7 @@ func doCheckExist(w http.ResponseWriter, r *http.Request, connection *Connection
 		}
 		existing := make([]map[string]any, 0)
 		for _, info := range contents {
-			if util.Contains(filesList.Files, info.Name()) {
+			if slices.Contains(filesList.Files, info.Name()) {
 				res := make(map[string]any)
 				res["name"] = info.Name()
 				if info.IsDir() {

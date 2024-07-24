@@ -24,6 +24,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -34,7 +35,6 @@ import (
 	"github.com/sftpgo/sdk"
 
 	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/util"
 )
 
 const (
@@ -475,7 +475,7 @@ func (fs *OsFs) findNonexistentDirs(filePath string) ([]string, error) {
 	for fs.IsNotExist(err) {
 		results = append(results, parent)
 		parent = filepath.Dir(parent)
-		if util.Contains(results, parent) {
+		if slices.Contains(results, parent) {
 			break
 		}
 		_, err = os.Stat(parent)

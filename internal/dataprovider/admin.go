@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -96,7 +97,7 @@ func (c *AdminTOTPConfig) validate(username string) error {
 	if c.ConfigName == "" {
 		return util.NewValidationError("totp: config name is mandatory")
 	}
-	if !util.Contains(mfa.GetAvailableTOTPConfigNames(), c.ConfigName) {
+	if !slices.Contains(mfa.GetAvailableTOTPConfigNames(), c.ConfigName) {
 		return util.NewValidationError(fmt.Sprintf("totp: config name %q not found", c.ConfigName))
 	}
 	if c.Secret.IsEmpty() {
@@ -337,15 +338,15 @@ func (a *Admin) validatePermissions() error {
 			util.I18nErrorPermissionsRequired,
 		)
 	}
-	if util.Contains(a.Permissions, PermAdminAny) {
+	if slices.Contains(a.Permissions, PermAdminAny) {
 		a.Permissions = []string{PermAdminAny}
 	}
 	for _, perm := range a.Permissions {
-		if !util.Contains(validAdminPerms, perm) {
+		if !slices.Contains(validAdminPerms, perm) {
 			return util.NewValidationError(fmt.Sprintf("invalid permission: %q", perm))
 		}
 		if a.Role != "" {
-			if util.Contains(forbiddenPermsForRoleAdmins, perm) {
+			if slices.Contains(forbiddenPermsForRoleAdmins, perm) {
 				deniedPerms := strings.Join(forbiddenPermsForRoleAdmins, ",")
 				return util.NewI18nError(
 					util.NewValidationError(fmt.Sprintf("a role admin cannot have the following permissions: %q", deniedPerms)),
@@ -559,10 +560,10 @@ func (a *Admin) SetNilSecretsIfEmpty() {
 
 // HasPermission returns true if the admin has the specified permission
 func (a *Admin) HasPermission(perm string) bool {
-	if util.Contains(a.Permissions, PermAdminAny) {
+	if slices.Contains(a.Permissions, PermAdminAny) {
 		return true
 	}
-	return util.Contains(a.Permissions, perm)
+	return slices.Contains(a.Permissions, perm)
 }
 
 // GetAllowedIPAsString returns the allowed IP as comma separated string

@@ -30,6 +30,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -161,7 +162,7 @@ func (fs *S3Fs) Stat(name string) (os.FileInfo, error) {
 	if err == nil {
 		// Some S3 providers (like SeaweedFS) remove the trailing '/' from object keys.
 		// So we check some common content types to detect if this is a "directory".
-		isDir := util.Contains(s3DirMimeTypes, util.GetStringFromPointer(obj.ContentType))
+		isDir := slices.Contains(s3DirMimeTypes, util.GetStringFromPointer(obj.ContentType))
 		if util.GetIntFromPointer(obj.ContentLength) == 0 && !isDir {
 			_, err = fs.headObject(name + "/")
 			isDir = err == nil

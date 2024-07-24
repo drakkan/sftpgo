@@ -26,6 +26,7 @@ import (
 	"net/url"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -355,7 +356,7 @@ func (s *httpdServer) handleWebClientTwoFactorRecoveryPost(w http.ResponseWriter
 			util.NewI18nError(dataprovider.ErrInvalidCredentials, util.I18nErrorInvalidCredentials))
 		return
 	}
-	if !userMerged.Filters.TOTPConfig.Enabled || !util.Contains(userMerged.Filters.TOTPConfig.Protocols, common.ProtocolHTTP) {
+	if !userMerged.Filters.TOTPConfig.Enabled || !slices.Contains(userMerged.Filters.TOTPConfig.Protocols, common.ProtocolHTTP) {
 		s.renderClientTwoFactorPage(w, r, util.NewI18nError(
 			util.NewValidationError("two factory authentication is not enabled"), util.I18n2FADisabled))
 		return
@@ -423,7 +424,7 @@ func (s *httpdServer) handleWebClientTwoFactorPost(w http.ResponseWriter, r *htt
 		s.renderClientTwoFactorPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCredentials))
 		return
 	}
-	if !user.Filters.TOTPConfig.Enabled || !util.Contains(user.Filters.TOTPConfig.Protocols, common.ProtocolHTTP) {
+	if !user.Filters.TOTPConfig.Enabled || !slices.Contains(user.Filters.TOTPConfig.Protocols, common.ProtocolHTTP) {
 		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, common.ErrInternalFailure)
 		s.renderClientTwoFactorPage(w, r, util.NewI18nError(common.ErrInternalFailure, util.I18n2FADisabled))
 		return
@@ -743,7 +744,7 @@ func (s *httpdServer) loginUser(
 	}
 
 	audience := tokenAudienceWebClient
-	if user.Filters.TOTPConfig.Enabled && util.Contains(user.Filters.TOTPConfig.Protocols, common.ProtocolHTTP) &&
+	if user.Filters.TOTPConfig.Enabled && slices.Contains(user.Filters.TOTPConfig.Protocols, common.ProtocolHTTP) &&
 		user.CanManageMFA() && !isSecondFactorAuth {
 		audience = tokenAudienceWebClientPartial
 	}
@@ -863,7 +864,7 @@ func (s *httpdServer) getUserToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if user.Filters.TOTPConfig.Enabled && util.Contains(user.Filters.TOTPConfig.Protocols, common.ProtocolHTTP) {
+	if user.Filters.TOTPConfig.Enabled && slices.Contains(user.Filters.TOTPConfig.Protocols, common.ProtocolHTTP) {
 		passcode := r.Header.Get(otpHeaderCode)
 		if passcode == "" {
 			logger.Debug(logSender, "", "TOTP enabled for user %q and not passcode provided, authentication refused", user.Username)
@@ -1009,7 +1010,7 @@ func (s *httpdServer) checkCookieExpiration(w http.ResponseWriter, r *http.Reque
 	if time.Until(token.Expiration()) > tokenRefreshThreshold {
 		return
 	}
-	if util.Contains(token.Audience(), tokenAudienceWebClient) {
+	if slices.Contains(token.Audience(), tokenAudienceWebClient) {
 		s.refreshClientToken(w, r, &tokenClaims)
 	} else {
 		s.refreshAdminToken(w, r, &tokenClaims)

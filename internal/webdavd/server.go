@@ -26,6 +26,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime/debug"
+	"slices"
 	"strings"
 	"time"
 
@@ -346,7 +347,7 @@ func (s *webDavServer) validateUser(user *dataprovider.User, r *http.Request, lo
 			user.Username, user.HomeDir)
 		return connID, fmt.Errorf("cannot login user with invalid home dir: %q", user.HomeDir)
 	}
-	if util.Contains(user.Filters.DeniedProtocols, common.ProtocolWebDAV) {
+	if slices.Contains(user.Filters.DeniedProtocols, common.ProtocolWebDAV) {
 		logger.Info(logSender, connectionID, "cannot login user %q, protocol DAV is not allowed", user.Username)
 		return connID, fmt.Errorf("protocol DAV is not allowed for user %q", user.Username)
 	}

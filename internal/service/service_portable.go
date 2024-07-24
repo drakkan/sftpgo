@@ -20,6 +20,7 @@ package service
 import (
 	"fmt"
 	"math/rand"
+	"slices"
 	"strings"
 
 	"github.com/sftpgo/sdk"
@@ -211,7 +212,7 @@ func configurePortableSFTPService(port int, enabledSSHCommands []string) {
 	} else {
 		sftpdConf.Bindings[0].Port = 0
 	}
-	if util.Contains(enabledSSHCommands, "*") {
+	if slices.Contains(enabledSSHCommands, "*") {
 		sftpdConf.EnabledSSHCommands = sftpd.GetSupportedSSHCommands()
 	} else {
 		sftpdConf.EnabledSSHCommands = enabledSSHCommands

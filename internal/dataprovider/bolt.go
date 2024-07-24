@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"net/netip"
 	"path/filepath"
+	"slices"
 	"sort"
 	"time"
 
@@ -3320,7 +3321,7 @@ func (p *BoltProvider) addAdminToRole(username, roleName string, bucket *bolt.Bu
 	if err != nil {
 		return err
 	}
-	if !util.Contains(role.Admins, username) {
+	if !slices.Contains(role.Admins, username) {
 		role.Admins = append(role.Admins, username)
 		buf, err := json.Marshal(role)
 		if err != nil {
@@ -3345,7 +3346,7 @@ func (p *BoltProvider) removeAdminFromRole(username, roleName string, bucket *bo
 	if err != nil {
 		return err
 	}
-	if util.Contains(role.Admins, username) {
+	if slices.Contains(role.Admins, username) {
 		var admins []string
 		for _, admin := range role.Admins {
 			if admin != username {
@@ -3375,7 +3376,7 @@ func (p *BoltProvider) addUserToRole(username, roleName string, bucket *bolt.Buc
 	if err != nil {
 		return err
 	}
-	if !util.Contains(role.Users, username) {
+	if !slices.Contains(role.Users, username) {
 		role.Users = append(role.Users, username)
 		buf, err := json.Marshal(role)
 		if err != nil {
@@ -3400,7 +3401,7 @@ func (p *BoltProvider) removeUserFromRole(username, roleName string, bucket *bol
 	if err != nil {
 		return err
 	}
-	if util.Contains(role.Users, username) {
+	if slices.Contains(role.Users, username) {
 		var users []string
 		for _, user := range role.Users {
 			if user != username {
@@ -3428,7 +3429,7 @@ func (p *BoltProvider) addRuleToActionMapping(ruleName, actionName string, bucke
 	if err != nil {
 		return err
 	}
-	if !util.Contains(action.Rules, ruleName) {
+	if !slices.Contains(action.Rules, ruleName) {
 		action.Rules = append(action.Rules, ruleName)
 		buf, err := json.Marshal(action)
 		if err != nil {
@@ -3450,7 +3451,7 @@ func (p *BoltProvider) removeRuleFromActionMapping(ruleName, actionName string, 
 	if err != nil {
 		return err
 	}
-	if util.Contains(action.Rules, ruleName) {
+	if slices.Contains(action.Rules, ruleName) {
 		var rules []string
 		for _, r := range action.Rules {
 			if r != ruleName {
@@ -3477,7 +3478,7 @@ func (p *BoltProvider) addUserToGroupMapping(username, groupname string, bucket 
 	if err != nil {
 		return err
 	}
-	if !util.Contains(group.Users, username) {
+	if !slices.Contains(group.Users, username) {
 		group.Users = append(group.Users, username)
 		buf, err := json.Marshal(group)
 		if err != nil {
@@ -3522,7 +3523,7 @@ func (p *BoltProvider) addAdminToGroupMapping(username, groupname string, bucket
 	if err != nil {
 		return err
 	}
-	if !util.Contains(group.Admins, username) {
+	if !slices.Contains(group.Admins, username) {
 		group.Admins = append(group.Admins, username)
 		buf, err := json.Marshal(group)
 		if err != nil {
@@ -3593,11 +3594,11 @@ func (p *BoltProvider) addRelationToFolderMapping(folderName string, user *User,
 		return err
 	}
 	updated := false
-	if user != nil && !util.Contains(folder.Users, user.Username) {
+	if user != nil && !slices.Contains(folder.Users, user.Username) {
 		folder.Users = append(folder.Users, user.Username)
 		updated = true
 	}
-	if group != nil && !util.Contains(folder.Groups, group.Name) {
+	if group != nil && !slices.Contains(folder.Groups, group.Name) {
 		folder.Groups = append(folder.Groups, group.Name)
 		updated = true
 	}

@@ -21,6 +21,7 @@ import (
 	"net/url"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -78,8 +79,8 @@ func executeAction(operation, executor, ip, objectType, objectName, role string,
 	if config.Actions.Hook == "" {
 		return
 	}
-	if !util.Contains(config.Actions.ExecuteOn, operation) ||
-		!util.Contains(config.Actions.ExecuteFor, objectType) {
+	if !slices.Contains(config.Actions.ExecuteOn, operation) ||
+		!slices.Contains(config.Actions.ExecuteFor, objectType) {
 		return
 	}
 

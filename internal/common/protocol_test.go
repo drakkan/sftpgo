@@ -30,6 +30,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -3978,9 +3979,9 @@ func TestEventRule(t *testing.T) {
 		}, 3000*time.Millisecond, 100*time.Millisecond)
 		email := lastReceivedEmail.get()
 		assert.Len(t, email.To, 3)
-		assert.True(t, util.Contains(email.To, "test1@example.com"))
-		assert.True(t, util.Contains(email.To, "test2@example.com"))
-		assert.True(t, util.Contains(email.To, "test3@example.com"))
+		assert.True(t, slices.Contains(email.To, "test1@example.com"))
+		assert.True(t, slices.Contains(email.To, "test2@example.com"))
+		assert.True(t, slices.Contains(email.To, "test3@example.com"))
 		assert.Contains(t, email.Data, fmt.Sprintf(`Subject: New "upload" from "%s" status OK`, user.Username))
 		// test the failure action, we download a file that exceeds the transfer quota limit
 		err = writeSFTPFileNoCheck(path.Join("subdir1", testFileName), 1*1024*1024+65535, client)
@@ -3999,9 +4000,9 @@ func TestEventRule(t *testing.T) {
 		}, 3000*time.Millisecond, 100*time.Millisecond)
 		email = lastReceivedEmail.get()
 		assert.Len(t, email.To, 3)
-		assert.True(t, util.Contains(email.To, "test1@example.com"))
-		assert.True(t, util.Contains(email.To, "test2@example.com"))
-		assert.True(t, util.Contains(email.To, "test3@example.com"))
+		assert.True(t, slices.Contains(email.To, "test1@example.com"))
+		assert.True(t, slices.Contains(email.To, "test2@example.com"))
+		assert.True(t, slices.Contains(email.To, "test3@example.com"))
 		assert.Contains(t, email.Data, fmt.Sprintf(`Subject: New "download" from "%s" status KO`, user.Username))
 		assert.Contains(t, email.Data, `"download" failed`)
 		assert.Contains(t, email.Data, common.ErrReadQuotaExceeded.Error())
@@ -4019,7 +4020,7 @@ func TestEventRule(t *testing.T) {
 		}, 3000*time.Millisecond, 100*time.Millisecond)
 		email = lastReceivedEmail.get()
 		assert.Len(t, email.To, 1)
-		assert.True(t, util.Contains(email.To, "failure@example.com"))
+		assert.True(t, slices.Contains(email.To, "failure@example.com"))
 		assert.Contains(t, email.Data, fmt.Sprintf(`Subject: Failed "upload" from "%s"`, user.Username))
 		assert.Contains(t, email.Data, fmt.Sprintf(`action %q failed`, action1.Name))
 		// now test the download rule
@@ -4036,9 +4037,9 @@ func TestEventRule(t *testing.T) {
 		}, 3000*time.Millisecond, 100*time.Millisecond)
 		email = lastReceivedEmail.get()
 		assert.Len(t, email.To, 3)
-		assert.True(t, util.Contains(email.To, "test1@example.com"))
-		assert.True(t, util.Contains(email.To, "test2@example.com"))
-		assert.True(t, util.Contains(email.To, "test3@example.com"))
+		assert.True(t, slices.Contains(email.To, "test1@example.com"))
+		assert.True(t, slices.Contains(email.To, "test2@example.com"))
+		assert.True(t, slices.Contains(email.To, "test3@example.com"))
 		assert.Contains(t, email.Data, fmt.Sprintf(`Subject: New "download" from "%s"`, user.Username))
 	}
 	// test upload action command with arguments
@@ -4079,9 +4080,9 @@ func TestEventRule(t *testing.T) {
 	}, 3000*time.Millisecond, 100*time.Millisecond)
 	email := lastReceivedEmail.get()
 	assert.Len(t, email.To, 3)
-	assert.True(t, util.Contains(email.To, "test1@example.com"))
-	assert.True(t, util.Contains(email.To, "test2@example.com"))
-	assert.True(t, util.Contains(email.To, "test3@example.com"))
+	assert.True(t, slices.Contains(email.To, "test1@example.com"))
+	assert.True(t, slices.Contains(email.To, "test2@example.com"))
+	assert.True(t, slices.Contains(email.To, "test3@example.com"))
 	assert.Contains(t, email.Data, `Subject: New "delete" from "admin"`)
 	_, err = httpdtest.RemoveEventRule(rule3, http.StatusOK)
 	assert.NoError(t, err)
@@ -4236,7 +4237,7 @@ func TestEventRuleProviderEvents(t *testing.T) {
 		}, 3000*time.Millisecond, 100*time.Millisecond)
 		email := lastReceivedEmail.get()
 		assert.Len(t, email.To, 1)
-		assert.True(t, util.Contains(email.To, "test3@example.com"))
+		assert.True(t, slices.Contains(email.To, "test3@example.com"))
 		assert.Contains(t, email.Data, `Subject: New "update" from "admin"`)
 	}
 	// now delete the script to generate an error
@@ -4251,7 +4252,7 @@ func TestEventRuleProviderEvents(t *testing.T) {
 	}, 3000*time.Millisecond, 100*time.Millisecond)
 	email := lastReceivedEmail.get()
 	assert.Len(t, email.To, 1)
-	assert.True(t, util.Contains(email.To, "failure@example.com"))
+	assert.True(t, slices.Contains(email.To, "failure@example.com"))
 	assert.Contains(t, email.Data, `Subject: Failed "update" from "admin"`)
 	assert.Contains(t, email.Data, fmt.Sprintf("Object name: %s object type: folder", folder.Name))
 	lastReceivedEmail.reset()
@@ -5306,7 +5307,7 @@ func TestBackupAsAttachment(t *testing.T) {
 	}, 3000*time.Millisecond, 100*time.Millisecond)
 	email := lastReceivedEmail.get()
 	assert.Len(t, email.To, 1)
-	assert.True(t, util.Contains(email.To, "test@example.com"))
+	assert.True(t, slices.Contains(email.To, "test@example.com"))
 	assert.Contains(t, email.Data, fmt.Sprintf(`Subject: "%s OK"`, renewalEvent))
 	assert.Contains(t, email.Data, `Domain: example.com`)
 	assert.Contains(t, email.Data, "Content-Type: application/json")
@@ -5676,7 +5677,7 @@ func TestEventActionCompressQuotaErrors(t *testing.T) {
 		}, 3*time.Second, 100*time.Millisecond)
 		email := lastReceivedEmail.get()
 		assert.Len(t, email.To, 1)
-		assert.True(t, util.Contains(email.To, "test@example.com"))
+		assert.True(t, slices.Contains(email.To, "test@example.com"))
 		assert.Contains(t, email.Data, `Subject: "Compress failed"`)
 		assert.Contains(t, email.Data, common.ErrQuotaExceeded.Error())
 		// update quota size so the user is already overquota
@@ -5691,7 +5692,7 @@ func TestEventActionCompressQuotaErrors(t *testing.T) {
 		}, 3*time.Second, 100*time.Millisecond)
 		email = lastReceivedEmail.get()
 		assert.Len(t, email.To, 1)
-		assert.True(t, util.Contains(email.To, "test@example.com"))
+		assert.True(t, slices.Contains(email.To, "test@example.com"))
 		assert.Contains(t, email.Data, `Subject: "Compress failed"`)
 		assert.Contains(t, email.Data, common.ErrQuotaExceeded.Error())
 		// remove the path to compress to trigger an error for size estimation
@@ -5705,7 +5706,7 @@ func TestEventActionCompressQuotaErrors(t *testing.T) {
 		}, 3*time.Second, 100*time.Millisecond)
 		email = lastReceivedEmail.get()
 		assert.Len(t, email.To, 1)
-		assert.True(t, util.Contains(email.To, "test@example.com"))
+		assert.True(t, slices.Contains(email.To, "test@example.com"))
 		assert.Contains(t, email.Data, `Subject: "Compress failed"`)
 		assert.Contains(t, email.Data, "unable to estimate archive size")
 	}
@@ -6041,7 +6042,7 @@ func TestEventActionEmailAttachments(t *testing.T) {
 			}, 1500*time.Millisecond, 100*time.Millisecond)
 			email := lastReceivedEmail.get()
 			assert.Len(t, email.To, 1)
-			assert.True(t, util.Contains(email.To, "test@example.com"))
+			assert.True(t, slices.Contains(email.To, "test@example.com"))
 			assert.Contains(t, email.Data, `Subject: "upload" from`)
 			assert.Contains(t, email.Data, "Content-Disposition: attachment")
 		}
@@ -6218,7 +6219,7 @@ func TestEventActionsRetentionReports(t *testing.T) {
 
 		email := lastReceivedEmail.get()
 		assert.Len(t, email.To, 1)
-		assert.True(t, util.Contains(email.To, "test@example.com"))
+		assert.True(t, slices.Contains(email.To, "test@example.com"))
 		assert.Contains(t, email.Data, fmt.Sprintf(`Subject: "upload" from "%s"`, user.Username))
 		assert.Contains(t, email.Data, "Content-Disposition: attachment")
 		_, err = client.Stat(testDir)
@@ -6391,7 +6392,7 @@ func TestEventRuleFirstUploadDownloadActions(t *testing.T) {
 		}, 1500*time.Millisecond, 100*time.Millisecond)
 		email := lastReceivedEmail.get()
 		assert.Len(t, email.To, 1)
-		assert.True(t, util.Contains(email.To, "test@example.com"))
+		assert.True(t, slices.Contains(email.To, "test@example.com"))
 		assert.Contains(t, email.Data, fmt.Sprintf(`Subject: "first-upload" from "%s"`, user.Username))
 		lastReceivedEmail.reset()
 		// a new upload will not produce a new notification
@@ -6414,7 +6415,7 @@ func TestEventRuleFirstUploadDownloadActions(t *testing.T) {
 		}, 1500*time.Millisecond, 100*time.Millisecond)
 		email = lastReceivedEmail.get()
 		assert.Len(t, email.To, 1)
-		assert.True(t, util.Contains(email.To, "test@example.com"))
+		assert.True(t, slices.Contains(email.To, "test@example.com"))
 		assert.Contains(t, email.Data, fmt.Sprintf(`Subject: "first-download" from "%s"`, user.Username))
 		// download again
 		lastReceivedEmail.reset()
@@ -6510,7 +6511,7 @@ func TestEventRuleRenameEvent(t *testing.T) {
 		}, 1500*time.Millisecond, 100*time.Millisecond)
 		email := lastReceivedEmail.get()
 		assert.Len(t, email.To, 1)
-		assert.True(t, util.Contains(email.To, "test@example.com"))
+		assert.True(t, slices.Contains(email.To, "test@example.com"))
 		assert.Contains(t, email.Data, fmt.Sprintf(`Subject: "rename" from "%s"`, user.Username))
 		assert.Contains(t, email.Data, "Content-Type: text/html")
 		assert.Contains(t, email.Data, fmt.Sprintf("Target path %q", path.Join("/subdir", testFileName)))
@@ -6644,7 +6645,7 @@ func TestEventRuleIDPLogin(t *testing.T) {
 	}, 3000*time.Millisecond, 100*time.Millisecond)
 	email := lastReceivedEmail.get()
 	assert.Len(t, email.To, 1)
-	assert.True(t, util.Contains(email.To, "test@example.com"))
+	assert.True(t, slices.Contains(email.To, "test@example.com"))
 	assert.Contains(t, email.Data, fmt.Sprintf(`Subject: "%s OK"`, common.IDPLoginUser))
 	assert.Contains(t, email.Data, username)
 	assert.Contains(t, email.Data, custom1)
@@ -6708,7 +6709,7 @@ func TestEventRuleIDPLogin(t *testing.T) {
 	}, 3000*time.Millisecond, 100*time.Millisecond)
 	email = lastReceivedEmail.get()
 	assert.Len(t, email.To, 1)
-	assert.True(t, util.Contains(email.To, "test@example.com"))
+	assert.True(t, slices.Contains(email.To, "test@example.com"))
 	assert.Contains(t, email.Data, fmt.Sprintf(`Subject: "%s OK"`, common.IDPLoginAdmin))
 	assert.Contains(t, email.Data, username)
 	assert.Contains(t, email.Data, custom1)
@@ -6900,7 +6901,7 @@ func TestEventRuleEmailField(t *testing.T) {
 	}, 3000*time.Millisecond, 100*time.Millisecond)
 	email := lastReceivedEmail.get()
 	assert.Len(t, email.To, 1)
-	assert.True(t, util.Contains(email.To, user.Email))
+	assert.True(t, slices.Contains(email.To, user.Email))
 	assert.Contains(t, email.Data, `Subject: "add" from "admin"`)
 
 	// if we add a user without email the notification will fail
@@ -6914,7 +6915,7 @@ func TestEventRuleEmailField(t *testing.T) {
 	}, 3000*time.Millisecond, 100*time.Millisecond)
 	email = lastReceivedEmail.get()
 	assert.Len(t, email.To, 1)
-	assert.True(t, util.Contains(email.To, "failure@example.com"))
+	assert.True(t, slices.Contains(email.To, "failure@example.com"))
 	assert.Contains(t, email.Data, `no recipient addresses set`)
 
 	conn, client, err := getSftpClient(user)
@@ -6931,7 +6932,7 @@ func TestEventRuleEmailField(t *testing.T) {
 		}, 3000*time.Millisecond, 100*time.Millisecond)
 		email := lastReceivedEmail.get()
 		assert.Len(t, email.To, 1)
-		assert.True(t, util.Contains(email.To, user.Email))
+		assert.True(t, slices.Contains(email.To, user.Email))
 		assert.Contains(t, email.Data, fmt.Sprintf(`Subject: "mkdir" from "%s"`, user.Username))
 	}
 
@@ -7038,7 +7039,7 @@ func TestEventRuleCertificate(t *testing.T) {
 	}, 3000*time.Millisecond, 100*time.Millisecond)
 	email := lastReceivedEmail.get()
 	assert.Len(t, email.To, 1)
-	assert.True(t, util.Contains(email.To, "test@example.com"))
+	assert.True(t, slices.Contains(email.To, "test@example.com"))
 	assert.Contains(t, email.Data, fmt.Sprintf(`Subject: "%s OK"`, renewalEvent))
 	assert.Contains(t, email.Data, "Content-Type: text/plain")
 	assert.Contains(t, email.Data, `Domain: example.com Timestamp`)
@@ -7058,7 +7059,7 @@ func TestEventRuleCertificate(t *testing.T) {
 	}, 3000*time.Millisecond, 100*time.Millisecond)
 	email = lastReceivedEmail.get()
 	assert.Len(t, email.To, 1)
-	assert.True(t, util.Contains(email.To, "test@example.com"))
+	assert.True(t, slices.Contains(email.To, "test@example.com"))
 	assert.Contains(t, email.Data, fmt.Sprintf(`Subject: "%s KO"`, renewalEvent))
 	assert.Contains(t, email.Data, `Domain: example.com Timestamp`)
 	assert.Contains(t, email.Data, errRenew.Error())
@@ -7184,8 +7185,8 @@ func TestEventRuleIPBlocked(t *testing.T) {
 	}, 3000*time.Millisecond, 100*time.Millisecond)
 	email := lastReceivedEmail.get()
 	assert.Len(t, email.To, 2)
-	assert.True(t, util.Contains(email.To, "test3@example.com"))
-	assert.True(t, util.Contains(email.To, "test4@example.com"))
+	assert.True(t, slices.Contains(email.To, "test3@example.com"))
+	assert.True(t, slices.Contains(email.To, "test4@example.com"))
 	assert.Contains(t, email.Data, `Subject: New "IP Blocked"`)
 
 	err = dataprovider.DeleteEventRule(rule1.Name, "", "", "")
@@ -8357,7 +8358,7 @@ func TestSFTPLoopError(t *testing.T) {
 	}, 3000*time.Millisecond, 100*time.Millisecond)
 	email := lastReceivedEmail.get()
 	assert.Len(t, email.To, 1)
-	assert.True(t, util.Contains(email.To, "failure@example.com"))
+	assert.True(t, slices.Contains(email.To, "failure@example.com"))
 	assert.Contains(t, email.Data, `Subject: Failed action`)
 
 	user1.VirtualFolders[0].FsConfig.SFTPConfig.Password = kms.NewPlainSecret(defaultPassword)

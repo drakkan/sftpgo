@@ -17,6 +17,7 @@ package plugin
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
@@ -25,7 +26,6 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/internal/kms"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/util"
 )
 
 var (
@@ -41,10 +41,10 @@ type KMSConfig struct {
 }
 
 func (c *KMSConfig) validate() error {
-	if !util.Contains(validKMSSchemes, c.Scheme) {
+	if !slices.Contains(validKMSSchemes, c.Scheme) {
 		return fmt.Errorf("invalid kms scheme: %v", c.Scheme)
 	}
-	if !util.Contains(validKMSEncryptedStatuses, c.EncryptedStatus) {
+	if !slices.Contains(validKMSEncryptedStatuses, c.EncryptedStatus) {
 		return fmt.Errorf("invalid kms encrypted status: %v", c.EncryptedStatus)
 	}
 	return nil

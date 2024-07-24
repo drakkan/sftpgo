@@ -24,6 +24,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -764,7 +765,7 @@ func (c *AzBlobFsConfig) validate() error {
 	if err := c.checkPartSizeAndConcurrency(); err != nil {
 		return err
 	}
-	if !util.Contains(validAzAccessTier, c.AccessTier) {
+	if !slices.Contains(validAzAccessTier, c.AccessTier) {
 		return fmt.Errorf("invalid access tier %q, valid values: \"''%v\"", c.AccessTier, strings.Join(validAzAccessTier, ", "))
 	}
 	return nil

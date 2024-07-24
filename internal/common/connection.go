@@ -63,7 +63,7 @@ type BaseConnection struct {
 // NewBaseConnection returns a new BaseConnection
 func NewBaseConnection(id, protocol, localAddr, remoteAddr string, user dataprovider.User) *BaseConnection {
 	connID := id
-	if util.Contains(supportedProtocols, protocol) {
+	if slices.Contains(supportedProtocols, protocol) {
 		connID = fmt.Sprintf("%s_%s", protocol, id)
 	}
 	user.UploadBandwidth, user.DownloadBandwidth = user.GetBandwidthForIP(util.GetIPFromRemoteAddress(remoteAddr), connID)
@@ -132,7 +132,7 @@ func (c *BaseConnection) GetRemoteIP() string {
 // SetProtocol sets the protocol for this connection
 func (c *BaseConnection) SetProtocol(protocol string) {
 	c.protocol = protocol
-	if util.Contains(supportedProtocols, c.protocol) {
+	if slices.Contains(supportedProtocols, c.protocol) {
 		c.ID = fmt.Sprintf("%v_%v", c.protocol, c.ID)
 	}
 }

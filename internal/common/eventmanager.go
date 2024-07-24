@@ -31,6 +31,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -307,7 +308,7 @@ func (*eventRulesContainer) checkIPDLoginEventMatch(conditions *dataprovider.Eve
 }
 
 func (*eventRulesContainer) checkProviderEventMatch(conditions *dataprovider.EventConditions, params *EventParams) bool {
-	if !util.Contains(conditions.ProviderEvents, params.Event) {
+	if !slices.Contains(conditions.ProviderEvents, params.Event) {
 		return false
 	}
 	if !checkEventConditionPatterns(params.Name, conditions.Options.Names) {
@@ -316,14 +317,14 @@ func (*eventRulesContainer) checkProviderEventMatch(conditions *dataprovider.Eve
 	if !checkEventConditionPatterns(params.Role, conditions.Options.RoleNames) {
 		return false
 	}
-	if len(conditions.Options.ProviderObjects) > 0 && !util.Contains(conditions.Options.ProviderObjects, params.ObjectType) {
+	if len(conditions.Options.ProviderObjects) > 0 && !slices.Contains(conditions.Options.ProviderObjects, params.ObjectType) {
 		return false
 	}
 	return true
 }
 
 func (*eventRulesContainer) checkFsEventMatch(conditions *dataprovider.EventConditions, params *EventParams) bool {
-	if !util.Contains(conditions.FsEvents, params.Event) {
+	if !slices.Contains(conditions.FsEvents, params.Event) {
 		return false
 	}
 	if !checkEventConditionPatterns(params.Name, conditions.Options.Names) {
@@ -338,7 +339,7 @@ func (*eventRulesContainer) checkFsEventMatch(conditions *dataprovider.EventCond
 	if !checkEventConditionPatterns(params.VirtualPath, conditions.Options.FsPaths) {
 		return false
 	}
-	if len(conditions.Options.Protocols) > 0 && !util.Contains(conditions.Options.Protocols, params.Protocol) {
+	if len(conditions.Options.Protocols) > 0 && !slices.Contains(conditions.Options.Protocols, params.Protocol) {
 		return false
 	}
 	if params.Event == operationUpload || params.Event == operationDownload {

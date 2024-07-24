@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -36,7 +37,6 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/httpclient"
 	"github.com/drakkan/sftpgo/v2/internal/httpd"
 	"github.com/drakkan/sftpgo/v2/internal/kms"
-	"github.com/drakkan/sftpgo/v2/internal/util"
 	"github.com/drakkan/sftpgo/v2/internal/version"
 	"github.com/drakkan/sftpgo/v2/internal/vfs"
 )
@@ -1679,7 +1679,7 @@ func checkEventConditionOptions(expected, actual dataprovider.ConditionOptions) 
 		return errors.New("condition protocols mismatch")
 	}
 	for _, v := range expected.Protocols {
-		if !util.Contains(actual.Protocols, v) {
+		if !slices.Contains(actual.Protocols, v) {
 			return errors.New("condition protocols content mismatch")
 		}
 	}
@@ -1687,7 +1687,7 @@ func checkEventConditionOptions(expected, actual dataprovider.ConditionOptions) 
 		return errors.New("condition provider objects mismatch")
 	}
 	for _, v := range expected.ProviderObjects {
-		if !util.Contains(actual.ProviderObjects, v) {
+		if !slices.Contains(actual.ProviderObjects, v) {
 			return errors.New("condition provider objects content mismatch")
 		}
 	}
@@ -1705,7 +1705,7 @@ func checkEventConditions(expected, actual dataprovider.EventConditions) error {
 		return errors.New("fs events mismatch")
 	}
 	for _, v := range expected.FsEvents {
-		if !util.Contains(actual.FsEvents, v) {
+		if !slices.Contains(actual.FsEvents, v) {
 			return errors.New("fs events content mismatch")
 		}
 	}
@@ -1713,7 +1713,7 @@ func checkEventConditions(expected, actual dataprovider.EventConditions) error {
 		return errors.New("provider events mismatch")
 	}
 	for _, v := range expected.ProviderEvents {
-		if !util.Contains(actual.ProviderEvents, v) {
+		if !slices.Contains(actual.ProviderEvents, v) {
 			return errors.New("provider events content mismatch")
 		}
 	}
@@ -1948,7 +1948,7 @@ func checkAdmin(expected, actual *dataprovider.Admin) error {
 		return errors.New("permissions mismatch")
 	}
 	for _, p := range expected.Permissions {
-		if !util.Contains(actual.Permissions, p) {
+		if !slices.Contains(actual.Permissions, p) {
 			return errors.New("permissions content mismatch")
 		}
 	}
@@ -1966,7 +1966,7 @@ func compareAdminFilters(expected, actual dataprovider.AdminFilters) error {
 		return errors.New("allow list mismatch")
 	}
 	for _, v := range expected.AllowList {
-		if !util.Contains(actual.AllowList, v) {
+		if !slices.Contains(actual.AllowList, v) {
 			return errors.New("allow list content mismatch")
 		}
 	}
@@ -2057,7 +2057,7 @@ func compareUserPermissions(expected map[string][]string, actual map[string][]st
 	for dir, perms := range expected {
 		if actualPerms, ok := actual[dir]; ok {
 			for _, v := range actualPerms {
-				if !util.Contains(perms, v) {
+				if !slices.Contains(perms, v) {
 					return errors.New("permissions contents mismatch")
 				}
 			}
@@ -2310,7 +2310,7 @@ func compareSFTPFsConfig(expected *vfs.Filesystem, actual *vfs.Filesystem) error
 		return errors.New("SFTPFs fingerprints mismatch")
 	}
 	for _, value := range actual.SFTPConfig.Fingerprints {
-		if !util.Contains(expected.SFTPConfig.Fingerprints, value) {
+		if !slices.Contains(expected.SFTPConfig.Fingerprints, value) {
 			return errors.New("SFTPFs fingerprints mismatch")
 		}
 	}
@@ -2401,27 +2401,27 @@ func checkEncryptedSecret(expected, actual *kms.Secret) error {
 
 func compareUserFilterSubStructs(expected sdk.BaseUserFilters, actual sdk.BaseUserFilters) error {
 	for _, IPMask := range expected.AllowedIP {
-		if !util.Contains(actual.AllowedIP, IPMask) {
+		if !slices.Contains(actual.AllowedIP, IPMask) {
 			return errors.New("allowed IP contents mismatch")
 		}
 	}
 	for _, IPMask := range expected.DeniedIP {
-		if !util.Contains(actual.DeniedIP, IPMask) {
+		if !slices.Contains(actual.DeniedIP, IPMask) {
 			return errors.New("denied IP contents mismatch")
 		}
 	}
 	for _, method := range expected.DeniedLoginMethods {
-		if !util.Contains(actual.DeniedLoginMethods, method) {
+		if !slices.Contains(actual.DeniedLoginMethods, method) {
 			return errors.New("denied login methods contents mismatch")
 		}
 	}
 	for _, protocol := range expected.DeniedProtocols {
-		if !util.Contains(actual.DeniedProtocols, protocol) {
+		if !slices.Contains(actual.DeniedProtocols, protocol) {
 			return errors.New("denied protocols contents mismatch")
 		}
 	}
 	for _, options := range expected.WebClient {
-		if !util.Contains(actual.WebClient, options) {
+		if !slices.Contains(actual.WebClient, options) {
 			return errors.New("web client options contents mismatch")
 		}
 	}
@@ -2430,7 +2430,7 @@ func compareUserFilterSubStructs(expected sdk.BaseUserFilters, actual sdk.BaseUs
 		return errors.New("TLS certs mismatch")
 	}
 	for _, cert := range expected.TLSCerts {
-		if !util.Contains(actual.TLSCerts, cert) {
+		if !slices.Contains(actual.TLSCerts, cert) {
 			return errors.New("TLS certs content mismatch")
 		}
 	}
@@ -2527,7 +2527,7 @@ func checkFilterMatch(expected []string, actual []string) bool {
 		return false
 	}
 	for _, e := range expected {
-		if !util.Contains(actual, strings.ToLower(e)) {
+		if !slices.Contains(actual, strings.ToLower(e)) {
 			return false
 		}
 	}
@@ -2570,7 +2570,7 @@ func compareUserBandwidthLimitFilters(expected sdk.BaseUserFilters, actual sdk.B
 			return errors.New("bandwidth filters sources mismatch")
 		}
 		for _, source := range actual.BandwidthLimits[idx].Sources {
-			if !util.Contains(l.Sources, source) {
+			if !slices.Contains(l.Sources, source) {
 				return errors.New("bandwidth filters source mismatch")
 			}
 		}
@@ -2680,7 +2680,7 @@ func compareEventActionEmailConfigFields(expected, actual dataprovider.EventActi
 		return errors.New("email recipients mismatch")
 	}
 	for _, v := range expected.Recipients {
-		if !util.Contains(actual.Recipients, v) {
+		if !slices.Contains(actual.Recipients, v) {
 			return errors.New("email recipients content mismatch")
 		}
 	}
@@ -2688,7 +2688,7 @@ func compareEventActionEmailConfigFields(expected, actual dataprovider.EventActi
 		return errors.New("email bcc mismatch")
 	}
 	for _, v := range expected.Bcc {
-		if !util.Contains(actual.Bcc, v) {
+		if !slices.Contains(actual.Bcc, v) {
 			return errors.New("email bcc content mismatch")
 		}
 	}
@@ -2705,7 +2705,7 @@ func compareEventActionEmailConfigFields(expected, actual dataprovider.EventActi
 		return errors.New("email attachments mismatch")
 	}
 	for _, v := range expected.Attachments {
-		if !util.Contains(actual.Attachments, v) {
+		if !slices.Contains(actual.Attachments, v) {
 			return errors.New("email attachments content mismatch")
 		}
 	}
@@ -2720,7 +2720,7 @@ func compareEventActionFsCompressFields(expected, actual dataprovider.EventActio
 		return errors.New("fs compress paths mismatch")
 	}
 	for _, v := range expected.Paths {
-		if !util.Contains(actual.Paths, v) {
+		if !slices.Contains(actual.Paths, v) {
 			return errors.New("fs compress paths content mismatch")
 		}
 	}
@@ -2741,7 +2741,7 @@ func compareEventActionFsConfigFields(expected, actual dataprovider.EventActionF
 		return errors.New("fs deletes mismatch")
 	}
 	for _, v := range expected.Deletes {
-		if !util.Contains(actual.Deletes, v) {
+		if !slices.Contains(actual.Deletes, v) {
 			return errors.New("fs deletes content mismatch")
 		}
 	}
@@ -2749,7 +2749,7 @@ func compareEventActionFsConfigFields(expected, actual dataprovider.EventActionF
 		return errors.New("fs mkdirs mismatch")
 	}
 	for _, v := range expected.MkDirs {
-		if !util.Contains(actual.MkDirs, v) {
+		if !slices.Contains(actual.MkDirs, v) {
 			return errors.New("fs mkdir content mismatch")
 		}
 	}
@@ -2757,7 +2757,7 @@ func compareEventActionFsConfigFields(expected, actual dataprovider.EventActionF
 		return errors.New("fs exist mismatch")
 	}
 	for _, v := range expected.Exist {
-		if !util.Contains(actual.Exist, v) {
+		if !slices.Contains(actual.Exist, v) {
 			return errors.New("fs exist content mismatch")
 		}
 	}
@@ -2788,7 +2788,7 @@ func compareEventActionCmdConfigFields(expected, actual dataprovider.EventAction
 		return errors.New("cmd args mismatch")
 	}
 	for _, v := range expected.Args {
-		if !util.Contains(actual.Args, v) {
+		if !slices.Contains(actual.Args, v) {
 			return errors.New("cmd args content mismatch")
 		}
 	}

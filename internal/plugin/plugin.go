@@ -24,6 +24,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -336,7 +337,7 @@ func (m *Manager) NotifyLogEvent(event notifier.LogEventType, protocol, username
 	var e *notifier.LogEvent
 
 	for _, n := range m.notifiers {
-		if util.Contains(n.config.NotifierOptions.LogEvents, int(event)) {
+		if slices.Contains(n.config.NotifierOptions.LogEvents, int(event)) {
 			if e == nil {
 				message := ""
 				if err != nil {

@@ -20,6 +20,7 @@ import (
 	"io/fs"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 
 	"github.com/go-chi/jwtauth/v5"
@@ -83,7 +84,7 @@ func validateJWTToken(w http.ResponseWriter, r *http.Request, audience tokenAudi
 	if err := checkPartialAuth(w, r, audience, token.Audience()); err != nil {
 		return err
 	}
-	if !util.Contains(token.Audience(), audience) {
+	if !slices.Contains(token.Audience(), audience) {
 		logger.Debug(logSender, "", "the token is not valid for audience %q", audience)
 		doRedirect("Your token audience is not valid", nil)
 		return errInvalidToken
@@ -113,7 +114,7 @@ func (s *httpdServer) validateJWTPartialToken(w http.ResponseWriter, r *http.Req
 		notFoundFunc(w, r, nil)
 		return errInvalidToken
 	}
-	if !util.Contains(token.Audience(), audience) {
+	if !slices.Contains(token.Audience(), audience) {
 		logger.Debug(logSender, "", "the partial token with id %q is not valid for audience %q", token.JwtID(), audience)
 		notFoundFunc(w, r, nil)
 		return errInvalidToken
@@ -331,7 +332,7 @@ func (s *httpdServer) verifyCSRFHeader(next http.Handler) http.Handler {
 			return
 		}
 
-		if !util.Contains(token.Audience(), tokenAudienceCSRF) {
+		if !slices.Contains(token.Audience(), tokenAudienceCSRF) {
 			logger.Debug(logSender, "", "error validating CSRF header token audience")
 			sendAPIResponse(w, r, errors.New("the token is not valid"), "", http.StatusForbidden)
 			return
@@ -571,11 +572,11 @@ func authenticateUserWithAPIKey(username, keyID string, tokenAuth *jwtauth.JWTAu
 }
 
 func checkPartialAuth(w http.ResponseWriter, r *http.Request, audience string, tokenAudience []string) error {
-	if audience == tokenAudienceWebAdmin && util.Contains(tokenAudience, tokenAudienceWebAdminPartial) {
+	if audience == tokenAudienceWebAdmin && slices.Contains(tokenAudience, tokenAudienceWebAdminPartial) {
 		http.Redirect(w, r, webAdminTwoFactorPath, http.StatusFound)
 		return errInvalidToken
 	}
-	if audience == tokenAudienceWebClient && util.Contains(tokenAudience, tokenAudienceWebClientPartial) {
+	if audience == tokenAudienceWebClient && slices.Contains(tokenAudience, tokenAudienceWebClientPartial) {
 		http.Redirect(w, r, webClientTwoFactorPath, http.StatusFound)
 		return errInvalidToken
 	}

@@ -22,6 +22,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"sync"
 	"time"
@@ -1210,7 +1211,7 @@ func (p *MemoryProvider) addRuleToActionMapping(ruleName, actionName string) err
 	if err != nil {
 		return util.NewGenericError(fmt.Sprintf("action %q does not exist", actionName))
 	}
-	if !util.Contains(a.Rules, ruleName) {
+	if !slices.Contains(a.Rules, ruleName) {
 		a.Rules = append(a.Rules, ruleName)
 		p.dbHandle.actions[actionName] = a
 	}
@@ -1223,7 +1224,7 @@ func (p *MemoryProvider) removeRuleFromActionMapping(ruleName, actionName string
 		providerLog(logger.LevelWarn, "action %q does not exist, cannot remove from mapping", actionName)
 		return
 	}
-	if util.Contains(a.Rules, ruleName) {
+	if slices.Contains(a.Rules, ruleName) {
 		var rules []string
 		for _, r := range a.Rules {
 			if r != ruleName {
@@ -1240,7 +1241,7 @@ func (p *MemoryProvider) addAdminToGroupMapping(username, groupname string) erro
 	if err != nil {
 		return err
 	}
-	if !util.Contains(g.Admins, username) {
+	if !slices.Contains(g.Admins, username) {
 		g.Admins = append(g.Admins, username)
 		p.dbHandle.groups[groupname] = g
 	}
@@ -1283,7 +1284,7 @@ func (p *MemoryProvider) addUserToGroupMapping(username, groupname string) error
 	if err != nil {
 		return err
 	}
-	if !util.Contains(g.Users, username) {
+	if !slices.Contains(g.Users, username) {
 		g.Users = append(g.Users, username)
 		p.dbHandle.groups[groupname] = g
 	}
@@ -1313,7 +1314,7 @@ func (p *MemoryProvider) addAdminToRole(username, role string) error {
 	if err != nil {
 		return fmt.Errorf("%w: role %q does not exist", ErrForeignKeyViolated, role)
 	}
-	if !util.Contains(r.Admins, username) {
+	if !slices.Contains(r.Admins, username) {
 		r.Admins = append(r.Admins, username)
 		p.dbHandle.roles[role] = r
 	}
@@ -1347,7 +1348,7 @@ func (p *MemoryProvider) addUserToRole(username, role string) error {
 	if err != nil {
 		return fmt.Errorf("%w: role %q does not exist", ErrForeignKeyViolated, role)
 	}
-	if !util.Contains(r.Users, username) {
+	if !slices.Contains(r.Users, username) {
 		r.Users = append(r.Users, username)
 		p.dbHandle.roles[role] = r
 	}
@@ -1378,7 +1379,7 @@ func (p *MemoryProvider) addUserToFolderMapping(username, foldername string) err
 	if err != nil {
 		return util.NewGenericError(fmt.Sprintf("unable to get folder %q: %v", foldername, err))
 	}
-	if !util.Contains(f.Users, username) {
+	if !slices.Contains(f.Users, username) {
 		f.Users = append(f.Users, username)
 		p.dbHandle.vfolders[foldername] = f
 	}
@@ -1390,7 +1391,7 @@ func (p *MemoryProvider) addGroupToFolderMapping(name, foldername string) error 
 	if err != nil {
 		return util.NewGenericError(fmt.Sprintf("unable to get folder %q: %v", foldername, err))
 	}
-	if !util.Contains(f.Groups, name) {
+	if !slices.Contains(f.Groups, name) {
 		f.Groups = append(f.Groups, name)
 		p.dbHandle.vfolders[foldername] = f
 	}

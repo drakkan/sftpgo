@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"image/png"
 	"net/url"
+	"slices"
 
 	"golang.org/x/crypto/ssh"
 
@@ -105,7 +106,7 @@ func (c *SFTPDConfigs) validate() error {
 		if algo == ssh.CertAlgoRSAv01 {
 			continue
 		}
-		if !util.Contains(supportedHostKeyAlgos, algo) {
+		if !slices.Contains(supportedHostKeyAlgos, algo) {
 			return util.NewValidationError(fmt.Sprintf("unsupported host key algorithm %q", algo))
 		}
 		hostKeyAlgos = append(hostKeyAlgos, algo)
@@ -116,24 +117,24 @@ func (c *SFTPDConfigs) validate() error {
 		if algo == "diffie-hellman-group18-sha512" || algo == ssh.KeyExchangeDHGEXSHA256 {
 			continue
 		}
-		if !util.Contains(supportedKexAlgos, algo) {
+		if !slices.Contains(supportedKexAlgos, algo) {
 			return util.NewValidationError(fmt.Sprintf("unsupported KEX algorithm %q", algo))
 		}
 		kexAlgos = append(kexAlgos, algo)
 	}
 	c.KexAlgorithms = kexAlgos
 	for _, cipher := range c.Ciphers {
-		if !util.Contains(supportedCiphers, cipher) {
+		if !slices.Contains(supportedCiphers, cipher) {
 			return util.NewValidationError(fmt.Sprintf("unsupported cipher %q", cipher))
 		}
 	}
 	for _, mac := range c.MACs {
-		if !util.Contains(supportedMACs, mac) {
+		if !slices.Contains(supportedMACs, mac) {
 			return util.NewValidationError(fmt.Sprintf("unsupported MAC algorithm %q", mac))
 		}
 	}
 	for _, algo := range c.PublicKeyAlgos {
-		if !util.Contains(supportedPublicKeyAlgos, algo) {
+		if !slices.Contains(supportedPublicKeyAlgos, algo) {
 			return util.NewValidationError(fmt.Sprintf("unsupported public key algorithm %q", algo))
 		}
 	}

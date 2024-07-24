@@ -28,6 +28,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -125,7 +126,7 @@ func (c *SFTPFsConfig) isEqual(other SFTPFsConfig) bool {
 		return false
 	}
 	for _, fp := range c.Fingerprints {
-		if !util.Contains(other.Fingerprints, fp) {
+		if !slices.Contains(other.Fingerprints, fp) {
 			return false
 		}
 	}
@@ -954,12 +955,12 @@ func (c *sftpConnection) openConnNoLock() error {
 		User: c.config.Username,
 		HostKeyCallback: func(_ string, _ net.Addr, key ssh.PublicKey) error {
 			fp := ssh.FingerprintSHA256(key)
-			if util.Contains(sftpFingerprints, fp) {
+			if slices.Contains(sftpFingerprints, fp) {
 				if allowSelfConnections == 0 {
 					logger.Log(logger.LevelError, c.logSender, "", "SFTP self connections not allowed")
 					return ErrSFTPLoop
 				}
-				if util.Contains(c.config.forbiddenSelfUsernames, c.config.Username) {
+				if slices.Contains(c.config.forbiddenSelfUsernames, c.config.Username) {
 					logger.Log(logger.LevelError, c.logSender, "",
 						"SFTP loop or nested local SFTP folders detected, username %q, forbidden usernames: %+v",
 						c.config.Username, c.config.forbiddenSelfUsernames)

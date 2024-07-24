@@ -25,6 +25,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -207,7 +208,7 @@ func Initialize(c Configuration, isShared int) error {
 		Config.rateLimitersList = rateLimitersList
 	}
 	if c.DefenderConfig.Enabled {
-		if !util.Contains(supportedDefenderDrivers, c.DefenderConfig.Driver) {
+		if !slices.Contains(supportedDefenderDrivers, c.DefenderConfig.Driver) {
 			return fmt.Errorf("unsupported defender driver %q", c.DefenderConfig.Driver)
 		}
 		var defender Defender
@@ -777,7 +778,7 @@ func (c *Configuration) checkPostDisconnectHook(remoteAddr, protocol, username, 
 	if c.PostDisconnectHook == "" {
 		return
 	}
-	if !util.Contains(disconnHookProtocols, protocol) {
+	if !slices.Contains(disconnHookProtocols, protocol) {
 		return
 	}
 	go c.executePostDisconnectHook(remoteAddr, protocol, username, connID, connectionTime)
@@ -1019,7 +1020,7 @@ func (conns *ActiveConnections) Remove(connectionID string) {
 		metric.UpdateActiveConnectionsSize(lastIdx)
 		logger.Debug(conn.GetProtocol(), conn.GetID(), "connection removed, local address %q, remote address %q close fs error: %v, num open connections: %d",
 			conn.GetLocalAddress(), conn.GetRemoteAddress(), err, lastIdx)
-		if conn.GetProtocol() == ProtocolFTP && conn.GetUsername() == "" && !util.Contains(ftpLoginCommands, conn.GetCommand()) {
+		if conn.GetProtocol() == ProtocolFTP && conn.GetUsername() == "" && !slices.Contains(ftpLoginCommands, conn.GetCommand()) {
 			ip := util.GetIPFromRemoteAddress(conn.GetRemoteAddress())
 			logger.ConnectionFailedLog("", ip, dataprovider.LoginMethodNoAuthTried, ProtocolFTP,
 				dataprovider.ErrNoAuthTried.Error())

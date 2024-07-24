@@ -30,6 +30,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -249,7 +250,7 @@ func (c *Configuration) Initialize(configDir string) error {
 	if c.RenewDays < 1 {
 		return fmt.Errorf("invalid number of days remaining before renewal: %d", c.RenewDays)
 	}
-	if !util.Contains(supportedKeyTypes, c.KeyType) {
+	if !slices.Contains(supportedKeyTypes, c.KeyType) {
 		return fmt.Errorf("invalid key type %q", c.KeyType)
 	}
 	caURL, err := url.Parse(c.CAEndpoint)

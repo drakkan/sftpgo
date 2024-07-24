@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -85,7 +86,7 @@ var (
 
 // CheckIPListType returns an error if the provided IP list type is not valid
 func CheckIPListType(t IPListType) error {
-	if !util.Contains(supportedIPListType, t) {
+	if !slices.Contains(supportedIPListType, t) {
 		return util.NewValidationError(fmt.Sprintf("invalid list type %d", t))
 	}
 	return nil

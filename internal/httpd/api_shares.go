@@ -22,6 +22,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"slices"
 	"strings"
 	"time"
 
@@ -107,7 +108,7 @@ func addShare(w http.ResponseWriter, r *http.Request) {
 		share.Name = share.ShareID
 	}
 	if share.Password == "" {
-		if util.Contains(claims.Permissions, sdk.WebClientShareNoPasswordDisabled) {
+		if slices.Contains(claims.Permissions, sdk.WebClientShareNoPasswordDisabled) {
 			sendAPIResponse(w, r, nil, "You are not authorized to share files/folders without a password",
 				http.StatusForbidden)
 			return
@@ -155,7 +156,7 @@ func updateShare(w http.ResponseWriter, r *http.Request) {
 		updatedShare.Password = share.Password
 	}
 	if updatedShare.Password == "" {
-		if util.Contains(claims.Permissions, sdk.WebClientShareNoPasswordDisabled) {
+		if slices.Contains(claims.Permissions, sdk.WebClientShareNoPasswordDisabled) {
 			sendAPIResponse(w, r, nil, "You are not authorized to share files/folders without a password",
 				http.StatusForbidden)
 			return
@@ -434,7 +435,7 @@ func (s *httpdServer) getShareClaims(r *http.Request, shareID string) (*jwtToken
 	if tokenString == "" || invalidatedJWTTokens.Get(tokenString) {
 		return nil, errInvalidToken
 	}
-	if !util.Contains(token.Audience(), tokenAudienceWebShare) {
+	if !slices.Contains(token.Audience(), tokenAudienceWebShare) {
 		logger.Debug(logSender, "", "invalid token audience for share %q", shareID)
 		return nil, errInvalidToken
 	}
@@ -486,7 +487,7 @@ func (s *httpdServer) checkPublicShare(w http.ResponseWriter, r *http.Request, v
 		renderError(err, "", statusCode)
 		return share, nil, err
 	}
-	if !util.Contains(validScopes, share.Scope) {
+	if !slices.Contains(validScopes, share.Scope) {
 		err := errors.New("invalid share scope")
 		renderError(util.NewI18nError(err, util.I18nErrorShareScope), "", http.StatusForbidden)
 		return share, nil, err
@@ -543,7 +544,7 @@ func getUserForShare(share dataprovider.Share) (dataprovider.User, error) {
 	if !user.CanManageShares() {
 		return user, util.NewI18nError(util.NewRecordNotFoundError("this share does not exist"), util.I18nError404Message)
 	}
-	if share.Password == "" && util.Contains(user.Filters.WebClient, sdk.WebClientShareNoPasswordDisabled) {
+	if share.Password == "" && slices.Contains(user.Filters.WebClient, sdk.WebClientShareNoPasswordDisabled) {
 		return user, util.NewI18nError(
 			fmt.Errorf("sharing without a password was disabled: %w", os.ErrPermission),
 			util.I18nError403Message,

@@ -38,6 +38,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -8639,8 +8640,8 @@ func TestUserAllowedLoginMethods(t *testing.T) {
 	allowedMethods = user.GetAllowedLoginMethods()
 	assert.Equal(t, 4, len(allowedMethods))
 
-	assert.True(t, util.Contains(allowedMethods, dataprovider.SSHLoginMethodKeyAndKeyboardInt))
-	assert.True(t, util.Contains(allowedMethods, dataprovider.SSHLoginMethodKeyAndPassword))
+	assert.True(t, slices.Contains(allowedMethods, dataprovider.SSHLoginMethodKeyAndKeyboardInt))
+	assert.True(t, slices.Contains(allowedMethods, dataprovider.SSHLoginMethodKeyAndPassword))
 }
 
 func TestUserPartialAuth(t *testing.T) {

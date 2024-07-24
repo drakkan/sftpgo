@@ -16,6 +16,7 @@ package plugin
 
 import (
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
@@ -24,7 +25,6 @@ import (
 	"github.com/sftpgo/sdk/plugin/notifier"
 
 	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/util"
 )
 
 // NotifierConfig defines configuration parameters for notifiers plugins
@@ -220,7 +220,7 @@ func (p *notifierPlugin) canQueueEvent(timestamp int64) bool {
 }
 
 func (p *notifierPlugin) notifyFsAction(event *notifier.FsEvent) {
-	if !util.Contains(p.config.NotifierOptions.FsEvents, event.Action) {
+	if !slices.Contains(p.config.NotifierOptions.FsEvents, event.Action) {
 		return
 	}
 
@@ -233,8 +233,8 @@ func (p *notifierPlugin) notifyFsAction(event *notifier.FsEvent) {
 }
 
 func (p *notifierPlugin) notifyProviderAction(event *notifier.ProviderEvent, object Renderer) {
-	if !util.Contains(p.config.NotifierOptions.ProviderEvents, event.Action) ||
-		!util.Contains(p.config.NotifierOptions.ProviderObjects, event.ObjectType) {
+	if !slices.Contains(p.config.NotifierOptions.ProviderEvents, event.Action) ||
+		!slices.Contains(p.config.NotifierOptions.ProviderObjects, event.ObjectType) {
 		return
 	}
 

@@ -128,16 +128,6 @@ var bytesSizeTable = map[string]uint64{
 	"e":  eByte,
 }
 
-// Contains reports whether v is present in elems.
-func Contains[T comparable](elems []T, v T) bool {
-	for _, s := range elems {
-		if v == s {
-			return true
-		}
-	}
-	return false
-}
-
 // Remove removes an element from a string slice and
 // returns the modified slice
 func Remove(elems []string, val string) []string {

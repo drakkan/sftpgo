@@ -17,6 +17,7 @@ package common
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -94,7 +95,7 @@ func (r *RateLimiterConfig) validate() error {
 	}
 	r.Protocols = util.RemoveDuplicates(r.Protocols, true)
 	for _, protocol := range r.Protocols {
-		if !util.Contains(rateLimiterProtocolValues, protocol) {
+		if !slices.Contains(rateLimiterProtocolValues, protocol) {
 			return fmt.Errorf("invalid protocol %q", protocol)
 		}
 	}

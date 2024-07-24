@@ -22,6 +22,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"slices"
 
 	ftpserver "github.com/fclairamb/ftpserverlib"
 	"github.com/sftpgo/sdk/plugin/notifier"
@@ -361,7 +362,7 @@ func (s *Server) validateUser(user dataprovider.User, cc ftpserver.ClientContext
 			user.Username, user.HomeDir)
 		return nil, fmt.Errorf("cannot login user with invalid home dir: %q", user.HomeDir)
 	}
-	if util.Contains(user.Filters.DeniedProtocols, common.ProtocolFTP) {
+	if slices.Contains(user.Filters.DeniedProtocols, common.ProtocolFTP) {
 		logger.Info(logSender, connectionID, "cannot login user %q, protocol FTP is not allowed", user.Username)
 		return nil, fmt.Errorf("protocol FTP is not allowed for user %q", user.Username)
 	}

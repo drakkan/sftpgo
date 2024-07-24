@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"slices"
 	"sync/atomic"
 	"time"
 
@@ -447,7 +448,7 @@ func (f *webDavFile) Patch(patches []webdav.Proppatch) ([]webdav.Propstat, error
 		pstat := webdav.Propstat{}
 		for _, p := range patch.Props {
 			if status == http.StatusForbidden && !hasError {
-				if !patch.Remove && util.Contains(lastModifiedProps, p.XMLName.Local) {
+				if !patch.Remove && slices.Contains(lastModifiedProps, p.XMLName.Local) {
 					parsed, err := parseTime(util.BytesToString(p.InnerXML))
 					if err != nil {
 						f.Connection.Log(logger.LevelWarn, "unsupported last modification time: %q, err: %v",

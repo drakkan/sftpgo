@@ -26,6 +26,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/debug"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -263,13 +264,13 @@ func (c *Configuration) getServerConfig() *ssh.ServerConfig {
 func (c *Configuration) updateSupportedAuthentications() {
 	serviceStatus.Authentications = util.RemoveDuplicates(serviceStatus.Authentications, false)
 
-	if util.Contains(serviceStatus.Authentications, dataprovider.LoginMethodPassword) &&
-		util.Contains(serviceStatus.Authentications, dataprovider.SSHLoginMethodPublicKey) {
+	if slices.Contains(serviceStatus.Authentications, dataprovider.LoginMethodPassword) &&
+		slices.Contains(serviceStatus.Authentications, dataprovider.SSHLoginMethodPublicKey) {
 		serviceStatus.Authentications = append(serviceStatus.Authentications, dataprovider.SSHLoginMethodKeyAndPassword)
 	}
 
-	if util.Contains(serviceStatus.Authentications, dataprovider.SSHLoginMethodKeyboardInteractive) &&
-		util.Contains(serviceStatus.Authentications, dataprovider.SSHLoginMethodPublicKey) {
+	if slices.Contains(serviceStatus.Authentications, dataprovider.SSHLoginMethodKeyboardInteractive) &&
+		slices.Contains(serviceStatus.Authentications, dataprovider.SSHLoginMethodPublicKey) {
 		serviceStatus.Authentications = append(serviceStatus.Authentications, dataprovider.SSHLoginMethodKeyAndKeyboardInt)
 	}
 }
@@ -422,7 +423,7 @@ func (c *Configuration) configureKeyAlgos(serverConfig *ssh.ServerConfig) error 
 		c.HostKeyAlgorithms = util.RemoveDuplicates(c.HostKeyAlgorithms, true)
 	}
 	for _, hostKeyAlgo := range c.HostKeyAlgorithms {
-		if !util.Contains(supportedHostKeyAlgos, hostKeyAlgo) {
+		if !slices.Contains(supportedHostKeyAlgos, hostKeyAlgo) {
 			return fmt.Errorf("unsupported host key algorithm %q", hostKeyAlgo)
 		}
 	}
@@ -430,7 +431,7 @@ func (c *Configuration) configureKeyAlgos(serverConfig *ssh.ServerConfig) error 
 	if len(c.PublicKeyAlgorithms) > 0 {
 		c.PublicKeyAlgorithms = util.RemoveDuplicates(c.PublicKeyAlgorithms, true)
 		for _, algo := range c.PublicKeyAlgorithms {
-			if !util.Contains(supportedPublicKeyAlgos, algo) {
+			if !slices.Contains(supportedPublicKeyAlgos, algo) {
 				return fmt.Errorf("unsupported public key authentication algorithm %q", algo)
 			}
 		}
@@ -472,7 +473,7 @@ func (c *Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig)
 			if kex == keyExchangeCurve25519SHA256LibSSH {
 				continue
 			}
-			if !util.Contains(supportedKexAlgos, kex) {
+			if !slices.Contains(supportedKexAlgos, kex) {
 				return fmt.Errorf("unsupported key-exchange algorithm %q", kex)
 			}
 		}
@@ -486,7 +487,7 @@ func (c *Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig)
 	if len(c.Ciphers) > 0 {
 		c.Ciphers = util.RemoveDuplicates(c.Ciphers, true)
 		for _, cipher := range c.Ciphers {
-			if !util.Contains(supportedCiphers, cipher) {
+			if !slices.Contains(supportedCiphers, cipher) {
 				return fmt.Errorf("unsupported cipher %q", cipher)
 			}
 		}
@@ -499,7 +500,7 @@ func (c *Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig)
 	if len(c.MACs) > 0 {
 		c.MACs = util.RemoveDuplicates(c.MACs, true)
 		for _, mac := range c.MACs {
-			if !util.Contains(supportedMACs, mac) {
+			if !slices.Contains(supportedMACs, mac) {
 				return fmt.Errorf("unsupported MAC algorithm %q", mac)
 			}
 		}
@@ -785,7 +786,7 @@ func loginUser(user *dataprovider.User, loginMethod, publicKey string, conn ssh.
 			user.Username, user.HomeDir)
 		return nil, fmt.Errorf("cannot login user with invalid home dir: %q", user.HomeDir)
 	}
-	if util.Contains(user.Filters.DeniedProtocols, common.ProtocolSSH) {
+	if slices.Contains(user.Filters.DeniedProtocols, common.ProtocolSSH) {
 		logger.Info(logSender, connectionID, "cannot login user %q, protocol SSH is not allowed", user.Username)
 		return nil, fmt.Errorf("protocol SSH is not allowed for user %q", user.Username)
 	}
@@ -830,14 +831,14 @@ func loginUser(user *dataprovider.User, loginMethod, publicKey string, conn ssh.
 }
 
 func (c *Configuration) checkSSHCommands() {
-	if util.Contains(c.EnabledSSHCommands, "*") {
+	if slices.Contains(c.EnabledSSHCommands, "*") {
 		c.EnabledSSHCommands = GetSupportedSSHCommands()
 		return
 	}
 	sshCommands := []string{}
 	for _, command := range c.EnabledSSHCommands {
 		command = strings.TrimSpace(command)
-		if util.Contains(supportedSSHCommands, command) {
+		if slices.Contains(supportedSSHCommands, command) {
 			sshCommands = append(sshCommands, command)
 		} else {
 			logger.Warn(logSender, "", "unsupported ssh command: %q ignored", command)
@@ -927,7 +928,7 @@ func (c *Configuration) checkHostKeyAutoGeneration(configDir string) error {
 func (c *Configuration) getHostKeyAlgorithms(keyFormat string) []string {
 	var algos []string
 	for _, algo := range algorithmsForKeyFormat(keyFormat) {
-		if util.Contains(c.HostKeyAlgorithms, algo) {
+		if slices.Contains(c.HostKeyAlgorithms, algo) {
 			algos = append(algos, algo)
 		}
 	}
@@ -986,7 +987,7 @@ func (c *Configuration) checkAndLoadHostKeys(configDir string, serverConfig *ssh
 				var algos []string
 				for _, algo := range algorithmsForKeyFormat(signer.PublicKey().Type()) {
 					if underlyingAlgo, ok := certKeyAlgoNames[algo]; ok {
-						if util.Contains(mas.Algorithms(), underlyingAlgo) {
+						if slices.Contains(mas.Algorithms(), underlyingAlgo) {
 							algos = append(algos, algo)
 						}
 					}
@@ -1098,12 +1099,12 @@ func (c *Configuration) initializeCertChecker(configDir string) error {
 
 func (c *Configuration) getPartialSuccessError(nextAuthMethods []string) error {
 	err := &ssh.PartialSuccessError{}
-	if c.PasswordAuthentication && util.Contains(nextAuthMethods, dataprovider.LoginMethodPassword) {
+	if c.PasswordAuthentication && slices.Contains(nextAuthMethods, dataprovider.LoginMethodPassword) {
 		err.Next.PasswordCallback = func(conn ssh.ConnMetadata, password []byte) (*ssh.Permissions, error) {
 			return c.validatePasswordCredentials(conn, password, dataprovider.SSHLoginMethodKeyAndPassword)
 		}
 	}
-	if c.KeyboardInteractiveAuthentication && util.Contains(nextAuthMethods, dataprovider.SSHLoginMethodKeyboardInteractive) {
+	if c.KeyboardInteractiveAuthentication && slices.Contains(nextAuthMethods, dataprovider.SSHLoginMethodKeyboardInteractive) {
 		err.Next.KeyboardInteractiveCallback = func(conn ssh.ConnMetadata, client ssh.KeyboardInteractiveChallenge) (*ssh.Permissions, error) {
 			return c.validateKeyboardInteractiveCredentials(conn, client, dataprovider.SSHLoginMethodKeyAndKeyboardInt, true)
 		}
