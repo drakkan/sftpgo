@@ -21,6 +21,7 @@ import (
 	"io/fs"
 	"os"
 	"path"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -1827,7 +1828,7 @@ func (l *DirListerAt) Add(fi os.FileInfo) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	l.info = append(l.info, fi)
+	l.info = slices.Insert(l.info, 0, fi)
 }
 
 // ListAt implements sftp.ListerAt
@@ -1840,10 +1841,10 @@ func (l *DirListerAt) ListAt(f []os.FileInfo, _ int64) (int, error) {
 	}
 	if len(f) <= len(l.info) {
 		files := make([]os.FileInfo, 0, len(f))
-		for idx := len(l.info) - 1; idx >= 0; idx-- {
+		for idx := range l.info {
 			files = append(files, l.info[idx])
 			if len(files) == len(f) {
-				l.info = l.info[:idx]
+				l.info = l.info[idx+1:]
 				n := copy(f, files)
 				return n, nil
 			}
@@ -1865,9 +1866,7 @@ func (l *DirListerAt) Next(limit int) ([]os.FileInfo, error) {
 		}
 		files = l.user.FilterListDir(files, l.virtualPath)
 		if len(l.info) > 0 {
-			for _, fi := range l.info {
-				files = util.PrependFileInfo(files, fi)
-			}
+			files = slices.Concat(l.info, files)
 			l.info = nil
 		}
 		if err != nil || len(files) > 0 {
