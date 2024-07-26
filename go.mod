@@ -13,7 +13,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.27.27
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.27
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.11
-	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.17.8
+	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.17.9
 	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.23.3
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.58.2
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.32.4
@@ -66,7 +66,7 @@ require (
 	github.com/yl2chen/cidranger v1.0.3-0.20210928021809-d1cb2c52f37a
 	go.etcd.io/bbolt v1.3.10
 	go.uber.org/automaxprocs v1.5.3
-	gocloud.dev v0.37.0
+	gocloud.dev v0.38.0
 	golang.org/x/crypto v0.25.0
 	golang.org/x/net v0.27.0
 	golang.org/x/oauth2 v0.21.0
@@ -82,7 +82,7 @@ require (
 	cloud.google.com/go/auth v0.7.2 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.3 // indirect
 	cloud.google.com/go/compute/metadata v0.5.0 // indirect
-	cloud.google.com/go/iam v1.1.11 // indirect
+	cloud.google.com/go/iam v1.1.12 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.10.0 // indirect
 	github.com/ajg/form v1.5.1 // indirect
@@ -173,9 +173,9 @@ require (
 	golang.org/x/text v0.16.0 // indirect
 	golang.org/x/tools v0.23.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240716161551-93cc26a95ae9 // indirect
-	google.golang.org/genproto v0.0.0-20240723171418-e6d459c13d2a // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20240723171418-e6d459c13d2a // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240723171418-e6d459c13d2a // indirect
+	google.golang.org/genproto v0.0.0-20240725223205-93522f1f2a9f // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20240725223205-93522f1f2a9f // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240725223205-93522f1f2a9f // indirect
 	google.golang.org/grpc v1.65.0 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
@@ -186,5 +186,5 @@ replace (
 	github.com/fclairamb/ftpserverlib => github.com/drakkan/ftpserverlib v0.0.0-20240603150004-6a8f643fbf2e
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20240430173938-7ba8270c8e7f
 	github.com/robfig/cron/v3 => github.com/drakkan/cron/v3 v3.0.0-20230222140221-217a1e4d96c0
-	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20240713153557-f71f5ab9ee7d
+	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20240726170110-f4e4a4627441
 )
