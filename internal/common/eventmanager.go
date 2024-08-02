@@ -2503,17 +2503,52 @@ func executeAdminCheckAction(c *dataprovider.EventActionIDPAccountCheck, params 
 	if err != nil {
 		return nil, err
 	}
-	if newAdmin.Password == "" {
-		newAdmin.Password = util.GenerateUniqueID()
-	}
 	if exists {
 		eventManagerLog(logger.LevelDebug, "updating admin %q after IDP login", params.Name)
+		// Not sure if this makes sense, but it shouldn't hurt.
+		if newAdmin.Password == "" {
+			newAdmin.Password = admin.Password
+		}
+		newAdmin.Filters.TOTPConfig = admin.Filters.TOTPConfig
+		newAdmin.Filters.RecoveryCodes = admin.Filters.RecoveryCodes
 		err = dataprovider.UpdateAdmin(&newAdmin, dataprovider.ActionExecutorSystem, "", "")
 	} else {
 		eventManagerLog(logger.LevelDebug, "creating admin %q after IDP login", params.Name)
+		if newAdmin.Password == "" {
+			newAdmin.Password = util.GenerateUniqueID()
+		}
 		err = dataprovider.AddAdmin(&newAdmin, dataprovider.ActionExecutorSystem, "", "")
 	}
 	return &newAdmin, err
+}
+
+func preserveUserProfile(user, newUser *dataprovider.User) {
+	if newUser.CanChangePassword() && user.Password != "" {
+		newUser.Password = user.Password
+	}
+	if newUser.CanManagePublicKeys() && len(user.PublicKeys) > 0 {
+		newUser.PublicKeys = user.PublicKeys
+	}
+	if newUser.CanManageTLSCerts() {
+		if len(user.Filters.TLSCerts) > 0 {
+			newUser.Filters.TLSCerts = user.Filters.TLSCerts
+		}
+	}
+	if newUser.CanChangeInfo() {
+		if user.Description != "" {
+			newUser.Description = user.Description
+		}
+		if user.Email != "" {
+			newUser.Email = user.Email
+		}
+	}
+	if newUser.CanChangeAPIKeyAuth() {
+		newUser.Filters.AllowAPIKeyAuth = user.Filters.AllowAPIKeyAuth
+	}
+	newUser.Filters.RecoveryCodes = user.Filters.RecoveryCodes
+	newUser.Filters.TOTPConfig = user.Filters.TOTPConfig
+	newUser.LastPasswordChange = user.LastPasswordChange
+	newUser.SetEmptySecretsIfNil()
 }
 
 func executeUserCheckAction(c *dataprovider.EventActionIDPAccountCheck, params *EventParams) (*dataprovider.User, error) {
@@ -2537,6 +2572,7 @@ func executeUserCheckAction(c *dataprovider.EventActionIDPAccountCheck, params *
 	}
 	if exists {
 		eventManagerLog(logger.LevelDebug, "updating user %q after IDP login", params.Name)
+		preserveUserProfile(&user, &newUser)
 		err = dataprovider.UpdateUser(&newUser, dataprovider.ActionExecutorSystem, "", "")
 	} else {
 		eventManagerLog(logger.LevelDebug, "creating user %q after IDP login", params.Name)
