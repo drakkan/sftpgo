@@ -1386,6 +1386,29 @@ func TestIDPAccountCheckRule(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, username, user.Username)
 	assert.Equal(t, 1, user.Status)
+	assert.Empty(t, user.Password)
+	assert.Len(t, user.PublicKeys, 0)
+	assert.Len(t, user.Filters.TLSCerts, 0)
+	assert.Empty(t, user.Email)
+	assert.Empty(t, user.Description)
+	// Update the profile attribute and make sure they are preserved
+	user.Password = "secret"
+	user.Email = "example@example.com"
+	user.Description = "some desc"
+	user.Filters.TLSCerts = []string{serverCert}
+	user.PublicKeys = []string{"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC03jj0D+djk7pxIf/0OhrxrchJTRZklofJ1NoIu4752Sq02mdXmarMVsqJ1cAjV5LBVy3D1F5U6XW4rppkXeVtd04Pxb09ehtH0pRRPaoHHlALiJt8CoMpbKYMA8b3KXPPriGxgGomvtU2T2RMURSwOZbMtpsugfjYSWenyYX+VORYhylWnSXL961LTyC21ehd6d6QnW9G7E5hYMITMY9TuQZz3bROYzXiTsgN0+g6Hn7exFQp50p45StUMfV/SftCMdCxlxuyGny2CrN/vfjO7xxOo2uv7q1qm10Q46KPWJQv+pgZ/OfL+EDjy07n5QVSKHlbx+2nT4Q0EgOSQaCTYwn3YjtABfIxWwgAFdyj6YlPulCL22qU4MYhDcA6PSBwDdf8hvxBfvsiHdM+JcSHvv8/VeJhk6CmnZxGY0fxBupov27z3yEO8nAg8k+6PaUiW1MSUfuGMF/ktB8LOstXsEPXSszuyXiOv4DaryOXUiSn7bmRqKcEFlJusO6aZP0= nicola@p1"}
+	err = dataprovider.UpdateUser(user, "", "", "")
+	assert.NoError(t, err)
+
+	user, err = executeUserCheckAction(c, params)
+	assert.NoError(t, err)
+	assert.Equal(t, username, user.Username)
+	assert.Equal(t, 1, user.Status)
+	assert.NotEmpty(t, user.Password)
+	assert.Len(t, user.PublicKeys, 1)
+	assert.Len(t, user.Filters.TLSCerts, 1)
+	assert.NotEmpty(t, user.Email)
+	assert.NotEmpty(t, user.Description)
 
 	err = dataprovider.DeleteUser(username, "", "", "")
 	assert.NoError(t, err)
