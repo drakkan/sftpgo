@@ -63,7 +63,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     <div class="accordion-body">
                         {{- template "infomsg" "sftp.help"}}
 
-                        <form id="configs_sftp_form" action="{{.CurrentURL}}" method="POST" autocomplete="off">
+                        <form id="configs_sftp_form" enctype="multipart/form-data" action="{{.CurrentURL}}" method="POST" autocomplete="off">
                             <div class="form-group row">
                                 <label for="idHostKeyAlgos" data-i18n="sftp.host_key_algos" class="col-md-3 col-form-label">
                                     Host Key Algos
@@ -158,7 +158,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     <div class="accordion-body">
                         {{- template "infomsg" "acme.help"}}
 
-                        <form id="configs_acme_form" action="{{.CurrentURL}}" method="POST" autocomplete="off">
+                        <form id="configs_acme_form" enctype="multipart/form-data" action="{{.CurrentURL}}" method="POST" autocomplete="off">
 
                             <div class="form-group row">
                                 <label for="idACMEDomain" data-i18n="general.domain" class="col-md-3 col-form-label">Domain</label>
@@ -227,7 +227,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     <div class="accordion-body">
                         {{- template "infomsg" "smtp.help"}}
 
-                        <form id="configs_smtp_form" action="{{.CurrentURL}}" method="POST" autocomplete="off">
+                        <form id="configs_smtp_form" enctype="multipart/form-data" action="{{.CurrentURL}}" method="POST" autocomplete="off">
 
                             <div class="form-group row">
                                 <label for="idSMTPHost" data-i18n="smtp.host" class="col-md-3 col-form-label">Server name</label>
