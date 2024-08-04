@@ -37,6 +37,7 @@ var (
 		Short: "Reset the password for the specified administrator",
 		Long: `This command reads the data provider connection details from the specified
 configuration file and resets the password for the specified administrator.
+Two-factor authentication is also disabled.
 This command is not supported for the memory provider.
 For embedded providers like bolt and SQLite you should stop the running SFTPGo
 instance to avoid database corruption.
@@ -98,6 +99,7 @@ Please take a look at the usage below to customize the options.`,
 				os.Exit(1)
 			}
 			admin.Password = string(pwd)
+			admin.Filters.TOTPConfig.Enabled = false
 			if err := dataprovider.UpdateAdmin(&admin, dataprovider.ActionExecutorSystem, "", ""); err != nil {
 				logger.ErrorToConsole("Unable to update password: %v", err)
 				os.Exit(1)
