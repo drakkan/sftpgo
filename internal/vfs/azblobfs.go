@@ -186,7 +186,11 @@ func (fs *AzureBlobFs) Stat(name string) (os.FileInfo, error) {
 		if val := getAzureLastModified(attrs.Metadata); val > 0 {
 			lastModified = util.GetTimeFromMsecSinceEpoch(val)
 		}
-		return NewFileInfo(name, isDir, util.GetIntFromPointer(attrs.ContentLength), lastModified, false), nil
+		info := NewFileInfo(name, isDir, util.GetIntFromPointer(attrs.ContentLength), lastModified, false)
+		if !isDir {
+			info.setMetadataFromPointerVal(attrs.Metadata)
+		}
+		return info, nil
 	}
 	if !fs.IsNotExist(err) {
 		return nil, err
@@ -651,9 +655,9 @@ func (fs *AzureBlobFs) ResolvePath(virtualPath string) (string, error) {
 }
 
 // CopyFile implements the FsFileCopier interface
-func (fs *AzureBlobFs) CopyFile(source, target string, srcSize int64) (int, int64, error) {
+func (fs *AzureBlobFs) CopyFile(source, target string, srcInfo os.FileInfo) (int, int64, error) {
 	numFiles := 1
-	sizeDiff := srcSize
+	sizeDiff := srcInfo.Size()
 	attrs, err := fs.headObject(target)
 	if err == nil {
 		sizeDiff -= util.GetIntFromPointer(attrs.ContentLength)
@@ -663,7 +667,7 @@ func (fs *AzureBlobFs) CopyFile(source, target string, srcSize int64) (int, int6
 			return 0, 0, err
 		}
 	}
-	if err := fs.copyFileInternal(source, target); err != nil {
+	if err := fs.copyFileInternal(source, target, srcInfo); err != nil {
 		return 0, 0, err
 	}
 	return numFiles, sizeDiff, nil
@@ -746,13 +750,13 @@ func (fs *AzureBlobFs) setConfigDefaults() {
 	}
 }
 
-func (fs *AzureBlobFs) copyFileInternal(source, target string) error {
+func (fs *AzureBlobFs) copyFileInternal(source, target string, srcInfo os.FileInfo) error {
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxLongTimeout))
 	defer cancelFn()
 
 	srcBlob := fs.containerClient.NewBlockBlobClient(source)
 	dstBlob := fs.containerClient.NewBlockBlobClient(target)
-	resp, err := dstBlob.StartCopyFromURL(ctx, srcBlob.URL(), fs.getCopyOptions())
+	resp, err := dstBlob.StartCopyFromURL(ctx, srcBlob.URL(), fs.getCopyOptions(srcInfo))
 	if err != nil {
 		metric.AZCopyObjectCompleted(err)
 		return err
@@ -785,11 +789,11 @@ func (fs *AzureBlobFs) copyFileInternal(source, target string) error {
 	return nil
 }
 
-func (fs *AzureBlobFs) renameInternal(source, target string, fi os.FileInfo, recursion int) (int, int64, error) {
+func (fs *AzureBlobFs) renameInternal(source, target string, srcInfo os.FileInfo, recursion int) (int, int64, error) {
 	var numFiles int
 	var filesSize int64
 
-	if fi.IsDir() {
+	if srcInfo.IsDir() {
 		if renameMode == 0 {
 			hasContents, err := fs.hasContents(source)
 			if err != nil {
@@ -811,13 +815,13 @@ func (fs *AzureBlobFs) renameInternal(source, target string, fi os.FileInfo, rec
 			}
 		}
 	} else {
-		if err := fs.copyFileInternal(source, target); err != nil {
+		if err := fs.copyFileInternal(source, target, srcInfo); err != nil {
 			return numFiles, filesSize, err
 		}
 		numFiles++
-		filesSize += fi.Size()
+		filesSize += srcInfo.Size()
 	}
-	err := fs.skipNotExistErr(fs.Remove(source, fi.IsDir()))
+	err := fs.skipNotExistErr(fs.Remove(source, srcInfo.IsDir()))
 	return numFiles, filesSize, err
 }
 
@@ -1098,10 +1102,19 @@ func (*AzureBlobFs) readFill(r io.Reader, buf []byte) (n int, err error) {
 	return n, err
 }
 
-func (fs *AzureBlobFs) getCopyOptions() *blob.StartCopyFromURLOptions {
+func (fs *AzureBlobFs) getCopyOptions(srcInfo os.FileInfo) *blob.StartCopyFromURLOptions {
 	copyOptions := &blob.StartCopyFromURLOptions{}
 	if fs.config.AccessTier != "" {
 		copyOptions.Tier = (*blob.AccessTier)(&fs.config.AccessTier)
+	}
+	metadata := make(map[string]*string)
+	for k, v := range getMetadata(srcInfo) {
+		if v != "" {
+			metadata[k] = to.Ptr(v)
+		}
+	}
+	if len(metadata) > 0 {
+		copyOptions.Metadata = metadata
 	}
 	return copyOptions
 }
@@ -1254,6 +1267,7 @@ func (l *azureBlobDirLister) Next(limit int) ([]os.FileInfo, error) {
 		name = strings.TrimPrefix(name, l.prefix)
 		size := int64(0)
 		isDir := false
+		var metadata map[string]*string
 		modTime := time.Unix(0, 0)
 		if blobItem.Properties != nil {
 			size = util.GetIntFromPointer(blobItem.Properties.ContentLength)
@@ -1266,12 +1280,16 @@ func (l *azureBlobDirLister) Next(limit int) ([]os.FileInfo, error) {
 					continue
 				}
 				l.prefixes[name] = true
+			} else {
+				metadata = blobItem.Metadata
 			}
 			if val := getAzureLastModified(blobItem.Metadata); val > 0 {
 				modTime = util.GetTimeFromMsecSinceEpoch(val)
 			}
 		}
-		l.cache = append(l.cache, NewFileInfo(name, isDir, size, modTime, false))
+		info := NewFileInfo(name, isDir, size, modTime, false)
+		info.setMetadataFromPointerVal(metadata)
+		l.cache = append(l.cache, info)
 	}
 
 	return l.returnFromCache(limit), nil

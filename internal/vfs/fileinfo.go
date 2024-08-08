@@ -18,6 +18,8 @@ import (
 	"os"
 	"path"
 	"time"
+
+	"github.com/drakkan/sftpgo/v2/internal/util"
 )
 
 // FileInfo implements os.FileInfo for a Cloud Storage file.
@@ -26,6 +28,7 @@ type FileInfo struct {
 	sizeInBytes int64
 	modTime     time.Time
 	mode        os.FileMode
+	metadata    map[string]string
 }
 
 // NewFileInfo creates file info.
@@ -79,5 +82,33 @@ func (fi *FileInfo) SetMode(mode os.FileMode) {
 
 // Sys provides the underlying data source (can return nil)
 func (fi *FileInfo) Sys() any {
+	return fi.metadata
+}
+
+func (fi *FileInfo) setMetadata(value map[string]string) {
+	fi.metadata = value
+}
+
+func (fi *FileInfo) setMetadataFromPointerVal(value map[string]*string) {
+	if len(value) == 0 {
+		fi.metadata = nil
+		return
+	}
+
+	fi.metadata = map[string]string{}
+	for k, v := range value {
+		val := util.GetStringFromPointer(v)
+		if val != "" {
+			fi.metadata[k] = val
+		}
+	}
+}
+
+func getMetadata(fi os.FileInfo) map[string]string {
+	if val, ok := fi.Sys().(map[string]string); ok {
+		if len(val) > 0 {
+			return val
+		}
+	}
 	return nil
 }

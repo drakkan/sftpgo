@@ -636,9 +636,9 @@ func (fs *GCSFs) ResolvePath(virtualPath string) (string, error) {
 }
 
 // CopyFile implements the FsFileCopier interface
-func (fs *GCSFs) CopyFile(source, target string, srcSize int64) (int, int64, error) {
+func (fs *GCSFs) CopyFile(source, target string, srcInfo os.FileInfo) (int, int64, error) {
 	numFiles := 1
-	sizeDiff := srcSize
+	sizeDiff := srcInfo.Size()
 	var conditions *storage.Conditions
 	attrs, err := fs.headObject(target)
 	if err == nil {
@@ -651,7 +651,7 @@ func (fs *GCSFs) CopyFile(source, target string, srcSize int64) (int, int64, err
 		}
 		conditions = &storage.Conditions{DoesNotExist: true}
 	}
-	if err := fs.copyFileInternal(source, target, conditions); err != nil {
+	if err := fs.copyFileInternal(source, target, conditions, srcInfo); err != nil {
 		return 0, 0, err
 	}
 	return numFiles, sizeDiff, nil
@@ -679,7 +679,11 @@ func (fs *GCSFs) getObjectStat(name string) (os.FileInfo, error) {
 			objectModTime = util.GetTimeFromMsecSinceEpoch(val)
 		}
 		isDir := attrs.ContentType == dirMimeType || strings.HasSuffix(attrs.Name, "/")
-		return NewFileInfo(name, isDir, objSize, objectModTime, false), nil
+		info := NewFileInfo(name, isDir, objSize, objectModTime, false)
+		if !isDir {
+			info.setMetadata(attrs.Metadata)
+		}
+		return info, nil
 	}
 	if !fs.IsNotExist(err) {
 		return nil, err
@@ -749,7 +753,7 @@ func (fs *GCSFs) composeObjects(ctx context.Context, dst, partialObject *storage
 	return err
 }
 
-func (fs *GCSFs) copyFileInternal(source, target string, conditions *storage.Conditions) error {
+func (fs *GCSFs) copyFileInternal(source, target string, conditions *storage.Conditions, srcInfo os.FileInfo) error {
 	src := fs.svc.Bucket(fs.config.Bucket).Object(source)
 	dst := fs.svc.Bucket(fs.config.Bucket).Object(target)
 	if conditions != nil {
@@ -780,16 +784,20 @@ func (fs *GCSFs) copyFileInternal(source, target string, conditions *storage.Con
 	if contentType != "" {
 		copier.ContentType = contentType
 	}
+	metadata := getMetadata(srcInfo)
+	if len(metadata) > 0 {
+		copier.Metadata = metadata
+	}
 	_, err := copier.Run(ctx)
 	metric.GCSCopyObjectCompleted(err)
 	return err
 }
 
-func (fs *GCSFs) renameInternal(source, target string, fi os.FileInfo, recursion int) (int, int64, error) {
+func (fs *GCSFs) renameInternal(source, target string, srcInfo os.FileInfo, recursion int) (int, int64, error) {
 	var numFiles int
 	var filesSize int64
 
-	if fi.IsDir() {
+	if srcInfo.IsDir() {
 		if renameMode == 0 {
 			hasContents, err := fs.hasContents(source)
 			if err != nil {
@@ -811,13 +819,13 @@ func (fs *GCSFs) renameInternal(source, target string, fi os.FileInfo, recursion
 			}
 		}
 	} else {
-		if err := fs.copyFileInternal(source, target, nil); err != nil {
+		if err := fs.copyFileInternal(source, target, nil, srcInfo); err != nil {
 			return numFiles, filesSize, err
 		}
 		numFiles++
-		filesSize += fi.Size()
+		filesSize += srcInfo.Size()
 	}
-	err := fs.Remove(source, fi.IsDir())
+	err := fs.Remove(source, srcInfo.IsDir())
 	if fs.IsNotExist(err) {
 		err = nil
 	}
@@ -1002,7 +1010,9 @@ func (l *gcsDirLister) Next(limit int) ([]os.FileInfo, error) {
 			if val := getLastModified(attrs.Metadata); val > 0 {
 				modTime = util.GetTimeFromMsecSinceEpoch(val)
 			}
-			l.cache = append(l.cache, NewFileInfo(name, isDir, attrs.Size, modTime, false))
+			info := NewFileInfo(name, isDir, attrs.Size, modTime, false)
+			info.setMetadata(attrs.Metadata)
+			l.cache = append(l.cache, info)
 		}
 	}
 

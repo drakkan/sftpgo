@@ -620,7 +620,7 @@ func (c *BaseConnection) checkCopy(srcInfo, dstInfo os.FileInfo, virtualSource, 
 	return nil
 }
 
-func (c *BaseConnection) copyFile(virtualSourcePath, virtualTargetPath string, srcSize int64) error {
+func (c *BaseConnection) copyFile(virtualSourcePath, virtualTargetPath string, srcInfo os.FileInfo) error {
 	if !c.User.HasPerm(dataprovider.PermCopy, virtualSourcePath) || !c.User.HasPerm(dataprovider.PermCopy, virtualTargetPath) {
 		return c.GetPermissionDeniedError()
 	}
@@ -638,12 +638,12 @@ func (c *BaseConnection) copyFile(virtualSourcePath, virtualTargetPath string, s
 				return err
 			}
 			startTime := time.Now()
-			numFiles, sizeDiff, err := copier.CopyFile(fsSourcePath, fsTargetPath, srcSize)
+			numFiles, sizeDiff, err := copier.CopyFile(fsSourcePath, fsTargetPath, srcInfo)
 			elapsed := time.Since(startTime).Nanoseconds() / 1000000
 			updateUserQuotaAfterFileWrite(c, virtualTargetPath, numFiles, sizeDiff)
 			logger.CommandLog(copyLogSender, fsSourcePath, fsTargetPath, c.User.Username, "", c.ID, c.protocol, -1, -1,
-				"", "", "", srcSize, c.localAddr, c.remoteAddr, elapsed)
-			ExecuteActionNotification(c, operationCopy, fsSourcePath, virtualSourcePath, fsTargetPath, virtualTargetPath, "", srcSize, err, elapsed, nil) //nolint:errcheck
+				"", "", "", srcInfo.Size(), c.localAddr, c.remoteAddr, elapsed)
+			ExecuteActionNotification(c, operationCopy, fsSourcePath, virtualSourcePath, fsTargetPath, virtualTargetPath, "", srcInfo.Size(), err, elapsed, nil) //nolint:errcheck
 			return err
 		}
 	}
@@ -655,7 +655,7 @@ func (c *BaseConnection) copyFile(virtualSourcePath, virtualTargetPath string, s
 	defer rCancelFn()
 	defer reader.Close()
 
-	writer, numFiles, truncatedSize, wCancelFn, err := getFileWriter(c, virtualTargetPath, srcSize)
+	writer, numFiles, truncatedSize, wCancelFn, err := getFileWriter(c, virtualTargetPath, srcInfo.Size())
 	if err != nil {
 		return fmt.Errorf("unable to get writer for path %q: %w", virtualTargetPath, err)
 	}
@@ -706,7 +706,7 @@ func (c *BaseConnection) doRecursiveCopy(virtualSourcePath, virtualTargetPath st
 		return nil
 	}
 
-	return c.copyFile(virtualSourcePath, virtualTargetPath, srcInfo.Size())
+	return c.copyFile(virtualSourcePath, virtualTargetPath, srcInfo)
 }
 
 func (c *BaseConnection) recursiveCopyEntries(virtualSourcePath, virtualTargetPath string, entries []os.FileInfo, recursion int) error {

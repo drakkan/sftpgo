@@ -167,7 +167,11 @@ func (fs *S3Fs) Stat(name string) (os.FileInfo, error) {
 			_, err = fs.headObject(name + "/")
 			isDir = err == nil
 		}
-		return NewFileInfo(name, isDir, util.GetIntFromPointer(obj.ContentLength), util.GetTimeFromPointer(obj.LastModified), false), nil
+		info := NewFileInfo(name, isDir, util.GetIntFromPointer(obj.ContentLength), util.GetTimeFromPointer(obj.LastModified), false)
+		if !isDir {
+			info.setMetadata(obj.Metadata)
+		}
+		return info, nil
 	}
 	if !fs.IsNotExist(err) {
 		return result, err
@@ -632,9 +636,9 @@ func (fs *S3Fs) ResolvePath(virtualPath string) (string, error) {
 }
 
 // CopyFile implements the FsFileCopier interface
-func (fs *S3Fs) CopyFile(source, target string, srcSize int64) (int, int64, error) {
+func (fs *S3Fs) CopyFile(source, target string, srcInfo os.FileInfo) (int, int64, error) {
 	numFiles := 1
-	sizeDiff := srcSize
+	sizeDiff := srcInfo.Size()
 	attrs, err := fs.headObject(target)
 	if err == nil {
 		sizeDiff -= util.GetIntFromPointer(attrs.ContentLength)
@@ -644,7 +648,7 @@ func (fs *S3Fs) CopyFile(source, target string, srcSize int64) (int, int64, erro
 			return 0, 0, err
 		}
 	}
-	if err := fs.copyFileInternal(source, target, srcSize); err != nil {
+	if err := fs.copyFileInternal(source, target, srcInfo); err != nil {
 		return 0, 0, err
 	}
 	return numFiles, sizeDiff, nil
@@ -682,14 +686,14 @@ func (fs *S3Fs) setConfigDefaults() {
 	}
 }
 
-func (fs *S3Fs) copyFileInternal(source, target string, fileSize int64) error {
+func (fs *S3Fs) copyFileInternal(source, target string, srcInfo os.FileInfo) error {
 	contentType := mime.TypeByExtension(path.Ext(source))
 	copySource := pathEscape(fs.Join(fs.config.Bucket, source))
 
-	if fileSize > s3CopyObjectThreshold {
+	if srcInfo.Size() > s3CopyObjectThreshold {
 		fsLog(fs, logger.LevelDebug, "renaming file %q with size %d using multipart copy",
-			source, fileSize)
-		err := fs.doMultipartCopy(copySource, target, contentType, fileSize)
+			source, srcInfo.Size())
+		err := fs.doMultipartCopy(copySource, target, contentType, srcInfo.Size())
 		metric.S3CopyObjectCompleted(err)
 		return err
 	}
@@ -703,17 +707,18 @@ func (fs *S3Fs) copyFileInternal(source, target string, fileSize int64) error {
 		StorageClass: types.StorageClass(fs.config.StorageClass),
 		ACL:          types.ObjectCannedACL(fs.config.ACL),
 		ContentType:  util.NilIfEmpty(contentType),
+		Metadata:     getMetadata(srcInfo),
 	})
 
 	metric.S3CopyObjectCompleted(err)
 	return err
 }
 
-func (fs *S3Fs) renameInternal(source, target string, fi os.FileInfo, recursion int) (int, int64, error) {
+func (fs *S3Fs) renameInternal(source, target string, srcInfo os.FileInfo, recursion int) (int, int64, error) {
 	var numFiles int
 	var filesSize int64
 
-	if fi.IsDir() {
+	if srcInfo.IsDir() {
 		if renameMode == 0 {
 			hasContents, err := fs.hasContents(source)
 			if err != nil {
@@ -735,13 +740,13 @@ func (fs *S3Fs) renameInternal(source, target string, fi os.FileInfo, recursion 
 			}
 		}
 	} else {
-		if err := fs.copyFileInternal(source, target, fi.Size()); err != nil {
+		if err := fs.copyFileInternal(source, target, srcInfo); err != nil {
 			return numFiles, filesSize, err
 		}
 		numFiles++
-		filesSize += fi.Size()
+		filesSize += srcInfo.Size()
 	}
-	err := fs.Remove(source, fi.IsDir())
+	err := fs.Remove(source, srcInfo.IsDir())
 	if fs.IsNotExist(err) {
 		err = nil
 	}
