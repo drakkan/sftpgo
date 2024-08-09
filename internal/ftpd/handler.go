@@ -465,7 +465,7 @@ func (c *Connection) handleFTPUploadToExistingFile(fs vfs.Fs, flags int, resolve
 	}
 
 	if common.Config.IsAtomicUploadEnabled() && fs.IsAtomicUploadSupported() {
-		_, _, err = fs.Rename(resolvedPath, filePath)
+		_, _, err = fs.Rename(resolvedPath, filePath, 0)
 		if err != nil {
 			c.Log(logger.LevelError, "error renaming existing file for atomic upload, source: %q, dest: %q, err: %+v",
 				resolvedPath, filePath, err)

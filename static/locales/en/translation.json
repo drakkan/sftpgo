@@ -1007,6 +1007,7 @@
         "archive_path": "Archive path",
         "archive_path_help": "Full path, as seen by SFTPGo users, to the zip archive to create. Placeholders are supported. If the specified file already exists, it is overwritten",
         "placeholders_modal_title": "Supported placeholders",
+        "update_mod_times": "Update timestamp",
         "types": {
             "http": "HTTP",
             "email": "Email",

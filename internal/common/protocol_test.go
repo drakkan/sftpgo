@@ -4301,10 +4301,12 @@ func TestEventRuleFsActions(t *testing.T) {
 		Options: dataprovider.BaseEventActionOptions{
 			FsConfig: dataprovider.EventActionFilesystemConfig{
 				Type: dataprovider.FilesystemActionRename,
-				Renames: []dataprovider.KeyValue{
+				Renames: []dataprovider.RenameConfig{
 					{
-						Key:   "/{{VirtualDirPath}}/{{ObjectName}}",
-						Value: "/{{ObjectName}}_renamed",
+						KeyValue: dataprovider.KeyValue{
+							Key:   "/{{VirtualDirPath}}/{{ObjectName}}",
+							Value: "/{{ObjectName}}_renamed",
+						},
 					},
 				},
 			},
@@ -4711,10 +4713,13 @@ func TestEventRulePreDelete(t *testing.T) {
 		Options: dataprovider.BaseEventActionOptions{
 			FsConfig: dataprovider.EventActionFilesystemConfig{
 				Type: dataprovider.FilesystemActionRename,
-				Renames: []dataprovider.KeyValue{
+				Renames: []dataprovider.RenameConfig{
 					{
-						Key:   "/{{VirtualPath}}",
-						Value: fmt.Sprintf("/%s/{{VirtualPath}}", movePath),
+						KeyValue: dataprovider.KeyValue{
+							Key:   "/{{VirtualPath}}",
+							Value: fmt.Sprintf("/%s/{{VirtualPath}}", movePath),
+						},
+						UpdateModTime: true,
 					},
 				},
 			},
@@ -4768,59 +4773,83 @@ func TestEventRulePreDelete(t *testing.T) {
 			QuotaFiles:  1000,
 		},
 	}
-	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	localUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
-	conn, client, err := getSftpClient(user)
-	if assert.NoError(t, err) {
-		defer conn.Close()
-		defer client.Close()
+	u = getTestSFTPUser()
+	u.QuotaFiles = 1000
+	sftpUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
 
-		testDir := "sub dir"
-		err = client.MkdirAll(testDir)
-		assert.NoError(t, err)
-		err = writeSFTPFile(testFileName, 100, client)
-		assert.NoError(t, err)
-		err = writeSFTPFile(path.Join(testDir, testFileName), 100, client)
-		assert.NoError(t, err)
-		err = client.Remove(testFileName)
-		assert.NoError(t, err)
-		err = client.Remove(path.Join(testDir, testFileName))
-		assert.NoError(t, err)
-		// check files
-		_, err = client.Stat(testFileName)
-		assert.ErrorIs(t, err, os.ErrNotExist)
-		_, err = client.Stat(path.Join(testDir, testFileName))
-		assert.ErrorIs(t, err, os.ErrNotExist)
-		_, err = client.Stat(path.Join("/", movePath, testFileName))
-		assert.NoError(t, err)
-		_, err = client.Stat(path.Join("/", movePath, testDir, testFileName))
-		assert.NoError(t, err)
-		// check quota
-		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
-		assert.NoError(t, err)
-		assert.Equal(t, 0, user.UsedQuotaFiles)
-		assert.Equal(t, int64(0), user.UsedQuotaSize)
-		folder, _, err := httpdtest.GetFolderByName(movePath, http.StatusOK)
-		assert.NoError(t, err)
-		assert.Equal(t, 2, folder.UsedQuotaFiles)
-		assert.Equal(t, int64(200), folder.UsedQuotaSize)
-		// pre-delete action is not executed in movePath
-		err = client.Remove(path.Join("/", movePath, testFileName))
-		assert.NoError(t, err)
-		// check quota
-		folder, _, err = httpdtest.GetFolderByName(movePath, http.StatusOK)
-		assert.NoError(t, err)
-		assert.Equal(t, 1, folder.UsedQuotaFiles)
-		assert.Equal(t, int64(100), folder.UsedQuotaSize)
+	for _, user := range []dataprovider.User{localUser, sftpUser} {
+		conn, client, err := getSftpClient(user)
+		if assert.NoError(t, err) {
+			defer conn.Close()
+			defer client.Close()
+
+			testDir := "sub dir"
+			err = client.MkdirAll(testDir)
+			assert.NoError(t, err)
+			err = writeSFTPFile(testFileName, 100, client)
+			assert.NoError(t, err)
+			err = writeSFTPFile(path.Join(testDir, testFileName), 100, client)
+			assert.NoError(t, err)
+			modTime := time.Now().Add(-36 * time.Hour)
+			err = client.Chtimes(testFileName, modTime, modTime)
+			assert.NoError(t, err)
+			err = client.Remove(testFileName)
+			assert.NoError(t, err)
+			err = client.Remove(path.Join(testDir, testFileName))
+			assert.NoError(t, err)
+			// check files
+			_, err = client.Stat(testFileName)
+			assert.ErrorIs(t, err, os.ErrNotExist)
+			_, err = client.Stat(path.Join(testDir, testFileName))
+			assert.ErrorIs(t, err, os.ErrNotExist)
+			info, err := client.Stat(path.Join("/", movePath, testFileName))
+			assert.NoError(t, err)
+			diff := math.Abs(time.Until(info.ModTime()).Seconds())
+			assert.LessOrEqual(t, diff, float64(2))
+
+			_, err = client.Stat(path.Join("/", movePath, testDir, testFileName))
+			assert.NoError(t, err)
+			// check quota
+			user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+			assert.NoError(t, err)
+			if user.Username == localUser.Username {
+				assert.Equal(t, 0, user.UsedQuotaFiles)
+				assert.Equal(t, int64(0), user.UsedQuotaSize)
+				folder, _, err := httpdtest.GetFolderByName(movePath, http.StatusOK)
+				assert.NoError(t, err)
+				assert.Equal(t, 2, folder.UsedQuotaFiles)
+				assert.Equal(t, int64(200), folder.UsedQuotaSize)
+			} else {
+				assert.Equal(t, 1, user.UsedQuotaFiles)
+				assert.Equal(t, int64(100), user.UsedQuotaSize)
+			}
+			// pre-delete action is not executed in movePath
+			err = client.Remove(path.Join("/", movePath, testFileName))
+			assert.NoError(t, err)
+			if user.Username == localUser.Username {
+				// check quota
+				folder, _, err := httpdtest.GetFolderByName(movePath, http.StatusOK)
+				assert.NoError(t, err)
+				assert.Equal(t, 1, folder.UsedQuotaFiles)
+				assert.Equal(t, int64(100), folder.UsedQuotaSize)
+				err = os.RemoveAll(user.GetHomeDir())
+				assert.NoError(t, err)
+			}
+		}
 	}
 
 	_, err = httpdtest.RemoveEventRule(rule1, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveEventAction(action1, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
 	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
+	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: movePath}, http.StatusOK)
 	assert.NoError(t, err)
@@ -4848,10 +4877,12 @@ func TestEventRulePreDownloadUpload(t *testing.T) {
 		Options: dataprovider.BaseEventActionOptions{
 			FsConfig: dataprovider.EventActionFilesystemConfig{
 				Type: dataprovider.FilesystemActionRename,
-				Renames: []dataprovider.KeyValue{
+				Renames: []dataprovider.RenameConfig{
 					{
-						Key:   "/missing source",
-						Value: "/missing target",
+						KeyValue: dataprovider.KeyValue{
+							Key:   "/missing source",
+							Value: "/missing target",
+						},
 					},
 				},
 			},

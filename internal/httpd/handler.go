@@ -176,7 +176,7 @@ func (c *Connection) getFileWriter(name string) (io.WriteCloser, error) {
 	}
 
 	if common.Config.IsAtomicUploadEnabled() && fs.IsAtomicUploadSupported() {
-		_, _, err = fs.Rename(p, filePath)
+		_, _, err = fs.Rename(p, filePath, 0)
 		if err != nil {
 			c.Log(logger.LevelError, "error renaming existing file for atomic upload, source: %q, dest: %q, err: %+v",
 				p, filePath, err)

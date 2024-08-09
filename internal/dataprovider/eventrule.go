@@ -660,12 +660,21 @@ func (c *EventActionFsCompress) validate() error {
 	return nil
 }
 
+// RenameConfig defines the configuration for a filesystem rename
+type RenameConfig struct {
+	// key is the source and target the value
+	KeyValue
+	// This setting only applies to storage providers that support
+	// changing modification times.
+	UpdateModTime bool `json:"update_modtime,omitempty"`
+}
+
 // EventActionFilesystemConfig defines the configuration for filesystem actions
 type EventActionFilesystemConfig struct {
 	// Filesystem actions, see the above enum
 	Type int `json:"type,omitempty"`
-	// files/dirs to rename, key is the source and target the value
-	Renames []KeyValue `json:"renames,omitempty"`
+	// files/dirs to rename
+	Renames []RenameConfig `json:"renames,omitempty"`
 	// directories to create
 	MkDirs []string `json:"mkdirs,omitempty"`
 	// files/dirs to delete
@@ -706,9 +715,9 @@ func (c *EventActionFilesystemConfig) validateRenames() error {
 	if len(c.Renames) == 0 {
 		return util.NewI18nError(util.NewValidationError("no path to rename specified"), util.I18nErrorPathRequired)
 	}
-	for idx, kv := range c.Renames {
-		key := strings.TrimSpace(kv.Key)
-		value := strings.TrimSpace(kv.Value)
+	for idx, cfg := range c.Renames {
+		key := strings.TrimSpace(cfg.Key)
+		value := strings.TrimSpace(cfg.Value)
 		if key == "" || value == "" {
 			return util.NewValidationError("invalid paths to rename")
 		}
@@ -726,9 +735,12 @@ func (c *EventActionFilesystemConfig) validateRenames() error {
 				util.I18nErrorRootNotAllowed,
 			)
 		}
-		c.Renames[idx] = KeyValue{
-			Key:   key,
-			Value: value,
+		c.Renames[idx] = RenameConfig{
+			KeyValue: KeyValue{
+				Key:   key,
+				Value: value,
+			},
+			UpdateModTime: cfg.UpdateModTime,
 		}
 	}
 	return nil
@@ -892,7 +904,7 @@ func (c *EventActionFilesystemConfig) getACopy() EventActionFilesystemConfig {
 
 	return EventActionFilesystemConfig{
 		Type:    c.Type,
-		Renames: cloneKeyValues(c.Renames),
+		Renames: cloneRenameConfigs(c.Renames),
 		MkDirs:  mkdirs,
 		Deletes: deletes,
 		Exist:   exist,
@@ -1831,6 +1843,20 @@ func (r *EventRule) RenderAsJSON(reload bool) ([]byte, error) {
 	}
 	r.PrepareForRendering()
 	return json.Marshal(r)
+}
+
+func cloneRenameConfigs(renames []RenameConfig) []RenameConfig {
+	res := make([]RenameConfig, 0, len(renames))
+	for _, c := range renames {
+		res = append(res, RenameConfig{
+			KeyValue: KeyValue{
+				Key:   c.Key,
+				Value: c.Value,
+			},
+			UpdateModTime: c.UpdateModTime,
+		})
+	}
+	return res
 }
 
 func cloneKeyValues(keyVals []KeyValue) []KeyValue {

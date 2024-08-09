@@ -384,7 +384,7 @@ func (fs *HTTPFs) Create(name string, flag, checks int) (File, PipeWriter, func(
 }
 
 // Rename renames (moves) source to target.
-func (fs *HTTPFs) Rename(source, target string) (int, int64, error) {
+func (fs *HTTPFs) Rename(source, target string, checks int) (int, int64, error) {
 	if source == target {
 		return -1, -1, nil
 	}
@@ -397,6 +397,9 @@ func (fs *HTTPFs) Rename(source, target string) (int, int64, error) {
 		return -1, -1, err
 	}
 	defer resp.Body.Close()
+	if checks&CheckUpdateModTime != 0 {
+		fs.Chtimes(target, time.Now(), time.Now(), false) //nolint:errcheck
+	}
 	return -1, -1, nil
 }
 

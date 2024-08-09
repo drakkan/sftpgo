@@ -306,19 +306,21 @@ func (fs *AzureBlobFs) Create(name string, flag, checks int) (File, PipeWriter, 
 }
 
 // Rename renames (moves) source to target.
-func (fs *AzureBlobFs) Rename(source, target string) (int, int64, error) {
+func (fs *AzureBlobFs) Rename(source, target string, checks int) (int, int64, error) {
 	if source == target {
 		return -1, -1, nil
 	}
-	_, err := fs.Stat(path.Dir(target))
-	if err != nil {
-		return -1, -1, err
+	if checks&CheckParentDir != 0 {
+		_, err := fs.Stat(path.Dir(target))
+		if err != nil {
+			return -1, -1, err
+		}
 	}
 	fi, err := fs.Stat(source)
 	if err != nil {
 		return -1, -1, err
 	}
-	return fs.renameInternal(source, target, fi, 0)
+	return fs.renameInternal(source, target, fi, 0, checks&CheckUpdateModTime != 0)
 }
 
 // Remove removes the named file or (empty) directory.
@@ -398,7 +400,17 @@ func (fs *AzureBlobFs) Chtimes(name string, _, mtime time.Time, isUploading bool
 	if metadata == nil {
 		metadata = make(map[string]*string)
 	}
-	metadata[lastModifiedField] = to.Ptr(strconv.FormatInt(mtime.UnixMilli(), 10))
+	found := false
+	for k := range metadata {
+		if strings.ToLower(k) == lastModifiedField {
+			metadata[k] = to.Ptr(strconv.FormatInt(mtime.UnixMilli(), 10))
+			found = true
+			break
+		}
+	}
+	if !found {
+		metadata[lastModifiedField] = to.Ptr(strconv.FormatInt(mtime.UnixMilli(), 10))
+	}
 
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()
@@ -667,7 +679,7 @@ func (fs *AzureBlobFs) CopyFile(source, target string, srcInfo os.FileInfo) (int
 			return 0, 0, err
 		}
 	}
-	if err := fs.copyFileInternal(source, target, srcInfo); err != nil {
+	if err := fs.copyFileInternal(source, target, srcInfo, true); err != nil {
 		return 0, 0, err
 	}
 	return numFiles, sizeDiff, nil
@@ -750,13 +762,13 @@ func (fs *AzureBlobFs) setConfigDefaults() {
 	}
 }
 
-func (fs *AzureBlobFs) copyFileInternal(source, target string, srcInfo os.FileInfo) error {
+func (fs *AzureBlobFs) copyFileInternal(source, target string, srcInfo os.FileInfo, updateModTime bool) error {
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxLongTimeout))
 	defer cancelFn()
 
 	srcBlob := fs.containerClient.NewBlockBlobClient(source)
 	dstBlob := fs.containerClient.NewBlockBlobClient(target)
-	resp, err := dstBlob.StartCopyFromURL(ctx, srcBlob.URL(), fs.getCopyOptions(srcInfo))
+	resp, err := dstBlob.StartCopyFromURL(ctx, srcBlob.URL(), fs.getCopyOptions(srcInfo, updateModTime))
 	if err != nil {
 		metric.AZCopyObjectCompleted(err)
 		return err
@@ -789,7 +801,9 @@ func (fs *AzureBlobFs) copyFileInternal(source, target string, srcInfo os.FileIn
 	return nil
 }
 
-func (fs *AzureBlobFs) renameInternal(source, target string, srcInfo os.FileInfo, recursion int) (int, int64, error) {
+func (fs *AzureBlobFs) renameInternal(source, target string, srcInfo os.FileInfo, recursion int,
+	updateModTime bool,
+) (int, int64, error) {
 	var numFiles int
 	var filesSize int64
 
@@ -807,7 +821,7 @@ func (fs *AzureBlobFs) renameInternal(source, target string, srcInfo os.FileInfo
 			return numFiles, filesSize, err
 		}
 		if renameMode == 1 {
-			files, size, err := doRecursiveRename(fs, source, target, fs.renameInternal, recursion)
+			files, size, err := doRecursiveRename(fs, source, target, fs.renameInternal, recursion, updateModTime)
 			numFiles += files
 			filesSize += size
 			if err != nil {
@@ -815,7 +829,7 @@ func (fs *AzureBlobFs) renameInternal(source, target string, srcInfo os.FileInfo
 			}
 		}
 	} else {
-		if err := fs.copyFileInternal(source, target, srcInfo); err != nil {
+		if err := fs.copyFileInternal(source, target, srcInfo, updateModTime); err != nil {
 			return numFiles, filesSize, err
 		}
 		numFiles++
@@ -1102,20 +1116,27 @@ func (*AzureBlobFs) readFill(r io.Reader, buf []byte) (n int, err error) {
 	return n, err
 }
 
-func (fs *AzureBlobFs) getCopyOptions(srcInfo os.FileInfo) *blob.StartCopyFromURLOptions {
+func (fs *AzureBlobFs) getCopyOptions(srcInfo os.FileInfo, updateModTime bool) *blob.StartCopyFromURLOptions {
 	copyOptions := &blob.StartCopyFromURLOptions{}
 	if fs.config.AccessTier != "" {
 		copyOptions.Tier = (*blob.AccessTier)(&fs.config.AccessTier)
 	}
-	metadata := make(map[string]*string)
-	for k, v := range getMetadata(srcInfo) {
-		if v != "" {
-			metadata[k] = to.Ptr(v)
+	if updateModTime {
+		metadata := make(map[string]*string)
+		for k, v := range getMetadata(srcInfo) {
+			if v != "" {
+				if strings.ToLower(k) == lastModifiedField {
+					metadata[k] = to.Ptr("0")
+				} else {
+					metadata[k] = to.Ptr(v)
+				}
+			}
+		}
+		if len(metadata) > 0 {
+			copyOptions.Metadata = metadata
 		}
 	}
-	if len(metadata) > 0 {
-		copyOptions.Metadata = metadata
-	}
+
 	return copyOptions
 }
 

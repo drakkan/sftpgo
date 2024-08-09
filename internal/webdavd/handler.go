@@ -254,7 +254,7 @@ func (c *Connection) handleUploadToExistingFile(fs vfs.Fs, resolvedPath, filePat
 	maxWriteSize, _ := c.GetMaxWriteSize(diskQuota, false, fileSize, fs.IsUploadResumeSupported())
 
 	if common.Config.IsAtomicUploadEnabled() && fs.IsAtomicUploadSupported() {
-		_, _, err = fs.Rename(resolvedPath, filePath)
+		_, _, err = fs.Rename(resolvedPath, filePath, 0)
 		if err != nil {
 			c.Log(logger.LevelError, "error renaming existing file for atomic upload, source: %q, dest: %q, err: %+v",
 				resolvedPath, filePath, err)

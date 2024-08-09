@@ -1007,6 +1007,7 @@
         "archive_path": "Percorso dell'archivio",
         "archive_path_help": "Percorso completo, come visto dagli utenti SFTPGo, dell'archivio zip da creare. I segnaposto sono supportati. Se il file specificato esiste già, verrà sovrascritto",
         "placeholders_modal_title": "Segnaposto supportati",
+        "update_mod_times": "Aggiorna timestamp",
         "types": {
             "http": "HTTP",
             "email": "Email",

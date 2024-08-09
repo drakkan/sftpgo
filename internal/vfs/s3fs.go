@@ -334,19 +334,21 @@ func (fs *S3Fs) Create(name string, flag, checks int) (File, PipeWriter, func(),
 }
 
 // Rename renames (moves) source to target.
-func (fs *S3Fs) Rename(source, target string) (int, int64, error) {
+func (fs *S3Fs) Rename(source, target string, checks int) (int, int64, error) {
 	if source == target {
 		return -1, -1, nil
 	}
-	_, err := fs.Stat(path.Dir(target))
-	if err != nil {
-		return -1, -1, err
+	if checks&CheckParentDir != 0 {
+		_, err := fs.Stat(path.Dir(target))
+		if err != nil {
+			return -1, -1, err
+		}
 	}
 	fi, err := fs.Stat(source)
 	if err != nil {
 		return -1, -1, err
 	}
-	return fs.renameInternal(source, target, fi, 0)
+	return fs.renameInternal(source, target, fi, 0, checks&CheckUpdateModTime != 0)
 }
 
 // Remove removes the named file or (empty) directory.
@@ -700,21 +702,29 @@ func (fs *S3Fs) copyFileInternal(source, target string, srcInfo os.FileInfo) err
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()
 
-	_, err := fs.svc.CopyObject(ctx, &s3.CopyObjectInput{
+	copyObject := &s3.CopyObjectInput{
 		Bucket:       aws.String(fs.config.Bucket),
 		CopySource:   aws.String(copySource),
 		Key:          aws.String(target),
 		StorageClass: types.StorageClass(fs.config.StorageClass),
 		ACL:          types.ObjectCannedACL(fs.config.ACL),
 		ContentType:  util.NilIfEmpty(contentType),
-		Metadata:     getMetadata(srcInfo),
-	})
+	}
+
+	metadata := getMetadata(srcInfo)
+	if len(metadata) > 0 {
+		copyObject.Metadata = metadata
+	}
+
+	_, err := fs.svc.CopyObject(ctx, copyObject)
 
 	metric.S3CopyObjectCompleted(err)
 	return err
 }
 
-func (fs *S3Fs) renameInternal(source, target string, srcInfo os.FileInfo, recursion int) (int, int64, error) {
+func (fs *S3Fs) renameInternal(source, target string, srcInfo os.FileInfo, recursion int,
+	updateModTime bool,
+) (int, int64, error) {
 	var numFiles int
 	var filesSize int64
 
@@ -732,7 +742,7 @@ func (fs *S3Fs) renameInternal(source, target string, srcInfo os.FileInfo, recur
 			return numFiles, filesSize, err
 		}
 		if renameMode == 1 {
-			files, size, err := doRecursiveRename(fs, source, target, fs.renameInternal, recursion)
+			files, size, err := doRecursiveRename(fs, source, target, fs.renameInternal, recursion, updateModTime)
 			numFiles += files
 			filesSize += size
 			if err != nil {

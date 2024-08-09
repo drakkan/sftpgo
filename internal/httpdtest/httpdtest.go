@@ -2601,9 +2601,28 @@ func compareUserFilePatternsFilters(expected sdk.BaseUserFilters, actual sdk.Bas
 	return nil
 }
 
+func compareRenameConfigs(expected, actual []dataprovider.RenameConfig) error {
+	if len(expected) != len(actual) {
+		return errors.New("rename configs mismatch")
+	}
+	for _, ex := range expected {
+		found := false
+		for _, ac := range actual {
+			if ac.Key == ex.Key && ac.Value == ex.Value && ac.UpdateModTime == ex.UpdateModTime {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return errors.New("rename configs mismatch")
+		}
+	}
+	return nil
+}
+
 func compareKeyValues(expected, actual []dataprovider.KeyValue) error {
 	if len(expected) != len(actual) {
-		return errors.New("kay values mismatch")
+		return errors.New("key values mismatch")
 	}
 	for _, ex := range expected {
 		found := false
@@ -2614,7 +2633,7 @@ func compareKeyValues(expected, actual []dataprovider.KeyValue) error {
 			}
 		}
 		if !found {
-			return errors.New("kay values mismatch")
+			return errors.New("key values mismatch")
 		}
 	}
 	return nil
@@ -2731,7 +2750,7 @@ func compareEventActionFsConfigFields(expected, actual dataprovider.EventActionF
 	if expected.Type != actual.Type {
 		return errors.New("fs type mismatch")
 	}
-	if err := compareKeyValues(expected.Renames, actual.Renames); err != nil {
+	if err := compareRenameConfigs(expected.Renames, actual.Renames); err != nil {
 		return errors.New("fs renames mismatch")
 	}
 	if err := compareKeyValues(expected.Copy, actual.Copy); err != nil {

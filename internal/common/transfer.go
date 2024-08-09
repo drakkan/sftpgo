@@ -394,7 +394,7 @@ func (t *BaseTransfer) Close() error {
 			t.effectiveFsPath, err)
 	} else if t.isAtomicUpload() {
 		if t.ErrTransfer == nil || Config.UploadMode&UploadModeAtomicWithResume != 0 {
-			_, _, err = t.Fs.Rename(t.effectiveFsPath, t.fsPath)
+			_, _, err = t.Fs.Rename(t.effectiveFsPath, t.fsPath, 0)
 			t.Connection.Log(logger.LevelDebug, "atomic upload completed, rename: %q -> %q, error: %v",
 				t.effectiveFsPath, t.fsPath, err)
 			// the file must be removed if it is uploaded to a path outside the home dir and cannot be renamed

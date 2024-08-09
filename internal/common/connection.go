@@ -787,10 +787,12 @@ func (c *BaseConnection) Copy(virtualSourcePath, virtualTargetPath string) error
 
 // Rename renames (moves) virtualSourcePath to virtualTargetPath
 func (c *BaseConnection) Rename(virtualSourcePath, virtualTargetPath string) error {
-	return c.renameInternal(virtualSourcePath, virtualTargetPath, false)
+	return c.renameInternal(virtualSourcePath, virtualTargetPath, false, vfs.CheckParentDir)
 }
 
-func (c *BaseConnection) renameInternal(virtualSourcePath, virtualTargetPath string, checkParentDestination bool) error {
+func (c *BaseConnection) renameInternal(virtualSourcePath, virtualTargetPath string,
+	checkParentDestination bool, checks int,
+) error {
 	if virtualSourcePath == virtualTargetPath {
 		return fmt.Errorf("the rename source and target cannot be the same: %w", c.GetOpUnsupportedError())
 	}
@@ -844,7 +846,7 @@ func (c *BaseConnection) renameInternal(virtualSourcePath, virtualTargetPath str
 	defer close(done)
 	go keepConnectionAlive(c, done, 2*time.Minute)
 
-	files, size, err := fsDst.Rename(fsSourcePath, fsTargetPath)
+	files, size, err := fsDst.Rename(fsSourcePath, fsTargetPath, checks)
 	if err != nil {
 		c.Log(logger.LevelError, "failed to rename %q -> %q: %+v", fsSourcePath, fsTargetPath, err)
 		return c.GetFsError(fsSrc, err)

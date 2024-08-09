@@ -312,7 +312,7 @@ func (fs *MockOsFs) Remove(name string, _ bool) error {
 }
 
 // Rename renames (moves) source to target
-func (fs *MockOsFs) Rename(source, target string) (int, int64, error) {
+func (fs *MockOsFs) Rename(source, target string, _ int) (int, int64, error) {
 	err := os.Rename(source, target)
 	return -1, -1, err
 }

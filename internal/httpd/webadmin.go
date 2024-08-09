@@ -2201,6 +2201,28 @@ func getKeyValsFromPostFields(r *http.Request, key, val string) []dataprovider.K
 	return res
 }
 
+func getRenameConfigsFromPostFields(r *http.Request) []dataprovider.RenameConfig {
+	var res []dataprovider.RenameConfig
+	keys := r.Form["fs_rename_source"]
+	values := r.Form["fs_rename_target"]
+
+	for idx, k := range keys {
+		v := values[idx]
+		if k != "" && v != "" {
+			opts := r.Form["fs_rename_options"+strconv.Itoa(idx)]
+			res = append(res, dataprovider.RenameConfig{
+				KeyValue: dataprovider.KeyValue{
+					Key:   k,
+					Value: v,
+				},
+				UpdateModTime: slices.Contains(opts, "1"),
+			})
+		}
+	}
+
+	return res
+}
+
 func getFoldersRetentionFromPostFields(r *http.Request) ([]dataprovider.FolderRetention, error) {
 	var res []dataprovider.FolderRetention
 	paths := r.Form["folder_retention_path"]
@@ -2310,6 +2332,8 @@ func updateRepeaterFormActionFields(r *http.Request) {
 			base, _ := strings.CutSuffix(k, "[fs_rename_source]")
 			r.Form.Add("fs_rename_source", strings.TrimSpace(r.Form.Get(k)))
 			r.Form.Add("fs_rename_target", strings.TrimSpace(r.Form.Get(base+"[fs_rename_target]")))
+			r.Form["fs_rename_options"+strconv.Itoa(len(r.Form["fs_rename_source"])-1)] =
+				r.Form[base+"[fs_rename_options][]"]
 			continue
 		}
 		if hasPrefixAndSuffix(k, "fs_copy[", "][fs_copy_source]") {
@@ -2398,7 +2422,7 @@ func getEventActionOptionsFromPostFields(r *http.Request) (dataprovider.BaseEven
 		},
 		FsConfig: dataprovider.EventActionFilesystemConfig{
 			Type:    fsActionType,
-			Renames: getKeyValsFromPostFields(r, "fs_rename_source", "fs_rename_target"),
+			Renames: getRenameConfigsFromPostFields(r),
 			Deletes: getSliceFromDelimitedValues(r.Form.Get("fs_delete_paths"), ","),
 			MkDirs:  getSliceFromDelimitedValues(r.Form.Get("fs_mkdir_paths"), ","),
 			Exist:   getSliceFromDelimitedValues(r.Form.Get("fs_exist_paths"), ","),

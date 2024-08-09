@@ -653,11 +653,17 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 <div data-repeater-item>
                                     <div data-repeater-item>
                                         <div class="form-group row">
-                                            <div class="col-md-5 mt-3 mt-md-8">
+                                            <div class="col-md-4 mt-3 mt-md-8">
                                                 <input data-i18n="[placeholder]actions.source_path" type="text" class="form-control" name="fs_rename_source" value="{{$val.Key}}" spellcheck="false" />
                                             </div>
-                                            <div class="col-md-6 mt-3 mt-md-8">
+                                            <div class="col-md-4 mt-3 mt-md-8">
                                                 <input data-i18n="[placeholder]actions.target_path" type="text" class="form-control" name="fs_rename_target" value="{{$val.Value}}" spellcheck="false" />
+                                            </div>
+                                            <div class="col-md-3 mt-3 mt-md-8">
+                                                <select name="fs_rename_options" data-i18n="[data-placeholder]general.options" class="form-select select-repetear" data-allow-clear="true" data-close-on-select="false" data-hide-search="true" multiple>
+                                                    <option value=""></option>
+                                                    <option value="1" data-i18n="actions.update_mod_times" {{if $val.UpdateModTime}}selected{{end}}>Change times</option>
+                                                </select>
                                             </div>
                                             <div class="col-md-1 mt-3 mt-md-8">
                                                 <a href="#" data-repeater-delete
@@ -677,11 +683,17 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 {{- else}}
                                 <div data-repeater-item>
                                     <div class="form-group row">
-                                        <div class="col-md-5 mt-3 mt-md-8">
+                                        <div class="col-md-4 mt-3 mt-md-8">
                                             <input data-i18n="[placeholder]actions.source_path" type="text" class="form-control" name="fs_rename_source" value="" spellcheck="false" />
                                         </div>
-                                        <div class="col-md-6 mt-3 mt-md-8">
+                                        <div class="col-md-4 mt-3 mt-md-8">
                                             <input data-i18n="[placeholder]actions.target_path" type="text" class="form-control" name="fs_rename_target" value="" spellcheck="false" />
+                                        </div>
+                                        <div class="col-md-3 mt-3 mt-md-8">
+                                            <select name="fs_rename_options" data-i18n="[data-placeholder]general.options" class="form-select select-repetear" data-allow-clear="true" data-close-on-select="false" data-hide-search="true" multiple>
+                                                <option value=""></option>
+                                                <option value="1" data-i18n="actions.update_mod_times">Update timestamps</option>
+                                            </select>
                                         </div>
                                         <div class="col-md-1 mt-3 mt-md-8">
                                             <a href="#" data-repeater-delete

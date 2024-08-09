@@ -176,7 +176,7 @@ func (fs *OsFs) Create(name string, flag, _ int) (File, PipeWriter, func(), erro
 }
 
 // Rename renames (moves) source to target
-func (fs *OsFs) Rename(source, target string) (int, int64, error) {
+func (fs *OsFs) Rename(source, target string, checks int) (int, int64, error) {
 	if source == target {
 		return -1, -1, nil
 	}
@@ -199,8 +199,14 @@ func (fs *OsFs) Rename(source, target string) (int, int64, error) {
 			fsLog(fs, logger.LevelError, "cross device copy error: %v", err)
 			return -1, -1, err
 		}
+		if checks&CheckUpdateModTime != 0 {
+			fs.Chtimes(target, time.Now(), time.Now(), false) //nolint:errcheck
+		}
 		err = os.RemoveAll(source)
 		return -1, -1, err
+	}
+	if checks&CheckUpdateModTime != 0 && err == nil {
+		fs.Chtimes(target, time.Now(), time.Now(), false) //nolint:errcheck
 	}
 	return -1, -1, err
 }

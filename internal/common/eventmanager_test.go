@@ -1235,10 +1235,12 @@ func TestEventRuleActions(t *testing.T) {
 	action.Options = dataprovider.BaseEventActionOptions{
 		FsConfig: dataprovider.EventActionFilesystemConfig{
 			Type: dataprovider.FilesystemActionRename,
-			Renames: []dataprovider.KeyValue{
+			Renames: []dataprovider.RenameConfig{
 				{
-					Key:   "/source",
-					Value: "/target",
+					KeyValue: dataprovider.KeyValue{
+						Key:   "/source",
+						Value: "/target",
+					},
 				},
 			},
 		},
@@ -1778,10 +1780,12 @@ func TestFilesystemActionErrors(t *testing.T) {
 	assert.NoError(t, err)
 	err = dataprovider.AddUser(&user, "", "", "")
 	assert.NoError(t, err)
-	err = executeRenameFsActionForUser([]dataprovider.KeyValue{
+	err = executeRenameFsActionForUser([]dataprovider.RenameConfig{
 		{
-			Key:   "/p1",
-			Value: "/p1",
+			KeyValue: dataprovider.KeyValue{
+				Key:   "/p1",
+				Value: "/p1",
+			},
 		},
 	}, testReplacer, user)
 	if assert.Error(t, err) {
@@ -1792,10 +1796,12 @@ func TestFilesystemActionErrors(t *testing.T) {
 		Options: dataprovider.BaseEventActionOptions{
 			FsConfig: dataprovider.EventActionFilesystemConfig{
 				Type: dataprovider.FilesystemActionRename,
-				Renames: []dataprovider.KeyValue{
+				Renames: []dataprovider.RenameConfig{
 					{
-						Key:   "/p2",
-						Value: "/p2",
+						KeyValue: dataprovider.KeyValue{
+							Key:   "/p2",
+							Value: "/p2",
+						},
 					},
 				},
 			},

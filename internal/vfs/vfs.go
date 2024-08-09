@@ -52,8 +52,9 @@ const (
 
 // Additional checks for files
 const (
-	CheckParentDir = 1
-	CheckResume    = 2
+	CheckParentDir     = 1
+	CheckResume        = 2
+	CheckUpdateModTime = 4
 )
 
 var (
@@ -121,7 +122,7 @@ type Fs interface {
 	Lstat(name string) (os.FileInfo, error)
 	Open(name string, offset int64) (File, PipeReader, func(), error)
 	Create(name string, flag, checks int) (File, PipeWriter, func(), error)
-	Rename(source, target string) (int, int64, error)
+	Rename(source, target string, checks int) (int, int64, error)
 	Remove(name string, isDir bool) error
 	Mkdir(name string) error
 	Symlink(source, target string) error
@@ -1084,7 +1085,7 @@ func IsUploadResumeSupported(fs Fs, size int64) bool {
 }
 
 func getLastModified(metadata map[string]string) int64 {
-	if val, ok := metadata[lastModifiedField]; ok {
+	if val, ok := metadata[lastModifiedField]; ok && val != "" {
 		lastModified, err := strconv.ParseInt(val, 10, 64)
 		if err == nil {
 			return lastModified
@@ -1167,8 +1168,8 @@ func getLocalTempDir() string {
 }
 
 func doRecursiveRename(fs Fs, source, target string,
-	renameFn func(string, string, os.FileInfo, int) (int, int64, error),
-	recursion int,
+	renameFn func(string, string, os.FileInfo, int, bool) (int, int64, error),
+	recursion int, updateModTime bool,
 ) (int, int64, error) {
 	var numFiles int
 	var filesSize int64
@@ -1193,7 +1194,7 @@ func doRecursiveRename(fs Fs, source, target string,
 		for _, info := range entries {
 			sourceEntry := fs.Join(source, info.Name())
 			targetEntry := fs.Join(target, info.Name())
-			files, size, err := renameFn(sourceEntry, targetEntry, info, recursion)
+			files, size, err := renameFn(sourceEntry, targetEntry, info, recursion, updateModTime)
 			if err != nil {
 				if fs.IsNotExist(err) {
 					fsLog(fs, logger.LevelInfo, "skipping rename for %q: %v", sourceEntry, err)

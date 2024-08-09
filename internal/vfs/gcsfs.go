@@ -255,19 +255,21 @@ func (fs *GCSFs) Create(name string, flag, checks int) (File, PipeWriter, func()
 }
 
 // Rename renames (moves) source to target.
-func (fs *GCSFs) Rename(source, target string) (int, int64, error) {
+func (fs *GCSFs) Rename(source, target string, checks int) (int, int64, error) {
 	if source == target {
 		return -1, -1, nil
 	}
-	_, err := fs.Stat(path.Dir(target))
-	if err != nil {
-		return -1, -1, err
+	if checks&CheckParentDir != 0 {
+		_, err := fs.Stat(path.Dir(target))
+		if err != nil {
+			return -1, -1, err
+		}
 	}
 	fi, err := fs.getObjectStat(source)
 	if err != nil {
 		return -1, -1, err
 	}
-	return fs.renameInternal(source, target, fi, 0)
+	return fs.renameInternal(source, target, fi, 0, checks&CheckUpdateModTime != 0)
 }
 
 // Remove removes the named file or (empty) directory.
@@ -651,7 +653,7 @@ func (fs *GCSFs) CopyFile(source, target string, srcInfo os.FileInfo) (int, int6
 		}
 		conditions = &storage.Conditions{DoesNotExist: true}
 	}
-	if err := fs.copyFileInternal(source, target, conditions, srcInfo); err != nil {
+	if err := fs.copyFileInternal(source, target, conditions, srcInfo, true); err != nil {
 		return 0, 0, err
 	}
 	return numFiles, sizeDiff, nil
@@ -753,7 +755,9 @@ func (fs *GCSFs) composeObjects(ctx context.Context, dst, partialObject *storage
 	return err
 }
 
-func (fs *GCSFs) copyFileInternal(source, target string, conditions *storage.Conditions, srcInfo os.FileInfo) error {
+func (fs *GCSFs) copyFileInternal(source, target string, conditions *storage.Conditions,
+	srcInfo os.FileInfo, updateModTime bool,
+) error {
 	src := fs.svc.Bucket(fs.config.Bucket).Object(source)
 	dst := fs.svc.Bucket(fs.config.Bucket).Object(target)
 	if conditions != nil {
@@ -785,6 +789,9 @@ func (fs *GCSFs) copyFileInternal(source, target string, conditions *storage.Con
 		copier.ContentType = contentType
 	}
 	metadata := getMetadata(srcInfo)
+	if updateModTime && len(metadata) > 0 {
+		delete(metadata, lastModifiedField)
+	}
 	if len(metadata) > 0 {
 		copier.Metadata = metadata
 	}
@@ -793,7 +800,9 @@ func (fs *GCSFs) copyFileInternal(source, target string, conditions *storage.Con
 	return err
 }
 
-func (fs *GCSFs) renameInternal(source, target string, srcInfo os.FileInfo, recursion int) (int, int64, error) {
+func (fs *GCSFs) renameInternal(source, target string, srcInfo os.FileInfo, recursion int,
+	updateModTime bool,
+) (int, int64, error) {
 	var numFiles int
 	var filesSize int64
 
@@ -811,7 +820,7 @@ func (fs *GCSFs) renameInternal(source, target string, srcInfo os.FileInfo, recu
 			return numFiles, filesSize, err
 		}
 		if renameMode == 1 {
-			files, size, err := doRecursiveRename(fs, source, target, fs.renameInternal, recursion)
+			files, size, err := doRecursiveRename(fs, source, target, fs.renameInternal, recursion, updateModTime)
 			numFiles += files
 			filesSize += size
 			if err != nil {
@@ -819,7 +828,7 @@ func (fs *GCSFs) renameInternal(source, target string, srcInfo os.FileInfo, recu
 			}
 		}
 	} else {
-		if err := fs.copyFileInternal(source, target, nil, srcInfo); err != nil {
+		if err := fs.copyFileInternal(source, target, nil, srcInfo, updateModTime); err != nil {
 			return numFiles, filesSize, err
 		}
 		numFiles++

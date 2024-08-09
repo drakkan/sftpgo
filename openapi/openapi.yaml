@@ -6973,6 +6973,14 @@ components:
           type: string
         value:
           type: string
+    RenameConfig:
+      allOf:
+        - $ref: '#/components/schemas/KeyValue'
+        - type: object
+          properties:
+            update_modtime:
+              type: boolean
+              description: 'Update modification time. This setting is not recursive and only applies to storage providers that support changing modification times'
     HTTPPart:
       type: object
       properties:
@@ -7105,7 +7113,7 @@ components:
         renames:
           type: array
           items:
-            $ref: '#/components/schemas/KeyValue'
+            $ref: '#/components/schemas/RenameConfig'
         mkdirs:
           type: array
           items:

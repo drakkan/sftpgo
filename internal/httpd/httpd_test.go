@@ -2458,28 +2458,34 @@ func TestEventActionValidation(t *testing.T) {
 	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
 	assert.NoError(t, err)
 	assert.Contains(t, string(resp), "no path to rename specified")
-	action.Options.FsConfig.Renames = []dataprovider.KeyValue{
+	action.Options.FsConfig.Renames = []dataprovider.RenameConfig{
 		{
-			Key:   "",
-			Value: "/adir",
+			KeyValue: dataprovider.KeyValue{
+				Key:   "",
+				Value: "/adir",
+			},
 		},
 	}
 	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
 	assert.NoError(t, err)
 	assert.Contains(t, string(resp), "invalid paths to rename")
-	action.Options.FsConfig.Renames = []dataprovider.KeyValue{
+	action.Options.FsConfig.Renames = []dataprovider.RenameConfig{
 		{
-			Key:   "adir",
-			Value: "/adir",
+			KeyValue: dataprovider.KeyValue{
+				Key:   "adir",
+				Value: "/adir",
+			},
 		},
 	}
 	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
 	assert.NoError(t, err)
 	assert.Contains(t, string(resp), "rename source and target cannot be equal")
-	action.Options.FsConfig.Renames = []dataprovider.KeyValue{
+	action.Options.FsConfig.Renames = []dataprovider.RenameConfig{
 		{
-			Key:   "/",
-			Value: "/dir",
+			KeyValue: dataprovider.KeyValue{
+				Key:   "/",
+				Value: "/dir",
+			},
 		},
 	}
 	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
@@ -23974,16 +23980,19 @@ func TestWebEventAction(t *testing.T) {
 
 	action.Options.FsConfig = dataprovider.EventActionFilesystemConfig{
 		Type: dataprovider.FilesystemActionRename,
-		Renames: []dataprovider.KeyValue{
+		Renames: []dataprovider.RenameConfig{
 			{
-				Key:   "/src",
-				Value: "/target",
+				KeyValue: dataprovider.KeyValue{
+					Key:   "/src",
+					Value: "/target",
+				},
 			},
 		},
 	}
 	form.Set("fs_action_type", fmt.Sprintf("%d", action.Options.FsConfig.Type))
 	form.Set("fs_rename[0][fs_rename_source]", action.Options.FsConfig.Renames[0].Key)
 	form.Set("fs_rename[0][fs_rename_target]", action.Options.FsConfig.Renames[0].Value)
+	form.Set("fs_rename[0][fs_rename_options][]", "1")
 	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminEventActionPath, action.Name),
 		bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
@@ -23995,7 +24004,9 @@ func TestWebEventAction(t *testing.T) {
 	actionGet, _, err = httpdtest.GetEventActionByName(action.Name, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Equal(t, action.Type, actionGet.Type)
-	assert.Len(t, actionGet.Options.FsConfig.Renames, 1)
+	if assert.Len(t, actionGet.Options.FsConfig.Renames, 1) {
+		assert.True(t, actionGet.Options.FsConfig.Renames[0].UpdateModTime)
+	}
 
 	action.Options.FsConfig = dataprovider.EventActionFilesystemConfig{
 		Type: dataprovider.FilesystemActionCopy,
