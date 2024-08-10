@@ -1090,13 +1090,17 @@ func TestProxyProtocolVersion(t *testing.T) {
 		assert.Contains(t, err.Error(), "proxy protocol not configured")
 	}
 	c.ProxyProtocol = 1
-	proxyListener, err := c.GetProxyListener(nil)
+	listener, err := c.GetProxyListener(nil)
 	assert.NoError(t, err)
+	proxyListener, ok := listener.(*proxyproto.Listener)
+	require.True(t, ok)
 	assert.NotNil(t, proxyListener.Policy)
 
 	c.ProxyProtocol = 2
-	proxyListener, err = c.GetProxyListener(nil)
+	listener, err = c.GetProxyListener(nil)
 	assert.NoError(t, err)
+	proxyListener, ok = listener.(*proxyproto.Listener)
+	require.True(t, ok)
 	assert.NotNil(t, proxyListener.Policy)
 }
 

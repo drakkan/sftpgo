@@ -99,11 +99,13 @@ func (s *webDavServer) listenAndServe(compressor *middleware.Compressor) error {
 				httpServer.TLSConfig.ClientAuth = tls.VerifyClientCertIfGiven
 			}
 		}
-		return util.HTTPListenAndServe(httpServer, s.binding.Address, s.binding.Port, true, logSender)
+		return util.HTTPListenAndServe(httpServer, s.binding.Address, s.binding.Port, true,
+			s.binding.listenerWrapper(), logSender)
 	}
 	s.binding.EnableHTTPS = false
 	serviceStatus.Bindings = append(serviceStatus.Bindings, s.binding)
-	return util.HTTPListenAndServe(httpServer, s.binding.Address, s.binding.Port, false, logSender)
+	return util.HTTPListenAndServe(httpServer, s.binding.Address, s.binding.Port, false,
+		s.binding.listenerWrapper(), logSender)
 }
 
 func (s *webDavServer) verifyTLSConnection(state tls.ConnectionState) error {

@@ -135,9 +135,9 @@ func (c Conf) Initialize(configDir string) error {
 		}
 		logger.Debug(logSender, "", "configured TLS cipher suites: %v", config.CipherSuites)
 		httpServer.TLSConfig = config
-		return util.HTTPListenAndServe(httpServer, c.BindAddress, c.BindPort, true, logSender)
+		return util.HTTPListenAndServe(httpServer, c.BindAddress, c.BindPort, true, nil, logSender)
 	}
-	return util.HTTPListenAndServe(httpServer, c.BindAddress, c.BindPort, false, logSender)
+	return util.HTTPListenAndServe(httpServer, c.BindAddress, c.BindPort, false, nil, logSender)
 }
 
 // ReloadCertificateMgr reloads the certificate manager

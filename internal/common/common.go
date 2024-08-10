@@ -651,7 +651,7 @@ func (c *Configuration) initializeProxyProtocol() error {
 
 // GetProxyListener returns a wrapper for the given listener that supports the
 // HAProxy Proxy Protocol
-func (c *Configuration) GetProxyListener(listener net.Listener) (*proxyproto.Listener, error) {
+func (c *Configuration) GetProxyListener(listener net.Listener) (net.Listener, error) {
 	if c.ProxyProtocol > 0 {
 		defaultPolicy := proxyproto.REQUIRE
 		if c.ProxyProtocol == 1 {

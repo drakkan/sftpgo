@@ -584,6 +584,9 @@ type Binding struct {
 	TLSCipherSuites []string `json:"tls_cipher_suites" mapstructure:"tls_cipher_suites"`
 	// HTTP protocols in preference order. Supported values: http/1.1, h2
 	Protocols []string `json:"tls_protocols" mapstructure:"tls_protocols"`
+	// Defines whether to use the common proxy protocol configuration or the
+	// binding-specific proxy header configuration.
+	ProxyMode int `json:"proxy_mode" mapstructure:"proxy_mode"`
 	// List of IP addresses and IP ranges allowed to set client IP proxy headers and
 	// X-Forwarded-Proto header.
 	ProxyAllowed []string `json:"proxy_allowed" mapstructure:"proxy_allowed"`
@@ -752,6 +755,13 @@ func (b *Binding) showClientLoginURL() bool {
 
 func (b *Binding) isMutualTLSEnabled() bool {
 	return b.ClientAuthType == 1
+}
+
+func (b *Binding) listenerWrapper() func(net.Listener) (net.Listener, error) {
+	if b.ProxyMode == 1 {
+		return common.Config.GetProxyListener
+	}
+	return nil
 }
 
 type defenderStatus struct {

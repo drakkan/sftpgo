@@ -589,7 +589,10 @@ func GenerateUniqueID() string {
 
 // HTTPListenAndServe is a wrapper for ListenAndServe that support both tcp
 // and Unix-domain sockets
-func HTTPListenAndServe(srv *http.Server, address string, port int, isTLS bool, logSender string) error {
+func HTTPListenAndServe(srv *http.Server, address string, port int, isTLS bool,
+	listenerWrapper func(net.Listener) (net.Listener, error),
+	logSender string,
+) error {
 	var listener net.Listener
 	var err error
 
@@ -617,7 +620,12 @@ func HTTPListenAndServe(srv *http.Server, address string, port int, isTLS bool, 
 	if err != nil {
 		return err
 	}
-
+	if listenerWrapper != nil {
+		listener, err = listenerWrapper(listener)
+		if err != nil {
+			return err
+		}
+	}
 	logger.Info(logSender, "", "server listener registered, address: %s TLS enabled: %t", listener.Addr().String(), isTLS)
 
 	defer listener.Close()

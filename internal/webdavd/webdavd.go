@@ -138,6 +138,9 @@ type Binding struct {
 	// Prefix for WebDAV resources, if empty WebDAV resources will be available at the
 	// root ("/") URI. If defined it must be an absolute URI.
 	Prefix string `json:"prefix" mapstructure:"prefix"`
+	// Defines whether to use the common proxy protocol configuration or the
+	// binding-specific proxy header configuration.
+	ProxyMode int `json:"proxy_mode" mapstructure:"proxy_mode"`
 	// List of IP addresses and IP ranges allowed to set client IP proxy headers
 	ProxyAllowed []string `json:"proxy_allowed" mapstructure:"proxy_allowed"`
 	// Allowed client IP proxy header such as "X-Forwarded-For", "X-Real-IP"
@@ -179,6 +182,13 @@ func (b *Binding) GetAddress() string {
 // IsValid returns true if the binding port is > 0
 func (b *Binding) IsValid() bool {
 	return b.Port > 0
+}
+
+func (b *Binding) listenerWrapper() func(net.Listener) (net.Listener, error) {
+	if b.ProxyMode == 1 {
+		return common.Config.GetProxyListener
+	}
+	return nil
 }
 
 // Configuration defines the configuration for the WevDAV server

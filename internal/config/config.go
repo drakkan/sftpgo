@@ -92,6 +92,7 @@ var (
 		TLSCipherSuites:      nil,
 		Protocols:            nil,
 		Prefix:               "",
+		ProxyMode:            0,
 		ProxyAllowed:         nil,
 		ClientIPProxyHeader:  "",
 		ClientIPHeaderDepth:  0,
@@ -111,6 +112,7 @@ var (
 		ClientAuthType:      0,
 		TLSCipherSuites:     nil,
 		Protocols:           nil,
+		ProxyMode:           0,
 		ProxyAllowed:        nil,
 		ClientIPProxyHeader: "",
 		ClientIPHeaderDepth: 0,
@@ -875,13 +877,13 @@ func getRateLimitersFromEnv(idx int) {
 		isSet = true
 	}
 
-	burst, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_COMMON__RATE_LIMITERS__%v__BURST", idx), 0)
+	burst, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_COMMON__RATE_LIMITERS__%v__BURST", idx), 32)
 	if ok {
 		rtlConfig.Burst = int(burst)
 		isSet = true
 	}
 
-	rtlType, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_COMMON__RATE_LIMITERS__%v__TYPE", idx), 0)
+	rtlType, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_COMMON__RATE_LIMITERS__%v__TYPE", idx), 32)
 	if ok {
 		rtlConfig.Type = int(rtlType)
 		isSet = true
@@ -899,13 +901,13 @@ func getRateLimitersFromEnv(idx int) {
 		isSet = true
 	}
 
-	softLimit, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_COMMON__RATE_LIMITERS__%v__ENTRIES_SOFT_LIMIT", idx), 0)
+	softLimit, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_COMMON__RATE_LIMITERS__%v__ENTRIES_SOFT_LIMIT", idx), 32)
 	if ok {
 		rtlConfig.EntriesSoftLimit = int(softLimit)
 		isSet = true
 	}
 
-	hardLimit, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_COMMON__RATE_LIMITERS__%v__ENTRIES_HARD_LIMIT", idx), 0)
+	hardLimit, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_COMMON__RATE_LIMITERS__%v__ENTRIES_HARD_LIMIT", idx), 32)
 	if ok {
 		rtlConfig.EntriesHardLimit = int(hardLimit)
 		isSet = true
@@ -941,7 +943,7 @@ func getKMSPluginFromEnv(idx int, pluginConfig *plugin.Config) bool {
 func getAuthPluginFromEnv(idx int, pluginConfig *plugin.Config) bool {
 	isSet := false
 
-	authScope, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__AUTH_OPTIONS__SCOPE", idx), 0)
+	authScope, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__AUTH_OPTIONS__SCOPE", idx), 32)
 	if ok {
 		pluginConfig.AuthOptions.Scope = int(authScope)
 		isSet = true
@@ -986,13 +988,13 @@ func getNotifierPluginFromEnv(idx int, pluginConfig *plugin.Config) bool {
 		}
 	}
 
-	notifierRetryMaxTime, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__NOTIFIER_OPTIONS__RETRY_MAX_TIME", idx), 0)
+	notifierRetryMaxTime, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__NOTIFIER_OPTIONS__RETRY_MAX_TIME", idx), 32)
 	if ok {
 		pluginConfig.NotifierOptions.RetryMaxTime = int(notifierRetryMaxTime)
 		isSet = true
 	}
 
-	notifierRetryQueueMaxSize, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__NOTIFIER_OPTIONS__RETRY_QUEUE_MAX_SIZE", idx), 0)
+	notifierRetryQueueMaxSize, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__NOTIFIER_OPTIONS__RETRY_QUEUE_MAX_SIZE", idx), 32)
 	if ok {
 		pluginConfig.NotifierOptions.RetryQueueMaxSize = int(notifierRetryQueueMaxSize)
 		isSet = true
@@ -1080,7 +1082,7 @@ func getSFTPDBindindFromEnv(idx int) {
 
 	isSet := false
 
-	port, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_SFTPD__BINDINGS__%v__PORT", idx), 0)
+	port, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_SFTPD__BINDINGS__%v__PORT", idx), 32)
 	if ok {
 		binding.Port = int(port)
 		isSet = true
@@ -1167,19 +1169,19 @@ func getFTPDBindingSecurityFromEnv(idx int, binding *ftpd.Binding) bool {
 		isSet = true
 	}
 
-	tlsMode, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__TLS_MODE", idx), 0)
+	tlsMode, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__TLS_MODE", idx), 32)
 	if ok {
 		binding.TLSMode = int(tlsMode)
 		isSet = true
 	}
 
-	tlsSessionReuse, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__TLS_SESSION_REUSE", idx), 0)
+	tlsSessionReuse, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__TLS_SESSION_REUSE", idx), 32)
 	if ok {
 		binding.TLSSessionReuse = int(tlsSessionReuse)
 		isSet = true
 	}
 
-	tlsVer, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__MIN_TLS_VERSION", idx), 0)
+	tlsVer, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__MIN_TLS_VERSION", idx), 32)
 	if ok {
 		binding.MinTLSVersion = int(tlsVer)
 		isSet = true
@@ -1191,25 +1193,25 @@ func getFTPDBindingSecurityFromEnv(idx int, binding *ftpd.Binding) bool {
 		isSet = true
 	}
 
-	clientAuthType, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__CLIENT_AUTH_TYPE", idx), 0)
+	clientAuthType, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__CLIENT_AUTH_TYPE", idx), 32)
 	if ok {
 		binding.ClientAuthType = int(clientAuthType)
 		isSet = true
 	}
 
-	pasvSecurity, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__PASSIVE_CONNECTIONS_SECURITY", idx), 0)
+	pasvSecurity, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__PASSIVE_CONNECTIONS_SECURITY", idx), 32)
 	if ok {
 		binding.PassiveConnectionsSecurity = int(pasvSecurity)
 		isSet = true
 	}
 
-	activeSecurity, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__ACTIVE_CONNECTIONS_SECURITY", idx), 0)
+	activeSecurity, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__ACTIVE_CONNECTIONS_SECURITY", idx), 32)
 	if ok {
 		binding.ActiveConnectionsSecurity = int(activeSecurity)
 		isSet = true
 	}
 
-	ignoreASCIITransferType, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%d__IGNORE_ASCII_TRANSFER_TYPE", idx), 0)
+	ignoreASCIITransferType, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%d__IGNORE_ASCII_TRANSFER_TYPE", idx), 32)
 	if ok {
 		binding.IgnoreASCIITransferType = int(ignoreASCIITransferType)
 		isSet = true
@@ -1222,7 +1224,7 @@ func getFTPDBindingFromEnv(idx int) {
 	binding := getDefaultFTPDBinding(idx)
 	isSet := false
 
-	port, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__PORT", idx), 0)
+	port, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__PORT", idx), 32)
 	if ok {
 		binding.Port = int(port)
 		isSet = true
@@ -1302,13 +1304,13 @@ func getWebDAVBindingHTTPSConfigsFromEnv(idx int, binding *webdavd.Binding) bool
 		isSet = true
 	}
 
-	tlsVer, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__MIN_TLS_VERSION", idx), 0)
+	tlsVer, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__MIN_TLS_VERSION", idx), 32)
 	if ok {
 		binding.MinTLSVersion = int(tlsVer)
 		isSet = true
 	}
 
-	clientAuthType, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__CLIENT_AUTH_TYPE", idx), 0)
+	clientAuthType, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__CLIENT_AUTH_TYPE", idx), 32)
 	if ok {
 		binding.ClientAuthType = int(clientAuthType)
 		isSet = true
@@ -1332,6 +1334,12 @@ func getWebDAVBindingHTTPSConfigsFromEnv(idx int, binding *webdavd.Binding) bool
 func getWebDAVDBindingProxyConfigsFromEnv(idx int, binding *webdavd.Binding) bool {
 	isSet := false
 
+	proxyMode, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__PROXY_MODE", idx), 32)
+	if ok {
+		binding.ProxyMode = int(proxyMode)
+		isSet = true
+	}
+
 	proxyAllowed, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__PROXY_ALLOWED", idx))
 	if ok {
 		binding.ProxyAllowed = proxyAllowed
@@ -1344,7 +1352,7 @@ func getWebDAVDBindingProxyConfigsFromEnv(idx int, binding *webdavd.Binding) boo
 		isSet = true
 	}
 
-	clientIPHeaderDepth, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__CLIENT_IP_HEADER_DEPTH", idx), 0)
+	clientIPHeaderDepth, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__CLIENT_IP_HEADER_DEPTH", idx), 32)
 	if ok {
 		binding.ClientIPHeaderDepth = int(clientIPHeaderDepth)
 		isSet = true
@@ -1382,7 +1390,7 @@ func getWebDAVDBindingFromEnv(idx int) {
 
 	isSet := false
 
-	port, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__PORT", idx), 0)
+	port, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__PORT", idx), 32)
 	if ok {
 		binding.Port = int(port)
 		isSet = true
@@ -1747,6 +1755,12 @@ func getHTTPDNestedObjectsFromEnv(idx int, binding *httpd.Binding) bool {
 func getHTTPDBindingProxyConfigsFromEnv(idx int, binding *httpd.Binding) bool {
 	isSet := false
 
+	proxyMode, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__PROXY_MODE", idx), 32)
+	if ok {
+		binding.ProxyMode = int(proxyMode)
+		isSet = true
+	}
+
 	proxyAllowed, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__PROXY_ALLOWED", idx))
 	if ok {
 		binding.ProxyAllowed = proxyAllowed
@@ -1759,7 +1773,7 @@ func getHTTPDBindingProxyConfigsFromEnv(idx int, binding *httpd.Binding) bool {
 		isSet = true
 	}
 
-	clientIPHeaderDepth, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__CLIENT_IP_HEADER_DEPTH", idx), 0)
+	clientIPHeaderDepth, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__CLIENT_IP_HEADER_DEPTH", idx), 32)
 	if ok {
 		binding.ClientIPHeaderDepth = int(clientIPHeaderDepth)
 		isSet = true
@@ -1772,7 +1786,7 @@ func getHTTPDBindingFromEnv(idx int) { //nolint:gocyclo
 	binding := getDefaultHTTPBinding(idx)
 	isSet := false
 
-	port, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__PORT", idx), 0)
+	port, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__PORT", idx), 32)
 	if ok {
 		binding.Port = int(port)
 		isSet = true
@@ -1814,7 +1828,7 @@ func getHTTPDBindingFromEnv(idx int) { //nolint:gocyclo
 		isSet = true
 	}
 
-	enabledLoginMethods, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__ENABLED_LOGIN_METHODS", idx), 0)
+	enabledLoginMethods, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__ENABLED_LOGIN_METHODS", idx), 32)
 	if ok {
 		binding.EnabledLoginMethods = int(enabledLoginMethods)
 		isSet = true
@@ -1832,13 +1846,13 @@ func getHTTPDBindingFromEnv(idx int) { //nolint:gocyclo
 		isSet = true
 	}
 
-	tlsVer, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__MIN_TLS_VERSION", idx), 0)
+	tlsVer, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__MIN_TLS_VERSION", idx), 32)
 	if ok {
 		binding.MinTLSVersion = int(tlsVer)
 		isSet = true
 	}
 
-	clientAuthType, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__CLIENT_AUTH_TYPE", idx), 0)
+	clientAuthType, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__CLIENT_AUTH_TYPE", idx), 32)
 	if ok {
 		binding.ClientAuthType = int(clientAuthType)
 		isSet = true
@@ -1860,7 +1874,7 @@ func getHTTPDBindingFromEnv(idx int) { //nolint:gocyclo
 		isSet = true
 	}
 
-	hideLoginURL, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__HIDE_LOGIN_URL", idx), 0)
+	hideLoginURL, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__HIDE_LOGIN_URL", idx), 32)
 	if ok {
 		binding.HideLoginURL = int(hideLoginURL)
 		isSet = true
@@ -1949,7 +1963,7 @@ func getCommandConfigsFromEnv(idx int) {
 		cfg.Path = path
 	}
 
-	timeout, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_COMMAND__COMMANDS__%v__TIMEOUT", idx), 0)
+	timeout, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_COMMAND__COMMANDS__%v__TIMEOUT", idx), 32)
 	if ok {
 		cfg.Timeout = int(timeout)
 	}

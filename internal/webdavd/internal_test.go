@@ -378,6 +378,15 @@ func TestAllowedProxyUnixDomainSocket(t *testing.T) {
 	}
 }
 
+func TestProxyListenerWrapper(t *testing.T) {
+	b := Binding{
+		ProxyMode: 0,
+	}
+	require.Nil(t, b.listenerWrapper())
+	b.ProxyMode = 1
+	require.NotNil(t, b.listenerWrapper())
+}
+
 func TestRemoteAddress(t *testing.T) {
 	remoteAddr1 := "100.100.100.100"
 	remoteAddr2 := "172.172.172.172"

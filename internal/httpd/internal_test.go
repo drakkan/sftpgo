@@ -2199,6 +2199,15 @@ func TestAllowedProxyUnixDomainSocket(t *testing.T) {
 	}
 }
 
+func TestProxyListenerWrapper(t *testing.T) {
+	b := Binding{
+		ProxyMode: 0,
+	}
+	require.Nil(t, b.listenerWrapper())
+	b.ProxyMode = 1
+	require.NotNil(t, b.listenerWrapper())
+}
+
 func TestProxyHeaders(t *testing.T) {
 	username := "adminTest"
 	password := "testPwd"
