@@ -24,12 +24,12 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             <div class="col-md-9">
                 <select id="idFilesystem" name="fs_provider" class="form-select" data-control="i18n-select2" data-hide-search="true">
                     <option value="0" data-i18n="storage.local" {{if eq .Provider 0 }}selected{{end}}>Local</option>
-                    <option value="4" data-i18n="storage.encrypted" {{if eq .Provider 4 }}selected{{end}}>Local encrypted</option>
-                    <option value="1" data-i18n="storage.s3" {{if eq .Provider 1 }}selected{{end}}>AWS S3 (Compatible)</option>
-                    <option value="2" data-i18n="storage.gcs" {{if eq .Provider 2 }}selected{{end}}>Google Cloud Storage</option>
-                    <option value="3" data-i18n="storage.azblob" {{if eq .Provider 3 }}selected{{end}}>Azure Blob Storage</option>
-                    <option value="5" data-i18n="storage.sftp" {{if eq .Provider 5 }}selected{{end}}>SFTP</option>
-                    <option value="6" data-i18n="storage.http" {{if eq .Provider 6 }}selected{{end}}>HTTP</option>
+                    {{- if not (IsFsDisabled 4) }}<option value="4" data-i18n="storage.encrypted" {{if eq .Provider 4 }}selected{{end}}>Local encrypted</option>{{- end}}
+                    {{- if not (IsFsDisabled 1) }}<option value="1" data-i18n="storage.s3" {{if eq .Provider 1 }}selected{{end}}>AWS S3 (Compatible)</option>{{- end}}
+                    {{- if not (IsFsDisabled 2) }}<option value="2" data-i18n="storage.gcs" {{if eq .Provider 2 }}selected{{end}}>Google Cloud Storage</option>{{- end}}
+                    {{- if not (IsFsDisabled 3) }}<option value="3" data-i18n="storage.azblob" {{if eq .Provider 3 }}selected{{end}}>Azure Blob Storage</option>{{- end}}
+                    {{- if not (IsFsDisabled 5) }}<option value="5" data-i18n="storage.sftp" {{if eq .Provider 5 }}selected{{end}}>SFTP</option>{{- end}}
+                    {{- if not (IsFsDisabled 6) }}<option value="6" data-i18n="storage.http" {{if eq .Provider 6 }}selected{{end}}>HTTP</option>{{- end}}
                 </select>
             </div>
         </div>

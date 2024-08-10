@@ -157,6 +157,9 @@ func (u *User) GetFilesystem(connectionID string) (fs vfs.Fs, err error) {
 }
 
 func (u *User) getRootFs(connectionID string) (fs vfs.Fs, err error) {
+	if vfs.IsFsDisabled(u.FsConfig.Provider) {
+		return nil, fmt.Errorf("filesystem provider %d is disabled", u.FsConfig.Provider)
+	}
 	switch u.FsConfig.Provider {
 	case sdk.S3FilesystemProvider:
 		return vfs.NewS3Fs(connectionID, u.GetHomeDir(), "", u.FsConfig.S3Config)

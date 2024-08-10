@@ -514,6 +514,7 @@ func loadAdminTemplates(templatesPath string) {
 
 	fsBaseTpl := template.New("fsBaseTemplate").Funcs(template.FuncMap{
 		"HumanizeBytes": util.ByteCountSI,
+		"IsFsDisabled":  vfs.IsFsDisabled,
 	})
 	usersTmpl := util.LoadTemplate(nil, usersPaths...)
 	userTmpl := util.LoadTemplate(fsBaseTpl, userPaths...)

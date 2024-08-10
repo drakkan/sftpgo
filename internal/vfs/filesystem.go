@@ -16,10 +16,17 @@ package vfs
 
 import (
 	"os"
+	"slices"
 
 	"github.com/sftpgo/sdk"
 
 	"github.com/drakkan/sftpgo/v2/internal/kms"
+	"github.com/drakkan/sftpgo/v2/internal/util"
+)
+
+var (
+	disabledFilesystemProviders []sdk.FilesystemProvider
+	loadDisabledProvidersFn     func()
 )
 
 // Filesystem defines filesystem details
@@ -232,8 +239,7 @@ func (f *Filesystem) Validate(additionalData string) error {
 		f.CryptConfig = CryptFsConfig{}
 		f.SFTPConfig = SFTPFsConfig{}
 		return nil
-	default:
-		f.Provider = sdk.LocalFilesystemProvider
+	case sdk.LocalFilesystemProvider:
 		f.S3Config = S3FsConfig{}
 		f.GCSConfig = GCSFsConfig{}
 		f.AzBlobConfig = AzBlobFsConfig{}
@@ -241,6 +247,11 @@ func (f *Filesystem) Validate(additionalData string) error {
 		f.SFTPConfig = SFTPFsConfig{}
 		f.HTTPConfig = HTTPFsConfig{}
 		return validateOSFsConfig(&f.OSConfig)
+	default:
+		return util.NewI18nError(
+			util.NewValidationError("invalid filesystem provider"),
+			util.I18nErrorFsValidation,
+		)
 	}
 }
 
@@ -389,4 +400,12 @@ func (f *Filesystem) GetACopy() Filesystem {
 		copy(fs.SFTPConfig.Fingerprints, f.SFTPConfig.Fingerprints)
 	}
 	return fs
+}
+
+// IsFsDisabled returns if a filesystem provider is disabled
+func IsFsDisabled(provider sdk.FilesystemProvider) bool {
+	if loadDisabledProvidersFn != nil {
+		loadDisabledProvidersFn()
+	}
+	return slices.Contains(disabledFilesystemProviders, provider)
 }

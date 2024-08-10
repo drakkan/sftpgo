@@ -140,6 +140,9 @@ type VirtualFolder struct {
 
 // GetFilesystem returns the filesystem for this folder
 func (v *VirtualFolder) GetFilesystem(connectionID string, forbiddenSelfUsers []string) (Fs, error) {
+	if IsFsDisabled(v.FsConfig.Provider) {
+		return nil, fmt.Errorf("filesystem provider %d is disabled", v.FsConfig.Provider)
+	}
 	switch v.FsConfig.Provider {
 	case sdk.S3FilesystemProvider:
 		return NewS3Fs(connectionID, v.MappedPath, v.VirtualPath, v.FsConfig.S3Config)
