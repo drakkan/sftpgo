@@ -9062,8 +9062,10 @@ func TestHTTPFs(t *testing.T) {
 }
 
 func TestProxyProtocol(t *testing.T) {
-	_, err := httpclient.Get(fmt.Sprintf("http://%v", httpProxyAddr))
-	assert.Error(t, err)
+	resp, err := httpclient.Get(fmt.Sprintf("http://%v", httpProxyAddr))
+	if !assert.Error(t, err) {
+		resp.Body.Close()
+	}
 }
 
 func TestSetProtocol(t *testing.T) {
