@@ -660,7 +660,7 @@ func (c *Configuration) GetProxyListener(listener net.Listener) (net.Listener, e
 
 		return &proxyproto.Listener{
 			Listener:          listener,
-			Policy:            getProxyPolicy(c.proxyAllowed, c.proxySkipped, defaultPolicy),
+			ConnPolicy:        getProxyPolicy(c.proxyAllowed, c.proxySkipped, defaultPolicy),
 			ReadHeaderTimeout: 10 * time.Second,
 		}, nil
 	}
@@ -835,13 +835,13 @@ func (c *Configuration) ExecutePostConnectHook(ipAddr, protocol string) error {
 	return nil
 }
 
-func getProxyPolicy(allowed, skipped []func(net.IP) bool, def proxyproto.Policy) proxyproto.PolicyFunc {
-	return func(upstream net.Addr) (proxyproto.Policy, error) {
-		upstreamIP, err := util.GetIPFromNetAddr(upstream)
+func getProxyPolicy(allowed, skipped []func(net.IP) bool, def proxyproto.Policy) proxyproto.ConnPolicyFunc {
+	return func(connPolicyOptions proxyproto.ConnPolicyOptions) (proxyproto.Policy, error) {
+		upstreamIP, err := util.GetIPFromNetAddr(connPolicyOptions.Upstream)
 		if err != nil {
 			// Something is wrong with the source IP, better reject the
-			// connection if a proxy header is found.
-			return proxyproto.REJECT, err
+			// connection.
+			return proxyproto.REJECT, proxyproto.ErrInvalidUpstream
 		}
 
 		for _, skippedFrom := range skipped {
@@ -860,7 +860,7 @@ func getProxyPolicy(allowed, skipped []func(net.IP) bool, def proxyproto.Policy)
 		}
 
 		if def == proxyproto.REQUIRE {
-			return proxyproto.REJECT, nil
+			return proxyproto.REJECT, proxyproto.ErrInvalidUpstream
 		}
 		return def, nil
 	}
