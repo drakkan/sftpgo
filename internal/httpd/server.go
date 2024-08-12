@@ -1242,7 +1242,6 @@ func (s *httpdServer) initializeRouter() {
 	s.router.Use(s.parseHeaders)
 	s.router.Use(logger.NewStructuredLogger(logger.GetLogger()))
 	s.router.Use(middleware.Recoverer)
-	s.router.Use(middleware.Maybe(s.checkConnection, s.mustCheckPath))
 	if s.binding.Security.Enabled {
 		secureMiddleware := secure.New(secure.Options{
 			AllowedHosts:            s.binding.Security.AllowedHosts,
@@ -1258,6 +1257,9 @@ func (s *httpdServer) initializeRouter() {
 			CrossOriginOpenerPolicy: s.binding.Security.CrossOriginOpenerPolicy,
 		})
 		secureMiddleware.SetBadHostHandler(http.HandlerFunc(s.badHostHandler))
+		if s.binding.Security.CacheControl == "private" {
+			s.router.Use(cacheControlMiddleware)
+		}
 		s.router.Use(secureMiddleware.Handler)
 		if s.binding.Security.HTTPSRedirect {
 			s.router.Use(s.binding.Security.redirectHandler)
@@ -1278,6 +1280,7 @@ func (s *httpdServer) initializeRouter() {
 		})
 		s.router.Use(c.Handler)
 	}
+	s.router.Use(middleware.Maybe(s.checkConnection, s.mustCheckPath))
 	s.router.Use(middleware.GetHead)
 	s.router.Use(middleware.Maybe(middleware.StripSlashes, s.mustStripSlash))
 
@@ -1487,6 +1490,7 @@ func (s *httpdServer) initializeRouter() {
 
 		if s.renderOpenAPI {
 			s.router.Group(func(router chi.Router) {
+				router.Use(cleanCacheControlMiddleware)
 				router.Use(compressor.Handler)
 				serveStaticDir(router, webOpenAPIPath, s.openAPIPath, false)
 			})
@@ -1495,6 +1499,7 @@ func (s *httpdServer) initializeRouter() {
 
 	if s.enableWebAdmin || s.enableWebClient {
 		s.router.Group(func(router chi.Router) {
+			router.Use(cleanCacheControlMiddleware)
 			router.Use(compressor.Handler)
 			serveStaticDir(router, webStaticFilesPath, s.staticFilesPath, true)
 		})
