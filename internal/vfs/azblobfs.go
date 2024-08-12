@@ -394,7 +394,17 @@ func (fs *AzureBlobFs) Chtimes(name string, _, mtime time.Time, isUploading bool
 	if metadata == nil {
 		metadata = make(map[string]*string)
 	}
-	metadata[lastModifiedField] = to.Ptr(strconv.FormatInt(mtime.UnixMilli(), 10))
+	found := false
+	for k := range metadata {
+		if strings.ToLower(k) == lastModifiedField {
+			metadata[k] = to.Ptr(strconv.FormatInt(mtime.UnixMilli(), 10))
+			found = true
+			break
+		}
+	}
+	if !found {
+		metadata[lastModifiedField] = to.Ptr(strconv.FormatInt(mtime.UnixMilli(), 10))
+	}
 
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()

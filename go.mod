@@ -185,6 +185,7 @@ require (
 replace (
 	github.com/fclairamb/ftpserverlib => github.com/drakkan/ftpserverlib v0.0.0-20240603150004-6a8f643fbf2e
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20240430173938-7ba8270c8e7f
+	github.com/pires/go-proxyproto => github.com/drakkan/go-proxyproto v0.0.0-20240811060125-2e92d08b5373
 	github.com/robfig/cron/v3 => github.com/drakkan/cron/v3 v3.0.0-20230222140221-217a1e4d96c0
 	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20240726170110-f4e4a4627441
 )

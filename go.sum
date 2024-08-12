@@ -119,6 +119,8 @@ github.com/drakkan/ftp v0.0.0-20240430173938-7ba8270c8e7f h1:S9JUlrOzjK58UKoLqqb
 github.com/drakkan/ftp v0.0.0-20240430173938-7ba8270c8e7f/go.mod h1:4p8lUl4vQ80L598CygL+3IFtm+3nggvvW/palOlViwE=
 github.com/drakkan/ftpserverlib v0.0.0-20240603150004-6a8f643fbf2e h1:VBpqQeChkGXSV1FXCtvd3BJTyB+DcMgiu7SfkpsGuKw=
 github.com/drakkan/ftpserverlib v0.0.0-20240603150004-6a8f643fbf2e/go.mod h1:aAwyOAC6IIe+IZeeGD1QjuE3GGDzqW/c5Xtn+Dp0JUM=
+github.com/drakkan/go-proxyproto v0.0.0-20240811060125-2e92d08b5373 h1:0ltrbDRr7KT2aSgj2IXOzRraH2xdR+CWZjm5uC4ChXU=
+github.com/drakkan/go-proxyproto v0.0.0-20240811060125-2e92d08b5373/go.mod h1:iknsfgnH8EkjrMeMyvfKByp9TiBZCKZM0jx2xmKqnVY=
 github.com/drakkan/webdav v0.0.0-20240503091431-218ec83910bb h1:067/Uo8cfeY7QC0yzWCr/RImuNcM0rLWAsBUyMks59o=
 github.com/drakkan/webdav v0.0.0-20240503091431-218ec83910bb/go.mod h1:zOVb1QDhwwqWn2L2qZ0U3swMSO4GTSNyIwXCGO/UGWE=
 github.com/eikenb/pipeat v0.0.0-20210730190139-06b3e6902001 h1:/ZshrfQzayqRSBDodmp3rhNCHJCff+utvgBuWRbiqu4=
@@ -300,8 +302,6 @@ github.com/otiai10/mint v1.5.1 h1:XaPLeE+9vGbuyEHem1JNk3bYc7KKqyI/na0/mLd/Kks=
 github.com/otiai10/mint v1.5.1/go.mod h1:MJm72SBthJjz8qhefc4z1PYEieWmy8Bku7CjcAqyUSM=
 github.com/pelletier/go-toml/v2 v2.2.2 h1:aYUidT7k73Pcl9nb2gScu7NSrKCSHIDE89b3+6Wq+LM=
 github.com/pelletier/go-toml/v2 v2.2.2/go.mod h1:1t835xjRzz80PqgE6HHgN2JOsmgYu/h4qDAS4n929Rs=
-github.com/pires/go-proxyproto v0.7.0 h1:IukmRewDQFWC7kfnb66CSomk2q/seBuilHBYFwyq0Hs=
-github.com/pires/go-proxyproto v0.7.0/go.mod h1:Vz/1JPY/OACxWGQNIRY2BeyDmpoaWmEP40O9LbuiFR4=
 github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c h1:+mdjkGKdHQG3305AYmdv1U2eRNDiU2ErMBj1gwrq8eQ=
 github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c/go.mod h1:7rwL4CYBLnjLxUqIJNnCWiEdr3bn6IUYi15bNlnbCCU=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
