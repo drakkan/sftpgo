@@ -3181,6 +3181,7 @@ func TestSecureMiddlewareIntegration(t *testing.T) {
 				STSIncludeSubdomains: true,
 				STSPreload:           true,
 				ContentTypeNosniff:   true,
+				CacheControl:         "private",
 			},
 		},
 		enableWebAdmin:  true,
@@ -3200,6 +3201,7 @@ func TestSecureMiddlewareIntegration(t *testing.T) {
 	r.Host = "127.0.0.1"
 	server.router.ServeHTTP(rr, r)
 	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Equal(t, "no-cache, no-store, max-age=0, must-revalidate, private", rr.Header().Get("Cache-Control"))
 
 	rr = httptest.NewRecorder()
 	r.Header.Set(forwardedHostHeader, "www.sftpgo.com")

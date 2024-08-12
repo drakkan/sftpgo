@@ -147,6 +147,7 @@ var (
 			ContentSecurityPolicy:   "",
 			PermissionsPolicy:       "",
 			CrossOriginOpenerPolicy: "",
+			CacheControl:            "",
 		},
 		Branding: httpd.Branding{},
 	}
@@ -1554,6 +1555,12 @@ func getHTTPDSecurityConfFromEnv(idx int) (httpd.SecurityConf, bool) { //nolint:
 	crossOriginOpenedPolicy, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__CROSS_ORIGIN_OPENER_POLICY", idx))
 	if ok {
 		result.CrossOriginOpenerPolicy = crossOriginOpenedPolicy
+		isSet = true
+	}
+
+	cacheControl, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__CACHE_CONTROL", idx))
+	if ok {
+		result.CacheControl = cacheControl
 		isSet = true
 	}
 

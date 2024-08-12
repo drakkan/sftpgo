@@ -416,7 +416,9 @@ type SecurityConf struct {
 	PermissionsPolicy string `json:"permissions_policy" mapstructure:"permissions_policy"`
 	// CrossOriginOpenerPolicy allows to set the `Cross-Origin-Opener-Policy` header value. Default is "".
 	CrossOriginOpenerPolicy string `json:"cross_origin_opener_policy" mapstructure:"cross_origin_opener_policy"`
-	proxyHeaders            []string
+	// CacheControl allow to set the Cache-Control header value.
+	CacheControl string `json:"cache_control" mapstructure:"cache_control"`
+	proxyHeaders []string
 }
 
 func (s *SecurityConf) updateProxyHeaders() {

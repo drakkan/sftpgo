@@ -314,7 +314,8 @@
           "content_type_nosniff": false,
           "content_security_policy": "",
           "permissions_policy": "",
-          "cross_origin_opener_policy": ""
+          "cross_origin_opener_policy": "",
+          "cache_control": ""
         },
         "branding": {
           "web_admin": {

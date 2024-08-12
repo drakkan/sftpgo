@@ -418,6 +418,7 @@ func TestMain(m *testing.M) {
 				Value: "https",
 			},
 		},
+		CacheControl: "private",
 	}
 	httpdtest.SetBaseURL(httpBaseURL)
 	// required to test sftpfs
@@ -13149,12 +13150,14 @@ func TestDefender(t *testing.T) {
 	req.RemoteAddr = remoteAddr
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
+	assert.Empty(t, rr.Header().Get("Cache-Control"))
 
 	req, err = http.NewRequest(http.MethodGet, "/.well-known/acme-challenge/foo", nil)
 	assert.NoError(t, err)
 	req.RemoteAddr = remoteAddr
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
+	assert.Equal(t, "no-cache, no-store, max-age=0, must-revalidate, private", rr.Header().Get("Cache-Control"))
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)

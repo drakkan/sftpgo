@@ -582,3 +582,17 @@ func checkPartialAuth(w http.ResponseWriter, r *http.Request, audience string, t
 	}
 	return nil
 }
+
+func cacheControlMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate, private")
+		next.ServeHTTP(w, r)
+	})
+}
+
+func cleanCacheControlMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Del("Cache-Control")
+		next.ServeHTTP(w, r)
+	})
+}
