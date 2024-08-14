@@ -269,7 +269,7 @@ func (c *RetentionCheck) cleanupFolder(folderPath string, recursion int) error {
 			return nil
 		}
 		result.Error = fmt.Sprintf("unable to get lister for directory %q", folderPath)
-		c.conn.Log(logger.LevelError, result.Error)
+		c.conn.Log(logger.LevelError, "%s", result.Error)
 		return err
 	}
 	defer lister.Close()

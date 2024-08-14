@@ -104,7 +104,7 @@ func (s *Service) Start(disableAWSInstallationCode bool) error {
 		}
 	}
 	if !config.HasServicesToStart() {
-		infoString := "no service configured, nothing to do"
+		const infoString = "no service configured, nothing to do"
 		logger.Info(logSender, "", infoString)
 		logger.InfoToConsole(infoString)
 		return errors.New(infoString)

@@ -2590,9 +2590,8 @@ func createProvider(basePath string) error {
 		return initializeBoltProvider(basePath)
 	case MemoryDataProviderName:
 		if err := initializeMemoryProvider(basePath); err != nil {
-			msg := fmt.Sprintf("provider initialized but data loading failed: %v", err)
-			logger.Warn(logSender, "", msg)
-			logger.WarnToConsole(msg)
+			logger.Warn(logSender, "", "provider initialized but data loading failed: %v", err)
+			logger.WarnToConsole("provider initialized but data loading failed: %v", err)
 		}
 		return nil
 	default:
