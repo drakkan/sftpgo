@@ -28,10 +28,10 @@ type LegoAdapter struct {
 // Fatal emits a log at Error level
 func (l *LegoAdapter) Fatal(args ...any) {
 	if l.LogToConsole {
-		ErrorToConsole(fmt.Sprint(args...))
+		ErrorToConsole("%s", fmt.Sprint(args...))
 		return
 	}
-	Log(LevelError, legoLogSender, "", fmt.Sprint(args...))
+	Log(LevelError, legoLogSender, "", "%s", fmt.Sprint(args...))
 }
 
 // Fatalln is the same as Fatal
@@ -51,10 +51,10 @@ func (l *LegoAdapter) Fatalf(format string, args ...any) {
 // Print emits a log at Info level
 func (l *LegoAdapter) Print(args ...any) {
 	if l.LogToConsole {
-		InfoToConsole(fmt.Sprint(args...))
+		InfoToConsole("%s", fmt.Sprint(args...))
 		return
 	}
-	Log(LevelInfo, legoLogSender, "", fmt.Sprint(args...))
+	Log(LevelInfo, legoLogSender, "", "%s", fmt.Sprint(args...))
 }
 
 // Println is the same as Print

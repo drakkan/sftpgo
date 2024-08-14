@@ -284,7 +284,7 @@ func (l *StdLoggerWrapper) Write(p []byte) (n int, err error) {
 		p = p[0 : n-1]
 	}
 
-	Log(LevelError, l.Sender, "", bytesToString(p))
+	Log(LevelError, l.Sender, "", "%s", bytesToString(p))
 	return
 }
 
