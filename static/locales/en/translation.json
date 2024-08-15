@@ -597,6 +597,8 @@
         "region": "Region",
         "access_key": "Access Key",
         "access_secret": "Access Secret",
+        "sse_customer_key": "Server-side encryption key",
+        "sse_customer_key_help": "You can store your data encrypted with this key, but if you lose or change this key, you will lose all files encrypted with it. Files that are not encrypted or encrypted with a different key will not be accessible",
         "endpoint": "Endpoint",
         "endpoint_help": "For AWS S3, leave blank to use the default endpoint for the specified region",
         "sftp_endpoint_help": "Endpoint as host:port. The port is always required",

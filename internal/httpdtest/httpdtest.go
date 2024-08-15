@@ -2188,6 +2188,9 @@ func compareS3Config(expected *vfs.Filesystem, actual *vfs.Filesystem) error { /
 	if err := checkEncryptedSecret(expected.S3Config.AccessSecret, actual.S3Config.AccessSecret); err != nil {
 		return fmt.Errorf("fs S3 access secret mismatch: %v", err)
 	}
+	if err := checkEncryptedSecret(expected.S3Config.SSECustomerKey, actual.S3Config.SSECustomerKey); err != nil {
+		return fmt.Errorf("fs S3 SSE customer key mismatch: %v", err)
+	}
 	if expected.S3Config.Endpoint != actual.S3Config.Endpoint {
 		return errors.New("fs S3 endpoint mismatch")
 	}

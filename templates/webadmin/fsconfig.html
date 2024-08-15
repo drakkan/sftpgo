@@ -173,6 +173,15 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
+        <div class="form-group row mt-10 fsconfig-s3">
+            <label for="idS3SSECustomerKey" data-i18n="storage.sse_customer_key" class="col-md-3 col-form-label">SSE Customer Key</label>
+            <div class="col-md-9">
+                <input id="idS3SSECustomerKey" type="password" class="form-control" name="s3_sse_customer_key" autocomplete="new-password" spellcheck="false"
+                    value="{{if .S3Config.SSECustomerKey.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.S3Config.SSECustomerKey.GetPayload}}{{end}}" aria-describedby="idS3SSECustomerKeyHelp"/>
+                <div id="idS3SSECustomerKeyHelp" class="form-text" data-i18n="storage.sse_customer_key_help"></div>
+            </div>
+        </div>
+
         <div class="form-group row align-items-center mt-10 fsconfig-s3">
             <div class="col-md-5">
                 <div class="form-check form-switch form-check-custom form-check-solid">

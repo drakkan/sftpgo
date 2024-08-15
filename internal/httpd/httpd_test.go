@@ -4934,6 +4934,12 @@ func TestUserRedactedPassword(t *testing.T) {
 		assert.Contains(t, err.Error(), "cannot save a user with a redacted secret")
 	}
 	u.FsConfig.S3Config.AccessSecret = kms.NewPlainSecret("secret")
+	u.FsConfig.S3Config.SSECustomerKey = kms.NewSecret(sdkkms.SecretStatusRedacted, "mysecretkey", "", "")
+	_, resp, err = httpdtest.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err, string(resp))
+	assert.Contains(t, string(resp), "cannot save a user with a redacted secret")
+
+	u.FsConfig.S3Config.SSECustomerKey = kms.NewPlainSecret("key")
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 
@@ -5653,6 +5659,7 @@ func TestUserS3Config(t *testing.T) {
 	user.FsConfig.S3Config.Bucket = "test" //nolint:goconst
 	user.FsConfig.S3Config.AccessKey = "Server-Access-Key"
 	user.FsConfig.S3Config.AccessSecret = kms.NewPlainSecret("Server-Access-Secret")
+	user.FsConfig.S3Config.SSECustomerKey = kms.NewPlainSecret("SSE-encryption-key")
 	user.FsConfig.S3Config.RoleARN = "myRoleARN"
 	user.FsConfig.S3Config.Endpoint = "http://127.0.0.1:9000"
 	user.FsConfig.S3Config.UploadPartSize = 8
@@ -5686,6 +5693,10 @@ func TestUserS3Config(t *testing.T) {
 	assert.NotEmpty(t, user.FsConfig.S3Config.AccessSecret.GetPayload())
 	assert.Empty(t, user.FsConfig.S3Config.AccessSecret.GetAdditionalData())
 	assert.Empty(t, user.FsConfig.S3Config.AccessSecret.GetKey())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.FsConfig.S3Config.SSECustomerKey.GetStatus())
+	assert.NotEmpty(t, user.FsConfig.S3Config.SSECustomerKey.GetPayload())
+	assert.Empty(t, user.FsConfig.S3Config.SSECustomerKey.GetAdditionalData())
+	assert.Empty(t, user.FsConfig.S3Config.SSECustomerKey.GetKey())
 	assert.Equal(t, 60, user.FsConfig.S3Config.DownloadPartMaxTime)
 	assert.Equal(t, 40, user.FsConfig.S3Config.UploadPartMaxTime)
 	assert.True(t, user.FsConfig.S3Config.SkipTLSVerify)
@@ -5710,13 +5721,14 @@ func TestUserS3Config(t *testing.T) {
 	user.ID = 0
 	user.CreatedAt = 0
 	user.VirtualFolders = nil
+	user.FsConfig.S3Config.SSECustomerKey = kms.NewEmptySecret()
 	secret := kms.NewSecret(sdkkms.SecretStatusSecretBox, "Server-Access-Secret", "", "")
 	user.FsConfig.S3Config.AccessSecret = secret
 	_, _, err = httpdtest.AddUser(user, http.StatusCreated)
 	assert.Error(t, err)
 	user.FsConfig.S3Config.AccessSecret.SetStatus(sdkkms.SecretStatusPlain)
-	user, _, err = httpdtest.AddUser(user, http.StatusCreated)
-	assert.NoError(t, err)
+	user, resp, err := httpdtest.AddUser(user, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
 	initialSecretPayload := user.FsConfig.S3Config.AccessSecret.GetPayload()
 	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.FsConfig.S3Config.AccessSecret.GetStatus())
 	assert.NotEmpty(t, initialSecretPayload)
@@ -6093,6 +6105,7 @@ func TestUserHiddenFields(t *testing.T) {
 	u1.FsConfig.S3Config.Region = "us-east-1"
 	u1.FsConfig.S3Config.AccessKey = "S3-Access-Key"
 	u1.FsConfig.S3Config.AccessSecret = kms.NewPlainSecret("S3-Access-Secret")
+	u1.FsConfig.S3Config.SSECustomerKey = kms.NewPlainSecret("SSE-secret-key")
 	user1, _, err := httpdtest.AddUser(u1, http.StatusCreated)
 	assert.NoError(t, err)
 
@@ -6165,6 +6178,10 @@ func TestUserHiddenFields(t *testing.T) {
 	assert.Empty(t, user1.FsConfig.S3Config.AccessSecret.GetAdditionalData())
 	assert.NotEmpty(t, user1.FsConfig.S3Config.AccessSecret.GetStatus())
 	assert.NotEmpty(t, user1.FsConfig.S3Config.AccessSecret.GetPayload())
+	assert.Empty(t, user1.FsConfig.S3Config.SSECustomerKey.GetKey())
+	assert.Empty(t, user1.FsConfig.S3Config.SSECustomerKey.GetAdditionalData())
+	assert.NotEmpty(t, user1.FsConfig.S3Config.SSECustomerKey.GetStatus())
+	assert.NotEmpty(t, user1.FsConfig.S3Config.SSECustomerKey.GetPayload())
 
 	user2, _, err = httpdtest.GetUserByUsername(user2.Username, http.StatusOK)
 	assert.NoError(t, err)
@@ -6219,12 +6236,22 @@ func TestUserHiddenFields(t *testing.T) {
 	assert.NotEmpty(t, user1.FsConfig.S3Config.AccessSecret.GetAdditionalData())
 	assert.NotEmpty(t, user1.FsConfig.S3Config.AccessSecret.GetStatus())
 	assert.NotEmpty(t, user1.FsConfig.S3Config.AccessSecret.GetPayload())
+	assert.NotEmpty(t, user1.FsConfig.S3Config.SSECustomerKey.GetKey())
+	assert.NotEmpty(t, user1.FsConfig.S3Config.SSECustomerKey.GetAdditionalData())
+	assert.NotEmpty(t, user1.FsConfig.S3Config.SSECustomerKey.GetStatus())
+	assert.NotEmpty(t, user1.FsConfig.S3Config.SSECustomerKey.GetPayload())
 	err = user1.FsConfig.S3Config.AccessSecret.Decrypt()
+	assert.NoError(t, err)
+	err = user1.FsConfig.S3Config.SSECustomerKey.Decrypt()
 	assert.NoError(t, err)
 	assert.Equal(t, sdkkms.SecretStatusPlain, user1.FsConfig.S3Config.AccessSecret.GetStatus())
 	assert.Equal(t, u1.FsConfig.S3Config.AccessSecret.GetPayload(), user1.FsConfig.S3Config.AccessSecret.GetPayload())
 	assert.Empty(t, user1.FsConfig.S3Config.AccessSecret.GetKey())
 	assert.Empty(t, user1.FsConfig.S3Config.AccessSecret.GetAdditionalData())
+	assert.Equal(t, sdkkms.SecretStatusPlain, user1.FsConfig.S3Config.SSECustomerKey.GetStatus())
+	assert.Equal(t, u1.FsConfig.S3Config.SSECustomerKey.GetPayload(), user1.FsConfig.S3Config.SSECustomerKey.GetPayload())
+	assert.Empty(t, user1.FsConfig.S3Config.SSECustomerKey.GetKey())
+	assert.Empty(t, user1.FsConfig.S3Config.SSECustomerKey.GetAdditionalData())
 
 	user2, err = dataprovider.UserExists(user2.Username, "")
 	assert.NoError(t, err)
@@ -22133,6 +22160,7 @@ func TestUserTemplateMock(t *testing.T) {
 	form.Set("s3_region", user.FsConfig.S3Config.Region)
 	form.Set("s3_access_key", "%username%")
 	form.Set("s3_access_secret", "%password%")
+	form.Set("s3_sse_customer_key", "%password%")
 	form.Set("s3_key_prefix", "base/%username%")
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
@@ -22232,13 +22260,21 @@ func TestUserTemplateMock(t *testing.T) {
 	require.Equal(t, path.Join("base", user1.Username)+"/", user1.FsConfig.S3Config.KeyPrefix)
 	require.Equal(t, path.Join("base", user2.Username)+"/", user2.FsConfig.S3Config.KeyPrefix)
 	require.True(t, user1.FsConfig.S3Config.AccessSecret.IsEncrypted())
+	require.True(t, user1.FsConfig.S3Config.SSECustomerKey.IsEncrypted())
 	err = user1.FsConfig.S3Config.AccessSecret.Decrypt()
 	require.NoError(t, err)
+	err = user1.FsConfig.S3Config.SSECustomerKey.Decrypt()
+	require.NoError(t, err)
 	require.Equal(t, "password1", user1.FsConfig.S3Config.AccessSecret.GetPayload())
+	require.Equal(t, "password1", user1.FsConfig.S3Config.SSECustomerKey.GetPayload())
 	require.True(t, user2.FsConfig.S3Config.AccessSecret.IsEncrypted())
+	require.True(t, user2.FsConfig.S3Config.SSECustomerKey.IsEncrypted())
 	err = user2.FsConfig.S3Config.AccessSecret.Decrypt()
 	require.NoError(t, err)
+	err = user2.FsConfig.S3Config.SSECustomerKey.Decrypt()
+	require.NoError(t, err)
 	require.Equal(t, "password2", user2.FsConfig.S3Config.AccessSecret.GetPayload())
+	require.Equal(t, "password2", user2.FsConfig.S3Config.SSECustomerKey.GetPayload())
 	require.True(t, user1.Filters.Hooks.ExternalAuthDisabled)
 	require.True(t, user1.Filters.Hooks.CheckPasswordDisabled)
 	require.False(t, user1.Filters.Hooks.PreLoginDisabled)
@@ -22484,6 +22520,7 @@ func TestFolderTemplateMock(t *testing.T) {
 	form.Set("s3_region", "us-east-1")
 	form.Set("s3_access_key", "%name%")
 	form.Set("s3_access_secret", "pwd%name%")
+	form.Set("s3_sse_customer_key", "key%name%")
 	form.Set("s3_key_prefix", "base/%name%")
 
 	b, contentType, _ = getMultipartFormData(form, "", "")
@@ -22523,18 +22560,27 @@ func TestFolderTemplateMock(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, fmt.Sprintf("pwd%s", folder1), folder.FsConfig.S3Config.AccessSecret.GetPayload())
 			require.Equal(t, path.Join("base", folder1)+"/", folder.FsConfig.S3Config.KeyPrefix)
+			err = folder.FsConfig.S3Config.SSECustomerKey.Decrypt()
+			require.NoError(t, err)
+			require.Equal(t, fmt.Sprintf("key%s", folder1), folder.FsConfig.S3Config.SSECustomerKey.GetPayload())
 		case folder2:
 			require.Equal(t, folder2, folder.FsConfig.S3Config.AccessKey)
 			err = folder.FsConfig.S3Config.AccessSecret.Decrypt()
 			require.NoError(t, err)
 			require.Equal(t, "pwd"+folder2, folder.FsConfig.S3Config.AccessSecret.GetPayload())
 			require.Equal(t, "base/"+folder2+"/", folder.FsConfig.S3Config.KeyPrefix)
+			err = folder.FsConfig.S3Config.SSECustomerKey.Decrypt()
+			require.NoError(t, err)
+			require.Equal(t, "key"+folder2, folder.FsConfig.S3Config.SSECustomerKey.GetPayload())
 		default:
 			require.Equal(t, folder3, folder.FsConfig.S3Config.AccessKey)
 			err = folder.FsConfig.S3Config.AccessSecret.Decrypt()
 			require.NoError(t, err)
 			require.Equal(t, "pwd"+folder3, folder.FsConfig.S3Config.AccessSecret.GetPayload())
 			require.Equal(t, "base/"+folder3+"/", folder.FsConfig.S3Config.KeyPrefix)
+			err = folder.FsConfig.S3Config.SSECustomerKey.Decrypt()
+			require.NoError(t, err)
+			require.Equal(t, "key"+folder3, folder.FsConfig.S3Config.SSECustomerKey.GetPayload())
 		}
 	}
 
@@ -22583,6 +22629,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	user.FsConfig.S3Config.Region = "eu-west-1"
 	user.FsConfig.S3Config.AccessKey = "access-key"
 	user.FsConfig.S3Config.AccessSecret = kms.NewPlainSecret("access-secret")
+	user.FsConfig.S3Config.SSECustomerKey = kms.NewPlainSecret("enc-key")
 	user.FsConfig.S3Config.RoleARN = "arn:aws:iam::123456789012:user/Development/product_1234/*"
 	user.FsConfig.S3Config.Endpoint = "http://127.0.0.1:9000/path?a=b"
 	user.FsConfig.S3Config.StorageClass = "Standard"
@@ -22623,6 +22670,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	form.Set("s3_region", user.FsConfig.S3Config.Region)
 	form.Set("s3_access_key", user.FsConfig.S3Config.AccessKey)
 	form.Set("s3_access_secret", user.FsConfig.S3Config.AccessSecret.GetPayload())
+	form.Set("s3_sse_customer_key", user.FsConfig.S3Config.SSECustomerKey.GetPayload())
 	form.Set("s3_role_arn", user.FsConfig.S3Config.RoleARN)
 	form.Set("s3_storage_class", user.FsConfig.S3Config.StorageClass)
 	form.Set("s3_acl", user.FsConfig.S3Config.ACL)
@@ -22747,6 +22795,10 @@ func TestWebUserS3Mock(t *testing.T) {
 	assert.NotEmpty(t, updateUser.FsConfig.S3Config.AccessSecret.GetPayload())
 	assert.Empty(t, updateUser.FsConfig.S3Config.AccessSecret.GetKey())
 	assert.Empty(t, updateUser.FsConfig.S3Config.AccessSecret.GetAdditionalData())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, updateUser.FsConfig.S3Config.SSECustomerKey.GetStatus())
+	assert.NotEmpty(t, updateUser.FsConfig.S3Config.SSECustomerKey.GetPayload())
+	assert.Empty(t, updateUser.FsConfig.S3Config.SSECustomerKey.GetKey())
+	assert.Empty(t, updateUser.FsConfig.S3Config.SSECustomerKey.GetAdditionalData())
 	assert.Equal(t, user.Description, updateUser.Description)
 	assert.True(t, updateUser.Filters.Hooks.PreLoginDisabled)
 	assert.False(t, updateUser.Filters.Hooks.ExternalAuthDisabled)
@@ -22756,6 +22808,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	assert.Equal(t, 1, updateUser.Filters.FTPSecurity)
 	// now check that a redacted password is not saved
 	form.Set("s3_access_secret", redactedSecret)
+	form.Set("s3_sse_customer_key", redactedSecret)
 	b, contentType, _ = getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
 	setJWTCookieForReq(req, webToken)
@@ -22774,10 +22827,15 @@ func TestWebUserS3Mock(t *testing.T) {
 	assert.Equal(t, updateUser.FsConfig.S3Config.AccessSecret.GetPayload(), lastUpdatedUser.FsConfig.S3Config.AccessSecret.GetPayload())
 	assert.Empty(t, lastUpdatedUser.FsConfig.S3Config.AccessSecret.GetKey())
 	assert.Empty(t, lastUpdatedUser.FsConfig.S3Config.AccessSecret.GetAdditionalData())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, lastUpdatedUser.FsConfig.S3Config.SSECustomerKey.GetStatus())
+	assert.Equal(t, updateUser.FsConfig.S3Config.SSECustomerKey.GetPayload(), lastUpdatedUser.FsConfig.S3Config.SSECustomerKey.GetPayload())
+	assert.Empty(t, lastUpdatedUser.FsConfig.S3Config.SSECustomerKey.GetKey())
+	assert.Empty(t, lastUpdatedUser.FsConfig.S3Config.SSECustomerKey.GetAdditionalData())
 	assert.Equal(t, lastPwdChange, lastUpdatedUser.LastPasswordChange)
 	// now clear credentials
 	form.Set("s3_access_key", "")
 	form.Set("s3_access_secret", "")
+	form.Set("s3_sse_customer_key", "")
 	b, contentType, _ = getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
 	setJWTCookieForReq(req, webToken)
@@ -22792,6 +22850,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	err = render.DecodeJSON(rr.Body, &userGet)
 	assert.NoError(t, err)
 	assert.Nil(t, userGet.FsConfig.S3Config.AccessSecret)
+	assert.Nil(t, userGet.FsConfig.S3Config.SSECustomerKey)
 
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(userPath, user.Username), nil)
 	setBearerForReq(req, apiToken)
@@ -25187,6 +25246,7 @@ func TestS3WebFolderMock(t *testing.T) {
 	S3Region := "eu-west-1"
 	S3AccessKey := "access-key"
 	S3AccessSecret := kms.NewPlainSecret("folder-access-secret")
+	S3SSEKey := kms.NewPlainSecret("folder-sse-key")
 	S3SessionToken := "fake session token"
 	S3RoleARN := "arn:aws:iam::123456789012:user/Development/product_1234/*"
 	S3Endpoint := "http://127.0.0.1:9000/path?b=c"
@@ -25208,6 +25268,7 @@ func TestS3WebFolderMock(t *testing.T) {
 	form.Set("s3_region", S3Region)
 	form.Set("s3_access_key", S3AccessKey)
 	form.Set("s3_access_secret", S3AccessSecret.GetPayload())
+	form.Set("s3_sse_customer_key", S3SSEKey.GetPayload())
 	form.Set("s3_session_token", S3SessionToken)
 	form.Set("s3_role_arn", S3RoleARN)
 	form.Set("s3_storage_class", S3StorageClass)
@@ -25255,6 +25316,7 @@ func TestS3WebFolderMock(t *testing.T) {
 	assert.Equal(t, S3Region, folder.FsConfig.S3Config.Region)
 	assert.Equal(t, S3AccessKey, folder.FsConfig.S3Config.AccessKey)
 	assert.NotEmpty(t, folder.FsConfig.S3Config.AccessSecret.GetPayload())
+	assert.NotEmpty(t, folder.FsConfig.S3Config.SSECustomerKey.GetPayload())
 	assert.Equal(t, S3Endpoint, folder.FsConfig.S3Config.Endpoint)
 	assert.Equal(t, S3StorageClass, folder.FsConfig.S3Config.StorageClass)
 	assert.Equal(t, S3ACL, folder.FsConfig.S3Config.ACL)
@@ -25305,6 +25367,7 @@ func TestS3WebFolderMock(t *testing.T) {
 	assert.Equal(t, S3AccessKey, folder.FsConfig.S3Config.AccessKey)
 	assert.Equal(t, S3RoleARN, folder.FsConfig.S3Config.RoleARN)
 	assert.NotEmpty(t, folder.FsConfig.S3Config.AccessSecret.GetPayload())
+	assert.NotEmpty(t, folder.FsConfig.S3Config.SSECustomerKey.GetPayload())
 	assert.Equal(t, S3Endpoint, folder.FsConfig.S3Config.Endpoint)
 	assert.Equal(t, S3StorageClass, folder.FsConfig.S3Config.StorageClass)
 	assert.Equal(t, S3KeyPrefix, folder.FsConfig.S3Config.KeyPrefix)

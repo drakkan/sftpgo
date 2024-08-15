@@ -1530,6 +1530,7 @@ func getS3Config(r *http.Request) (vfs.S3FsConfig, error) {
 	config.AccessKey = strings.TrimSpace(r.Form.Get("s3_access_key"))
 	config.RoleARN = strings.TrimSpace(r.Form.Get("s3_role_arn"))
 	config.AccessSecret = getSecretFromFormField(r, "s3_access_secret")
+	config.SSECustomerKey = getSecretFromFormField(r, "s3_sse_customer_key")
 	config.Endpoint = strings.TrimSpace(r.Form.Get("s3_endpoint"))
 	config.StorageClass = strings.TrimSpace(r.Form.Get("s3_storage_class"))
 	config.ACL = strings.TrimSpace(r.Form.Get("s3_acl"))
@@ -1854,6 +1855,10 @@ func getS3FsFromTemplate(fsConfig vfs.S3FsConfig, replacements map[string]string
 	if fsConfig.AccessSecret != nil && fsConfig.AccessSecret.IsPlain() {
 		payload := replacePlaceholders(fsConfig.AccessSecret.GetPayload(), replacements)
 		fsConfig.AccessSecret = kms.NewPlainSecret(payload)
+	}
+	if fsConfig.SSECustomerKey != nil && fsConfig.SSECustomerKey.IsPlain() {
+		payload := replacePlaceholders(fsConfig.SSECustomerKey.GetPayload(), replacements)
+		fsConfig.SSECustomerKey = kms.NewPlainSecret(payload)
 	}
 	return fsConfig
 }

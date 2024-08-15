@@ -45,6 +45,7 @@ type Filesystem struct {
 // SetEmptySecrets sets the secrets to empty
 func (f *Filesystem) SetEmptySecrets() {
 	f.S3Config.AccessSecret = kms.NewEmptySecret()
+	f.S3Config.SSECustomerKey = kms.NewEmptySecret()
 	f.GCSConfig.Credentials = kms.NewEmptySecret()
 	f.AzBlobConfig.AccountKey = kms.NewEmptySecret()
 	f.AzBlobConfig.SASURL = kms.NewEmptySecret()
@@ -60,6 +61,9 @@ func (f *Filesystem) SetEmptySecrets() {
 func (f *Filesystem) SetEmptySecretsIfNil() {
 	if f.S3Config.AccessSecret == nil {
 		f.S3Config.AccessSecret = kms.NewEmptySecret()
+	}
+	if f.S3Config.SSECustomerKey == nil {
+		f.S3Config.SSECustomerKey = kms.NewEmptySecret()
 	}
 	if f.GCSConfig.Credentials == nil {
 		f.GCSConfig.Credentials = kms.NewEmptySecret()
@@ -96,6 +100,9 @@ func (f *Filesystem) SetEmptySecretsIfNil() {
 func (f *Filesystem) SetNilSecretsIfEmpty() {
 	if f.S3Config.AccessSecret != nil && f.S3Config.AccessSecret.IsEmpty() {
 		f.S3Config.AccessSecret = nil
+	}
+	if f.S3Config.SSECustomerKey != nil && f.S3Config.SSECustomerKey.IsEmpty() {
+		f.S3Config.SSECustomerKey = nil
 	}
 	if f.GCSConfig.Credentials != nil && f.GCSConfig.Credentials.IsEmpty() {
 		f.GCSConfig.Credentials = nil
@@ -260,6 +267,9 @@ func (f *Filesystem) HasRedactedSecret() bool {
 	// TODO move vfs specific code into each *FsConfig struct
 	switch f.Provider {
 	case sdk.S3FilesystemProvider:
+		if f.S3Config.SSECustomerKey.IsRedacted() {
+			return true
+		}
 		return f.S3Config.AccessSecret.IsRedacted()
 	case sdk.GCSFilesystemProvider:
 		return f.GCSConfig.Credentials.IsRedacted()
@@ -334,7 +344,8 @@ func (f *Filesystem) GetACopy() Filesystem {
 				ForcePathStyle:      f.S3Config.ForcePathStyle,
 				SkipTLSVerify:       f.S3Config.SkipTLSVerify,
 			},
-			AccessSecret: f.S3Config.AccessSecret.Clone(),
+			AccessSecret:   f.S3Config.AccessSecret.Clone(),
+			SSECustomerKey: f.S3Config.SSECustomerKey.Clone(),
 		},
 		GCSConfig: GCSFsConfig{
 			BaseGCSFsConfig: sdk.BaseGCSFsConfig{

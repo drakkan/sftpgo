@@ -597,6 +597,8 @@
         "region": "Regione",
         "access_key": "Chiave di accesso",
         "access_secret": "Chiave di accesso segreta",
+        "sse_customer_key": "Chiave di crittografia",
+        "sse_customer_key_help": "Puoi archiviare i tuoi dati crittografati con questa chiave, ma se perdi o modifichi inavvertitamente questa chiave, perderai tutti i file crittografati con essa. I file non crittografati o crittografati con una chiave diversa non saranno accessibili",
         "endpoint": "Endpoint",
         "endpoint_help": "Per AWS S3, lasciare vuoto per utilizzare l'endpoint predefinito per la regione specificata",
         "sftp_endpoint_help": "Endpoint come host:porta. La porta è sempre richiesta",

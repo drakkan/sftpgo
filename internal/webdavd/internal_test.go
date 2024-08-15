@@ -1485,7 +1485,10 @@ func TestUserCacheIsolation(t *testing.T) {
 		LockSystem: webdav.NewMemLS(),
 	}
 	cachedUser.User.FsConfig.S3Config.AccessSecret = kms.NewPlainSecret("test secret")
+	cachedUser.User.FsConfig.S3Config.SSECustomerKey = kms.NewPlainSecret("test key")
 	err = cachedUser.User.FsConfig.S3Config.AccessSecret.Encrypt()
+	assert.NoError(t, err)
+	err = cachedUser.User.FsConfig.S3Config.SSECustomerKey.Encrypt()
 	assert.NoError(t, err)
 	dataprovider.CacheWebDAVUser(cachedUser)
 	cachedUser, ok := dataprovider.GetCachedWebDAVUser(username)
@@ -1500,6 +1503,9 @@ func TestUserCacheIsolation(t *testing.T) {
 		assert.True(t, cachedUser.User.FsConfig.S3Config.AccessSecret.IsEncrypted())
 		err = cachedUser.User.FsConfig.S3Config.AccessSecret.Decrypt()
 		assert.NoError(t, err)
+		assert.True(t, cachedUser.User.FsConfig.S3Config.SSECustomerKey.IsEncrypted())
+		err = cachedUser.User.FsConfig.S3Config.SSECustomerKey.Decrypt()
+		assert.NoError(t, err)
 		cachedUser.User.FsConfig.Provider = sdk.S3FilesystemProvider
 		_, err = cachedUser.User.GetFilesystem("")
 		assert.Error(t, err, "we don't have to get the previously cached filesystem!")
@@ -1508,6 +1514,7 @@ func TestUserCacheIsolation(t *testing.T) {
 	if assert.True(t, ok) {
 		assert.Equal(t, sdk.LocalFilesystemProvider, cachedUser.User.FsConfig.Provider)
 		assert.False(t, cachedUser.User.FsConfig.S3Config.AccessSecret.IsEncrypted())
+		assert.False(t, cachedUser.User.FsConfig.S3Config.SSECustomerKey.IsEncrypted())
 	}
 
 	err = dataprovider.DeleteUser(username, "", "", "")

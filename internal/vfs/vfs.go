@@ -267,13 +267,17 @@ func (q *QuotaCheckResult) GetRemainingFiles() int {
 // S3FsConfig defines the configuration for S3 based filesystem
 type S3FsConfig struct {
 	sdk.BaseS3FsConfig
-	AccessSecret *kms.Secret `json:"access_secret,omitempty"`
+	AccessSecret   *kms.Secret `json:"access_secret,omitempty"`
+	SSECustomerKey *kms.Secret `json:"sse_customer_key,omitempty"`
 }
 
 // HideConfidentialData hides confidential data
 func (c *S3FsConfig) HideConfidentialData() {
 	if c.AccessSecret != nil {
 		c.AccessSecret.Hide()
+	}
+	if c.SSECustomerKey != nil {
+		c.SSECustomerKey.Hide()
 	}
 }
 
@@ -337,6 +341,15 @@ func (c *S3FsConfig) areMultipartFieldsEqual(other S3FsConfig) bool {
 }
 
 func (c *S3FsConfig) isSecretEqual(other S3FsConfig) bool {
+	if c.SSECustomerKey == nil {
+		c.SSECustomerKey = kms.NewEmptySecret()
+	}
+	if other.SSECustomerKey == nil {
+		other.SSECustomerKey = kms.NewEmptySecret()
+	}
+	if !c.SSECustomerKey.IsEqual(other.SSECustomerKey) {
+		return false
+	}
 	if c.AccessSecret == nil {
 		c.AccessSecret = kms.NewEmptySecret()
 	}
@@ -365,6 +378,12 @@ func (c *S3FsConfig) checkCredentials() error {
 	if !c.AccessSecret.IsEmpty() && !c.AccessSecret.IsValidInput() {
 		return errors.New("invalid access_secret")
 	}
+	if c.SSECustomerKey.IsEncrypted() && !c.SSECustomerKey.IsValid() {
+		return errors.New("invalid encrypted sse_customer_key")
+	}
+	if !c.SSECustomerKey.IsEmpty() && !c.SSECustomerKey.IsValidInput() {
+		return errors.New("invalid sse_customer_key")
+	}
 	return nil
 }
 
@@ -384,6 +403,16 @@ func (c *S3FsConfig) ValidateAndEncryptCredentials(additionalData string) error 
 		if err != nil {
 			return util.NewI18nError(
 				util.NewValidationError(fmt.Sprintf("could not encrypt s3 access secret: %v", err)),
+				util.I18nErrorFsValidation,
+			)
+		}
+	}
+	if c.SSECustomerKey.IsPlain() {
+		c.SSECustomerKey.SetAdditionalData(additionalData)
+		err := c.SSECustomerKey.Encrypt()
+		if err != nil {
+			return util.NewI18nError(
+				util.NewValidationError(fmt.Sprintf("could not encrypt s3 SSE customer key: %v", err)),
 				util.I18nErrorFsValidation,
 			)
 		}
@@ -433,6 +462,9 @@ func (c *S3FsConfig) isSameResource(other S3FsConfig) bool {
 func (c *S3FsConfig) validate() error {
 	if c.AccessSecret == nil {
 		c.AccessSecret = kms.NewEmptySecret()
+	}
+	if c.SSECustomerKey == nil {
+		c.SSECustomerKey = kms.NewEmptySecret()
 	}
 	if c.Bucket == "" {
 		return util.NewI18nError(errors.New("bucket cannot be empty"), util.I18nErrorBucketRequired)

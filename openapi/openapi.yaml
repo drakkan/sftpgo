@@ -5576,6 +5576,8 @@ components:
           type: string
         access_secret:
           $ref: '#/components/schemas/Secret'
+        sse_customer_key:
+          $ref: '#/components/schemas/Secret'
         role_arn:
           type: string
           description: 'Optional IAM Role ARN to assume'

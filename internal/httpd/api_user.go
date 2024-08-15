@@ -278,6 +278,9 @@ func updateEncryptedSecrets(fsConfig *vfs.Filesystem, currentFsConfig *vfs.Files
 		if fsConfig.S3Config.AccessSecret.IsNotPlainAndNotEmpty() {
 			fsConfig.S3Config.AccessSecret = currentFsConfig.S3Config.AccessSecret
 		}
+		if fsConfig.S3Config.SSECustomerKey.IsNotPlainAndNotEmpty() {
+			fsConfig.S3Config.SSECustomerKey = currentFsConfig.S3Config.SSECustomerKey
+		}
 	case sdk.AzureBlobFilesystemProvider:
 		if fsConfig.AzBlobConfig.AccountKey.IsNotPlainAndNotEmpty() {
 			fsConfig.AzBlobConfig.AccountKey = currentFsConfig.AzBlobConfig.AccountKey
