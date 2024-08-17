@@ -345,7 +345,7 @@ func (c *Config) getSMTPClientAndMsg(to, bcc []string, subject, body string, con
 	msg.Subject(subject)
 	msg.SetDate()
 	msg.SetMessageID()
-	msg.SetAttachements(attachments)
+	msg.SetAttachments(attachments)
 
 	switch contentType {
 	case EmailContentTypeTextPlain:
