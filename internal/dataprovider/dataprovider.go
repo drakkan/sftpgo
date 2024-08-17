@@ -236,7 +236,19 @@ var (
 	fnReloadRules                FnReloadRules
 	fnRemoveRule                 FnRemoveRule
 	fnHandleRuleForProviderEvent FnHandleRuleForProviderEvent
+	fnCanSetHomeDir              func() bool
+	fnPreUserValidation          func(u *User)
+	fnPreFolderValidation        func(f *vfs.BaseVirtualFolder)
+	fnPreGroupValidation         func(g *Group)
 )
+
+// CanSetHomeDir returns true if the home directory can be changed
+func CanSetHomeDir() bool {
+	if fnCanSetHomeDir != nil {
+		return fnCanSetHomeDir()
+	}
+	return true
+}
 
 func initSQLTables() {
 	sqlTableUsers = "users"
@@ -3306,6 +3318,9 @@ func createUserPasswordHash(user *User) error {
 // FIXME: this should be defined as Folder struct method
 func ValidateFolder(folder *vfs.BaseVirtualFolder) error {
 	folder.FsConfig.SetEmptySecretsIfNil()
+	if fnPreFolderValidation != nil {
+		fnPreFolderValidation(folder)
+	}
 	if folder.Name == "" {
 		return util.NewI18nError(util.NewValidationError("folder name is mandatory"), util.I18nErrorNameRequired)
 	}
@@ -3338,6 +3353,9 @@ func ValidateUser(user *User) error {
 	user.OIDCCustomFields = nil
 	user.HasPassword = false
 	user.SetEmptySecretsIfNil()
+	if fnPreUserValidation != nil {
+		fnPreUserValidation(user)
+	}
 	buildUserHomeDir(user)
 	if err := validateBaseParams(user); err != nil {
 		return err

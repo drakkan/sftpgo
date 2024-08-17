@@ -168,6 +168,7 @@ type fsWrapper struct {
 	IsHidden        bool
 	HasUsersBaseDir bool
 	DirPath         string
+	CanSetHomeDir   bool
 }
 
 type userPage struct {
@@ -970,6 +971,7 @@ func (s *httpdServer) renderUserPage(w http.ResponseWriter, r *http.Request, use
 			IsHidden:        basePage.LoggedUser.Filters.Preferences.HideFilesystem(),
 			HasUsersBaseDir: dataprovider.HasUsersBaseDir(),
 			DirPath:         user.HomeDir,
+			CanSetHomeDir:   dataprovider.CanSetHomeDir(),
 		},
 	}
 	renderAdminTemplate(w, templateUser, data)
@@ -1055,6 +1057,7 @@ func (s *httpdServer) renderGroupPage(w http.ResponseWriter, r *http.Request, gr
 			IsGroupPage:     true,
 			HasUsersBaseDir: false,
 			DirPath:         group.UserSettings.HomeDir,
+			CanSetHomeDir:   dataprovider.CanSetHomeDir(),
 		},
 	}
 	renderAdminTemplate(w, templateGroup, data)
@@ -1158,6 +1161,7 @@ func (s *httpdServer) renderFolderPage(w http.ResponseWriter, r *http.Request, f
 			IsGroupPage:     false,
 			HasUsersBaseDir: false,
 			DirPath:         folder.MappedPath,
+			CanSetHomeDir:   dataprovider.CanSetHomeDir(),
 		},
 	}
 	renderAdminTemplate(w, templateFolder, data)

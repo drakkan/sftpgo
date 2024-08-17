@@ -34,7 +34,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
         {{- if or .IsUserPage .IsGroupPage}}
-        <div class="form-group row mt-10">
+        <div class="form-group row mt-10 {{if not .CanSetHomeDir}}d-none{{end}}">
             <label for="idHomeDir" data-i18n="storage.home_dir" class="col-md-3 col-form-label">Home Dir</label>
             <div class="col-md-9">
                 <input id="idHomeDir" type="text" data-i18n="[placeholder]storage.home_dir_placeholder" class="form-control" name="home_dir" value="{{.DirPath}}" aria-describedby="idHomeDirHelp" />
@@ -42,7 +42,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
         {{- else}}
-        <div class="form-group row mt-10">
+        <div class="form-group row mt-10 {{if not .CanSetHomeDir}}d-none{{end}}">
             <label for="idMappedPath" data-i18n="storage.home_dir" class="col-md-3 col-form-label">Home Dir</label>
             <div class="col-md-9">
                 <input id="idMappedPath" type="text" data-i18n="[placeholder]storage.home_dir_placeholder" class="form-control" name="mapped_path" value="{{.DirPath}}" aria-describedby="idMappedPathHelp" />
