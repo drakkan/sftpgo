@@ -44,7 +44,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         </div>
         {{- end}}
         {{- template "errmsg" .Error}}
-        <form id="folder_form" enctype="multipart/form-data" action="{{.CurrentURL}}" method="POST" autocomplete="off" {{if eq .Mode 3}}target="_blank"{{end}}>
+        <form id="folder_form" enctype="multipart/form-data" action="{{.CurrentURL}}" method="POST" autocomplete="off" {{if eq .Mode 3}}target="_blank" rel="noopener noreferrer"{{end}}>
             {{- if eq .Mode 3}}
             <div class="card mt-10">
                 <div class="card-header bg-light">

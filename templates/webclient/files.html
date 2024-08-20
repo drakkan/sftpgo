@@ -721,7 +721,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                                 let view_url = row['url'];
                                                 view_url = view_url.replace('{{.FilesURL}}','{{.ViewPDFURL}}');
                                                 previewDiv = `<div class="ms-2" data-kt-filemanger-table="view_item">
-												    <a href="${view_url}" target="_blank" class="btn btn-sm btn-icon btn-light btn-active-light-primary">
+												    <a href="${view_url}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-icon btn-light btn-active-light-primary">
 													    <i class="ki-duotone ki-eye fs-6 m-0">
 														    <span class="path1"></span>
 														    <span class="path2"></span>
@@ -735,7 +735,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                             //{{- if not .ShareUploadBaseURL}}
                                             if (data && (supportedEditExtensions.includes(extension) || supportedEditFilenames.includes(filename.toLowerCase()))){
                                                 previewDiv = `<div class="ms-2" data-kt-filemanger-table="view_item">
-												    <a href="${data}" target="_blank" class="btn btn-sm btn-icon btn-light btn-active-light-primary">
+												    <a href="${data}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-icon btn-light btn-active-light-primary">
 													    <i class="ki-duotone ki-eye fs-6 m-0">
 														    <span class="path1"></span>
 														    <span class="path2"></span>
@@ -1072,7 +1072,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     let currentDir = '{{.CurrentDir}}';
                     let ts = new Date().getTime().toString();
                     let files = JSON.stringify(filesArray);
-                    $(`<form method="post" action="${downloadURL}?path=${currentDir}&_=${ts}" target="_blank">
+                    $(`<form method="post" action="${downloadURL}?path=${currentDir}&_=${ts}" target="_blank" rel="noopener noreferrer">
                         <input type="hidden" name="_form_token" value="${token}">
                         <textarea name="files" hidden>${files}</textarea>
                        </form>`).appendTo('body').submit().remove();
