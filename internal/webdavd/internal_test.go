@@ -806,7 +806,7 @@ func TestTransferReadWriteErrors(t *testing.T) {
 
 	r, w, err := pipeat.Pipe()
 	assert.NoError(t, err)
-	davFile = newWebDavFile(baseTransfer, nil, r)
+	davFile = newWebDavFile(baseTransfer, nil, vfs.NewPipeReader(r))
 	davFile.Connection.RemoveTransfer(davFile.BaseTransfer)
 	davFile = newWebDavFile(baseTransfer, vfs.NewPipeWriter(w), nil)
 	davFile.Connection.RemoveTransfer(davFile.BaseTransfer)

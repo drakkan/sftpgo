@@ -24,7 +24,6 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/eikenb/pipeat"
 	"github.com/minio/sio"
 	"golang.org/x/crypto/hkdf"
 
@@ -89,7 +88,7 @@ func (fs *CryptFs) Open(name string, offset int64) (File, PipeReader, func(), er
 		f.Close()
 		return nil, nil, nil, err
 	}
-	r, w, err := pipeat.PipeInDir(fs.localTempDir)
+	r, w, err := createPipeFn(fs.localTempDir, 0)
 	if err != nil {
 		f.Close()
 		return nil, nil, nil, err
@@ -175,7 +174,7 @@ func (fs *CryptFs) Create(name string, _, _ int) (File, PipeWriter, func(), erro
 		f.Close()
 		return nil, nil, nil, err
 	}
-	r, w, err := pipeat.PipeInDir(fs.localTempDir)
+	r, w, err := createPipeFn(fs.localTempDir, 0)
 	if err != nil {
 		f.Close()
 		return nil, nil, nil, err

@@ -35,7 +35,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/eikenb/pipeat"
 	"github.com/pkg/sftp"
 	"github.com/robfig/cron/v3"
 	"github.com/rs/xid"
@@ -405,7 +404,7 @@ func (fs *SFTPFs) Open(name string, offset int64) (File, PipeReader, func(), err
 	if fs.config.BufferSize == 0 {
 		return f, nil, nil, nil
 	}
-	r, w, err := pipeat.PipeInDir(fs.localTempDir)
+	r, w, err := createPipeFn(fs.localTempDir, 0)
 	if err != nil {
 		f.Close()
 		return nil, nil, nil, err
@@ -445,7 +444,7 @@ func (fs *SFTPFs) Create(name string, flag, _ int) (File, PipeWriter, func(), er
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	r, w, err := pipeat.PipeInDir(fs.localTempDir)
+	r, w, err := createPipeFn(fs.localTempDir, 0)
 	if err != nil {
 		f.Close()
 		return nil, nil, nil, err

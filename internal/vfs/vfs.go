@@ -73,6 +73,12 @@ var (
 	uploadMode               int
 )
 
+var (
+	createPipeFn = func(dirPath string, _ int64) (pipeReaderAt, pipeWriterAt, error) {
+		return pipeat.PipeInDir(dirPath)
+	}
+)
+
 // SetAllowSelfConnections sets the desired behaviour for self connections
 func SetAllowSelfConnections(value int) {
 	allowSelfConnections = value
@@ -194,6 +200,22 @@ type PipeReader interface {
 	setMetadata(value map[string]string)
 	setMetadataFromPointerVal(value map[string]*string)
 	Metadata() map[string]string
+}
+
+type pipeReaderAt interface {
+	Read(p []byte) (int, error)
+	ReadAt(p []byte, offset int64) (int, error)
+	GetReadedBytes() int64
+	Close() error
+	CloseWithError(err error) error
+}
+
+type pipeWriterAt interface {
+	Write(p []byte) (int, error)
+	WriteAt(p []byte, offset int64) (int, error)
+	GetWrittenBytes() int64
+	Close() error
+	CloseWithError(err error) error
 }
 
 // DirLister defines an interface for a directory lister
@@ -867,25 +889,25 @@ func (c *CryptFsConfig) validate() error {
 	return nil
 }
 
-// pipeWriter defines a wrapper for pipeat.PipeWriterAt.
+// pipeWriter defines a wrapper for a pipeWriterAt.
 type pipeWriter struct {
-	*pipeat.PipeWriterAt
+	pipeWriterAt
 	err  error
 	done chan bool
 }
 
 // NewPipeWriter initializes a new PipeWriter
-func NewPipeWriter(w *pipeat.PipeWriterAt) PipeWriter {
+func NewPipeWriter(w pipeWriterAt) PipeWriter {
 	return &pipeWriter{
-		PipeWriterAt: w,
+		pipeWriterAt: w,
 		err:          nil,
 		done:         make(chan bool),
 	}
 }
 
-// Close waits for the upload to end, closes the pipeat.PipeWriterAt and returns an error if any.
+// Close waits for the upload to end, closes the pipeWriterAt and returns an error if any.
 func (p *pipeWriter) Close() error {
-	p.PipeWriterAt.Close() //nolint:errcheck // the returned error is always null
+	p.pipeWriterAt.Close() //nolint:errcheck // the returned error is always null
 	<-p.done
 	return p.err
 }
@@ -897,10 +919,10 @@ func (p *pipeWriter) Done(err error) {
 	p.done <- true
 }
 
-func newPipeWriterAtOffset(w *pipeat.PipeWriterAt, offset int64) PipeWriter {
+func newPipeWriterAtOffset(w pipeWriterAt, offset int64) PipeWriter {
 	return &pipeWriterAtOffset{
 		pipeWriter: &pipeWriter{
-			PipeWriterAt: w,
+			pipeWriterAt: w,
 			err:          nil,
 			done:         make(chan bool),
 		},
@@ -929,15 +951,15 @@ func (p *pipeWriterAtOffset) Write(buf []byte) (int, error) {
 }
 
 // NewPipeReader initializes a new PipeReader
-func NewPipeReader(r *pipeat.PipeReaderAt) PipeReader {
+func NewPipeReader(r pipeReaderAt) PipeReader {
 	return &pipeReader{
-		PipeReaderAt: r,
+		pipeReaderAt: r,
 	}
 }
 
 // pipeReader defines a wrapper for pipeat.PipeReaderAt.
 type pipeReader struct {
-	*pipeat.PipeReaderAt
+	pipeReaderAt
 	mu       sync.RWMutex
 	metadata map[string]string
 }

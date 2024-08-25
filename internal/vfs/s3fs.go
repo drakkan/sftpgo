@@ -49,7 +49,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
-	"github.com/eikenb/pipeat"
 	"github.com/pkg/sftp"
 
 	"github.com/drakkan/sftpgo/v2/internal/logger"
@@ -229,7 +228,7 @@ func (fs *S3Fs) Lstat(name string) (os.FileInfo, error) {
 
 // Open opens the named file for reading
 func (fs *S3Fs) Open(name string, offset int64) (File, PipeReader, func(), error) {
-	r, w, err := pipeat.PipeInDir(fs.localTempDir)
+	r, w, err := createPipeFn(fs.localTempDir, fs.config.DownloadPartSize*int64(fs.config.DownloadConcurrency)+1)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -287,7 +286,7 @@ func (fs *S3Fs) Create(name string, flag, checks int) (File, PipeWriter, func(),
 			return nil, nil, nil, err
 		}
 	}
-	r, w, err := pipeat.PipeInDir(fs.localTempDir)
+	r, w, err := createPipeFn(fs.localTempDir, fs.config.UploadPartSize+1024*1024)
 	if err != nil {
 		return nil, nil, nil, err
 	}

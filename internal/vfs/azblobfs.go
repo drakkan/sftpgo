@@ -42,7 +42,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blockblob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
-	"github.com/eikenb/pipeat"
 	"github.com/google/uuid"
 	"github.com/pkg/sftp"
 
@@ -213,7 +212,7 @@ func (fs *AzureBlobFs) Lstat(name string) (os.FileInfo, error) {
 
 // Open opens the named file for reading
 func (fs *AzureBlobFs) Open(name string, offset int64) (File, PipeReader, func(), error) {
-	r, w, err := pipeat.PipeInDir(fs.localTempDir)
+	r, w, err := createPipeFn(fs.localTempDir, fs.config.DownloadPartSize*int64(fs.config.DownloadConcurrency)+1)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -241,7 +240,7 @@ func (fs *AzureBlobFs) Create(name string, flag, checks int) (File, PipeWriter, 
 			return nil, nil, nil, err
 		}
 	}
-	r, w, err := pipeat.PipeInDir(fs.localTempDir)
+	r, w, err := createPipeFn(fs.localTempDir, fs.config.UploadPartSize+1024*1024)
 	if err != nil {
 		return nil, nil, nil, err
 	}

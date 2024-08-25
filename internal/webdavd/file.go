@@ -28,7 +28,6 @@ import (
 	"time"
 
 	"github.com/drakkan/webdav"
-	"github.com/eikenb/pipeat"
 
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
@@ -52,7 +51,7 @@ type webDavFile struct {
 	readTried   atomic.Bool
 }
 
-func newWebDavFile(baseTransfer *common.BaseTransfer, pipeWriter vfs.PipeWriter, pipeReader *pipeat.PipeReaderAt) *webDavFile {
+func newWebDavFile(baseTransfer *common.BaseTransfer, pipeWriter vfs.PipeWriter, pipeReader vfs.PipeReader) *webDavFile {
 	var writer io.WriteCloser
 	var reader io.ReadCloser
 	if baseTransfer.File != nil {

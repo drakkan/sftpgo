@@ -32,7 +32,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/eikenb/pipeat"
 	"github.com/pkg/sftp"
 	"github.com/sftpgo/sdk"
 
@@ -317,7 +316,7 @@ func (fs *HTTPFs) Lstat(name string) (os.FileInfo, error) {
 
 // Open opens the named file for reading
 func (fs *HTTPFs) Open(name string, offset int64) (File, PipeReader, func(), error) {
-	r, w, err := pipeat.PipeInDir(fs.localTempDir)
+	r, w, err := createPipeFn(fs.localTempDir, 0)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -351,7 +350,7 @@ func (fs *HTTPFs) Open(name string, offset int64) (File, PipeReader, func(), err
 
 // Create creates or opens the named file for writing
 func (fs *HTTPFs) Create(name string, flag, checks int) (File, PipeWriter, func(), error) {
-	r, w, err := pipeat.PipeInDir(fs.localTempDir)
+	r, w, err := createPipeFn(fs.localTempDir, 0)
 	if err != nil {
 		return nil, nil, nil, err
 	}

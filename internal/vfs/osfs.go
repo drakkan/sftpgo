@@ -28,7 +28,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/eikenb/pipeat"
 	fscopy "github.com/otiai10/copy"
 	"github.com/pkg/sftp"
 	"github.com/rs/xid"
@@ -116,7 +115,7 @@ func (fs *OsFs) Open(name string, offset int64) (File, PipeReader, func(), error
 	if fs.readBufferSize <= 0 {
 		return f, nil, nil, err
 	}
-	r, w, err := pipeat.PipeInDir(fs.localTempDir)
+	r, w, err := createPipeFn(fs.localTempDir, 0)
 	if err != nil {
 		f.Close()
 		return nil, nil, nil, err
@@ -149,7 +148,7 @@ func (fs *OsFs) Create(name string, flag, _ int) (File, PipeWriter, func(), erro
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	r, w, err := pipeat.PipeInDir(fs.localTempDir)
+	r, w, err := createPipeFn(fs.localTempDir, 0)
 	if err != nil {
 		f.Close()
 		return nil, nil, nil, err

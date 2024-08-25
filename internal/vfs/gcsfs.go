@@ -32,7 +32,6 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
-	"github.com/eikenb/pipeat"
 	"github.com/pkg/sftp"
 	"github.com/rs/xid"
 	"google.golang.org/api/googleapi"
@@ -89,13 +88,16 @@ func NewGCSFs(connectionID, localTempDir, mountPath string, config GCSFsConfig) 
 	}
 	ctx := context.Background()
 	if fs.config.AutomaticCredentials > 0 {
-		fs.svc, err = storage.NewClient(ctx)
+		fs.svc, err = storage.NewClient(ctx, storage.WithJSONReads())
 	} else {
 		err = fs.config.Credentials.TryDecrypt()
 		if err != nil {
 			return fs, err
 		}
-		fs.svc, err = storage.NewClient(ctx, option.WithCredentialsJSON([]byte(fs.config.Credentials.GetPayload())))
+		fs.svc, err = storage.NewClient(ctx,
+			storage.WithJSONReads(),
+			option.WithCredentialsJSON([]byte(fs.config.Credentials.GetPayload())),
+		)
 	}
 	return fs, err
 }
@@ -128,7 +130,7 @@ func (fs *GCSFs) Lstat(name string) (os.FileInfo, error) {
 
 // Open opens the named file for reading
 func (fs *GCSFs) Open(name string, offset int64) (File, PipeReader, func(), error) {
-	r, w, err := pipeat.PipeInDir(fs.localTempDir)
+	r, w, err := createPipeFn(fs.localTempDir, 0)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -176,7 +178,11 @@ func (fs *GCSFs) Create(name string, flag, checks int) (File, PipeWriter, func()
 			return nil, nil, nil, err
 		}
 	}
-	r, w, err := pipeat.PipeInDir(fs.localTempDir)
+	chunkSize := googleapi.DefaultUploadChunkSize
+	if fs.config.UploadPartSize > 0 {
+		chunkSize = int(fs.config.UploadPartSize) * 1024 * 1024
+	}
+	r, w, err := createPipeFn(fs.localTempDir, int64(chunkSize+1024*1024))
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -220,9 +226,7 @@ func (fs *GCSFs) Create(name string, flag, checks int) (File, PipeWriter, func()
 		objectWriter = obj.NewWriter(ctx)
 	}
 
-	if fs.config.UploadPartSize > 0 {
-		objectWriter.ChunkSize = int(fs.config.UploadPartSize) * 1024 * 1024
-	}
+	objectWriter.ChunkSize = chunkSize
 	if fs.config.UploadPartMaxTime > 0 {
 		objectWriter.ChunkRetryDeadline = time.Duration(fs.config.UploadPartMaxTime) * time.Second
 	}
