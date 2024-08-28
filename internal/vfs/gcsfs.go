@@ -88,7 +88,10 @@ func NewGCSFs(connectionID, localTempDir, mountPath string, config GCSFsConfig) 
 	}
 	ctx := context.Background()
 	if fs.config.AutomaticCredentials > 0 {
-		fs.svc, err = storage.NewClient(ctx, storage.WithJSONReads())
+		fs.svc, err = storage.NewClient(ctx,
+			storage.WithJSONReads(),
+			option.WithUserAgent(version.GetVersionHash()),
+		)
 	} else {
 		err = fs.config.Credentials.TryDecrypt()
 		if err != nil {
@@ -96,6 +99,7 @@ func NewGCSFs(connectionID, localTempDir, mountPath string, config GCSFsConfig) 
 		}
 		fs.svc, err = storage.NewClient(ctx,
 			storage.WithJSONReads(),
+			option.WithUserAgent(version.GetVersionHash()),
 			option.WithCredentialsJSON([]byte(fs.config.Credentials.GetPayload())),
 		)
 	}
