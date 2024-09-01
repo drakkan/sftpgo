@@ -999,7 +999,7 @@
         "attachments": "Allegati",
         "attachments_help": "Percorsi da allegare separati da virgole. I segnaposto sono supportati. La dimensione totale è limitata a 10 MB",
         "data_retention": "Conservazione dati",
-        "data_retention_help": "Imposta la conservazione dei dati, in ore, per percorso. La conservazione si applica in modo ricorsivo. Impostare 0 come conservazione significa escludere il percorso specificato. \"Ignora permessi utente\" definisce se eliminare i file anche se l'utente non dispone dell'autorizzazione \"delete\", per impostazione predefinita i file verranno ignorati se l'utente non dispone dell'autorizzazione \"delete\"",
+        "data_retention_help": "Imposta la conservazione dei dati, in ore, per percorso. La conservazione si applica in modo ricorsivo. Impostare 0 come conservazione significa escludere il percorso specificato",
         "delete_empty_dirs": "Cancella cartelle vuote",
         "fs_action": "Azione del filesystem",
         "paths_src_dst_help": "Percorsi visti dagli utenti SFTPGo. I segnaposto sono supportati. Le autorizzazioni richieste vengono concesse automaticamente",
