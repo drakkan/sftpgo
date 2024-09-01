@@ -490,6 +490,7 @@ func (c *Configuration) setup() (*account, *lego.Client, error) {
 	config := lego.NewConfig(&account)
 	config.CADirURL = c.CAEndpoint
 	config.Certificate.KeyType = certcrypto.KeyType(c.KeyType)
+	config.Certificate.OverallRequestLimit = 6
 	config.UserAgent = version.GetServerVersion("/", false)
 	client, err := lego.NewClient(config)
 	if err != nil {
