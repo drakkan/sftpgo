@@ -215,7 +215,7 @@ func initializeSQLiteProvider(basePath string) error {
 	providerLog(logger.LevelDebug, "sqlite database handle created, connection string: %q", connectionString)
 	dbHandle.SetMaxOpenConns(1)
 	provider = &SQLiteProvider{dbHandle: dbHandle}
-	return nil
+	return executePragmaOptimize(dbHandle)
 }
 
 func (p *SQLiteProvider) checkAvailability() error {
@@ -770,6 +770,14 @@ func (p *SQLiteProvider) normalizeError(err error, fieldType int) error {
 			return fmt.Errorf("%w: %s", ErrForeignKeyViolated, err.Error())
 		}
 	}
+	return err
+}
+
+func executePragmaOptimize(dbHandle *sql.DB) error {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	_, err := dbHandle.ExecContext(ctx, "PRAGMA optimize;")
 	return err
 }
 
