@@ -46,7 +46,7 @@ import (
 	"github.com/go-chi/render"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/lithammer/shortuuid/v3"
+	"github.com/lithammer/shortuuid/v4"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/mhale/smtpd"
 	"github.com/pquerna/otp"

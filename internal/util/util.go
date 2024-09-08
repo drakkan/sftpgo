@@ -47,7 +47,7 @@ import (
 	"unsafe"
 
 	"github.com/google/uuid"
-	"github.com/lithammer/shortuuid/v3"
+	"github.com/lithammer/shortuuid/v4"
 	"github.com/rs/xid"
 	"golang.org/x/crypto/ssh"
 
@@ -578,7 +578,7 @@ func GenerateRandomBytes(length int) []byte {
 	return b[:length]
 }
 
-// GenerateUniqueID retuens an unique ID
+// GenerateUniqueID returns an unique ID
 func GenerateUniqueID() string {
 	u, err := uuid.NewRandom()
 	if err != nil {

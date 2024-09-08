@@ -23,7 +23,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/lithammer/shortuuid/v3"
+	"github.com/lithammer/shortuuid/v4"
 	"github.com/rs/xid"
 	"github.com/sftpgo/sdk"
 	"github.com/sftpgo/sdk/plugin/notifier"
