@@ -313,14 +313,14 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
     KTUtil.onDOMContentLoaded(function () {
         var dismissErrorBtn = $('#id_dismiss_error_msg');
-        if (dismissErrorBtn){
+        if (dismissErrorBtn.length){
             dismissErrorBtn.on("click", function(){
                 $('#errorMsg').addClass("d-none");
             });
         }
 
         var logoutBtn = $('#id_logout_link');
-        if (logoutBtn){
+        if (logoutBtn.length){
             logoutBtn.on("click", function(){
                 doLogout();
             });
