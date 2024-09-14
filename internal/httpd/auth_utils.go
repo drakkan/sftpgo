@@ -468,6 +468,10 @@ func verifyCSRFToken(r *http.Request, csrfTokenAuth *jwtauth.JWTAuth) error {
 		logger.Debug(logSender, "", "error validating CSRF token IP audience")
 		return errors.New("the form token is not valid")
 	}
+	return checkCSRFTokenRef(r, token)
+}
+
+func checkCSRFTokenRef(r *http.Request, token jwt.Token) error {
 	claims, err := getTokenClaims(r)
 	if err != nil {
 		logger.Debug(logSender, "", "error getting token claims for CSRF validation: %v", err)

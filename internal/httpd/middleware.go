@@ -343,6 +343,10 @@ func (s *httpdServer) verifyCSRFHeader(next http.Handler) http.Handler {
 			sendAPIResponse(w, r, errors.New("the token is not valid"), "", http.StatusForbidden)
 			return
 		}
+		if err := checkCSRFTokenRef(r, token); err != nil {
+			sendAPIResponse(w, r, errors.New("the token is not valid"), "", http.StatusForbidden)
+			return
+		}
 
 		next.ServeHTTP(w, r)
 	})

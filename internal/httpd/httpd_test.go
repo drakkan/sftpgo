@@ -20708,6 +20708,17 @@ func TestWebAdminBasicMock(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webAdminTOTPSavePath, bytes.NewBuffer(asJSON))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, altToken)
+	setCSRFHeaderForReq(req, csrfToken) // invalid CSRF token
+	req.RemoteAddr = defaultRemoteAddr
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "the token is not valid")
+
+	csrfToken, err = getCSRFTokenFromInternalPageMock(webAdminPath, altToken)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, webAdminTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, altToken)
 	setCSRFHeaderForReq(req, csrfToken)
 	req.RemoteAddr = defaultRemoteAddr
 	rr = executeRequest(req)
@@ -20781,7 +20792,7 @@ func TestWebAdminBasicMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusSeeOther, rr)
 
-	form.Set(csrfFormToken, "invalid csrf")
+	form.Set(csrfFormToken, csrfToken) // associated to altToken
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webAdminPath, altAdminUsername), bytes.NewBuffer([]byte(form.Encode())))
 	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -20790,6 +20801,8 @@ func TestWebAdminBasicMock(t *testing.T) {
 	checkResponseCode(t, http.StatusForbidden, rr)
 	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCSRF)
 
+	csrfToken, err = getCSRFTokenFromInternalPageMock(webAdminPath, token)
+	assert.NoError(t, err)
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("email", "not-an-email")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webAdminPath, altAdminUsername), bytes.NewBuffer([]byte(form.Encode())))
