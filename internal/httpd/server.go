@@ -1001,7 +1001,7 @@ func (s *httpdServer) checkCookieExpiration(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	token, claims, err := jwtauth.FromContext(r.Context())
-	if err != nil {
+	if err != nil || token == nil {
 		return
 	}
 	tokenClaims := jwtTokenClaims{}
