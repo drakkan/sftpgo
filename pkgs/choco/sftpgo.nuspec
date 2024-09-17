@@ -13,7 +13,7 @@
 		<licenseUrl>https://github.com/drakkan/sftpgo/blob/main/LICENSE</licenseUrl>
 		<requireLicenseAcceptance>false</requireLicenseAcceptance>
 		<projectSourceUrl>https://github.com/drakkan/sftpgo</projectSourceUrl>
-		<docsUrl>https://sftpgo.github.io/2.6/</docsUrl>
+		<docsUrl>https://docs.sftpgo.com/2.6/</docsUrl>
 		<bugTrackerUrl>https://github.com/drakkan/sftpgo/issues</bugTrackerUrl>
 		<tags>sftp sftp-server ftp webdav s3 azure-blob google-cloud-storage cloud-storage scp data-at-rest-encryption multi-factor-authentication multi-step-authentication</tags>
 		<summary>Full-featured and highly configurable file transfer server: SFTP, HTTP/S,FTP/S, WebDAV.</summary>
@@ -26,12 +26,12 @@ SFTPGo allows to create HTTP/S links to externally share files and folders secur
 
 SFTPGo is highly customizable and extensible to suit your needs.
 
-You can find more info [here](https://sftpgo.github.io/2.6/).
+You can find more info [here](https://docs.sftpgo.com/2.6/).
 
 ### Notes
 
 * This package installs SFTPGo as Windows Service.
-* After the first installation please take a look at the [Getting Started Guide](https://sftpgo.github.io/2.6/initial-configuration/).</description>
+* After the first installation please take a look at the [Getting Started Guide](https://docs.sftpgo.com/2.6/initial-configuration/).</description>
 		<releaseNotes>https://github.com/drakkan/sftpgo/releases/tag/v2.6.2</releaseNotes>
 	</metadata>
 	<files>

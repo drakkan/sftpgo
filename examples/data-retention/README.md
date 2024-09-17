@@ -1,6 +1,6 @@
 # File retention policies
 
-:warning: Since v2.4.0 you can use the [EventManager](https://sftpgo.github.io/latest/eventmanager/) to schedule data retention checks.
+:warning: Since v2.4.0 you can use the [EventManager](https://docs.sftpgo.com/latest/eventmanager/) to schedule data retention checks.
 
 The `checkretention` example script shows how to use the SFTPGo REST API to manage data retention.
 
