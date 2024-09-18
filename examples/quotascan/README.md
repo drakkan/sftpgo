@@ -1,6 +1,6 @@
 # Update user quota
 
-:warning: Since v2.4.0 you can use the [EventManager](https://sftpgo.github.io/latest/eventmanager/) to schedule quota scans.
+:warning: Since v2.4.0 you can use the [EventManager](https://docs.sftpgo.com/latest/eventmanager/) to schedule quota scans.
 
 The `scanuserquota` example script shows how to use the SFTPGo REST API to update the users' quota.
 
