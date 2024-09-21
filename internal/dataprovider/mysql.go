@@ -325,6 +325,14 @@ func (p *MySQLProvider) getUsedQuota(username string) (int, int64, int64, int64,
 	return sqlCommonGetUsedQuota(username, p.dbHandle)
 }
 
+func (p *MySQLProvider) getAdminSignature(username string) (string, error) {
+	return sqlCommonGetAdminSignature(username, p.dbHandle)
+}
+
+func (p *MySQLProvider) getUserSignature(username string) (string, error) {
+	return sqlCommonGetUserSignature(username, p.dbHandle)
+}
+
 func (p *MySQLProvider) setUpdatedAt(username string) {
 	sqlCommonSetUpdatedAt(username, p.dbHandle)
 }

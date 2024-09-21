@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"slices"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 
@@ -205,6 +206,32 @@ func (p *MemoryProvider) updateAPIKeyLastUse(keyID string) error {
 	apiKey.LastUseAt = util.GetTimeAsMsSinceEpoch(time.Now())
 	p.dbHandle.apiKeys[apiKey.KeyID] = apiKey
 	return nil
+}
+
+func (p *MemoryProvider) getAdminSignature(username string) (string, error) {
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return "", errMemoryProviderClosed
+	}
+	admin, err := p.adminExistsInternal(username)
+	if err != nil {
+		return "", err
+	}
+	return strconv.FormatInt(admin.UpdatedAt, 10), nil
+}
+
+func (p *MemoryProvider) getUserSignature(username string) (string, error) {
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return "", errMemoryProviderClosed
+	}
+	user, err := p.userExistsInternal(username)
+	if err != nil {
+		return "", err
+	}
+	return strconv.FormatInt(user.UpdatedAt, 10), nil
 }
 
 func (p *MemoryProvider) setUpdatedAt(username string) {

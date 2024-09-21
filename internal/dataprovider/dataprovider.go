@@ -783,6 +783,8 @@ type Provider interface {
 	updateLastLogin(username string) error
 	updateAdminLastLogin(username string) error
 	setUpdatedAt(username string)
+	getAdminSignature(username string) (string, error)
+	getUserSignature(username string) (string, error)
 	getFolders(limit, offset int, order string, minimal bool) ([]vfs.BaseVirtualFolder, error)
 	getFolderByName(name string) (vfs.BaseVirtualFolder, error)
 	addFolder(folder *vfs.BaseVirtualFolder) error
@@ -2096,6 +2098,20 @@ func AdminExists(username string) (Admin, error) {
 func UserExists(username, role string) (User, error) {
 	username = config.convertName(username)
 	return provider.userExists(username, role)
+}
+
+// GetAdminSignature returns the signature for the admin with the specified
+// username.
+func GetAdminSignature(username string) (string, error) {
+	username = config.convertName(username)
+	return provider.getAdminSignature(username)
+}
+
+// GetUserSignature returns the signature for the user with the specified
+// username.
+func GetUserSignature(username string) (string, error) {
+	username = config.convertName(username)
+	return provider.getUserSignature(username)
 }
 
 // GetUserWithGroupSettings tries to return the user with the specified username

@@ -650,6 +650,14 @@ func getUpdateQuotaQuery(reset bool) string {
 		WHERE username = %s`, sqlTableUsers, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3])
 }
 
+func getAdminSignatureQuery() string {
+	return fmt.Sprintf(`SELECT updated_at FROM %s WHERE username = %s`, sqlTableAdmins, sqlPlaceholders[0])
+}
+
+func getUserSignatureQuery() string {
+	return fmt.Sprintf(`SELECT updated_at FROM %s WHERE username = %s`, sqlTableUsers, sqlPlaceholders[0])
+}
+
 func getSetUpdateAtQuery() string {
 	return fmt.Sprintf(`UPDATE %s SET updated_at = %s WHERE username = %s`, sqlTableUsers, sqlPlaceholders[0], sqlPlaceholders[1])
 }

@@ -27,6 +27,7 @@ import (
 	"path/filepath"
 	"slices"
 	"sort"
+	"strconv"
 	"time"
 
 	bolt "go.etcd.io/bbolt"
@@ -180,6 +181,50 @@ func (p *BoltProvider) updateAPIKeyLastUse(keyID string) error {
 		providerLog(logger.LevelDebug, "last use updated for key %q", keyID)
 		return nil
 	})
+}
+
+func (p *BoltProvider) getAdminSignature(username string) (string, error) {
+	var updatedAt int64
+	err := p.dbHandle.View(func(tx *bolt.Tx) error {
+		bucket, err := p.getAdminsBucket(tx)
+		if err != nil {
+			return err
+		}
+		u := bucket.Get([]byte(username))
+		var admin Admin
+		err = json.Unmarshal(u, &admin)
+		if err != nil {
+			return err
+		}
+		updatedAt = admin.UpdatedAt
+		return nil
+	})
+	if err != nil {
+		return "", err
+	}
+	return strconv.FormatInt(updatedAt, 10), nil
+}
+
+func (p *BoltProvider) getUserSignature(username string) (string, error) {
+	var updatedAt int64
+	err := p.dbHandle.View(func(tx *bolt.Tx) error {
+		bucket, err := p.getUsersBucket(tx)
+		if err != nil {
+			return err
+		}
+		u := bucket.Get([]byte(username))
+		var user User
+		err = json.Unmarshal(u, &user)
+		if err != nil {
+			return err
+		}
+		updatedAt = user.UpdatedAt
+		return nil
+	})
+	if err != nil {
+		return "", err
+	}
+	return strconv.FormatInt(updatedAt, 10), nil
 }
 
 func (p *BoltProvider) setUpdatedAt(username string) {

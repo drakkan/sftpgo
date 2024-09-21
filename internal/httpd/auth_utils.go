@@ -45,11 +45,10 @@ const (
 	tokenAudienceWebLogin         tokenAudience = "WebLogin"
 )
 
-type tokenValidation = int
-
 const (
-	tokenValidationFull                      = iota
-	tokenValidationNoIPMatch tokenValidation = iota
+	tokenValidationModeDefault       = 0
+	tokenValidationModeNoIPMatch     = 1
+	tokenValidationModeUserSignature = 2
 )
 
 const (
@@ -74,7 +73,7 @@ var (
 	// with the login form
 	csrfTokenDuration     = 4 * time.Hour
 	tokenRefreshThreshold = 10 * time.Minute
-	tokenValidationMode   = tokenValidationFull
+	tokenValidationMode   = tokenValidationModeDefault
 )
 
 type jwtTokenClaims struct {
@@ -567,10 +566,51 @@ func verifyOAuth2Token(csrfTokenAuth *jwtauth.JWTAuth, tokenString, ip string) (
 }
 
 func validateIPForToken(token jwt.Token, ip string) error {
-	if tokenValidationMode != tokenValidationNoIPMatch {
+	if tokenValidationMode&tokenValidationModeNoIPMatch == 0 {
 		if !slices.Contains(token.Audience(), ip) {
 			return errInvalidToken
 		}
 	}
 	return nil
+}
+
+func checkTokenSignature(r *http.Request, token jwt.Token) error {
+	if _, ok := r.Context().Value(oidcTokenKey).(string); ok {
+		return nil
+	}
+	var err error
+	if tokenValidationMode&tokenValidationModeUserSignature != 0 {
+		for _, audience := range token.Audience() {
+			switch audience {
+			case tokenAudienceAPI, tokenAudienceWebAdmin:
+				err = validateSignatureForToken(token, dataprovider.GetAdminSignature)
+			case tokenAudienceAPIUser, tokenAudienceWebClient:
+				err = validateSignatureForToken(token, dataprovider.GetUserSignature)
+			}
+		}
+	}
+	if err != nil {
+		invalidateToken(r, false)
+	}
+	return err
+}
+
+func validateSignatureForToken(token jwt.Token, getter func(string) (string, error)) error {
+	username := ""
+	if u, ok := token.Get(claimUsernameKey); ok {
+		c := jwtTokenClaims{}
+		username = c.decodeString(u)
+	}
+
+	signature, err := getter(username)
+	if err != nil {
+		logger.Debug(logSender, "", "unable to get signature for username %q: %v", username, err)
+		return errInvalidToken
+	}
+	if signature != "" && signature == token.Subject() {
+		return nil
+	}
+	logger.Debug(logSender, "", "signature mismatch for username %q, signature %q, token signature %q",
+		username, signature, token.Subject())
+	return errInvalidToken
 }

@@ -967,11 +967,7 @@ func (c *Conf) getKeyPairs(configDir string) []common.TLSKeyPair {
 }
 
 func (c *Conf) setTokenValidationMode() {
-	if c.TokenValidation == 1 {
-		tokenValidationMode = tokenValidationNoIPMatch
-	} else {
-		tokenValidationMode = tokenValidationFull
-	}
+	tokenValidationMode = c.TokenValidation
 }
 
 func (c *Conf) loadFromProvider() error {

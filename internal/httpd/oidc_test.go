@@ -135,6 +135,8 @@ func TestOIDCInitialization(t *testing.T) {
 }
 
 func TestOIDCLoginLogout(t *testing.T) {
+	tokenValidationMode = 2
+
 	oidcMgr, ok := oidcMgr.(*memoryOIDCManager)
 	require.True(t, ok)
 	server := getTestOIDCServer()
@@ -552,6 +554,8 @@ func TestOIDCLoginLogout(t *testing.T) {
 	assert.NoError(t, err)
 	err = dataprovider.DeleteUser(username, "", "", "")
 	assert.NoError(t, err)
+
+	tokenValidationMode = 0
 }
 
 func TestOIDCRefreshToken(t *testing.T) {

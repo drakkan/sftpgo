@@ -343,6 +343,14 @@ func (p *PGSQLProvider) getUsedQuota(username string) (int, int64, int64, int64,
 	return sqlCommonGetUsedQuota(username, p.dbHandle)
 }
 
+func (p *PGSQLProvider) getAdminSignature(username string) (string, error) {
+	return sqlCommonGetAdminSignature(username, p.dbHandle)
+}
+
+func (p *PGSQLProvider) getUserSignature(username string) (string, error) {
+	return sqlCommonGetUserSignature(username, p.dbHandle)
+}
+
 func (p *PGSQLProvider) setUpdatedAt(username string) {
 	sqlCommonSetUpdatedAt(username, p.dbHandle)
 }

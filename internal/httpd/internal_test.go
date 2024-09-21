@@ -48,6 +48,7 @@ import (
 	"github.com/sftpgo/sdk/plugin/notifier"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/net/html"
 
 	"github.com/drakkan/sftpgo/v2/internal/acme"
 	"github.com/drakkan/sftpgo/v2/internal/common"
@@ -285,6 +286,7 @@ RKjnkiEZeG4+G91Xu7+HmcBLwV86k5I+tXK9O1Okomr6Zry8oqVcxU5TB6VRS+rA
 ubwF00Drdvk2+kDZfxIM137nBiy7wgCJi2Ksm5ihN3dUF6Q0oNPl
 -----END RSA PRIVATE KEY-----`
 	defaultAdminUsername = "admin"
+	defaultAdminPass     = "password"
 	defeaultUsername     = "test_user"
 )
 
@@ -943,6 +945,172 @@ func TestInvalidToken(t *testing.T) {
 	server.handleWebAddIPListEntryPost(rr, req)
 	assert.Equal(t, http.StatusForbidden, rr.Code, rr.Body.String())
 	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
+}
+
+func TestTokenSignatureValidation(t *testing.T) {
+	tokenValidationMode = 0
+	server := httpdServer{
+		binding: Binding{
+			Address:         "",
+			Port:            8080,
+			EnableWebAdmin:  true,
+			EnableWebClient: true,
+			EnableRESTAPI:   true,
+		},
+		enableWebAdmin:  true,
+		enableWebClient: true,
+		enableRESTAPI:   true,
+	}
+	server.initializeRouter()
+	testServer := httptest.NewServer(server.router)
+	defer testServer.Close()
+
+	rr := httptest.NewRecorder()
+	req, err := http.NewRequest(http.MethodGet, tokenPath, nil)
+	require.NoError(t, err)
+	req.SetBasicAuth(defaultAdminUsername, defaultAdminPass)
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	var resp map[string]any
+	err = json.Unmarshal(rr.Body.Bytes(), &resp)
+	assert.NoError(t, err)
+	accessToken := resp["access_token"]
+	require.NotEmpty(t, accessToken)
+
+	rr = httptest.NewRecorder()
+	req, err = http.NewRequest(http.MethodGet, versionPath, nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", accessToken))
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	// change the token validation mode
+	tokenValidationMode = 2
+	rr = httptest.NewRecorder()
+	req, err = http.NewRequest(http.MethodGet, versionPath, nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", accessToken))
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	// Now update the admin
+	admin, err := dataprovider.AdminExists(defaultAdminUsername)
+	assert.NoError(t, err)
+	err = dataprovider.UpdateAdmin(&admin, "", "", "")
+	assert.NoError(t, err)
+	// token validation mode is 0, the old token is still valid
+	tokenValidationMode = 0
+	rr = httptest.NewRecorder()
+	req, err = http.NewRequest(http.MethodGet, versionPath, nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", accessToken))
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	// change the token validation mode
+	tokenValidationMode = 2
+	rr = httptest.NewRecorder()
+	req, err = http.NewRequest(http.MethodGet, versionPath, nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", accessToken))
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusUnauthorized, rr.Code)
+	// the token is invalidated, changing the validation mode has no effect
+	tokenValidationMode = 0
+	rr = httptest.NewRecorder()
+	req, err = http.NewRequest(http.MethodGet, versionPath, nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", accessToken))
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusUnauthorized, rr.Code)
+
+	userPwd := "pwd"
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username: defeaultUsername,
+			Password: userPwd,
+			HomeDir:  filepath.Join(os.TempDir(), defeaultUsername),
+			Status:   1,
+		},
+	}
+	user.Permissions = make(map[string][]string)
+	user.Permissions["/"] = []string{dataprovider.PermAny}
+	err = dataprovider.AddUser(&user, "", "", "")
+	assert.NoError(t, err)
+
+	defer func() {
+		dataprovider.DeleteUser(defeaultUsername, "", "", "") //nolint:errcheck
+	}()
+
+	tokenValidationMode = 2
+	req, err = http.NewRequest(http.MethodGet, webClientLoginPath, nil)
+	require.NoError(t, err)
+	rr = httptest.NewRecorder()
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	loginCookie := strings.Split(rr.Header().Get("Set-Cookie"), ";")[0]
+	assert.NotEmpty(t, loginCookie)
+	csrfToken, err := getCSRFTokenFromBody(rr.Body)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, csrfToken)
+	// Now login
+	form := make(url.Values)
+	form.Set(csrfFormToken, csrfToken)
+	form.Set("username", defeaultUsername)
+	form.Set("password", userPwd)
+	req, err = http.NewRequest(http.MethodPost, webClientLoginPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Cookie", loginCookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = httptest.NewRecorder()
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	userCookie := strings.Split(rr.Header().Get("Set-Cookie"), ";")[0]
+	assert.NotEmpty(t, userCookie)
+	// Test a WebClient page and a JSON API
+	rr = httptest.NewRecorder()
+	req, err = http.NewRequest(http.MethodGet, webClientFilesPath, nil)
+	require.NoError(t, err)
+	req.Header.Set("Cookie", userCookie)
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	rr = httptest.NewRecorder()
+	req, err = http.NewRequest(http.MethodGet, webClientProfilePath, nil)
+	require.NoError(t, err)
+	req.Header.Set("Cookie", userCookie)
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	csrfToken, err = getCSRFTokenFromBody(rr.Body)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, csrfToken)
+
+	rr = httptest.NewRecorder()
+	req, err = http.NewRequest(http.MethodGet, webClientFilePath+"?path=missing.txt", nil)
+	require.NoError(t, err)
+	req.Header.Set("Cookie", userCookie)
+	req.Header.Set(csrfHeaderToken, csrfToken)
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+
+	tokenValidationMode = 0
+	err = dataprovider.DeleteUser(defeaultUsername, "", "", "")
+	assert.NoError(t, err)
+
+	rr = httptest.NewRecorder()
+	req, err = http.NewRequest(http.MethodGet, webClientFilePath+"?path=missing.txt", nil)
+	require.NoError(t, err)
+	req.Header.Set("Cookie", userCookie)
+	req.Header.Set(csrfHeaderToken, csrfToken)
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+
+	tokenValidationMode = 2
+	rr = httptest.NewRecorder()
+	req, err = http.NewRequest(http.MethodGet, webClientFilePath+"?path=missing.txt", nil)
+	require.NoError(t, err)
+	req.Header.Set("Cookie", userCookie)
+	req.Header.Set(csrfHeaderToken, csrfToken)
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusFound, rr.Code)
+
+	tokenValidationMode = 0
 }
 
 func TestUpdateWebAdminInvalidClaims(t *testing.T) {
@@ -3846,6 +4014,46 @@ func TestI18NErrors(t *testing.T) {
 	errI18n = util.NewI18nError(err, util.I18nError500Message, util.I18nErrorArgs(map[string]any{"a": "b"}))
 	assert.Equal(t, util.I18nError500Message, errI18n.Message)
 	assert.Equal(t, `{"a":"b"}`, errI18n.Args())
+}
+
+func getCSRFTokenFromBody(body io.Reader) (string, error) {
+	doc, err := html.Parse(body)
+	if err != nil {
+		return "", err
+	}
+
+	var csrfToken string
+	var f func(*html.Node)
+
+	f = func(n *html.Node) {
+		if n.Type == html.ElementNode && n.Data == "input" {
+			var name, value string
+			for _, attr := range n.Attr {
+				if attr.Key == "value" {
+					value = attr.Val
+				}
+				if attr.Key == "name" {
+					name = attr.Val
+				}
+			}
+			if name == csrfFormToken {
+				csrfToken = value
+				return
+			}
+		}
+
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			f(c)
+		}
+	}
+
+	f(doc)
+
+	if csrfToken == "" {
+		return "", errors.New("CSRF token not found")
+	}
+
+	return csrfToken, nil
 }
 
 func isSharedProviderSupported() bool {

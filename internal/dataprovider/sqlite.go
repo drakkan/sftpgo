@@ -246,6 +246,14 @@ func (p *SQLiteProvider) getUsedQuota(username string) (int, int64, int64, int64
 	return sqlCommonGetUsedQuota(username, p.dbHandle)
 }
 
+func (p *SQLiteProvider) getAdminSignature(username string) (string, error) {
+	return sqlCommonGetAdminSignature(username, p.dbHandle)
+}
+
+func (p *SQLiteProvider) getUserSignature(username string) (string, error) {
+	return sqlCommonGetUserSignature(username, p.dbHandle)
+}
+
 func (p *SQLiteProvider) setUpdatedAt(username string) {
 	sqlCommonSetUpdatedAt(username, p.dbHandle)
 }

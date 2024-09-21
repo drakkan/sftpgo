@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net/netip"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"time"
 
@@ -1246,6 +1247,32 @@ func sqlCommonUpdateQuota(username string, filesAdd int, sizeAdd int64, reset bo
 		providerLog(logger.LevelError, "error updating quota for user %q: %v", username, err)
 	}
 	return err
+}
+
+func sqlCommonGetAdminSignature(username string, dbHandle *sql.DB) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	q := getAdminSignatureQuery()
+	var updatedAt int64
+	err := dbHandle.QueryRowContext(ctx, q, username).Scan(&updatedAt)
+	if err != nil {
+		return "", err
+	}
+	return strconv.FormatInt(updatedAt, 10), nil
+}
+
+func sqlCommonGetUserSignature(username string, dbHandle *sql.DB) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	q := getUserSignatureQuery()
+	var updatedAt int64
+	err := dbHandle.QueryRowContext(ctx, q, username).Scan(&updatedAt)
+	if err != nil {
+		return "", err
+	}
+	return strconv.FormatInt(updatedAt, 10), nil
 }
 
 func sqlCommonGetUsedQuota(username string, dbHandle *sql.DB) (int, int64, int64, int64, error) {

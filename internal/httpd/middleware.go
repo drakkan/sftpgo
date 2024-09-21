@@ -95,6 +95,10 @@ func validateJWTToken(w http.ResponseWriter, r *http.Request, audience tokenAudi
 		doRedirect("Your token is not valid", nil)
 		return err
 	}
+	if err := checkTokenSignature(r, token); err != nil {
+		doRedirect("Your token is no longer valid", nil)
+		return err
+	}
 	return nil
 }
 
