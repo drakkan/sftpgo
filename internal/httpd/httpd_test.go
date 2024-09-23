@@ -1914,7 +1914,8 @@ func TestBasicActionRulesHandling(t *testing.T) {
 		Conditions: dataprovider.EventConditions{
 			FsEvents: []string{"upload"},
 			Options: dataprovider.ConditionOptions{
-				MinFileSize: 1024 * 1024,
+				EventStatuses: []int{2, 3},
+				MinFileSize:   1024 * 1024,
 			},
 		},
 		Actions: []dataprovider.EventAction{
@@ -2708,6 +2709,21 @@ func TestEventRuleValidation(t *testing.T) {
 	_, resp, err = httpdtest.AddEventRule(rule, http.StatusBadRequest)
 	assert.NoError(t, err)
 	assert.Contains(t, string(resp), "sync execution is only supported for upload and pre-* events")
+
+	rule.Conditions.FsEvents = []string{"download"}
+	rule.Conditions.Options.EventStatuses = []int{3, 2, 8}
+	rule.Actions = []dataprovider.EventAction{
+		{
+			BaseEventAction: dataprovider.BaseEventAction{
+				Name: "action",
+			},
+			Order: 1,
+		},
+	}
+	_, resp, err = httpdtest.AddEventRule(rule, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "invalid event_status")
+
 	rule.Trigger = dataprovider.EventTriggerProviderEvent
 	rule.Actions = []dataprovider.EventAction{
 		{

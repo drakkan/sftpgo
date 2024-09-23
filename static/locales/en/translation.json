@@ -1090,6 +1090,7 @@
         "scheduler_help": "Hours: 0-23. Day of week: 0-6 (Sun-Sat). Day of month: 1-31. Month: 1-12. Asterisk (*) indicates a match for all the values of the field. e.g. every day of week, every day of month and so on",
         "concurrent_run": "Allow concurrent execution from multiple instances",
         "protocol_filters": "Protocol filters",
+        "status_filters": "Status filters",
         "object_filters": "Object filters",
         "name_filters": "Name filters",
         "name_filters_help": "Shell-like pattern filters for usernames, folder names. For example \"user*\"\" will match names starting with \"user\". For provider events, this filter is applied to the username of the admin executing the event",

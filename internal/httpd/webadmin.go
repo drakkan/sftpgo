@@ -2555,6 +2555,13 @@ func getEventRuleConditionsFromPostFields(r *http.Request) (dataprovider.EventCo
 	if err != nil {
 		return dataprovider.EventConditions{}, util.NewI18nError(fmt.Errorf("invalid max file size: %w", err), util.I18nErrorInvalidMaxSize)
 	}
+	var eventStatuses []int
+	for _, s := range r.Form["fs_statuses"] {
+		status, err := strconv.ParseInt(s, 10, 32)
+		if err == nil {
+			eventStatuses = append(eventStatuses, int(status))
+		}
+	}
 	conditions := dataprovider.EventConditions{
 		FsEvents:       r.Form["fs_events"],
 		ProviderEvents: r.Form["provider_events"],
@@ -2566,6 +2573,7 @@ func getEventRuleConditionsFromPostFields(r *http.Request) (dataprovider.EventCo
 			RoleNames:           roleNames,
 			FsPaths:             fsPaths,
 			Protocols:           r.Form["fs_protocols"],
+			EventStatuses:       eventStatuses,
 			ProviderObjects:     r.Form["provider_objects"],
 			MinFileSize:         minFileSize,
 			MaxFileSize:         maxFileSize,

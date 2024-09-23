@@ -3815,6 +3815,7 @@ func TestEventRule(t *testing.T) {
 		Conditions: dataprovider.EventConditions{
 			FsEvents: []string{"upload"},
 			Options: dataprovider.ConditionOptions{
+				EventStatuses: []int{1},
 				FsPaths: []dataprovider.ConditionPattern{
 					{
 						Pattern: "/subdir/*.dat",
@@ -4095,6 +4096,107 @@ func TestEventRule(t *testing.T) {
 	_, err = httpdtest.RemoveEventAction(action4, http.StatusOK)
 	assert.NoError(t, err)
 	lastReceivedEmail.reset()
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	smtpCfg = smtp.Config{}
+	err = smtpCfg.Initialize(configDir, true)
+	require.NoError(t, err)
+}
+
+func TestEventRuleStatues(t *testing.T) {
+	smtpCfg := smtp.Config{
+		Host:          "127.0.0.1",
+		Port:          2525,
+		From:          "notification@example.com",
+		TemplatesPath: "templates",
+	}
+	err := smtpCfg.Initialize(configDir, true)
+	require.NoError(t, err)
+
+	a1 := dataprovider.BaseEventAction{
+		Name: "a1",
+		Type: dataprovider.ActionTypeEmail,
+		Options: dataprovider.BaseEventActionOptions{
+			EmailConfig: dataprovider.EventActionEmailConfig{
+				Recipients: []string{"test6@example.com"},
+				Subject:    `New "{{Event}}" error`,
+				Body:       "{{ErrorString}}",
+			},
+		},
+	}
+	action1, _, err := httpdtest.AddEventAction(a1, http.StatusCreated)
+	assert.NoError(t, err)
+
+	r := dataprovider.EventRule{
+		Name:    "rule",
+		Status:  1,
+		Trigger: dataprovider.EventTriggerFsEvent,
+		Conditions: dataprovider.EventConditions{
+			FsEvents: []string{"upload"},
+			Options: dataprovider.ConditionOptions{
+				EventStatuses: []int{3},
+			},
+		},
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action1.Name,
+				},
+				Order: 1,
+			},
+		},
+	}
+	rule, resp, err := httpdtest.AddEventRule(r, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+
+	u := getTestUser()
+	u.UploadDataTransfer = 1
+	u.DownloadDataTransfer = 1
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		testFileSize := int64(999999)
+		err = writeSFTPFile(testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		f, err := client.Open(testFileName)
+		assert.NoError(t, err)
+		contents := make([]byte, testFileSize)
+		n, err := io.ReadFull(f, contents)
+		assert.NoError(t, err)
+		assert.Equal(t, int(testFileSize), n)
+		assert.Len(t, contents, int(testFileSize))
+		err = f.Close()
+		assert.NoError(t, err)
+
+		lastReceivedEmail.reset()
+		assert.Eventually(t, func() bool {
+			return lastReceivedEmail.get().From == ""
+		}, 600*time.Millisecond, 500*time.Millisecond)
+
+		err = writeSFTPFile(testFileName, testFileSize, client)
+		assert.Error(t, err)
+		lastReceivedEmail.reset()
+		assert.Eventually(t, func() bool {
+			return lastReceivedEmail.get().From != ""
+		}, 3000*time.Millisecond, 100*time.Millisecond)
+		email := lastReceivedEmail.get()
+		assert.Len(t, email.To, 1)
+		assert.True(t, slices.Contains(email.To, "test6@example.com"))
+		assert.Contains(t, email.Data, `Subject: New "upload" error`)
+		assert.Contains(t, email.Data, common.ErrQuotaExceeded.Error())
+	}
+
+	_, err = httpdtest.RemoveEventRule(rule, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action1, http.StatusOK)
+	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())

@@ -1090,6 +1090,7 @@
         "scheduler_help": "Orari: 0-23. Giorno della settimana: 0-6 (dom-sab). Giorno del mese: 1-31. Mese: 1-12. L'asterisco (*) indica una corrispondenza per tutti i valori del campo. per esempio. ogni giorno della settimana, ogni giorno del mese e così via",
         "concurrent_run": "Consentire l'esecuzione simultanea da più istanze",
         "protocol_filters": "Filtro su protocolli",
+        "status_filters": "Filtro su stati",
         "object_filters": "Filtro su oggetti",
         "name_filters": "Filtro su nomi",
         "name_filters_help": "Filtri per nomi utente e nomi di cartelle. Ad esempio, \"user*\"\" corrisponderà per i nomi che iniziano con \"user\". Per gli eventi del provider, questo filtro viene applicato al nome utente dell'amministratore che esegue l'evento",

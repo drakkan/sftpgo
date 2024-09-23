@@ -1336,6 +1336,7 @@ type ConditionOptions struct {
 	ProviderObjects []string           `json:"provider_objects,omitempty"`
 	MinFileSize     int64              `json:"min_size,omitempty"`
 	MaxFileSize     int64              `json:"max_size,omitempty"`
+	EventStatuses   []int              `json:"event_statuses,omitempty"`
 	// allow to execute scheduled tasks concurrently from multiple instances
 	ConcurrentExecution bool `json:"concurrent_execution,omitempty"`
 }
@@ -1345,6 +1346,8 @@ func (f *ConditionOptions) getACopy() ConditionOptions {
 	copy(protocols, f.Protocols)
 	providerObjects := make([]string, len(f.ProviderObjects))
 	copy(providerObjects, f.ProviderObjects)
+	statuses := make([]int, len(f.EventStatuses))
+	copy(statuses, f.EventStatuses)
 
 	return ConditionOptions{
 		Names:               cloneConditionPatterns(f.Names),
@@ -1355,8 +1358,18 @@ func (f *ConditionOptions) getACopy() ConditionOptions {
 		ProviderObjects:     providerObjects,
 		MinFileSize:         f.MinFileSize,
 		MaxFileSize:         f.MaxFileSize,
+		EventStatuses:       statuses,
 		ConcurrentExecution: f.ConcurrentExecution,
 	}
+}
+
+func (f *ConditionOptions) validateStatuses() error {
+	for _, status := range f.EventStatuses {
+		if status < 0 || status > 3 {
+			return util.NewValidationError(fmt.Sprintf("invalid event_status %d", status))
+		}
+	}
+	return nil
 }
 
 func (f *ConditionOptions) validate() error {
@@ -1388,6 +1401,9 @@ func (f *ConditionOptions) validate() error {
 			return util.NewValidationError(fmt.Sprintf("invalid max file size %s, it is lesser or equal than min file size %s",
 				util.ByteCountSI(f.MaxFileSize), util.ByteCountSI(f.MinFileSize)))
 		}
+	}
+	if err := f.validateStatuses(); err != nil {
+		return err
 	}
 	if config.IsShared == 0 {
 		f.ConcurrentExecution = false
@@ -1491,6 +1507,7 @@ func (c *EventConditions) validate(trigger int) error {
 		c.Options.GroupNames = nil
 		c.Options.FsPaths = nil
 		c.Options.Protocols = nil
+		c.Options.EventStatuses = nil
 		c.Options.MinFileSize = 0
 		c.Options.MaxFileSize = 0
 		c.IDPLoginEvent = 0
@@ -1510,6 +1527,7 @@ func (c *EventConditions) validate(trigger int) error {
 		c.ProviderEvents = nil
 		c.Options.FsPaths = nil
 		c.Options.Protocols = nil
+		c.Options.EventStatuses = nil
 		c.Options.MinFileSize = 0
 		c.Options.MaxFileSize = 0
 		c.Options.ProviderObjects = nil
@@ -1525,6 +1543,7 @@ func (c *EventConditions) validate(trigger int) error {
 		c.Options.RoleNames = nil
 		c.Options.FsPaths = nil
 		c.Options.Protocols = nil
+		c.Options.EventStatuses = nil
 		c.Options.MinFileSize = 0
 		c.Options.MaxFileSize = 0
 		c.Schedules = nil
@@ -1534,6 +1553,7 @@ func (c *EventConditions) validate(trigger int) error {
 		c.ProviderEvents = nil
 		c.Options.FsPaths = nil
 		c.Options.Protocols = nil
+		c.Options.EventStatuses = nil
 		c.Options.MinFileSize = 0
 		c.Options.MaxFileSize = 0
 		c.Options.ProviderObjects = nil
@@ -1547,6 +1567,7 @@ func (c *EventConditions) validate(trigger int) error {
 		c.Options.RoleNames = nil
 		c.Options.FsPaths = nil
 		c.Options.Protocols = nil
+		c.Options.EventStatuses = nil
 		c.Options.MinFileSize = 0
 		c.Options.MaxFileSize = 0
 		c.Schedules = nil
@@ -1560,6 +1581,7 @@ func (c *EventConditions) validate(trigger int) error {
 		c.Options.RoleNames = nil
 		c.Options.FsPaths = nil
 		c.Options.Protocols = nil
+		c.Options.EventStatuses = nil
 		c.Options.MinFileSize = 0
 		c.Options.MaxFileSize = 0
 		c.Schedules = nil
