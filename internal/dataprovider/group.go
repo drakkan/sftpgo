@@ -134,9 +134,6 @@ func (g *Group) hasRedactedSecret() bool {
 
 func (g *Group) validate() error {
 	g.SetEmptySecretsIfNil()
-	if fnPreGroupValidation != nil {
-		fnPreGroupValidation(g)
-	}
 	if g.Name == "" {
 		return util.NewI18nError(util.NewValidationError("name is mandatory"), util.I18nErrorNameRequired)
 	}

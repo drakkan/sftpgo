@@ -70,7 +70,6 @@ var (
 	// eventManager handle the supported event rules actions
 	eventManager          eventRulesContainer
 	multipartQuoteEscaper = strings.NewReplacer("\\", "\\\\", `"`, "\\\"")
-	loadBuiltinRulesFn    func() []dataprovider.EventRule
 )
 
 func init() {
@@ -278,9 +277,6 @@ func (r *eventRulesContainer) loadRules() {
 	if err != nil {
 		eventManagerLog(logger.LevelError, "unable to load event rules: %v", err)
 		return
-	}
-	if loadBuiltinRulesFn != nil {
-		rules = append(rules, loadBuiltinRulesFn()...)
 	}
 	eventManagerLog(logger.LevelDebug, "recently updated event rules loaded: %d", len(rules))
 
@@ -2792,20 +2788,9 @@ func (j *eventCronJob) getTask(rule *dataprovider.EventRule) (dataprovider.Task,
 	return dataprovider.Task{}, nil
 }
 
-func (j *eventCronJob) getEventRule() (dataprovider.EventRule, error) {
-	if loadBuiltinRulesFn != nil {
-		for _, rule := range loadBuiltinRulesFn() {
-			if rule.Name == j.ruleName {
-				return rule, nil
-			}
-		}
-	}
-	return dataprovider.EventRuleExists(j.ruleName)
-}
-
 func (j *eventCronJob) Run() {
 	eventManagerLog(logger.LevelDebug, "executing scheduled rule %q", j.ruleName)
-	rule, err := j.getEventRule()
+	rule, err := dataprovider.EventRuleExists(j.ruleName)
 	if err != nil {
 		eventManagerLog(logger.LevelError, "unable to load rule with name %q", j.ruleName)
 		return
