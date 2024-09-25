@@ -10,14 +10,14 @@ require (
 	github.com/alexedwards/argon2id v1.0.0
 	github.com/amoghe/go-crypt v0.0.0-20220222110647-20eada5f5964
 	github.com/aws/aws-sdk-go-v2 v1.31.0
-	github.com/aws/aws-sdk-go-v2/config v1.27.36
-	github.com/aws/aws-sdk-go-v2/credentials v1.17.34
+	github.com/aws/aws-sdk-go-v2/config v1.27.37
+	github.com/aws/aws-sdk-go-v2/credentials v1.17.35
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.14
-	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.17.22
-	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.24.0
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.63.0
-	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.33.0
-	github.com/aws/aws-sdk-go-v2/service/sts v1.31.0
+	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.17.23
+	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.24.1
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.63.1
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.33.1
+	github.com/aws/aws-sdk-go-v2/service/sts v1.31.1
 	github.com/bmatcuk/doublestar/v4 v4.6.1
 	github.com/cockroachdb/cockroach-go/v2 v2.3.8
 	github.com/coreos/go-oidc/v3 v3.11.0
@@ -65,7 +65,7 @@ require (
 	github.com/wneessen/go-mail v0.4.4
 	github.com/yl2chen/cidranger v1.0.3-0.20210928021809-d1cb2c52f37a
 	go.etcd.io/bbolt v1.3.11
-	go.uber.org/automaxprocs v1.5.3
+	go.uber.org/automaxprocs v1.6.0
 	gocloud.dev v0.39.0
 	golang.org/x/crypto v0.27.0
 	golang.org/x/net v0.29.0
@@ -95,8 +95,8 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.3.20 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.11.20 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.17.18 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.23.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.27.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.23.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.27.1 // indirect
 	github.com/aws/smithy-go v1.21.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/boombuler/barcode v1.0.2 // indirect
@@ -123,7 +123,7 @@ require (
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
-	github.com/hashicorp/yamux v0.1.1 // indirect
+	github.com/hashicorp/yamux v0.1.2 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
@@ -173,9 +173,9 @@ require (
 	golang.org/x/text v0.18.0 // indirect
 	golang.org/x/tools v0.25.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
-	google.golang.org/genproto v0.0.0-20240903143218-8af14fe29dc1 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20240903143218-8af14fe29dc1 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240903143218-8af14fe29dc1 // indirect
+	google.golang.org/genproto v0.0.0-20240924160255-9d4c2d233b61 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20240924160255-9d4c2d233b61 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240924160255-9d4c2d233b61 // indirect
 	google.golang.org/grpc v1.67.0 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
