@@ -210,7 +210,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </div>
             </div>
 
-            <div class="card mt-10">
+            <div class="card mt-10 {{if not .CanUseTLSCerts}}d-none{{end}}">
                 <div class="card-header bg-light">
                     <h3 data-i18n="user.tls_certs" class="card-title section-title-inner">TLS certificates</h3>
                 </div>

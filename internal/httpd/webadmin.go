@@ -39,6 +39,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/acme"
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
+	"github.com/drakkan/sftpgo/v2/internal/ftpd"
 	"github.com/drakkan/sftpgo/v2/internal/kms"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/mfa"
@@ -46,6 +47,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/smtp"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 	"github.com/drakkan/sftpgo/v2/internal/vfs"
+	"github.com/drakkan/sftpgo/v2/internal/webdavd"
 )
 
 type userPageMode int
@@ -187,6 +189,7 @@ type userPage struct {
 	Roles              []dataprovider.Role
 	CanImpersonate     bool
 	FsWrapper          fsWrapper
+	CanUseTLSCerts     bool
 }
 
 type adminPage struct {
@@ -962,6 +965,7 @@ func (s *httpdServer) renderUserPage(w http.ResponseWriter, r *http.Request, use
 		Groups:             groups,
 		Roles:              roles,
 		CanImpersonate:     os.Getuid() == 0,
+		CanUseTLSCerts:     ftpd.GetStatus().IsActive || webdavd.GetStatus().IsActive,
 		FsWrapper: fsWrapper{
 			Filesystem:      user.FsConfig,
 			IsUserPage:      true,
