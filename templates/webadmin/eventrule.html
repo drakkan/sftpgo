@@ -201,6 +201,18 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </div>
             </div>
 
+            <div class="form-group row trigger trigger-fs mt-10">
+                <label for="idFsStatuses" data-i18n="rules.status_filters" class="col-md-3 col-form-label">Status filters</label>
+                <div class="col-md-9">
+                    <select id="idFsStatuses" name="fs_statuses" class="form-select" data-control="i18n-select2" data-close-on-select="false" multiple aria-describedby="idFsStatusesHelp">
+                        <option value="1" data-i18n="general.ok" {{- range $.Rule.Conditions.Options.EventStatuses }}{{- if eq . 1}}selected{{- end}}{{- end}}>OK</option>
+                        <option value="2" data-i18n="general.failed" {{- range $.Rule.Conditions.Options.EventStatuses }}{{- if eq . 2}}selected{{- end}}{{- end}}>Failed</option>
+                        <option value="3" data-i18n="events.quota_exceeded" {{- range $.Rule.Conditions.Options.EventStatuses }}{{- if eq . 3}}selected{{- end}}{{- end}}>Quota exceeded</option>
+                    </select>
+                    <div id="idFsStatusesHelp" data-i18n="rules.no_filter" class="form-text"></div>
+                </div>
+            </div>
+
             <div class="form-group row trigger trigger-provider mt-10">
                 <label for="idProviderObjects" data-i18n="rules.object_filters" class="col-md-3 col-form-label">Object filters</label>
                 <div class="col-md-9">

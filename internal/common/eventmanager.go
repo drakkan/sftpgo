@@ -31,6 +31,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -2590,6 +2591,11 @@ func executeUserCheckAction(c *dataprovider.EventActionIDPAccountCheck, params *
 func executeRuleAction(action dataprovider.BaseEventAction, params *EventParams, //nolint:gocyclo
 	conditions dataprovider.ConditionOptions,
 ) error {
+	if len(conditions.EventStatuses) > 0 && !slices.Contains(conditions.EventStatuses, params.Status) {
+		eventManagerLog(logger.LevelDebug, "skipping action %s, event status %d does not match: %v",
+			action.Name, params.Status, conditions.EventStatuses)
+		return nil
+	}
 	var err error
 
 	switch action.Type {

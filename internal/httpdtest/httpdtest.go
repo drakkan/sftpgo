@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -1662,7 +1663,7 @@ func compareConditionPatternOptions(expected, actual []dataprovider.ConditionPat
 	return nil
 }
 
-func checkEventConditionOptions(expected, actual dataprovider.ConditionOptions) error {
+func checkEventConditionOptions(expected, actual dataprovider.ConditionOptions) error { //nolint:gocyclo
 	if err := compareConditionPatternOptions(expected.Names, actual.Names); err != nil {
 		return errors.New("condition names mismatch")
 	}
@@ -1681,6 +1682,14 @@ func checkEventConditionOptions(expected, actual dataprovider.ConditionOptions) 
 	for _, v := range expected.Protocols {
 		if !util.Contains(actual.Protocols, v) {
 			return errors.New("condition protocols content mismatch")
+		}
+	}
+	if len(expected.EventStatuses) != len(actual.EventStatuses) {
+		return errors.New("condition statuses mismatch")
+	}
+	for _, v := range expected.EventStatuses {
+		if !slices.Contains(actual.EventStatuses, v) {
+			return errors.New("condition statuses content mismatch")
 		}
 	}
 	if len(expected.ProviderObjects) != len(actual.ProviderObjects) {
