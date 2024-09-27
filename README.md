@@ -25,8 +25,6 @@ Supporting the project benefit businesses and the community because if the proje
 
 It is important to understand that you should support SFTPGo and any other Open Source project you rely on for ongoing maintenance, even if you don't have any questions or need new features, to mitigate the business risk of a project you depend on going unmaintained, with its security and development velocity implications.
 
-We also provide [commercial support](https://sftpgo.com/).
-
 ### Thank you to our sponsors
 
 #### Platinum sponsors
@@ -54,6 +52,8 @@ You can use SFTPGo for free, respecting the obligations of the Open Source licen
 Use [discussions](https://github.com/drakkan/sftpgo/discussions) to ask questions and get support from the community.
 
 If you report an invalid issue and/or ask for step-by-step support, your issue will be closed as invalid without further explanation and/or the "support request" label will be added. Invalid bug reports may confuse other users. Thanks for understanding.
+
+We also provide [commercial support](https://sftpgo.com/).
 
 ## Documentation
 
