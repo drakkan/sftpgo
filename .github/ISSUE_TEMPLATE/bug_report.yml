@@ -8,7 +8,7 @@ body:
       value: |
         ### 👍 Thank you for contributing to our project!
         Before asking for help please check the [support policy](https://github.com/drakkan/sftpgo#support-policy).
-        If you are a commercial user or a project sponsor please contact us using the dedicated [email address](mailto:support@sftpgo.com).
+        If you are a [commercial user](https://sftpgo.com/) or a project sponsor please contact us using the dedicated [email address](mailto:support@sftpgo.com).
   - type: checkboxes
     id: before-posting
     attributes:
