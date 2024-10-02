@@ -370,6 +370,24 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
+	kmsConfig := config.GetKMSConfig()
+	err = kmsConfig.Initialize()
+	if err != nil {
+		logger.ErrorToConsole("error initializing kms: %v", err)
+		os.Exit(1)
+	}
+	err = plugin.Initialize(pluginsConfig, "debug")
+	if err != nil {
+		logger.ErrorToConsole("error initializing plugin: %v", err)
+		os.Exit(1)
+	}
+	mfaConfig := config.GetMFAConfig()
+	err = mfaConfig.Initialize()
+	if err != nil {
+		logger.ErrorToConsole("error initializing MFA: %v", err)
+		os.Exit(1)
+	}
+
 	err = dataprovider.Initialize(providerConf, configDir, true)
 	if err != nil {
 		logger.WarnToConsole("error initializing data provider: %v", err)
@@ -389,23 +407,6 @@ func TestMain(m *testing.M) {
 	httpConfig.RetryMax = 1
 	httpConfig.Timeout = 5
 	httpConfig.Initialize(configDir) //nolint:errcheck
-	kmsConfig := config.GetKMSConfig()
-	err = kmsConfig.Initialize()
-	if err != nil {
-		logger.ErrorToConsole("error initializing kms: %v", err)
-		os.Exit(1)
-	}
-	mfaConfig := config.GetMFAConfig()
-	err = mfaConfig.Initialize()
-	if err != nil {
-		logger.ErrorToConsole("error initializing MFA: %v", err)
-		os.Exit(1)
-	}
-	err = plugin.Initialize(pluginsConfig, "debug")
-	if err != nil {
-		logger.ErrorToConsole("error initializing plugin: %v", err)
-		os.Exit(1)
-	}
 
 	httpdConf := config.GetHTTPDConfig()
 

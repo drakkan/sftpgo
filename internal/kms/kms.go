@@ -73,7 +73,8 @@ var (
 	// ErrInvalidSecret defines the error to return if a secret is not valid
 	ErrInvalidSecret    = errors.New("invalid secret")
 	validSecretStatuses = []string{sdkkms.SecretStatusPlain, sdkkms.SecretStatusAES256GCM, sdkkms.SecretStatusSecretBox,
-		sdkkms.SecretStatusVaultTransit, sdkkms.SecretStatusAWS, sdkkms.SecretStatusGCP, sdkkms.SecretStatusRedacted}
+		sdkkms.SecretStatusVaultTransit, sdkkms.SecretStatusAWS, sdkkms.SecretStatusGCP, sdkkms.SecretStatusAzureKeyVault,
+		sdkkms.SecretStatusOracleKeyVault, sdkkms.SecretStatusRedacted}
 	config          Configuration
 	secretProviders = make(map[string]registeredSecretProvider)
 )

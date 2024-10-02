@@ -90,6 +90,10 @@ Command-line flags should be specified in the Subsystem declaration.
 				logger.Error(logSender, connectionID, "unable to initialize KMS: %v", err)
 				os.Exit(1)
 			}
+			if err := plugin.Initialize(config.GetPluginsConfig(), logLevel); err != nil {
+				logger.Error(logSender, connectionID, "unable to initialize plugin system: %v", err)
+				os.Exit(1)
+			}
 			mfaConfig := config.GetMFAConfig()
 			err = mfaConfig.Initialize()
 			if err != nil {
@@ -107,10 +111,6 @@ Command-line flags should be specified in the Subsystem declaration.
 			err = dataprovider.Initialize(dataProviderConf, configDir, false)
 			if err != nil {
 				logger.Error(logSender, connectionID, "unable to initialize the data provider: %v", err)
-				os.Exit(1)
-			}
-			if err := plugin.Initialize(config.GetPluginsConfig(), logLevel); err != nil {
-				logger.Error(logSender, connectionID, "unable to initialize plugin system: %v", err)
 				os.Exit(1)
 			}
 			smtpConfig := config.GetSMTPConfig()

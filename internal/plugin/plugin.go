@@ -228,7 +228,7 @@ func initializePlugins() error {
 			kmsID++
 			kms.RegisterSecretProvider(config.KMSOptions.Scheme, config.KMSOptions.EncryptedStatus,
 				Handler.Configs[idx].newKMSPluginSecretProvider)
-			logger.Info(logSender, "", "registered secret provider for scheme: %v, encrypted status: %v",
+			logger.Info(logSender, "", "registered secret provider for scheme %q, encrypted status %q",
 				config.KMSOptions.Scheme, config.KMSOptions.EncryptedStatus)
 		case auth.PluginName:
 			plugin, err := newAuthPlugin(config)

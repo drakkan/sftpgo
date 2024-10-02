@@ -345,8 +345,8 @@ github.com/secsy/goftp v0.0.0-20200609142545-aa2de14babf4 h1:PT+ElG/UUFMfqy5HrxJ
 github.com/secsy/goftp v0.0.0-20200609142545-aa2de14babf4/go.mod h1:MnkX001NG75g3p8bhFycnyIjeQoOjGL6CEIsdE/nKSY=
 github.com/segmentio/asm v1.2.0 h1:9BQrFxC+YOHJlTlHGkTrFWf59nbL3XnCoFLTwDCI7ys=
 github.com/segmentio/asm v1.2.0/go.mod h1:BqMnlJP91P8d+4ibuonYZw9mfnzI9HfxselHZr5aAcs=
-github.com/sftpgo/sdk v0.1.9-0.20240815080450-426add0ab063 h1:r+XUT9mg/W97xiS6ZJ1BczLwTYiGKCRQ+Z69QZBnAZ8=
-github.com/sftpgo/sdk v0.1.9-0.20240815080450-426add0ab063/go.mod h1:Isl0IEzS/Muvh8Fr4X+NWFsOS/fZQHRD4oPQpoY7C4g=
+github.com/sftpgo/sdk v0.1.9-0.20241002160417-3a2e25af00c1 h1:UR1rI03lk+rLbt/FmUszQoY+hE3XxVCEGSumjbMZx/I=
+github.com/sftpgo/sdk v0.1.9-0.20241002160417-3a2e25af00c1/go.mod h1:Isl0IEzS/Muvh8Fr4X+NWFsOS/fZQHRD4oPQpoY7C4g=
 github.com/shirou/gopsutil/v3 v3.24.5 h1:i0t8kL+kQTvpAYToeuiVk3TgDeKOFioZO3Ztz/iZ9pI=
 github.com/shirou/gopsutil/v3 v3.24.5/go.mod h1:bsoOS1aStSs9ErQ1WWfxllSeS1K5D+U30r2NfcubMVk=
 github.com/shoenig/go-m1cpu v0.1.6 h1:nxdKQNcEB6vzgA2E2bvzKIYRuNj7XNJ4S/aRSwKzFtM=
