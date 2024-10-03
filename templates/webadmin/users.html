@@ -145,7 +145,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             }
         }).then((result) => {
             if (result.isConfirmed){
-                $('#loading_message').text("");
+                clearLoading();
                 KTApp.showPageLoading();
                 let path = '{{.UserURL}}' + "/" + encodeURIComponent(username);
 
@@ -200,7 +200,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             }
         }).then((result) => {
             if (result.isConfirmed){
-                $('#loading_message').text("");
+                clearLoading();
                 KTApp.showPageLoading();
                 let path = '{{.UserURL}}' + "/" + encodeURIComponent(username)+"/2fa/disable";
 
@@ -230,7 +230,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     }
 
     function quotaScanAction(username) {
-        $('#loading_message').text("");
+        clearLoading();
         KTApp.showPageLoading();
         let path = '{{.QuotaScanURL}}' + "/" + encodeURIComponent(username);
         axios.post(path, null, {

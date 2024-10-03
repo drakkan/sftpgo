@@ -402,7 +402,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             return;
         }
 
-        $('#loading_message').text("");
+        clearLoading();
         KTApp.showPageLoading();
 
         let data = {"base_redirect_url": getCurrentURI(), "provider": parseInt($('#idSMTPOAuth2Provider').val()),
@@ -499,7 +499,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             }
         }
 
-        $('#loading_message').text("");
+        clearLoading();
         KTApp.showPageLoading();
         let debug = 0;
         if ($('#idSMTPDebug').is(':checked')){
