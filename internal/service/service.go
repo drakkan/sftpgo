@@ -129,6 +129,13 @@ func (s *Service) initializeServices(disableAWSInstallationCode bool) error {
 		logger.ErrorToConsole("unable to initialize KMS: %v", err)
 		return err
 	}
+	// We may have KMS plugins and their schema needs to be registered before
+	// initializing the data provider which may contain KMS secrets.
+	if err := plugin.Initialize(config.GetPluginsConfig(), s.LogLevel); err != nil {
+		logger.Error(logSender, "", "unable to initialize plugin system: %v", err)
+		logger.ErrorToConsole("unable to initialize plugin system: %v", err)
+		return err
+	}
 	mfaConfig := config.GetMFAConfig()
 	err = mfaConfig.Initialize()
 	if err != nil {
@@ -140,11 +147,6 @@ func (s *Service) initializeServices(disableAWSInstallationCode bool) error {
 	if err != nil {
 		logger.Error(logSender, "", "error initializing data provider: %v", err)
 		logger.ErrorToConsole("error initializing data provider: %v", err)
-		return err
-	}
-	if err := plugin.Initialize(config.GetPluginsConfig(), s.LogLevel); err != nil {
-		logger.Error(logSender, "", "unable to initialize plugin system: %v", err)
-		logger.ErrorToConsole("unable to initialize plugin system: %v", err)
 		return err
 	}
 	smtpConfig := config.GetSMTPConfig()

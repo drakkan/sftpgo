@@ -29,9 +29,10 @@ import (
 )
 
 var (
-	validKMSSchemes           = []string{sdkkms.SchemeAWS, sdkkms.SchemeGCP, sdkkms.SchemeVaultTransit, sdkkms.SchemeAzureKeyVault}
+	validKMSSchemes = []string{sdkkms.SchemeAWS, sdkkms.SchemeGCP, sdkkms.SchemeVaultTransit,
+		sdkkms.SchemeAzureKeyVault, "ocikeyvault"}
 	validKMSEncryptedStatuses = []string{sdkkms.SecretStatusVaultTransit, sdkkms.SecretStatusAWS, sdkkms.SecretStatusGCP,
-		sdkkms.SecretStatusAzureKeyVault}
+		sdkkms.SecretStatusAzureKeyVault, "OracleKeyVault"}
 )
 
 // KMSConfig defines configuration parameters for kms plugins
