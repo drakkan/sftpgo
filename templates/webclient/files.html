@@ -2200,6 +2200,26 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     $(document).on("i18nshow", function(){
         KTDatatablesServerSide.init();
 
+        var lastAddedFile = Date.now();
+
+        function canUpload() {
+            // Ugly hack to detect if we are still loading a large file list when the user try to upload files.
+            // The Dropzone addedfiles event is fired for directories before the files within them are added to the queue.
+            // TODO: investigate if there is a better way.
+            if (Date.now() - lastAddedFile < 500) {
+                ModalAlert.fire({
+                    text: $.t('fs.upload_queue_not_ready'),
+                    icon: "warning",
+                    confirmButtonText: $.t('general.ok'),
+                    customClass: {
+                        confirmButton: "btn btn-primary"
+                    }
+                });
+                return false;
+            }
+            return true;
+        }
+
         var dropzone =  new Dropzone("#upload_files", {
             url: "{{.FilesURL}}?path={{.CurrentDir}}",
             paramName: "filenames",
@@ -2214,7 +2234,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             init: function() {
                 var dropzone = this;
                 $("#upload_files_button").click(function(){
-                   uploadFiles(dropzone.getAcceptedFiles());
+                    if (canUpload()){
+                        uploadFiles(dropzone.getAcceptedFiles());
+                    }
                 });
             }
         });
@@ -2228,6 +2250,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     node.textContent = file.fullPath;
                 }
             }
+            lastAddedFile = Date.now();
         });
 
         var dropzoneEmpty =  new Dropzone("#upload_files_empty", {
@@ -2244,7 +2267,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             init: function() {
                 var dropzoneEmpty = this;
                 $("#upload_files_empty_button").click(function(){
-                   uploadFiles(dropzoneEmpty.getAcceptedFiles());
+                    if (canUpload()){
+                        uploadFiles(dropzoneEmpty.getAcceptedFiles());
+                    }
                 });
             }
         });
@@ -2258,6 +2283,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     node.textContent = file.fullPath;
                 }
             }
+            lastAddedFile = Date.now();
         });
 
         $('#modal_video_player').on('hide.bs.modal', function () {
