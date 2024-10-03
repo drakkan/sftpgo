@@ -205,7 +205,13 @@ func ErrorToConsole(format string, v ...any) {
 func TransferLog(operation, path string, elapsed int64, size int64, user, connectionID, protocol, localAddr,
 	remoteAddr, ftpMode string, err error,
 ) {
-	ev := logger.Info().
+	var ev *zerolog.Event
+	if err != nil {
+		ev = logger.Error()
+	} else {
+		ev = logger.Info()
+	}
+	ev.
 		Timestamp().
 		Str("sender", operation).
 		Str("local_addr", localAddr).
