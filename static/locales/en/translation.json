@@ -282,6 +282,7 @@
         "select_across_pages": "Select across pages",
         "download": "Download",
         "download_ready": "Your download is ready",
+        "upload_queue_not_ready": "The upload queue is still loading, please try again in a few moments",
         "move_copy": "Move or copy",
         "share": "Share",
         "home": "Home",

@@ -282,6 +282,7 @@
         "select_across_pages": "Seleziona tra le pagine",
         "download": "Scarica",
         "download_ready": "Il tuo download è pronto",
+        "upload_queue_not_ready": "La coda di caricamento è in fase di elaborazione, riprova tra qualche istante",
         "move_copy": "Sposta o copia",
         "share": "Condividi",
         "home": "Home",

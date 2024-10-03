@@ -169,6 +169,26 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     }
 
     KTUtil.onDOMContentLoaded(function () {
+        var lastAddedFile = Date.now();
+
+        function canUpload() {
+            // Ugly hack to detect if we are still loading a large file list when the user try to upload files.
+            // The Dropzone addedfiles event is fired for directories before the files within them are added to the queue.
+            // TODO: investigate if there is a better way.
+            if (Date.now() - lastAddedFile < 500) {
+                ModalAlert.fire({
+                    text: $.t('fs.upload_queue_not_ready'),
+                    icon: "warning",
+                    confirmButtonText: $.t('general.ok'),
+                    customClass: {
+                        confirmButton: "btn btn-primary"
+                    }
+                });
+                return false;
+            }
+            return true;
+        }
+
         var dropzone =  new Dropzone("#upload_files", {
             url: "{{.UploadBasePath}}",
             paramName: "filenames",
@@ -189,7 +209,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             init: function() {
                 var dropzone = this;
                 $("#upload_files_button").click(function(){
-                   uploadFiles(dropzone.getAcceptedFiles());
+                    if (canUpload()){
+                        uploadFiles(dropzone.getAcceptedFiles());
+                    }
                 });
             }
         });
@@ -203,6 +225,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     node.textContent = file.fullPath;
                 }
             }
+            lastAddedFile = Date.now();
         });
     });
 
