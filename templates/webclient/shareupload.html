@@ -67,7 +67,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         let success = 0;
         let checkedDirs = [];
         $('#errorMsg').addClass("d-none");
-        $('#loading_message').text("");
+        clearLoading();
         KTApp.showPageLoading();
 
         function uploadFile() {
@@ -110,16 +110,15 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 lastModified = "";
             }
 
-            let uploadTxt = f.name;
+            let info = "";
             if (files.length > 1){
-                uploadTxt = $.t('fs.uploading', {
+                info = $.t('fs.uploading', {
                     idx: index + 1,
-                    total: files.length,
-                    name: uploadTxt
+                    total: files.length
                 });
             }
 
-            $('#loading_message').text(uploadTxt);
+            setLoadingText(info,f.name);
 
             axios.post(uploadPath, f, {
                 headers: {
@@ -132,7 +131,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     }
                     const percentage = Math.round((100 * progressEvent.loaded) / progressEvent.total);
                     if (percentage > 0 && percentage < 100){
-                        $('#loading_message').text(`${uploadTxt} ${percentage}%`);
+                        setLoadingText(info,`${f.name} ${percentage}%`);
                     }
                 },
                 validateStatus: function (status) {

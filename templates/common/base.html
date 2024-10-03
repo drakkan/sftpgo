@@ -311,6 +311,16 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         }
     }
 
+    function clearLoading() {
+        $('#loading_info').text("");
+        $('#loading_message').text("");
+    }
+
+    function setLoadingText(info, message) {
+        $('#loading_info').text(info);
+        $('#loading_message').text(message);
+    }
+
     KTUtil.onDOMContentLoaded(function () {
         var dismissErrorBtn = $('#id_dismiss_error_msg');
         if (dismissErrorBtn.length){
@@ -911,7 +921,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         </div>
         <div class="page-loader flex-column">
 			<span class="spinner-border text-primary" role="status"></span>
-			<span id="loading_message" class="text-muted fs-4 fw-semibold mt-5"></span>
+			<span id="loading_info" class="text-muted fs-4 fw-semibold mt-5"></span>
+            <span id="loading_message" class="text-muted fs-4 fw-semibold mt-5"></span>
 		</div>
 
         <div class="modal fade" tabindex="-1" id="modal_alert">

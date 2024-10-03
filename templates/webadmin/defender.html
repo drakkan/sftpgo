@@ -78,7 +78,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             }
         }).then((result) => {
             if (result.isConfirmed){
-                $('#loading_message').text("");
+                clearLoading();
                 KTApp.showPageLoading();
                 let path = '{{.DefenderHostsURL}}' + "/" + encodeURIComponent(id);
 
