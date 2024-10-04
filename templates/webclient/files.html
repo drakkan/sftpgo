@@ -260,7 +260,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             "nut", "styl", "swift", "text", "ltx", "tex", "v", "sv", "svh", "tcl", "textile", "toml", "1", "2", "3", "4",
             "5", "6", "7", "8", "9", "ttcn", "ttcn3", "ttcnpp", "cfg", "ttl", "ts", "tsx", "webidl", "vb", "vbs",
             "vtl", "vhd", "vhdl", "vue", "xml", "xsl", "xsd", "svg", "xy", "xquery", "ys", "yaml", "yml", "z80",
-            "mscgen", "mscin", "msc", "xu", "msgenny", "wat", "wast"];
+            "mscgen", "mscin", "msc", "xu", "msgenny", "wat", "wast", "env"];
     const supportedEditFilenames = ["readme", "dockerfile", "pkgbuild"]
     //{{- end}}
     function keepAlive() {
@@ -687,7 +687,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                         case "webp":
                                         case "bmp":
                                         case "svg":
-                                        case "ico":
                                             let desc = escapeHTML(filename).replace(/"/g, '&quot;');
                                             previewDiv = `<div class="ms-2" data-kt-filemanger-table="view_item">
 												    <a href="${row['url']}" data-gallery="gallery" data-glightbox="description: &lt;span class=&quot;fs-5 fw-bold&quot;&gt;${desc}&lt;/span&gt;" class="btn btn-sm btn-icon btn-light btn-active-light-primary glightbox">
