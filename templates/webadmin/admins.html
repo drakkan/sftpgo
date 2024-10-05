@@ -36,6 +36,15 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     <i class="ki-solid ki-magnifier fs-1 position-absolute ms-6"></i>
                     <input name="search" data-i18n="[placeholder]general.search" type="text" data-table-filter="search"
                         class="form-control rounded-1 w-250px ps-15 me-5" placeholder="Search" />
+                    <button id="export_button" type="button" class="btn btn-light-primary ms-3" data-table-filter="export">
+                        <span data-i18n="general.export" class="indicator-label">
+                            Export
+                        </span>
+                        <span data-i18n="general.wait" class="indicator-progress">
+                            Please wait...
+                            <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
+                        </span>
+                    </button>
                 </div>
 
                 <div class="d-flex justify-content-end my-2" data-table-toolbar="base">
@@ -112,6 +121,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 {{- end}}
 {{- define "extra_js"}}
 <script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/plugins/custom/datatables/datatables.bundle.js"></script>
+<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/papaparse/papaparse.min.js"></script>
+<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/file-saver/FileSaver.min.js"></script>
 <script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
     function deleteAction(username) {
         ModalAlert.fire({
@@ -453,6 +464,104 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             handleColVisibilityCheckbox($('#checkColRole'), 4);
             handleColVisibilityCheckbox($('#checkCol2FA'), 5);
             handleColVisibilityCheckbox($('#checkColDesc'), 6);
+
+            const exportButton = $(document.querySelector('[data-table-filter="export"]'));
+            exportButton.on('click', function(e){
+                e.preventDefault();
+                this.blur();
+                this.setAttribute('data-kt-indicator', 'on');
+			    this.disabled = true;
+
+                let data = [];
+                dt.rows({ search: 'applied' }).every(function (rowIdx, tableLoop, rowLoop){
+                    let line = {};
+                    let rowData = dt.row(rowIdx).data();
+                    let filters = rowData["filters"];
+
+                    line["Username"] = rowData["username"];
+                    let status = "Inactive";
+                    if (rowData["status"] == 1){
+                        status = "Active";
+                    }
+                    line["Status"] = status;
+                    line["Permissions"] = rowData["permissions"].join(", ");
+
+                    if (rowData["created_at"]) {
+                        line["Created At"] = moment(rowData["created_at"]).format("YYYY-MM-DD HH:mm");
+                    } else {
+                        line["Created At"] = "";
+                    }
+                    if (rowData["updated_at"]) {
+                        line["Updated At"] = moment(rowData["updated_at"]).format("YYYY-MM-DD HH:mm");
+                    } else {
+                        line["Updated At"] = "";
+                    }
+                    if (rowData["last_login"]) {
+                        line["Last Login"] = moment(rowData["last_login"]).format("YYYY-MM-DD HH:mm");
+                    } else {
+                        line["Last Login"] = "";
+                    }
+                    if (rowData["email"]){
+                        line["Email"] = rowData["email"];
+                    } else {
+                        line["Email"] = "";
+                    }
+                    let totpConfig = filters["totp_config"];
+                    if (totpConfig && totpConfig["enabled"]){
+                        line["Two-factor auth"] = "Enabled";
+                    } else {
+                        line["Two-factor auth"] = "Disabled";
+                    }
+                    if (filters["allow_list"]){
+                        line["Allow List"] = filters["allow_list"].join(", ");
+                    } else {
+                        line["Allow List"] = "";
+                    }
+                    let groups = [];
+                    let rowGroups = rowData["groups"];
+                    if (rowGroups){
+                        for (i = 0; i < rowGroups.length; i++ ){
+                            groups.push(rowGroups[i].name);
+                        }
+                    }
+                    line["Groups"] = groups.join(", ");
+                    if (rowData["role"]){
+                        line["Role"] = rowData["role"];
+                    } else {
+                        line["Role"] = "";
+                    }
+                    if (rowData["description"]){
+                        line["Description"] = rowData["description"];
+                    } else {
+                        line["Description"] = "";
+                    }
+                    if (rowData["additional_info"]){
+                        line["Additional info"] = rowData["additional_info"];
+                    } else {
+                        line["Additional info"] = "";
+                    }
+
+                    data.push(line);
+                });
+
+                let csv = Papa.unparse(data, {
+                    quotes: false,
+	                quoteChar: '"',
+	                escapeChar: '"',
+	                delimiter: ",",
+	                header: true,
+	                newline: "\r\n",
+	                skipEmptyLines: false,
+	                columns: null,
+                    escapeFormulae: true
+                });
+                let blob = new Blob([csv], {type: "text/csv"});
+                let ts = moment().format("YYYY_MM_DD_HH_mm_ss");
+                saveAs(blob, `admins_${ts}.csv`);
+
+                this.removeAttribute('data-kt-indicator');
+                this.disabled = false;
+            });
         }
 
         function handleRowActions() {

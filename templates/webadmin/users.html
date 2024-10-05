@@ -36,6 +36,15 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     <i class="ki-solid ki-magnifier fs-1 position-absolute ms-6"></i>
                     <input name="search" data-i18n="[placeholder]general.search" type="text" data-table-filter="search"
                         class="form-control rounded-1 w-250px ps-15 me-5" placeholder="Search" />
+                    <button id="export_button" type="button" class="btn btn-light-primary ms-3" data-table-filter="export">
+                        <span data-i18n="general.export" class="indicator-label">
+                            Export
+                        </span>
+                        <span data-i18n="general.wait" class="indicator-progress">
+                            Please wait...
+                            <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
+                        </span>
+                    </button>
                 </div>
 
                 <div class="d-flex justify-content-end my-2" data-table-toolbar="base">
@@ -132,6 +141,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 {{- end}}
 {{- define "extra_js"}}
 <script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/plugins/custom/datatables/datatables.bundle.js"></script>
+<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/papaparse/papaparse.min.js"></script>
+<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/file-saver/FileSaver.min.js"></script>
 <script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
     function deleteAction(username) {
         ModalAlert.fire({
@@ -485,7 +496,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                             used = 0;
                                         }
                                         let usage = fileSizeIEC(used)+"/"+fileSizeIEC(row.download_data_transfer*1048576);
-                                        val = $.t('fs.quota_usage.downloads', {val: usage});
+                                        if (val) {
+                                            val += ". ";
+                                        }
+                                        val += $.t('fs.quota_usage.downloads', {val: usage});
                                     }
                                 }
                                 return val;
@@ -637,6 +651,270 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             handleColVisibilityCheckbox($('#checkColDiskQuota'), 7);
             handleColVisibilityCheckbox($('#checkColTransferQuota'), 8);
             handleColVisibilityCheckbox($('#checkColGroups'), 9);
+
+            const exportButton = $(document.querySelector('[data-table-filter="export"]'));
+            exportButton.on('click', function(e){
+                e.preventDefault();
+                this.blur();
+                this.setAttribute('data-kt-indicator', 'on');
+			    this.disabled = true;
+
+                let data = [];
+                dt.rows({ search: 'applied' }).every(function (rowIdx, tableLoop, rowLoop){
+                    let line = {};
+                    let rowData = dt.row(rowIdx).data();
+                    let filters = rowData["filters"];
+
+                    line["Username"] = rowData["username"];
+                    let status = "Inactive";
+                    if (rowData["status"] == 1){
+                        status = "Active";
+                    } else if (rowData["status"] == -1){
+                        status = "Expired";
+                    }
+                    line["Status"] = status;
+                    if (rowData["has_password"]){
+                        line["Password"] = "[redacted]";
+                    } else {
+                        line["Password"] = "";
+                    }
+                    if (rowData["created_at"]) {
+                        line["Created At"] = moment(rowData["created_at"]).format("YYYY-MM-DD HH:mm");
+                    } else {
+                        line["Created At"] = "";
+                    }
+                    if (rowData["updated_at"]) {
+                        line["Updated At"] = moment(rowData["updated_at"]).format("YYYY-MM-DD HH:mm");
+                    } else {
+                        line["Updated At"] = "";
+                    }
+                    if (rowData["last_login"]) {
+                        line["Last Login"] = moment(rowData["last_login"]).format("YYYY-MM-DD HH:mm");
+                    } else {
+                        line["Last Login"] = "";
+                    }
+                    if (rowData["expiration_date"]) {
+                        line["Expiration Date"] = moment(rowData["expiration_date"]).format("YYYY-MM-DD HH:mm");
+                    } else {
+                        line["Expiration Date"] = "";
+                    }
+                    if (rowData["last_password_change"]){
+                        line["Last password change"] = moment(rowData["last_password_change"]).format("YYYY-MM-DD HH:mm");
+                    } else {
+                        line["Last password change"] = "";
+                    }
+                    if (rowData["email"]){
+                        line["Email"] = rowData["email"];
+                    } else {
+                        line["Email"] = "";
+                    }
+                    let fsProvider = "Local storage: "+rowData["home_dir"];
+                    switch (rowData["filesystem"]["provider"]){
+                        case 1:
+                            fsProvider = "S3 Compatible";
+                            break;
+                        case 2:
+                            fsProvider = "Google Cloud Storage";
+                            break;
+                        case 3:
+                            fsProvider = "Azure Blob";
+                            break;
+                        case 4:
+                            fsProvider = "Local storage encrypted: "+rowData["home_dir"];
+                            break;
+                        case 5:
+                            fsProvider = "SFTP";
+                            break;
+                        case 6:
+                            fsProvider = "HTTP";
+                            break;
+                    }
+                    line["Filesystem"] = fsProvider;
+                    let virtualFolders = [];
+                    let rowFolders = rowData["virtual_folders"];
+                    if (rowFolders){
+                        for (i = 0; i < rowFolders.length; i++){
+                            virtualFolders.push(`${rowFolders[i].virtual_path} (${rowFolders[i].name})`);
+                        }
+                    }
+                    line["Virtual Folders"] = virtualFolders.join(", ");
+
+                    let permissions = "";
+                    for (let key in rowData["permissions"]){
+                        let values = rowData["permissions"][key];
+                        if (values){
+                            permissions+=`${key}: [${values.join(", ")}]; `;
+                        } else {
+                            permissions+=`${key}: []; `;
+                        }
+                    }
+                    line["Permissions"] = permissions;
+
+                    if (rowData["max_sessions"] > 0){
+                        line["Max sessions"] = rowData["max_sessions"];
+                    } else {
+                        line["Max sessions"] = ""
+                    }
+                    if (rowData["quota_size"] > 0){
+                        let used = rowData["used_quota_size"];
+                        if (!used){
+                            used = 0;
+                        }
+                        line["Quota size"] = fileSizeIEC(used)+"/"+fileSizeIEC(rowData["quota_size"]);
+                    } else if (rowData["used_quota_size"] && rowData["used_quota_size"] > 0){
+                        let used = rowData["used_quota_size"];
+                        if (!used){
+                            used = 0;
+                        }
+                        line["Quota size"] = fileSizeIEC(used);
+                    } else {
+                        line["Quota size"] = "";
+                    }
+
+                    if (rowData["quota_files"] > 0){
+                        let used = rowData["used_quota_files"];
+                        if (!used){
+                            used = 0;
+                        }
+                        line["Quota files"] = used+"/"+rowData["quota_files"];
+                    } else if (rowData["used_quota_files"] && rowData["used_quota_files"] > 0){
+                        let used = rowData["used_quota_files"];
+                        if (!used){
+                            used = 0;
+                        }
+                        line["Quota files"] = used;
+                    } else {
+                        line["Quota files"] = "";
+                    }
+
+                    if (rowData["total_data_transfer"] > 0) {
+                        let used;
+                        if (rowData["used_download_data_transfer"]){
+                            used+=rowData["used_download_data_transfer"];
+                        }
+                        if (rowData["used_upload_data_transfer"]){
+                            used+=rowData["used_upload_data_transfer"];
+                        }
+                        line["Data transfer"] = fileSizeIEC(used) + "/" + fileSizeIEC(rowData["total_data_transfer"] * 1048576);
+                    } else {
+                        let val = "";
+                        if (rowData["upload_data_transfer"] > 0) {
+                            let used = rowData["used_upload_data_transfer"];
+                            if (!used){
+                                used = 0;
+                            }
+                            val = "Upload: "+fileSizeIEC(used)+"/"+fileSizeIEC(rowData["upload_data_transfer"] * 1048576);
+                        }
+                        if (rowData["download_data_transfer"] > 0) {
+                            let used = rowData["used_download_data_transfer"];
+                            if (!used){
+                                used = 0;
+                            }
+                            if (val){
+                                val += ". ";
+                            }
+                            val += "Download: "+fileSizeIEC(used)+"/"+fileSizeIEC(rowData["download_data_transfer"] * 1048576);
+                        }
+                        line["Data transfer"] = val;
+                    }
+
+                    if (filters["allowed_ip"]){
+                        line["Allowed IPs/Networks"] = filters["allowed_ip"].join(", ");
+                    } else {
+                        line["Allowed IPs/Networks"] = "";
+                    }
+                    if (filters["denied_ip"]){
+                        line["Denied IPs/Networks"] = filters["denied_ip"].join(", ");
+                    } else {
+                        line["Denied IPs/Networks"] = "";
+                    }
+                    if (filters["denied_protocols"]){
+                        line["Denied protocols"] = filters["denied_protocols"].join(", ");
+                    } else {
+                        line["Denied protocols"] = "";
+                    }
+                    if (filters["denied_login_methods"]){
+                        line["Denied login methods"] = filters["denied_login_methods"].join(", ");
+                    } else {
+                        line["Denied login methods"] = "";
+                    }
+                    if (filters["max_upload_file_size"]){
+                        line["Max upload size"] = fileSizeIEC(filters["max_upload_file_size"]);
+                    } else {
+                        line["Max upload size"] = "";
+                    }
+
+                    let totpConfig = filters["totp_config"];
+                    let totpProtocols = "";
+                    if (totpConfig && totpConfig["enabled"]){
+                        totpProtocols = totpConfig["protocols"].join(", ");
+                        line["Two-factor auth"] = totpProtocols;
+                    } else {
+                        line["Two-factor auth"] = "Disabled";
+                    }
+
+                    let webClientPermissions = filters["web_client"];
+                    if (webClientPermissions){
+                        line["WebClient permissions"] = webClientPermissions.join(", ");
+                    } else {
+                        line["WebClient permissions"] = "";
+                    }
+
+                    let groups = [];
+                    let rowGroups = rowData["groups"];
+                    if (rowGroups){
+                        for (i = 0; i < rowGroups.length; i++ ){
+                            groups.push(rowGroups[i].name);
+                        }
+                    }
+                    line["Groups"] = groups.join(", ");
+                    if (rowData["role"]){
+                        line["Role"] = rowData["role"];
+                    } else {
+                        line["Role"] = "";
+                    }
+                    if (rowData["public_keys"]){
+                        line["Public keys"] = rowData["public_keys"].length;
+                    } else {
+                        line["Public keys"] = "0";
+                    }
+                    if (filters["tls_certs"]){
+                        line["TLS certificates"] = filters["tls_certs"].length;
+                    } else {
+                        line["TLS certificates"] = "0";
+                    }
+                    if (rowData["description"]){
+                        line["Description"] = rowData["description"];
+                    } else {
+                        line["Description"] = "";
+                    }
+                    if (rowData["additional_info"]){
+                        line["Additional info"] = rowData["additional_info"];
+                    } else {
+                        line["Additional info"] = "";
+                    }
+
+                    data.push(line);
+                });
+
+                let csv = Papa.unparse(data, {
+                    quotes: false,
+	                quoteChar: '"',
+	                escapeChar: '"',
+	                delimiter: ",",
+	                header: true,
+	                newline: "\r\n",
+	                skipEmptyLines: false,
+	                columns: null,
+                    escapeFormulae: true
+                });
+                let blob = new Blob([csv], {type: "text/csv"});
+                let ts = moment().format("YYYY_MM_DD_HH_mm_ss");
+                saveAs(blob, `users_${ts}.csv`);
+
+                this.removeAttribute('data-kt-indicator');
+                this.disabled = false;
+            });
         }
 
         function handleRowActions() {

@@ -36,6 +36,15 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     <i class="ki-solid ki-magnifier fs-1 position-absolute ms-6"></i>
                     <input name="search" data-i18n="[placeholder]general.search" type="text" data-table-filter="search"
                         class="form-control rounded-1 w-250px ps-15 me-5" placeholder="Search" />
+                    <button id="export_button" type="button" class="btn btn-light-primary ms-3" data-table-filter="export">
+                        <span data-i18n="general.export" class="indicator-label">
+                            Export
+                        </span>
+                        <span data-i18n="general.wait" class="indicator-progress">
+                            Please wait...
+                            <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
+                        </span>
+                    </button>
                 </div>
 
                 <div class="d-flex justify-content-end my-2" data-table-toolbar="base">
@@ -83,6 +92,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 {{- end}}
 {{- define "extra_js"}}
 <script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/plugins/custom/datatables/datatables.bundle.js"></script>
+<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/papaparse/papaparse.min.js"></script>
+<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/file-saver/FileSaver.min.js"></script>
 <script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
     function deleteAction(name) {
         ModalAlert.fire({
@@ -306,6 +317,168 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             });
             handleColVisibilityCheckbox($('#checkColMembers'), 1);
             handleColVisibilityCheckbox($('#checkColDesc'), 2);
+
+            const exportButton = $(document.querySelector('[data-table-filter="export"]'));
+            exportButton.on('click', function(e){
+                e.preventDefault();
+                this.blur();
+                this.setAttribute('data-kt-indicator', 'on');
+			    this.disabled = true;
+
+                let data = [];
+                dt.rows({ search: 'applied' }).every(function (rowIdx, tableLoop, rowLoop){
+                    let line = {};
+                    let rowData = dt.row(rowIdx).data();
+                    let userSettings = rowData["user_settings"];
+                    let filters = userSettings["filters"];
+
+                    line["Name"] = rowData["name"];
+                    let fsProvider = "";
+                    switch (userSettings["filesystem"]["provider"]){
+                        case 0:
+                            if (userSettings["home_dir"]){
+                                fsProvider = "Local storage: "+userSettings["home_dir"];
+                            }
+                            break;
+                        case 1:
+                            fsProvider = "S3 Compatible";
+                            break;
+                        case 2:
+                            fsProvider = "Google Cloud Storage";
+                            break;
+                        case 3:
+                            fsProvider = "Azure Blob";
+                            break;
+                        case 4:
+                            fsProvider = "Local storage encrypted: "+userSettings["home_dir"];
+                            break;
+                        case 5:
+                            fsProvider = "SFTP";
+                            break;
+                        case 6:
+                            fsProvider = "HTTP";
+                            break;
+                    }
+                    line["Filesystem"] = fsProvider;
+                    let virtualFolders = [];
+                    let rowFolders = rowData["virtual_folders"];
+                    if (rowFolders){
+                        for (i = 0; i < rowFolders.length; i++){
+                            virtualFolders.push(`${rowFolders[i].virtual_path} (${rowFolders[i].name})`);
+                        }
+                    }
+                    line["Virtual Folders"] = virtualFolders.join(", ");
+
+                    let permissions = "";
+                    for (let key in userSettings["permissions"]){
+                        let values = userSettings["permissions"][key];
+                        if (values){
+                            permissions+=`${key}: [${values.join(", ")}]; `;
+                        } else {
+                            permissions+=`${key}: []; `;
+                        }
+                    }
+                    line["Permissions"] = permissions;
+
+                    if (userSettings["max_sessions"] > 0){
+                        line["Max sessions"] = userSettings["max_sessions"];
+                    } else {
+                        line["Max sessions"] = ""
+                    }
+                    if (userSettings["quota_size"] > 0){
+                        line["Quota size"] = fileSizeIEC(userSettings["quota_size"]);
+                    }  else {
+                        line["Quota size"] = "";
+                    }
+                    if (userSettings["quota_files"] > 0){
+                        line["Quota files"] = userSettings["quota_files"];
+                    } else {
+                        line["Quota files"] = "";
+                    }
+
+                    if (userSettings["total_data_transfer"] > 0) {
+                        line["Data transfer"] = fileSizeIEC(userSettings["total_data_transfer"] * 1048576);
+                    } else {
+                        let val = "";
+                        if (userSettings["upload_data_transfer"] > 0) {
+                            val = "Upload: "+fileSizeIEC(userSettings["upload_data_transfer"] * 1048576);
+                        }
+                        if (userSettings["download_data_transfer"] > 0) {
+                            if (val){
+                                val += ". ";
+                            }
+                            val += "Download: "+fileSizeIEC(userSettings["download_data_transfer"] * 1048576);
+                        }
+                        line["Data transfer"] = val;
+                    }
+                    if (filters["allowed_ip"]){
+                        line["Allowed IPs/Networks"] = filters["allowed_ip"].join(", ");
+                    } else {
+                        line["Allowed IPs/Networks"] = "";
+                    }
+                    if (filters["denied_ip"]){
+                        line["Denied IPs/Networks"] = filters["denied_ip"].join(", ");
+                    } else {
+                        line["Denied IPs/Networks"] = "";
+                    }
+                    if (filters["denied_protocols"]){
+                        line["Denied protocols"] = filters["denied_protocols"].join(", ");
+                    } else {
+                        line["Denied protocols"] = "";
+                    }
+                    if (filters["denied_login_methods"]){
+                        line["Denied login methods"] = filters["denied_login_methods"].join(", ");
+                    } else {
+                        line["Denied login methods"] = "";
+                    }
+                    if (filters["max_upload_file_size"]){
+                        line["Max upload size"] = fileSizeIEC(filters["max_upload_file_size"]);
+                    } else {
+                        line["Max upload size"] = "";
+                    }
+                    let webClientPermissions = filters["web_client"];
+                    if (webClientPermissions){
+                        line["WebClient permissions"] = webClientPermissions.join(", ");
+                    } else {
+                        line["WebClient permissions"] = "";
+                    }
+                    if (rowData["users"]){
+                        line["Users"] = rowData["users"].join(", ");
+                    } else {
+                        line["Users"] = "";
+                    }
+                    if (rowData["admins"]){
+                        line["Admins"] = rowData["admins"].join(", ");
+                    } else {
+                        line["Admins"] = "";
+                    }
+                    if (rowData["description"]){
+                        line["Description"] = rowData["description"];
+                    } else {
+                        line["Description"] = "";
+                    }
+
+                    data.push(line);
+                });
+
+                let csv = Papa.unparse(data, {
+                    quotes: false,
+	                quoteChar: '"',
+	                escapeChar: '"',
+	                delimiter: ",",
+	                header: true,
+	                newline: "\r\n",
+	                skipEmptyLines: false,
+	                columns: null,
+                    escapeFormulae: true
+                });
+                let blob = new Blob([csv], {type: "text/csv"});
+                let ts = moment().format("YYYY_MM_DD_HH_mm_ss");
+                saveAs(blob, `groups_${ts}.csv`);
+
+                this.removeAttribute('data-kt-indicator');
+                this.disabled = false;
+            });
         }
 
         function handleRowActions() {

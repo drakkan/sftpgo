@@ -36,6 +36,15 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     <i class="ki-solid ki-magnifier fs-1 position-absolute ms-6"></i>
                     <input name="search" data-i18n="[placeholder]general.search" type="text" data-table-filter="search"
                         class="form-control rounded-1 w-250px ps-15 me-5" placeholder="Search" />
+                    <button id="export_button" type="button" class="btn btn-light-primary ms-3" data-table-filter="export">
+                        <span data-i18n="general.export" class="indicator-label">
+                            Export
+                        </span>
+                        <span data-i18n="general.wait" class="indicator-progress">
+                            Please wait...
+                            <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
+                        </span>
+                    </button>
                 </div>
 
                 <div class="d-flex justify-content-end my-2" data-table-toolbar="base">
@@ -84,6 +93,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
 {{- define "extra_js"}}
 <script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/plugins/custom/datatables/datatables.bundle.js"></script>
+<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/papaparse/papaparse.min.js"></script>
+<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/file-saver/FileSaver.min.js"></script>
 <script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
     function deleteAction(name) {
         ModalAlert.fire({
@@ -307,6 +318,57 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             });
             handleColVisibilityCheckbox($('#checkColMembers'), 1);
             handleColVisibilityCheckbox($('#checkColDesc'), 2);
+
+            const exportButton = $(document.querySelector('[data-table-filter="export"]'));
+            exportButton.on('click', function(e){
+                e.preventDefault();
+                this.blur();
+                this.setAttribute('data-kt-indicator', 'on');
+			    this.disabled = true;
+
+                let data = [];
+                dt.rows({ search: 'applied' }).every(function (rowIdx, tableLoop, rowLoop){
+                    let line = {};
+                    let rowData = dt.row(rowIdx).data();
+
+                    line["Name"] = rowData["name"];
+                    if (rowData["users"]){
+                        line["Users"] = rowData["users"].join(", ");
+                    } else {
+                        line["Users"] = "";
+                    }
+                    if (rowData["admins"]){
+                        line["Admins"] = rowData["admins"].join(", ");
+                    } else {
+                        line["Admins"] = "";
+                    }
+                    if (rowData["description"]){
+                        line["Description"] = rowData["description"];
+                    } else {
+                        line["Description"] = "";
+                    }
+
+                    data.push(line);
+                });
+
+                let csv = Papa.unparse(data, {
+                    quotes: false,
+	                quoteChar: '"',
+	                escapeChar: '"',
+	                delimiter: ",",
+	                header: true,
+	                newline: "\r\n",
+	                skipEmptyLines: false,
+	                columns: null,
+                    escapeFormulae: true
+                });
+                let blob = new Blob([csv], {type: "text/csv"});
+                let ts = moment().format("YYYY_MM_DD_HH_mm_ss");
+                saveAs(blob, `roles_${ts}.csv`);
+
+                this.removeAttribute('data-kt-indicator');
+                this.disabled = false;
+            });
         }
 
         function handleRowActions() {
