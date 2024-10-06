@@ -20,7 +20,7 @@ freebsd_task:
     - chown -R sftpgo:sftpgo /home/sftpgo/sftpgo
 
   compile_script:
-    - su sftpgo -c 'cd ~/sftpgo && go build -trimpath -tags nopgxregisterdefaulttypes -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -o sftpgo'
+    - su sftpgo -c 'cd ~/sftpgo && go build -trimpath -tags nopgxregisterdefaulttypes,disable_grpc_modules -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -o sftpgo'
     - su sftpgo -c 'cd ~/sftpgo/tests/eventsearcher && go build -trimpath -ldflags "-s -w" -o eventsearcher'
     - su sftpgo -c 'cd ~/sftpgo/tests/ipfilter && go build -trimpath -ldflags "-s -w" -o ipfilter'
 
@@ -28,4 +28,4 @@ freebsd_task:
     - su sftpgo -c 'cd ~/sftpgo && ./sftpgo initprovider && ./sftpgo resetprovider --force'
 
   test_script:
-    - su sftpgo -c 'cd ~/sftpgo && go test -v -tags nopgxregisterdefaulttypes -p 1 -timeout 20m ./... -coverprofile=coverage.txt -covermode=atomic'
+    - su sftpgo -c 'cd ~/sftpgo && go test -v -tags nopgxregisterdefaulttypes,disable_grpc_modules -p 1 -timeout 20m ./... -coverprofile=coverage.txt -covermode=atomic'

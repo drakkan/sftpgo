@@ -42,7 +42,7 @@ jobs:
           DOCKERFILE=Dockerfile
           MINOR=""
           MAJOR=""
-          FEATURES="nopgxregisterdefaulttypes"
+          FEATURES="nopgxregisterdefaulttypes,disable_grpc_modules"
           if [ "${{ github.event_name }}" = "schedule" ]; then
             VERSION=nightly
           elif [[ $GITHUB_REF == refs/tags/* ]]; then
