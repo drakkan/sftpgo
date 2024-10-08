@@ -673,7 +673,7 @@ func (c *Configuration) notifyCertificateRenewal(domain string, err error) {
 	params := common.EventParams{
 		Name:      domain,
 		Event:     "Certificate renewal",
-		Timestamp: time.Now().UnixNano(),
+		Timestamp: time.Now(),
 	}
 	if err != nil {
 		params.Status = 2

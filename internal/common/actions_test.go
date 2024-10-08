@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/lithammer/shortuuid/v4"
 	"github.com/rs/xid"
@@ -71,7 +72,7 @@ func TestNewActionNotification(t *testing.T) {
 	c := NewBaseConnection("id", ProtocolSSH, "", "", user)
 	sessionID := xid.New().String()
 	a := newActionNotification(&user, operationDownload, "path", "vpath", "target", "", "", ProtocolSFTP, "", sessionID,
-		123, 0, c.getNotificationStatus(errors.New("fake error")), 0, nil)
+		123, 0, c.getNotificationStatus(errors.New("fake error")), 0, time.Now(), nil)
 	assert.Equal(t, user.Username, a.Username)
 	assert.Equal(t, 0, len(a.Bucket))
 	assert.Equal(t, 0, len(a.Endpoint))
@@ -79,38 +80,38 @@ func TestNewActionNotification(t *testing.T) {
 
 	user.FsConfig.Provider = sdk.S3FilesystemProvider
 	a = newActionNotification(&user, operationDownload, "path", "vpath", "target", "", "", ProtocolSSH, "", sessionID,
-		123, 0, c.getNotificationStatus(nil), 0, nil)
+		123, 0, c.getNotificationStatus(nil), 0, time.Now(), nil)
 	assert.Equal(t, "s3bucket", a.Bucket)
 	assert.Equal(t, "endpoint", a.Endpoint)
 	assert.Equal(t, 1, a.Status)
 
 	user.FsConfig.Provider = sdk.GCSFilesystemProvider
 	a = newActionNotification(&user, operationDownload, "path", "vpath", "target", "", "", ProtocolSCP, "", sessionID,
-		123, 0, c.getNotificationStatus(ErrQuotaExceeded), 0, nil)
+		123, 0, c.getNotificationStatus(ErrQuotaExceeded), 0, time.Now(), nil)
 	assert.Equal(t, "gcsbucket", a.Bucket)
 	assert.Equal(t, 0, len(a.Endpoint))
 	assert.Equal(t, 3, a.Status)
 	a = newActionNotification(&user, operationDownload, "path", "vpath", "target", "", "", ProtocolSCP, "", sessionID,
-		123, 0, c.getNotificationStatus(fmt.Errorf("wrapper quota error: %w", ErrQuotaExceeded)), 0, nil)
+		123, 0, c.getNotificationStatus(fmt.Errorf("wrapper quota error: %w", ErrQuotaExceeded)), 0, time.Now(), nil)
 	assert.Equal(t, "gcsbucket", a.Bucket)
 	assert.Equal(t, 0, len(a.Endpoint))
 	assert.Equal(t, 3, a.Status)
 
 	user.FsConfig.Provider = sdk.HTTPFilesystemProvider
 	a = newActionNotification(&user, operationDownload, "path", "vpath", "target", "", "", ProtocolSSH, "", sessionID,
-		123, 0, c.getNotificationStatus(nil), 0, nil)
+		123, 0, c.getNotificationStatus(nil), 0, time.Now(), nil)
 	assert.Equal(t, "httpendpoint", a.Endpoint)
 	assert.Equal(t, 1, a.Status)
 
 	user.FsConfig.Provider = sdk.AzureBlobFilesystemProvider
 	a = newActionNotification(&user, operationDownload, "path", "vpath", "target", "", "", ProtocolSCP, "", sessionID,
-		123, 0, c.getNotificationStatus(nil), 0, nil)
+		123, 0, c.getNotificationStatus(nil), 0, time.Now(), nil)
 	assert.Equal(t, "azcontainer", a.Bucket)
 	assert.Equal(t, "azendpoint", a.Endpoint)
 	assert.Equal(t, 1, a.Status)
 
 	a = newActionNotification(&user, operationDownload, "path", "vpath", "target", "", "", ProtocolSCP, "", sessionID,
-		123, os.O_APPEND, c.getNotificationStatus(nil), 0, nil)
+		123, os.O_APPEND, c.getNotificationStatus(nil), 0, time.Now(), nil)
 	assert.Equal(t, "azcontainer", a.Bucket)
 	assert.Equal(t, "azendpoint", a.Endpoint)
 	assert.Equal(t, 1, a.Status)
@@ -118,7 +119,7 @@ func TestNewActionNotification(t *testing.T) {
 
 	user.FsConfig.Provider = sdk.SFTPFilesystemProvider
 	a = newActionNotification(&user, operationDownload, "path", "vpath", "target", "", "", ProtocolSFTP, "", sessionID,
-		123, 0, c.getNotificationStatus(nil), 0, nil)
+		123, 0, c.getNotificationStatus(nil), 0, time.Now(), nil)
 	assert.Equal(t, "sftpendpoint", a.Endpoint)
 }
 
@@ -135,7 +136,7 @@ func TestActionHTTP(t *testing.T) {
 		},
 	}
 	a := newActionNotification(user, operationDownload, "path", "vpath", "target", "", "", ProtocolSFTP, "",
-		xid.New().String(), 123, 0, 1, 0, nil)
+		xid.New().String(), 123, 0, 1, 0, time.Now(), nil)
 	status, err := actionHandler.Handle(a)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, status)
@@ -175,7 +176,7 @@ func TestActionCMD(t *testing.T) {
 	}
 	sessionID := shortuuid.New()
 	a := newActionNotification(user, operationDownload, "path", "vpath", "target", "", "", ProtocolSFTP, "", sessionID,
-		123, 0, 1, 0, map[string]string{"key": "value"})
+		123, 0, 1, 0, time.Now(), map[string]string{"key": "value"})
 	status, err := actionHandler.Handle(a)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, status)
@@ -208,7 +209,7 @@ func TestWrongActions(t *testing.T) {
 	}
 
 	a := newActionNotification(user, operationUpload, "", "", "", "", "", ProtocolSFTP, "", xid.New().String(),
-		123, 0, 1, 0, nil)
+		123, 0, 1, 0, time.Now(), nil)
 	status, err := actionHandler.Handle(a)
 	assert.Error(t, err, "action with bad command must fail")
 	assert.Equal(t, 1, status)

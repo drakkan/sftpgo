@@ -92,8 +92,9 @@ func ExecutePreAction(conn *BaseConnection, operation, filePath, virtualPath str
 	if !hasHook && !hasNotifiersPlugin && !hasRules {
 		return 0, nil
 	}
+	dateTime := time.Now()
 	event = newActionNotification(&conn.User, operation, filePath, virtualPath, "", "", "",
-		conn.protocol, conn.GetRemoteIP(), conn.ID, fileSize, openFlags, conn.getNotificationStatus(nil), 0, nil)
+		conn.protocol, conn.GetRemoteIP(), conn.ID, fileSize, openFlags, conn.getNotificationStatus(nil), 0, dateTime, nil)
 	if hasNotifiersPlugin {
 		plugin.Handler.NotifyFsEvent(event)
 	}
@@ -113,7 +114,7 @@ func ExecutePreAction(conn *BaseConnection, operation, filePath, virtualPath str
 			Protocol:          event.Protocol,
 			IP:                event.IP,
 			Role:              event.Role,
-			Timestamp:         event.Timestamp,
+			Timestamp:         dateTime,
 			Email:             conn.User.Email,
 			Object:            nil,
 		}
@@ -138,8 +139,9 @@ func ExecuteActionNotification(conn *BaseConnection, operation, filePath, virtua
 	if !hasHook && !hasNotifiersPlugin && !hasRules {
 		return nil
 	}
+	dateTime := time.Now()
 	notification := newActionNotification(&conn.User, operation, filePath, virtualPath, target, virtualTarget, sshCmd,
-		conn.protocol, conn.GetRemoteIP(), conn.ID, fileSize, 0, conn.getNotificationStatus(err), elapsed, metadata)
+		conn.protocol, conn.GetRemoteIP(), conn.ID, fileSize, 0, conn.getNotificationStatus(err), elapsed, dateTime, metadata)
 	if hasNotifiersPlugin {
 		plugin.Handler.NotifyFsEvent(notification)
 	}
@@ -160,7 +162,7 @@ func ExecuteActionNotification(conn *BaseConnection, operation, filePath, virtua
 			Protocol:          notification.Protocol,
 			IP:                notification.IP,
 			Role:              notification.Role,
-			Timestamp:         notification.Timestamp,
+			Timestamp:         dateTime,
 			Email:             conn.User.Email,
 			Object:            nil,
 			Metadata:          metadata,
@@ -198,6 +200,7 @@ func newActionNotification(
 	operation, filePath, virtualPath, target, virtualTarget, sshCmd, protocol, ip, sessionID string,
 	fileSize int64,
 	openFlags, status int, elapsed int64,
+	datetime time.Time,
 	metadata map[string]string,
 ) *notifier.FsEvent {
 	var bucket, endpoint string
@@ -239,7 +242,7 @@ func newActionNotification(
 		SessionID:         sessionID,
 		OpenFlags:         openFlags,
 		Role:              user.Role,
-		Timestamp:         time.Now().UnixNano(),
+		Timestamp:         datetime.UnixNano(),
 		Elapsed:           elapsed,
 		Metadata:          metadata,
 	}

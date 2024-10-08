@@ -800,6 +800,28 @@ func TestEventManagerErrors(t *testing.T) {
 	stopEventScheduler()
 }
 
+func TestDateTimePlaceholder(t *testing.T) {
+	oldTZ := Config.TZ
+
+	Config.TZ = ""
+	dateTime := time.Now()
+	params := EventParams{
+		Timestamp: dateTime,
+	}
+	replacements := params.getStringReplacements(false, false)
+	r := strings.NewReplacer(replacements...)
+	res := r.Replace("{{DateTime}}")
+	assert.Equal(t, dateTime.UTC().Format(dateTimeMillisFormat), res)
+
+	Config.TZ = "local"
+	replacements = params.getStringReplacements(false, false)
+	r = strings.NewReplacer(replacements...)
+	res = r.Replace("{{DateTime}}")
+	assert.Equal(t, dateTime.Local().Format(dateTimeMillisFormat), res)
+
+	Config.TZ = oldTZ
+}
+
 func TestEventRuleActions(t *testing.T) {
 	actionName := "test rule action"
 	action := dataprovider.BaseEventAction{

@@ -1057,6 +1057,7 @@
             "ip": "Indirizzo IP del client",
             "role": "Ruolo dell'utente o dell'amministratore",
             "timestamp": "Timestamp dell'evento in nanosecondi dall'epoch time",
+            "datetime": "Timestamp dell'evento formattato come YYYY-MM-DDTHH:MM:SS.ZZZ",
             "email": "Per gli eventi del file system, questa è l'e-mail associata all'utente che esegue l'azione. Per gli eventi del provider, si tratta dell'e-mail associata all'utente o all'amministratore interessato. Vuoto in tutti gli altri casi",
             "object_data": "Dati dell'oggetto provider serializzati come JSON con campi sensibili rimossi",
             "object_data_string": "Dati dell'oggetto provider serializzati come stringa JSON escaped con campi sensibili rimossi",
