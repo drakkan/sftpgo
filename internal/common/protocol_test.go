@@ -5400,7 +5400,7 @@ func TestBackupAsAttachment(t *testing.T) {
 
 	common.HandleCertificateEvent(common.EventParams{
 		Name:      "example.com",
-		Timestamp: time.Now().UnixNano(),
+		Timestamp: time.Now(),
 		Status:    1,
 		Event:     renewalEvent,
 	})
@@ -7077,7 +7077,7 @@ func TestEventRuleCertificate(t *testing.T) {
 				Recipients:  []string{"test@example.com"},
 				Subject:     `"{{Event}} {{StatusString}}"`,
 				ContentType: 0,
-				Body:        "Domain: {{Name}} Timestamp: {{Timestamp}} {{ErrorString}}",
+				Body:        "Domain: {{Name}} Timestamp: {{Timestamp}} {{ErrorString}} Date time: {{DateTime}}",
 			},
 		},
 	}
@@ -7132,7 +7132,7 @@ func TestEventRuleCertificate(t *testing.T) {
 
 	common.HandleCertificateEvent(common.EventParams{
 		Name:      "example.com",
-		Timestamp: time.Now().UnixNano(),
+		Timestamp: time.Now(),
 		Status:    1,
 		Event:     renewalEvent,
 	})
@@ -7147,9 +7147,10 @@ func TestEventRuleCertificate(t *testing.T) {
 	assert.Contains(t, email.Data, `Domain: example.com Timestamp`)
 
 	lastReceivedEmail.reset()
+	dateTime := time.Now()
 	params := common.EventParams{
 		Name:      "example.com",
-		Timestamp: time.Now().UnixNano(),
+		Timestamp: dateTime,
 		Status:    2,
 		Event:     renewalEvent,
 	}
@@ -7164,6 +7165,7 @@ func TestEventRuleCertificate(t *testing.T) {
 	assert.True(t, util.Contains(email.To, "test@example.com"))
 	assert.Contains(t, email.Data, fmt.Sprintf(`Subject: "%s KO"`, renewalEvent))
 	assert.Contains(t, email.Data, `Domain: example.com Timestamp`)
+	assert.Contains(t, email.Data, dateTime.UTC().Format("2006-01-02T15:04:05.000"))
 	assert.Contains(t, email.Data, errRenew.Error())
 
 	_, err = httpdtest.RemoveEventRule(rule1, http.StatusOK)
@@ -7177,7 +7179,7 @@ func TestEventRuleCertificate(t *testing.T) {
 	// ignored no more certificate rules
 	common.HandleCertificateEvent(common.EventParams{
 		Name:      "example.com",
-		Timestamp: time.Now().UnixNano(),
+		Timestamp: time.Now(),
 		Status:    1,
 		Event:     renewalEvent,
 	})

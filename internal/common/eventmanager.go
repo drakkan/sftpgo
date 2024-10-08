@@ -58,6 +58,7 @@ const (
 	maxAttachmentsSize       = int64(10 * 1024 * 1024)
 	objDataPlaceholder       = "{{ObjectData}}"
 	objDataPlaceholderString = "{{ObjectDataString}}"
+	dateTimeMillisFormat     = "2006-01-02T15:04:05.000"
 )
 
 // Supported IDP login events
@@ -89,7 +90,7 @@ func init() {
 				ObjectType: objectType,
 				IP:         ip,
 				Role:       role,
-				Timestamp:  time.Now().UnixNano(),
+				Timestamp:  time.Now(),
 				Object:     object,
 			}
 			if u, ok := object.(*dataprovider.User); ok {
@@ -556,7 +557,7 @@ type EventParams struct {
 	IP                    string
 	Role                  string
 	Email                 string
-	Timestamp             int64
+	Timestamp             time.Time
 	UID                   string
 	IDPCustomFields       *map[string]string
 	Object                plugin.Renderer
@@ -640,7 +641,7 @@ func (p *EventParams) setBackupParams(backupPath string) {
 	p.FsPath = backupPath
 	p.ObjectName = filepath.Base(backupPath)
 	p.VirtualPath = "/" + p.ObjectName
-	p.Timestamp = time.Now().UnixNano()
+	p.Timestamp = time.Now()
 	info, err := os.Stat(backupPath)
 	if err == nil {
 		p.FileSize = info.Size()
@@ -790,7 +791,8 @@ func (p *EventParams) getStringReplacements(addObjectData, jsonEscaped bool) []s
 		"{{IP}}", p.IP,
 		"{{Role}}", p.getStringReplacement(p.Role, jsonEscaped),
 		"{{Email}}", p.getStringReplacement(p.Email, jsonEscaped),
-		"{{Timestamp}}", strconv.FormatInt(p.Timestamp, 10),
+		"{{Timestamp}}", strconv.FormatInt(p.Timestamp.UnixNano(), 10),
+		"{{DateTime}}", p.Timestamp.UTC().Format(dateTimeMillisFormat),
 		"{{StatusString}}", p.getStatusString(),
 		"{{UID}}", p.getStringReplacement(p.UID, jsonEscaped),
 		"{{Ext}}", p.getStringReplacement(p.Extension, jsonEscaped),

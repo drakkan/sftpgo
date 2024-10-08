@@ -407,7 +407,7 @@ func (t *oidcToken) getUser(r *http.Request) error {
 		Name:      t.Username,
 		IP:        ipAddr,
 		Protocol:  common.ProtocolOIDC,
-		Timestamp: time.Now().UnixNano(),
+		Timestamp: time.Now(),
 		Status:    1,
 	}
 	if t.isAdmin() {

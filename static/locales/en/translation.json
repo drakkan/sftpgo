@@ -1041,6 +1041,7 @@
             "ip": "Client IP address",
             "role": "User or admin role",
             "timestamp": "Event timestamp as nanoseconds since epoch",
+            "datetime": "Event timestamp formatted as YYYY-MM-DDTHH:MM:SS.ZZZ",
             "email": "For filesystem events, this is the email associated with the user performing the action. For the provider events, this is the email associated with the affected user or admin. Blank in all other cases",
             "object_data": "Provider object data serialized as JSON with sensitive fields removed",
             "object_data_string": "Provider object data as JSON escaped string with sensitive fields removed",

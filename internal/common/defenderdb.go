@@ -110,7 +110,7 @@ func (d *dbDefender) AddEvent(ip, protocol string, event HostEvent) bool {
 			eventManager.handleIPBlockedEvent(EventParams{
 				Event:     ipBlockedEventName,
 				IP:        ip,
-				Timestamp: time.Now().UnixNano(),
+				Timestamp: time.Now(),
 				Status:    1,
 			})
 		}
