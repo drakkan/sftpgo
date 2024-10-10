@@ -696,7 +696,7 @@
         "directory_patterns": "Per-directory name patterns restrictions",
         "directory_patterns_help": "Comma separated denied or allowed files/directories, based on shell patterns. The match is case insensitive",
         "max_sessions": "Max sessions",
-        "max_sessions_help": "Maximun number of concurrent sessions. 0 means no limit",
+        "max_sessions_help": "Maximum number of concurrent sessions. 0 means no limit",
         "denied_protocols": "Denied protocols",
         "denied_login_methods": "Denied login methods",
         "denied_login_methods_help": "\"password\" is valid for all supported protocols, \"password-over-SSH\" only for SSH/SFTP/SCP",
