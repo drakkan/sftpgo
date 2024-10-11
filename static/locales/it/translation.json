@@ -540,6 +540,7 @@
         "invalid_quota_size": "Quota (dimensione) non valida",
         "expires_in": "Scadenza",
         "expires_in_help": "Scadenza dell'account espressa in numero di giorni dalla creazione. 0 significa nessuna scadenza",
+        "additional_emails": "Email aggiuntive",
         "tls_certs": "Certificati TLS",
         "tls_certs_help": "I certificati TLS possono essere utilizzati per l'autenticazione FTP e/o WebDAV",
         "tls_cert_help": "Incolla qui un tuo certificato TLS codificato PEM",

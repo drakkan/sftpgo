@@ -469,8 +469,9 @@ func getUserProfile(w http.ResponseWriter, r *http.Request) {
 			Description:     user.Description,
 			AllowAPIKeyAuth: user.Filters.AllowAPIKeyAuth,
 		},
-		PublicKeys: user.PublicKeys,
-		TLSCerts:   user.Filters.TLSCerts,
+		AdditionalEmails: user.Filters.AdditionalEmails,
+		PublicKeys:       user.PublicKeys,
+		TLSCerts:         user.Filters.TLSCerts,
 	}
 	render.JSON(w, r, resp)
 }
@@ -508,6 +509,7 @@ func updateUserProfile(w http.ResponseWriter, r *http.Request) {
 	}
 	if userMerged.CanChangeInfo() {
 		user.Email = req.Email
+		user.Filters.AdditionalEmails = req.AdditionalEmails
 		user.Description = req.Description
 	}
 	if err := dataprovider.UpdateUser(&user, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr), user.Role); err != nil {

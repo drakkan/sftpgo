@@ -7709,6 +7709,7 @@ func TestEventRulePasswordExpiration(t *testing.T) {
 	_, _, err = httpdtest.UpdateEventRule(rule1, http.StatusOK)
 	assert.NoError(t, err)
 	user.Email = "user@example.net"
+	user.Filters.AdditionalEmails = []string{"additional@example.net"}
 	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	conn, client, err = getSftpClient(user)
@@ -7724,8 +7725,9 @@ func TestEventRulePasswordExpiration(t *testing.T) {
 			return lastReceivedEmail.get().From != ""
 		}, 1500*time.Millisecond, 100*time.Millisecond)
 		email := lastReceivedEmail.get()
-		assert.Len(t, email.To, 1)
+		assert.Len(t, email.To, 2)
 		assert.Contains(t, email.To, user.Email)
+		assert.Contains(t, email.To, user.Filters.AdditionalEmails[0])
 		assert.Contains(t, email.Data, "your SFTPGo password expires in 5 days")
 		err = client.RemoveDirectory(dirName)
 		assert.NoError(t, err)

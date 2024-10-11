@@ -124,6 +124,8 @@ type UserFilters struct {
 	sdk.BaseUserFilters
 	// User must change password from WebClient/REST API at next login.
 	RequirePasswordChange bool `json:"require_password_change,omitempty"`
+	// AdditionalEmails defines additional email addresses
+	AdditionalEmails []string `json:"additional_emails,omitempty"`
 	// Time-based one time passwords configuration
 	TOTPConfig UserTOTPConfig `json:"totp_config,omitempty"`
 	// Recovery codes to use if the user loses access to their second factor auth device.
@@ -402,6 +404,15 @@ func (u *User) CheckMaxShareExpiration(expiresAt time.Time) error {
 		return util.NewValidationError(fmt.Sprintf("the share must expire before %s", maxAllowedExpiration.Format(time.DateOnly)))
 	}
 	return nil
+}
+
+// GetEmailAddresses returns all the email addresses.
+func (u *User) GetEmailAddresses() []string {
+	var res []string
+	if u.Email != "" {
+		res = append(res, u.Email)
+	}
+	return slices.Concat(res, u.Filters.AdditionalEmails)
 }
 
 // GetSubDirPermissions returns permissions for sub directories
@@ -1784,6 +1795,8 @@ func (u *User) getACopy() User {
 	filters.TOTPConfig.Secret = u.Filters.TOTPConfig.Secret.Clone()
 	filters.TOTPConfig.Protocols = make([]string, len(u.Filters.TOTPConfig.Protocols))
 	copy(filters.TOTPConfig.Protocols, u.Filters.TOTPConfig.Protocols)
+	filters.AdditionalEmails = make([]string, len(u.Filters.AdditionalEmails))
+	copy(filters.AdditionalEmails, u.Filters.AdditionalEmails)
 	filters.RecoveryCodes = make([]RecoveryCode, 0, len(u.Filters.RecoveryCodes))
 	for _, code := range u.Filters.RecoveryCodes {
 		if code.Secret == nil {

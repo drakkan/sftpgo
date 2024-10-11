@@ -540,6 +540,7 @@
         "invalid_quota_size": "Invalid quota size",
         "expires_in": "Expires in",
         "expires_in_help": "Account expiration as number of days from the creation. 0 means no expiration",
+        "additional_emails": "Additional emails",
         "tls_certs": "TLS certificates",
         "tls_certs_help": "TLS certificates can be used for FTP and/or WebDAV authentication",
         "tls_cert_help": "Paste a PEM encoded TLS certificate here",

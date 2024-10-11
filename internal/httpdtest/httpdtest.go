@@ -2037,6 +2037,9 @@ func checkUser(expected *dataprovider.User, actual *dataprovider.User) error {
 	if expected.Email != actual.Email {
 		return errors.New("email mismatch")
 	}
+	if !slices.Equal(expected.Filters.AdditionalEmails, actual.Filters.AdditionalEmails) {
+		return errors.New("additional emails mismatch")
+	}
 	if expected.Filters.RequirePasswordChange != actual.Filters.RequirePasswordChange {
 		return errors.New("require_password_change mismatch")
 	}

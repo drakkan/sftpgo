@@ -72,8 +72,9 @@ type adminProfile struct {
 
 type userProfile struct {
 	baseProfile
-	PublicKeys []string `json:"public_keys,omitempty"`
-	TLSCerts   []string `json:"tls_certs,omitempty"`
+	AdditionalEmails []string `json:"additional_emails,omitempty"`
+	PublicKeys       []string `json:"public_keys,omitempty"`
+	TLSCerts         []string `json:"tls_certs,omitempty"`
 }
 
 func sendAPIResponse(w http.ResponseWriter, r *http.Request, err error, message string, code int) {
@@ -786,7 +787,8 @@ func getActiveUser(username string, r *http.Request) (dataprovider.User, error) 
 }
 
 func handleForgotPassword(r *http.Request, username string, isAdmin bool) error {
-	var email, subject string
+	var emails []string
+	var subject string
 	var err error
 	var admin dataprovider.Admin
 	var user dataprovider.User
@@ -796,11 +798,13 @@ func handleForgotPassword(r *http.Request, username string, isAdmin bool) error 
 	}
 	if isAdmin {
 		admin, err = getActiveAdmin(username, util.GetIPFromRemoteAddress(r.RemoteAddr))
-		email = admin.Email
+		if admin.Email != "" {
+			emails = []string{admin.Email}
+		}
 		subject = fmt.Sprintf("Email Verification Code for admin %q", username)
 	} else {
 		user, err = getActiveUser(username, r)
-		email = user.Email
+		emails = user.GetEmailAddresses()
 		subject = fmt.Sprintf("Email Verification Code for user %q", username)
 		if err == nil {
 			if !isUserAllowedToResetPassword(r, &user) {
@@ -821,7 +825,7 @@ func handleForgotPassword(r *http.Request, username string, isAdmin bool) error 
 		}
 		return util.NewI18nError(util.NewGenericError("Error retrieving your account, please try again later"), util.I18nErrorGetUser)
 	}
-	if email == "" {
+	if len(emails) == 0 {
 		return util.NewI18nError(
 			util.NewValidationError("Your account does not have an email address, it is not possible to reset your password by sending an email verification code"),
 			util.I18nErrorPwdResetNoEmail,
@@ -836,7 +840,7 @@ func handleForgotPassword(r *http.Request, username string, isAdmin bool) error 
 		return util.NewGenericError("Unable to render password reset template")
 	}
 	startTime := time.Now()
-	if err := smtp.SendEmail([]string{email}, nil, subject, body.String(), smtp.EmailContentTypeTextHTML); err != nil {
+	if err := smtp.SendEmail(emails, nil, subject, body.String(), smtp.EmailContentTypeTextHTML); err != nil {
 		logger.Warn(logSender, middleware.GetReqID(r.Context()), "unable to send password reset code via email: %v, elapsed: %v",
 			err, time.Since(startTime))
 		return util.NewI18nError(
@@ -844,8 +848,8 @@ func handleForgotPassword(r *http.Request, username string, isAdmin bool) error 
 			util.I18nErrorPwdResetSendEmail,
 		)
 	}
-	logger.Debug(logSender, middleware.GetReqID(r.Context()), "reset code sent via email to %q, email: %q, is admin? %v, elapsed: %v",
-		username, email, isAdmin, time.Since(startTime))
+	logger.Debug(logSender, middleware.GetReqID(r.Context()), "reset code sent via email to %q, emails: %+v, is admin? %v, elapsed: %v",
+		username, emails, isAdmin, time.Since(startTime))
 	return resetCodesMgr.Add(c)
 }
 

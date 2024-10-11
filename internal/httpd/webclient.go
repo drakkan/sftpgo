@@ -174,13 +174,15 @@ type clientMessagePage struct {
 
 type clientProfilePage struct {
 	baseClientPage
-	PublicKeys      []string
-	TLSCerts        []string
-	CanSubmit       bool
-	AllowAPIKeyAuth bool
-	Email           string
-	Description     string
-	Error           *util.I18nError
+	PublicKeys             []string
+	TLSCerts               []string
+	CanSubmit              bool
+	AllowAPIKeyAuth        bool
+	Email                  string
+	AdditionalEmails       []string
+	AdditionalEmailsString string
+	Description            string
+	Error                  *util.I18nError
 }
 
 type changeClientPasswordPage struct {
@@ -841,6 +843,8 @@ func (s *httpdServer) renderClientProfilePage(w http.ResponseWriter, r *http.Req
 	data.TLSCerts = user.Filters.TLSCerts
 	data.AllowAPIKeyAuth = user.Filters.AllowAPIKeyAuth
 	data.Email = user.Email
+	data.AdditionalEmails = user.Filters.AdditionalEmails
+	data.AdditionalEmailsString = strings.Join(data.AdditionalEmails, ", ")
 	data.Description = user.Description
 	data.CanSubmit = userMerged.CanUpdateProfile()
 	renderClientTemplate(w, templateClientProfile, data)
@@ -1661,6 +1665,15 @@ func (s *httpdServer) handleWebClientProfilePost(w http.ResponseWriter, r *http.
 	if userMerged.CanChangeInfo() {
 		user.Email = strings.TrimSpace(r.Form.Get("email"))
 		user.Description = r.Form.Get("description")
+		for k := range r.Form {
+			if hasPrefixAndSuffix(k, "additional_emails[", "][additional_email]") {
+				email := strings.TrimSpace(r.Form.Get(k))
+				if email != "" {
+					r.Form.Add("additional_emails", email)
+				}
+			}
+		}
+		user.Filters.AdditionalEmails = r.Form["additional_emails"]
 	}
 	err = dataprovider.UpdateUser(&user, dataprovider.ActionExecutorSelf, ipAddr, user.Role)
 	if err != nil {

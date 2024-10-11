@@ -31,6 +31,80 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </div>
             </div>
 
+            {{- if .LoggedUser.CanChangeInfo}}
+            <div class="card mt-10">
+                <div class="card-header bg-light">
+                    <h3 data-i18n="user.additional_emails" class="card-title section-title-inner">Additional emails</h3>
+                </div>
+                <div class="card-body">
+                    <div id="additional_emails">
+                        <div class="form-group">
+                            <div data-repeater-list="additional_emails">
+                                {{- range $idx, $val := .AdditionalEmails}}
+                                <div data-repeater-item>
+                                    <div class="form-group row">
+                                        <div class="col-md-10 mt-3 mt-md-8">
+                                            <input type="email" class="form-control" placeholder="" name="additional_email" value="{{$val}}" maxlength="255" autocomplete="off" spellcheck="false" />
+                                        </div>
+                                        <div class="col-md-2 mt-3 mt-md-8">
+                                            <a href="#" data-repeater-delete
+                                                class="btn btn-light-danger">
+                                                <i class="ki-duotone ki-trash fs-5">
+                                                    <span class="path1"></span>
+                                                    <span class="path2"></span>
+                                                    <span class="path3"></span>
+                                                    <span class="path4"></span>
+                                                    <span class="path5"></span>
+                                                </i>
+                                                <span data-i18n="general.delete">Delete</span>
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                                {{- else}}
+                                <div data-repeater-item>
+                                    <div class="form-group row">
+                                        <div class="col-md-10 mt-3 mt-md-8">
+                                            <input type="email" class="form-control" placeholder="" name="additional_email" value="" maxlength="255" autocomplete="off" spellcheck="false" />
+                                        </div>
+                                        <div class="col-md-2 mt-3 mt-md-8">
+                                            <a href="#" data-repeater-delete
+                                                class="btn btn-light-danger">
+                                                <i class="ki-duotone ki-trash fs-5">
+                                                    <span class="path1"></span>
+                                                    <span class="path2"></span>
+                                                    <span class="path3"></span>
+                                                    <span class="path4"></span>
+                                                    <span class="path5"></span>
+                                                </i>
+                                                <span data-i18n="general.delete">Delete</span>
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                                {{- end}}
+                            </div>
+                        </div>
+
+                        <div class="form-group mt-5">
+                            <a href="#" data-repeater-create class="btn btn-light-primary">
+                                <i class="ki-duotone ki-plus fs-3"></i>
+                                <span data-i18n="general.add">Add</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {{- else}}
+            <div class="form-group row mt-10">
+                <label for="idAdditionalEmails" data-i18n="user.additional_emails" class="col-md-3 col-form-label">Additional emails</label>
+                <div class="col-md-9">
+                    <input type="text" id="idAdditionalEmails" name="description" placeholder="" value="{{.AdditionalEmailsString}}"
+                        class="form-control-plaintext readonly-input" readonly>
+                </div>
+            </div>
+            {{- end}}
+
             <div class="form-group row mt-10">
                 <label for="idDescription" data-i18n="general.description" class="col-md-3 col-form-label">Description</label>
                 <div class="col-md-9">
@@ -216,6 +290,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         //{{- end}}
         //{{- if .LoggedUser.CanManageTLSCerts}}
         initRepeater('#tls_certs');
+        //{{- end}}
+        //{{- if .LoggedUser.CanChangeInfo}}
+        initRepeater('#additional_emails');
         //{{- end}}
         initRepeaterItems();
         //{{- end}}

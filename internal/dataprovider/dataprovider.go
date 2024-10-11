@@ -3230,6 +3230,24 @@ func validateCombinedUserFilters(user *User) error {
 	return nil
 }
 
+func validateEmails(user *User) error {
+	if user.Email != "" && !util.IsEmailValid(user.Email) {
+		return util.NewI18nError(
+			util.NewValidationError(fmt.Sprintf("email %q is not valid", user.Email)),
+			util.I18nErrorInvalidEmail,
+		)
+	}
+	for _, email := range user.Filters.AdditionalEmails {
+		if !util.IsEmailValid(email) {
+			return util.NewI18nError(
+				util.NewValidationError(fmt.Sprintf("email %q is not valid", email)),
+				util.I18nErrorInvalidEmail,
+			)
+		}
+	}
+	return nil
+}
+
 func validateBaseParams(user *User) error {
 	if user.Username == "" {
 		return util.NewI18nError(util.NewValidationError("username is mandatory"), util.I18nErrorUsernameRequired)
@@ -3237,11 +3255,8 @@ func validateBaseParams(user *User) error {
 	if err := checkReservedUsernames(user.Username); err != nil {
 		return util.NewI18nError(err, util.I18nErrorReservedUsername)
 	}
-	if user.Email != "" && !util.IsEmailValid(user.Email) {
-		return util.NewI18nError(
-			util.NewValidationError(fmt.Sprintf("email %q is not valid", user.Email)),
-			util.I18nErrorInvalidEmail,
-		)
+	if err := validateEmails(user); err != nil {
+		return err
 	}
 	if config.NamingRules&1 == 0 && !usernameRegex.MatchString(user.Username) {
 		return util.NewI18nError(

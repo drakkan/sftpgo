@@ -2459,7 +2459,7 @@ func executePwdExpirationCheckForUser(user *dataprovider.User, config dataprovid
 	}
 	subject := "SFTPGo password expiration notification"
 	startTime := time.Now()
-	if err := smtp.SendEmail([]string{user.Email}, nil, subject, body.String(), smtp.EmailContentTypeTextHTML); err != nil {
+	if err := smtp.SendEmail(user.GetEmailAddresses(), nil, subject, body.String(), smtp.EmailContentTypeTextHTML); err != nil {
 		eventManagerLog(logger.LevelError, "unable to notify password expiration for user %s: %v, elapsed: %s",
 			user.Username, err, time.Since(startTime))
 		return err
@@ -2553,6 +2553,9 @@ func preserveUserProfile(user, newUser *dataprovider.User) {
 		}
 		if user.Email != "" {
 			newUser.Email = user.Email
+		}
+		if len(user.Filters.AdditionalEmails) > 0 {
+			newUser.Filters.AdditionalEmails = user.Filters.AdditionalEmails
 		}
 	}
 	if newUser.CanChangeAPIKeyAuth() {

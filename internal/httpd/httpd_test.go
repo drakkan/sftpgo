@@ -623,6 +623,7 @@ func TestInitialization(t *testing.T) {
 func TestBasicUserHandling(t *testing.T) {
 	u := getTestUser()
 	u.Email = "user@user.com"
+	u.Filters.AdditionalEmails = []string{"email1@user.com", "email2@user.com"}
 	user, resp, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err, string(resp))
 	_, resp, err = httpdtest.AddUser(u, http.StatusConflict)
@@ -660,6 +661,12 @@ func TestBasicUserHandling(t *testing.T) {
 		WriteBufferSize: 2,
 	}
 	_, body, err := httpdtest.UpdateUser(user, http.StatusBadRequest, "")
+	assert.NoError(t, err)
+	assert.Contains(t, string(body), "Validation error: email")
+
+	user.Email = ""
+	user.Filters.AdditionalEmails = []string{"invalid@email"}
+	_, body, err = httpdtest.UpdateUser(user, http.StatusBadRequest, "")
 	assert.NoError(t, err)
 	assert.Contains(t, string(body), "Validation error: email")
 
@@ -11298,6 +11305,7 @@ func TestWebAPIChangeUserProfileMock(t *testing.T) {
 	checkResponseCode(t, http.StatusBadRequest, rr)
 
 	email := "userapi@example.com"
+	additionalEmails := []string{"userapi1@example.com"}
 	description := "user API description"
 	profileReq := make(map[string]any)
 	profileReq["allow_api_key_auth"] = true
@@ -11305,6 +11313,7 @@ func TestWebAPIChangeUserProfileMock(t *testing.T) {
 	profileReq["description"] = description
 	profileReq["public_keys"] = []string{testPubKey, testPubKey1}
 	profileReq["tls_certs"] = []string{httpsCert}
+	profileReq["additional_emails"] = additionalEmails
 	asJSON, err := json.Marshal(profileReq)
 	assert.NoError(t, err)
 	req, err = http.NewRequest(http.MethodPut, userProfilePath, bytes.NewBuffer(asJSON))
@@ -11322,6 +11331,7 @@ func TestWebAPIChangeUserProfileMock(t *testing.T) {
 	err = json.Unmarshal(rr.Body.Bytes(), &profileReq)
 	assert.NoError(t, err)
 	assert.Equal(t, email, profileReq["email"].(string))
+	assert.Len(t, profileReq["additional_emails"].([]interface{}), 1)
 	assert.Equal(t, description, profileReq["description"].(string))
 	assert.True(t, profileReq["allow_api_key_auth"].(bool))
 	val, ok := profileReq["public_keys"].([]any)
@@ -11335,6 +11345,17 @@ func TestWebAPIChangeUserProfileMock(t *testing.T) {
 	// set an invalid email
 	profileReq = make(map[string]any)
 	profileReq["email"] = "notavalidemail"
+	asJSON, err = json.Marshal(profileReq)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPut, userProfilePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "Validation error: email")
+	// set an invalid additional email
+	profileReq = make(map[string]any)
+	profileReq["additional_emails"] = []string{"not an email"}
 	asJSON, err = json.Marshal(profileReq)
 	assert.NoError(t, err)
 	req, err = http.NewRequest(http.MethodPut, userProfilePath, bytes.NewBuffer(asJSON))
@@ -19859,6 +19880,7 @@ func TestWebUserProfile(t *testing.T) {
 	form.Set("public_keys[0][public_key]", testPubKey)
 	form.Set("public_keys[1][public_key]", testPubKey1)
 	form.Set("tls_certs[0][tls_cert]", httpsCert)
+	form.Set("additional_emails[0][additional_email]", "email1@user.com")
 	// no csrf token
 	req, err := http.NewRequest(http.MethodPost, webClientProfilePath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
@@ -19885,6 +19907,9 @@ func TestWebUserProfile(t *testing.T) {
 	assert.Len(t, user.Filters.TLSCerts, 1)
 	assert.Equal(t, email, user.Email)
 	assert.Equal(t, description, user.Description)
+	if assert.Len(t, user.Filters.AdditionalEmails, 1) {
+		assert.Equal(t, "email1@user.com", user.Filters.AdditionalEmails[0])
+	}
 
 	// set an invalid email
 	form.Set("email", "not an email")
@@ -21268,6 +21293,7 @@ func TestWebUserAddMock(t *testing.T) {
 	user.AdditionalInfo = "info"
 	user.Description = "user dsc"
 	user.Email = "test@test.com"
+	user.Filters.AdditionalEmails = []string{"example1@test.com", "example2@test.com"}
 	mappedDir := filepath.Join(os.TempDir(), "mapped")
 	folderName := filepath.Base(mappedDir)
 	f := vfs.BaseVirtualFolder{
@@ -21285,6 +21311,8 @@ func TestWebUserAddMock(t *testing.T) {
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("username", user.Username)
 	form.Set("email", user.Email)
+	form.Set("additional_emails[0][additional_email]", user.Filters.AdditionalEmails[0])
+	form.Set("additional_emails[1][additional_email]", user.Filters.AdditionalEmails[1])
 	form.Set("home_dir", user.HomeDir)
 	form.Set("osfs_read_buffer_size", "2")
 	form.Set("osfs_write_buffer_size", "3")
@@ -21611,6 +21639,7 @@ func TestWebUserAddMock(t *testing.T) {
 	assert.True(t, newUser.Filters.DisableFsChecks)
 	assert.False(t, newUser.Filters.AllowAPIKeyAuth)
 	assert.Equal(t, user.Email, newUser.Email)
+	assert.Equal(t, len(user.Filters.AdditionalEmails), len(newUser.Filters.AdditionalEmails))
 	assert.Equal(t, "/start/dir", newUser.Filters.StartDirectory)
 	assert.Equal(t, 0, newUser.Filters.FTPSecurity)
 	assert.Equal(t, 10, newUser.Filters.DefaultSharesExpiration)
