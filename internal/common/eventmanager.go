@@ -780,6 +780,7 @@ func (p *EventParams) getStringReplacements(addObjectData, jsonEscaped bool) []s
 		"{{Event}}", p.Event,
 		"{{Status}}", fmt.Sprintf("%d", p.Status),
 		"{{VirtualPath}}", p.getStringReplacement(p.VirtualPath, jsonEscaped),
+		"{{EscapedVirtualPath}}", p.getStringReplacement(url.QueryEscape(p.VirtualPath), jsonEscaped),
 		"{{FsPath}}", p.getStringReplacement(p.FsPath, jsonEscaped),
 		"{{VirtualTargetPath}}", p.getStringReplacement(p.VirtualTargetPath, jsonEscaped),
 		"{{FsTargetPath}}", p.getStringReplacement(p.FsTargetPath, jsonEscaped),

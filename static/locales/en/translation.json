@@ -1026,6 +1026,7 @@
             "status_string": "Status as string. Possible values \"OK\", \"KO\"",
             "error_string": "Error details. Replaced with an empty string if no errors occur",
             "virtual_path": "Path seen by SFTPGo users, for example \"/adir/afile.txt\"",
+            "escaped_virtual_path": "HTTP query string encoded path, for example \"%2Fadir%2Fafile.txt\".",
             "virtual_dir_path": "Parent directory for \"VirtualPath\", for example if \"VirtualPath\" is \"/adir/afile.txt\", \"VirtualDirPath\" is \"/adir\"",
             "fs_path": "Full filesystem path, for example \"/user/homedir/adir/afile.txt\" or \"C:/data/user/homedir/adir/afile.txt\" on Windows",
             "ext": "File extension, for example \".txt\" if the filename is \"afile.txt\"",
