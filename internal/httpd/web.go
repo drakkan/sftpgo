@@ -73,32 +73,35 @@ type loginPage struct {
 
 type twoFactorPage struct {
 	commonBasePage
-	CurrentURL  string
-	Error       *util.I18nError
-	CSRFToken   string
-	RecoveryURL string
-	Title       string
-	Branding    UIBranding
+	CurrentURL    string
+	Error         *util.I18nError
+	CSRFToken     string
+	RecoveryURL   string
+	Title         string
+	Branding      UIBranding
+	CheckRedirect bool
 }
 
 type forgotPwdPage struct {
 	commonBasePage
-	CurrentURL string
-	Error      *util.I18nError
-	CSRFToken  string
-	LoginURL   string
-	Title      string
-	Branding   UIBranding
+	CurrentURL    string
+	Error         *util.I18nError
+	CSRFToken     string
+	LoginURL      string
+	Title         string
+	Branding      UIBranding
+	CheckRedirect bool
 }
 
 type resetPwdPage struct {
 	commonBasePage
-	CurrentURL string
-	Error      *util.I18nError
-	CSRFToken  string
-	LoginURL   string
-	Title      string
-	Branding   UIBranding
+	CurrentURL    string
+	Error         *util.I18nError
+	CSRFToken     string
+	LoginURL      string
+	Title         string
+	Branding      UIBranding
+	CheckRedirect bool
 }
 
 func getSliceFromDelimitedValues(values, delimiter string) []string {
