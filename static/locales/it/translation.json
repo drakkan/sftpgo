@@ -1043,6 +1043,7 @@
             "status_string": "Stato come stringa. Valori possibili \"OK\", \"KO\"",
             "error_string": "Dettagli circa l'errore. Sostituito con una stringa vuota se non si verificano errori",
             "virtual_path": "Percorso visualizzato dagli utenti SFTPGo, ad esempio \"/adir/afile.txt\"",
+            "escaped_virtual_path": "Percorso codificato per HTTP query string, ad esempio \"%2Fadir%2Fafile.txt\".",
             "virtual_dir_path": "Directory superiore per \"VirtualPath\", ad esempio se \"VirtualPath\" è \"/adir/afile.txt\", \"VirtualDirPath\" è \"/adir\"",
             "fs_path": "Percorso completo del filesystem, ad esempio \"/user/homedir/adir/afile.txt\" o \"C:/data/user/homedir/adir/afile.txt\" su Windows",
             "ext": "Estensione del file, ad esempio \".txt\" se il nome del file è \"afile.txt\"",

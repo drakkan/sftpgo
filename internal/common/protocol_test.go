@@ -26,6 +26,7 @@ import (
 	"math"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -6118,7 +6119,7 @@ func TestEventActionEmailAttachments(t *testing.T) {
 			EmailConfig: dataprovider.EventActionEmailConfig{
 				Recipients:  []string{"test@example.com"},
 				Subject:     `"{{Event}}" from "{{Name}}"`,
-				Body:        "Fs path {{FsPath}}, size: {{FileSize}}, protocol: {{Protocol}}, IP: {{IP}}",
+				Body:        "Fs path {{FsPath}}, size: {{FileSize}}, protocol: {{Protocol}}, IP: {{IP}} {{EscapedVirtualPath}}",
 				Attachments: []string{"/archive/{{VirtualPath}}.zip"},
 			},
 		},
@@ -6177,6 +6178,7 @@ func TestEventActionEmailAttachments(t *testing.T) {
 			assert.Len(t, email.To, 1)
 			assert.True(t, slices.Contains(email.To, "test@example.com"))
 			assert.Contains(t, email.Data, `Subject: "upload" from`)
+			assert.Contains(t, email.Data, url.QueryEscape("/"+testFileName))
 			assert.Contains(t, email.Data, "Content-Disposition: attachment")
 		}
 	}
