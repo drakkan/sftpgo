@@ -257,6 +257,7 @@ type setupPage struct {
 	HideSupportLink      bool
 	Title                string
 	Branding             UIBranding
+	CheckRedirect        bool
 }
 
 type folderPage struct {
