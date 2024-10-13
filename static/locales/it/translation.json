@@ -672,7 +672,26 @@
         "token_invalid": "Token OpenID non valido",
         "role_admin_err": "Ruolo OpenID errato, l'utente che ha effettuato l'accesso non è un amministratore",
         "role_user_err": "Ruolo OpenID errato, l'utente che ha effettuato l'accesso è un amministratore",
-        "get_user_err": "Impossibile ottenere l'utente associato al token OpenID"
+        "get_user_err": "Impossibile ottenere l'utente associato al token OpenID",
+        "title": "OpenID Connect",
+        "help": "Da questa sezione puoi configurare l'integrazione OpenID Connect con il tuo Identity Provider. È necessario un riavvio del servizio per applicare le modifiche",
+        "client_id": "Client ID",
+        "client_secret": "Client Secret",
+        "config_url": "URL configurazione",
+        "config_url_help": "Il suffisso \"/.well-known/openid-configuration\" è aggiunto automaticamente. Questo URL deve tornare la configurazione per OpenID",
+        "redirect_base_url": "URL di reindirizzamento",
+        "username_field": "Claim per nome utente",
+        "username_field_help": "Il claim dell'ID Token da utilizzare come nome per utenti/amministratori SFTPGo, ad es. \"preferred_username\"",
+        "role_field": "Claim per ruolo",
+        "implicit_roles": "Ruoli impliciti",
+        "scopes": "Scopi",
+        "scopes_help": "Scopi separati da virgola, openid è aggiunto automaticamente",
+        "custom_fields": "Claim personalizzati",
+        "custom_fields_help": "Claim personalizzati separati da virgola",
+        "config_url_required": "L'URL configurazione è obbligatorio",
+        "config_fetch_error": "Impossibile ottenere la configurazione OpenID dall'URL di configurazione fornito",
+        "redirect_base_url_required": "L'URL di reindirizzamento è obbligatorio",
+        "username_field_required": "Il claim per il nome utente è obbligatorio"
     },
     "oauth2": {
         "auth_verify_error": "Impossibile verificare il codice OAuth2",
@@ -680,7 +699,10 @@
         "auth_invalid": "Codice OAuth2 non valido",
         "token_exchange_err": "Impossibile ottenere il token OAuth2 dal codice di autorizzazione",
         "no_refresh_token": "Il provider OAuth2 ha restituito un token vuoto. Alcuni provider restituiscono il token solo dopo la prima autorizzazione dell'utente. Se hai già registrato SFTPGo con questo utente in passato, revoca l'accesso e riprova. In questo modo invaliderai il token precedente",
-        "success": "Copia la seguente stringa, senza virgolette, nel campo di configurazione del token SMTP OAuth2:"
+        "success": "Copia la seguente stringa, senza virgolette, nel campo di configurazione del token SMTP OAuth2:",
+        "client_id_required": "Il Client ID è obbligatorio",
+        "client_secret_required": "Il Client Secret è obbligatorio",
+        "refresh_token_required": "Il Refresh Token è obbligatorio"
     },
     "filters": {
         "password_strength": "Sicurezza password",
@@ -858,9 +880,6 @@
     "smtp": {
         "title": "SMTP",
         "err_required_fields": "L'indirizzo del mittente e lo username non possono essere entrambi vuoti",
-        "client_id_required": "Il Client ID è obbligatorio",
-        "client_secret_required": "Il Client Secret è obbligatorio",
-        "refresh_token_required": "Il Refresh Token è obbligatorio",
         "help": "Imposta la configurazione SMTP sostituendo quella definita utilizzando env vars o il file di configurazione, se presente",
         "host": "Nome server",
         "host_help": "Se vuoto la configurazione è disabilitata",

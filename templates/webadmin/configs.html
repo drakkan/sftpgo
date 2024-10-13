@@ -626,7 +626,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         let clientSecret = $('#idSMTPOAuth2ClientSecret').val();
         if (!clientID){
             ModalAlert.fire({
-                text: $.t('smtp.client_id_required'),
+                text: $.t('oauth2.client_id_required'),
                 icon: "warning",
                 confirmButtonText: $.t('general.ok'),
                 customClass: {
@@ -637,7 +637,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         }
         if (!clientSecret){
             ModalAlert.fire({
-                text: $.t('smtp.client_secret_required'),
+                text: $.t('oauth2.client_secret_required'),
                 icon: "warning",
                 confirmButtonText: $.t('general.ok'),
                 customClass: {
@@ -723,13 +723,13 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         if (authType === 3){
             let message;
             if (!clientID){
-                message = "smtp.client_id_required";
+                message = "oauth2.client_id_required";
             }
             if (!clientSecret){
-                message = "smtp.client_secret_required";
+                message = "oauth2.client_secret_required";
             }
             if (!refreshToken){
-                message = "smtp.refresh_token_required"
+                message = "oauth2.refresh_token_required"
             }
             if (message){
                 ModalAlert.fire({

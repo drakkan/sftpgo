@@ -4361,12 +4361,12 @@ func (s *httpdServer) handleWebConfigsPost(w http.ResponseWriter, r *http.Reques
 	case "branding_submit":
 		configSection = 4
 		brandingConfigs, err := getBrandingConfigFromPostFields(r, configs.Branding)
+		configs.Branding = brandingConfigs
 		if err != nil {
 			logger.Info(logSender, "", "unable to get branding config: %v", err)
 			s.renderConfigsPage(w, r, configs, err, configSection)
 			return
 		}
-		configs.Branding = brandingConfigs
 	default:
 		s.renderBadRequestPage(w, r, errors.New("unsupported form action"))
 		return
@@ -4445,6 +4445,9 @@ func (s *httpdServer) handleOAuth2TokenRedirect(w http.ResponseWriter, r *http.R
 }
 
 func updateSMTPSecrets(newConfigs, currentConfigs *dataprovider.SMTPConfigs) {
+	if currentConfigs == nil {
+		currentConfigs = &dataprovider.SMTPConfigs{}
+	}
 	if newConfigs.Password.IsNotPlainAndNotEmpty() {
 		newConfigs.Password = currentConfigs.Password
 	}

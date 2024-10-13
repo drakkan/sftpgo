@@ -197,19 +197,19 @@ func (c *SMTPOAuth2) validate() error {
 	if c.ClientID == "" {
 		return util.NewI18nError(
 			util.NewValidationError("smtp oauth2: client id is required"),
-			util.I18nErrorSMTPClientIDRequired,
+			util.I18nErrorClientIDRequired,
 		)
 	}
-	if c.ClientSecret == nil {
+	if c.ClientSecret == nil || c.ClientSecret.IsEmpty() {
 		return util.NewI18nError(
 			util.NewValidationError("smtp oauth2: client secret is required"),
-			util.I18nErrorSMTPClientSecretRequired,
+			util.I18nErrorClientSecretRequired,
 		)
 	}
-	if c.RefreshToken == nil {
+	if c.RefreshToken == nil || c.RefreshToken.IsEmpty() {
 		return util.NewI18nError(
 			util.NewValidationError("smtp oauth2: refresh token is required"),
-			util.I18nErrorSMTPRefreshTokenRequired,
+			util.I18nErrorRefreshTokenRequired,
 		)
 	}
 	if err := validateSMTPSecret(c.ClientSecret, "oauth2 client secret"); err != nil {

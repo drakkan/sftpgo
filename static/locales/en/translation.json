@@ -672,7 +672,26 @@
         "token_invalid": "Invalid OpenID token",
         "role_admin_err": "Incorrect OpenID role, logged in user is not an administrator",
         "role_user_err": "Incorrect OpenID role, logged in user is an administrator",
-        "get_user_err": "Failed to get user associated with OpenID token"
+        "get_user_err": "Failed to get user associated with OpenID token",
+        "title": "OpenID Connect",
+        "help": "From this section you can configure OpenID Connect integration with your Identity Provider. A service restart is required to apply the changes",
+        "client_id": "Client ID",
+        "client_secret": "Client Secret",
+        "config_url": "Config URL",
+        "config_url_help": "The \"/.well-known/openid-configuration\" suffix is automatically added. This URL must return the OpenID configuration",
+        "redirect_base_url": "Redirect base URL",
+        "username_field": "Username claim",
+        "username_field_help": "ID Token claim to use as username for SFTPGo users/admin, e.g. \"preferred_username\"",
+        "role_field": "Role claim",
+        "implicit_roles": "Implicit roles",
+        "scopes": "Scopes",
+        "scopes_help": "Comma separated scopes, openid scope is automatically added",
+        "custom_fields": "Custom claims",
+        "custom_fields_help": "Comma separated custom claims",
+        "config_url_required": "Config URL is required",
+        "config_fetch_error": "Unable to get OpenID configuration from the provided configuration URL",
+        "redirect_base_url_required": "Redirect base URL is required",
+        "username_field_required": "Username claim is required"
     },
     "oauth2": {
         "auth_verify_error": "Unable to verify OAuth2 code",
@@ -680,7 +699,10 @@
         "auth_invalid": "Invalid OAuth2 code",
         "token_exchange_err": "Unable to get OAuth2 token from authorization code",
         "no_refresh_token": "The OAuth2 provider returned an empty token. Some providers only return the token when the user first authorizes. If you have already registered SFTPGo with this user in the past, revoke access and try again. This way you will invalidate the previous token",
-        "success": "Copy the following string, without the quotes, into SMTP OAuth2 Token configuration field:"
+        "success": "Copy the following string, without the quotes, into SMTP OAuth2 Token configuration field:",
+        "client_id_required": "Client ID is required",
+        "client_secret_required": "Client Secret is required",
+        "refresh_token_required": "Refresh Token is required"
     },
     "filters": {
         "password_strength": "Password strength",
@@ -858,9 +880,6 @@
     "smtp": {
         "title": "SMTP",
         "err_required_fields": "From address and Username cannot be both empty",
-        "client_id_required": "Client ID is required",
-        "client_secret_required": "Client Secret is required",
-        "refresh_token_required": "Refresh Token is required",
         "help": "Set the SMTP configuration replacing the one defined using env vars or config file if any",
         "host": "Server name",
         "host_help": "If blank the configuration is disabled",
