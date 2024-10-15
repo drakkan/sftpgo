@@ -4316,6 +4316,9 @@ func (s *httpdServer) handleOAuth2TokenRedirect(w http.ResponseWriter, r *http.R
 }
 
 func updateSMTPSecrets(newConfigs, currentConfigs *dataprovider.SMTPConfigs) {
+	if currentConfigs == nil {
+		currentConfigs = &dataprovider.SMTPConfigs{}
+	}
 	if newConfigs.Password.IsNotPlainAndNotEmpty() {
 		newConfigs.Password = currentConfigs.Password
 	}
