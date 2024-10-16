@@ -5466,10 +5466,6 @@ components:
         tls_username:
           type: string
           description: 'defines the TLS certificate field to use as username. For FTP clients it must match the name provided using the "USER" command. For WebDAV, if no username is provided, the CN will be used as username. For WebDAV clients it must match the implicit or provided username. Ignored if mutual TLS is disabled. Currently the only supported value is `CommonName`'
-        tls_certs:
-          type: array
-          items:
-            type: string
         hooks:
           $ref: '#/components/schemas/HooksFilter'
         disable_fs_checks:
@@ -5538,6 +5534,14 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/RecoveryCode'
+            tls_certs:
+              type: array
+              items:
+                type: string
+            additional_emails:
+              type: array
+              items:
+                type: string
     Secret:
       type: object
       properties:
