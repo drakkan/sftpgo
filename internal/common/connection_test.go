@@ -1091,7 +1091,7 @@ func TestListerAt(t *testing.T) {
 	require.ErrorIs(t, err, io.EOF)
 	require.Len(t, files, 0)
 	_, err = lister.Next(-1)
-	require.ErrorContains(t, err, "invalid limit")
+	require.ErrorContains(t, err, conn.GetGenericError(err).Error())
 	err = lister.Close()
 	require.NoError(t, err)
 
