@@ -79,7 +79,7 @@ Thank you to [Incode](https://www.incode.it/) for helping us to improve the UI/U
 
 ## License
 
-SFTPGo source code is licensed under the GNU AGPL-3.0-only.
+SFTPGo source code is licensed under the GNU AGPL-3.0-only with [additional terms](./NOTICE).
 
 The [theme](https://keenthemes.com/products/templates-mega-bundle) used in WebAdmin and WebClient user interfaces is proprietary, this means:
 
