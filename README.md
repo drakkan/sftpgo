@@ -58,6 +58,12 @@ We offer commercial support, guarantees, and advice for SFTPGo:
 
 You can read more about supported features and documentation at [docs.sftpgo.com](https://docs.sftpgo.com/).
 
+## Internationalization
+
+The translations are available via [Crowdin](https://crowdin.com/project/sftpgo), who have granted us an open source license.
+
+Before start translating please take a look at our contribution [guidelines](https://sftpgo.github.io/latest/web-interfaces/#internationalization).
+
 ## Release Cadence
 
 SFTPGo releases are feature-driven, we don't have a fixed time based schedule. As a rough estimate, you can expect 1 or 2 new major releases per year and several bug fix releases.
