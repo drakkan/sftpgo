@@ -427,7 +427,7 @@
         "save_err": "Impossibile salvare la configurazione dell'autenticazione a due fattori",
         "auth_code_required": "Il codice di autenticazione è obbligatorio",
         "no_protocol": "Seleziona almeno un protocollo",
-        "required_protocols": "Impossibile disabilitare l'autenticazione a due fattori. La politica di sicurezza configurata per il tuo account richiede l'autenticazione a due fattori per i seguenti protocolli: {{val}}",
+        "required_protocols": "La politica di sicurezza configurata per il tuo account richiede l'autenticazione a due fattori per i seguenti protocolli: {{val}}",
         "recovery_codes_generate": "Genera nuovi codici di ripristino",
         "recovery_codes_view": "Visualizza codici di ripristino"
     },
