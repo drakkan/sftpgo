@@ -427,7 +427,7 @@
         "save_err": "Failed to save two-factor authentication configuration",
         "auth_code_required": "The authentication code is required",
         "no_protocol": "Please select at least a protocol",
-        "required_protocols": "Unable to disable two-factor authentication. The security policy configured for your account requires two-factor authentication for the following protocols: {{val}}",
+        "required_protocols": "The security policy configured for your account requires two-factor authentication for the following protocols: {{val}}",
         "recovery_codes_generate": "Generate new recovery codes",
         "recovery_codes_view": "View recovery codes"
     },

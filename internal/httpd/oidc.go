@@ -212,21 +212,24 @@ func newOIDCPendingAuth(audience tokenAudience) oidcPendingAuth {
 }
 
 type oidcToken struct {
-	AccessToken          string          `json:"access_token"`
-	TokenType            string          `json:"token_type,omitempty"`
-	RefreshToken         string          `json:"refresh_token,omitempty"`
-	ExpiresAt            int64           `json:"expires_at,omitempty"`
-	SessionID            string          `json:"session_id"`
-	IDToken              string          `json:"id_token"`
-	Nonce                string          `json:"nonce"`
-	Username             string          `json:"username"`
-	Permissions          []string        `json:"permissions"`
-	HideUserPageSections int             `json:"hide_user_page_sections,omitempty"`
-	TokenRole            string          `json:"token_role,omitempty"` // SFTPGo role name
-	Role                 any             `json:"role"`                 // oidc user role: SFTPGo user or admin
-	CustomFields         *map[string]any `json:"custom_fields,omitempty"`
-	Cookie               string          `json:"cookie"`
-	UsedAt               int64           `json:"used_at"`
+	AccessToken                string          `json:"access_token"`
+	TokenType                  string          `json:"token_type,omitempty"`
+	RefreshToken               string          `json:"refresh_token,omitempty"`
+	ExpiresAt                  int64           `json:"expires_at,omitempty"`
+	SessionID                  string          `json:"session_id"`
+	IDToken                    string          `json:"id_token"`
+	Nonce                      string          `json:"nonce"`
+	Username                   string          `json:"username"`
+	Permissions                []string        `json:"permissions"`
+	HideUserPageSections       int             `json:"hide_user_page_sections,omitempty"`
+	MustSetTwoFactorAuth       bool            `json:"must_set_2fa,omitempty"`
+	MustChangePassword         bool            `json:"must_change_password,omitempty"`
+	RequiredTwoFactorProtocols []string        `json:"required_two_factor_protocols,omitempty"`
+	TokenRole                  string          `json:"token_role,omitempty"` // SFTPGo role name
+	Role                       any             `json:"role"`                 // oidc user role: SFTPGo user or admin
+	CustomFields               *map[string]any `json:"custom_fields,omitempty"`
+	Cookie                     string          `json:"cookie"`
+	UsedAt                     int64           `json:"used_at"`
 }
 
 func (t *oidcToken) parseClaims(claims map[string]any, usernameField, roleField string, customFields []string,
@@ -399,6 +402,9 @@ func (t *oidcToken) refreshUser(r *http.Request) error {
 	}
 	t.Permissions = user.Filters.WebClient
 	t.TokenRole = user.Role
+	t.MustSetTwoFactorAuth = user.MustSetSecondFactor()
+	t.MustChangePassword = user.MustChangePassword()
+	t.RequiredTwoFactorProtocols = user.Filters.TwoFactorAuthProtocols
 	return nil
 }
 
@@ -470,6 +476,9 @@ func (t *oidcToken) getUser(r *http.Request) error {
 	dataprovider.UpdateLastLogin(user)
 	t.Permissions = user.Filters.WebClient
 	t.TokenRole = user.Role
+	t.MustSetTwoFactorAuth = user.MustSetSecondFactor()
+	t.MustChangePassword = user.MustChangePassword()
+	t.RequiredTwoFactorProtocols = user.Filters.TwoFactorAuthProtocols
 	return nil
 }
 
@@ -549,6 +558,11 @@ func (s *httpdServer) oidcTokenAuthenticator(audience tokenAudience) func(next h
 				Permissions:          token.Permissions,
 				Role:                 token.TokenRole,
 				HideUserPageSections: token.HideUserPageSections,
+			}
+			if audience == tokenAudienceWebClient {
+				jwtTokenClaims.MustSetTwoFactorAuth = token.MustSetTwoFactorAuth
+				jwtTokenClaims.MustChangePassword = token.MustChangePassword
+				jwtTokenClaims.RequiredTwoFactorProtocols = token.RequiredTwoFactorProtocols
 			}
 			_, tokenString, err := jwtTokenClaims.createToken(s.tokenAuth, audience, util.GetIPFromRemoteAddress(r.RemoteAddr))
 			if err != nil {
