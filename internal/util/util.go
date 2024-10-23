@@ -646,6 +646,11 @@ func GetTLSCiphersFromNames(cipherNames []string) []uint16 {
 				ciphers = append(ciphers, c.ID)
 			}
 		}
+		for _, c := range tls.InsecureCipherSuites() {
+			if c.Name == strings.TrimSpace(name) {
+				ciphers = append(ciphers, c.ID)
+			}
+		}
 	}
 
 	if len(ciphers) == 0 {
@@ -807,7 +812,9 @@ func GetRedactedURL(rawurl string) string {
 	return u.Redacted()
 }
 
-// GetTLSVersion returns the TLS version for integer:
+// GetTLSVersion returns the TLS version from an integer value:
+// - 10 means TLS 1.0
+// - 11 means TLS 1.1
 // - 12 means TLS 1.2
 // - 13 means TLS 1.3
 // default is TLS 1.2
@@ -815,6 +822,10 @@ func GetTLSVersion(val int) uint16 {
 	switch val {
 	case 13:
 		return tls.VersionTLS13
+	case 11:
+		return tls.VersionTLS11
+	case 10:
+		return tls.VersionTLS10
 	default:
 		return tls.VersionTLS12
 	}
