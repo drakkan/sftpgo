@@ -29,7 +29,7 @@ info:
     SFTPGo supports groups to simplify the administration of multiple accounts by letting you assign settings once to a group, instead of multiple times to each individual user.
     The SFTPGo WebClient allows end users to change their credentials, browse and manage their files in the browser and setup two-factor authentication which works with Authy, Google Authenticator and other compatible apps.
     From the WebClient each authorized user can also create HTTP/S links to externally share files and folders securely, by setting limits to the number of downloads/uploads, protecting the share with a password, limiting access by source IP address, setting an automatic expiration date.
-  version: 2.6.2
+  version: 2.6.3
   contact:
     name: API support
     url: 'https://github.com/drakkan/sftpgo'
@@ -5519,6 +5519,9 @@ components:
         password_expiration:
           type: integer
           description: 'The password expires after the defined number of days. 0 means no expiration'
+        password_strength:
+          type: integer
+          description: 'Defines the minimum password strength. 0 means disabled, any password will be accepted. Values in the 50-70 range are suggested for common use cases'
         access_time:
           type: array
           items:
