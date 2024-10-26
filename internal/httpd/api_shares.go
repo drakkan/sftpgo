@@ -380,6 +380,12 @@ func (s *httpdServer) uploadFilesToShare(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		return
 	}
+	if err := common.Connections.IsNewTransferAllowed(connection.User.Username); err != nil {
+		connection.Log(logger.LevelInfo, "denying file write due to number of transfer limits")
+		sendAPIResponse(w, r, err, "Denying file write due to transfer count limits",
+			http.StatusConflict)
+		return
+	}
 
 	transferQuota := connection.GetTransferQuota()
 	if !transferQuota.HasUploadSpace() {

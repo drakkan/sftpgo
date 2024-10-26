@@ -49,6 +49,7 @@ import (
 	"github.com/lithammer/shortuuid/v4"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/mhale/smtpd"
+	"github.com/pkg/sftp"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 	"github.com/rs/xid"
@@ -6712,6 +6713,7 @@ func TestCloseActiveConnection(t *testing.T) {
 	_, err = httpdtest.CloseConnection(c.GetID(), http.StatusOK)
 	assert.NoError(t, err)
 	assert.Len(t, common.Connections.GetStats(""), 0)
+	assert.Equal(t, int32(0), common.Connections.GetTotalTransfers())
 }
 
 func TestCloseConnectionAfterUserUpdateDelete(t *testing.T) {
@@ -6744,6 +6746,7 @@ func TestCloseConnectionAfterUserUpdateDelete(t *testing.T) {
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Len(t, common.Connections.GetStats(""), 0)
+	assert.Equal(t, int32(0), common.Connections.GetTotalTransfers())
 }
 
 func TestAdminGenerateRecoveryCodesSaveError(t *testing.T) {
@@ -8829,6 +8832,7 @@ func TestLoaddataMode(t *testing.T) {
 	assert.NoError(t, err)
 	// mode 2 will update the user and close the previous connection
 	assert.Len(t, common.Connections.GetStats(""), 0)
+	assert.Equal(t, int32(0), common.Connections.GetTotalTransfers())
 	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Equal(t, oldUploadBandwidth, user.UploadBandwidth)
@@ -13115,6 +13119,7 @@ func TestWebClientMaxConnections(t *testing.T) {
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 	assert.Len(t, common.Connections.GetStats(""), 0)
+	assert.Equal(t, int32(0), common.Connections.GetTotalTransfers())
 
 	common.Config.MaxTotalConnections = oldValue
 }
@@ -13409,6 +13414,125 @@ func TestMaxSessions(t *testing.T) {
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 	assert.Len(t, common.Connections.GetStats(""), 0)
+	assert.Equal(t, int32(0), common.Connections.GetTotalTransfers())
+}
+
+func TestMaxTransfers(t *testing.T) {
+	oldValue := common.Config.MaxPerHostConnections
+	common.Config.MaxPerHostConnections = 2
+
+	assert.Eventually(t, func() bool {
+		return common.Connections.GetClientConnections() == 0
+	}, 1000*time.Millisecond, 50*time.Millisecond)
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+
+	webToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+	webAPIToken, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	share := dataprovider.Share{
+		Name:     "test share",
+		Scope:    dataprovider.ShareScopeReadWrite,
+		Paths:    []string{"/"},
+		Password: defaultPassword,
+	}
+	asJSON, err := json.Marshal(share)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	objectID := rr.Header().Get("X-Object-ID")
+	assert.NotEmpty(t, objectID)
+
+	fileName := "testfile.txt"
+	req, err = http.NewRequest(http.MethodPost, userUploadFilePath+"?path="+fileName, bytes.NewBuffer([]byte(" ")))
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+
+	conn, sftpClient, err := getSftpClient(user)
+	assert.NoError(t, err)
+	defer conn.Close()
+	defer sftpClient.Close()
+
+	f1, err := sftpClient.Create("file1")
+	assert.NoError(t, err)
+	f2, err := sftpClient.Create("file2")
+	assert.NoError(t, err)
+	_, err = f1.Write([]byte(" "))
+	assert.NoError(t, err)
+	_, err = f2.Write([]byte(" "))
+	assert.NoError(t, err)
+
+	body := new(bytes.Buffer)
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("filenames", "filepre")
+	assert.NoError(t, err)
+	_, err = part.Write([]byte("file content"))
+	assert.NoError(t, err)
+	err = writer.Close()
+	assert.NoError(t, err)
+	reader := bytes.NewReader(body.Bytes())
+	_, err = reader.Seek(0, io.SeekStart)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userFilesPath, reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusConflict, rr)
+
+	req, err = http.NewRequest(http.MethodGet, webClientFilesPath+"?path="+fileName, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), util.I18nError403Message)
+
+	req, err = http.NewRequest(http.MethodPost, userUploadFilePath+"?path="+fileName, bytes.NewBuffer([]byte(" ")))
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+
+	body = new(bytes.Buffer)
+	writer = multipart.NewWriter(body)
+	part1, err := writer.CreateFormFile("filenames", "file11.txt")
+	assert.NoError(t, err)
+	_, err = part1.Write([]byte("file11 content"))
+	assert.NoError(t, err)
+	part2, err := writer.CreateFormFile("filenames", "file22.txt")
+	assert.NoError(t, err)
+	_, err = part2.Write([]byte("file22 content"))
+	assert.NoError(t, err)
+	err = writer.Close()
+	assert.NoError(t, err)
+	reader = bytes.NewReader(body.Bytes())
+	req, err = http.NewRequest(http.MethodPost, sharesPath+"/"+objectID, reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusConflict, rr)
+
+	err = f1.Close()
+	assert.NoError(t, err)
+	err = f2.Close()
+	assert.NoError(t, err)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	assert.Len(t, common.Connections.GetStats(""), 0)
+	assert.Equal(t, int32(0), common.Connections.GetTotalTransfers())
+
+	common.Config.MaxPerHostConnections = oldValue
 }
 
 func TestWebConfigsMock(t *testing.T) {
@@ -14954,6 +15078,7 @@ func TestShareMaxSessions(t *testing.T) {
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 	assert.Len(t, common.Connections.GetStats(""), 0)
+	assert.Equal(t, int32(0), common.Connections.GetTotalTransfers())
 }
 
 func TestShareUploadSingle(t *testing.T) {
@@ -19088,6 +19213,7 @@ func TestClientUserClose(t *testing.T) {
 	wg.Wait()
 	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
 		1*time.Second, 100*time.Millisecond)
+	assert.Equal(t, int32(0), common.Connections.GetTotalTransfers())
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -27081,6 +27207,30 @@ func executeRequest(req *http.Request) *httptest.ResponseRecorder {
 
 func checkResponseCode(t *testing.T, expected int, rr *httptest.ResponseRecorder) {
 	assert.Equal(t, expected, rr.Code, rr.Body.String())
+}
+
+func getSftpClient(user dataprovider.User) (*ssh.Client, *sftp.Client, error) {
+	var sftpClient *sftp.Client
+	config := &ssh.ClientConfig{
+		User:            user.Username,
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         5 * time.Second,
+	}
+	if user.Password != "" {
+		config.Auth = []ssh.AuthMethod{ssh.Password(user.Password)}
+	} else {
+		config.Auth = []ssh.AuthMethod{ssh.Password(defaultPassword)}
+	}
+
+	conn, err := ssh.Dial("tcp", sftpServerAddr, config)
+	if err != nil {
+		return conn, sftpClient, err
+	}
+	sftpClient, err = sftp.NewClient(conn)
+	if err != nil {
+		conn.Close()
+	}
+	return conn, sftpClient, err
 }
 
 func createTestFile(path string, size int64) error {

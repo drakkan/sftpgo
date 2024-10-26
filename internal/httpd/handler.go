@@ -97,6 +97,11 @@ func (c *Connection) ReadDir(name string) (vfs.DirLister, error) {
 func (c *Connection) getFileReader(name string, offset int64, method string) (io.ReadCloser, error) {
 	c.UpdateLastActivity()
 
+	if err := common.Connections.IsNewTransferAllowed(c.User.Username); err != nil {
+		c.Log(logger.LevelInfo, "denying file read due to transfer count limits")
+		return nil, util.NewI18nError(c.GetPermissionDeniedError(), util.I18nError403Message)
+	}
+
 	transferQuota := c.GetTransferQuota()
 	if !transferQuota.HasDownloadSpace() {
 		c.Log(logger.LevelInfo, "denying file read due to quota limits")
@@ -188,6 +193,10 @@ func (c *Connection) getFileWriter(name string) (io.WriteCloser, error) {
 }
 
 func (c *Connection) handleUploadFile(fs vfs.Fs, resolvedPath, filePath, requestPath string, isNewFile bool, fileSize int64) (io.WriteCloser, error) {
+	if err := common.Connections.IsNewTransferAllowed(c.User.Username); err != nil {
+		c.Log(logger.LevelInfo, "denying file write due to transfer count limits")
+		return nil, util.NewI18nError(c.GetPermissionDeniedError(), util.I18nError403Message)
+	}
 	diskQuota, transferQuota := c.HasSpace(isNewFile, false, requestPath)
 	if !diskQuota.HasSpace || !transferQuota.HasUploadSpace() {
 		c.Log(logger.LevelInfo, "denying file write due to quota limits")

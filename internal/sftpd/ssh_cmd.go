@@ -246,10 +246,14 @@ func (c *sshCommand) handleHashCommands() error {
 	return nil
 }
 
-func (c *sshCommand) executeSystemCommand(command systemCommand) error {
+func (c *sshCommand) executeSystemCommand(command systemCommand) error { //nolint:gocyclo
 	sshDestPath := c.getDestPath()
 	if !c.isLocalPath(sshDestPath) {
 		return c.sendErrorResponse(errUnsupportedConfig)
+	}
+	if err := common.Connections.IsNewTransferAllowed(c.connection.User.Username); err != nil {
+		err := fmt.Errorf("denying command due to transfer count limits")
+		return c.sendErrorResponse(err)
 	}
 	diskQuota, transferQuota := c.connection.HasSpace(true, false, command.quotaCheckPath)
 	if !diskQuota.HasSpace || !transferQuota.HasUploadSpace() || !transferQuota.HasDownloadSpace() {

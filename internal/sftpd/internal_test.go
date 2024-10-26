@@ -270,6 +270,7 @@ func TestReadWriteErrors(t *testing.T) {
 	err = os.Remove(testfile)
 	assert.NoError(t, err)
 	assert.Len(t, conn.GetTransfers(), 0)
+	assert.Equal(t, int32(0), common.Connections.GetTotalTransfers())
 }
 
 func TestUnsupportedListOP(t *testing.T) {
@@ -1014,6 +1015,8 @@ func TestSystemCommandErrors(t *testing.T) {
 	transfer.MaxWriteSize = -1
 	_, err = transfer.copyFromReaderToWriter(sshCmd.connection.channel, dst)
 	assert.True(t, transfer.Connection.IsQuotaExceededError(err))
+	err = transfer.Close()
+	assert.Error(t, err)
 
 	baseTransfer = common.NewBaseTransfer(nil, sshCmd.connection.BaseConnection, nil, "", "", "",
 		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{
@@ -1031,9 +1034,13 @@ func TestSystemCommandErrors(t *testing.T) {
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), common.ErrReadQuotaExceeded.Error())
 	}
+	err = transfer.Close()
+	assert.Error(t, err)
 
 	err = os.RemoveAll(homeDir)
 	assert.NoError(t, err)
+
+	assert.Equal(t, int32(0), common.Connections.GetTotalTransfers())
 }
 
 func TestCommandGetFsError(t *testing.T) {
@@ -1717,6 +1724,7 @@ func TestSCPUploadFiledata(t *testing.T) {
 	if assert.Error(t, err) {
 		assert.EqualError(t, err, common.ErrTransferClosed.Error())
 	}
+	transfer.Connection.RemoveTransfer(transfer)
 
 	mockSSHChannel = MockChannel{
 		Buffer:       bytes.NewBuffer(buf),
@@ -1728,9 +1736,12 @@ func TestSCPUploadFiledata(t *testing.T) {
 	transfer.Connection.AddTransfer(transfer)
 	err = scpCommand.getUploadFileData(2, transfer)
 	assert.ErrorContains(t, err, os.ErrClosed.Error())
+	transfer.Connection.RemoveTransfer(transfer)
 
 	err = os.Remove(testfile)
 	assert.NoError(t, err)
+
+	assert.Equal(t, int32(0), common.Connections.GetTotalTransfers())
 }
 
 func TestUploadError(t *testing.T) {
@@ -2040,6 +2051,7 @@ func TestRecoverer(t *testing.T) {
 	err = scpCmd.handle()
 	assert.EqualError(t, err, common.ErrGenericFailure.Error())
 	assert.Len(t, common.Connections.GetStats(""), 0)
+	assert.Equal(t, int32(0), common.Connections.GetTotalTransfers())
 }
 
 func TestListernerAcceptErrors(t *testing.T) {
@@ -2170,6 +2182,7 @@ func TestMaxUserSessions(t *testing.T) {
 	}
 	common.Connections.Remove(connection.GetID())
 	assert.Len(t, common.Connections.GetStats(""), 0)
+	assert.Equal(t, int32(0), common.Connections.GetTotalTransfers())
 }
 
 func TestCanReadSymlink(t *testing.T) {

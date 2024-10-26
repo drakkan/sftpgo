@@ -664,6 +664,7 @@ func TestClientVersion(t *testing.T) {
 		common.Connections.Remove(connection.GetID())
 	}
 	assert.Len(t, common.Connections.GetStats(""), 0)
+	assert.Equal(t, int32(0), common.Connections.GetTotalTransfers())
 }
 
 func TestDriverMethodsNotImplemented(t *testing.T) {
@@ -918,6 +919,7 @@ func TestTransferErrors(t *testing.T) {
 	pipeWriter := vfs.NewPipeWriter(w)
 	baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testfile, testfile, testfile,
 		common.TransferUpload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
+	tr.Connection.RemoveTransfer(tr)
 	tr = newTransfer(baseTransfer, pipeWriter, nil, 0)
 
 	err = r.Close()
@@ -933,6 +935,7 @@ func TestTransferErrors(t *testing.T) {
 	if assert.Error(t, err) {
 		assert.EqualError(t, err, common.ErrOpUnsupported.Error())
 	}
+	tr.Connection.RemoveTransfer(tr)
 	err = os.Remove(testfile)
 	assert.NoError(t, err)
 }

@@ -125,6 +125,9 @@ func init() {
 	Connections.clients = clientsMap{
 		clients: make(map[string]int),
 	}
+	Connections.transfers = clientsMap{
+		clients: make(map[string]int),
+	}
 	Connections.perUserConns = make(map[string]int)
 	Connections.mapping = make(map[string]int)
 	Connections.sshMapping = make(map[string]int)
@@ -908,7 +911,9 @@ func (c *SSHConnection) Close() error {
 type ActiveConnections struct {
 	// clients contains both authenticated and estabilished connections and the ones waiting
 	// for authentication
-	clients              clientsMap
+	clients clientsMap
+	// transfers contains active transfers, total and per-user
+	transfers            clientsMap
 	transfersCheckStatus atomic.Bool
 	sync.RWMutex
 	connections    []ActiveConnection
@@ -958,6 +963,9 @@ func (conns *ActiveConnections) Add(c ActiveConnection) error {
 		if maxSessions := c.GetMaxSessions(); maxSessions > 0 {
 			if val := conns.perUserConns[username]; val >= maxSessions {
 				return fmt.Errorf("too many open sessions: %d/%d", val, maxSessions)
+			}
+			if val := conns.transfers.getTotalFrom(username); val >= maxSessions {
+				return fmt.Errorf("too many open transfers: %d/%d", val, maxSessions)
 			}
 		}
 		conns.addUserConnection(username)
@@ -1219,6 +1227,35 @@ func (conns *ActiveConnections) GetClientConnections() int32 {
 	return conns.clients.getTotal()
 }
 
+// GetTotalTransfers returns the total number of active transfers
+func (conns *ActiveConnections) GetTotalTransfers() int32 {
+	return conns.transfers.getTotal()
+}
+
+// IsNewTransferAllowed returns an error if the maximum number of concurrent allowed
+// transfers is exceeded
+func (conns *ActiveConnections) IsNewTransferAllowed(username string) error {
+	if isShuttingDown.Load() {
+		return ErrShuttingDown
+	}
+	if Config.MaxTotalConnections == 0 && Config.MaxPerHostConnections == 0 {
+		return nil
+	}
+	if Config.MaxPerHostConnections > 0 {
+		if transfers := conns.transfers.getTotalFrom(username); transfers >= Config.MaxPerHostConnections {
+			logger.Info(logSender, "", "active transfers from user %q: %d/%d", username, transfers, Config.MaxPerHostConnections)
+			return ErrConnectionDenied
+		}
+	}
+	if Config.MaxTotalConnections > 0 {
+		if transfers := conns.transfers.getTotal(); transfers >= int32(Config.MaxTotalConnections) {
+			logger.Info(logSender, "", "active transfers %d/%d", transfers, Config.MaxTotalConnections)
+			return ErrConnectionDenied
+		}
+	}
+	return nil
+}
+
 // IsNewConnectionAllowed returns an error if the maximum number of concurrent allowed
 // connections is exceeded or a whitelist is defined and the specified ipAddr is not listed
 // or the service is shutting down
@@ -1259,7 +1296,11 @@ func (conns *ActiveConnections) IsNewConnectionAllowed(ipAddr, protocol string) 
 		}
 
 		// on a single SFTP connection we could have multiple SFTP channels or commands
-		// so we check the estabilished connections too
+		// so we check the estabilished connections and active uploads too
+		if transfers := conns.transfers.getTotal(); transfers >= int32(Config.MaxTotalConnections) {
+			logger.Info(logSender, "", "active transfers %d/%d", transfers, Config.MaxTotalConnections)
+			return ErrConnectionDenied
+		}
 
 		conns.RLock()
 		defer conns.RUnlock()

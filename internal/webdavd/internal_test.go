@@ -760,6 +760,8 @@ func TestContentType(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, "application/sftpgo", ctype)
 	}
+	err = davFile.Close()
+	assert.NoError(t, err)
 
 	baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath, testFilePath, testFile+".unknown2",
 		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
@@ -814,6 +816,8 @@ func TestTransferReadWriteErrors(t *testing.T) {
 	assert.NoError(t, err)
 	err = w.Close()
 	assert.NoError(t, err)
+	err = davFile.BaseTransfer.Close()
+	assert.Error(t, err)
 
 	baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath, testFilePath, testFile,
 		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
@@ -822,6 +826,8 @@ func TestTransferReadWriteErrors(t *testing.T) {
 	assert.True(t, fs.IsNotExist(err))
 	_, err = davFile.Stat()
 	assert.True(t, fs.IsNotExist(err))
+	err = davFile.Close()
+	assert.Error(t, err)
 
 	baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath, testFilePath, testFile,
 		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
@@ -844,6 +850,8 @@ func TestTransferReadWriteErrors(t *testing.T) {
 	if assert.NoError(t, err) {
 		assert.Equal(t, int64(0), info.Size())
 	}
+	err = davFile.Close()
+	assert.Error(t, err)
 
 	r, w, err = pipeat.Pipe()
 	assert.NoError(t, err)
@@ -987,8 +995,11 @@ func TestTransferSeek(t *testing.T) {
 	res, err = davFile.Seek(2, io.SeekEnd)
 	assert.True(t, fs.IsNotExist(err))
 	assert.Equal(t, int64(0), res)
+	err = davFile.Close()
+	assert.NoError(t, err)
 
 	assert.Len(t, common.Connections.GetStats(""), 0)
+	assert.Equal(t, int32(0), common.Connections.GetTotalTransfers())
 
 	err = os.Remove(testFilePath)
 	assert.NoError(t, err)

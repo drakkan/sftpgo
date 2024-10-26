@@ -323,6 +323,9 @@ func TestRemovePartialCryptoFile(t *testing.T) {
 	assert.Equal(t, int64(0), size)
 	assert.Equal(t, 1, deletedFiles)
 	assert.NoFileExists(t, testFile)
+	err = transfer.Close()
+	assert.Error(t, err)
+	assert.Len(t, conn.GetTransfers(), 0)
 }
 
 func TestFTPMode(t *testing.T) {
@@ -434,6 +437,11 @@ func TestTransferQuota(t *testing.T) {
 	}
 	err = transfer.CheckWrite()
 	assert.True(t, conn.IsQuotaExceededError(err))
+
+	err = transfer.Close()
+	assert.NoError(t, err)
+	assert.Len(t, conn.GetTransfers(), 0)
+	assert.Equal(t, int32(0), Connections.GetTotalTransfers())
 }
 
 func TestUploadOutsideHomeRenameError(t *testing.T) {

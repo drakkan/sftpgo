@@ -1202,6 +1202,7 @@ func TestConcurrency(t *testing.T) {
 	assert.Eventually(t, func() bool {
 		return len(common.Connections.GetStats("")) == 0
 	}, 1*time.Second, 50*time.Millisecond)
+	assert.Equal(t, int32(0), common.Connections.GetTotalTransfers())
 
 	err = os.Remove(testFilePath)
 	assert.NoError(t, err)
@@ -4391,6 +4392,76 @@ func TestMaxPerHostConnections(t *testing.T) {
 	common.Config.MaxPerHostConnections = oldValue
 }
 
+func TestMaxTransfers(t *testing.T) {
+	oldValue := common.Config.MaxPerHostConnections
+	common.Config.MaxPerHostConnections = 2
+
+	assert.Eventually(t, func() bool {
+		return common.Connections.GetClientConnections() == 0
+	}, 1000*time.Millisecond, 50*time.Millisecond)
+
+	usePubKey := true
+	user := getTestUser(usePubKey)
+	err := dataprovider.AddUser(&user, "", "", "")
+	assert.NoError(t, err)
+	user.Password = ""
+	conn, client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		assert.NoError(t, checkBasicSFTP(client))
+
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFileSize := int64(65535)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+
+		f1, err := client.Create("file1")
+		assert.NoError(t, err)
+		f2, err := client.Create("file2")
+		assert.NoError(t, err)
+		_, err = f1.Write([]byte(" "))
+		assert.NoError(t, err)
+		_, err = f2.Write([]byte(" "))
+		assert.NoError(t, err)
+
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.ErrorContains(t, err, sftp.ErrSSHFxPermissionDenied.Error())
+
+		remoteUpPath := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, "/")
+		err = scpUpload(testFilePath, remoteUpPath, false, false)
+		assert.Error(t, err)
+
+		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
+		err = sftpDownloadFile(testFileName, localDownloadPath, testFileSize, client)
+		assert.ErrorContains(t, err, sftp.ErrSSHFxPermissionDenied.Error())
+
+		remoteDownPath := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, path.Join("/", testFileName))
+		err = scpDownload(localDownloadPath, remoteDownPath, false, false)
+		assert.Error(t, err)
+
+		err = f1.Close()
+		assert.NoError(t, err)
+		err = f2.Close()
+		assert.NoError(t, err)
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+		err = os.Remove(localDownloadPath)
+		assert.NoError(t, err)
+		err = client.Close()
+		assert.NoError(t, err)
+		err = conn.Close()
+		assert.NoError(t, err)
+	}
+	err = dataprovider.DeleteUser(user.Username, "", "", "")
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	assert.Equal(t, int32(0), common.Connections.GetTotalTransfers())
+
+	common.Config.MaxPerHostConnections = oldValue
+}
+
 func TestMaxSessions(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
@@ -4940,6 +5011,7 @@ func TestBandwidthAndConnections(t *testing.T) {
 		assert.Eventually(t, func() bool {
 			return len(common.Connections.GetStats("")) == 0
 		}, 10*time.Second, 200*time.Millisecond)
+		assert.Equal(t, int32(0), common.Connections.GetTotalTransfers())
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 		err = os.Remove(localDownloadPath)
@@ -9859,6 +9931,62 @@ func TestBasicGitCommands(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestSSHCommandMaxTransfers(t *testing.T) {
+	if len(gitPath) == 0 || len(sshPath) == 0 || runtime.GOOS == osWindows {
+		t.Skip("git and/or ssh command not found or OS is windows, unable to execute this test")
+	}
+	oldValue := common.Config.MaxPerHostConnections
+	common.Config.MaxPerHostConnections = 2
+
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	repoName := "testrepo" //nolint:goconst
+	clonePath := filepath.Join(homeBasePath, repoName)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(filepath.Join(homeBasePath, repoName))
+	assert.NoError(t, err)
+	out, err := initGitRepo(filepath.Join(user.HomeDir, repoName))
+	assert.NoError(t, err, "unexpected error, out: %v", string(out))
+	conn, client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		f1, err := client.Create("file1")
+		assert.NoError(t, err)
+		f2, err := client.Create("file2")
+		assert.NoError(t, err)
+		_, err = f1.Write([]byte(" "))
+		assert.NoError(t, err)
+		_, err = f2.Write([]byte(" "))
+		assert.NoError(t, err)
+
+		_, err = cloneGitRepo(homeBasePath, "/"+repoName, user.Username)
+		assert.Error(t, err)
+
+		err = f1.Close()
+		assert.NoError(t, err)
+		err = f2.Close()
+		assert.NoError(t, err)
+		err = client.Close()
+		assert.NoError(t, err)
+		err = conn.Close()
+		assert.NoError(t, err)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(clonePath)
+	assert.NoError(t, err)
+	assert.Equal(t, int32(0), common.Connections.GetTotalTransfers())
+
+	common.Config.MaxPerHostConnections = oldValue
+}
+
 func TestGitIncludedVirtualFolders(t *testing.T) {
 	if len(gitPath) == 0 || len(sshPath) == 0 || runtime.GOOS == osWindows {
 		t.Skip("git and/or ssh command not found or OS is windows, unable to execute this test")
@@ -11104,6 +11232,7 @@ func TestSCPErrors(t *testing.T) {
 	err = cmd.Process.Kill()
 	assert.NoError(t, err)
 	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 }, 2*time.Second, 100*time.Millisecond)
+	assert.Equal(t, int32(0), common.Connections.GetTotalTransfers())
 	cmd = getScpUploadCommand(testFilePath, remoteUpPath, false, false)
 	go func() {
 		err := cmd.Run()
@@ -11116,6 +11245,7 @@ func TestSCPErrors(t *testing.T) {
 	err = cmd.Process.Kill()
 	assert.NoError(t, err)
 	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 }, 2*time.Second, 100*time.Millisecond)
+	assert.Equal(t, int32(0), common.Connections.GetTotalTransfers())
 	err = os.Remove(testFilePath)
 	assert.NoError(t, err)
 	os.Remove(localPath)

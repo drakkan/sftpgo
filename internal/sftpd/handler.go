@@ -76,6 +76,10 @@ func (c *Connection) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 	if !c.User.HasPerm(dataprovider.PermDownload, path.Dir(request.Filepath)) {
 		return nil, sftp.ErrSSHFxPermissionDenied
 	}
+	if err := common.Connections.IsNewTransferAllowed(c.User.Username); err != nil {
+		c.Log(logger.LevelInfo, "denying file read due to transfer count limits")
+		return nil, c.GetPermissionDeniedError()
+	}
 	transferQuota := c.GetTransferQuota()
 	if !transferQuota.HasDownloadSpace() {
 		c.Log(logger.LevelInfo, "denying file read due to quota limits")
@@ -120,8 +124,13 @@ func (c *Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 	return c.handleFilewrite(request)
 }
 
-func (c *Connection) handleFilewrite(request *sftp.Request) (sftp.WriterAtReaderAt, error) {
+func (c *Connection) handleFilewrite(request *sftp.Request) (sftp.WriterAtReaderAt, error) { //nolint:gocyclo
 	c.UpdateLastActivity()
+
+	if err := common.Connections.IsNewTransferAllowed(c.User.Username); err != nil {
+		c.Log(logger.LevelInfo, "denying file write due to transfer count limits")
+		return nil, c.GetPermissionDeniedError()
+	}
 
 	if ok, _ := c.User.IsFileAllowed(request.Filepath); !ok {
 		c.Log(logger.LevelWarn, "writing file %q is not allowed", request.Filepath)

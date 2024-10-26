@@ -21,7 +21,7 @@ require (
 	github.com/bmatcuk/doublestar/v4 v4.7.1
 	github.com/cockroachdb/cockroach-go/v2 v2.3.8
 	github.com/coreos/go-oidc/v3 v3.11.0
-	github.com/drakkan/webdav v0.0.0-20240503091431-218ec83910bb
+	github.com/drakkan/webdav v0.0.0-20241026165615-b8b8f74ae71b
 	github.com/eikenb/pipeat v0.0.0-20210730190139-06b3e6902001
 	github.com/fclairamb/ftpserverlib v0.24.1
 	github.com/fclairamb/go-log v0.5.0

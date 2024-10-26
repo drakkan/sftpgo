@@ -145,6 +145,11 @@ func (c *Connection) RemoveAll(_ context.Context, name string) error {
 func (c *Connection) OpenFile(_ context.Context, name string, flag int, _ os.FileMode) (webdav.File, error) {
 	c.UpdateLastActivity()
 
+	if err := common.Connections.IsNewTransferAllowed(c.User.Username); err != nil {
+		c.Log(logger.LevelInfo, "denying transfer due to count limits")
+		return nil, c.GetPermissionDeniedError()
+	}
+
 	name = util.CleanPath(name)
 	fs, p, err := c.GetFsAndResolvedPath(name)
 	if err != nil {

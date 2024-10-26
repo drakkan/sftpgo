@@ -250,6 +250,7 @@ func TestTransfersCheckerDiskQuota(t *testing.T) {
 	Connections.Remove(fakeConn5.GetID())
 	stats := Connections.GetStats("")
 	assert.Len(t, stats, 0)
+	assert.Equal(t, int32(0), Connections.GetTotalTransfers())
 
 	err = dataprovider.DeleteUser(user.Username, "", "", "")
 	assert.NoError(t, err)
@@ -368,11 +369,16 @@ func TestTransferCheckerTransferQuota(t *testing.T) {
 	if assert.Error(t, transfer4.errAbort) {
 		assert.Contains(t, transfer4.errAbort.Error(), ErrReadQuotaExceeded.Error())
 	}
+	err = transfer3.Close()
+	assert.NoError(t, err)
+	err = transfer4.Close()
+	assert.NoError(t, err)
 
 	Connections.Remove(fakeConn3.GetID())
 	Connections.Remove(fakeConn4.GetID())
 	stats := Connections.GetStats("")
 	assert.Len(t, stats, 0)
+	assert.Equal(t, int32(0), Connections.GetTotalTransfers())
 
 	err = dataprovider.DeleteUser(user.Username, "", "", "")
 	assert.NoError(t, err)

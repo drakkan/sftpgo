@@ -8130,6 +8130,86 @@ func TestRetentionAPI(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestPerUserTransferLimits(t *testing.T) {
+	oldMaxPerHostConns := common.Config.MaxPerHostConnections
+
+	common.Config.MaxPerHostConnections = 2
+
+	u := getTestUser()
+	u.UploadBandwidth = 32
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		var wg sync.WaitGroup
+		numErrors := 0
+		for i := 0; i <= 2; i++ {
+			wg.Add(1)
+			go func(counter int) {
+				defer wg.Done()
+
+				time.Sleep(20 * time.Millisecond)
+				err := writeSFTPFile(fmt.Sprintf("%s_%d", testFileName, counter), 64*1024, client)
+				if err != nil {
+					numErrors++
+				}
+			}(i)
+		}
+		wg.Wait()
+
+		assert.Equal(t, 1, numErrors)
+	}
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	common.Config.MaxPerHostConnections = oldMaxPerHostConns
+}
+
+func TestMaxSessionsSameConnection(t *testing.T) {
+	u := getTestUser()
+	u.UploadBandwidth = 32
+	u.MaxSessions = 2
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		var wg sync.WaitGroup
+		numErrors := 0
+		for i := 0; i <= 2; i++ {
+			wg.Add(1)
+			go func(counter int) {
+				defer wg.Done()
+
+				time.Sleep(20 * time.Millisecond)
+				var err error
+				if counter < 2 {
+					err = writeSFTPFile(fmt.Sprintf("%s_%d", testFileName, counter), 64*1024, client)
+				} else {
+					_, _, err = getSftpClient(user)
+				}
+				if err != nil {
+					numErrors++
+				}
+			}(i)
+		}
+
+		wg.Wait()
+		assert.Equal(t, 1, numErrors)
+	}
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestRenameDir(t *testing.T) {
 	u := getTestUser()
 	testDir := "/dir-to-rename"

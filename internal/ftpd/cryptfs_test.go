@@ -134,6 +134,7 @@ func TestBasicFTPHandlingCryptFs(t *testing.T) {
 	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 }, 1*time.Second, 50*time.Millisecond)
 	assert.Eventually(t, func() bool { return common.Connections.GetClientConnections() == 0 }, 1000*time.Millisecond,
 		50*time.Millisecond)
+	assert.Equal(t, int32(0), common.Connections.GetTotalTransfers())
 }
 
 func TestBufferedCryptFs(t *testing.T) {
@@ -179,6 +180,7 @@ func TestBufferedCryptFs(t *testing.T) {
 	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 }, 1*time.Second, 50*time.Millisecond)
 	assert.Eventually(t, func() bool { return common.Connections.GetClientConnections() == 0 }, 1000*time.Millisecond,
 		50*time.Millisecond)
+	assert.Equal(t, int32(0), common.Connections.GetTotalTransfers())
 }
 
 func TestZeroBytesTransfersCryptFs(t *testing.T) {
