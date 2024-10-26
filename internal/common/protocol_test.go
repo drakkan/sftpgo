@@ -8188,11 +8188,12 @@ func TestMaxSessionsSameConnection(t *testing.T) {
 			go func(counter int) {
 				defer wg.Done()
 
-				time.Sleep(20 * time.Millisecond)
 				var err error
 				if counter < 2 {
 					err = writeSFTPFile(fmt.Sprintf("%s_%d", testFileName, counter), 64*1024, client)
 				} else {
+					// wait for the transfers to start
+					time.Sleep(50 * time.Millisecond)
 					_, _, err = getSftpClient(user)
 				}
 				if err != nil {
