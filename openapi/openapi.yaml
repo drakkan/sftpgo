@@ -5515,6 +5515,9 @@ components:
         password_expiration:
           type: integer
           description: 'The password expires after the defined number of days. 0 means no expiration'
+        password_strength:
+          type: integer
+          description: 'Defines the minimum password strength. 0 means disabled, any password will be accepted. Values in the 50-70 range are suggested for common use cases'
         access_time:
           type: array
           items:
