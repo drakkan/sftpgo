@@ -245,22 +245,27 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         render: function (data, type, row) {
                             if (type === 'display') {
                                 let result = "";
-                                if (row.active_transfers && row.active_transfers.length > 0){
-                                    let transfer = row.active_transfers[0];
-                                    let path = escapeHTML(transfer.path);
-                                    let elapsed = row.current_time - transfer.start_time;
-                                    if (elapsed > 0 && transfer.size > 0){
-                                        let speed = (transfer.size*1.0) / (elapsed/1000.0);
-                                        if (transfer.operation_type === 'upload'){
-                                            result = $.t('connections.upload_info', {path: path, size: fileSizeIEC(transfer.size), speed: humanizeSpeed(speed)});
-                                        } else {
-                                            result = $.t('connections.download_info', {path: path, size: fileSizeIEC(transfer.size), speed: humanizeSpeed(speed)});
+                                if (row.active_transfers && row.active_transfers.length > 0) {
+                                    for (let i = 0; i < row.active_transfers.length; i++) {
+                                        if (i > 0){
+                                            result+=". ";
                                         }
-                                    } else {
-                                        if (transfer.operation_type === 'upload'){
-                                            result = $.t('connections.upload', {path: path});
+                                        let transfer = row.active_transfers[i];
+                                        let path = escapeHTML(transfer.path);
+                                        let elapsed = row.current_time - transfer.start_time;
+                                        if (elapsed > 0 && transfer.size > 0) {
+                                            let speed = (transfer.size * 1.0) / (elapsed / 1000.0);
+                                            if (transfer.operation_type === 'upload') {
+                                                result += $.t('connections.upload_info', { path: path, size: fileSizeIEC(transfer.size), speed: humanizeSpeed(speed) });
+                                            } else {
+                                                result += $.t('connections.download_info', { path: path, size: fileSizeIEC(transfer.size), speed: humanizeSpeed(speed) });
+                                            }
                                         } else {
-                                            result = $.t('connections.download', {path: path});
+                                            if (transfer.operation_type === 'upload') {
+                                                result += $.t('connections.upload', { path: path });
+                                            } else {
+                                                result += $.t('connections.download', { path: path });
+                                            }
                                         }
                                     }
                                 }
