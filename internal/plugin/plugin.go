@@ -340,7 +340,7 @@ func (m *Manager) NotifyLogEvent(event notifier.LogEventType, protocol, username
 			if e == nil {
 				message := ""
 				if err != nil {
-					message = err.Error()
+					message = strings.Trim(err.Error(), "\x00")
 				}
 
 				e = &notifier.LogEvent{
