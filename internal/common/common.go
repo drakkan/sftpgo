@@ -844,6 +844,7 @@ func getProxyPolicy(allowed, skipped []func(net.IP) bool, def proxyproto.Policy)
 		if err != nil {
 			// Something is wrong with the source IP, better reject the
 			// connection.
+			logger.Error(logSender, "", "reject connection from ip %q, err: %v", connPolicyOptions.Upstream, err)
 			return proxyproto.REJECT, proxyproto.ErrInvalidUpstream
 		}
 
@@ -863,6 +864,8 @@ func getProxyPolicy(allowed, skipped []func(net.IP) bool, def proxyproto.Policy)
 		}
 
 		if def == proxyproto.REQUIRE {
+			logger.Debug(logSender, "", "reject connection from ip %q: proxy protocol signature required and not set",
+				upstreamIP)
 			return proxyproto.REJECT, proxyproto.ErrInvalidUpstream
 		}
 		return def, nil
