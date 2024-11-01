@@ -62,7 +62,10 @@
         "entries_soft_limit": 100,
         "entries_hard_limit": 150
       }
-    ]
+    ],
+    "event_manager": {
+      "enabled_commands": []
+    }
   },
   "acme": {
     "domains": [],

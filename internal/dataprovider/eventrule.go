@@ -58,6 +58,9 @@ var (
 		ActionTypeBackup, ActionTypeUserQuotaReset, ActionTypeFolderQuotaReset, ActionTypeTransferQuotaReset,
 		ActionTypeDataRetentionCheck, ActionTypePasswordExpirationCheck, ActionTypeUserExpirationCheck,
 		ActionTypeUserInactivityCheck, ActionTypeIDPAccountCheck, ActionTypeRotateLogs}
+	// EnabledActionCommands defines the system commands that can be executed via EventManager,
+	// an empty list means that any command is allowed to be executed.
+	EnabledActionCommands []string
 )
 
 func isActionTypeValid(action int) bool {
@@ -450,6 +453,14 @@ func (c *EventActionHTTPConfig) GetHTTPClient() *http.Client {
 	return client
 }
 
+// IsActionCommandAllowed returns true if the specified command is allowed
+func IsActionCommandAllowed(cmd string) bool {
+	if len(EnabledActionCommands) == 0 {
+		return true
+	}
+	return slices.Contains(EnabledActionCommands, cmd)
+}
+
 // EventActionCommandConfig defines the configuration for a command event target
 type EventActionCommandConfig struct {
 	Cmd     string     `json:"cmd,omitempty"`
@@ -461,6 +472,9 @@ type EventActionCommandConfig struct {
 func (c *EventActionCommandConfig) validate() error {
 	if c.Cmd == "" {
 		return util.NewI18nError(util.NewValidationError("command is required"), util.I18nErrorCommandRequired)
+	}
+	if !IsActionCommandAllowed(c.Cmd) {
+		return util.NewValidationError(fmt.Sprintf("command %q is not allowed", c.Cmd))
 	}
 	if !filepath.IsAbs(c.Cmd) {
 		return util.NewI18nError(

@@ -217,6 +217,33 @@ func TestConnections(t *testing.T) {
 	Connections.RUnlock()
 }
 
+func TestEventManagerCommandsInitialization(t *testing.T) {
+	configCopy := Config
+
+	c := Configuration{
+		EventManager: EventManagerConfig{
+			EnabledCommands: []string{"ls"}, // not an absolute path
+		},
+	}
+	err := Initialize(c, 0)
+	assert.ErrorContains(t, err, "invalid command")
+
+	var commands []string
+	if runtime.GOOS == osWindows {
+		commands = []string{"C:\\command"}
+	} else {
+		commands = []string{"/bin/ls"}
+	}
+
+	c.EventManager.EnabledCommands = commands
+	err = Initialize(c, 0)
+	assert.NoError(t, err)
+	assert.Equal(t, commands, dataprovider.EnabledActionCommands)
+
+	dataprovider.EnabledActionCommands = configCopy.EventManager.EnabledCommands
+	Config = configCopy
+}
+
 func TestInitializationProxyErrors(t *testing.T) {
 	configCopy := Config
 
