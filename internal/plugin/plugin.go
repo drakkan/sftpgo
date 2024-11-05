@@ -144,7 +144,7 @@ func (c *Config) getCommand() *exec.Cmd {
 	}
 	logger.Debug(logSender, "", "additional env vars for plugin %q: %+v", c.Cmd, c.EnvVars)
 	for _, key := range c.EnvVars {
-		cmd.Env = append(cmd.Env, os.Getenv(key))
+		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", key, os.Getenv(key)))
 	}
 	return cmd
 }
