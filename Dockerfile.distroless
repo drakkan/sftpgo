@@ -1,4 +1,4 @@
-FROM golang:1.22-bookworm AS builder
+FROM golang:1.23-bookworm AS builder
 
 ENV CGO_ENABLED=0 GOFLAGS="-mod=readonly"
 
