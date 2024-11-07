@@ -11,11 +11,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        go: ['1.22']
+        go: ['1.23']
         os: [ubuntu-latest, macos-latest]
         upload-coverage: [true]
         include:
-          - go: '1.22'
+          - go: '1.23'
             os: windows-latest
             upload-coverage: false
 
@@ -233,7 +233,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.23'
 
       - name: Build
         run: |
@@ -297,7 +297,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.23'
 
       - name: Build
         run: |
@@ -376,19 +376,19 @@ jobs:
         include:
           - arch: amd64
             distro: ubuntu:18.04
-            go: go1.22.8
+            go: latest
             go-arch: amd64
           - arch: aarch64
             distro: ubuntu18.04
-            go: go1.22.8
+            go: latest
             go-arch: arm64
           - arch: ppc64le
             distro: ubuntu18.04
-            go: go1.22.8
+            go: latest
             go-arch: ppc64le
           - arch: armv7
             distro: ubuntu18.04
-            go: go1.22.8
+            go: latest
             go-arch: arm7
     steps:
       - uses: actions/checkout@v4
@@ -518,7 +518,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.23'
       - uses: actions/checkout@v4
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v6
