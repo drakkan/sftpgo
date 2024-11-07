@@ -376,19 +376,19 @@ jobs:
         include:
           - arch: amd64
             distro: ubuntu:18.04
-            go: go1.22.8
+            go: latest
             go-arch: amd64
           - arch: aarch64
             distro: ubuntu18.04
-            go: go1.22.8
+            go: latest
             go-arch: arm64
           - arch: ppc64le
             distro: ubuntu18.04
-            go: go1.22.8
+            go: latest
             go-arch: ppc64le
           - arch: armv7
             distro: ubuntu18.04
-            go: go1.22.8
+            go: latest
             go-arch: arm7
     steps:
       - uses: actions/checkout@v4
