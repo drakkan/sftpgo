@@ -2383,6 +2383,17 @@ func TestEventActionValidation(t *testing.T) {
 	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
 	assert.NoError(t, err)
 	assert.Contains(t, string(resp), "invalid command args")
+	action.Options.CmdConfig.Args = nil
+	// restrict commands
+	if runtime.GOOS == osWindows {
+		dataprovider.EnabledActionCommands = []string{"C:\\cmd.exe"}
+	} else {
+		dataprovider.EnabledActionCommands = []string{"/bin/sh"}
+	}
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "is not allowed")
+	dataprovider.EnabledActionCommands = nil
 
 	action.Type = dataprovider.ActionTypeEmail
 	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)

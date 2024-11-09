@@ -238,6 +238,9 @@ func Init() {
 			Metadata: common.MetadataConfig{
 				Read: 0,
 			},
+			EventManager: common.EventManagerConfig{
+				EnabledCommands: []string{},
+			},
 		},
 		ACME: acme.Configuration{
 			Email:      "",
@@ -2015,6 +2018,7 @@ func setViperDefaults() {
 	viper.SetDefault("common.umask", globalConf.Common.Umask)
 	viper.SetDefault("common.server_version", globalConf.Common.ServerVersion)
 	viper.SetDefault("common.metadata.read", globalConf.Common.Metadata.Read)
+	viper.SetDefault("common.event_manager.enabled_commands", globalConf.Common.EventManager.EnabledCommands)
 	viper.SetDefault("acme.email", globalConf.ACME.Email)
 	viper.SetDefault("acme.key_type", globalConf.ACME.KeyType)
 	viper.SetDefault("acme.certs_path", globalConf.ACME.CertsPath)

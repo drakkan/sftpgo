@@ -228,6 +228,9 @@ func Initialize(c Configuration, isShared int) error {
 	if err := c.initializeProxyProtocol(); err != nil {
 		return err
 	}
+	if err := c.EventManager.validate(); err != nil {
+		return err
+	}
 	vfs.SetTempPath(c.TempPath)
 	dataprovider.SetTempPath(c.TempPath)
 	vfs.SetAllowSelfConnections(c.AllowSelfConnections)
@@ -236,6 +239,7 @@ func Initialize(c Configuration, isShared int) error {
 	vfs.SetResumeMaxSize(c.ResumeMaxSize)
 	vfs.SetUploadMode(c.UploadMode)
 	dataprovider.SetAllowSelfConnections(c.AllowSelfConnections)
+	dataprovider.EnabledActionCommands = c.EventManager.EnabledCommands
 	transfersChecker = getTransfersChecker(isShared)
 	return nil
 }
@@ -484,6 +488,23 @@ type ConnectionTransfer struct {
 	DLSize        int64  `json:"-"`
 }
 
+// EventManagerConfig defines the configuration for the EventManager
+type EventManagerConfig struct {
+	// EnabledCommands defines the system commands that can be executed via EventManager,
+	// an empty list means that any command is allowed to be executed.
+	// Commands must be set as an absolute path
+	EnabledCommands []string `json:"enabled_commands" mapstructure:"enabled_commands"`
+}
+
+func (c *EventManagerConfig) validate() error {
+	for _, c := range c.EnabledCommands {
+		if !filepath.IsAbs(c) {
+			return fmt.Errorf("invalid command %q: it must be an absolute path", c)
+		}
+	}
+	return nil
+}
+
 // MetadataConfig defines how to handle metadata for cloud storage backends
 type MetadataConfig struct {
 	// If not zero the metadata will be read before downloads and will be
@@ -589,7 +610,9 @@ type Configuration struct {
 	// Defines the server version
 	ServerVersion string `json:"server_version" mapstructure:"server_version"`
 	// Metadata configuration
-	Metadata              MetadataConfig `json:"metadata" mapstructure:"metadata"`
+	Metadata MetadataConfig `json:"metadata" mapstructure:"metadata"`
+	// EventManager configuration
+	EventManager          EventManagerConfig `json:"event_manager" mapstructure:"event_manager"`
 	idleTimeoutAsDuration time.Duration
 	idleLoginTimeout      time.Duration
 	defender              Defender

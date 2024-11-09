@@ -291,13 +291,14 @@ type rolePage struct {
 
 type eventActionPage struct {
 	basePage
-	Action         dataprovider.BaseEventAction
-	ActionTypes    []dataprovider.EnumMapping
-	FsActions      []dataprovider.EnumMapping
-	HTTPMethods    []string
-	RedactedSecret string
-	Error          *util.I18nError
-	Mode           genericPageMode
+	Action          dataprovider.BaseEventAction
+	ActionTypes     []dataprovider.EnumMapping
+	FsActions       []dataprovider.EnumMapping
+	HTTPMethods     []string
+	EnabledCommands []string
+	RedactedSecret  string
+	Error           *util.I18nError
+	Mode            genericPageMode
 }
 
 type eventRulePage struct {
@@ -1079,14 +1080,15 @@ func (s *httpdServer) renderEventActionPage(w http.ResponseWriter, r *http.Reque
 	}
 
 	data := eventActionPage{
-		basePage:       s.getBasePageData(title, currentURL, r),
-		Action:         action,
-		ActionTypes:    dataprovider.EventActionTypes,
-		FsActions:      dataprovider.FsActionTypes,
-		HTTPMethods:    dataprovider.SupportedHTTPActionMethods,
-		RedactedSecret: redactedSecret,
-		Error:          getI18nError(err),
-		Mode:           mode,
+		basePage:        s.getBasePageData(title, currentURL, r),
+		Action:          action,
+		ActionTypes:     dataprovider.EventActionTypes,
+		FsActions:       dataprovider.FsActionTypes,
+		HTTPMethods:     dataprovider.SupportedHTTPActionMethods,
+		EnabledCommands: dataprovider.EnabledActionCommands,
+		RedactedSecret:  redactedSecret,
+		Error:           getI18nError(err),
+		Mode:            mode,
 	}
 	renderAdminTemplate(w, templateEventAction, data)
 }

@@ -1480,6 +1480,9 @@ func executeHTTPRuleAction(c dataprovider.EventActionHTTPConfig, params *EventPa
 }
 
 func executeCommandRuleAction(c dataprovider.EventActionCommandConfig, params *EventParams) error {
+	if !dataprovider.IsActionCommandAllowed(c.Cmd) {
+		return fmt.Errorf("command %q is not allowed", c.Cmd)
+	}
 	addObjectData := false
 	if params.Object != nil {
 		for _, k := range c.EnvVars {

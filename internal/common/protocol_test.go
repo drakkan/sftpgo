@@ -4208,6 +4208,148 @@ func TestEventRuleStatues(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestEventRuleDisabledCommand(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
+	smtpCfg := smtp.Config{
+		Host:          "127.0.0.1",
+		Port:          2525,
+		From:          "notification@example.com",
+		TemplatesPath: "templates",
+	}
+	err := smtpCfg.Initialize(configDir, true)
+	require.NoError(t, err)
+
+	saveObjectScriptPath := filepath.Join(os.TempDir(), "provider.sh")
+	outPath := filepath.Join(os.TempDir(), "provider_out.json")
+	err = os.WriteFile(saveObjectScriptPath, getSaveProviderObjectScriptContent(outPath, 0), 0755)
+	assert.NoError(t, err)
+
+	a1 := dataprovider.BaseEventAction{
+		Name: "a1",
+		Type: dataprovider.ActionTypeCommand,
+		Options: dataprovider.BaseEventActionOptions{
+			CmdConfig: dataprovider.EventActionCommandConfig{
+				Cmd:     saveObjectScriptPath,
+				Timeout: 10,
+				EnvVars: []dataprovider.KeyValue{
+					{
+						Key:   "SFTPGO_OBJECT_DATA",
+						Value: "{{ObjectData}}",
+					},
+				},
+			},
+		},
+	}
+	a2 := dataprovider.BaseEventAction{
+		Name: "a2",
+		Type: dataprovider.ActionTypeEmail,
+		Options: dataprovider.BaseEventActionOptions{
+			EmailConfig: dataprovider.EventActionEmailConfig{
+				Recipients: []string{"test3@example.com"},
+				Subject:    `New "{{Event}}" from "{{Name}}"`,
+				Body:       "Object name: {{ObjectName}} object type: {{ObjectType}} Data: {{ObjectData}}",
+			},
+		},
+	}
+
+	a3 := dataprovider.BaseEventAction{
+		Name: "a3",
+		Type: dataprovider.ActionTypeEmail,
+		Options: dataprovider.BaseEventActionOptions{
+			EmailConfig: dataprovider.EventActionEmailConfig{
+				Recipients: []string{"failure@example.com"},
+				Subject:    `Failed "{{Event}}" from "{{Name}}"`,
+				Body:       "Object name: {{ObjectName}} object type: {{ObjectType}}, IP: {{IP}}",
+			},
+		},
+	}
+	action1, _, err := httpdtest.AddEventAction(a1, http.StatusCreated)
+	assert.NoError(t, err)
+	action2, _, err := httpdtest.AddEventAction(a2, http.StatusCreated)
+	assert.NoError(t, err)
+	action3, _, err := httpdtest.AddEventAction(a3, http.StatusCreated)
+	assert.NoError(t, err)
+
+	r := dataprovider.EventRule{
+		Name:    "rule",
+		Status:  1,
+		Trigger: dataprovider.EventTriggerProviderEvent,
+		Conditions: dataprovider.EventConditions{
+			ProviderEvents: []string{"add"},
+			Options: dataprovider.ConditionOptions{
+				ProviderObjects: []string{"folder"},
+			},
+		},
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action1.Name,
+				},
+				Order: 1,
+				Options: dataprovider.EventActionOptions{
+					StopOnFailure: true,
+				},
+			},
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action2.Name,
+				},
+				Order: 2,
+			},
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action3.Name,
+				},
+				Order: 3,
+				Options: dataprovider.EventActionOptions{
+					IsFailureAction: true,
+					StopOnFailure:   true,
+				},
+			},
+		},
+	}
+	rule, _, err := httpdtest.AddEventRule(r, http.StatusCreated)
+	assert.NoError(t, err)
+	// restrit command execution
+	dataprovider.EnabledActionCommands = []string{"/bin/ls"}
+
+	lastReceivedEmail.reset()
+	// create a folder to trigger the rule
+	folder := vfs.BaseVirtualFolder{
+		Name:       "ftest failed command",
+		MappedPath: filepath.Join(os.TempDir(), "p"),
+	}
+	folder, _, err = httpdtest.AddFolder(folder, http.StatusCreated)
+	assert.NoError(t, err)
+
+	assert.NoFileExists(t, outPath)
+	assert.Eventually(t, func() bool {
+		return lastReceivedEmail.get().From != ""
+	}, 3000*time.Millisecond, 100*time.Millisecond)
+	email := lastReceivedEmail.get()
+	assert.Len(t, email.To, 1)
+	assert.True(t, slices.Contains(email.To, "failure@example.com"))
+	assert.Contains(t, email.Data, `Subject: Failed "add" from "admin"`)
+	assert.Contains(t, email.Data, fmt.Sprintf("Object name: %s object type: folder", folder.Name))
+	lastReceivedEmail.reset()
+
+	dataprovider.EnabledActionCommands = nil
+
+	_, err = httpdtest.RemoveFolder(folder, http.StatusOK)
+	assert.NoError(t, err)
+
+	_, err = httpdtest.RemoveEventRule(rule, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action2, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action3, http.StatusOK)
+	assert.NoError(t, err)
+}
+
 func TestEventRuleProviderEvents(t *testing.T) {
 	if runtime.GOOS == osWindows {
 		t.Skip("this test is not available on Windows")
