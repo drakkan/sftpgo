@@ -48,7 +48,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lithammer/shortuuid/v4"
-	"github.com/rs/xid"
 	"golang.org/x/crypto/ssh"
 
 	"github.com/drakkan/sftpgo/v2/internal/logger"
@@ -566,23 +565,17 @@ func createDirPathIfMissing(file string, perm os.FileMode) error {
 func GenerateRandomBytes(length int) []byte {
 	b := make([]byte, length)
 	_, err := io.ReadFull(rand.Reader, b)
-	if err == nil {
-		return b
+	if err != nil {
+		PanicOnError(fmt.Errorf("failed to read random data (see https://go.dev/issue/66821): %w", err))
 	}
-
-	b = xid.New().Bytes()
-	for len(b) < length {
-		b = append(b, xid.New().Bytes()...)
-	}
-
-	return b[:length]
+	return b
 }
 
 // GenerateUniqueID returns an unique ID
 func GenerateUniqueID() string {
 	u, err := uuid.NewRandom()
 	if err != nil {
-		return xid.New().String()
+		PanicOnError(fmt.Errorf("failed to read random data (see https://go.dev/issue/66821): %w", err))
 	}
 	return shortuuid.DefaultEncoder.Encode(u)
 }
