@@ -11667,7 +11667,7 @@ func TestUpdateAdminMock(t *testing.T) {
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.Contains(t, rr.Body.String(), "you cannot remove these permissions to yourself")
+	assert.Contains(t, rr.Body.String(), "you cannot change your permissions")
 	admin.Permissions = []string{dataprovider.PermAdminAny}
 	admin.Role = "missing role"
 	asJSON, err = json.Marshal(admin)
@@ -11682,7 +11682,7 @@ func TestUpdateAdminMock(t *testing.T) {
 	altToken, err := getJWTAPITokenFromTestServer(altAdminUsername, defaultTokenAuthPass)
 	assert.NoError(t, err)
 	admin.Password = "" // it must remain unchanged
-	admin.Permissions = []string{dataprovider.PermAdminManageAdmins, dataprovider.PermAdminCloseConnections}
+	admin.Permissions = []string{dataprovider.PermAdminManageAdmins}
 	asJSON, err = json.Marshal(admin)
 	assert.NoError(t, err)
 	req, _ = http.NewRequest(http.MethodPut, path.Join(adminPath, altAdminUsername), bytes.NewBuffer(asJSON))

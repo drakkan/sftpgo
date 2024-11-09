@@ -211,19 +211,6 @@ func (c *jwtTokenClaims) Decode(token map[string]any) {
 	}
 }
 
-func (c *jwtTokenClaims) isCriticalPermRemoved(permissions []string) bool {
-	if util.Contains(permissions, dataprovider.PermAdminAny) {
-		return false
-	}
-	if (util.Contains(c.Permissions, dataprovider.PermAdminManageAdmins) ||
-		util.Contains(c.Permissions, dataprovider.PermAdminAny)) &&
-		!util.Contains(permissions, dataprovider.PermAdminManageAdmins) &&
-		!util.Contains(permissions, dataprovider.PermAdminAny) {
-		return true
-	}
-	return false
-}
-
 func (c *jwtTokenClaims) hasPerm(perm string) bool {
 	if util.Contains(c.Permissions, dataprovider.PermAdminAny) {
 		return true
