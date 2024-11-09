@@ -1786,8 +1786,8 @@ func (s *httpdServer) setupWebAdminRoutes() {
 				router.With(s.checkPerm(dataprovider.PermAdminManageSystem)).Post(webTemplateFolder, s.handleWebTemplateFolderPost)
 				router.With(s.checkPerm(dataprovider.PermAdminViewDefender)).Get(webDefenderPath, s.handleWebDefenderPage)
 				router.With(s.checkPerm(dataprovider.PermAdminViewDefender)).Get(webDefenderHostsPath, getDefenderHosts)
-				router.With(s.checkPerm(dataprovider.PermAdminManageDefender)).Delete(webDefenderHostsPath+"/{id}",
-					deleteDefenderHostByID)
+				router.With(s.checkPerm(dataprovider.PermAdminManageDefender), verifyCSRFHeader).
+					Delete(webDefenderHostsPath+"/{id}", deleteDefenderHostByID)
 				router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), compressor.Handler, s.refreshCookie).
 					Get(webAdminEventActionsPath+jsonAPISuffix, getAllActions)
 				router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), s.refreshCookie).
