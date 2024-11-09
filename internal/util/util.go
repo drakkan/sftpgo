@@ -40,6 +40,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -125,18 +126,6 @@ var bytesSizeTable = map[string]uint64{
 	"p":  pByte,
 	"ei": eiByte,
 	"e":  eByte,
-}
-
-// Remove removes an element from a string slice and
-// returns the modified slice
-func Remove(elems []string, val string) []string {
-	for idx, v := range elems {
-		if v == val {
-			elems[idx] = elems[len(elems)-1]
-			return elems[:len(elems)-1]
-		}
-	}
-	return elems
 }
 
 // IsStringPrefixInSlice searches a string prefix in a slice and returns true
@@ -920,4 +909,19 @@ func ReadConfigFromFile(name, configDir string) (string, error) {
 		return "", err
 	}
 	return strings.TrimSpace(BytesToString(val)), nil
+}
+
+// SlicesEqual checks if the provided slices contain the same elements,
+// also in different order.
+func SlicesEqual(s1, s2 []string) bool {
+	if len(s1) != len(s2) {
+		return false
+	}
+	for _, v := range s1 {
+		if !slices.Contains(s2, v) {
+			return false
+		}
+	}
+
+	return true
 }

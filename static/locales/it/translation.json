@@ -762,7 +762,7 @@
         "role_permissions": "Un amministratore di ruolo non può avere le seguenti autorizzazioni: {{val}}",
         "view_manage": "Visualizza e gestisci amministratori",
         "self_delete": "Non puoi eliminare te stesso",
-        "self_permissions": "Non puoi rimuovere questi permessi a te stesso",
+        "self_permissions": "Non puoi cambiare i tuoi permessi",
         "self_disable": "Non puoi disabilitare te stesso",
         "self_role": "Non puoi aggiungere/modificare il tuo ruolo",
         "password_help": "Se vuoto la password corrente non verrà modificata",

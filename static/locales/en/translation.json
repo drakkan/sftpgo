@@ -762,7 +762,7 @@
         "role_permissions": "A role admin cannot have the following permissions: {{val}}",
         "view_manage": "View and manage admins",
         "self_delete": "You cannot delete yourself",
-        "self_permissions": "You cannot remove these permissions to yourself",
+        "self_permissions": "You cannot change your permissions",
         "self_disable": "You cannot disable yourself",
         "self_role": "You cannot add/change your role",
         "password_help": "If blank the current password will not be changed",

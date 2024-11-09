@@ -149,8 +149,8 @@ func updateAdmin(w http.ResponseWriter, r *http.Request) {
 				http.StatusBadRequest)
 			return
 		}
-		if claims.isCriticalPermRemoved(updatedAdmin.Permissions) {
-			sendAPIResponse(w, r, errors.New("you cannot remove these permissions to yourself"), "", http.StatusBadRequest)
+		if !util.SlicesEqual(admin.Permissions, updatedAdmin.Permissions) {
+			sendAPIResponse(w, r, errors.New("you cannot change your permissions"), "", http.StatusBadRequest)
 			return
 		}
 		if updatedAdmin.Status == 0 {
