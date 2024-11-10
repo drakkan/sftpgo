@@ -59,9 +59,9 @@ func (e *ValidationError) Is(target error) bool {
 }
 
 // NewValidationError returns a validation errors
-func NewValidationError(error string) *ValidationError {
+func NewValidationError(errorString string) *ValidationError {
 	return &ValidationError{
-		err: error,
+		err: errorString,
 	}
 }
 
@@ -81,9 +81,9 @@ func (e *RecordNotFoundError) Is(target error) bool {
 }
 
 // NewRecordNotFoundError returns a not found error
-func NewRecordNotFoundError(error string) *RecordNotFoundError {
+func NewRecordNotFoundError(errorString string) *RecordNotFoundError {
 	return &RecordNotFoundError{
-		err: error,
+		err: errorString,
 	}
 }
 
@@ -106,9 +106,9 @@ func (e *MethodDisabledError) Is(target error) bool {
 }
 
 // NewMethodDisabledError returns a method disabled error
-func NewMethodDisabledError(error string) *MethodDisabledError {
+func NewMethodDisabledError(errorString string) *MethodDisabledError {
 	return &MethodDisabledError{
-		err: error,
+		err: errorString,
 	}
 }
 
@@ -128,8 +128,8 @@ func (e *GenericError) Is(target error) bool {
 }
 
 // NewGenericError returns a generic error
-func NewGenericError(error string) *GenericError {
+func NewGenericError(errorString string) *GenericError {
 	return &GenericError{
-		err: error,
+		err: errorString,
 	}
 }

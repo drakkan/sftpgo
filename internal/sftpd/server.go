@@ -400,8 +400,8 @@ func (c *Configuration) serve(listener net.Listener, serverConfig *ssh.ServerCon
 				} else {
 					tempDelay *= 2
 				}
-				if max := 1 * time.Second; tempDelay > max {
-					tempDelay = max
+				if maxDelay := 1 * time.Second; tempDelay > maxDelay {
+					tempDelay = maxDelay
 				}
 				logger.Warn(logSender, "", "accept error: %v; retrying in %v", err, tempDelay)
 				time.Sleep(tempDelay)

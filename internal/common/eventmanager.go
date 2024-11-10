@@ -1790,7 +1790,7 @@ func executeRenameFsActionForUser(renames []dataprovider.RenameConfig, replacer 
 	return nil
 }
 
-func executeCopyFsActionForUser(copy []dataprovider.KeyValue, replacer *strings.Replacer,
+func executeCopyFsActionForUser(keyVals []dataprovider.KeyValue, replacer *strings.Replacer,
 	user dataprovider.User,
 ) error {
 	user, err := getUserForEventAction(user)
@@ -1804,7 +1804,7 @@ func executeCopyFsActionForUser(copy []dataprovider.KeyValue, replacer *strings.
 		return fmt.Errorf("copy error, unable to check root fs for user %q: %w", user.Username, err)
 	}
 	conn := NewBaseConnection(connectionID, protocolEventAction, "", "", user)
-	for _, item := range copy {
+	for _, item := range keyVals {
 		source := util.CleanPath(replaceWithReplacer(item.Key, replacer))
 		target := util.CleanPath(replaceWithReplacer(item.Value, replacer))
 		if strings.HasSuffix(item.Key, "/") {
@@ -1878,7 +1878,7 @@ func executeRenameFsRuleAction(renames []dataprovider.RenameConfig, replacer *st
 	return nil
 }
 
-func executeCopyFsRuleAction(copy []dataprovider.KeyValue, replacer *strings.Replacer,
+func executeCopyFsRuleAction(keyVals []dataprovider.KeyValue, replacer *strings.Replacer,
 	conditions dataprovider.ConditionOptions, params *EventParams,
 ) error {
 	users, err := params.getUsers()
@@ -1897,7 +1897,7 @@ func executeCopyFsRuleAction(copy []dataprovider.KeyValue, replacer *strings.Rep
 			}
 		}
 		executed++
-		if err = executeCopyFsActionForUser(copy, replacer, user); err != nil {
+		if err = executeCopyFsActionForUser(keyVals, replacer, user); err != nil {
 			failures = append(failures, user.Username)
 			params.AddError(err)
 		}
