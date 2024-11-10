@@ -1828,6 +1828,10 @@ func TestBasicActionRulesHandling(t *testing.T) {
 			},
 		},
 	}
+	dataprovider.EnabledActionCommands = []string{a.Options.CmdConfig.Cmd}
+	defer func() {
+		dataprovider.EnabledActionCommands = nil
+	}()
 	_, _, err = httpdtest.UpdateEventAction(a, http.StatusOK)
 	assert.NoError(t, err)
 	// invalid type
@@ -2362,13 +2366,24 @@ func TestEventActionValidation(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Contains(t, string(resp), "command is required")
 	action.Options.CmdConfig.Cmd = "relative"
+	dataprovider.EnabledActionCommands = []string{action.Options.CmdConfig.Cmd}
+	defer func() {
+		dataprovider.EnabledActionCommands = nil
+	}()
+
 	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
 	assert.NoError(t, err)
 	assert.Contains(t, string(resp), "invalid command, it must be an absolute path")
 	action.Options.CmdConfig.Cmd = filepath.Join(os.TempDir(), "cmd")
 	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
 	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "is not allowed")
+
+	dataprovider.EnabledActionCommands = []string{action.Options.CmdConfig.Cmd}
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
 	assert.Contains(t, string(resp), "invalid command action timeout")
+
 	action.Options.CmdConfig.Timeout = 30
 	action.Options.CmdConfig.EnvVars = []dataprovider.KeyValue{
 		{
@@ -23318,6 +23333,10 @@ func TestWebEventAction(t *testing.T) {
 			},
 		},
 	}
+	dataprovider.EnabledActionCommands = []string{action.Options.CmdConfig.Cmd}
+	defer func() {
+		dataprovider.EnabledActionCommands = nil
+	}()
 	form.Set("type", fmt.Sprintf("%d", action.Type))
 	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminEventActionPath, action.Name),
 		bytes.NewBuffer([]byte(form.Encode())))
