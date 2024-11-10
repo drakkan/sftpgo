@@ -3928,6 +3928,11 @@ func TestEventRule(t *testing.T) {
 	err = os.WriteFile(uploadScriptPath, getUploadScriptContent(movedPath, "", 0), 0755)
 	assert.NoError(t, err)
 
+	dataprovider.EnabledActionCommands = []string{uploadScriptPath}
+	defer func() {
+		dataprovider.EnabledActionCommands = nil
+	}()
+
 	action1.Type = dataprovider.ActionTypeCommand
 	action1.Options = dataprovider.BaseEventActionOptions{
 		CmdConfig: dataprovider.EventActionCommandConfig{
@@ -4265,6 +4270,10 @@ func TestEventRuleDisabledCommand(t *testing.T) {
 			},
 		},
 	}
+	_, _, err = httpdtest.AddEventAction(a1, http.StatusBadRequest)
+	assert.NoError(t, err)
+	// Enable the command to allow saving
+	dataprovider.EnabledActionCommands = []string{a1.Options.CmdConfig.Cmd}
 	action1, _, err := httpdtest.AddEventAction(a1, http.StatusCreated)
 	assert.NoError(t, err)
 	action2, _, err := httpdtest.AddEventAction(a2, http.StatusCreated)
@@ -4312,8 +4321,8 @@ func TestEventRuleDisabledCommand(t *testing.T) {
 	}
 	rule, _, err := httpdtest.AddEventRule(r, http.StatusCreated)
 	assert.NoError(t, err)
-	// restrit command execution
-	dataprovider.EnabledActionCommands = []string{"/bin/ls"}
+	// restrict command execution
+	dataprovider.EnabledActionCommands = nil
 
 	lastReceivedEmail.reset()
 	// create a folder to trigger the rule
@@ -4334,8 +4343,6 @@ func TestEventRuleDisabledCommand(t *testing.T) {
 	assert.Contains(t, email.Data, `Subject: Failed "add" from "admin"`)
 	assert.Contains(t, email.Data, fmt.Sprintf("Object name: %s object type: folder", folder.Name))
 	lastReceivedEmail.reset()
-
-	dataprovider.EnabledActionCommands = nil
 
 	_, err = httpdtest.RemoveFolder(folder, http.StatusOK)
 	assert.NoError(t, err)
@@ -4367,6 +4374,11 @@ func TestEventRuleProviderEvents(t *testing.T) {
 	outPath := filepath.Join(os.TempDir(), "provider_out.json")
 	err = os.WriteFile(saveObjectScriptPath, getSaveProviderObjectScriptContent(outPath, 0), 0755)
 	assert.NoError(t, err)
+
+	dataprovider.EnabledActionCommands = []string{saveObjectScriptPath}
+	defer func() {
+		dataprovider.EnabledActionCommands = nil
+	}()
 
 	a1 := dataprovider.BaseEventAction{
 		Name: "a1",
@@ -5230,6 +5242,11 @@ func TestEventActionCommandEnvVars(t *testing.T) {
 	}
 	envName := "MY_ENV"
 	uploadScriptPath := filepath.Join(os.TempDir(), "upload.sh")
+
+	dataprovider.EnabledActionCommands = []string{uploadScriptPath}
+	defer func() {
+		dataprovider.EnabledActionCommands = nil
+	}()
 
 	err := os.WriteFile(uploadScriptPath, getUploadScriptEnvContent(envName), 0755)
 	assert.NoError(t, err)

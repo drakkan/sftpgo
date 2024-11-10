@@ -59,7 +59,7 @@ var (
 		ActionTypeDataRetentionCheck, ActionTypePasswordExpirationCheck, ActionTypeUserExpirationCheck,
 		ActionTypeUserInactivityCheck, ActionTypeIDPAccountCheck, ActionTypeRotateLogs}
 	// EnabledActionCommands defines the system commands that can be executed via EventManager,
-	// an empty list means that any command is allowed to be executed.
+	// an empty list means that no command is allowed to be executed.
 	EnabledActionCommands []string
 )
 
@@ -455,9 +455,6 @@ func (c *EventActionHTTPConfig) GetHTTPClient() *http.Client {
 
 // IsActionCommandAllowed returns true if the specified command is allowed
 func IsActionCommandAllowed(cmd string) bool {
-	if len(EnabledActionCommands) == 0 {
-		return true
-	}
 	return slices.Contains(EnabledActionCommands, cmd)
 }
 

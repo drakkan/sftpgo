@@ -44,6 +44,11 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 <div class="col-md-9">
                     <select id="idType" name="type" class="form-select" data-control="i18n-select2" data-hide-search="true">
                         {{- range .ActionTypes}}
+                        {{- if eq .Value 2}}
+                            {{- if not $.EnabledCommands}}
+                                {{- continue}}
+                            {{- end}}
+                        {{- end}}
                         <option value="{{.Value}}" {{if eq $.Action.Type .Value }}selected{{end}} data-i18n="{{.Name}}"></option>
                         {{- end}}
                     </select>
@@ -400,19 +405,11 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             <div class="form-group row action-type action-cmd mt-10">
                 <label for="idCmdPath" data-i18n="actions.types.command" class="col-md-3 col-form-label">Command</label>
                 <div class="col-md-9">
-                    <select id="idCmdPath" name="cmd_path" class="form-select" data-control="i18n-select2" data-hide-search="true">
+                    <select id="idCmdPath" name="cmd_path" class="form-select" data-control="i18n-select2" data-hide-search="false">
                         {{- range .EnabledCommands}}
                         <option value="{{.}}" {{if eq $.Action.Options.CmdConfig.Cmd . }}selected{{end}}>{{.}}</option>
                         {{- end}}
                     </select>
-                </div>
-            </div>
-            {{- else}}
-            <div class="form-group row action-type action-cmd mt-10">
-                <label for="idCmdPath" data-i18n="actions.types.command" class="col-md-3 col-form-label">Command</label>
-                <div class="col-md-9">
-                    <input id="idCmdPath" type="text" class="form-control" name="cmd_path" value="{{.Action.Options.CmdConfig.Cmd}}" aria-describedby="idCmdPathHelp" />
-                    <div id="idCmdPathHelp" class="form-text" data-i18n="actions.command_help"></div>
                 </div>
             </div>
             {{- end}}
