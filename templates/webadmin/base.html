@@ -126,7 +126,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     </a>
 </div>
 {{- end}}
-{{ if .LoggedUser.HasPermission "manage_event_rules"}}
+{{ if .LoggedUser.HasPermission "*"}}
 <div data-kt-menu-trigger="click" class="menu-item menu-accordion {{- if .IsEventManagerPage}} here show{{- end}}">
     <span class="menu-link">
         <span class="menu-icon">
@@ -158,7 +158,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     </div>
 </div>
 {{- end}}
-{{- if or (.LoggedUser.HasPermission "manage_ip_lists") (and .HasDefender (.LoggedUser.HasPermission "view_defender"))}}
+{{- if or (.LoggedUser.HasPermission "*") (and .HasDefender (.LoggedUser.HasPermission "view_defender"))}}
 <div data-kt-menu-trigger="click" class="menu-item menu-accordion {{- if .IsIPManagerPage}} here show{{- end}}">
     <span class="menu-link">
         <span class="menu-icon">
@@ -168,7 +168,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <span class="menu-arrow"></span>
     </span>
     <div class="menu-sub menu-sub-accordion">
-        {{- if .LoggedUser.HasPermission "manage_ip_lists"}}
+        {{- if .LoggedUser.HasPermission "*"}}
         <div class="menu-item">
             <a class="menu-link {{- if eq .CurrentURL .IPListsURL}} active{{- end}}" href="{{.IPListsURL}}">
                 <span class="menu-bullet">
@@ -191,7 +191,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     </div>
 </div>
 {{- end}}
-{{- if or (.LoggedUser.HasPermission "manage_system") (.LoggedUser.HasPermission "view_status") (and .HasSearcher (.LoggedUser.HasPermission "view_events"))}}
+{{- if or (.LoggedUser.HasPermission "*") (.LoggedUser.HasPermission "view_status") (and .HasSearcher (.LoggedUser.HasPermission "view_events"))}}
 <div data-kt-menu-trigger="click" class="menu-item menu-accordion {{- if .IsServerManagerPage}} here show{{- end}}">
     <span class="menu-link">
         <span class="menu-icon">
@@ -207,7 +207,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <span class="menu-arrow"></span>
     </span>
     <div class="menu-sub menu-sub-accordion">
-        {{- if .LoggedUser.HasPermission "manage_system"}}
+        {{- if .LoggedUser.HasPermission "*"}}
         <div class="menu-item">
             <a class="menu-link {{- if eq .CurrentURL .ConfigsURL}} active{{- end}}" href="{{.ConfigsURL}}">
                 <span class="menu-bullet">
@@ -227,7 +227,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </a>
         </div>
         {{- end}}
-        {{- if .LoggedUser.HasPermission "manage_system"}}
+        {{- if .LoggedUser.HasPermission "*"}}
         <div class="menu-item">
             <a class="menu-link {{- if eq .CurrentURL .MaintenanceURL}} active{{- end}}" href="{{.MaintenanceURL}}">
                 <span class="menu-bullet">
@@ -250,7 +250,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     </div>
 </div>
 {{- end}}
-{{- if .LoggedUser.HasPermission "manage_admins"}}
+{{- if .LoggedUser.HasPermission "*"}}
 <div class="menu-item">
     <a class="menu-link {{- if eq .CurrentURL .AdminsURL}} active{{- end}}" href="{{.AdminsURL}}">
         <span class="menu-icon">
@@ -259,8 +259,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <span data-i18n="title.admins" class="menu-title">Admins</span>
     </a>
 </div>
-{{- end}}
-{{- if .LoggedUser.HasPermission "manage_roles"}}
 <div class="menu-item">
     <a class="menu-link {{- if eq .CurrentURL .RolesURL}} active{{- end}}" href="{{.RolesURL}}">
         <span class="menu-icon">

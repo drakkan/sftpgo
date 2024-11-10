@@ -759,14 +759,14 @@
         "access_time_help": "Nessuna restrizione significa che l'accesso è sempre consentito, l'ora deve essere impostata nel formato HH:MM"
     },
     "admin": {
-        "role_permissions": "Un amministratore di ruolo non può avere le seguenti autorizzazioni: {{val}}",
+        "role_permissions": "Un amministratore di ruolo non può avere il permesso \"*\"",
         "view_manage": "Visualizza e gestisci amministratori",
         "self_delete": "Non puoi eliminare te stesso",
         "self_permissions": "Non puoi cambiare i tuoi permessi",
         "self_disable": "Non puoi disabilitare te stesso",
         "self_role": "Non puoi aggiungere/modificare il tuo ruolo",
         "password_help": "Se vuoto la password corrente non verrà modificata",
-        "role_help": "L'impostazione di un ruolo limita l'amministratore a gestire solo gli utenti con lo stesso ruolo. Gli amministratori con un ruolo non possono avere le seguenti autorizzazioni: \"manage_admins\", \"manage_roles\", \"manage_event_rules\", \"manage_apikeys\", \"manage_system\", \"manage_ip_lists\"",
+        "role_help": "L'impostazione di un ruolo limita l'amministratore a gestire solo gli utenti con lo stesso ruolo. Gli amministratori con un ruolo non possono essere super amministratori",
         "users_groups": "Gruppi per gli utenti",
         "users_groups_help": "Gruppi selezionati automaticamente per i nuovi utenti creati da questo amministratore. L'amministratore potrà comunque scegliere gruppi differenti. Queste impostazioni vengono utilizzate solo per questa interfaccia utente di amministrazione e verranno ignorate negli hook/API REST",
         "group_membership": "Aggiungi come di appartenenza",

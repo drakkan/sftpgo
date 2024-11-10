@@ -45,19 +45,12 @@ const (
 	PermAdminViewConnections  = "view_conns"
 	PermAdminCloseConnections = "close_conns"
 	PermAdminViewServerStatus = "view_status"
-	PermAdminManageAdmins     = "manage_admins"
 	PermAdminManageGroups     = "manage_groups"
 	PermAdminManageFolders    = "manage_folders"
-	PermAdminManageAPIKeys    = "manage_apikeys"
 	PermAdminQuotaScans       = "quota_scans"
-	PermAdminManageSystem     = "manage_system"
 	PermAdminManageDefender   = "manage_defender"
 	PermAdminViewDefender     = "view_defender"
-	PermAdminRetentionChecks  = "retention_checks"
 	PermAdminViewEvents       = "view_events"
-	PermAdminManageEventRules = "manage_event_rules"
-	PermAdminManageRoles      = "manage_roles"
-	PermAdminManageIPLists    = "manage_ip_lists"
 	PermAdminDisableMFA       = "disable_mfa"
 )
 
@@ -73,12 +66,9 @@ const (
 var (
 	validAdminPerms = []string{PermAdminAny, PermAdminAddUsers, PermAdminChangeUsers, PermAdminDeleteUsers,
 		PermAdminViewUsers, PermAdminManageFolders, PermAdminManageGroups, PermAdminViewConnections,
-		PermAdminCloseConnections, PermAdminViewServerStatus, PermAdminManageAdmins, PermAdminManageRoles,
-		PermAdminManageEventRules, PermAdminManageAPIKeys, PermAdminQuotaScans, PermAdminManageSystem,
-		PermAdminManageDefender, PermAdminViewDefender, PermAdminManageIPLists, PermAdminRetentionChecks,
-		PermAdminViewEvents, PermAdminDisableMFA}
-	forbiddenPermsForRoleAdmins = []string{PermAdminAny, PermAdminManageAdmins, PermAdminManageSystem,
-		PermAdminManageEventRules, PermAdminManageIPLists, PermAdminManageRoles}
+		PermAdminCloseConnections, PermAdminViewServerStatus, PermAdminQuotaScans,
+		PermAdminManageDefender, PermAdminViewDefender, PermAdminViewEvents, PermAdminDisableMFA}
+	forbiddenPermsForRoleAdmins = []string{PermAdminAny}
 )
 
 // AdminTOTPConfig defines the time-based one time password configuration
@@ -266,12 +256,7 @@ type Admin struct {
 	// Last login as unix timestamp in milliseconds
 	LastLogin int64 `json:"last_login"`
 	// Role name. If set the admin can only administer users with the same role.
-	// Role admins cannot have the following permissions:
-	// - manage_admins
-	// - manage_apikeys
-	// - manage_system
-	// - manage_event_rules
-	// - manage_roles
+	// Role admins cannot be super administrators
 	Role string `json:"role,omitempty"`
 }
 
@@ -347,13 +332,9 @@ func (a *Admin) validatePermissions() error {
 		}
 		if a.Role != "" {
 			if slices.Contains(forbiddenPermsForRoleAdmins, perm) {
-				deniedPerms := strings.Join(forbiddenPermsForRoleAdmins, ",")
 				return util.NewI18nError(
-					util.NewValidationError(fmt.Sprintf("a role admin cannot have the following permissions: %q", deniedPerms)),
+					util.NewValidationError("a role admin cannot be a super admin"),
 					util.I18nErrorRoleAdminPerms,
-					util.I18nErrorArgs(map[string]any{
-						"val": deniedPerms,
-					}),
 				)
 			}
 		}

@@ -1517,7 +1517,7 @@ paths:
           name: confidential_data
           schema:
             type: integer
-          description: 'If set to 1 confidential data will not be hidden. This means that the response will contain the key and additional data for secrets. If a master key is not set or an external KMS is used, the data returned are enough to get the secrets in cleartext. Ignored if the manage_system permission is not granted.'
+          description: 'If set to 1 confidential data will not be hidden. This means that the response will contain the key and additional data for secrets. If a master key is not set or an external KMS is used, the data returned are enough to get the secrets in cleartext. Ignored if the * permission is not granted.'
       requestBody:
         required: true
         content:
@@ -1565,7 +1565,7 @@ paths:
           name: confidential_data
           schema:
             type: integer
-          description: 'If set to 1 confidential data will not be hidden. This means that the response will contain the key and additional data for secrets. If a master key is not set or an external KMS is used, the data returned are enough to get the secrets in cleartext. Ignored if the manage_system permission is not granted.'
+          description: 'If set to 1 confidential data will not be hidden. This means that the response will contain the key and additional data for secrets. If a master key is not set or an external KMS is used, the data returned are enough to get the secrets in cleartext. Ignored if the * permission is not granted.'
       responses:
         '200':
           description: successful operation
@@ -1709,7 +1709,7 @@ paths:
           name: confidential_data
           schema:
             type: integer
-          description: 'If set to 1 confidential data will not be hidden. This means that the response will contain the key and additional data for secrets. If a master key is not set or an external KMS is used, the data returned are enough to get the secrets in cleartext. Ignored if the manage_system permission is not granted.'
+          description: 'If set to 1 confidential data will not be hidden. This means that the response will contain the key and additional data for secrets. If a master key is not set or an external KMS is used, the data returned are enough to get the secrets in cleartext. Ignored if the * permission is not granted.'
       requestBody:
         required: true
         content:
@@ -1757,7 +1757,7 @@ paths:
           name: confidential_data
           schema:
             type: integer
-          description: 'If set to 1 confidential data will not be hidden. This means that the response will contain the key and additional data for secrets. If a master key is not set or an external KMS is used, the data returned are enough to get the secrets in cleartext. Ignored if the manage_system permission is not granted.'
+          description: 'If set to 1 confidential data will not be hidden. This means that the response will contain the key and additional data for secrets. If a master key is not set or an external KMS is used, the data returned are enough to get the secrets in cleartext. Ignored if the * permission is not granted.'
       responses:
         '200':
           description: successful operation
@@ -2081,7 +2081,7 @@ paths:
           name: confidential_data
           schema:
             type: integer
-          description: 'If set to 1 confidential data will not be hidden. This means that the response will contain the key and additional data for secrets. If a master key is not set or an external KMS is used, the data returned are enough to get the secrets in cleartext. Ignored if the manage_system permission is not granted.'
+          description: 'If set to 1 confidential data will not be hidden. This means that the response will contain the key and additional data for secrets. If a master key is not set or an external KMS is used, the data returned are enough to get the secrets in cleartext. Ignored if the * permission is not granted.'
       requestBody:
         required: true
         content:
@@ -2129,7 +2129,7 @@ paths:
           name: confidential_data
           schema:
             type: integer
-          description: 'If set to 1 confidential data will not be hidden. This means that the response will contain the key and additional data for secrets. If a master key is not set or an external KMS is used, the data returned are enough to get the secrets in cleartext. Ignored if the manage_system permission is not granted.'
+          description: 'If set to 1 confidential data will not be hidden. This means that the response will contain the key and additional data for secrets. If a master key is not set or an external KMS is used, the data returned are enough to get the secrets in cleartext. Ignored if the * permission is not granted.'
       responses:
         '200':
           description: successful operation
@@ -2273,7 +2273,7 @@ paths:
           name: confidential_data
           schema:
             type: integer
-          description: 'If set to 1 confidential data will not be hidden. This means that the response will contain the key and additional data for secrets. If a master key is not set or an external KMS is used, the data returned are enough to get the secrets in cleartext. Ignored if the manage_system permission is not granted.'
+          description: 'If set to 1 confidential data will not be hidden. This means that the response will contain the key and additional data for secrets. If a master key is not set or an external KMS is used, the data returned are enough to get the secrets in cleartext. Ignored if the * permission is not granted.'
       requestBody:
         required: true
         content:
@@ -2321,7 +2321,7 @@ paths:
           name: confidential_data
           schema:
             type: integer
-          description: 'If set to 1 confidential data will not be hidden. This means that the response will contain the key and additional data for secrets. If a master key is not set or an external KMS is used, the data returned are enough to get the secrets in cleartext. Ignored if the manage_system permission is not granted.'
+          description: 'If set to 1 confidential data will not be hidden. This means that the response will contain the key and additional data for secrets. If a master key is not set or an external KMS is used, the data returned are enough to get the secrets in cleartext. Ignored if the * permission is not granted.'
       responses:
         '200':
           description: successful operation
@@ -3416,7 +3416,7 @@ paths:
           name: confidential_data
           schema:
             type: integer
-          description: 'If set to 1 confidential data will not be hidden. This means that the response will contain the hash of the password and the key and additional data for secrets. If a master key is not set or an external KMS is used, the data returned are enough to get the secrets in cleartext. Ignored if the manage_system permission is not granted.'
+          description: 'If set to 1 confidential data will not be hidden. This means that the response will contain the hash of the password and the key and additional data for secrets. If a master key is not set or an external KMS is used, the data returned are enough to get the secrets in cleartext. Ignored if the * permission is not granted.'
       requestBody:
         required: true
         content:
@@ -3464,7 +3464,7 @@ paths:
           name: confidential_data
           schema:
             type: integer
-          description: 'If set to 1 confidential data will not be hidden. This means that the response will contain the hash of the password and the key and additional data for secrets. If a master key is not set or an external KMS is used, the data returned are enough to get the secrets in cleartext. Ignored if the manage_system permission is not granted.'
+          description: 'If set to 1 confidential data will not be hidden. This means that the response will contain the hash of the password and the key and additional data for secrets. If a master key is not set or an external KMS is used, the data returned are enough to get the secrets in cleartext. Ignored if the * permission is not granted.'
       responses:
         '200':
           description: successful operation
@@ -4935,23 +4935,16 @@ components:
         - view_conns
         - close_conns
         - view_status
-        - manage_admins
         - manage_folders
         - manage_groups
-        - manage_apikeys
         - quota_scans
-        - manage_system
         - manage_defender
         - view_defender
-        - retention_checks
         - view_events
-        - manage_event_rules
-        - manage_roles
-        - manage_ip_lists
         - disable_mfa
       description: |
         Admin permissions:
-          * `*` - all permissions are granted
+          * `*` - super admin permissions are granted
           * `add_users` - add new users is allowed
           * `edit_users` - change existing users is allowed
           * `del_users` - remove users is allowed
@@ -4959,19 +4952,12 @@ components:
           * `view_conns` - list active connections is allowed
           * `close_conns` - close active connections is allowed
           * `view_status` - view the server status is allowed
-          * `manage_admins` - manage other admins is allowed
           * `manage_folders` - manage folders is allowed
           * `manage_groups` - manage groups is allowed
-          * `manage_apikeys` - manage API keys is allowed
           * `quota_scans` - view and start quota scans is allowed
-          * `manage_system` - backups and restores are allowed
           * `manage_defender` - remove ip from the dynamic blocklist is allowed
           * `view_defender` - list the dynamic blocklist is allowed
-          * `retention_checks` - view and start retention checks is allowed
           * `view_events` - view and search filesystem and provider events is allowed
-          * `manage_event_rules` - manage event actions and rules is allowed
-          * `manage_roles` - manage roles is allowed
-          * `manage_ip_lists` - manage global and ratelimter allow lists and defender block and safe lists is allowed
           * `disable_mfa` - allow to disable two-factor authentication for users and admins
     FsProviders:
       type: integer
@@ -6117,7 +6103,7 @@ components:
           description: Last user login as unix timestamp in milliseconds. It is saved at most once every 10 minutes
         role:
           type: string
-          description: 'If set the admin can only administer users with the same role. Role admins cannot have the following permissions: "manage_admins", "manage_apikeys", "manage_system", "manage_event_rules", "manage_roles", "manage_ip_lists"'
+          description: 'If set the admin can only administer users with the same role. Role admins cannot have the "*" permission'
     AdminProfile:
       type: object
       properties:

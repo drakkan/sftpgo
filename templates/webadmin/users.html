@@ -547,7 +547,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 										      <a data-i18n="general.edit" href="#" class="menu-link px-3" data-table-action="edit_row">Edit</a>
 										  </div>`;
                                 //{{- end}}
-                                //{{- if .LoggedUser.HasPermission "manage_system"}}
+                                //{{- if .LoggedUser.HasPermission "*"}}
                                 numActions++;
                                 actions+=`<div class="menu-item px-3">
 										      <a data-i18n="general.template" href="#" class="menu-link px-3" data-table-action="template_row">Template</a>

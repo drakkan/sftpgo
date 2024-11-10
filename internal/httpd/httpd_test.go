@@ -728,7 +728,7 @@ func TestRoleRelations(t *testing.T) {
 	a.Role = role.Name
 	_, resp, err = httpdtest.AddAdmin(a, http.StatusBadRequest)
 	assert.NoError(t, err)
-	assert.Contains(t, string(resp), "a role admin cannot have the following permissions")
+	assert.Contains(t, string(resp), "a role admin cannot be a super admin")
 
 	a.Permissions = []string{dataprovider.PermAdminAddUsers, dataprovider.PermAdminChangeUsers,
 		dataprovider.PermAdminDeleteUsers, dataprovider.PermAdminViewUsers}
@@ -11801,7 +11801,7 @@ func TestUpdateAdminMock(t *testing.T) {
 	assert.Error(t, err)
 	admin := getTestAdmin()
 	admin.Username = altAdminUsername
-	admin.Permissions = []string{dataprovider.PermAdminManageAdmins}
+	admin.Permissions = []string{dataprovider.PermAdminAny}
 	asJSON, err := json.Marshal(admin)
 	assert.NoError(t, err)
 	req, _ := http.NewRequest(http.MethodPost, adminPath, bytes.NewBuffer(asJSON))
@@ -11858,7 +11858,7 @@ func TestUpdateAdminMock(t *testing.T) {
 	altToken, err := getJWTAPITokenFromTestServer(altAdminUsername, defaultTokenAuthPass)
 	assert.NoError(t, err)
 	admin.Password = "" // it must remain unchanged
-	admin.Permissions = []string{dataprovider.PermAdminManageAdmins}
+	admin.Permissions = []string{dataprovider.PermAdminAny}
 	asJSON, err = json.Marshal(admin)
 	assert.NoError(t, err)
 	req, _ = http.NewRequest(http.MethodPut, path.Join(adminPath, altAdminUsername), bytes.NewBuffer(asJSON))

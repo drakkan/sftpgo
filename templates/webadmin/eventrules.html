@@ -38,7 +38,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         class="form-control rounded-1 w-250px ps-15 me-5" placeholder="Search" />
                 </div>
                 <div class="d-flex justify-content-end my-2" data-table-toolbar="base">
-                    {{- if .LoggedUser.HasPermission "manage_event_rules"}}
+                    {{- if .LoggedUser.HasPermission "*"}}
                     <a href="{{.EventRuleURL}}" class="btn btn-primary ms-5">
                         <i class="ki-duotone ki-plus fs-2"></i>
                         <span data-i18n="general.add">Add</span>
@@ -283,7 +283,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                                 </button>
                                                 <div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-700 menu-state-bg-light-primary fw-semibold fs-6 w-200px py-4" data-kt-menu="true">`;
 
-                                //{{- if .LoggedUser.HasPermission "manage_event_rules"}}
+                                //{{- if .LoggedUser.HasPermission "*"}}
                                 numActions++;
                                 actions+=`<div class="menu-item px-3">
 										      <a data-i18n="general.edit" href="#" class="menu-link px-3" data-table-action="edit_row">Edit</a>

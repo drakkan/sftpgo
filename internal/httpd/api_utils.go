@@ -937,7 +937,7 @@ func getProtocolFromRequest(r *http.Request) string {
 }
 
 func hideConfidentialData(claims *jwtTokenClaims, r *http.Request) bool {
-	if !claims.hasPerm(dataprovider.PermAdminManageSystem) {
+	if !claims.hasPerm(dataprovider.PermAdminAny) {
 		return true
 	}
 	return r.URL.Query().Get("confidential_data") != "1"
