@@ -932,6 +932,7 @@
         "rmdir": "Remove dir",
         "rename": "Rename",
         "delete": "Removal",
+        "copy": "Copy",
         "first_upload": "First upload",
         "first_download": "First download",
         "ssh_cmd": "SSH command",
