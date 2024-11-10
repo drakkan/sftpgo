@@ -734,14 +734,14 @@
         "access_time_help": "No restrictions means access is always allowed, the time must be set in the format HH:MM. Use UTC time"
     },
     "admin": {
-        "role_permissions": "A role admin cannot have the following permissions: {{val}}",
+        "role_permissions": "A role admin cannot have the \"*\" permission",
         "view_manage": "View and manage admins",
         "self_delete": "You cannot delete yourself",
         "self_permissions": "You cannot change your permissions",
         "self_disable": "You cannot disable yourself",
         "self_role": "You cannot add/change your role",
         "password_help": "If blank the current password will not be changed",
-        "role_help": "Setting a role limit the administrator to only manage users with the same role. Administrators with a role cannot have the following permissions: \"manage_admins\", \"manage_roles\", \"manage_event_rules\", \"manage_apikeys\", \"manage_system\", \"manage_ip_lists\"",
+        "role_help": "Setting a role limit the administrator to only manage users with the same role. Administrators with a role cannot be super administrators",
         "users_groups": "Groups for users",
         "users_groups_help": "Groups automatically selected for new users created by this admin. The admin will still be able to choose different groups. These settings are only used for this admin UI and they will be ignored in REST API/hooks",
         "group_membership": "Add as membership",
