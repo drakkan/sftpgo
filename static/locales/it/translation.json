@@ -897,6 +897,7 @@
         "rmdir": "Rimozione cartella",
         "rename": "Rinomina",
         "delete": "Rimozione",
+        "copy": "Copia",
         "first_upload": "Primo caricamento",
         "first_download": "Primo download",
         "ssh_cmd": "Comando SSH",

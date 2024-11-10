@@ -369,6 +369,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         idActions.append(new Option($.t('events.mkdir'),"mkdir",false,false));
         idActions.append(new Option($.t('events.rmdir'),"rmdir",false,false));
         idActions.append(new Option($.t('events.rename'),"rename",false,false));
+        idActions.append(new Option($.t('events.copy'),"copy",false,false));
         idActions.append(new Option($.t('events.delete'),"delete",false,false));
         idActions.append(new Option($.t('events.first_upload'),"first-upload",false,false));
         idActions.append(new Option($.t('events.first_download'),"first-download",false,false));
@@ -507,6 +508,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                         return  $.t('events.first_download');
                                     case "ssh_cmd":
                                         return  $.t('events.ssh_cmd');
+                                    case "copy":
+                                        return  $.t('events.copy');
                                     default:
                                         console.log(`unknown fs action "${data}"`);
                                         return "";
