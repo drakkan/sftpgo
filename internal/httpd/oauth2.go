@@ -15,12 +15,12 @@
 package httpd
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"sync"
 	"time"
-
-	"github.com/rs/xid"
 
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/kms"
@@ -53,8 +53,10 @@ type oauth2PendingAuth struct {
 }
 
 func newOAuth2PendingAuth(provider int, redirectURL, clientID string, clientSecret *kms.Secret) oauth2PendingAuth {
+	state := sha256.Sum256(util.GenerateRandomBytes(32))
+
 	return oauth2PendingAuth{
-		State:        xid.New().String(),
+		State:        hex.EncodeToString(state[:]),
 		Provider:     provider,
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
