@@ -16,6 +16,7 @@ package httpd
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -203,9 +204,12 @@ type oidcPendingAuth struct {
 }
 
 func newOIDCPendingAuth(audience tokenAudience) oidcPendingAuth {
+	state := sha256.Sum256(util.GenerateRandomBytes(32))
+	nonce := util.GenerateUniqueID()
+
 	return oidcPendingAuth{
-		State:    xid.New().String(),
-		Nonce:    hex.EncodeToString(util.GenerateRandomBytes(20)),
+		State:    hex.EncodeToString(state[:]),
+		Nonce:    nonce,
 		Audience: audience,
 		IssuedAt: util.GetTimeAsMsSinceEpoch(time.Now()),
 	}
