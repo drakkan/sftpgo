@@ -248,11 +248,12 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	dataprovider.UpdateLastLogin(&user)
 
+	// Kopiermonster speaks a 'special' webdav dialect and ceases working if we send a non-200 status code.
 	if s.checkRequestMethod(ctx, r, connection) {
 		w.Header().Set("Content-Type", "text/xml; charset=utf-8")
-		w.WriteHeader(http.StatusMultiStatus)
+		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("")) //nolint:errcheck
-		writeLog(r, http.StatusMultiStatus, nil)
+		writeLog(r, http.StatusOK, nil)
 		return
 	}
 
