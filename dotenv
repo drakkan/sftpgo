@@ -1,0 +1,3 @@
+# Change the name of this file to .env when used locally
+USER=`id -u`
+GROUP=`id -g`
