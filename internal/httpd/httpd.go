@@ -1309,11 +1309,14 @@ func stopCleanupTicker() {
 }
 
 func getSigningKey(signingPassphrase string) []byte {
+	var key []byte
 	if signingPassphrase != "" {
-		sk := sha256.Sum256([]byte(signingPassphrase))
-		return sk[:]
+		key = []byte(signingPassphrase)
+	} else {
+		key = util.GenerateRandomBytes(32)
 	}
-	return util.GenerateRandomBytes(32)
+	sk := sha256.Sum256(key)
+	return sk[:]
 }
 
 // SetInstallationCodeResolver sets a function to call to resolve the installation code
