@@ -34,6 +34,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/cors"
 	"github.com/rs/xid"
+	"github.com/rs/zerolog"
 	"github.com/sftpgo/sdk/plugin/notifier"
 
 	"github.com/drakkan/sftpgo/v2/internal/common"
@@ -390,15 +391,19 @@ func (s *webDavServer) checkRemoteAddress(r *http.Request) string {
 
 func writeLog(r *http.Request, status int, err error) {
 	scheme := "http"
+	cipherSuite := ""
 	if r.TLS != nil {
 		scheme = "https"
+		cipherSuite = tls.CipherSuiteName(r.TLS.CipherSuite)
 	}
 	fields := map[string]any{
-		"remote_addr": r.RemoteAddr,
-		"proto":       r.Proto,
-		"method":      r.Method,
-		"user_agent":  r.UserAgent(),
-		"uri":         fmt.Sprintf("%s://%s%s", scheme, r.Host, r.RequestURI)}
+		"remote_addr":  r.RemoteAddr,
+		"proto":        r.Proto,
+		"method":       r.Method,
+		"user_agent":   r.UserAgent(),
+		"uri":          fmt.Sprintf("%s://%s%s", scheme, r.Host, r.RequestURI),
+		"cipher_suite": cipherSuite,
+	}
 	if reqID, ok := r.Context().Value(requestIDKey).(string); ok {
 		fields["request_id"] = reqID
 	}
@@ -417,7 +422,15 @@ func writeLog(r *http.Request, status int, err error) {
 	if status != 0 {
 		fields["resp_status"] = status
 	}
-	logger.GetLogger().Info().
+	var ev *zerolog.Event
+	if status >= http.StatusInternalServerError {
+		ev = logger.GetLogger().Error()
+	} else if status >= http.StatusBadRequest {
+		ev = logger.GetLogger().Warn()
+	} else {
+		ev = logger.GetLogger().Debug()
+	}
+	ev.
 		Timestamp().
 		Str("sender", logSender).
 		Fields(fields).

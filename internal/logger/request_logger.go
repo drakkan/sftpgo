@@ -15,6 +15,7 @@
 package logger
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
@@ -50,17 +51,21 @@ func NewStructuredLogger(logger *zerolog.Logger) func(next http.Handler) http.Ha
 // NewLogEntry creates a new log entry for an HTTP request
 func (l *StructuredLogger) NewLogEntry(r *http.Request) middleware.LogEntry {
 	scheme := "http"
+	cipherSuite := ""
 	if r.TLS != nil {
 		scheme = "https"
+		cipherSuite = tls.CipherSuiteName(r.TLS.CipherSuite)
 	}
 
 	fields := map[string]any{
-		"local_addr":  getLocalAddress(r),
-		"remote_addr": r.RemoteAddr,
-		"proto":       r.Proto,
-		"method":      r.Method,
-		"user_agent":  r.UserAgent(),
-		"uri":         fmt.Sprintf("%s://%s%s", scheme, r.Host, r.RequestURI)}
+		"local_addr":   getLocalAddress(r),
+		"remote_addr":  r.RemoteAddr,
+		"proto":        r.Proto,
+		"method":       r.Method,
+		"user_agent":   r.UserAgent(),
+		"uri":          fmt.Sprintf("%s://%s%s", scheme, r.Host, r.RequestURI),
+		"cipher_suite": cipherSuite,
+	}
 
 	reqID := middleware.GetReqID(r.Context())
 	if reqID != "" {
