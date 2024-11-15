@@ -3,8 +3,8 @@ Upstream-Name: SFTPGo
 Source: https://github.com/drakkan/sftpgo
 
 Files: *
-Copyright: 2019-2023 Nicola Murino <nicola.murino@gmail.com>
-License: AGPL-3
+Copyright: 2019 Nicola Murino <nicola.murino@gmail.com>
+License: AGPL-3 with additional terms
 
 License: AGPL-3
                     GNU AFFERO GENERAL PUBLIC LICENSE
@@ -668,3 +668,18 @@ specific requirements.
 if any, to sign a "copyright disclaimer" for the program, if necessary.
 For more information on this, and how to apply and follow the GNU AGPL, see
 <https://www.gnu.org/licenses/>.
+
+ADDITIONAL TERMS
+
+Additional terms under GNU AGPL version 3 section 7.3(b) and 13.1:
+
+If you have included SFTPGo so that it is offered through any network
+interactions, including by means of an external user interface, or
+any other integration, even without modifying its source code and then
+SFTPGo is partially, fully or optionally configured via your frontend,
+you must provide reasonable but clear attribution to the SFTPGo project
+and its author(s), not imply any endorsement by or affiliation with the
+SFTPGo project, and you must prominently offer all users interacting
+with it remotely through a computer network an opportunity to receive
+the Corresponding Source of the SFTPGo version you include by providing
+a link to the Corresponding Source in the SFTPGo source code repository.

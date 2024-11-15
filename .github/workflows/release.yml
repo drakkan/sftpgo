@@ -113,8 +113,9 @@ jobs:
           mkdir -p output/{init,sqlite,bash_completion,zsh_completion}
           echo "For documentation please take a look here:" > output/README.txt
           echo "" >> output/README.txt
-          echo "https://github.com/drakkan/sftpgo/blob/${SFTPGO_VERSION}/README.md" >> output/README.txt
+          echo "https://docs.sftpgo.com" >> output/README.txt
           cp LICENSE output/
+          cp NOTICE output/
           cp sftpgo output/
           cp sftpgo.json output/
           cp sftpgo.db output/sqlite/
@@ -145,6 +146,7 @@ jobs:
           copy .\sftpgo.json .\output
           copy .\sftpgo.db .\output
           copy .\LICENSE .\output\LICENSE.txt
+          copy .\NOTICE .\output\NOTICE.txt
           mkdir output\templates
           xcopy .\templates .\output\templates\ /E
           mkdir output\static
@@ -180,7 +182,6 @@ jobs:
           certutil -delstore MY "Nicola Murino"
         env:
           SFTPGO_ISS_VERSION: ${{ steps.get_version.outputs.VERSION }}
-          SFTPGO_ISS_DOC_URL: https://github.com/drakkan/sftpgo/blob/${{ steps.get_version.outputs.VERSION }}/README.md
           CERT_DATA: ${{ secrets.CERT_DATA }}
           CERT_PASS: ${{ secrets.CERT_PASS }}
 
@@ -197,6 +198,7 @@ jobs:
           (Get-Content .\win-portable\sftpgo.json).replace('"sqlite"', '"bolt"') | Set-Content .\win-portable\sftpgo.json
           copy .\output\sftpgo.db .\win-portable
           copy .\LICENSE .\win-portable\LICENSE.txt
+          copy .\NOTICE .\win-portable\NOTICE.txt
           mkdir win-portable\templates
           xcopy .\templates .\win-portable\templates\ /E
           mkdir win-portable\static
@@ -319,6 +321,7 @@ jobs:
           echo "" >> output/README.txt
           echo "https://github.com/drakkan/sftpgo/blob/${SFTPGO_VERSION}/README.md" >> output/README.txt
           cp LICENSE output/
+          cp NOTICE output/
           cp sftpgo.json output/
           cp -r templates output/
           cp -r static output/
@@ -368,6 +371,7 @@ jobs:
             echo "" >> output/README.txt
             echo "https://github.com/drakkan/sftpgo/blob/${{ steps.get_version.outputs.SFTPGO_VERSION }}/README.md" >> output/README.txt
             cp LICENSE output/
+            cp NOTICE output/
             cp sftpgo.json output/
             cp -r templates output/
             cp -r static output/

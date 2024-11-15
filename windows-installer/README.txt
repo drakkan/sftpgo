@@ -32,7 +32,7 @@ You can simply replace the configuration file with the default one after updatin
 
 Documentation:
 
-https://sftpgo.github.io/
+https://docs.sftpgo.com/
 
 Commercial support:
 
