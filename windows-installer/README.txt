@@ -36,7 +36,7 @@ https://docs.sftpgo.com/
 
 Commercial support:
 
-https://sftpgo.com/#pricing
+https://sftpgo.com/
 
 Source code:
 

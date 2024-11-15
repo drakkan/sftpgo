@@ -36,7 +36,7 @@ AppUpdatesURL={#MyAppURL}
 AppCopyright=AGPL-3.0
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
-LicenseFile={#MyAppDir}\LICENSE.txt
+LicenseFile=LICENSE_with_NOTICE.txt
 OutputDir={#MyOutputDir}
 OutputBaseFilename={#MySetupName}
 SetupIconFile=icon.ico
@@ -48,7 +48,7 @@ PrivilegesRequired=admin
 ArchitecturesAllowed={#MyAppArch}
 MinVersion=10.0.14393
 VersionInfoVersion={#MyVersionInfo}
-VersionInfoCopyright=AGPL-3.0
+VersionInfoCopyright=AGPL-3.0 with additional terms
 SignTool=signtool
 SignedUninstaller=yes
 
