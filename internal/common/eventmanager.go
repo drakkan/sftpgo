@@ -95,6 +95,7 @@ func init() {
 			}
 			if u, ok := object.(*dataprovider.User); ok {
 				p.Email = u.Email
+				p.Groups = u.Groups
 			} else if a, ok := object.(*dataprovider.Admin); ok {
 				p.Email = a.Email
 			}
@@ -314,6 +315,9 @@ func (*eventRulesContainer) checkProviderEventMatch(conditions *dataprovider.Eve
 		return false
 	}
 	if !checkEventConditionPatterns(params.Name, conditions.Options.Names) {
+		return false
+	}
+	if !checkEventGroupConditionPatterns(params.Groups, conditions.Options.GroupNames) {
 		return false
 	}
 	if !checkEventConditionPatterns(params.Role, conditions.Options.RoleNames) {

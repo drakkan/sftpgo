@@ -1515,7 +1515,6 @@ func (c *EventConditions) validate(trigger int) error {
 	case EventTriggerProviderEvent:
 		c.FsEvents = nil
 		c.Schedules = nil
-		c.Options.GroupNames = nil
 		c.Options.FsPaths = nil
 		c.Options.Protocols = nil
 		c.Options.EventStatuses = nil

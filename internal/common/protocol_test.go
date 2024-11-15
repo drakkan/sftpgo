@@ -5533,6 +5533,138 @@ func TestEventFsActionsGroupFilters(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestEventProviderActionGroupFilters(t *testing.T) {
+	smtpCfg := smtp.Config{
+		Host:          "127.0.0.1",
+		Port:          2525,
+		From:          "notification@example.com",
+		TemplatesPath: "templates",
+	}
+	err := smtpCfg.Initialize(configDir, true)
+	require.NoError(t, err)
+
+	a1 := dataprovider.BaseEventAction{
+		Name: "a1",
+		Type: dataprovider.ActionTypeEmail,
+		Options: dataprovider.BaseEventActionOptions{
+			EmailConfig: dataprovider.EventActionEmailConfig{
+				Recipients: []string{"example@example.net"},
+				Subject:    `New "{{Event}}" from "{{Name}}"`,
+				Body:       "IP: {{IP}}",
+			},
+		},
+	}
+	action1, _, err := httpdtest.AddEventAction(a1, http.StatusCreated)
+	assert.NoError(t, err)
+
+	r1 := dataprovider.EventRule{
+		Name:    "rule1",
+		Status:  1,
+		Trigger: dataprovider.EventTriggerProviderEvent,
+		Conditions: dataprovider.EventConditions{
+			ProviderEvents: []string{"add", "update"},
+			Options: dataprovider.ConditionOptions{
+				GroupNames: []dataprovider.ConditionPattern{
+					{
+						Pattern: "group_*",
+					},
+				},
+				ProviderObjects: []string{"user"},
+			},
+		},
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action1.Name,
+				},
+				Order: 1,
+			},
+		},
+	}
+	rule1, _, err := httpdtest.AddEventRule(r1, http.StatusCreated)
+	assert.NoError(t, err)
+
+	g1 := dataprovider.Group{
+		BaseGroup: sdk.BaseGroup{
+			Name: "agroup_1",
+		},
+	}
+	group1, _, err := httpdtest.AddGroup(g1, http.StatusCreated)
+	assert.NoError(t, err)
+
+	g2 := dataprovider.Group{
+		BaseGroup: sdk.BaseGroup{
+			Name: "group_2",
+		},
+	}
+	group2, _, err := httpdtest.AddGroup(g2, http.StatusCreated)
+	assert.NoError(t, err)
+
+	u := getTestUser()
+	u.Groups = []sdk.GroupMapping{
+		{
+			Name: group2.Name,
+			Type: sdk.GroupTypePrimary,
+		},
+	}
+
+	lastReceivedEmail.reset()
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	assert.Eventually(t, func() bool {
+		return lastReceivedEmail.get().From != ""
+	}, 1500*time.Millisecond, 100*time.Millisecond)
+	email := lastReceivedEmail.get()
+	assert.Len(t, email.To, 1)
+
+	user.Groups = []sdk.GroupMapping{
+		{
+			Name: group1.Name,
+			Type: sdk.GroupTypePrimary,
+		},
+	}
+
+	lastReceivedEmail.reset()
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	time.Sleep(300 * time.Millisecond)
+	email = lastReceivedEmail.get()
+	assert.Len(t, email.To, 0)
+
+	user.Groups = []sdk.GroupMapping{
+		{
+			Name: group2.Name,
+			Type: sdk.GroupTypePrimary,
+		},
+	}
+
+	lastReceivedEmail.reset()
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	assert.Eventually(t, func() bool {
+		return lastReceivedEmail.get().From != ""
+	}, 1500*time.Millisecond, 100*time.Millisecond)
+	email = lastReceivedEmail.get()
+	assert.Len(t, email.To, 1)
+
+	_, err = httpdtest.RemoveEventRule(rule1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group2, http.StatusOK)
+	assert.NoError(t, err)
+
+	smtpCfg = smtp.Config{}
+	err = smtpCfg.Initialize(configDir, true)
+	require.NoError(t, err)
+}
+
 func TestBackupAsAttachment(t *testing.T) {
 	smtpCfg := smtp.Config{
 		Host:          "127.0.0.1",
