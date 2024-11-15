@@ -17,13 +17,9 @@
     #define MyAppArch64 "x64"
     #define MySetupName "sftpgo_windows_x86_64"
 #endif
-#define MyAppURL "https://github.com/drakkan/sftpgo"
+#define MyAppURL "https://sftpgo.com"
 #define MyVersionInfo StringChange(MyAppVersion,"v","")
-#if GetEnv("SFTPGO_ISS_DOC_URL") != ""
-    #define DocURL GetEnv("SFTPGO_ISS_DOC_URL")
-#else
-    #define DocURL "https://github.com/drakkan/sftpgo/blob/main/README.md"
-#endif
+#define DocURL "https://docs.sftpgo.com"
 #define MyAppExeName "sftpgo.exe"
 #define MyAppDir "..\output"
 #define MyOutputDir ".."
@@ -63,6 +59,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Source: "{#MyAppDir}\sftpgo.exe"; DestDir: "{app}"; Flags: ignoreversion signonce
 Source: "{#MyAppDir}\sftpgo.db"; DestDir: "{commonappdata}\{#MyAppName}"; Flags: onlyifdoesntexist uninsneveruninstall
 Source: "{#MyAppDir}\LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#MyAppDir}\NOTICE.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#MyAppDir}\sftpgo.json"; DestDir: "{commonappdata}\{#MyAppName}"; Flags: onlyifdoesntexist uninsneveruninstall
 Source: "{#MyAppDir}\sftpgo.json"; DestDir: "{commonappdata}\{#MyAppName}"; DestName: "sftpgo_default.json"; Flags: ignoreversion
 Source: "{#MyAppDir}\templates\*"; DestDir: "{commonappdata}\{#MyAppName}\templates"; Flags: ignoreversion recursesubdirs createallsubdirs

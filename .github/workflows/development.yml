@@ -135,6 +135,7 @@ jobs:
           copy .\sftpgo.json .\output
           copy .\sftpgo.db .\output
           copy .\LICENSE .\output\LICENSE.txt
+          copy .\NOTICE .\output\NOTICE.txt
           mkdir output\templates
           xcopy .\templates .\output\templates\ /E
           mkdir output\static

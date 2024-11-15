@@ -83,6 +83,12 @@ contents:
   - src: "${BASE_DIR}/openapi/*"
     dst: "/usr/share/sftpgo/openapi"
 
+  - src: "${BASE_DIR}/LICENSE"
+    dst: "/usr/share/licenses/sftpgo/LICENSE"
+
+  - src: "${BASE_DIR}/NOTICE"
+    dst: "/usr/share/licenses/sftpgo/NOTICE"
+
   - src: "./sftpgo.json"
     dst: "/etc/sftpgo/sftpgo.json"
     type: "config|noreplace"
