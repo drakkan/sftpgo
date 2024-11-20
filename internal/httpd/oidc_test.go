@@ -152,8 +152,8 @@ func TestOIDCLoginLogout(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), util.I18nInvalidAuth)
 
 	expiredAuthReq := oidcPendingAuth{
-		State:    xid.New().String(),
-		Nonce:    xid.New().String(),
+		State:    util.GenerateOpaqueString(),
+		Nonce:    util.GenerateOpaqueString(),
 		Audience: tokenAudienceWebClient,
 		IssuedAt: util.GetTimeAsMsSinceEpoch(time.Now().Add(-10 * time.Minute)),
 	}
@@ -564,7 +564,7 @@ func TestOIDCRefreshToken(t *testing.T) {
 	r, err := http.NewRequest(http.MethodGet, webUsersPath, nil)
 	assert.NoError(t, err)
 	token := oidcToken{
-		Cookie:      xid.New().String(),
+		Cookie:      util.GenerateOpaqueString(),
 		AccessToken: xid.New().String(),
 		TokenType:   "Bearer",
 		ExpiresAt:   util.GetTimeAsMsSinceEpoch(time.Now().Add(-1 * time.Minute)),
@@ -668,7 +668,7 @@ func TestOIDCRefreshToken(t *testing.T) {
 
 func TestOIDCRefreshUser(t *testing.T) {
 	token := oidcToken{
-		Cookie:      xid.New().String(),
+		Cookie:      util.GenerateOpaqueString(),
 		AccessToken: xid.New().String(),
 		TokenType:   "Bearer",
 		ExpiresAt:   util.GetTimeAsMsSinceEpoch(time.Now().Add(1 * time.Minute)),
@@ -782,7 +782,7 @@ func TestValidateOIDCToken(t *testing.T) {
 		},
 	}
 	token := oidcToken{
-		Cookie:      xid.New().String(),
+		Cookie:      util.GenerateOpaqueString(),
 		AccessToken: xid.New().String(),
 		ExpiresAt:   util.GetTimeAsMsSinceEpoch(time.Now().Add(-2 * time.Minute)),
 	}
@@ -798,8 +798,8 @@ func TestValidateOIDCToken(t *testing.T) {
 
 	server.tokenAuth = jwtauth.New("PS256", util.GenerateRandomBytes(32), nil)
 	token = oidcToken{
-		Cookie:      xid.New().String(),
-		AccessToken: xid.New().String(),
+		Cookie:      util.GenerateOpaqueString(),
+		AccessToken: util.GenerateUniqueID(),
 	}
 	oidcMgr.addToken(token)
 	rr = httptest.NewRecorder()
@@ -813,7 +813,7 @@ func TestValidateOIDCToken(t *testing.T) {
 	assert.Len(t, oidcMgr.tokens, 0)
 
 	token = oidcToken{
-		Cookie:      xid.New().String(),
+		Cookie:      util.GenerateOpaqueString(),
 		AccessToken: xid.New().String(),
 		Role:        "admin",
 	}
@@ -1107,7 +1107,7 @@ func TestMemoryOIDCManager(t *testing.T) {
 		AccessToken: xid.New().String(),
 		Nonce:       xid.New().String(),
 		SessionID:   xid.New().String(),
-		Cookie:      xid.New().String(),
+		Cookie:      util.GenerateOpaqueString(),
 		Username:    xid.New().String(),
 		Role:        "admin",
 		Permissions: []string{dataprovider.PermAdminAny},
@@ -1157,7 +1157,7 @@ func TestMemoryOIDCManager(t *testing.T) {
 	token.UsedAt = usedAt
 	oidcMgr.tokens[token.Cookie] = token
 	newToken := oidcToken{
-		Cookie: xid.New().String(),
+		Cookie: util.GenerateOpaqueString(),
 	}
 	oidcMgr.addToken(newToken)
 	oidcMgr.cleanup()
@@ -1663,7 +1663,7 @@ func TestDbOIDCManager(t *testing.T) {
 	}
 
 	token := oidcToken{
-		Cookie:       xid.New().String(),
+		Cookie:       util.GenerateOpaqueString(),
 		AccessToken:  xid.New().String(),
 		TokenType:    "Bearer",
 		RefreshToken: xid.New().String(),

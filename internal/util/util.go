@@ -22,8 +22,10 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -550,7 +552,7 @@ func createDirPathIfMissing(file string, perm os.FileMode) error {
 	return nil
 }
 
-// GenerateRandomBytes generates the secret to use for JWT auth
+// GenerateRandomBytes generates random bytes with the specified length
 func GenerateRandomBytes(length int) []byte {
 	b := make([]byte, length)
 	_, err := io.ReadFull(rand.Reader, b)
@@ -558,6 +560,12 @@ func GenerateRandomBytes(length int) []byte {
 		PanicOnError(fmt.Errorf("failed to read random data (see https://go.dev/issue/66821): %w", err))
 	}
 	return b
+}
+
+// GenerateOpaqueString generates a cryptographically secure opaque string
+func GenerateOpaqueString() string {
+	randomBytes := sha256.Sum256(GenerateRandomBytes(32))
+	return hex.EncodeToString(randomBytes[:])
 }
 
 // GenerateUniqueID returns an unique ID

@@ -15,8 +15,6 @@
 package httpd
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"sync"
@@ -53,10 +51,8 @@ type oauth2PendingAuth struct {
 }
 
 func newOAuth2PendingAuth(provider int, redirectURL, clientID string, clientSecret *kms.Secret) oauth2PendingAuth {
-	state := sha256.Sum256(util.GenerateRandomBytes(32))
-
 	return oauth2PendingAuth{
-		State:        hex.EncodeToString(state[:]),
+		State:        util.GenerateOpaqueString(),
 		Provider:     provider,
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
