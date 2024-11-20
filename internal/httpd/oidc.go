@@ -16,8 +16,6 @@ package httpd
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
@@ -203,12 +201,9 @@ type oidcPendingAuth struct {
 }
 
 func newOIDCPendingAuth(audience tokenAudience) oidcPendingAuth {
-	state := sha256.Sum256(util.GenerateRandomBytes(32))
-	nonce := util.GenerateUniqueID()
-
 	return oidcPendingAuth{
-		State:    hex.EncodeToString(state[:]),
-		Nonce:    nonce,
+		State:    util.GenerateOpaqueString(),
+		Nonce:    util.GenerateOpaqueString(),
 		Audience: audience,
 		IssuedAt: util.GetTimeAsMsSinceEpoch(time.Now()),
 	}
@@ -668,7 +663,7 @@ func (s *httpdServer) handleOIDCRedirect(w http.ResponseWriter, r *http.Request)
 		RefreshToken: oauth2Token.RefreshToken,
 		IDToken:      rawIDToken,
 		Nonce:        idToken.Nonce,
-		Cookie:       xid.New().String(),
+		Cookie:       util.GenerateOpaqueString(),
 	}
 	if !oauth2Token.Expiry.IsZero() {
 		token.ExpiresAt = util.GetTimeAsMsSinceEpoch(oauth2Token.Expiry)
