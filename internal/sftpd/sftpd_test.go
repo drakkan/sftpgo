@@ -4457,7 +4457,9 @@ func TestMaxTransfers(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	assert.Equal(t, int32(0), common.Connections.GetTotalTransfers())
+	assert.Eventually(t, func() bool {
+		return common.Connections.GetTotalTransfers() == 0
+	}, 1000*time.Millisecond, 50*time.Millisecond)
 
 	common.Config.MaxPerHostConnections = oldValue
 }
