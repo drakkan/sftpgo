@@ -80,7 +80,7 @@ func ServeSubSystemConnection(user *dataprovider.User, connectionID string, read
 		FilePut:  connection,
 		FileCmd:  connection,
 		FileList: connection,
-	}, sftp.WithRSAllocator())
+	})
 
 	defer server.Close()
 	return server.Serve()
