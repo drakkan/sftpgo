@@ -575,6 +575,7 @@ func validateBrowsableShare(share dataprovider.Share, connection *Connection) er
 	basePath := share.Paths[0]
 	info, err := connection.Stat(basePath, 0)
 	if err != nil {
+		connection.CloseFS() //nolint:errcheck
 		return util.NewI18nError(
 			fmt.Errorf("unable to check the share directory: %w", err),
 			util.I18nErrorShareInvalidPath,

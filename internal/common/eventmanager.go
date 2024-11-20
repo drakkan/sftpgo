@@ -1374,6 +1374,9 @@ func getHTTPRuleActionBody(c *dataprovider.EventActionHTTPConfig, replacer *stri
 		go func() {
 			defer w.Close()
 			defer user.CloseFs() //nolint:errcheck
+			if conn != nil {
+				defer conn.CloseFS() //nolint:errcheck
+			}
 
 			for _, part := range c.Parts {
 				h := make(textproto.MIMEHeader)
@@ -1591,6 +1594,8 @@ func executeEmailRuleAction(c dataprovider.EventActionEmailConfig, params *Event
 			return fmt.Errorf("error getting email attachments, unable to check root fs for user %q: %w", user.Username, err)
 		}
 		conn := NewBaseConnection(connectionID, protocolEventAction, "", "", user)
+		defer conn.CloseFS() //nolint:errcheck
+
 		res, err := getMailAttachments(conn, fileAttachments, replacer)
 		if err != nil {
 			return err
@@ -1652,6 +1657,8 @@ func executeDeleteFsActionForUser(deletes []string, replacer *strings.Replacer, 
 		return fmt.Errorf("delete error, unable to check root fs for user %q: %w", user.Username, err)
 	}
 	conn := NewBaseConnection(connectionID, protocolEventAction, "", "", user)
+	defer conn.CloseFS() //nolint:errcheck
+
 	for _, item := range replacePathsPlaceholders(deletes, replacer) {
 		info, err := conn.DoStat(item, 0, false)
 		if err != nil {
@@ -1720,6 +1727,8 @@ func executeMkDirsFsActionForUser(dirs []string, replacer *strings.Replacer, use
 		return fmt.Errorf("mkdir error, unable to check root fs for user %q: %w", user.Username, err)
 	}
 	conn := NewBaseConnection(connectionID, protocolEventAction, "", "", user)
+	defer conn.CloseFS() //nolint:errcheck
+
 	for _, item := range replacePathsPlaceholders(dirs, replacer) {
 		if err = conn.CheckParentDirs(path.Dir(item)); err != nil {
 			return fmt.Errorf("unable to check parent dirs for %q, user %q: %w", item, user.Username, err)
@@ -1779,6 +1788,8 @@ func executeRenameFsActionForUser(renames []dataprovider.RenameConfig, replacer 
 		return fmt.Errorf("rename error, unable to check root fs for user %q: %w", user.Username, err)
 	}
 	conn := NewBaseConnection(connectionID, protocolEventAction, "", "", user)
+	defer conn.CloseFS() //nolint:errcheck
+
 	for _, item := range renames {
 		source := util.CleanPath(replaceWithReplacer(item.Key, replacer))
 		target := util.CleanPath(replaceWithReplacer(item.Value, replacer))
@@ -1808,6 +1819,8 @@ func executeCopyFsActionForUser(keyVals []dataprovider.KeyValue, replacer *strin
 		return fmt.Errorf("copy error, unable to check root fs for user %q: %w", user.Username, err)
 	}
 	conn := NewBaseConnection(connectionID, protocolEventAction, "", "", user)
+	defer conn.CloseFS() //nolint:errcheck
+
 	for _, item := range keyVals {
 		source := util.CleanPath(replaceWithReplacer(item.Key, replacer))
 		target := util.CleanPath(replaceWithReplacer(item.Value, replacer))
@@ -1839,6 +1852,8 @@ func executeExistFsActionForUser(exist []string, replacer *strings.Replacer,
 		return fmt.Errorf("existence check error, unable to check root fs for user %q: %w", user.Username, err)
 	}
 	conn := NewBaseConnection(connectionID, protocolEventAction, "", "", user)
+	defer conn.CloseFS() //nolint:errcheck
+
 	for _, item := range replacePathsPlaceholders(exist, replacer) {
 		if _, err = conn.DoStat(item, 0, false); err != nil {
 			return fmt.Errorf("error checking existence for path %q, user %q: %w", item, user.Username, err)
@@ -1997,6 +2012,8 @@ func executeCompressFsActionForUser(c dataprovider.EventActionFsCompress, replac
 		return fmt.Errorf("compress error, unable to check root fs for user %q: %w", user.Username, err)
 	}
 	conn := NewBaseConnection(connectionID, protocolEventAction, "", "", user)
+	defer conn.CloseFS() //nolint:errcheck
+
 	name := util.CleanPath(replaceWithReplacer(c.Name, replacer))
 	conn.CheckParentDirs(path.Dir(name)) //nolint:errcheck
 	paths := make([]string, 0, len(c.Paths))
