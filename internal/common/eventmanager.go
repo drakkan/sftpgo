@@ -1328,7 +1328,7 @@ func writeHTTPPart(m *multipart.Writer, part dataprovider.HTTPPart, h textproto.
 	return nil
 }
 
-func getHTTPRuleActionBody(c *dataprovider.EventActionHTTPConfig, replacer *strings.Replacer,
+func getHTTPRuleActionBody(c *dataprovider.EventActionHTTPConfig, replacer *strings.Replacer, //nolint:gocyclo
 	cancel context.CancelFunc, user dataprovider.User, params *EventParams, addObjectData bool,
 ) (io.Reader, string, error) {
 	var body io.Reader
