@@ -4,8 +4,12 @@ on:
   push:
     tags: 'v*'
 
+permissions:
+  id-token: write
+  contents: write
+
 env:
-  GO_VERSION: 1.22.4
+  GO_VERSION: 1.23.3
 
 jobs:
   prepare-sources-with-deps:
@@ -38,12 +42,10 @@ jobs:
           path: ./sftpgo_${{ steps.get_version.outputs.VERSION }}_src_with_deps.tar.xz
           retention-days: 1
 
-  prepare-window-mac:
-    name: Prepare binaries
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [macos-12, windows-2022]
+  prepare-windows:
+    name: Prepare Windows binaries
+    environment: signing
+    runs-on: windows-2022
 
     steps:
       - uses: actions/checkout@v4
@@ -52,34 +54,19 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
       - name: Get SFTPGo version
         id: get_version
         run: echo "VERSION=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_OUTPUT
         shell: bash
 
-      - name: Get OS name
-        id: get_os_name
-        run: |
-          if [[ $MATRIX_OS =~ ^macos.* ]]
-          then
-            echo "OS=macOS" >> $GITHUB_OUTPUT
-          else
-            echo "OS=windows" >> $GITHUB_OUTPUT
-          fi
-        shell: bash
-        env:
-          MATRIX_OS: ${{ matrix.os }}
-
-      - name: Build for macOS x86_64
-        if: startsWith(matrix.os, 'windows-') != true
-        run: go build -trimpath -tags nopgxregisterdefaulttypes,disable_grpc_modules -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -o sftpgo
-
-      - name: Build for macOS arm64
-        if: startsWith(matrix.os, 'macos-') == true
-        run: CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 SDKROOT=$(xcrun --sdk macosx --show-sdk-path) go build -trimpath -tags nopgxregisterdefaulttypes,disable_grpc_modules -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -o sftpgo_arm64
-
-      - name: Build for Windows
-        if: startsWith(matrix.os, 'windows-')
+      - name: Build
         run: |
           $GIT_COMMIT = (git describe --always --abbrev=8 --dirty) | Out-String
           $DATE_TIME = ([datetime]::Now.ToUniversalTime().toString("yyyy-MM-ddTHH:mm:ssZ")) | Out-String
@@ -103,43 +90,33 @@ jobs:
         env:
           SFTPGO_VERSION: ${{ steps.get_version.outputs.VERSION }}
 
+      - name: Sign binaries
+        uses: azure/trusted-signing-action@v0.5.0
+        with:
+          endpoint: https://eus.codesigning.azure.net/
+          trusted-signing-account-name: nicola
+          certificate-profile-name: SFTPGo
+          files: ${{ github.workspace }}\sftpgo.exe,${{ github.workspace }}\arm64\sftpgo.exe,${{ github.workspace }}\x86\sftpgo.exe
+          files-folder-filter: exe,dll
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+          exclude-environment-credential: true
+          exclude-workload-identity-credential: true
+          exclude-managed-identity-credential: true
+          exclude-shared-token-cache-credential: true
+          exclude-visual-studio-credential: true
+          exclude-visual-studio-code-credential: true
+          exclude-azure-cli-credential: false
+          exclude-azure-powershell-credential: true
+          exclude-azure-developer-cli-credential: true
+          exclude-interactive-browser-credential: true
+
       - name: Initialize data provider
         run: ./sftpgo initprovider
         shell: bash
 
-      - name: Prepare Release for macOS
-        if: startsWith(matrix.os, 'macos-')
-        run: |
-          mkdir -p output/{init,sqlite,bash_completion,zsh_completion}
-          echo "For documentation please take a look here:" > output/README.txt
-          echo "" >> output/README.txt
-          echo "https://docs.sftpgo.com" >> output/README.txt
-          cp LICENSE output/
-          cp NOTICE output/
-          cp sftpgo output/
-          cp sftpgo.json output/
-          cp sftpgo.db output/sqlite/
-          cp -r static output/
-          cp -r openapi output/
-          cp -r templates output/
-          cp init/com.github.drakkan.sftpgo.plist output/init/
-          ./sftpgo gen completion bash > output/bash_completion/sftpgo
-          ./sftpgo gen completion zsh > output/zsh_completion/_sftpgo
-          ./sftpgo gen man -d output/man/man1
-          gzip output/man/man1/*
-          cd output
-          tar cJvf ../sftpgo_${SFTPGO_VERSION}_${OS}_x86_64.tar.xz *
-          cd ..
-          cp sftpgo_arm64 output/sftpgo
-          cd output
-          tar cJvf ../sftpgo_${SFTPGO_VERSION}_${OS}_arm64.tar.xz *
-          cd ..
-        env:
-          SFTPGO_VERSION: ${{ steps.get_version.outputs.VERSION }}
-          OS: ${{ steps.get_os_name.outputs.OS }}
-
-      - name: Prepare Release for Windows
-        if: startsWith(matrix.os, 'windows-')
+      - name: Prepare Release
         run: |
           mkdir output
           copy .\sftpgo.exe .\output
@@ -153,16 +130,7 @@ jobs:
           xcopy .\static .\output\static\ /E
           mkdir output\openapi
           xcopy .\openapi .\output\openapi\ /E
-          $CERT_PATH=(Get-Location -PSProvider FileSystem).ProviderPath + "\cert.pfx"
-          [IO.File]::WriteAllBytes($CERT_PATH,[System.Convert]::FromBase64String($Env:CERT_DATA))
-          certutil -f -p "$Env:CERT_PASS" -importpfx MY "$CERT_PATH"
-          rm "$CERT_PATH"
-          & 'C:/Program Files (x86)/Windows Kits/10/bin/10.0.20348.0/x86/signtool.exe' sign /sm /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /n "Nicola Murino" /d "SFTPGo" .\sftpgo.exe
-          & 'C:/Program Files (x86)/Windows Kits/10/bin/10.0.20348.0/x86/signtool.exe' sign /sm /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /n "Nicola Murino" /d "SFTPGo" .\arm64\sftpgo.exe
-          & 'C:/Program Files (x86)/Windows Kits/10/bin/10.0.20348.0/x86/signtool.exe' sign /sm /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /n "Nicola Murino" /d "SFTPGo" .\x86\sftpgo.exe
-          $INNO_S='/Ssigntool=$qC:/Program Files (x86)/Windows Kits/10/bin/10.0.20348.0/x86/signtool.exe$q sign /sm /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /n $qNicola Murino$q /d $qSFTPGo$q $f'
-          iscc "$INNO_S" .\windows-installer\sftpgo.iss
-
+          iscc .\windows-installer\sftpgo.iss
           rm .\output\sftpgo.exe
           rm .\output\sftpgo.db
           copy .\arm64\sftpgo.exe .\output
@@ -173,20 +141,38 @@ jobs:
           Remove-Item Env:\SFTPGO_DATA_PROVIDER__DRIVER
           Remove-Item Env:\SFTPGO_DATA_PROVIDER__NAME
           $Env:SFTPGO_ISS_ARCH='arm64'
-          iscc "$INNO_S" .\windows-installer\sftpgo.iss
+          iscc .\windows-installer\sftpgo.iss
 
           rm .\output\sftpgo.exe
           copy .\x86\sftpgo.exe .\output
           $Env:SFTPGO_ISS_ARCH='x86'
-          iscc "$INNO_S" .\windows-installer\sftpgo.iss
-          certutil -delstore MY "Nicola Murino"
+          iscc .\windows-installer\sftpgo.iss
         env:
           SFTPGO_ISS_VERSION: ${{ steps.get_version.outputs.VERSION }}
-          CERT_DATA: ${{ secrets.CERT_DATA }}
-          CERT_PASS: ${{ secrets.CERT_PASS }}
 
-      - name: Prepare Portable Release for Windows
-        if: startsWith(matrix.os, 'windows-')
+      - name: Sign installers
+        uses: azure/trusted-signing-action@v0.5.0
+        with:
+          endpoint: https://eus.codesigning.azure.net/
+          trusted-signing-account-name: nicola
+          certificate-profile-name: SFTPGo
+          files: ${{ github.workspace }}\sftpgo_windows_x86_64.exe,${{ github.workspace }}\sftpgo_windows_arm64.exe,${{ github.workspace }}\sftpgo_windows_x86.exe
+          files-folder-filter: exe,dll
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+          exclude-environment-credential: true
+          exclude-workload-identity-credential: true
+          exclude-managed-identity-credential: true
+          exclude-shared-token-cache-credential: true
+          exclude-visual-studio-credential: true
+          exclude-visual-studio-code-credential: true
+          exclude-azure-cli-credential: false
+          exclude-azure-powershell-credential: true
+          exclude-azure-developer-cli-credential: true
+          exclude-interactive-browser-credential: true
+
+      - name: Prepare Portable Release
         run: |
           mkdir win-portable
           copy .\sftpgo.exe .\win-portable
@@ -207,52 +193,101 @@ jobs:
           xcopy .\openapi .\win-portable\openapi\ /E
           Compress-Archive .\win-portable\* sftpgo_portable.zip
 
-      - name: Upload macOS x86_64 artifact
-        if: startsWith(matrix.os, 'macos-')
-        uses: actions/upload-artifact@v4
-        with:
-          name: sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_x86_64.tar.xz
-          path: ./sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_x86_64.tar.xz
-          retention-days: 1
-
-      - name: Upload macOS arm64 artifact
-        if: startsWith(matrix.os, 'macos-')
-        uses: actions/upload-artifact@v4
-        with:
-          name: sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_arm64.tar.xz
-          path: ./sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_arm64.tar.xz
-          retention-days: 1
-
       - name: Upload Windows installer x86_64 artifact
-        if: startsWith(matrix.os, 'windows-')
         uses: actions/upload-artifact@v4
         with:
-          name: sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_x86_64.exe
+          name: sftpgo_${{ steps.get_version.outputs.VERSION }}_windows_x86_64.exe
           path: ./sftpgo_windows_x86_64.exe
           retention-days: 1
 
       - name: Upload Windows installer arm64 artifact
-        if: startsWith(matrix.os, 'windows-')
         uses: actions/upload-artifact@v4
         with:
-          name: sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_arm64.exe
+          name: sftpgo_${{ steps.get_version.outputs.VERSION }}_windows_arm64.exe
           path: ./sftpgo_windows_arm64.exe
           retention-days: 1
 
       - name: Upload Windows installer x86 artifact
-        if: startsWith(matrix.os, 'windows-')
         uses: actions/upload-artifact@v4
         with:
-          name: sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_x86.exe
+          name: sftpgo_${{ steps.get_version.outputs.VERSION }}_windows_x86.exe
           path: ./sftpgo_windows_x86.exe
           retention-days: 1
 
       - name: Upload Windows portable artifact
-        if: startsWith(matrix.os, 'windows-')
         uses: actions/upload-artifact@v4
         with:
-          name: sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_portable.zip
+          name: sftpgo_${{ steps.get_version.outputs.VERSION }}_windows_portable.zip
           path: ./sftpgo_portable.zip
+          retention-days: 1
+
+  prepare-mac:
+    name: Prepare macOS binaries
+    runs-on: macos-12
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Get SFTPGo version
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Build for macOS x86_64
+        run: go build -trimpath -tags nopgxregisterdefaulttypes,disable_grpc_modules -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -o sftpgo
+
+      - name: Build for macOS arm64
+        run: CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 SDKROOT=$(xcrun --sdk macosx --show-sdk-path) go build -trimpath -tags nopgxregisterdefaulttypes,disable_grpc_modules -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -o sftpgo_arm64
+
+      - name: Initialize data provider
+        run: ./sftpgo initprovider
+        shell: bash
+
+      - name: Prepare Release
+        run: |
+          mkdir -p output/{init,sqlite,bash_completion,zsh_completion}
+          echo "For documentation please take a look here:" > output/README.txt
+          echo "" >> output/README.txt
+          echo "https://docs.sftpgo.com" >> output/README.txt
+          cp LICENSE output/
+          cp NOTICE output/
+          cp sftpgo output/
+          cp sftpgo.json output/
+          cp sftpgo.db output/sqlite/
+          cp -r static output/
+          cp -r openapi output/
+          cp -r templates output/
+          cp init/com.github.drakkan.sftpgo.plist output/init/
+          ./sftpgo gen completion bash > output/bash_completion/sftpgo
+          ./sftpgo gen completion zsh > output/zsh_completion/_sftpgo
+          ./sftpgo gen man -d output/man/man1
+          gzip output/man/man1/*
+          cd output
+          tar cJvf ../sftpgo_${SFTPGO_VERSION}_macOS_x86_64.tar.xz *
+          cd ..
+          cp sftpgo_arm64 output/sftpgo
+          cd output
+          tar cJvf ../sftpgo_${SFTPGO_VERSION}_macOS_arm64.tar.xz *
+          cd ..
+        env:
+          SFTPGO_VERSION: ${{ steps.get_version.outputs.VERSION }}
+
+      - name: Upload macOS x86_64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sftpgo_${{ steps.get_version.outputs.VERSION }}_macOS_x86_64.tar.xz
+          path: ./sftpgo_${{ steps.get_version.outputs.VERSION }}_macOS_x86_64.tar.xz
+          retention-days: 1
+
+      - name: Upload macOS arm64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sftpgo_${{ steps.get_version.outputs.VERSION }}_macOS_arm64.tar.xz
+          path: ./sftpgo_${{ steps.get_version.outputs.VERSION }}_macOS_arm64.tar.xz
           retention-days: 1
 
   prepare-linux:
@@ -479,7 +514,7 @@ jobs:
 
   create-release:
     name: Release
-    needs: [prepare-linux-bundle, prepare-sources-with-deps, prepare-window-mac]
+    needs: [prepare-linux-bundle, prepare-sources-with-deps, prepare-mac, prepare-windows]
     runs-on: ubuntu-latest
 
     steps:
