@@ -96,8 +96,10 @@ jobs:
           endpoint: https://eus.codesigning.azure.net/
           trusted-signing-account-name: nicola
           certificate-profile-name: SFTPGo
-          files: ${{ github.workspace }}\sftpgo.exe,${{ github.workspace }}\arm64\sftpgo.exe,${{ github.workspace }}\x86\sftpgo.exe
-          files-folder-filter: exe,dll
+          files: |
+            ${{ github.workspace }}\sftpgo.exe
+            ${{ github.workspace }}\arm64\sftpgo.exe
+            ${{ github.workspace }}\x86\sftpgo.exe
           file-digest: SHA256
           timestamp-rfc3161: http://timestamp.acs.microsoft.com
           timestamp-digest: SHA256
@@ -156,8 +158,10 @@ jobs:
           endpoint: https://eus.codesigning.azure.net/
           trusted-signing-account-name: nicola
           certificate-profile-name: SFTPGo
-          files: ${{ github.workspace }}\sftpgo_windows_x86_64.exe,${{ github.workspace }}\sftpgo_windows_arm64.exe,${{ github.workspace }}\sftpgo_windows_x86.exe
-          files-folder-filter: exe,dll
+          files: |
+            ${{ github.workspace }}\sftpgo_windows_x86_64.exe
+            ${{ github.workspace }}\sftpgo_windows_arm64.exe
+            ${{ github.workspace }}\sftpgo_windows_x86.exe
           file-digest: SHA256
           timestamp-rfc3161: http://timestamp.acs.microsoft.com
           timestamp-digest: SHA256

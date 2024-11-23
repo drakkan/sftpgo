@@ -109,6 +109,7 @@ jobs:
           fetch-depth: 0
 
       - name: Azure login
+        if: ${{ github.event_name != 'pull_request' }}
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -152,13 +153,16 @@ jobs:
           Remove-Item Env:\GOARCH
 
       - name: Sign binaries
+        if: ${{ github.event_name != 'pull_request' }}
         uses: azure/trusted-signing-action@v0.5.0
         with:
           endpoint: https://eus.codesigning.azure.net/
           trusted-signing-account-name: nicola
           certificate-profile-name: SFTPGo
-          files: ${{ github.workspace }}\sftpgo.exe,${{ github.workspace }}\arm64\sftpgo.exe,${{ github.workspace }}\x86\sftpgo.exe
-          files-folder-filter: exe,dll
+          files: |
+            ${{ github.workspace }}\sftpgo.exe
+            ${{ github.workspace }}\arm64\sftpgo.exe
+            ${{ github.workspace }}\x86\sftpgo.exe
           file-digest: SHA256
           timestamp-rfc3161: http://timestamp.acs.microsoft.com
           timestamp-digest: SHA256
@@ -243,13 +247,16 @@ jobs:
           iscc .\windows-installer\sftpgo.iss
 
       - name: Sign installers
+        if: ${{ github.event_name != 'pull_request' }}
         uses: azure/trusted-signing-action@v0.5.0
         with:
           endpoint: https://eus.codesigning.azure.net/
           trusted-signing-account-name: nicola
           certificate-profile-name: SFTPGo
-          files: ${{ github.workspace }}\sftpgo_windows_x86_64.exe,${{ github.workspace }}\sftpgo_windows_arm64.exe,${{ github.workspace }}\sftpgo_windows_x86.exe
-          files-folder-filter: exe,dll
+          files: |
+            ${{ github.workspace }}\sftpgo_windows_x86_64.exe
+            ${{ github.workspace }}\sftpgo_windows_arm64.exe
+            ${{ github.workspace }}\sftpgo_windows_x86.exe
           file-digest: SHA256
           timestamp-rfc3161: http://timestamp.acs.microsoft.com
           timestamp-digest: SHA256
