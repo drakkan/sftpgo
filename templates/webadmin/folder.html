@@ -108,19 +108,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
             <div class="d-flex justify-content-end mt-12">
                 <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
-                {{- if eq .Mode 3}}
-                <button type="submit" id="form_generate_submit" class="btn btn-secondary px-10 me-10" name="form_action" value="export_from_template">
-                    <span data-i18n="virtual_folders.submit_export" class="indicator-label">
-                        Generate and export folders
-                    </span>
-                    <span data-i18n="general.wait" class="indicator-progress">
-                        Please wait...
-                        <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
-                    </span>
-                </button>
-                {{- end}}
                 <button type="submit" id="form_submit" class="btn btn-primary px-10" name="form_action" value="submit">
-                    <span {{if eq .Mode 3}}data-i18n="virtual_folders.submit_generate"{{else}}data-i18n="general.submit"{{end}} class="indicator-label">
+                    <span data-i18n="general.submit" class="indicator-label">
                         Submit
                     </span>
                     <span data-i18n="general.wait" class="indicator-progress">

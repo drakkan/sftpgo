@@ -300,14 +300,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 actions+=`<div class="menu-item px-3">
 										      <a data-i18n="general.edit" href="#" class="menu-link px-3" data-table-action="edit_row">Edit</a>
 										  </div>`;
-                                //{{- end}}
-                                //{{- if .LoggedUser.HasPermission "*"}}
                                 numActions++;
                                 actions+=`<div class="menu-item px-3">
 										      <a data-i18n="general.template" href="#" class="menu-link px-3" data-table-action="template_row">Template</a>
 										  </div>`;
-                                //{{- end}}
-                                //{{- if .LoggedUser.HasPermission "manage_folders"}}
                                 numActions++;
                                 actions+=`<div class="menu-item px-3">
                                              <a data-i18n="general.delete" href="#" class="menu-link text-danger px-3" data-table-action="delete_row">Delete</a>

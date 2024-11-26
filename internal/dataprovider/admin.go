@@ -547,6 +547,16 @@ func (a *Admin) HasPermission(perm string) bool {
 	return slices.Contains(a.Permissions, perm)
 }
 
+// HasPermissions returns true if the admin has all the specified permissions
+func (a *Admin) HasPermissions(perms ...string) bool {
+	for _, perm := range perms {
+		if !a.HasPermission(perm) {
+			return false
+		}
+	}
+	return len(perms) > 0
+}
+
 // GetAllowedIPAsString returns the allowed IP as comma separated string
 func (a *Admin) GetAllowedIPAsString() string {
 	return strings.Join(a.Filters.AllowList, ",")

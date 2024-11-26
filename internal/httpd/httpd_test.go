@@ -13555,7 +13555,9 @@ func TestMaxTransfers(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	assert.Len(t, common.Connections.GetStats(""), 0)
+	assert.Eventually(t, func() bool {
+		return len(common.Connections.GetStats("")) == 0
+	}, 1000*time.Millisecond, 50*time.Millisecond)
 	assert.Eventually(t, func() bool {
 		return common.Connections.GetTotalTransfers() == 0
 	}, 1000*time.Millisecond, 50*time.Millisecond)
@@ -22158,108 +22160,6 @@ func TestRenderUserTemplateMock(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestUserTemplateWithFoldersMock(t *testing.T) {
-	folder := vfs.BaseVirtualFolder{
-		Name:        "vfolder",
-		MappedPath:  filepath.Join(os.TempDir(), "mapped"),
-		Description: "vfolder desc with spéciàl ch@rs",
-	}
-
-	token, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
-	assert.NoError(t, err)
-	csrfToken, err := getCSRFTokenFromInternalPageMock(webTemplateFolder, token)
-	assert.NoError(t, err)
-	user := getTestUser()
-	form := make(url.Values)
-	form.Set("username", user.Username)
-	form.Set("home_dir", filepath.Join(os.TempDir(), "%username%"))
-	form.Set("uid", strconv.FormatInt(int64(user.UID), 10))
-	form.Set("gid", strconv.FormatInt(int64(user.GID), 10))
-	form.Set("max_sessions", strconv.FormatInt(int64(user.MaxSessions), 10))
-	form.Set("quota_size", strconv.FormatInt(user.QuotaSize, 10))
-	form.Set("quota_files", strconv.FormatInt(int64(user.QuotaFiles), 10))
-	form.Set("upload_bandwidth", "0")
-	form.Set("download_bandwidth", "0")
-	form.Set("upload_data_transfer", "0")
-	form.Set("download_data_transfer", "0")
-	form.Set("total_data_transfer", "0")
-	form.Set("permissions", "*")
-	form.Set("status", strconv.Itoa(user.Status))
-	form.Set("expiration_date", "2020-01-01 00:00:00")
-	form.Set("fs_provider", "0")
-	form.Set("max_upload_file_size", "0")
-	form.Set("default_shares_expiration", "0")
-	form.Set("max_shares_expiration", "0")
-	form.Set("password_expiration", "0")
-	form.Set("password_strength", "0")
-	form.Set("ftp_security", "1")
-	form.Set("external_auth_cache_time", "0")
-	form.Set("description", "desc %username% %password%")
-	form.Set("start_directory", "/base/%username%")
-	form.Set("vfolder_path", "/vdir%username%")
-	form.Set("vfolder_name", folder.Name)
-	form.Set("vfolder_quota_size", "-1")
-	form.Set("vfolder_quota_files", "-1")
-	form.Add("tpl_username", "auser1")
-	form.Add("tpl_password", "password1")
-	form.Add("tpl_public_keys", " ")
-	form.Add("tpl_username", "auser2")
-	form.Add("tpl_password", "password2")
-	form.Add("tpl_public_keys", testPubKey)
-	form.Add("tpl_username", "auser1")
-	form.Add("tpl_password", "password")
-	form.Add("tpl_public_keys", "")
-	form.Set("form_action", "export_from_template")
-	b, contentType, _ := getMultipartFormData(form, "", "")
-	req, _ := http.NewRequest(http.MethodPost, webTemplateUser, &b)
-	setJWTCookieForReq(req, token)
-	req.Header.Set("Content-Type", contentType)
-	rr := executeRequest(req)
-	checkResponseCode(t, http.StatusForbidden, rr)
-	require.Contains(t, rr.Body.String(), util.I18nErrorInvalidCSRF)
-
-	folder, resp, err := httpdtest.AddFolder(folder, http.StatusCreated)
-	assert.NoError(t, err, string(resp))
-
-	form.Set(csrfFormToken, csrfToken)
-	b, contentType, _ = getMultipartFormData(form, "", "")
-	req, _ = http.NewRequest(http.MethodPost, webTemplateUser, &b)
-	setJWTCookieForReq(req, token)
-	req.Header.Set("Content-Type", contentType)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr)
-
-	var dump dataprovider.BackupData
-	err = json.Unmarshal(rr.Body.Bytes(), &dump)
-	assert.NoError(t, err)
-	assert.Len(t, dump.Users, 2)
-	assert.Len(t, dump.Folders, 1)
-	user1 := dump.Users[0]
-	user2 := dump.Users[1]
-	folder1 := dump.Folders[0]
-	assert.Equal(t, "auser1", user1.Username)
-	assert.Equal(t, "auser2", user2.Username)
-	assert.Equal(t, "desc auser1 password1", user1.Description)
-	assert.Equal(t, "desc auser2 password2", user2.Description)
-	assert.Equal(t, filepath.Join(os.TempDir(), user1.Username), user1.HomeDir)
-	assert.Equal(t, filepath.Join(os.TempDir(), user2.Username), user2.HomeDir)
-	assert.Equal(t, path.Join("/base", user1.Username), user1.Filters.StartDirectory)
-	assert.Equal(t, path.Join("/base", user2.Username), user2.Filters.StartDirectory)
-	assert.Equal(t, 0, user2.Filters.DefaultSharesExpiration)
-	assert.Equal(t, folder.Name, folder1.Name)
-	assert.Len(t, user1.PublicKeys, 0)
-	assert.Len(t, user2.PublicKeys, 1)
-	assert.Len(t, user1.VirtualFolders, 1)
-	assert.Len(t, user2.VirtualFolders, 1)
-	assert.Equal(t, "/vdirauser1", user1.VirtualFolders[0].VirtualPath)
-	assert.Equal(t, "/vdirauser2", user2.VirtualFolders[0].VirtualPath)
-	assert.Equal(t, 1, user1.Filters.FTPSecurity)
-	assert.Equal(t, 1, user2.Filters.FTPSecurity)
-
-	_, err = httpdtest.RemoveFolder(folder, http.StatusOK)
-	assert.NoError(t, err)
-}
-
 func TestUserSaveFromTemplateMock(t *testing.T) {
 	token, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
@@ -22295,12 +22195,20 @@ func TestUserSaveFromTemplateMock(t *testing.T) {
 	form.Add("template_users[0][tpl_public_keys]", " ")
 	form.Add("template_users[1][tpl_username]", user2)
 	form.Add("template_users[1][tpl_public_keys]", testPubKey)
-	form.Set(csrfFormToken, csrfToken)
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, _ := http.NewRequest(http.MethodPost, webTemplateUser, &b)
 	setJWTCookieForReq(req, token)
 	req.Header.Set("Content-Type", contentType)
 	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCSRF)
+
+	form.Set(csrfFormToken, csrfToken)
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webTemplateUser, &b)
+	setJWTCookieForReq(req, token)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusSeeOther, rr)
 
 	u1, _, err := httpdtest.GetUserByUsername(user1, http.StatusOK)
@@ -22333,7 +22241,7 @@ func TestUserSaveFromTemplateMock(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestUserTemplateMock(t *testing.T) {
+func TestUserTemplateErrors(t *testing.T) {
 	token, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
 	csrfToken, err := getCSRFTokenFromInternalPageMock(webTemplateFolder, token)
@@ -22398,13 +22306,14 @@ func TestUserTemplateMock(t *testing.T) {
 	form.Set("s3_upload_concurrency", strconv.Itoa(user.FsConfig.S3Config.UploadConcurrency))
 	form.Set("s3_download_part_size", strconv.FormatInt(user.FsConfig.S3Config.DownloadPartSize, 10))
 	form.Set("s3_download_concurrency", strconv.Itoa(user.FsConfig.S3Config.DownloadConcurrency))
-
+	// no user defined
 	b, contentType, _ = getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, webTemplateUser, &b)
 	setJWTCookieForReq(req, token)
 	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorUserTemplate)
 
 	form.Set("template_users[0][tpl_username]", "user1")
 	form.Set("template_users[0][tpl_password]", "password1")
@@ -22427,75 +22336,135 @@ func TestUserTemplateMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	require.Contains(t, rr.Body.String(), util.I18nErrorUserTemplate)
+}
 
-	form.Set("template_users[0][tpl_username]", "user1")
-	form.Set("template_users[0][tpl_password]", "password1")
-	form.Set("template_users[0][tpl_public_keys]", " ")
-	form.Set("template_users[1][tpl_username]", "user2")
-	form.Set("template_users[1][tpl_password]", "password2")
-	form.Set("template_users[1][tpl_public_keys]", testPubKey)
-	form.Set("template_users[2][tpl_username]", "")
-	form.Set("template_users[2][tpl_password]", "password3")
-	form.Set("template_users[2][tpl_public_keys]", testPubKey)
+func TestUserTemplateRoleAndPermissions(t *testing.T) {
+	r1 := getTestRole()
+	r2 := getTestRole()
+	r2.Name += "_mod"
+	role1, resp, err := httpdtest.AddRole(r1, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	role2, resp, err := httpdtest.AddRole(r2, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	admin := getTestAdmin()
+	admin.Username = altAdminUsername
+	admin.Password = altAdminPassword
+	admin.Role = role1.Name
+	admin.Permissions = []string{dataprovider.PermAdminManageFolders, dataprovider.PermAdminChangeUsers,
+		dataprovider.PermAdminViewUsers}
+	admin, _, err = httpdtest.AddAdmin(admin, http.StatusCreated)
+	assert.NoError(t, err)
+
+	token, err := getJWTWebTokenFromTestServer(altAdminUsername, altAdminPassword)
+	assert.NoError(t, err)
+
+	req, _ := http.NewRequest(http.MethodGet, webTemplateUser, nil)
+	setJWTCookieForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webTemplateFolder, token)
+	assert.NoError(t, err)
+	user1 := "u1"
+	user2 := "u2"
+	form := make(url.Values)
+	form.Set("username", "")
+	form.Set("role", role2.Name)
+	form.Set("home_dir", filepath.Join(os.TempDir(), "%username%"))
+	form.Set("upload_bandwidth", "0")
+	form.Set("download_bandwidth", "0")
+	form.Set("upload_data_transfer", "0")
+	form.Set("download_data_transfer", "0")
+	form.Set("total_data_transfer", "0")
+	form.Set("uid", "0")
+	form.Set("gid", "0")
+	form.Set("max_sessions", "0")
+	form.Set("quota_size", "0")
+	form.Set("quota_files", "0")
+	form.Set("permissions", "*")
+	form.Set("status", "1")
+	form.Set("expiration_date", "")
+	form.Set("fs_provider", "0")
+	form.Set("max_upload_file_size", "0")
+	form.Set("default_shares_expiration", "0")
+	form.Set("max_shares_expiration", "0")
+	form.Set("password_expiration", "0")
+	form.Set("password_strength", "0")
+	form.Set("external_auth_cache_time", "0")
+	form.Add("template_users[0][tpl_username]", user1)
+	form.Add("template_users[0][tpl_password]", "password1")
+	form.Add("template_users[0][tpl_public_keys]", " ")
+	form.Add("template_users[1][tpl_username]", user2)
+	form.Add("template_users[1][tpl_public_keys]", testPubKey)
+	form.Set(csrfFormToken, csrfToken)
+	b, contentType, _ := getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webTemplateUser, &b)
+	setJWTCookieForReq(req, token)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	// Add the required permissions
+	admin.Permissions = append(admin.Permissions, dataprovider.PermAdminAddUsers)
+	_, _, err = httpdtest.UpdateAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+
+	token, err = getJWTWebTokenFromTestServer(altAdminUsername, altAdminPassword)
+	assert.NoError(t, err)
+
+	req, _ = http.NewRequest(http.MethodGet, webTemplateUser, nil)
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	csrfToken, err = getCSRFTokenFromInternalPageMock(webTemplateUser, token)
+	assert.NoError(t, err)
+	form.Set(csrfFormToken, csrfToken)
+
 	b, contentType, _ = getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, webTemplateUser, &b)
 	setJWTCookieForReq(req, token)
 	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr)
+	checkResponseCode(t, http.StatusSeeOther, rr)
 
-	var dump dataprovider.BackupData
-	err = json.Unmarshal(rr.Body.Bytes(), &dump)
-	require.NoError(t, err)
-	require.Len(t, dump.Users, 2)
-	require.Len(t, dump.Admins, 0)
-	require.Len(t, dump.Folders, 0)
+	u1, _, err := httpdtest.GetUserByUsername(user1, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, admin.Role, u1.Role)
+	u2, _, err := httpdtest.GetUserByUsername(user2, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, admin.Role, u2.Role)
 
-	var user1, user2 dataprovider.User
-	for _, u := range dump.Users {
-		switch u.Username {
-		case "user1":
-			user1 = u
-		default:
-			user2 = u
-		}
-	}
-	require.Equal(t, "user1", user1.Username)
-	require.Equal(t, sdk.S3FilesystemProvider, user1.FsConfig.Provider)
-	require.Equal(t, "user2", user2.Username)
-	require.Equal(t, sdk.S3FilesystemProvider, user2.FsConfig.Provider)
-	require.Len(t, user1.PublicKeys, 0)
-	require.Len(t, user2.PublicKeys, 1)
-	require.Equal(t, filepath.Join(os.TempDir(), user1.Username), user1.HomeDir)
-	require.Equal(t, filepath.Join(os.TempDir(), user2.Username), user2.HomeDir)
-	require.Equal(t, user1.Username, user1.FsConfig.S3Config.AccessKey)
-	require.Equal(t, user2.Username, user2.FsConfig.S3Config.AccessKey)
-	require.Equal(t, path.Join("base", user1.Username)+"/", user1.FsConfig.S3Config.KeyPrefix)
-	require.Equal(t, path.Join("base", user2.Username)+"/", user2.FsConfig.S3Config.KeyPrefix)
-	require.True(t, user1.FsConfig.S3Config.AccessSecret.IsEncrypted())
-	require.True(t, user1.FsConfig.S3Config.SSECustomerKey.IsEncrypted())
-	err = user1.FsConfig.S3Config.AccessSecret.Decrypt()
-	require.NoError(t, err)
-	err = user1.FsConfig.S3Config.SSECustomerKey.Decrypt()
-	require.NoError(t, err)
-	require.Equal(t, "password1", user1.FsConfig.S3Config.AccessSecret.GetPayload())
-	require.Equal(t, "password1", user1.FsConfig.S3Config.SSECustomerKey.GetPayload())
-	require.True(t, user2.FsConfig.S3Config.AccessSecret.IsEncrypted())
-	require.True(t, user2.FsConfig.S3Config.SSECustomerKey.IsEncrypted())
-	err = user2.FsConfig.S3Config.AccessSecret.Decrypt()
-	require.NoError(t, err)
-	err = user2.FsConfig.S3Config.SSECustomerKey.Decrypt()
-	require.NoError(t, err)
-	require.Equal(t, "password2", user2.FsConfig.S3Config.AccessSecret.GetPayload())
-	require.Equal(t, "password2", user2.FsConfig.S3Config.SSECustomerKey.GetPayload())
-	require.True(t, user1.Filters.Hooks.ExternalAuthDisabled)
-	require.True(t, user1.Filters.Hooks.CheckPasswordDisabled)
-	require.False(t, user1.Filters.Hooks.PreLoginDisabled)
-	require.True(t, user2.Filters.Hooks.ExternalAuthDisabled)
-	require.True(t, user2.Filters.Hooks.CheckPasswordDisabled)
-	require.False(t, user2.Filters.Hooks.PreLoginDisabled)
-	require.True(t, user1.Filters.DisableFsChecks)
-	require.True(t, user2.Filters.DisableFsChecks)
+	_, err = httpdtest.RemoveUser(u1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(u2, http.StatusOK)
+	assert.NoError(t, err)
+	// Set an empty role
+	form.Set("role", "")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webTemplateUser, &b)
+	setJWTCookieForReq(req, token)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+
+	u1, _, err = httpdtest.GetUserByUsername(user1, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, admin.Role, u1.Role)
+	u2, _, err = httpdtest.GetUserByUsername(user2, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, admin.Role, u2.Role)
+
+	_, err = httpdtest.RemoveUser(u1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(u2, http.StatusOK)
+	assert.NoError(t, err)
+
+	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveRole(role1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveRole(role2, http.StatusOK)
+	assert.NoError(t, err)
 }
 
 func TestUserPlaceholders(t *testing.T) {
@@ -22664,7 +22633,7 @@ func TestFolderSaveFromTemplateMock(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestFolderTemplateMock(t *testing.T) {
+func TestFolderTemplateErrors(t *testing.T) {
 	folderName := "vfolder-template"
 	mappedPath := filepath.Join(os.TempDir(), "%name%mapped%name%path")
 	token, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
@@ -22680,7 +22649,6 @@ func TestFolderTemplateMock(t *testing.T) {
 	form.Set("template_folders[2][tpl_foldername]", "folder3")
 	form.Set("template_folders[3][tpl_foldername]", "folder1 ")
 	form.Add("template_folders[3][tpl_foldername]", " ")
-	form.Set("form_action", "export_from_template")
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, _ := http.NewRequest(http.MethodPost, webTemplateFolder, &b)
 	setJWTCookieForReq(req, token)
@@ -22697,36 +22665,6 @@ func TestFolderTemplateMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidForm)
-
-	folder1 := "folder1"
-	folder2 := "folder2"
-	folder3 := "folder3"
-	b, contentType, _ = getMultipartFormData(form, "", "")
-	req, _ = http.NewRequest(http.MethodPost, webTemplateFolder, &b)
-	setJWTCookieForReq(req, token)
-	req.Header.Set("Content-Type", contentType)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr)
-
-	var dump dataprovider.BackupData
-	err = json.Unmarshal(rr.Body.Bytes(), &dump)
-	require.NoError(t, err)
-	require.Len(t, dump.Users, 0)
-	require.Len(t, dump.Admins, 0)
-	require.Len(t, dump.Folders, 3)
-	for _, folder := range dump.Folders {
-		switch folder.Name {
-		case folder1:
-			require.Equal(t, "desc folder folder1", folder.Description)
-			require.True(t, strings.HasSuffix(folder.MappedPath, "folder1mappedfolder1path"))
-		case folder2:
-			require.Equal(t, "desc folder folder2", folder.Description)
-			require.True(t, strings.HasSuffix(folder.MappedPath, "folder2mappedfolder2path"))
-		default:
-			require.Equal(t, "desc folder folder3", folder.Description)
-			require.True(t, strings.HasSuffix(folder.MappedPath, "folder3mappedfolder3path"))
-		}
-	}
 
 	form.Set("fs_provider", "1")
 	form.Set("s3_bucket", "bucket")
@@ -22750,52 +22688,6 @@ func TestFolderTemplateMock(t *testing.T) {
 	form.Set("s3_upload_part_max_time", "0")
 	form.Set("s3_download_part_size", "6")
 	form.Set("s3_download_concurrency", "2")
-	b, contentType, _ = getMultipartFormData(form, "", "")
-	req, _ = http.NewRequest(http.MethodPost, webTemplateFolder, &b)
-	setJWTCookieForReq(req, token)
-	req.Header.Set("Content-Type", contentType)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr)
-
-	dump = dataprovider.BackupData{
-		Version: dataprovider.DumpVersion,
-	}
-	err = json.Unmarshal(rr.Body.Bytes(), &dump)
-	require.NoError(t, err)
-	require.Len(t, dump.Users, 0)
-	require.Len(t, dump.Admins, 0)
-	require.Len(t, dump.Folders, 3)
-	for _, folder := range dump.Folders {
-		switch folder.Name {
-		case folder1:
-			require.Equal(t, folder1, folder.FsConfig.S3Config.AccessKey)
-			err = folder.FsConfig.S3Config.AccessSecret.Decrypt()
-			require.NoError(t, err)
-			require.Equal(t, fmt.Sprintf("pwd%s", folder1), folder.FsConfig.S3Config.AccessSecret.GetPayload())
-			require.Equal(t, path.Join("base", folder1)+"/", folder.FsConfig.S3Config.KeyPrefix)
-			err = folder.FsConfig.S3Config.SSECustomerKey.Decrypt()
-			require.NoError(t, err)
-			require.Equal(t, fmt.Sprintf("key%s", folder1), folder.FsConfig.S3Config.SSECustomerKey.GetPayload())
-		case folder2:
-			require.Equal(t, folder2, folder.FsConfig.S3Config.AccessKey)
-			err = folder.FsConfig.S3Config.AccessSecret.Decrypt()
-			require.NoError(t, err)
-			require.Equal(t, "pwd"+folder2, folder.FsConfig.S3Config.AccessSecret.GetPayload())
-			require.Equal(t, "base/"+folder2+"/", folder.FsConfig.S3Config.KeyPrefix)
-			err = folder.FsConfig.S3Config.SSECustomerKey.Decrypt()
-			require.NoError(t, err)
-			require.Equal(t, "key"+folder2, folder.FsConfig.S3Config.SSECustomerKey.GetPayload())
-		default:
-			require.Equal(t, folder3, folder.FsConfig.S3Config.AccessKey)
-			err = folder.FsConfig.S3Config.AccessSecret.Decrypt()
-			require.NoError(t, err)
-			require.Equal(t, "pwd"+folder3, folder.FsConfig.S3Config.AccessSecret.GetPayload())
-			require.Equal(t, "base/"+folder3+"/", folder.FsConfig.S3Config.KeyPrefix)
-			err = folder.FsConfig.S3Config.SSECustomerKey.Decrypt()
-			require.NoError(t, err)
-			require.Equal(t, "key"+folder3, folder.FsConfig.S3Config.SSECustomerKey.GetPayload())
-		}
-	}
 
 	form.Set("template_folders[0][tpl_foldername]", " ")
 	form.Set("template_folders[1][tpl_foldername]", "")
@@ -22818,6 +22710,61 @@ func TestFolderTemplateMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidHomeDir)
+}
+
+func TestFolderTemplatePermission(t *testing.T) {
+	admin := getTestAdmin()
+	admin.Username = altAdminUsername
+	admin.Password = altAdminPassword
+	admin.Permissions = []string{dataprovider.PermAdminChangeUsers, dataprovider.PermAdminAddUsers, dataprovider.PermAdminViewUsers}
+	admin, _, err := httpdtest.AddAdmin(admin, http.StatusCreated)
+	assert.NoError(t, err)
+	// no permission to view or add folders from templates
+	token, err := getJWTWebTokenFromTestServer(altAdminUsername, altAdminPassword)
+	assert.NoError(t, err)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webTemplateUser, token)
+	assert.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodGet, webTemplateFolder, nil)
+	assert.NoError(t, err)
+	req.RequestURI = webTemplateFolder
+	setJWTCookieForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+
+	form := make(url.Values)
+	form.Set("name", "name")
+	form.Set("mapped_path", filepath.Join(os.TempDir(), "%name%"))
+	form.Set("description", "desc folder %name%")
+	form.Set("template_folders[0][tpl_foldername]", "folder1")
+	form.Set("template_folders[1][tpl_foldername]", "folder2")
+	form.Set(csrfFormToken, csrfToken)
+	b, contentType, _ := getMultipartFormData(form, "", "")
+	req, err = http.NewRequest(http.MethodPost, webTemplateFolder, &b)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+
+	admin.Permissions = append(admin.Permissions, dataprovider.PermAdminManageFolders)
+	_, _, err = httpdtest.UpdateAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+
+	token, err = getJWTWebTokenFromTestServer(altAdminUsername, altAdminPassword)
+	assert.NoError(t, err)
+	_, err = getCSRFTokenFromInternalPageMock(webTemplateUser, token)
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodGet, webTemplateFolder, nil)
+	assert.NoError(t, err)
+	req.RequestURI = webTemplateFolder
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
 }
 
 func TestWebUserS3Mock(t *testing.T) {

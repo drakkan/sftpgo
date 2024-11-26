@@ -1794,7 +1794,7 @@ func TestJWTTokenValidation(t *testing.T) {
 	assert.Equal(t, webClientLoginPath, rr.Header().Get("Location"))
 
 	errTest := errors.New("test error")
-	permFn := server.checkPerm(dataprovider.PermAdminAny)
+	permFn := server.checkPerms(dataprovider.PermAdminAny)
 	fn = permFn(r)
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest(http.MethodGet, userPath, nil)
@@ -1802,7 +1802,7 @@ func TestJWTTokenValidation(t *testing.T) {
 	fn.ServeHTTP(rr, req.WithContext(ctx))
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 
-	permFn = server.checkPerm(dataprovider.PermAdminAny)
+	permFn = server.checkPerms(dataprovider.PermAdminAny)
 	fn = permFn(r)
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest(http.MethodGet, webUserPath, nil)

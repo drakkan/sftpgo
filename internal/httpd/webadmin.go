@@ -31,7 +31,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-chi/render"
 	"github.com/rs/xid"
 	"github.com/sftpgo/sdk"
 	sdkkms "github.com/sftpgo/sdk/kms"
@@ -3280,7 +3279,6 @@ func (s *httpdServer) handleWebTemplateFolderPost(w http.ResponseWriter, r *http
 	templateFolder.FsConfig = fsConfig
 
 	var dump dataprovider.BackupData
-	dump.Version = dataprovider.DumpVersion
 
 	foldersFields := getFoldersForTemplate(r)
 	for _, tmpl := range foldersFields {
@@ -3298,12 +3296,6 @@ func (s *httpdServer) handleWebTemplateFolderPost(w http.ResponseWriter, r *http
 				errors.New("no valid folder defined, unable to complete the requested action"),
 				util.I18nErrorFolderTemplate,
 			), "")
-		return
-	}
-	if r.Form.Get("form_action") == "export_from_template" {
-		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"sftpgo-%v-folders-from-template.json\"",
-			len(dump.Folders)))
-		render.JSON(w, r, dump)
 		return
 	}
 	if err = RestoreFolders(dump.Folders, "", 1, 0, claims.Username, ipAddr, claims.Role); err != nil {
@@ -3372,7 +3364,6 @@ func (s *httpdServer) handleWebTemplateUserPost(w http.ResponseWriter, r *http.R
 	}
 
 	var dump dataprovider.BackupData
-	dump.Version = dataprovider.DumpVersion
 
 	userTmplFields := getUsersForTemplate(r)
 	for _, tmpl := range userTmplFields {
@@ -3381,14 +3372,10 @@ func (s *httpdServer) handleWebTemplateUserPost(w http.ResponseWriter, r *http.R
 			s.renderMessagePage(w, r, util.I18nTemplateUserTitle, http.StatusBadRequest, err, "")
 			return
 		}
-		// to create a template the "*" permission is required, so role admins cannot use
-		// this method, we don't need to force the role
-		dump.Users = append(dump.Users, u)
-		for _, folder := range u.VirtualFolders {
-			if !dump.HasFolder(folder.Name) {
-				dump.Folders = append(dump.Folders, folder.BaseVirtualFolder)
-			}
+		if claims.Role != "" {
+			u.Role = claims.Role
 		}
+		dump.Users = append(dump.Users, u)
 	}
 
 	if len(dump.Users) == 0 {
@@ -3397,12 +3384,6 @@ func (s *httpdServer) handleWebTemplateUserPost(w http.ResponseWriter, r *http.R
 				errors.New("no valid user defined, unable to complete the requested action"),
 				util.I18nErrorUserTemplate,
 			), "")
-		return
-	}
-	if r.Form.Get("form_action") == "export_from_template" {
-		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"sftpgo-%v-users-from-template.json\"",
-			len(dump.Users)))
-		render.JSON(w, r, dump)
 		return
 	}
 	if err = RestoreUsers(dump.Users, "", 1, 0, claims.Username, ipAddr, claims.Role); err != nil {

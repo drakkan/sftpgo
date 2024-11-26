@@ -535,8 +535,6 @@
         "virtual_folders_help": "Dimensione quota/numero file -1 significa incluso nella quota utente, 0 illimitato. Non impostare -1 per le cartelle condivise. È possibile utilizzare il suffisso MB/GB/TB. Senza suffisso assumiamo byte",
         "disconnect": "Disconnettere l'utente dopo l'aggiornamento",
         "disconnect_help": "In questo modo si obbliga l'utente a effettuare nuovamente il login, se connesso, e quindi ad utilizzare la nuova configurazione",
-        "submit_generate": "Genera e salva utenti",
-        "submit_export": "Genera ed esporta utenti",
         "invalid_quota_size": "Quota (dimensione) non valida",
         "expires_in": "Scadenza",
         "expires_in_help": "Scadenza dell'account espressa in numero di giorni dalla creazione. 0 significa nessuna scadenza",
@@ -570,8 +568,6 @@
         "template_name_placeholder": "sostituito con il nome della cartella virtuale specificata",
         "template_help": "Le cartelle virtuali generate possono essere salvate o esportate. Le cartelle esportate possono essere importate dalla sezione \"Manutenzione\" di questa istanza SFTPGo o di un'altra.",
         "name": "Nome cartella virtuale",
-        "submit_generate": "Genera e salva cartelle",
-        "submit_export": "Genera e esporta cartelle",
         "template_no_folder": "Nessuna cartella virtuale valida definita. Impossibile completare l'azione richiesta"
     },
     "storage": {

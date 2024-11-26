@@ -297,7 +297,7 @@ func (s *httpdServer) requireBuiltinLogin(next http.Handler) http.Handler {
 	})
 }
 
-func (s *httpdServer) checkPerm(perm string) func(next http.Handler) http.Handler {
+func (s *httpdServer) checkPerms(perms ...string) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			_, claims, err := jwtauth.FromContext(r.Context())
@@ -312,13 +312,15 @@ func (s *httpdServer) checkPerm(perm string) func(next http.Handler) http.Handle
 			tokenClaims := jwtTokenClaims{}
 			tokenClaims.Decode(claims)
 
-			if !tokenClaims.hasPerm(perm) {
-				if isWebRequest(r) {
-					s.renderForbiddenPage(w, r, util.NewI18nError(fs.ErrPermission, util.I18nError403Message))
-				} else {
-					sendAPIResponse(w, r, nil, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+			for _, perm := range perms {
+				if !tokenClaims.hasPerm(perm) {
+					if isWebRequest(r) {
+						s.renderForbiddenPage(w, r, util.NewI18nError(fs.ErrPermission, util.I18nError403Message))
+					} else {
+						sendAPIResponse(w, r, nil, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+					}
+					return
 				}
-				return
 			}
 
 			next.ServeHTTP(w, r)

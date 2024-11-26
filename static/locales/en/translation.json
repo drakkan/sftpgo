@@ -535,8 +535,6 @@
         "virtual_folders_help": "Quota size/files -1 means included within user quota, 0 unlimited. Don't set -1 for shared folders. You can use MB/GB/TB suffix. Without suffix we assume bytes",
         "disconnect": "Disconnect the user after the update",
         "disconnect_help": "This way you force the user to login again, if connected, and so to use the new configuration",
-        "submit_generate": "Generate and save users",
-        "submit_export": "Generate and export users",
         "invalid_quota_size": "Invalid quota size",
         "expires_in": "Expires in",
         "expires_in_help": "Account expiration as number of days from the creation. 0 means no expiration",
@@ -570,8 +568,6 @@
         "template_name_placeholder": "replaced with the name of the specified virtual folder",
         "template_help": "The generated virtual folders can be saved or exported. Exported folders can be imported from the \"Maintenance\" section of this SFTPGo instance or another.",
         "name": "Virtual folder name",
-        "submit_generate": "Generate and save folders",
-        "submit_export": "Generate and export folder",
         "template_no_folder": "No valid virtual folder defined, unable to complete the requested action"
     },
     "storage": {
