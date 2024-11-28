@@ -3,13 +3,13 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
 	<metadata>
 		<id>sftpgo</id>
-		<version>2.6.3</version>
+		<version>2.6.4</version>
 		<packageSourceUrl>https://github.com/drakkan/sftpgo/tree/main/pkgs/choco</packageSourceUrl>
 		<owners>asheroto</owners>
 		<title>SFTPGo</title>
 		<authors>Nicola Murino</authors>
 		<projectUrl>https://sftpgo.com</projectUrl>
-		<iconUrl>https://cdn.statically.io/gh/drakkan/sftpgo/v2.6.3/static/img/logo.png</iconUrl>
+		<iconUrl>https://cdn.statically.io/gh/drakkan/sftpgo/v2.6.4/static/img/logo.png</iconUrl>
 		<licenseUrl>https://github.com/drakkan/sftpgo/blob/main/LICENSE</licenseUrl>
 		<requireLicenseAcceptance>false</requireLicenseAcceptance>
 		<projectSourceUrl>https://github.com/drakkan/sftpgo</projectSourceUrl>
@@ -32,7 +32,7 @@ You can find more info [here](https://docs.sftpgo.com/2.6/).
 
 * This package installs SFTPGo as Windows Service.
 * After the first installation please take a look at the [Getting Started Guide](https://docs.sftpgo.com/2.6/initial-configuration/).</description>
-		<releaseNotes>https://github.com/drakkan/sftpgo/releases/tag/v2.6.3</releaseNotes>
+		<releaseNotes>https://github.com/drakkan/sftpgo/releases/tag/v2.6.4</releaseNotes>
 	</metadata>
 	<files>
 		<file src="**" exclude="**\*.md;**\icon.png;**\icon.jpg;**\icon.svg" />
