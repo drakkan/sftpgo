@@ -329,6 +329,21 @@ func (t *BaseTransfer) getUploadFileSize() (int64, int, error) {
 	var fileSize int64
 	var deletedFiles int
 
+	switch dataprovider.GetQuotaTracking() {
+	case 0:
+		return fileSize, deletedFiles, errors.New("quota tracking disabled")
+	case 2:
+		if !t.Connection.User.HasQuotaRestrictions() {
+			vfolder, err := t.Connection.User.GetVirtualFolderForPath(path.Dir(t.requestPath))
+			if err != nil {
+				return fileSize, deletedFiles, errors.New("quota tracking disabled for this user")
+			}
+			if vfolder.IsIncludedInUserQuota() {
+				return fileSize, deletedFiles, errors.New("quota tracking disabled for this user and folder included in user quota")
+			}
+		}
+	}
+
 	info, err := t.Fs.Stat(t.fsPath)
 	if err == nil {
 		fileSize = info.Size()

@@ -306,8 +306,9 @@ func TestRemovePartialCryptoFile(t *testing.T) {
 	require.NoError(t, err)
 	u := dataprovider.User{
 		BaseUser: sdk.BaseUser{
-			Username: "test",
-			HomeDir:  os.TempDir(),
+			Username:   "test",
+			HomeDir:    os.TempDir(),
+			QuotaFiles: 1000000,
 		},
 	}
 	conn := NewBaseConnection(fs.ConnectionID(), ProtocolSFTP, "", "", u)
