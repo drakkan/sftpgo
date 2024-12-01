@@ -190,9 +190,6 @@ func (fs *S3Fs) Stat(name string) (os.FileInfo, error) {
 			isDir = err == nil
 		}
 		info := NewFileInfo(name, isDir, util.GetIntFromPointer(obj.ContentLength), util.GetTimeFromPointer(obj.LastModified), false)
-		if !isDir {
-			info.setMetadata(obj.Metadata)
-		}
 		return info, nil
 	}
 	if !fs.IsNotExist(err) {
@@ -743,11 +740,6 @@ func (fs *S3Fs) copyFileInternal(source, target string, srcInfo os.FileInfo) err
 		SSECustomerKey:                 util.NilIfEmpty(fs.sseCustomerKey),
 		SSECustomerAlgorithm:           util.NilIfEmpty(fs.sseCustomerAlgo),
 		SSECustomerKeyMD5:              util.NilIfEmpty(fs.sseCustomerKeyMD5),
-	}
-
-	metadata := getMetadata(srcInfo)
-	if len(metadata) > 0 {
-		copyObject.Metadata = metadata
 	}
 
 	_, err := fs.svc.CopyObject(ctx, copyObject)
