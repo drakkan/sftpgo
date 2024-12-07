@@ -703,7 +703,7 @@ func handleDefenderEventLoginFailed(ipAddr string, err error) error {
 	return err
 }
 
-func updateLoginMetrics(user *dataprovider.User, loginMethod, ip string, err error) {
+func updateLoginMetrics(user *dataprovider.User, loginMethod, ip string, err error, r *http.Request) {
 	metric.AddLoginAttempt(loginMethod)
 	var protocol string
 	switch loginMethod {
@@ -713,6 +713,7 @@ func updateLoginMetrics(user *dataprovider.User, loginMethod, ip string, err err
 		protocol = common.ProtocolHTTP
 	}
 	if err == nil {
+		logger.LoginLog(user.Username, ip, loginMethod, protocol, "", r.UserAgent(), r.TLS != nil, "")
 		plugin.Handler.NotifyLogEvent(notifier.LogEventTypeLoginOK, protocol, user.Username, ip, "", nil)
 		common.DelayLogin(nil)
 	} else if err != common.ErrInternalFailure && err != common.ErrNoCredentials {

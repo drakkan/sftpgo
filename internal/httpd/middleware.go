@@ -455,7 +455,7 @@ func checkAPIKeyAuth(tokenAuth *jwtauth.JWTAuth, scope dataprovider.APIKeyScope)
 					logger.Debug(logSender, "", "unable to authenticate user %q associated with api key %q: %v",
 						apiUser, apiKey, err)
 					updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: apiUser}},
-						dataprovider.LoginMethodPassword, util.GetIPFromRemoteAddress(r.RemoteAddr), err)
+						dataprovider.LoginMethodPassword, util.GetIPFromRemoteAddress(r.RemoteAddr), err, r)
 					code := http.StatusUnauthorized
 					if errors.Is(err, common.ErrInternalFailure) {
 						code = http.StatusInternalServerError
@@ -465,7 +465,7 @@ func checkAPIKeyAuth(tokenAuth *jwtauth.JWTAuth, scope dataprovider.APIKeyScope)
 					return
 				}
 				updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: apiUser}},
-					dataprovider.LoginMethodPassword, util.GetIPFromRemoteAddress(r.RemoteAddr), nil)
+					dataprovider.LoginMethodPassword, util.GetIPFromRemoteAddress(r.RemoteAddr), nil, r)
 			}
 			dataprovider.UpdateAPIKeyLastUse(&k) //nolint:errcheck
 
@@ -529,7 +529,7 @@ func authenticateUserWithAPIKey(username, keyID string, tokenAuth *jwtauth.JWTAu
 	if username == "" {
 		err := errors.New("the provided key is not associated with any user and no username was provided")
 		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}},
-			dataprovider.LoginMethodPassword, ipAddr, err)
+			dataprovider.LoginMethodPassword, ipAddr, err, r)
 		return err
 	}
 	if err := common.Config.ExecutePostConnectHook(ipAddr, protocol); err != nil {
@@ -538,27 +538,27 @@ func authenticateUserWithAPIKey(username, keyID string, tokenAuth *jwtauth.JWTAu
 	user, err := dataprovider.GetUserWithGroupSettings(username, "")
 	if err != nil {
 		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}},
-			dataprovider.LoginMethodPassword, ipAddr, err)
+			dataprovider.LoginMethodPassword, ipAddr, err, r)
 		return err
 	}
 	if !user.Filters.AllowAPIKeyAuth {
 		err := fmt.Errorf("API key authentication disabled for user %q", user.Username)
-		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, err)
+		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, err, r)
 		return err
 	}
 	if err := user.CheckLoginConditions(); err != nil {
-		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, err)
+		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, err, r)
 		return err
 	}
 	connectionID := fmt.Sprintf("%v_%v", protocol, xid.New().String())
 	if err := checkHTTPClientUser(&user, r, connectionID, true); err != nil {
-		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, err)
+		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, err, r)
 		return err
 	}
 	defer user.CloseFs() //nolint:errcheck
 	err = user.CheckFsRoot(connectionID)
 	if err != nil {
-		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, common.ErrInternalFailure)
+		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, common.ErrInternalFailure, r)
 		return common.ErrInternalFailure
 	}
 	c := jwtTokenClaims{
@@ -571,12 +571,12 @@ func authenticateUserWithAPIKey(username, keyID string, tokenAuth *jwtauth.JWTAu
 
 	resp, err := c.createTokenResponse(tokenAuth, tokenAudienceAPIUser, ipAddr)
 	if err != nil {
-		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, common.ErrInternalFailure)
+		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, common.ErrInternalFailure, r)
 		return err
 	}
 	r.Header.Set("Authorization", fmt.Sprintf("Bearer %v", resp["access_token"]))
 	dataprovider.UpdateLastLogin(&user)
-	updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, nil)
+	updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, nil, r)
 
 	return nil
 }

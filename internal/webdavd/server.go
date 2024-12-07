@@ -210,7 +210,7 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// remove the cached user, we have not yet validated its filesystem
 		dataprovider.RemoveCachedWebDAVUser(user.Username)
-		updateLoginMetrics(&user, ipAddr, loginMethod, err)
+		updateLoginMetrics(&user, ipAddr, loginMethod, err, r)
 		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
@@ -223,7 +223,7 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		errClose := user.CloseFs()
 		logger.Warn(logSender, connectionID, "unable to check fs root: %v close fs error: %v", err, errClose)
-		updateLoginMetrics(&user, ipAddr, loginMethod, common.ErrInternalFailure)
+		updateLoginMetrics(&user, ipAddr, loginMethod, common.ErrInternalFailure, r)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -236,13 +236,13 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err = common.Connections.Add(connection); err != nil {
 		errClose := user.CloseFs()
 		logger.Warn(logSender, connectionID, "unable add connection: %v close fs error: %v", err, errClose)
-		updateLoginMetrics(&user, ipAddr, loginMethod, err)
+		updateLoginMetrics(&user, ipAddr, loginMethod, err, r)
 		http.Error(w, err.Error(), http.StatusTooManyRequests)
 		return
 	}
 	defer common.Connections.Remove(connection.GetID())
 
-	updateLoginMetrics(&user, ipAddr, loginMethod, err)
+	updateLoginMetrics(&user, ipAddr, loginMethod, err, r)
 
 	ctx := context.WithValue(r.Context(), requestIDKey, connectionID)
 	ctx = context.WithValue(ctx, requestStartKey, time.Now())
@@ -319,7 +319,7 @@ func (s *webDavServer) authenticate(r *http.Request, ip string) (dataprovider.Us
 				dataprovider.CacheWebDAVUser(cachedUser)
 				return cachedUser.User, false, cachedUser.LockSystem, loginMethod, nil
 			}
-			updateLoginMetrics(&cachedUser.User, ip, loginMethod, dataprovider.ErrInvalidCredentials)
+			updateLoginMetrics(&cachedUser.User, ip, loginMethod, dataprovider.ErrInvalidCredentials, r)
 			return user, false, nil, loginMethod, dataprovider.ErrInvalidCredentials
 		}
 	}
@@ -327,7 +327,7 @@ func (s *webDavServer) authenticate(r *http.Request, ip string) (dataprovider.Us
 		common.ProtocolWebDAV, tlsCert)
 	if err != nil {
 		user.Username = username
-		updateLoginMetrics(&user, ip, loginMethod, err)
+		updateLoginMetrics(&user, ip, loginMethod, err, r)
 		return user, false, nil, loginMethod, dataprovider.ErrInvalidCredentials
 	}
 	lockSystem := webdav.NewMemLS()
@@ -438,9 +438,10 @@ func writeLog(r *http.Request, status int, err error) {
 		Send()
 }
 
-func updateLoginMetrics(user *dataprovider.User, ip, loginMethod string, err error) {
+func updateLoginMetrics(user *dataprovider.User, ip, loginMethod string, err error, r *http.Request) {
 	metric.AddLoginAttempt(loginMethod)
 	if err == nil {
+		logger.LoginLog(user.Username, ip, loginMethod, common.ProtocolWebDAV, "", r.UserAgent(), r.TLS != nil, "")
 		plugin.Handler.NotifyLogEvent(notifier.LogEventTypeLoginOK, common.ProtocolWebDAV, user.Username, ip, "", nil)
 		common.DelayLogin(nil)
 	} else if err != common.ErrInternalFailure && err != common.ErrNoCredentials {

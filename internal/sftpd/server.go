@@ -609,10 +609,10 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 		return
 	}
 
-	logger.Log(logger.LevelInfo, common.ProtocolSSH, connectionID,
-		"User %q logged in with %q, from ip %q, client version %q, negotiated algorithms: %+v",
-		user.Username, loginType, ipAddr, util.BytesToString(sconn.ClientVersion()),
-		sconn.Conn.(ssh.AlgorithmsConnMetadata).Algorithms())
+	logger.LoginLog(user.Username, ipAddr, loginType, common.ProtocolSSH, connectionID,
+		util.BytesToString(sconn.ClientVersion()), true,
+		fmt.Sprintf("negotiated algorithms: %+v", sconn.Conn.(ssh.AlgorithmsConnMetadata).Algorithms()))
+
 	dataprovider.UpdateLastLogin(&user)
 
 	sshConnection := common.NewSSHConnection(connectionID, conn)

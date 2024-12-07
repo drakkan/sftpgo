@@ -268,6 +268,26 @@ func ConnectionFailedLog(user, ip, loginType, protocol, errorString string) {
 		Send()
 }
 
+// LoginLog logs successful logins.
+func LoginLog(user, ip, loginMethod, protocol, connectionID, clientVersion string, encrypted bool, info string) {
+	ev := logger.Info()
+	ev.Timestamp().
+		Str("sender", "login").
+		Str("ip", ip).
+		Str("username", user).
+		Str("method", loginMethod).
+		Str("protocol", protocol)
+	if connectionID != "" {
+		ev.Str("connection_id", connectionID)
+	}
+	ev.Str("client", clientVersion).
+		Bool("encrypted", encrypted)
+	if info != "" {
+		ev.Str("info", info)
+	}
+	ev.Send()
+}
+
 func isLogFilePathValid(logFilePath string) bool {
 	cleanInput := filepath.Clean(logFilePath)
 	if cleanInput == "." || cleanInput == ".." {

@@ -188,20 +188,18 @@ func (s *Server) AuthUser(cc ftpserver.ClientContext, username, password string)
 	user, err := dataprovider.CheckUserAndPass(username, password, ipAddr, common.ProtocolFTP)
 	if err != nil {
 		user.Username = username
-		updateLoginMetrics(&user, ipAddr, loginMethod, err)
+		updateLoginMetrics(&user, ipAddr, loginMethod, err, nil)
 		return nil, dataprovider.ErrInvalidCredentials
 	}
 
 	connection, err := s.validateUser(user, cc, loginMethod)
 
-	defer updateLoginMetrics(&user, ipAddr, loginMethod, err)
+	defer updateLoginMetrics(&user, ipAddr, loginMethod, err, connection)
 
 	if err != nil {
 		return nil, err
 	}
 	setStartDirectory(user.Filters.StartDirectory, cc)
-	connection.Log(logger.LevelInfo, "User %q logged in with %q from ip %q, TLS enabled? %t",
-		user.Username, loginMethod, ipAddr, cc.HasTLSForControl())
 	dataprovider.UpdateLastLogin(&user)
 	return connection, nil
 }
@@ -246,7 +244,7 @@ func (s *Server) VerifyConnection(cc ftpserver.ClientContext, user string, tlsCo
 			dbUser, err := dataprovider.CheckUserBeforeTLSAuth(user, ipAddr, common.ProtocolFTP, state.PeerCertificates[0])
 			if err != nil {
 				dbUser.Username = user
-				updateLoginMetrics(&dbUser, ipAddr, dataprovider.LoginMethodTLSCertificate, err)
+				updateLoginMetrics(&dbUser, ipAddr, dataprovider.LoginMethodTLSCertificate, err, nil)
 				return nil, dataprovider.ErrInvalidCredentials
 			}
 			if dbUser.IsTLSVerificationEnabled() {
@@ -260,14 +258,12 @@ func (s *Server) VerifyConnection(cc ftpserver.ClientContext, user string, tlsCo
 				if dbUser.IsLoginMethodAllowed(dataprovider.LoginMethodTLSCertificate, common.ProtocolFTP) {
 					connection, err := s.validateUser(dbUser, cc, dataprovider.LoginMethodTLSCertificate)
 
-					defer updateLoginMetrics(&dbUser, ipAddr, dataprovider.LoginMethodTLSCertificate, err)
+					defer updateLoginMetrics(&dbUser, ipAddr, dataprovider.LoginMethodTLSCertificate, err, connection)
 
 					if err != nil {
 						return nil, err
 					}
 					setStartDirectory(dbUser.Filters.StartDirectory, cc)
-					connection.Log(logger.LevelInfo, "User id: %d, logged in with FTP using a TLS certificate, username: %q, home_dir: %q remote addr: %q",
-						dbUser.ID, dbUser.Username, dbUser.HomeDir, ipAddr)
 					dataprovider.UpdateLastLogin(&dbUser)
 					return connection, nil
 				}
@@ -417,9 +413,11 @@ func setStartDirectory(startDirectory string, cc ftpserver.ClientContext) {
 	cc.SetPath(startDirectory)
 }
 
-func updateLoginMetrics(user *dataprovider.User, ip, loginMethod string, err error) {
+func updateLoginMetrics(user *dataprovider.User, ip, loginMethod string, err error, c *Connection) {
 	metric.AddLoginAttempt(loginMethod)
 	if err == nil {
+		logger.LoginLog(user.Username, ip, loginMethod, common.ProtocolFTP, c.ID, c.GetClientVersion(),
+			c.clientContext.HasTLSForControl(), "")
 		plugin.Handler.NotifyLogEvent(notifier.LogEventTypeLoginOK, common.ProtocolFTP, user.Username, ip, "", nil)
 		common.DelayLogin(nil)
 	} else if err != common.ErrInternalFailure {
