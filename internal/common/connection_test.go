@@ -198,25 +198,24 @@ func TestRecursiveRenameWalkError(t *testing.T) {
 }
 
 func TestCrossRenameFsErrors(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
 	fs := vfs.NewOsFs("", os.TempDir(), "", nil)
 	conn := NewBaseConnection("", ProtocolWebDAV, "", "", dataprovider.User{})
-	res := conn.hasSpaceForCrossRename(fs, vfs.QuotaCheckResult{}, 1, "missingsource")
+	dirPath := filepath.Join(os.TempDir(), "d")
+	err := os.Mkdir(dirPath, os.ModePerm)
+	assert.NoError(t, err)
+	err = os.Chmod(dirPath, 0001)
+	assert.NoError(t, err)
+	srcInfo := vfs.NewFileInfo(filepath.Base(dirPath), true, 0, time.Now(), false)
+	res := conn.hasSpaceForCrossRename(fs, vfs.QuotaCheckResult{}, 1, dirPath, srcInfo)
 	assert.False(t, res)
-	if runtime.GOOS != osWindows {
-		dirPath := filepath.Join(os.TempDir(), "d")
-		err := os.Mkdir(dirPath, os.ModePerm)
-		assert.NoError(t, err)
-		err = os.Chmod(dirPath, 0001)
-		assert.NoError(t, err)
 
-		res = conn.hasSpaceForCrossRename(fs, vfs.QuotaCheckResult{}, 1, dirPath)
-		assert.False(t, res)
-
-		err = os.Chmod(dirPath, os.ModePerm)
-		assert.NoError(t, err)
-		err = os.Remove(dirPath)
-		assert.NoError(t, err)
-	}
+	err = os.Chmod(dirPath, os.ModePerm)
+	assert.NoError(t, err)
+	err = os.Remove(dirPath)
+	assert.NoError(t, err)
 }
 
 func TestRenameVirtualFolders(t *testing.T) {

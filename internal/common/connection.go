@@ -838,7 +838,7 @@ func (c *BaseConnection) renameInternal(virtualSourcePath, virtualTargetPath str
 			return err
 		}
 	}
-	if !c.hasSpaceForRename(fsSrc, virtualSourcePath, virtualTargetPath, initialSize, fsSourcePath) {
+	if !c.hasSpaceForRename(fsSrc, virtualSourcePath, virtualTargetPath, initialSize, fsSourcePath, srcInfo) {
 		c.Log(logger.LevelInfo, "denying cross rename due to space limit")
 		return c.GetGenericError(ErrQuotaExceeded)
 	}
@@ -1133,11 +1133,11 @@ func (c *BaseConnection) truncateFile(fs vfs.Fs, fsPath, virtualPath string, siz
 }
 
 func (c *BaseConnection) checkRecursiveRenameDirPermissions(fsSrc, fsDst vfs.Fs, sourcePath, targetPath,
-	virtualSourcePath, virtualTargetPath string, fi os.FileInfo,
+	virtualSourcePath, virtualTargetPath string, srcInfo os.FileInfo,
 ) error {
 	if !c.User.HasPermissionsInside(virtualSourcePath) &&
 		!c.User.HasPermissionsInside(virtualTargetPath) {
-		if !c.isRenamePermitted(fsSrc, fsDst, sourcePath, targetPath, virtualSourcePath, virtualTargetPath, fi) {
+		if !c.isRenamePermitted(fsSrc, fsDst, sourcePath, targetPath, virtualSourcePath, virtualTargetPath, srcInfo) {
 			c.Log(logger.LevelInfo, "rename %q -> %q is not allowed, virtual destination path: %q",
 				sourcePath, targetPath, virtualTargetPath)
 			return c.GetPermissionDeniedError()
@@ -1197,7 +1197,7 @@ func (c *BaseConnection) hasRenamePerms(virtualSourcePath, virtualTargetPath str
 }
 
 func (c *BaseConnection) checkFolderRename(fsSrc, fsDst vfs.Fs, fsSourcePath, fsTargetPath, virtualSourcePath,
-	virtualTargetPath string, fi os.FileInfo) error {
+	virtualTargetPath string, srcInfo os.FileInfo) error {
 	if util.IsDirOverlapped(virtualSourcePath, virtualTargetPath, true, "/") {
 		c.Log(logger.LevelDebug, "renaming the folder %q->%q is not supported: nested folders",
 			virtualSourcePath, virtualTargetPath)
@@ -1221,7 +1221,7 @@ func (c *BaseConnection) checkFolderRename(fsSrc, fsDst vfs.Fs, fsSourcePath, fs
 		return fmt.Errorf("folder %q has virtual folders inside it: %w", virtualTargetPath, c.GetOpUnsupportedError())
 	}
 	if err := c.checkRecursiveRenameDirPermissions(fsSrc, fsDst, fsSourcePath, fsTargetPath,
-		virtualSourcePath, virtualTargetPath, fi); err != nil {
+		virtualSourcePath, virtualTargetPath, srcInfo); err != nil {
 		c.Log(logger.LevelDebug, "error checking recursive permissions before renaming %q: %+v", fsSourcePath, err)
 		return err
 	}
@@ -1229,7 +1229,7 @@ func (c *BaseConnection) checkFolderRename(fsSrc, fsDst vfs.Fs, fsSourcePath, fs
 }
 
 func (c *BaseConnection) isRenamePermitted(fsSrc, fsDst vfs.Fs, fsSourcePath, fsTargetPath, virtualSourcePath,
-	virtualTargetPath string, fi os.FileInfo,
+	virtualTargetPath string, srcInfo os.FileInfo,
 ) bool {
 	if !c.IsSameResource(virtualSourcePath, virtualTargetPath) {
 		c.Log(logger.LevelInfo, "rename %q->%q is not allowed: the paths must be on the same resource",
@@ -1259,11 +1259,11 @@ func (c *BaseConnection) isRenamePermitted(fsSrc, fsDst vfs.Fs, fsSourcePath, fs
 			virtualTargetPath)
 		return false
 	}
-	return c.hasRenamePerms(virtualSourcePath, virtualTargetPath, fi)
+	return c.hasRenamePerms(virtualSourcePath, virtualTargetPath, srcInfo)
 }
 
 func (c *BaseConnection) hasSpaceForRename(fs vfs.Fs, virtualSourcePath, virtualTargetPath string, initialSize int64,
-	fsSourcePath string) bool {
+	sourcePath string, srcInfo os.FileInfo) bool {
 	if dataprovider.GetQuotaTracking() == 0 {
 		return true
 	}
@@ -1293,30 +1293,28 @@ func (c *BaseConnection) hasSpaceForRename(fs vfs.Fs, virtualSourcePath, virtual
 		// no quota restrictions
 		return true
 	}
-	return c.hasSpaceForCrossRename(fs, quotaResult, initialSize, fsSourcePath)
+	return c.hasSpaceForCrossRename(fs, quotaResult, initialSize, sourcePath, srcInfo)
 }
 
 // hasSpaceForCrossRename checks the quota after a rename between different folders
-func (c *BaseConnection) hasSpaceForCrossRename(fs vfs.Fs, quotaResult vfs.QuotaCheckResult, initialSize int64, sourcePath string) bool {
+func (c *BaseConnection) hasSpaceForCrossRename(fs vfs.Fs, quotaResult vfs.QuotaCheckResult, initialSize int64,
+	sourcePath string, srcInfo os.FileInfo,
+) bool {
 	if !quotaResult.HasSpace && initialSize == -1 {
 		// we are over quota and this is not a file replace
 		return false
 	}
-	fi, err := fs.Lstat(sourcePath)
-	if err != nil {
-		c.Log(logger.LevelError, "cross rename denied, stat error for path %q: %v", sourcePath, err)
-		return false
-	}
 	var sizeDiff int64
 	var filesDiff int
-	if fi.Mode().IsRegular() {
-		sizeDiff = fi.Size()
+	var err error
+	if srcInfo.Mode().IsRegular() {
+		sizeDiff = srcInfo.Size()
 		filesDiff = 1
 		if initialSize != -1 {
 			sizeDiff -= initialSize
 			filesDiff = 0
 		}
-	} else if fi.IsDir() {
+	} else if srcInfo.IsDir() {
 		filesDiff, sizeDiff, err = fs.GetDirSize(sourcePath)
 		if err != nil {
 			c.Log(logger.LevelError, "cross rename denied, error getting size for directory %q: %v", sourcePath, err)
@@ -1343,7 +1341,7 @@ func (c *BaseConnection) hasSpaceForCrossRename(fs vfs.Fs, quotaResult vfs.Quota
 	}
 	if quotaResult.QuotaSize > 0 {
 		remainingSize := quotaResult.GetRemainingSize()
-		c.Log(logger.LevelDebug, "cross rename, source %q remaining size %d to add %d", sourcePath,
+		c.Log(logger.LevelDebug, "cross rename, source %q remaining size %d to add %d", srcInfo.Name(),
 			remainingSize, sizeDiff)
 		if remainingSize < sizeDiff {
 			return false
