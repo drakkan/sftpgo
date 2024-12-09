@@ -796,6 +796,7 @@ func (p *EventParams) getStringReplacements(addObjectData, jsonEscaped bool) []s
 		"{{VirtualTargetPath}}", p.getStringReplacement(p.VirtualTargetPath, jsonEscaped),
 		"{{FsTargetPath}}", p.getStringReplacement(p.FsTargetPath, jsonEscaped),
 		"{{ObjectName}}", p.getStringReplacement(p.ObjectName, jsonEscaped),
+		"{{ObjectBaseName}}", p.getStringReplacement(strings.TrimSuffix(path.Base(p.ObjectName), path.Ext(p.ObjectName)), jsonEscaped),
 		"{{ObjectType}}", p.ObjectType,
 		"{{FileSize}}", strconv.FormatInt(p.FileSize, 10),
 		"{{Elapsed}}", strconv.FormatInt(p.Elapsed, 10),
