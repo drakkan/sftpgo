@@ -352,6 +352,7 @@
     "signing_passphrase": "",
     "signing_passphrase_file": "",
     "token_validation": 0,
+    "token_duration": 20,
     "max_upload_file_size": 0,
     "cors": {
       "enabled": false,
