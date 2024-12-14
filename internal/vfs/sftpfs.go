@@ -18,9 +18,10 @@ import (
 	"bufio"
 	"bytes"
 	"crypto/rsa"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
-	"hash/fnv"
 	"io"
 	"io/fs"
 	"net"
@@ -277,8 +278,8 @@ func (c *SFTPFsConfig) ValidateAndEncryptCredentials(additionalData string) erro
 }
 
 // getUniqueID returns an hash of the settings used to connect to the SFTP server
-func (c *SFTPFsConfig) getUniqueID(partition int) uint64 {
-	h := fnv.New64a()
+func (c *SFTPFsConfig) getUniqueID(partition int) string {
+	h := sha256.New()
 	var b bytes.Buffer
 
 	b.WriteString(c.Endpoint)
@@ -295,7 +296,7 @@ func (c *SFTPFsConfig) getUniqueID(partition int) uint64 {
 	b.WriteString(strconv.Itoa(partition))
 
 	h.Write(b.Bytes())
-	return h.Sum64()
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 // SFTPFs is a Fs implementation for SFTP backends
@@ -1142,13 +1143,13 @@ func (c *sftpConnection) GetLastActivity() time.Time {
 type sftpConnectionsCache struct {
 	scheduler *cron.Cron
 	sync.RWMutex
-	items map[uint64]*sftpConnection
+	items map[string]*sftpConnection
 }
 
 func newSFTPConnectionCache() *sftpConnectionsCache {
 	c := &sftpConnectionsCache{
 		scheduler: cron.New(cron.WithLocation(time.UTC), cron.WithLogger(cron.DiscardLogger)),
-		items:     make(map[uint64]*sftpConnection),
+		items:     make(map[string]*sftpConnection),
 	}
 	_, err := c.scheduler.AddFunc("@every 1m", c.Cleanup)
 	util.PanicOnError(err)
@@ -1163,13 +1164,13 @@ func (c *sftpConnectionsCache) Get(config *SFTPFsConfig, sessionID string) *sftp
 	c.Lock()
 	defer c.Unlock()
 
-	var oldKey uint64
+	var oldKey string
 	for {
 		if val, ok := c.items[key]; ok {
 			activeSessions := val.ActiveSessions()
 			if activeSessions < maxSessionsPerConnection || key == oldKey {
 				logger.Debug(logSenderSFTPCache, "",
-					"reusing connection for session ID %q, key: %d, active sessions %d, active connections: %d",
+					"reusing connection for session ID %q, key %s, active sessions %d, active connections: %d",
 					sessionID, key, activeSessions+1, len(c.items))
 				val.AddSession(sessionID)
 				return val
@@ -1178,26 +1179,26 @@ func (c *sftpConnectionsCache) Get(config *SFTPFsConfig, sessionID string) *sftp
 			oldKey = key
 			key = config.getUniqueID(partition)
 			logger.Debug(logSenderSFTPCache, "",
-				"connection full, generated new key for partition: %d, active sessions: %d, key: %d, old key: %d",
+				"connection full, generated new key for partition: %d, active sessions: %d, key: %s, old key: %s",
 				partition, activeSessions, oldKey, key)
 		} else {
 			conn := newSFTPConnection(config, sessionID)
 			c.items[key] = conn
 			logger.Debug(logSenderSFTPCache, "",
-				"adding new connection for session ID %q, partition: %d, key: %d, active connections: %d",
+				"adding new connection for session ID %q, partition: %d, key: %s, active connections: %d",
 				sessionID, partition, key, len(c.items))
 			return conn
 		}
 	}
 }
 
-func (c *sftpConnectionsCache) Remove(key uint64) {
+func (c *sftpConnectionsCache) Remove(key string) {
 	c.Lock()
 	defer c.Unlock()
 
 	if conn, ok := c.items[key]; ok {
 		delete(c.items, key)
-		logger.Debug(logSenderSFTPCache, "", "removed connection with key %d, active connections: %d", key, len(c.items))
+		logger.Debug(logSenderSFTPCache, "", "removed connection with key %s, active connections: %d", key, len(c.items))
 
 		defer conn.Close()
 	}
@@ -1210,7 +1211,7 @@ func (c *sftpConnectionsCache) Cleanup() {
 		if val := conn.GetLastActivity(); val.Before(time.Now().Add(-30 * time.Second)) {
 			logger.Debug(conn.logSender, "", "removing inactive connection, last activity %s", val)
 
-			defer func(key uint64) {
+			defer func(key string) {
 				c.Remove(key)
 			}(k)
 		}

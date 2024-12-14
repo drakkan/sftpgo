@@ -17,10 +17,11 @@ package dataprovider
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"hash/fnv"
 	"io"
 	"net/http"
 	"strconv"
@@ -108,12 +109,12 @@ func (n *NodeData) validate() error {
 }
 
 func (n *NodeData) getNodeName() string {
-	h := fnv.New64a()
+	h := sha256.New()
 	var b bytes.Buffer
 
 	b.WriteString(fmt.Sprintf("%s:%d", n.Host, n.Port))
 	h.Write(b.Bytes())
-	return strconv.FormatUint(h.Sum64(), 10)
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 // Node defines a cluster node
