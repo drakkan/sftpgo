@@ -105,6 +105,9 @@ func (fi *FileInfo) setMetadataFromPointerVal(value map[string]*string) {
 }
 
 func getMetadata(fi os.FileInfo) map[string]string {
+	if fi.Sys() == nil {
+		return nil
+	}
 	if val, ok := fi.Sys().(map[string]string); ok {
 		if len(val) > 0 {
 			return val

@@ -793,7 +793,7 @@ func (c *BaseConnection) Rename(virtualSourcePath, virtualTargetPath string) err
 	return c.renameInternal(virtualSourcePath, virtualTargetPath, false, vfs.CheckParentDir)
 }
 
-func (c *BaseConnection) renameInternal(virtualSourcePath, virtualTargetPath string,
+func (c *BaseConnection) renameInternal(virtualSourcePath, virtualTargetPath string, //nolint:gocyclo
 	checkParentDestination bool, checks int,
 ) error {
 	if virtualSourcePath == virtualTargetPath {
@@ -816,7 +816,11 @@ func (c *BaseConnection) renameInternal(virtualSourcePath, virtualTargetPath str
 		return c.GetPermissionDeniedError()
 	}
 	initialSize := int64(-1)
-	if dstInfo, err := fsDst.Lstat(fsTargetPath); err == nil {
+	dstInfo, err := fsDst.Lstat(fsTargetPath)
+	if err != nil && !fsDst.IsNotExist(err) {
+		return err
+	}
+	if err == nil {
 		checkParentDestination = false
 		if dstInfo.IsDir() {
 			c.Log(logger.LevelWarn, "attempted to rename %q overwriting an existing directory %q",

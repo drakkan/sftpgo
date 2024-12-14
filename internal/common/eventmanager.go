@@ -71,6 +71,9 @@ var (
 	// eventManager handle the supported event rules actions
 	eventManager          eventRulesContainer
 	multipartQuoteEscaper = strings.NewReplacer("\\", "\\\\", `"`, "\\\"")
+	fsEventsWithSize      = []string{operationPreDelete, OperationPreUpload, operationDelete,
+		operationCopy, operationDownload, operationFirstUpload, operationFirstDownload,
+		operationUpload}
 )
 
 func init() {
@@ -348,7 +351,7 @@ func (*eventRulesContainer) checkFsEventMatch(conditions *dataprovider.EventCond
 	if len(conditions.Options.Protocols) > 0 && !slices.Contains(conditions.Options.Protocols, params.Protocol) {
 		return false
 	}
-	if params.Event == operationUpload || params.Event == operationDownload {
+	if slices.Contains(fsEventsWithSize, params.Event) {
 		if conditions.Options.MinFileSize > 0 {
 			if params.FileSize < conditions.Options.MinFileSize {
 				return false
