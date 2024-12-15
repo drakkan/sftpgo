@@ -763,6 +763,8 @@ type Conf struct {
 	// By default all the available security checks are enabled. Set to 1 to disable the requirement
 	// that a token must be used by the same IP for which it was issued.
 	TokenValidation int `json:"token_validation" mapstructure:"token_validation"`
+	// TokenDuration sets the duration of JWT tokens in minutes, by default this is set to 20 minutes.
+	TokenDuration int `json:"token_duration" mapstructure:"token_duration"`
 	// MaxUploadFileSize Defines the maximum request body size, in bytes, for Web Client/API HTTP upload requests.
 	// 0 means no limit
 	MaxUploadFileSize int64 `json:"max_upload_file_size" mapstructure:"max_upload_file_size"`
@@ -1003,6 +1005,7 @@ func (c *Conf) Initialize(configDir string, isShared int) error {
 	maxUploadFileSize = c.MaxUploadFileSize
 	installationCode = c.Setup.InstallationCode
 	installationCodeHint = c.Setup.InstallationCodeHint
+	tokenDuration = time.Duration(c.TokenDuration) * time.Minute
 	startCleanupTicker(tokenDuration / 2)
 	c.setTokenValidationMode()
 	return <-exitChannel
