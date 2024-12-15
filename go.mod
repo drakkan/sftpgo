@@ -27,7 +27,7 @@ require (
 	github.com/fclairamb/go-log v0.5.0
 	github.com/go-acme/lego/v4 v4.20.4
 	github.com/go-chi/chi/v5 v5.1.0
-	github.com/go-chi/jwtauth/v5 v5.3.1
+	github.com/go-chi/jwtauth/v5 v5.3.2
 	github.com/go-chi/render v1.0.3
 	github.com/go-sql-driver/mysql v1.8.1
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
@@ -67,20 +67,20 @@ require (
 	go.etcd.io/bbolt v1.3.11
 	go.uber.org/automaxprocs v1.6.0
 	gocloud.dev v0.40.0
-	golang.org/x/crypto v0.30.0
+	golang.org/x/crypto v0.31.0
 	golang.org/x/net v0.32.0
 	golang.org/x/oauth2 v0.24.0
 	golang.org/x/sys v0.28.0
 	golang.org/x/term v0.27.0
 	golang.org/x/time v0.8.0
-	google.golang.org/api v0.210.0
+	google.golang.org/api v0.211.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
 require (
 	cel.dev/expr v0.19.1 // indirect
 	cloud.google.com/go v0.116.0 // indirect
-	cloud.google.com/go/auth v0.12.0 // indirect
+	cloud.google.com/go/auth v0.12.1 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.6 // indirect
 	cloud.google.com/go/compute/metadata v0.5.2 // indirect
 	cloud.google.com/go/iam v1.3.0 // indirect
@@ -199,5 +199,5 @@ replace (
 	github.com/fclairamb/ftpserverlib => github.com/drakkan/ftpserverlib v0.0.0-20240603150004-6a8f643fbf2e
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20240430173938-7ba8270c8e7f
 	github.com/robfig/cron/v3 => github.com/drakkan/cron/v3 v3.0.0-20230222140221-217a1e4d96c0
-	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20241207093350-0dea70968ac3
+	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20241215104834-a9cd4736223d
 )
