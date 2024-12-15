@@ -925,16 +925,6 @@ func (c *BaseConnection) CreateSymlink(virtualSourcePath, virtualTargetPath stri
 	return nil
 }
 
-func (c *BaseConnection) getPathForSetStatPerms(fs vfs.Fs, fsPath, virtualPath string) string {
-	pathForPerms := virtualPath
-	if fi, err := fs.Lstat(fsPath); err == nil {
-		if fi.IsDir() {
-			pathForPerms = path.Dir(virtualPath)
-		}
-	}
-	return pathForPerms
-}
-
 func (c *BaseConnection) doStatInternal(virtualPath string, mode int, checkFilePatterns,
 	convertResult bool,
 ) (os.FileInfo, error) {
@@ -1071,7 +1061,7 @@ func (c *BaseConnection) SetStat(virtualPath string, attributes *StatAttributes)
 	if err != nil {
 		return err
 	}
-	pathForPerms := c.getPathForSetStatPerms(fs, fsPath, virtualPath)
+	pathForPerms := path.Dir(virtualPath)
 
 	if attributes.Flags&StatAttrTimes != 0 {
 		if err = c.handleChtimes(fs, fsPath, pathForPerms, attributes); err != nil {
