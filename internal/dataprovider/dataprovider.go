@@ -2907,11 +2907,18 @@ func validatePublicKeys(user *User) error {
 				util.I18nErrorPubKeyInvalid,
 			)
 		}
+		if out.Type() == ssh.InsecureKeyAlgoDSA {
+			providerLog(logger.LevelError, "dsa public key not accepted, position: %d", idx)
+			return util.NewI18nError(
+				util.NewValidationError(fmt.Sprintf("DSA key format is insecure and it is not allowed for key at position %d", idx)),
+				util.I18nErrorKeyInsecure,
+			)
+		}
 		if k, ok := out.(ssh.CryptoPublicKey); ok {
 			cryptoKey := k.CryptoPublicKey()
 			if rsaKey, ok := cryptoKey.(*rsa.PublicKey); ok {
 				if size := rsaKey.N.BitLen(); size < 2048 {
-					providerLog(logger.LevelError, "rsa key with size %d not accepted, minimum 2048", size)
+					providerLog(logger.LevelError, "rsa key with size %d at position %d not accepted, minimum 2048", size, idx)
 					return util.NewI18nError(
 						util.NewValidationError(fmt.Sprintf("invalid size %d for rsa key at position %d, minimum 2048",
 							size, idx)),
