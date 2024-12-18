@@ -432,31 +432,31 @@ func (s *httpdServer) uploadFilesToShare(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-func (s *httpdServer) getShareClaims(r *http.Request, shareID string) (*jwtTokenClaims, error) {
+func (s *httpdServer) getShareClaims(r *http.Request, shareID string) (context.Context, *jwtTokenClaims, error) {
 	token, err := jwtauth.VerifyRequest(s.tokenAuth, r, jwtauth.TokenFromCookie)
 	if err != nil || token == nil {
-		return nil, errInvalidToken
+		return nil, nil, errInvalidToken
 	}
 	tokenString := jwtauth.TokenFromCookie(r)
 	if tokenString == "" || invalidatedJWTTokens.Get(tokenString) {
-		return nil, errInvalidToken
+		return nil, nil, errInvalidToken
 	}
 	if !slices.Contains(token.Audience(), tokenAudienceWebShare) {
 		logger.Debug(logSender, "", "invalid token audience for share %q", shareID)
-		return nil, errInvalidToken
+		return nil, nil, errInvalidToken
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := validateIPForToken(token, ipAddr); err != nil {
 		logger.Debug(logSender, "", "token for share %q is not valid for the ip address %q", shareID, ipAddr)
-		return nil, err
+		return nil, nil, err
 	}
 	ctx := jwtauth.NewContext(r.Context(), token, nil)
 	claims, err := getTokenClaims(r.WithContext(ctx))
 	if err != nil || claims.Username != shareID {
 		logger.Debug(logSender, "", "token not valid for share %q", shareID)
-		return nil, errInvalidToken
+		return nil, nil, errInvalidToken
 	}
-	return &claims, nil
+	return ctx, &claims, nil
 }
 
 func (s *httpdServer) checkWebClientShareCredentials(w http.ResponseWriter, r *http.Request, share *dataprovider.Share) error {
@@ -465,7 +465,7 @@ func (s *httpdServer) checkWebClientShareCredentials(w http.ResponseWriter, r *h
 		http.Redirect(w, r, redirectURL, http.StatusFound)
 	}
 
-	if _, err := s.getShareClaims(r, share.ShareID); err != nil {
+	if _, _, err := s.getShareClaims(r, share.ShareID); err != nil {
 		doRedirect()
 		return err
 	}

@@ -184,6 +184,7 @@ func (n *Node) generateAuthToken(username, role string) (string, error) {
 	t := jwt.New()
 	t.Set("admin", username)                          //nolint:errcheck
 	t.Set("role", role)                               //nolint:errcheck
+	t.Set(jwt.IssuedAtKey, now)                       //nolint:errcheck
 	t.Set(jwt.JwtIDKey, xid.New().String())           //nolint:errcheck
 	t.Set(jwt.NotBeforeKey, now.Add(-30*time.Second)) //nolint:errcheck
 	t.Set(jwt.ExpirationKey, now.Add(1*time.Minute))  //nolint:errcheck

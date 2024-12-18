@@ -1894,7 +1894,7 @@ func (s *httpdServer) handleClientShareLoginPost(w http.ResponseWriter, r *http.
 		s.renderShareLoginPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
-	invalidateToken(r, true)
+	invalidateToken(r)
 	shareID := getURLParam(r, "id")
 	share, err := dataprovider.ShareExists(shareID, "")
 	if err != nil {
@@ -1931,13 +1931,13 @@ func (s *httpdServer) handleClientShareLogout(w http.ResponseWriter, r *http.Req
 	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
 
 	shareID := getURLParam(r, "id")
-	claims, err := s.getShareClaims(r, shareID)
+	ctx, claims, err := s.getShareClaims(r, shareID)
 	if err != nil {
 		s.renderClientMessagePage(w, r, util.I18nShareAccessErrorTitle, http.StatusForbidden,
 			util.NewI18nError(err, util.I18nErrorInvalidToken), "")
 		return
 	}
-	removeCookie(w, r, webBaseClientPath)
+	removeCookie(w, r.WithContext(ctx), webBaseClientPath)
 
 	redirectURL := path.Join(webClientPubSharesPath, shareID, fmt.Sprintf("login?next=%s", url.QueryEscape(claims.Ref)))
 	http.Redirect(w, r, redirectURL, http.StatusFound)

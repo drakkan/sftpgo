@@ -355,6 +355,9 @@
     "signing_passphrase": "",
     "signing_passphrase_file": "",
     "token_validation": 0,
+    "cookie_lifetime": 20,
+    "share_cookie_lifetime": 120,
+    "jwt_lifetime": 20,
     "max_upload_file_size": 0,
     "cors": {
       "enabled": false,

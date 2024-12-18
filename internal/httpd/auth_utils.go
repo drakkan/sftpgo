@@ -67,14 +67,67 @@ const (
 )
 
 var (
-	tokenDuration      = 20 * time.Minute
-	shareTokenDuration = 2 * time.Hour
+	apiTokenDuration    = 20 * time.Minute
+	cookieTokenDuration = 20 * time.Minute
+	shareTokenDuration  = 2 * time.Hour
 	// csrf token duration is greater than normal token duration to reduce issues
 	// with the login form
-	csrfTokenDuration     = 4 * time.Hour
-	tokenRefreshThreshold = 10 * time.Minute
-	tokenValidationMode   = tokenValidationModeDefault
+	csrfTokenDuration      = 4 * time.Hour
+	cookieRefreshThreshold = 10 * time.Minute
+	maxTokenDuration       = 12 * time.Hour
+	tokenValidationMode    = tokenValidationModeDefault
 )
+
+func isTokenDurationValid(minutes int) bool {
+	return minutes >= 1 && minutes <= 720
+}
+
+func updateTokensDuration(api, cookie, share int) {
+	if isTokenDurationValid(api) {
+		apiTokenDuration = time.Duration(api) * time.Minute
+	}
+	if isTokenDurationValid(cookie) {
+		cookieTokenDuration = time.Duration(cookie) * time.Minute
+		cookieRefreshThreshold = cookieTokenDuration / 2
+		if cookieTokenDuration > csrfTokenDuration {
+			csrfTokenDuration = cookieTokenDuration
+		}
+	}
+	if isTokenDurationValid(share) {
+		shareTokenDuration = time.Duration(share) * time.Minute
+	}
+	logger.Debug(logSender, "", "API token duration %s, cookie token duration %s, cookie refresh threshold %s, share token duration %s",
+		apiTokenDuration, cookieTokenDuration, cookieRefreshThreshold, shareTokenDuration)
+}
+
+func getTokenDuration(audience tokenAudience) time.Duration {
+	switch audience {
+	case tokenAudienceWebShare:
+		return shareTokenDuration
+	case tokenAudienceWebLogin, tokenAudienceCSRF:
+		return csrfTokenDuration
+	case tokenAudienceAPI, tokenAudienceAPIUser:
+		return apiTokenDuration
+	case tokenAudienceWebAdmin, tokenAudienceWebClient:
+		return cookieTokenDuration
+	case tokenAudienceWebAdminPartial, tokenAudienceWebClientPartial, tokenAudienceOAuth2:
+		return 5 * time.Minute
+	default:
+		logger.Error(logSender, "", "token duration not handled for audience: %q", audience)
+		return 20 * time.Minute
+	}
+}
+
+func getMaxCookieDuration() time.Duration {
+	result := csrfTokenDuration
+	if shareTokenDuration > result {
+		result = shareTokenDuration
+	}
+	if cookieTokenDuration > result {
+		result = cookieTokenDuration
+	}
+	return result
+}
 
 type jwtTokenClaims struct {
 	Username                   string
@@ -89,6 +142,7 @@ type jwtTokenClaims struct {
 	RequiredTwoFactorProtocols []string
 	HideUserPageSections       int
 	JwtID                      string
+	JwtIssuedAt                time.Time
 	Ref                        string
 }
 
@@ -109,6 +163,9 @@ func (c *jwtTokenClaims) asMap() map[string]any {
 	claims[claimPermissionsKey] = c.Permissions
 	if c.JwtID != "" {
 		claims[jwt.JwtIDKey] = c.JwtID
+	}
+	if !c.JwtIssuedAt.IsZero() {
+		claims[jwt.IssuedAtKey] = c.JwtIssuedAt
 	}
 	if c.Ref != "" {
 		claims[claimRef] = c.Ref
@@ -241,12 +298,11 @@ func (c *jwtTokenClaims) createToken(tokenAuth *jwtauth.JWTAuth, audience tokenA
 	if _, ok := claims[jwt.JwtIDKey]; !ok {
 		claims[jwt.JwtIDKey] = xid.New().String()
 	}
-	claims[jwt.NotBeforeKey] = now.Add(-30 * time.Second)
-	if audience == tokenAudienceWebLogin {
-		claims[jwt.ExpirationKey] = now.Add(csrfTokenDuration)
-	} else {
-		claims[jwt.ExpirationKey] = now.Add(tokenDuration)
+	if _, ok := claims[jwt.IssuedAtKey]; !ok {
+		claims[jwt.IssuedAtKey] = now
 	}
+	claims[jwt.NotBeforeKey] = now.Add(-30 * time.Second)
+	claims[jwt.ExpirationKey] = now.Add(getTokenDuration(audience))
 	claims[jwt.AudienceKey] = []string{audience, ip}
 
 	return tokenAuth.Encode(claims)
@@ -278,11 +334,7 @@ func (c *jwtTokenClaims) createAndSetCookie(w http.ResponseWriter, r *http.Reque
 	} else {
 		basePath = webBaseClientPath
 	}
-	duration := tokenDuration
-	if audience == tokenAudienceWebShare {
-		duration = shareTokenDuration
-	}
-	setCookie(w, r, basePath, resp["access_token"].(string), duration)
+	setCookie(w, r, basePath, resp["access_token"].(string), getTokenDuration(audience))
 
 	return nil
 }
@@ -301,6 +353,7 @@ func setCookie(w http.ResponseWriter, r *http.Request, cookiePath, cookieValue s
 }
 
 func removeCookie(w http.ResponseWriter, r *http.Request, cookiePath string) {
+	invalidateToken(r)
 	http.SetCookie(w, &http.Cookie{
 		Name:     jwtCookieKey,
 		Value:    "",
@@ -312,7 +365,6 @@ func removeCookie(w http.ResponseWriter, r *http.Request, cookiePath string) {
 		SameSite: http.SameSiteStrictMode,
 	})
 	w.Header().Add("Cache-Control", `no-cache="Set-Cookie"`)
-	invalidateToken(r, false)
 }
 
 func oidcTokenFromContext(r *http.Request) string {
@@ -352,19 +404,24 @@ func isTokenInvalidated(r *http.Request) bool {
 	return !isTokenFound
 }
 
-func invalidateToken(r *http.Request, isLoginToken bool) {
-	duration := tokenDuration
-	if isLoginToken {
-		duration = csrfTokenDuration
-	}
+func invalidateToken(r *http.Request) {
 	tokenString := jwtauth.TokenFromHeader(r)
 	if tokenString != "" {
-		invalidatedJWTTokens.Add(tokenString, time.Now().Add(duration).UTC())
+		invalidateTokenString(r, tokenString, apiTokenDuration)
 	}
 	tokenString = jwtauth.TokenFromCookie(r)
 	if tokenString != "" {
-		invalidatedJWTTokens.Add(tokenString, time.Now().Add(duration).UTC())
+		invalidateTokenString(r, tokenString, getMaxCookieDuration())
 	}
+}
+
+func invalidateTokenString(r *http.Request, tokenString string, fallbackDuration time.Duration) {
+	token, _, err := jwtauth.FromContext(r.Context())
+	if err != nil || token == nil {
+		invalidatedJWTTokens.Add(tokenString, time.Now().Add(fallbackDuration).UTC())
+		return
+	}
+	invalidatedJWTTokens.Add(tokenString, token.Expiration().Add(1*time.Minute).UTC())
 }
 
 func getUserFromToken(r *http.Request) *dataprovider.User {
@@ -416,6 +473,7 @@ func createCSRFToken(w http.ResponseWriter, r *http.Request, csrfTokenAuth *jwta
 	now := time.Now().UTC()
 
 	claims[jwt.JwtIDKey] = xid.New().String()
+	claims[jwt.IssuedAtKey] = now
 	claims[jwt.NotBeforeKey] = now.Add(-30 * time.Second)
 	claims[jwt.ExpirationKey] = now.Add(csrfTokenDuration)
 	claims[jwt.AudienceKey] = []string{tokenAudienceCSRF, ip}
@@ -512,8 +570,9 @@ func createOAuth2Token(csrfTokenAuth *jwtauth.JWTAuth, state, ip string) string 
 	now := time.Now().UTC()
 
 	claims[jwt.JwtIDKey] = state
+	claims[jwt.IssuedAtKey] = now
 	claims[jwt.NotBeforeKey] = now.Add(-30 * time.Second)
-	claims[jwt.ExpirationKey] = now.Add(3 * time.Minute)
+	claims[jwt.ExpirationKey] = now.Add(getTokenDuration(tokenAudienceOAuth2))
 	claims[jwt.AudienceKey] = []string{tokenAudienceOAuth2, ip}
 
 	_, tokenString, err := csrfTokenAuth.Encode(claims)
@@ -577,7 +636,7 @@ func checkTokenSignature(r *http.Request, token jwt.Token) error {
 		}
 	}
 	if err != nil {
-		invalidateToken(r, false)
+		invalidateToken(r)
 	}
 	return err
 }

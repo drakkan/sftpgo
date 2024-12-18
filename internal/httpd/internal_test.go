@@ -424,6 +424,25 @@ func TestBrandingInvalidFormFile(t *testing.T) {
 	assert.EqualError(t, err, http.ErrNotMultipart.Error())
 }
 
+func TestTokenDuration(t *testing.T) {
+	assert.Equal(t, shareTokenDuration, getTokenDuration(tokenAudienceWebShare))
+	assert.Equal(t, apiTokenDuration, getTokenDuration(tokenAudienceAPI))
+	assert.Equal(t, apiTokenDuration, getTokenDuration(tokenAudienceAPIUser))
+	assert.Equal(t, cookieTokenDuration, getTokenDuration(tokenAudienceWebAdmin))
+	assert.Equal(t, csrfTokenDuration, getTokenDuration(tokenAudienceCSRF))
+	assert.Equal(t, 20*time.Minute, getTokenDuration(""))
+
+	updateTokensDuration(30, 660, 360)
+	assert.Equal(t, 30*time.Minute, apiTokenDuration)
+	assert.Equal(t, 11*time.Hour, cookieTokenDuration)
+	assert.Equal(t, 11*time.Hour, csrfTokenDuration)
+	assert.Equal(t, 6*time.Hour, shareTokenDuration)
+	assert.Equal(t, 11*time.Hour, getMaxCookieDuration())
+
+	csrfTokenDuration = 1 * time.Hour
+	assert.Equal(t, 11*time.Hour, getMaxCookieDuration())
+}
+
 func TestVerifyCSRFToken(t *testing.T) {
 	server := httpdServer{}
 	server.initializeRouter()
@@ -1270,7 +1289,7 @@ func TestOAuth2Token(t *testing.T) {
 
 	claims[jwt.JwtIDKey] = xid.New().String()
 	claims[jwt.NotBeforeKey] = now.Add(-30 * time.Second)
-	claims[jwt.ExpirationKey] = now.Add(tokenDuration)
+	claims[jwt.ExpirationKey] = now.Add(getTokenDuration(tokenAudienceAPI))
 	claims[jwt.AudienceKey] = []string{tokenAudienceAPI}
 
 	_, tokenString, err := server.csrfTokenAuth.Encode(claims)
@@ -1295,7 +1314,7 @@ func TestOAuth2Token(t *testing.T) {
 	claims = make(map[string]any)
 
 	claims[jwt.NotBeforeKey] = now.Add(-30 * time.Second)
-	claims[jwt.ExpirationKey] = now.Add(tokenDuration)
+	claims[jwt.ExpirationKey] = now.Add(getTokenDuration(tokenAudienceOAuth2))
 	claims[jwt.AudienceKey] = []string{tokenAudienceOAuth2, "127.1.1.4"}
 	_, tokenString, err = server.csrfTokenAuth.Encode(claims)
 	assert.NoError(t, err)
@@ -1335,7 +1354,7 @@ func TestCSRFToken(t *testing.T) {
 
 	claims[jwt.JwtIDKey] = xid.New().String()
 	claims[jwt.NotBeforeKey] = now.Add(-30 * time.Second)
-	claims[jwt.ExpirationKey] = now.Add(tokenDuration)
+	claims[jwt.ExpirationKey] = now.Add(getTokenDuration(tokenAudienceAPI))
 	claims[jwt.AudienceKey] = []string{tokenAudienceAPI}
 
 	_, tokenString, err := server.csrfTokenAuth.Encode(claims)
@@ -1361,7 +1380,7 @@ func TestCSRFToken(t *testing.T) {
 
 	claims[jwt.JwtIDKey] = xid.New().String()
 	claims[jwt.NotBeforeKey] = now.Add(-30 * time.Second)
-	claims[jwt.ExpirationKey] = now.Add(tokenDuration)
+	claims[jwt.ExpirationKey] = now.Add(getTokenDuration(tokenAudienceAPI))
 	claims[jwt.AudienceKey] = []string{tokenAudienceAPI}
 	_, tokenString, err = server.csrfTokenAuth.Encode(claims)
 	assert.NoError(t, err)
@@ -1933,6 +1952,7 @@ func TestCookieExpiration(t *testing.T) {
 	claims[claimUsernameKey] = admin.Username
 	claims[claimPermissionsKey] = admin.Permissions
 	claims[jwt.JwtIDKey] = tokenID
+	claims[jwt.IssuedAtKey] = time.Now()
 	claims[jwt.SubjectKey] = admin.GetSignature()
 	claims[jwt.ExpirationKey] = time.Now().Add(1 * time.Minute)
 	claims[jwt.AudienceKey] = []string{tokenAudienceAPI}
@@ -1977,6 +1997,7 @@ func TestCookieExpiration(t *testing.T) {
 	claims[claimUsernameKey] = user.Username
 	claims[claimPermissionsKey] = user.Filters.WebClient
 	claims[jwt.JwtIDKey] = tokenID
+	claims[jwt.IssuedAtKey] = time.Now()
 	claims[jwt.SubjectKey] = user.GetSignature()
 	claims[jwt.ExpirationKey] = time.Now().Add(1 * time.Minute)
 	claims[jwt.AudienceKey] = []string{tokenAudienceWebClient}
@@ -2006,12 +2027,15 @@ func TestCookieExpiration(t *testing.T) {
 
 	user, err = dataprovider.UserExists(user.Username, "")
 	assert.NoError(t, err)
+	issuedAt := time.Now().Add(-1 * time.Minute)
+	expiresAt := time.Now().Add(1 * time.Minute)
 	claims = make(map[string]any)
 	claims[claimUsernameKey] = user.Username
 	claims[claimPermissionsKey] = user.Filters.WebClient
 	claims[jwt.JwtIDKey] = tokenID
+	claims[jwt.IssuedAtKey] = issuedAt
 	claims[jwt.SubjectKey] = user.GetSignature()
-	claims[jwt.ExpirationKey] = time.Now().Add(1 * time.Minute)
+	claims[jwt.ExpirationKey] = expiresAt
 	claims[jwt.AudienceKey] = []string{tokenAudienceWebClient}
 	token, _, err = server.tokenAuth.Encode(claims)
 	assert.NoError(t, err)
@@ -2033,7 +2057,21 @@ func TestCookieExpiration(t *testing.T) {
 	token, err = jwtauth.VerifyRequest(server.tokenAuth, req, jwtauth.TokenFromCookie)
 	if assert.NoError(t, err) {
 		assert.Equal(t, tokenID, token.JwtID())
+		assert.Equal(t, issuedAt.Unix(), token.IssuedAt().Unix())
+		assert.NotEqual(t, expiresAt.Unix(), token.Expiration().Unix())
 	}
+	// test a cookie issued more that 12 hours ago
+	claims[jwt.IssuedAtKey] = time.Now().Add(-24 * time.Hour)
+	token, _, err = server.tokenAuth.Encode(claims)
+	assert.NoError(t, err)
+
+	rr = httptest.NewRecorder()
+	req, _ = http.NewRequest(http.MethodGet, webClientFilesPath, nil)
+	req.RemoteAddr = "172.16.4.16:6789"
+	ctx = jwtauth.NewContext(req.Context(), token, nil)
+	server.checkCookieExpiration(rr, req.WithContext(ctx))
+	cookie = rr.Header().Get("Set-Cookie")
+	assert.Empty(t, cookie)
 
 	// test a disabled user
 	user.Status = 0
@@ -2046,6 +2084,7 @@ func TestCookieExpiration(t *testing.T) {
 	claims[claimUsernameKey] = user.Username
 	claims[claimPermissionsKey] = user.Filters.WebClient
 	claims[jwt.JwtIDKey] = tokenID
+	claims[jwt.IssuedAtKey] = issuedAt
 	claims[jwt.SubjectKey] = user.GetSignature()
 	claims[jwt.ExpirationKey] = time.Now().Add(1 * time.Minute)
 	claims[jwt.AudienceKey] = []string{tokenAudienceWebClient}
@@ -2321,12 +2360,17 @@ func TestJWTTokenCleanup(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodGet, versionPath, nil)
 	assert.True(t, isTokenInvalidated(req))
 
+	fakeToken := "abc"
+	invalidateTokenString(req, fakeToken, -100*time.Millisecond)
+	assert.True(t, invalidatedJWTTokens.Get(fakeToken))
+
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %v", token))
 
-	invalidatedJWTTokens.Add(token, time.Now().Add(-tokenDuration).UTC())
+	invalidatedJWTTokens.Add(token, time.Now().Add(-getTokenDuration(tokenAudienceWebAdmin)).UTC())
 	require.True(t, isTokenInvalidated(req))
 	startCleanupTicker(100 * time.Millisecond)
 	assert.Eventually(t, func() bool { return !isTokenInvalidated(req) }, 1*time.Second, 200*time.Millisecond)
+	assert.False(t, invalidatedJWTTokens.Get(fakeToken))
 	stopCleanupTicker()
 }
 
@@ -2339,13 +2383,13 @@ func TestDbTokenManager(t *testing.T) {
 	testToken := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsiV2ViQWRtaW4iLCI6OjEiXSwiZXhwIjoxNjk4NjYwMDM4LCJqdGkiOiJja3ZuazVrYjF1aHUzZXRmZmhyZyIsIm5iZiI6MTY5ODY1ODgwOCwicGVybWlzc2lvbnMiOlsiKiJdLCJzdWIiOiIxNjk3ODIwNDM3NTMyIiwidXNlcm5hbWUiOiJhZG1pbiJ9.LXuFFksvnSuzHqHat6r70yR0jEulNRju7m7SaWrOfy8; csrftoken=mP0C7DqjwpAXsptO2gGCaYBkYw3oNMWB"
 	key := dbTokenManager.getKey(testToken)
 	require.Len(t, key, 64)
-	dbTokenManager.Add(testToken, time.Now().Add(-tokenDuration).UTC())
+	dbTokenManager.Add(testToken, time.Now().Add(-getTokenDuration(tokenAudienceWebClient)).UTC())
 	isInvalidated := dbTokenManager.Get(testToken)
 	assert.True(t, isInvalidated)
 	dbTokenManager.Cleanup()
 	isInvalidated = dbTokenManager.Get(testToken)
 	assert.False(t, isInvalidated)
-	dbTokenManager.Add(testToken, time.Now().Add(tokenDuration).UTC())
+	dbTokenManager.Add(testToken, time.Now().Add(getTokenDuration(tokenAudienceWebAdmin)).UTC())
 	isInvalidated = dbTokenManager.Get(testToken)
 	assert.True(t, isInvalidated)
 	dbTokenManager.Cleanup()
