@@ -121,6 +121,7 @@ const (
 	I18nErrorPubKeyInvalid             = "user.pub_key_invalid"
 	I18nErrorPrivKeyInvalid            = "user.priv_key_invalid"
 	I18nErrorKeySizeInvalid            = "user.key_invalid_size"
+	I18nErrorKeyInsecure               = "user.key_insecure"
 	I18nErrorPrimaryGroup              = "user.err_primary_group"
 	I18nErrorDuplicateGroup            = "user.err_duplicate_group"
 	I18nErrorNoPermission              = "user.no_permissions"
