@@ -142,7 +142,7 @@ func executeNotificationCommand(operation, executor, ip, objectType, objectName,
 
 	cmd := exec.CommandContext(ctx, config.Actions.Hook, args...)
 	cmd.Env = append(env,
-		fmt.Sprintf("SFTPGO_PROVIDER_ACTION=%vs", operation),
+		fmt.Sprintf("SFTPGO_PROVIDER_ACTION=%s", operation),
 		fmt.Sprintf("SFTPGO_PROVIDER_OBJECT_TYPE=%s", objectType),
 		fmt.Sprintf("SFTPGO_PROVIDER_OBJECT_NAME=%s", objectName),
 		fmt.Sprintf("SFTPGO_PROVIDER_USERNAME=%s", executor),
