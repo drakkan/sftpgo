@@ -89,6 +89,11 @@ func (s *Share) GetAllowedFromAsString() string {
 	return strings.Join(s.AllowFrom, ",")
 }
 
+// IsPasswordHashed returns true if the password is hashed
+func (s *Share) IsPasswordHashed() bool {
+	return util.IsStringPrefixInSlice(s.Password, hashPwdPrefixes)
+}
+
 func (s *Share) getACopy() Share {
 	allowFrom := make([]string, len(s.AllowFrom))
 	copy(allowFrom, s.AllowFrom)

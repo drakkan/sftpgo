@@ -706,6 +706,9 @@ func (s *httpdServer) renderAddUpdateSharePage(w http.ResponseWriter, r *http.Re
 		currentURL = fmt.Sprintf("%v/%v", webClientSharePath, url.PathEscape(share.ShareID))
 		title = util.I18nShareUpdateTitle
 	}
+	if share.IsPasswordHashed() {
+		share.Password = redactedSecret
+	}
 	data := clientSharePage{
 		baseClientPage: s.getBaseClientPageData(title, currentURL, w, r),
 		Share:          share,
@@ -1437,7 +1440,6 @@ func (s *httpdServer) handleClientUpdateShareGet(w http.ResponseWriter, r *http.
 	shareID := getURLParam(r, "id")
 	share, err := dataprovider.ShareExists(shareID, claims.Username)
 	if err == nil {
-		share.HideConfidentialData()
 		s.renderAddUpdateSharePage(w, r, &share, nil, false)
 	} else if errors.Is(err, util.ErrNotFound) {
 		s.renderClientNotFoundPage(w, r, err)
