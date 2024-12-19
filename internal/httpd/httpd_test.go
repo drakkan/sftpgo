@@ -5264,6 +5264,13 @@ func TestUserPublicKey(t *testing.T) {
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
+	// DSA keys are not accepted
+	u = getTestUser()
+	u.Password = ""
+	u.PublicKeys = []string{"ssh-dss AAAAB3NzaC1kc3MAAACBAK+BKLZs1Vd0cWYOquKfp++0ml9hkzB7UDRozT3nhRcyHcuwASsXiVTqsg96oGjBcUUy076CXlsfJEXE2P0dF6tt1wvABPMwKpOn+kIrfJ0j93X2c2KIZNlD4YuNUJjLHu1DvgQHw8NMps6l5D0M5NFCRdD3NYhI5zFVJJ4CzikrAAAAFQCRBagw7gEbs0gd8So7OLMcSVzs/wAAAIBjuo7U9q8npchQ3otgCvj0xIwsQ+Fi9bH0SBceqbCcVzFYY6JXSQ0XmwHs+0AuvRCPIGaBdfcm+w+9YOxREtdEVjcmkYlfJpTaVljjWcWFWTQddbiamZhQ/xLU9CNLK4oYLwIGLZjCcG7nRDdLtLQdBFuzP/faEi3TD2BK114QmAAAAIEAj1n34pH2WKwbSZhzmz/OG0VzqJICFWboiM44LZl2AqcRBvEEycdHlGe2IKaj5lEtLgBKJt9NSFhBIzWh7gcEzSMlkiDecdYSFlDc4snmTiXaoiIehV59nTY6gc8GLWCzuem+WdHxvJ4yOSWF9k+a+Y+/v/35shNLkfokViOlN7k="}
+	_, resp, err := httpdtest.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "DSA key format is insecure and it is not allowed")
 }
 
 func TestUpdateUserEmptyPassword(t *testing.T) {
