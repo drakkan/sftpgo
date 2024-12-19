@@ -1150,7 +1150,7 @@ func getLastModified(metadata map[string]string) int64 {
 
 func getAzureLastModified(metadata map[string]*string) int64 {
 	for k, v := range metadata {
-		if strings.ToLower(k) == lastModifiedField {
+		if strings.EqualFold(k, lastModifiedField) {
 			if val := util.GetStringFromPointer(v); val != "" {
 				lastModified, err := strconv.ParseInt(val, 10, 64)
 				if err == nil {

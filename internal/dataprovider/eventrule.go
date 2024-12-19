@@ -342,7 +342,7 @@ func (c *EventActionHTTPConfig) validateMultiparts() error {
 			)
 		}
 		for _, k := range c.Headers {
-			if strings.ToLower(k.Key) == "content-type" {
+			if strings.EqualFold(k.Key, "content-type") {
 				return util.NewI18nError(
 					util.NewValidationError("content type is automatically set for multipart requests"),
 					util.I18nErrorMultipartCType,

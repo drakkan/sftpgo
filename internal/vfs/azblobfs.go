@@ -401,7 +401,7 @@ func (fs *AzureBlobFs) Chtimes(name string, _, mtime time.Time, isUploading bool
 	}
 	found := false
 	for k := range metadata {
-		if strings.ToLower(k) == lastModifiedField {
+		if strings.EqualFold(k, lastModifiedField) {
 			metadata[k] = to.Ptr(strconv.FormatInt(mtime.UnixMilli(), 10))
 			found = true
 			break
@@ -1124,7 +1124,7 @@ func (fs *AzureBlobFs) getCopyOptions(srcInfo os.FileInfo, updateModTime bool) *
 		metadata := make(map[string]*string)
 		for k, v := range getMetadata(srcInfo) {
 			if v != "" {
-				if strings.ToLower(k) == lastModifiedField {
+				if strings.EqualFold(k, lastModifiedField) {
 					metadata[k] = to.Ptr("0")
 				} else {
 					metadata[k] = to.Ptr(v)
@@ -1158,8 +1158,8 @@ func checkDirectoryMarkers(contentType string, metadata map[string]*string) bool
 		return true
 	}
 	for k, v := range metadata {
-		if strings.ToLower(k) == azFolderKey {
-			return strings.ToLower(util.GetStringFromPointer(v)) == "true"
+		if strings.EqualFold(k, azFolderKey) {
+			return strings.EqualFold(util.GetStringFromPointer(v), "true")
 		}
 	}
 	return false
