@@ -26,7 +26,7 @@ require (
 	github.com/fclairamb/ftpserverlib v0.24.1
 	github.com/fclairamb/go-log v0.5.0
 	github.com/go-acme/lego/v4 v4.20.4
-	github.com/go-chi/chi/v5 v5.1.0
+	github.com/go-chi/chi/v5 v5.2.0
 	github.com/go-chi/jwtauth/v5 v5.3.2
 	github.com/go-chi/render v1.0.3
 	github.com/go-sql-driver/mysql v1.8.1
@@ -58,7 +58,7 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.19.0
 	github.com/stretchr/testify v1.10.0
-	github.com/studio-b12/gowebdav v0.9.0
+	github.com/studio-b12/gowebdav v0.10.0
 	github.com/subosito/gotenv v1.6.0
 	github.com/unrolled/secure v1.17.0
 	github.com/wagslane/go-password-validator v0.3.0
@@ -68,7 +68,7 @@ require (
 	go.uber.org/automaxprocs v1.6.0
 	gocloud.dev v0.40.0
 	golang.org/x/crypto v0.31.0
-	golang.org/x/net v0.32.0
+	golang.org/x/net v0.33.0
 	golang.org/x/oauth2 v0.24.0
 	golang.org/x/sys v0.28.0
 	golang.org/x/term v0.27.0
