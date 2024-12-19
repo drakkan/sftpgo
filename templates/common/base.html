@@ -172,10 +172,17 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         element.setAttribute("data-kt-initialized", "1");
     }
 
-    const lngs = {
-        en: { nativeName: 'English' },
-        it: { nativeName: 'Italiano' }
-    };
+    const lngs = {};
+    //{{- range .Languages}}
+    //{{- if eq . "en"}}
+    lngs.en = { nativeName: 'English' };
+    //{{- else if eq . "it" }}
+    lngs.it = { nativeName: 'Italiano' };
+    //{{- end}}
+    //{{- end}}
+    if (Object.keys(lngs).length == 0){
+        lngs.en = { nativeName: 'English' };
+    }
 
     const renderI18n = () => {
         document.documentElement.setAttribute('lang', i18next.resolvedLanguage);
@@ -194,7 +201,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             .init({
                 debug: false,
                 supportedLngs: Object.keys(lngs),
-                fallbackLng: 'en',
+                fallbackLng: Object.keys(lngs)[0],
                 load: 'languageOnly',
                 backend: {
                     backends: [
@@ -216,20 +223,25 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     jqueryI18next.init(i18next, $, { useOptionsAttr: true });
 
                     var languageSwitcher = $('#languageSwitcher');
-                    if (languageSwitcher){
-                        Object.keys(lngs).map((lng) => {
-                            const opt = new Option(lngs[lng].nativeName, lng);
-                            if (lng === i18next.resolvedLanguage) {
-                                opt.setAttribute("selected", "selected");
-                            }
-                            languageSwitcher.append(opt);
-                        });
-                        languageSwitcher.on('change', function(){
-                            const chosenLng = $(this).find("option:selected").attr('value');
-                            i18next.changeLanguage(chosenLng, () => {
-                                renderI18n();
+                    if (languageSwitcher.length){
+                        if (Object.keys(lngs).length > 1) {
+                            languageSwitcher.removeClass("d-none");
+                            Object.keys(lngs).map((lng) => {
+                                const opt = new Option(lngs[lng].nativeName, lng);
+                                if (lng === i18next.resolvedLanguage) {
+                                    opt.setAttribute("selected", "selected");
+                                }
+                                languageSwitcher.append(opt);
                             });
-                        });
+                            languageSwitcher.on('change', function () {
+                                const chosenLng = $(this).find("option:selected").attr('value');
+                                i18next.changeLanguage(chosenLng, () => {
+                                    renderI18n();
+                                });
+                            });
+                        } else {
+                            languageSwitcher.addClass("d-none");
+                        }
                     }
 
                     renderI18n();

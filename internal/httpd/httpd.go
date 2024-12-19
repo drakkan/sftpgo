@@ -608,6 +608,8 @@ type Binding struct {
 	HideLoginURL int `json:"hide_login_url" mapstructure:"hide_login_url"`
 	// Enable the built-in OpenAPI renderer
 	RenderOpenAPI bool `json:"render_openapi" mapstructure:"render_openapi"`
+	// Languages defines the list of enabled translations for the WebAdmin and WebClient UI.
+	Languages []string `json:"languages" mapstructure:"languages"`
 	// Defining an OIDC configuration the web admin and web client UI will use OpenID to authenticate users.
 	OIDC OIDC `json:"oidc" mapstructure:"oidc"`
 	// Security defines security headers to add to HTTP responses and allows to restrict allowed hosts
@@ -640,6 +642,10 @@ func (b *Binding) webAdminBranding() UIBranding {
 
 func (b *Binding) webClientBranding() UIBranding {
 	return dbBrandingConfig.mergeBrandingConfig(b.Branding.WebClient, true)
+}
+
+func (b *Binding) languages() []string {
+	return b.Languages
 }
 
 func (b *Binding) parseAllowedProxy() error {

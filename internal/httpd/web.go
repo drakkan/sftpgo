@@ -67,6 +67,7 @@ type loginPage struct {
 	OpenIDLoginURL string
 	Title          string
 	Branding       UIBranding
+	Languages      []string
 	FormDisabled   bool
 	CheckRedirect  bool
 }
@@ -79,6 +80,7 @@ type twoFactorPage struct {
 	RecoveryURL   string
 	Title         string
 	Branding      UIBranding
+	Languages     []string
 	CheckRedirect bool
 }
 
@@ -90,6 +92,7 @@ type forgotPwdPage struct {
 	LoginURL      string
 	Title         string
 	Branding      UIBranding
+	Languages     []string
 	CheckRedirect bool
 }
 
@@ -101,6 +104,7 @@ type resetPwdPage struct {
 	LoginURL      string
 	Title         string
 	Branding      UIBranding
+	Languages     []string
 	CheckRedirect bool
 }
 

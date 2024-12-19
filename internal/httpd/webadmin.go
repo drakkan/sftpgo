@@ -155,6 +155,7 @@ type basePage struct {
 	LoggedUser          *dataprovider.Admin
 	IsLoggedToShare     bool
 	Branding            UIBranding
+	Languages           []string
 }
 
 type statusPage struct {
@@ -262,6 +263,7 @@ type setupPage struct {
 	HideSupportLink      bool
 	Title                string
 	Branding             UIBranding
+	Languages            []string
 	CheckRedirect        bool
 }
 
@@ -669,6 +671,7 @@ func (s *httpdServer) getBasePageData(title, currentURL string, w http.ResponseW
 		HasExternalLogin:    isLoggedInWithOIDC(r),
 		CSRFToken:           csrfToken,
 		Branding:            s.binding.webAdminBranding(),
+		Languages:           s.binding.languages(),
 	}
 }
 
@@ -727,6 +730,7 @@ func (s *httpdServer) renderForgotPwdPage(w http.ResponseWriter, r *http.Request
 		LoginURL:       webAdminLoginPath,
 		Title:          util.I18nForgotPwdTitle,
 		Branding:       s.binding.webAdminBranding(),
+		Languages:      s.binding.languages(),
 	}
 	renderAdminTemplate(w, templateForgotPassword, data)
 }
@@ -740,6 +744,7 @@ func (s *httpdServer) renderResetPwdPage(w http.ResponseWriter, r *http.Request,
 		LoginURL:       webAdminLoginPath,
 		Title:          util.I18nResetPwdTitle,
 		Branding:       s.binding.webAdminBranding(),
+		Languages:      s.binding.languages(),
 	}
 	renderAdminTemplate(w, templateResetPassword, data)
 }
@@ -753,6 +758,7 @@ func (s *httpdServer) renderTwoFactorPage(w http.ResponseWriter, r *http.Request
 		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, "", webBaseAdminPath),
 		RecoveryURL:    webAdminTwoFactorRecoveryPath,
 		Branding:       s.binding.webAdminBranding(),
+		Languages:      s.binding.languages(),
 	}
 	renderAdminTemplate(w, templateTwoFactor, data)
 }
@@ -765,6 +771,7 @@ func (s *httpdServer) renderTwoFactorRecoveryPage(w http.ResponseWriter, r *http
 		Error:          err,
 		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, "", webBaseAdminPath),
 		Branding:       s.binding.webAdminBranding(),
+		Languages:      s.binding.languages(),
 	}
 	renderAdminTemplate(w, templateTwoFactorRecovery, data)
 }
@@ -863,6 +870,7 @@ func (s *httpdServer) renderAdminSetupPage(w http.ResponseWriter, r *http.Reques
 		HideSupportLink:      hideSupportLink,
 		Error:                err,
 		Branding:             s.binding.webAdminBranding(),
+		Languages:            s.binding.languages(),
 	}
 
 	renderAdminTemplate(w, templateSetup, data)

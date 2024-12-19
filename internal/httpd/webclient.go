@@ -98,6 +98,7 @@ type baseClientPage struct {
 	LoggedUser      *dataprovider.User
 	IsLoggedToShare bool
 	Branding        UIBranding
+	Languages       []string
 }
 
 type dirMapping struct {
@@ -107,9 +108,10 @@ type dirMapping struct {
 
 type viewPDFPage struct {
 	commonBasePage
-	Title    string
-	URL      string
-	Branding UIBranding
+	Title     string
+	URL       string
+	Branding  UIBranding
+	Languages []string
 }
 
 type editFilePage struct {
@@ -152,6 +154,7 @@ type shareLoginPage struct {
 	CSRFToken  string
 	Title      string
 	Branding   UIBranding
+	Languages  []string
 }
 
 type shareDownloadPage struct {
@@ -550,6 +553,7 @@ func (s *httpdServer) getBaseClientPageData(title, currentURL string, w http.Res
 		LoggedUser:      getUserFromToken(r),
 		IsLoggedToShare: false,
 		Branding:        s.binding.webClientBranding(),
+		Languages:       s.binding.languages(),
 	}
 	if !strings.HasPrefix(r.RequestURI, webClientPubSharesPath) {
 		data.LoginURL = webClientLoginPath
@@ -566,6 +570,7 @@ func (s *httpdServer) renderClientForgotPwdPage(w http.ResponseWriter, r *http.R
 		LoginURL:       webClientLoginPath,
 		Title:          util.I18nForgotPwdTitle,
 		Branding:       s.binding.webClientBranding(),
+		Languages:      s.binding.languages(),
 	}
 	renderClientTemplate(w, templateForgotPassword, data)
 }
@@ -579,6 +584,7 @@ func (s *httpdServer) renderClientResetPwdPage(w http.ResponseWriter, r *http.Re
 		LoginURL:       webClientLoginPath,
 		Title:          util.I18nResetPwdTitle,
 		Branding:       s.binding.webClientBranding(),
+		Languages:      s.binding.languages(),
 	}
 	renderClientTemplate(w, templateResetPassword, data)
 }
@@ -591,6 +597,7 @@ func (s *httpdServer) renderShareLoginPage(w http.ResponseWriter, r *http.Reques
 		Error:          err,
 		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, xid.New().String(), webBaseClientPath),
 		Branding:       s.binding.webClientBranding(),
+		Languages:      s.binding.languages(),
 	}
 	renderClientTemplate(w, templateShareLogin, data)
 }
@@ -641,6 +648,7 @@ func (s *httpdServer) renderClientTwoFactorPage(w http.ResponseWriter, r *http.R
 		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, "", webBaseClientPath),
 		RecoveryURL:    webClientTwoFactorRecoveryPath,
 		Branding:       s.binding.webClientBranding(),
+		Languages:      s.binding.languages(),
 	}
 	if next := r.URL.Query().Get("next"); strings.HasPrefix(next, webClientFilesPath) {
 		data.CurrentURL += "?next=" + url.QueryEscape(next)
@@ -656,6 +664,7 @@ func (s *httpdServer) renderClientTwoFactorRecoveryPage(w http.ResponseWriter, r
 		Error:          err,
 		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, "", webBaseClientPath),
 		Branding:       s.binding.webClientBranding(),
+		Languages:      s.binding.languages(),
 	}
 	renderClientTemplate(w, templateTwoFactorRecovery, data)
 }
@@ -1110,7 +1119,8 @@ func (s *httpdServer) handleShareViewPDF(w http.ResponseWriter, r *http.Request)
 		Title:          path.Base(name),
 		URL: fmt.Sprintf("%s?path=%s&_=%d", path.Join(webClientPubSharesPath, share.ShareID, "getpdf"),
 			url.QueryEscape(name), time.Now().UTC().Unix()),
-		Branding: s.binding.webClientBranding(),
+		Branding:  s.binding.webClientBranding(),
+		Languages: s.binding.languages(),
 	}
 	renderClientTemplate(w, templateClientViewPDF, data)
 }
@@ -1795,6 +1805,7 @@ func (s *httpdServer) handleClientViewPDF(w http.ResponseWriter, r *http.Request
 		Title:          path.Base(name),
 		URL:            fmt.Sprintf("%s?path=%s&_=%d", webClientGetPDFPath, url.QueryEscape(name), time.Now().UTC().Unix()),
 		Branding:       s.binding.webClientBranding(),
+		Languages:      s.binding.languages(),
 	}
 	renderClientTemplate(w, templateClientViewPDF, data)
 }
