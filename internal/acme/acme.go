@@ -44,6 +44,7 @@ import (
 	"github.com/go-acme/lego/v4/log"
 	"github.com/go-acme/lego/v4/providers/http/webroot"
 	"github.com/go-acme/lego/v4/registration"
+	"github.com/hashicorp/go-retryablehttp"
 	"github.com/robfig/cron/v3"
 
 	"github.com/drakkan/sftpgo/v2/internal/common"
@@ -492,6 +493,13 @@ func (c *Configuration) setup() (*account, *lego.Client, error) {
 	config.Certificate.KeyType = certcrypto.KeyType(c.KeyType)
 	config.Certificate.OverallRequestLimit = 6
 	config.UserAgent = version.GetServerVersion("/", false)
+
+	retryClient := retryablehttp.NewClient()
+	retryClient.RetryMax = 5
+	retryClient.HTTPClient = config.HTTPClient
+
+	config.HTTPClient = retryClient.StandardClient()
+
 	client, err := lego.NewClient(config)
 	if err != nil {
 		acmeLog(logger.LevelError, "unable to get ACME client: %v", err)
@@ -558,6 +566,12 @@ func (c *Configuration) tryRecoverRegistration(privateKey crypto.PrivateKey) (*r
 	config := lego.NewConfig(&account{key: privateKey})
 	config.CADirURL = c.CAEndpoint
 	config.UserAgent = version.GetServerVersion("/", false)
+
+	retryClient := retryablehttp.NewClient()
+	retryClient.RetryMax = 5
+	retryClient.HTTPClient = config.HTTPClient
+
+	config.HTTPClient = retryClient.StandardClient()
 
 	client, err := lego.NewClient(config)
 	if err != nil {
