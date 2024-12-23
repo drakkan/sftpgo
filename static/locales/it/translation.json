@@ -1065,6 +1065,7 @@
             "fs_path": "Percorso completo del filesystem, ad esempio \"/user/homedir/adir/afile.txt\" o \"C:/data/user/homedir/adir/afile.txt\" su Windows",
             "ext": "Estensione del file, ad esempio \".txt\" se il nome del file è \"afile.txt\"",
             "object_name": "Nome del file/directory, ad esempio \"afile.txt\" o nome dell'oggetto del provider",
+            "object_basename": "Nome del file senza estensione, ad esempio \"afile\" se il nome del file è \"afile.txt\"",
             "object_type": "Tipo di oggetto per gli eventi provider: \"user\", \"group\", \"admin\", ecc",
             "virtual_target_path": "Percorso di destinazione virtuale per le operazioni di ridenominazione e copia",
             "virtual_target_dir_path": "Cartella superiore per \"VirtualTargetPath\"",

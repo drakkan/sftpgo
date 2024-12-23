@@ -1065,6 +1065,7 @@
             "fs_path": "Full filesystem path, for example \"/user/homedir/adir/afile.txt\" or \"C:/data/user/homedir/adir/afile.txt\" on Windows",
             "ext": "File extension, for example \".txt\" if the filename is \"afile.txt\"",
             "object_name": "File/directory name, for example \"afile.txt\" or provider object name",
+            "object_basename": "Filename without extension, for example \"afile\" if the filename is \"afile.txt\"",
             "object_type": "Object type for provider events: \"user\", \"group\", \"admin\", etc",
             "virtual_target_path": "Virtual target path for rename and copy operations",
             "virtual_target_dir_path": "Parent directory for \"VirtualTargetPath\"",
