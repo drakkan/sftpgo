@@ -642,7 +642,9 @@ func (m *Manager) restartNotifierPlugin(config Config, idx int) {
 	}
 
 	m.notifLock.Lock()
-	plugin.queue = m.notifiers[idx].queue
+	plugin.fsEvents = m.notifiers[idx].fsEvents
+	plugin.providerEvents = m.notifiers[idx].providerEvents
+	plugin.logEvents = m.notifiers[idx].logEvents
 	m.notifiers[idx] = plugin
 	m.notifLock.Unlock()
 	plugin.sendQueuedEvents()
