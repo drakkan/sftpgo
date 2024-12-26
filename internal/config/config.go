@@ -813,6 +813,12 @@ func resetInvalidConfigs() {
 			logger.WarnToConsole("Non-fatal configuration error: %v", warn)
 		}
 	}
+	if globalConf.Common.RenameMode < 0 || globalConf.Common.RenameMode > 1 {
+		warn := fmt.Sprintf("invalid rename mode %d, reset to 0", globalConf.Common.RenameMode)
+		globalConf.Common.RenameMode = 0
+		logger.Warn(logSender, "", "Non-fatal configuration error: %v", warn)
+		logger.WarnToConsole("Non-fatal configuration error: %v", warn)
+	}
 }
 
 func loadBindingsFromEnv() {

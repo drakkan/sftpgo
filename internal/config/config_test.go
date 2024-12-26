@@ -243,6 +243,26 @@ func TestInvalidInstallationHint(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestInvalidRenameMode(t *testing.T) {
+	reset()
+
+	confName := tempConfigName + ".json"
+	configFilePath := filepath.Join(configDir, confName)
+	commonConfig := config.GetCommonConfig()
+	commonConfig.RenameMode = 10
+	c := make(map[string]any)
+	c["common"] = commonConfig
+	jsonConf, err := json.Marshal(c)
+	assert.NoError(t, err)
+	err = os.WriteFile(configFilePath, jsonConf, os.ModePerm)
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, confName)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, config.GetCommonConfig().RenameMode)
+	err = os.Remove(configFilePath)
+	assert.NoError(t, err)
+}
+
 func TestDefenderProviderDriver(t *testing.T) {
 	if config.GetProviderConf().Driver != dataprovider.SQLiteDataProviderName {
 		t.Skip("this test is not supported with the current database provider")
