@@ -2463,7 +2463,7 @@ func TestProxyHeaders(t *testing.T) {
 	rr := httptest.NewRecorder()
 	testServer.Config.Handler.ServeHTTP(rr, req)
 	assert.Equal(t, http.StatusUnauthorized, rr.Code)
-	assert.Contains(t, rr.Body.String(), "login from IP 127.0.0.1 not allowed")
+	assert.NotContains(t, rr.Body.String(), "login from IP 127.0.0.1 not allowed")
 
 	req.RemoteAddr = testIP
 	rr = httptest.NewRecorder()

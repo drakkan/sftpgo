@@ -530,7 +530,7 @@ func (s *httpdServer) handleWebAdminTwoFactorPost(w http.ResponseWriter, r *http
 		return
 	}
 	if err := verifyCSRFToken(r, s.csrfTokenAuth); err != nil {
-		err = handleDefenderEventLoginFailed(ipAddr, err)
+		handleDefenderEventLoginFailed(ipAddr, err) //nolint:errcheck
 		s.renderTwoFactorPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
@@ -941,9 +941,10 @@ func (s *httpdServer) getToken(w http.ResponseWriter, r *http.Request) {
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	admin, err := dataprovider.CheckAdminAndPass(username, password, ipAddr)
 	if err != nil {
-		err = handleDefenderEventLoginFailed(ipAddr, err)
+		handleDefenderEventLoginFailed(ipAddr, err) //nolint:errcheck
 		w.Header().Set(common.HTTPAuthenticationHeader, basicRealm)
-		sendAPIResponse(w, r, err, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+		sendAPIResponse(w, r, dataprovider.ErrInvalidCredentials, http.StatusText(http.StatusUnauthorized),
+			http.StatusUnauthorized)
 		return
 	}
 	if admin.Filters.TOTPConfig.Enabled {
