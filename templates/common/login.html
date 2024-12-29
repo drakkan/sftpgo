@@ -77,7 +77,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 								{{- end}}
 							</div>
 						</form>
+						{{- if or (.AltLoginURL) (gt (len .Languages) 1) (and .Branding.DisclaimerName .Branding.DisclaimerPath)}}
 						<hr>
+						{{- end}}
 						<div class="d-flex flex-stack pt-5 mt-3">
 							<div class="me-10">
 								<select id="languageSwitcher" name="language" class="form-select form-select-solid form-select-sm" data-control="i18n-select2" data-hide-search="true">

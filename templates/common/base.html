@@ -353,6 +353,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 		});
 
         initLocalizer();
+        // Workaround to fix scrollbar in navigation sidebar.
+        window.dispatchEvent(new Event('resize'));
 	});
 </script>
 {{- end}}

@@ -60,7 +60,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         </button>
     </div>
 </form>
+{{- if gt (len .Languages) 1}}
 <hr>
+{{- end}}
 <div class=" d-flex flex-stack pt-5 mt-5">
     <div class="me-10">
         <select id="languageSwitcher" name="language" class="form-select form-select-solid form-select-sm" data-control="i18n-select2" data-hide-search="true">
