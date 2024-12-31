@@ -3135,7 +3135,7 @@ func (p *BoltProvider) migrateDatabase() error {
 		providerLog(logger.LevelDebug, "bolt database is up to date, current version: %d", version)
 		return ErrNoInitRequired
 	case version < 28:
-		err = fmt.Errorf("database schema version %d is too old, please see the upgrading docs", version)
+		err = errSchemaVersionTooOld(version)
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
