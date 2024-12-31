@@ -4688,6 +4688,10 @@ func checkReservedUsernames(username string) error {
 	return nil
 }
 
+func errSchemaVersionTooOld(version int) error {
+	return fmt.Errorf("database schema version %d is too old, please see the upgrading docs: https://docs.sftpgo.com/latest/data-provider/#upgrading", version)
+}
+
 func providerLog(level logger.LogLevel, format string, v ...any) {
 	logger.Log(level, logSender, "", format, v...)
 }

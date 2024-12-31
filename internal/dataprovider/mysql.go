@@ -798,7 +798,7 @@ func (p *MySQLProvider) migrateDatabase() error {
 		providerLog(logger.LevelDebug, "sql database is up to date, current version: %d", version)
 		return ErrNoInitRequired
 	case version < 29:
-		err = fmt.Errorf("database schema version %d is too old, please see the upgrading docs", version)
+		err = errSchemaVersionTooOld(version)
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
