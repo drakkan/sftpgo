@@ -2717,14 +2717,14 @@ func TestZipErrors(t *testing.T) {
 		assert.Contains(t, err.Error(), "write error")
 	}
 
-	err = addZipEntry(wr, connection, "/"+filepath.Base(testDir), "/", 0)
+	err = addZipEntry(wr, connection, "/"+filepath.Base(testDir), "/", nil, 0)
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "write error")
 	}
-	err = addZipEntry(wr, connection, "/"+filepath.Base(testDir), "/", 2000)
+	err = addZipEntry(wr, connection, "/"+filepath.Base(testDir), "/", nil, 2000)
 	assert.ErrorIs(t, err, util.ErrRecursionTooDeep)
 
-	err = addZipEntry(wr, connection, "/"+filepath.Base(testDir), path.Join("/", filepath.Base(testDir), "dir"), 0)
+	err = addZipEntry(wr, connection, "/"+filepath.Base(testDir), path.Join("/", filepath.Base(testDir), "dir"), nil, 0)
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "is outside base dir")
 	}
@@ -2733,14 +2733,14 @@ func TestZipErrors(t *testing.T) {
 	err = os.WriteFile(testFilePath, util.GenerateRandomBytes(65535), os.ModePerm)
 	assert.NoError(t, err)
 	err = addZipEntry(wr, connection, path.Join("/", filepath.Base(testDir), filepath.Base(testFilePath)),
-		"/"+filepath.Base(testDir), 0)
+		"/"+filepath.Base(testDir), nil, 0)
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "write error")
 	}
 
 	connection.User.Permissions["/"] = []string{dataprovider.PermListItems}
 	err = addZipEntry(wr, connection, path.Join("/", filepath.Base(testDir), filepath.Base(testFilePath)),
-		"/"+filepath.Base(testDir), 0)
+		"/"+filepath.Base(testDir), nil, 0)
 	assert.ErrorIs(t, err, os.ErrPermission)
 
 	// creating a virtual folder to a missing path stat is ok but readdir fails
@@ -2752,14 +2752,14 @@ func TestZipErrors(t *testing.T) {
 	})
 	connection.User = user
 	wr = zip.NewWriter(bytes.NewBuffer(make([]byte, 0)))
-	err = addZipEntry(wr, connection, user.VirtualFolders[0].VirtualPath, "/", 0)
+	err = addZipEntry(wr, connection, user.VirtualFolders[0].VirtualPath, "/", nil, 0)
 	assert.Error(t, err)
 
 	user.Filters.FilePatterns = append(user.Filters.FilePatterns, sdk.PatternsFilter{
 		Path:           "/",
 		DeniedPatterns: []string{"*.zip"},
 	})
-	err = addZipEntry(wr, connection, "/"+filepath.Base(testDir), "/", 0)
+	err = addZipEntry(wr, connection, "/"+filepath.Base(testDir), "/", nil, 0)
 	assert.ErrorIs(t, err, os.ErrPermission)
 
 	err = os.RemoveAll(testDir)

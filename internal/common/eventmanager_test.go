@@ -1842,7 +1842,7 @@ func TestFilesystemActionErrors(t *testing.T) {
 			Writer:  zip.NewWriter(bytes.NewBuffer(nil)),
 			Entries: map[string]bool{},
 		}
-		err = addZipEntry(wr, conn, "/adir/sub/f.dat", "/adir/sub/sub", 0)
+		err = addZipEntry(wr, conn, "/adir/sub/f.dat", "/adir/sub/sub", nil, 0)
 		assert.Error(t, err)
 		assert.Contains(t, getErrorString(err), "is outside base dir")
 	}
@@ -1852,7 +1852,7 @@ func TestFilesystemActionErrors(t *testing.T) {
 		Writer:  zip.NewWriter(bytes.NewBuffer(nil)),
 		Entries: map[string]bool{},
 	}
-	err = addZipEntry(wr, conn, "/p1", "/", 2000)
+	err = addZipEntry(wr, conn, "/p1", "/", nil, 2000)
 	assert.ErrorIs(t, err, util.ErrRecursionTooDeep)
 
 	err = dataprovider.DeleteUser(username, "", "", "")

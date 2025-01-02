@@ -396,7 +396,7 @@ func renderCompressedFiles(w http.ResponseWriter, conn *Connection, baseDir stri
 
 	for _, file := range files {
 		fullPath := util.CleanPath(path.Join(baseDir, file))
-		if err := addZipEntry(wr, conn, fullPath, baseDir, 0); err != nil {
+		if err := addZipEntry(wr, conn, fullPath, baseDir, nil, 0); err != nil {
 			if share != nil {
 				dataprovider.UpdateShareLastUse(share, -1) //nolint:errcheck
 			}
@@ -412,16 +412,19 @@ func renderCompressedFiles(w http.ResponseWriter, conn *Connection, baseDir stri
 	}
 }
 
-func addZipEntry(wr *zip.Writer, conn *Connection, entryPath, baseDir string, recursion int) error {
+func addZipEntry(wr *zip.Writer, conn *Connection, entryPath, baseDir string, info os.FileInfo, recursion int) error {
 	if recursion >= util.MaxRecursion {
 		conn.Log(logger.LevelDebug, "unable to add zip entry %q, recursion too depth: %d", entryPath, recursion)
 		return util.ErrRecursionTooDeep
 	}
 	recursion++
-	info, err := conn.Stat(entryPath, 1)
-	if err != nil {
-		conn.Log(logger.LevelDebug, "unable to add zip entry %q, stat error: %v", entryPath, err)
-		return err
+	var err error
+	if info == nil {
+		info, err = conn.Stat(entryPath, 1)
+		if err != nil {
+			conn.Log(logger.LevelDebug, "unable to add zip entry %q, stat error: %v", entryPath, err)
+			return err
+		}
 	}
 	entryName, err := getZipEntryName(entryPath, baseDir)
 	if err != nil {
@@ -453,7 +456,7 @@ func addZipEntry(wr *zip.Writer, conn *Connection, entryPath, baseDir string, re
 			}
 			for _, info := range contents {
 				fullPath := util.CleanPath(path.Join(entryPath, info.Name()))
-				if err := addZipEntry(wr, conn, fullPath, baseDir, recursion); err != nil {
+				if err := addZipEntry(wr, conn, fullPath, baseDir, info, recursion); err != nil {
 					return err
 				}
 			}
