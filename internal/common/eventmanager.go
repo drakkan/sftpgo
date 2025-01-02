@@ -999,7 +999,7 @@ func getFileWriter(conn *BaseConnection, virtualPath string, expectedSize int64)
 	return w, numFiles, truncatedSize, cancelFn, nil
 }
 
-func addZipEntry(wr *zipWriterWrapper, conn *BaseConnection, entryPath, baseDir string, recursion int) error {
+func addZipEntry(wr *zipWriterWrapper, conn *BaseConnection, entryPath, baseDir string, info os.FileInfo, recursion int) error { //nolint:gocyclo
 	if entryPath == wr.Name {
 		// skip the archive itself
 		return nil
@@ -1009,10 +1009,13 @@ func addZipEntry(wr *zipWriterWrapper, conn *BaseConnection, entryPath, baseDir 
 		return util.ErrRecursionTooDeep
 	}
 	recursion++
-	info, err := conn.DoStat(entryPath, 1, false)
-	if err != nil {
-		eventManagerLog(logger.LevelError, "unable to add zip entry %q, stat error: %v", entryPath, err)
-		return err
+	var err error
+	if info == nil {
+		info, err = conn.DoStat(entryPath, 1, false)
+		if err != nil {
+			eventManagerLog(logger.LevelError, "unable to add zip entry %q, stat error: %v", entryPath, err)
+			return err
+		}
 	}
 	entryName, err := getZipEntryName(entryPath, baseDir)
 	if err != nil {
@@ -1050,7 +1053,7 @@ func addZipEntry(wr *zipWriterWrapper, conn *BaseConnection, entryPath, baseDir 
 			}
 			for _, info := range contents {
 				fullPath := util.CleanPath(path.Join(entryPath, info.Name()))
-				if err := addZipEntry(wr, conn, fullPath, baseDir, recursion); err != nil {
+				if err := addZipEntry(wr, conn, fullPath, baseDir, info, recursion); err != nil {
 					eventManagerLog(logger.LevelError, "unable to add zip entry: %v", err)
 					return err
 				}
@@ -2042,7 +2045,7 @@ func executeCompressFsActionForUser(c dataprovider.EventActionFsCompress, replac
 	}
 	startTime := time.Now()
 	for _, item := range paths {
-		if err := addZipEntry(zipWriter, conn, item, baseDir, 0); err != nil {
+		if err := addZipEntry(zipWriter, conn, item, baseDir, nil, 0); err != nil {
 			closeWriterAndUpdateQuota(writer, conn, name, "", numFiles, truncatedSize, err, operationUpload, startTime) //nolint:errcheck
 			return err
 		}
