@@ -4174,7 +4174,7 @@ func getPreLoginHookResponse(loginMethod, ip, protocol string, userAsJSON []byte
 
 	cmd := exec.CommandContext(ctx, config.PreLoginHook, args...)
 	cmd.Env = append(env,
-		fmt.Sprintf("SFTPGO_LOGIND_USER=%s", util.BytesToString(userAsJSON)),
+		fmt.Sprintf("SFTPGO_LOGIND_USER=%s", userAsJSON),
 		fmt.Sprintf("SFTPGO_LOGIND_METHOD=%s", loginMethod),
 		fmt.Sprintf("SFTPGO_LOGIND_IP=%s", ip),
 		fmt.Sprintf("SFTPGO_LOGIND_PROTOCOL=%s", protocol),
@@ -4221,7 +4221,7 @@ func executePreLoginHook(username, loginMethod, ip, protocol string, oidcTokenFi
 	recoveryCodes := u.Filters.RecoveryCodes
 	err = json.Unmarshal(out, &u)
 	if err != nil {
-		return u, fmt.Errorf("invalid pre-login hook response %q, error: %v", util.BytesToString(out), err)
+		return u, fmt.Errorf("invalid pre-login hook response %q, error: %v", out, err)
 	}
 	u.ID = userID
 	u.UsedQuotaSize = userUsedQuotaSize
@@ -4316,7 +4316,7 @@ func ExecutePostLoginHook(user *User, loginMethod, ip, protocol string, err erro
 
 		cmd := exec.CommandContext(ctx, config.PostLoginHook, args...)
 		cmd.Env = append(env,
-			fmt.Sprintf("SFTPGO_LOGIND_USER=%s", util.BytesToString(userAsJSON)),
+			fmt.Sprintf("SFTPGO_LOGIND_USER=%s", userAsJSON),
 			fmt.Sprintf("SFTPGO_LOGIND_IP=%s", ip),
 			fmt.Sprintf("SFTPGO_LOGIND_METHOD=%s", loginMethod),
 			fmt.Sprintf("SFTPGO_LOGIND_STATUS=%s", status),
@@ -4385,7 +4385,7 @@ func getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, 
 	cmd := exec.CommandContext(ctx, config.ExternalAuthHook, args...)
 	cmd.Env = append(env,
 		fmt.Sprintf("SFTPGO_AUTHD_USERNAME=%s", username),
-		fmt.Sprintf("SFTPGO_AUTHD_USER=%s", util.BytesToString(userAsJSON)),
+		fmt.Sprintf("SFTPGO_AUTHD_USER=%s", userAsJSON),
 		fmt.Sprintf("SFTPGO_AUTHD_IP=%s", ip),
 		fmt.Sprintf("SFTPGO_AUTHD_PASSWORD=%s", password),
 		fmt.Sprintf("SFTPGO_AUTHD_PUBLIC_KEY=%s", pkey),

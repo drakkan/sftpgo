@@ -38,7 +38,6 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/httpclient"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/plugin"
-	"github.com/drakkan/sftpgo/v2/internal/util"
 )
 
 var (
@@ -349,7 +348,7 @@ func notificationAsEnvVars(event *notifier.FsEvent) []string {
 	if len(event.Metadata) > 0 {
 		data, err := json.Marshal(event.Metadata)
 		if err == nil {
-			result = append(result, fmt.Sprintf("SFTPGO_ACTION_METADATA=%s", util.BytesToString(data)))
+			result = append(result, fmt.Sprintf("SFTPGO_ACTION_METADATA=%s", data))
 		}
 	}
 	return result

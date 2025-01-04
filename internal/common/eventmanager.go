@@ -1489,7 +1489,7 @@ func executeHTTPRuleAction(c dataprovider.EventActionHTTPConfig, params *EventPa
 	if resp.StatusCode < http.StatusOK || resp.StatusCode > http.StatusNoContent {
 		if rb, err := io.ReadAll(io.LimitReader(resp.Body, 2048)); err == nil {
 			eventManagerLog(logger.LevelDebug, "error notification response from endpoint %q: %s",
-				endpoint, util.BytesToString(rb))
+				endpoint, rb)
 		}
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}

@@ -451,7 +451,7 @@ func (f *webDavFile) Patch(patches []webdav.Proppatch) ([]webdav.Propstat, error
 					parsed, err := parseTime(util.BytesToString(p.InnerXML))
 					if err != nil {
 						f.Connection.Log(logger.LevelWarn, "unsupported last modification time: %q, err: %v",
-							util.BytesToString(p.InnerXML), err)
+							p.InnerXML, err)
 						hasError = true
 						continue
 					}

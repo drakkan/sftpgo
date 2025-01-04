@@ -648,7 +648,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 
 				switch req.Type {
 				case "subsystem":
-					if util.BytesToString(req.Payload[4:]) == "sftp" {
+					if bytes.Equal(req.Payload[4:], []byte("sftp")) {
 						ok = true
 						connection := &Connection{
 							BaseConnection: common.NewBaseConnection(connID, common.ProtocolSFTP, conn.LocalAddr().String(),
