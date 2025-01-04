@@ -495,6 +495,7 @@ func (c *Configuration) setup() (*account, *lego.Client, error) {
 	config.UserAgent = version.GetServerVersion("/", false)
 
 	retryClient := retryablehttp.NewClient()
+	retryClient.Logger = &logger.LeveledLogger{Sender: "RetryableHTTPClient"}
 	retryClient.RetryMax = 5
 	retryClient.HTTPClient = config.HTTPClient
 
@@ -568,6 +569,7 @@ func (c *Configuration) tryRecoverRegistration(privateKey crypto.PrivateKey) (*r
 	config.UserAgent = version.GetServerVersion("/", false)
 
 	retryClient := retryablehttp.NewClient()
+	retryClient.Logger = &logger.LeveledLogger{Sender: "RetryableHTTPClient"}
 	retryClient.RetryMax = 5
 	retryClient.HTTPClient = config.HTTPClient
 
