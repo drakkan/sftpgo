@@ -1188,8 +1188,9 @@ func (s *httpdServer) badHostHandler(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
+	logger.Debug(logSender, "", "the host %q is not allowed", host)
 	s.sendForbiddenResponse(w, r, util.NewI18nError(
-		util.NewGenericError(fmt.Sprintf("The host %q is not allowed", host)),
+		util.NewGenericError(http.StatusText(http.StatusForbidden)),
 		util.I18nErrorConnectionForbidden,
 	))
 }
