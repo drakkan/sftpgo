@@ -86,7 +86,9 @@ func NewGCSFs(connectionID, localTempDir, mountPath string, config GCSFsConfig) 
 	if err = fs.config.validate(); err != nil {
 		return fs, err
 	}
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	if fs.config.AutomaticCredentials > 0 {
 		fs.svc, err = storage.NewClient(ctx,
 			storage.WithJSONReads(),
