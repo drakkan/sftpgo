@@ -89,4 +89,4 @@ More information about [compliance](https://sftpgo.com/compliance.html).
 
 ## Copyright
 
-Copyright (C) 2019 Nicola Murino
+Copyright (C) 2019 - 2025 Nicola Murino
