@@ -1519,7 +1519,7 @@ func executeCommandRuleAction(c dataprovider.EventActionCommandConfig, params *E
 	cmd := exec.CommandContext(ctx, c.Cmd, args...)
 	cmd.Env = []string{}
 	for _, keyVal := range c.EnvVars {
-		if keyVal.Value == "$" {
+		if keyVal.Value == "$" && !strings.HasPrefix(strings.ToUpper(keyVal.Key), "SFTPGO_") {
 			val := os.Getenv(keyVal.Key)
 			if val == "" {
 				eventManagerLog(logger.LevelDebug, "empty value for environment variable %q", keyVal.Key)

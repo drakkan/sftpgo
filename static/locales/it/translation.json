@@ -977,7 +977,7 @@
         "command_help": "Percorso assoluto del comando da eseguire",
         "command_args": "Argomenti",
         "command_args_help": "Argomenti del comando separati da virgole. I segnaposto sono supportati",
-        "command_env_vars_help": "I segnaposto sono supportati nei valori. Impostare il nome su \"$\" senza virgolette significa recuperare il valore dall'ambiente",
+        "command_env_vars_help": "I segnaposto sono supportati nei valori. Impostare il valore su \"$\" senza virgolette significa recuperare il nome dall'ambiente ad esclusione dei nomi che iniziano con SFTPGO_",
         "email_recipients": "A",
         "email_recipients_help": "Destinatari separati da virgole. I segnaposto sono supportati",
         "email_bcc": "Ccn",
