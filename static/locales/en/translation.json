@@ -1008,7 +1008,7 @@
         "command_help": "Absolute path of the command to execute",
         "command_args": "Arguments",
         "command_args_help": "Comma separated command arguments. Placeholders are supported",
-        "command_env_vars_help": "Placeholders are supported in values. Setting the name to \"$\" without quotes means retrieving the value from the environment",
+        "command_env_vars_help": "Placeholders are supported in values. Setting the value to \"$\" without quotes means retrieving the key from the environment excluding keys starting with SFTPGO_",
         "email_recipients": "To",
         "email_recipients_help": "Comma separated recipients. Placeholders are supported",
         "email_bcc": "Bcc",
