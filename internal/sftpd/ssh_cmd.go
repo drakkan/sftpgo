@@ -27,6 +27,7 @@ import (
 	"os/exec"
 	"path"
 	"runtime/debug"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -425,6 +426,10 @@ func (c *sshCommand) getSystemCommand() (systemCommand, error) {
 		return command, errUnsupportedConfig
 	}
 	if c.command == "rsync" {
+		if !canAcceptRsyncArgs(args) {
+			c.connection.Log(logger.LevelWarn, "invalid rsync command, args: %+v", args)
+			return command, errors.New("invalid or unsupported rsync command")
+		}
 		// we cannot avoid that rsync creates symlinks so if the user has the permission
 		// to create symlinks we add the option --safe-links to the received rsync command if
 		// it is not already set. This should prevent to create symlinks that point outside
@@ -433,11 +438,11 @@ func (c *sshCommand) getSystemCommand() (systemCommand, error) {
 		// already set. This should make symlinks unusable (but manually recoverable)
 		if c.connection.User.HasPerm(dataprovider.PermCreateSymlinks, c.getDestPath()) {
 			if !util.Contains(args, "--safe-links") {
-				args = append([]string{"--safe-links"}, args...)
+				args = slices.Insert(args, len(args)-2, "--safe-links")
 			}
 		} else {
 			if !util.Contains(args, "--munge-links") {
-				args = append([]string{"--munge-links"}, args...)
+				args = slices.Insert(args, len(args)-2, "--munge-links")
 			}
 		}
 	}
@@ -452,6 +457,85 @@ func (c *sshCommand) getSystemCommand() (systemCommand, error) {
 	command.quotaCheckPath = quotaPath
 	command.fs = fs
 	return command, nil
+}
+
+var (
+	acceptedRsyncOptions = []string{
+		"--existing",
+		"--ignore-existing",
+		"--remove-source-files",
+		"--delete",
+		"--delete-before",
+		"--delete-during",
+		"--delete-delay",
+		"--delete-after",
+		"--delete-excluded",
+		"--ignore-errors",
+		"--force",
+		"--partial",
+		"--delay-updates",
+		"--size-only",
+		"--blocking-io",
+		"--stats",
+		"--progress",
+		"--list-only",
+		"--dry-run",
+	}
+)
+
+func canAcceptRsyncArgs(args []string) bool {
+	// We support the following formats:
+	//
+	// rsync --server -vlogDtpre.iLsfxCIvu --supported-options . ARG  # push
+	// rsync --server --sender -vlogDtpre.iLsfxCIvu --supported-options . ARG  # pull
+	//
+	// Then some options with a single dash and containing "e." followed by
+	// supported options, listed in acceptedRsyncOptions, with double dash then
+	// dot and a finally single argument specifying the path to operate on.
+	idx := 0
+	if len(args) < 4 {
+		return false
+	}
+	// The first argument must be --server.
+	if args[idx] != "--server" {
+		return false
+	}
+	idx++
+	// The second argument must be --sender or an argument starting with a
+	// single dash and containing "e."
+	if args[idx] == "--sender" {
+		idx++
+	}
+	// Check that this argument starts with a dash and contains e. but does not
+	// end with e.
+	if !strings.HasPrefix(args[idx], "-") || strings.HasPrefix(args[idx], "--") ||
+		!strings.Contains(args[idx], "e.") || strings.HasSuffix(args[idx], "e.") {
+		return false
+	}
+	idx++
+	// We now expect optional supported options like --delete or a dot followed
+	// by the path to operate on. We don't support multiple paths in sender
+	// mode.
+	if len(args) < idx+2 {
+		return false
+	}
+	// A dot is required we'll check the expected position later.
+	if !slices.Contains(args, ".") {
+		return false
+	}
+	for _, arg := range args[idx:] {
+		if slices.Contains(acceptedRsyncOptions, arg) {
+			idx++
+		} else {
+			if arg == "." {
+				idx++
+				break
+			}
+			// Unsupported argument.
+			return false
+		}
+	}
+	return len(args) == idx+1
 }
 
 // for the supported commands, the destination path, if any, is the last argument

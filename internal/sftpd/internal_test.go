@@ -842,7 +842,7 @@ func TestRsyncOptions(t *testing.T) {
 	}
 	cmd, err := sshCmd.getSystemCommand()
 	assert.NoError(t, err)
-	assert.True(t, util.Contains(cmd.cmd.Args, "--safe-links"),
+	assert.Equal(t, []string{"rsync", "--server", "-vlogDtprze.iLsfxC", "--safe-links", ".", user.HomeDir + "/"}, cmd.cmd.Args,
 		"--safe-links must be added if the user has the create symlinks permission")
 
 	permissions["/"] = []string{dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermCreateDirs,
@@ -855,12 +855,18 @@ func TestRsyncOptions(t *testing.T) {
 	sshCmd = sshCommand{
 		command:    "rsync",
 		connection: conn,
+	}
+	_, err = sshCmd.getSystemCommand()
+	assert.Error(t, err)
+	sshCmd = sshCommand{
+		command:    "rsync",
+		connection: conn,
 		args:       []string{"--server", "-vlogDtprze.iLsfxC", ".", "/"},
 	}
 	cmd, err = sshCmd.getSystemCommand()
 	assert.NoError(t, err)
-	assert.True(t, util.Contains(cmd.cmd.Args, "--munge-links"),
-		"--munge-links must be added if the user has the create symlinks permission")
+	assert.Equal(t, []string{"rsync", "--server", "-vlogDtprze.iLsfxC", "--munge-links", ".", user.HomeDir + "/"}, cmd.cmd.Args,
+		"--munge-links must be added if the user hasn't the create symlinks permission")
 
 	sshCmd.connection.User.VirtualFolders = append(sshCmd.connection.User.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
@@ -2226,4 +2232,44 @@ func TestAuthenticationErrors(t *testing.T) {
 	err = newAuthenticationError(nil, loginMethod, username)
 	assert.ErrorIs(t, err, sftpAuthError)
 	assert.NotErrorIs(t, err, util.ErrNotFound)
+}
+
+func TestRsyncArguments(t *testing.T) {
+	assert.False(t, canAcceptRsyncArgs(nil))
+	args := []string{"-e", "--server"}
+	assert.False(t, canAcceptRsyncArgs(args))
+	args = []string{"--server", "--sender", "-vlogDtpre.iLsfxCIvu", ".", "."}
+	assert.True(t, canAcceptRsyncArgs(args))
+	args = []string{"--server", "--sender", "--server", "-vlogDtpre.iLsfxCIvu", ".", "."}
+	assert.False(t, canAcceptRsyncArgs(args))
+	args = []string{"--server", "..", "/"}
+	assert.False(t, canAcceptRsyncArgs(args))
+	args = []string{"--server", ".", "/"}
+	assert.False(t, canAcceptRsyncArgs(args))
+	args = []string{"--server", "--sender", "-vlogDtpre.iLsfxCIvu", ".", "."}
+	assert.True(t, canAcceptRsyncArgs(args))
+	args = []string{"--server", "--sender", "-vlogDtpre.iLsfxCIvu", "--delete", ".", "/"}
+	assert.True(t, canAcceptRsyncArgs(args))
+	args = []string{"--server", "-vlogDtpre.iLsfxCIvu", "--delete", ".", "/"}
+	assert.True(t, canAcceptRsyncArgs(args))
+	args = []string{"--server", "-vlogDtpre.iLsfxCIvu", "--delete", "/", ".", "/"}
+	assert.False(t, canAcceptRsyncArgs(args))
+	args = []string{"--server", "--sender", "-vlogDtpre.iLsfxCIvu", ".", "path1", "path2"}
+	assert.False(t, canAcceptRsyncArgs(args))
+	args = []string{"--server", "--sender", "-vlogDtpre.iLsfxCIvu", "."}
+	assert.False(t, canAcceptRsyncArgs(args))
+	args = []string{"--sender", "-vlogDtpre.iLsfxCIvu", "--delete", ".", "/"}
+	assert.False(t, canAcceptRsyncArgs(args))
+	args = []string{"--server", "-vlogDtpre.", "--delete", ".", "/"}
+	assert.False(t, canAcceptRsyncArgs(args))
+	args = []string{"--server", "--sender", "-vlogDtpre.", "--delete", ".", "/"}
+	assert.False(t, canAcceptRsyncArgs(args))
+	args = []string{"--server", "--sender", "-e.iLsfxCIvu", ".", "/"}
+	assert.True(t, canAcceptRsyncArgs(args))
+	args = []string{"--server", "-vlogDtpre.iLsfxCIvu", "--delete", "/"}
+	assert.False(t, canAcceptRsyncArgs(args))
+	args = []string{"--server", "-vlogDtpre.iLsfxCIvu", "--delete", "--safe-links"}
+	assert.False(t, canAcceptRsyncArgs(args))
+	args = []string{"--server", "-vlogDtpre.iLsfxCIvu", "--unsupported-option", ".", "/"}
+	assert.False(t, canAcceptRsyncArgs(args))
 }
