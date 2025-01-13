@@ -39,6 +39,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blockblob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
@@ -103,10 +104,6 @@ func NewAzBlobFs(connectionID, localTempDir, mountPath string, config AzBlobFsCo
 		return fs.initFromSASURL()
 	}
 
-	credential, err := blob.NewSharedKeyCredential(fs.config.AccountName, fs.config.AccountKey.GetPayload())
-	if err != nil {
-		return fs, fmt.Errorf("invalid credentials: %v", err)
-	}
 	var endpoint string
 	if fs.config.UseEmulator {
 		endpoint = fmt.Sprintf("%s/%s", fs.config.Endpoint, fs.config.AccountName)
@@ -114,9 +111,25 @@ func NewAzBlobFs(connectionID, localTempDir, mountPath string, config AzBlobFsCo
 		endpoint = fmt.Sprintf("https://%s.%s/", fs.config.AccountName, fs.config.Endpoint)
 	}
 	containerURL := runtime.JoinPaths(endpoint, fs.config.Container)
-	svc, err := container.NewClientWithSharedKeyCredential(containerURL, credential, getAzContainerClientOptions())
+	if fs.config.AccountKey.GetPayload() != "" {
+		credential, err := blob.NewSharedKeyCredential(fs.config.AccountName, fs.config.AccountKey.GetPayload())
+		if err != nil {
+			return fs, fmt.Errorf("invalid credentials: %v", err)
+		}
+		svc, err := container.NewClientWithSharedKeyCredential(containerURL, credential, getAzContainerClientOptions())
+		if err != nil {
+			return fs, fmt.Errorf("unable to create the storage client using shared key credentials: %v", err)
+		}
+		fs.containerClient = svc
+		return fs, err
+	}
+	credential, err := azidentity.NewDefaultAzureCredential(nil)
 	if err != nil {
-		return fs, fmt.Errorf("invalid credentials: %v", err)
+		return fs, fmt.Errorf("invalid default azure credentials: %v", err)
+	}
+	svc, err := container.NewClient(containerURL, credential, getAzContainerClientOptions())
+	if err != nil {
+		return fs, fmt.Errorf("unable to create the storage client using azure credentials: %v", err)
 	}
 	fs.containerClient = svc
 	return fs, err

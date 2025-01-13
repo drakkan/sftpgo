@@ -736,8 +736,8 @@ func (c *AzBlobFsConfig) checkCredentials() error {
 	if !c.SASURL.IsEmpty() {
 		return nil
 	}
-	if c.AccountName == "" || !c.AccountKey.IsValidInput() {
-		return util.NewI18nError(errors.New("credentials cannot be empty or invalid"), util.I18nErrorAccountNameRequired)
+	if c.AccountName == "" {
+		return util.NewI18nError(errors.New("account name is required"), util.I18nErrorAccountNameRequired)
 	}
 	if c.AccountKey.IsEncrypted() && !c.AccountKey.IsValid() {
 		return errors.New("invalid encrypted account_key")

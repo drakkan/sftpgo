@@ -4879,9 +4879,6 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	u.FsConfig.AzBlobConfig.AccountName = "name"
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
-	u.FsConfig.AzBlobConfig.Container = "container"
-	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
-	assert.NoError(t, err)
 	u.FsConfig.AzBlobConfig.AccountKey = kms.NewSecret(sdkkms.SecretStatusRedacted, "key", "", "")
 	u.FsConfig.AzBlobConfig.KeyPrefix = "/amedir/subdir/"
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
