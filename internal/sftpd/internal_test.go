@@ -2278,8 +2278,8 @@ func TestRsyncArguments(t *testing.T) {
 	assert.False(t, canAcceptRsyncArgs(args))
 	args = []string{"--server", "--sender", "-vlogDtpre.", "--delete", ".", "/"}
 	assert.False(t, canAcceptRsyncArgs(args))
-	args = []string{"--server", "--sender", "-e.iLsfxCIvu", "--delete", ".", "/"}
-	assert.False(t, canAcceptRsyncArgs(args))
+	args = []string{"--server", "--sender", "-e.iLsfxCIvu", ".", "/"}
+	assert.True(t, canAcceptRsyncArgs(args))
 	args = []string{"--server", "-vlogDtpre.iLsfxCIvu", "--delete", "/"}
 	assert.False(t, canAcceptRsyncArgs(args))
 	args = []string{"--server", "-vlogDtpre.iLsfxCIvu", "--delete", "--safe-links"}

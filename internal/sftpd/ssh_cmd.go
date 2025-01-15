@@ -490,7 +490,7 @@ func canAcceptRsyncArgs(args []string) bool {
 	// rsync --server -vlogDtpre.iLsfxCIvu --supported-options . ARG  # push
 	// rsync --server --sender -vlogDtpre.iLsfxCIvu --supported-options . ARG  # pull
 	//
-	// Then some options with a single dash and containing "e."" followed by
+	// Then some options with a single dash and containing "e." followed by
 	// supported options, listed in acceptedRsyncOptions, with double dash then
 	// dot and a finally single argument specifying the path to operate on.
 	idx := 0
@@ -507,9 +507,9 @@ func canAcceptRsyncArgs(args []string) bool {
 	if args[idx] == "--sender" {
 		idx++
 	}
-	// Check that this argument starts with a dash and contains e. but does start or end with e.
-	if !strings.HasPrefix(args[idx], "-") ||
-		strings.HasPrefix(args[idx], "--") || strings.HasPrefix(args[idx], "-e") ||
+	// Check that this argument starts with a dash and contains e. but does not
+	// end with e.
+	if !strings.HasPrefix(args[idx], "-") || strings.HasPrefix(args[idx], "--") ||
 		!strings.Contains(args[idx], "e.") || strings.HasSuffix(args[idx], "e.") {
 		return false
 	}
