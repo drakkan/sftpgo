@@ -789,6 +789,12 @@ func (p *EventParams) getStringReplacements(addObjectData, jsonEscaped bool) []s
 	} else {
 		dateTimeString = p.Timestamp.UTC().Format(dateTimeMillisFormat)
 	}
+	year := dateTimeString[0:4]
+	month := dateTimeString[5:7]
+	day := dateTimeString[8:10]
+	hour := dateTimeString[11:13]
+	minute := dateTimeString[14:16]
+
 	replacements := []string{
 		"{{Name}}", p.getStringReplacement(p.Name, jsonEscaped),
 		"{{Event}}", p.Event,
@@ -809,6 +815,11 @@ func (p *EventParams) getStringReplacements(addObjectData, jsonEscaped bool) []s
 		"{{Email}}", p.getStringReplacement(p.Email, jsonEscaped),
 		"{{Timestamp}}", strconv.FormatInt(p.Timestamp.UnixNano(), 10),
 		"{{DateTime}}", dateTimeString,
+		"{{Year}}", year,
+		"{{Month}}", month,
+		"{{Day}}", day,
+		"{{Hour}}", hour,
+		"{{Minute}}", minute,
 		"{{StatusString}}", p.getStatusString(),
 		"{{UID}}", p.getStringReplacement(p.UID, jsonEscaped),
 		"{{Ext}}", p.getStringReplacement(p.Extension, jsonEscaped),
