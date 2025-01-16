@@ -285,7 +285,9 @@
         "client_ip_header_depth": 0,
         "hide_login_url": 0,
         "render_openapi": true,
-        "languages": ["en"],
+        "languages": [
+          "en"
+        ],
         "oidc": {
           "client_id": "",
           "client_secret": "",
