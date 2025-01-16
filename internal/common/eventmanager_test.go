@@ -809,6 +809,8 @@ func TestDateTimePlaceholder(t *testing.T) {
 	r := strings.NewReplacer(replacements...)
 	res := r.Replace("{{DateTime}}")
 	assert.Equal(t, dateTime.UTC().Format(dateTimeMillisFormat), res)
+	res = r.Replace("{{Year}}-{{Month}}-{{Day}}T{{Hour}}:{{Minute}}")
+	assert.Equal(t, dateTime.UTC().Format(dateTimeMillisFormat)[:16], res)
 }
 
 func TestEventRuleActions(t *testing.T) {
