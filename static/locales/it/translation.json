@@ -273,7 +273,8 @@
         "thursday": "Giovedì",
         "friday": "Venerdì",
         "saturday": "Sabato",
-        "sunday": "Domenica"
+        "sunday": "Domenica",
+        "expired_session": "La tua sessione è scaduta. Effettua nuovamente l'accesso"
     },
     "fs": {
         "view_file": "Visualizza file \"{{- path}}\"",

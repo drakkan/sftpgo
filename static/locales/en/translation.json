@@ -273,7 +273,8 @@
         "thursday": "Thursday",
         "friday": "Friday",
         "saturday": "Saturday",
-        "sunday": "Sunday"
+        "sunday": "Sunday",
+        "expired_session": "Your session has expired. Please log in again"
     },
     "fs": {
         "view_file": "View file \"{{- path}}\"",
