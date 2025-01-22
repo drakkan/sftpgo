@@ -263,6 +263,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             "mscgen", "mscin", "msc", "xu", "msgenny", "wat", "wast", "env"];
     const supportedEditFilenames = ["readme", "dockerfile", "pkgbuild"];
     //{{- end}}
+    const keepAliveInterval = '{{.KeepAliveInterval}}';
     function keepAlive() {
         //{{- if not .ShareUploadBaseURL}}
         axios.get('{{.PingURL}}',{
@@ -1974,7 +1975,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
     function uploadFiles(files) {
         keepAlive();
-        let keepAliveTimer = setInterval(keepAlive, 300000);
+        let keepAliveTimer = setInterval(keepAlive, keepAliveInterval);
 
         let has_errors = false;
         let index = 0;
@@ -2189,7 +2190,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         $("#video_player").get(0).load();
         $('#modal_video_player').modal('show');
         keepAlive();
-        playerKeepAlive = setInterval(keepAlive, 300000);
+        playerKeepAlive = setInterval(keepAlive, keepAliveInterval);
     }
 
     $(document).on("i18nshow", function(){

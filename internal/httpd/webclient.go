@@ -145,6 +145,7 @@ type filesPage struct {
 	Error              *util.I18nError
 	Paths              []dirMapping
 	QuotaUsage         *userQuotaUsage
+	KeepAliveInterval  int
 }
 
 type shareLoginPage struct {
@@ -781,6 +782,7 @@ func (s *httpdServer) renderSharedFilesPage(w http.ResponseWriter, r *http.Reque
 		CanCopy:            false,
 		Paths:              getDirMapping(dirName, currentURL),
 		QuotaUsage:         newUserQuotaUsage(&dataprovider.User{}),
+		KeepAliveInterval:  int(cookieRefreshThreshold / time.Millisecond),
 	}
 	renderClientTemplate(w, templateClientFiles, data)
 }
@@ -837,6 +839,7 @@ func (s *httpdServer) renderFilesPage(w http.ResponseWriter, r *http.Request, di
 		ShareUploadBaseURL: "",
 		Paths:              getDirMapping(dirName, webClientFilesPath),
 		QuotaUsage:         newUserQuotaUsage(user),
+		KeepAliveInterval:  int(cookieRefreshThreshold / time.Millisecond),
 	}
 	renderClientTemplate(w, templateClientFiles, data)
 }
