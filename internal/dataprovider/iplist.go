@@ -418,6 +418,10 @@ func (l *IPList) IsListed(ip, protocol string) (bool, int, error) {
 		l.mu.RLock()
 		defer l.mu.RUnlock()
 
+		if l.Ranges.Len() == 0 {
+			return false, 0, nil
+		}
+
 		parsedIP := net.ParseIP(ip)
 		if parsedIP == nil {
 			return false, 0, fmt.Errorf("invalid IP %s", ip)
