@@ -414,8 +414,12 @@ type SecurityConf struct {
 	ContentSecurityPolicy string `json:"content_security_policy" mapstructure:"content_security_policy"`
 	// PermissionsPolicy allows to set the Permissions-Policy header value. Default is "".
 	PermissionsPolicy string `json:"permissions_policy" mapstructure:"permissions_policy"`
-	// CrossOriginOpenerPolicy allows to set the `Cross-Origin-Opener-Policy` header value. Default is "".
+	// CrossOriginOpenerPolicy allows to set the Cross-Origin-Opener-Policy header value. Default is "".
 	CrossOriginOpenerPolicy string `json:"cross_origin_opener_policy" mapstructure:"cross_origin_opener_policy"`
+	// CrossOriginResourcePolicy allows to set the Cross-Origin-Opener-Policy header value. Default is "".
+	CrossOriginResourcePolicy string `json:"cross_origin_resource_policy" mapstructure:"cross_origin_resource_policy"`
+	// CrossOriginEmbedderPolicy allows to set the Cross-Origin-Embedder-Policy header value. Default is "".
+	CrossOriginEmbedderPolicy string `json:"cross_origin_embedder_policy" mapstructure:"cross_origin_embedder_policy"`
 	// CacheControl allow to set the Cache-Control header value.
 	CacheControl string `json:"cache_control" mapstructure:"cache_control"`
 	proxyHeaders []string

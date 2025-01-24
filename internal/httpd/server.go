@@ -1244,17 +1244,19 @@ func (s *httpdServer) initializeRouter() {
 	s.router.Use(middleware.Recoverer)
 	if s.binding.Security.Enabled {
 		secureMiddleware := secure.New(secure.Options{
-			AllowedHosts:            s.binding.Security.AllowedHosts,
-			AllowedHostsAreRegex:    s.binding.Security.AllowedHostsAreRegex,
-			HostsProxyHeaders:       s.binding.Security.HostsProxyHeaders,
-			SSLProxyHeaders:         s.binding.Security.getHTTPSProxyHeaders(),
-			STSSeconds:              s.binding.Security.STSSeconds,
-			STSIncludeSubdomains:    s.binding.Security.STSIncludeSubdomains,
-			STSPreload:              s.binding.Security.STSPreload,
-			ContentTypeNosniff:      s.binding.Security.ContentTypeNosniff,
-			ContentSecurityPolicy:   s.binding.Security.ContentSecurityPolicy,
-			PermissionsPolicy:       s.binding.Security.PermissionsPolicy,
-			CrossOriginOpenerPolicy: s.binding.Security.CrossOriginOpenerPolicy,
+			AllowedHosts:              s.binding.Security.AllowedHosts,
+			AllowedHostsAreRegex:      s.binding.Security.AllowedHostsAreRegex,
+			HostsProxyHeaders:         s.binding.Security.HostsProxyHeaders,
+			SSLProxyHeaders:           s.binding.Security.getHTTPSProxyHeaders(),
+			STSSeconds:                s.binding.Security.STSSeconds,
+			STSIncludeSubdomains:      s.binding.Security.STSIncludeSubdomains,
+			STSPreload:                s.binding.Security.STSPreload,
+			ContentTypeNosniff:        s.binding.Security.ContentTypeNosniff,
+			ContentSecurityPolicy:     s.binding.Security.ContentSecurityPolicy,
+			PermissionsPolicy:         s.binding.Security.PermissionsPolicy,
+			CrossOriginOpenerPolicy:   s.binding.Security.CrossOriginOpenerPolicy,
+			CrossOriginResourcePolicy: s.binding.Security.CrossOriginResourcePolicy,
+			CrossOriginEmbedderPolicy: s.binding.Security.CrossOriginEmbedderPolicy,
 		})
 		secureMiddleware.SetBadHostHandler(http.HandlerFunc(s.badHostHandler))
 		if s.binding.Security.CacheControl == "private" {

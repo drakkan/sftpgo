@@ -3389,11 +3389,14 @@ func TestSecureMiddlewareIntegration(t *testing.T) {
 						Value: "https",
 					},
 				},
-				STSSeconds:           31536000,
-				STSIncludeSubdomains: true,
-				STSPreload:           true,
-				ContentTypeNosniff:   true,
-				CacheControl:         "private",
+				STSSeconds:                31536000,
+				STSIncludeSubdomains:      true,
+				STSPreload:                true,
+				ContentTypeNosniff:        true,
+				CacheControl:              "private",
+				CrossOriginOpenerPolicy:   "same-origin",
+				CrossOriginResourcePolicy: "same-site",
+				CrossOriginEmbedderPolicy: "require-corp",
 			},
 		},
 		enableWebAdmin:  true,
@@ -3448,6 +3451,9 @@ func TestSecureMiddlewareIntegration(t *testing.T) {
 	assert.NotEmpty(t, r.Header.Get(forwardedHostHeader))
 	assert.Equal(t, "max-age=31536000; includeSubDomains; preload", rr.Header().Get("Strict-Transport-Security"))
 	assert.Equal(t, "nosniff", rr.Header().Get("X-Content-Type-Options"))
+	assert.Equal(t, "require-corp", rr.Header().Get("Cross-Origin-Embedder-Policy"))
+	assert.Equal(t, "same-origin", rr.Header().Get("Cross-Origin-Opener-Policy"))
+	assert.Equal(t, "same-site", rr.Header().Get("Cross-Origin-Resource-Policy"))
 
 	server.binding.Security.Enabled = false
 	server.binding.Security.updateProxyHeaders()

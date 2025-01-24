@@ -134,21 +134,23 @@ var (
 			Debug:                      false,
 		},
 		Security: httpd.SecurityConf{
-			Enabled:                 false,
-			AllowedHosts:            nil,
-			AllowedHostsAreRegex:    false,
-			HostsProxyHeaders:       nil,
-			HTTPSRedirect:           false,
-			HTTPSHost:               "",
-			HTTPSProxyHeaders:       nil,
-			STSSeconds:              0,
-			STSIncludeSubdomains:    false,
-			STSPreload:              false,
-			ContentTypeNosniff:      false,
-			ContentSecurityPolicy:   "",
-			PermissionsPolicy:       "",
-			CrossOriginOpenerPolicy: "",
-			CacheControl:            "",
+			Enabled:                   false,
+			AllowedHosts:              nil,
+			AllowedHostsAreRegex:      false,
+			HostsProxyHeaders:         nil,
+			HTTPSRedirect:             false,
+			HTTPSHost:                 "",
+			HTTPSProxyHeaders:         nil,
+			STSSeconds:                0,
+			STSIncludeSubdomains:      false,
+			STSPreload:                false,
+			ContentTypeNosniff:        false,
+			ContentSecurityPolicy:     "",
+			PermissionsPolicy:         "",
+			CrossOriginOpenerPolicy:   "",
+			CrossOriginResourcePolicy: "",
+			CrossOriginEmbedderPolicy: "",
+			CacheControl:              "",
 		},
 		Branding: httpd.Branding{},
 	}
@@ -1565,9 +1567,21 @@ func getHTTPDSecurityConfFromEnv(idx int) (httpd.SecurityConf, bool) { //nolint:
 		isSet = true
 	}
 
-	crossOriginOpenedPolicy, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__CROSS_ORIGIN_OPENER_POLICY", idx))
+	crossOriginOpenerPolicy, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__CROSS_ORIGIN_OPENER_POLICY", idx))
 	if ok {
-		result.CrossOriginOpenerPolicy = crossOriginOpenedPolicy
+		result.CrossOriginOpenerPolicy = crossOriginOpenerPolicy
+		isSet = true
+	}
+
+	crossOriginResourcePolicy, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__CROSS_ORIGIN_RESOURCE_POLICY", idx))
+	if ok {
+		result.CrossOriginResourcePolicy = crossOriginResourcePolicy
+		isSet = true
+	}
+
+	crossOriginEmbedderPolicy, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__CROSS_ORIGIN_EMBEDDER_POLICY", idx))
+	if ok {
+		result.CrossOriginEmbedderPolicy = crossOriginEmbedderPolicy
 		isSet = true
 	}
 

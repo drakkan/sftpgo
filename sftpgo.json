@@ -321,6 +321,8 @@
           "content_security_policy": "",
           "permissions_policy": "",
           "cross_origin_opener_policy": "",
+          "cross_origin_resource_policy": "",
+          "cross_origin_embedder_policy": "",
           "cache_control": ""
         },
         "branding": {
