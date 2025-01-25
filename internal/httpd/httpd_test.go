@@ -20871,13 +20871,6 @@ func TestWebAdminBasicMock(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), util.I18nError500Message)
 
 	form.Set("default_users_expiration", "10")
-	req, _ = http.NewRequest(http.MethodPost, webAdminPath, bytes.NewBuffer([]byte(form.Encode())))
-	req.RemoteAddr = defaultRemoteAddr
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	setJWTCookieForReq(req, token)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr)
-
 	form.Set("password", admin.Password)
 	req, _ = http.NewRequest(http.MethodPost, webAdminPath, bytes.NewBuffer([]byte(form.Encode())))
 	req.RemoteAddr = defaultRemoteAddr

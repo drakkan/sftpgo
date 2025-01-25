@@ -3111,7 +3111,11 @@ func (s *httpdServer) handleWebAddAdminPost(w http.ResponseWriter, r *http.Reque
 		s.renderAddUpdateAdminPage(w, r, &admin, err, true)
 		return
 	}
-	if admin.Password == "" && s.binding.isWebAdminLoginFormDisabled() {
+	if admin.Password == "" {
+		// Administrators can be used with OpenID Connect or for authentication
+		// via API key, in these cases the password is not necessary, we create
+		// a non-usable one. This feature is only useful for WebAdmin, in REST
+		// API you can create an unusable password externally.
 		admin.Password = util.GenerateUniqueID()
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
