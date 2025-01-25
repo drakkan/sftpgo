@@ -1548,7 +1548,7 @@ func TestOIDCWithLoginFormsDisabled(t *testing.T) {
 
 	server := getTestOIDCServer()
 	server.binding.OIDC.ImplicitRoles = true
-	server.binding.EnabledLoginMethods = 3
+	server.binding.DisabledLoginMethods = 12
 	server.binding.EnableWebAdmin = true
 	server.binding.EnableWebClient = true
 	err := server.binding.OIDC.initialize()

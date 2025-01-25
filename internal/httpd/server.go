@@ -1298,23 +1298,55 @@ func (s *httpdServer) initializeRouter() {
 		}
 	}
 
-	if s.enableRESTAPI {
-		// share API available to external users
-		s.router.Get(sharesPath+"/{id}", s.downloadFromShare) //nolint:goconst
-		s.router.Post(sharesPath+"/{id}", s.uploadFilesToShare)
-		s.router.Post(sharesPath+"/{id}/{name}", s.uploadFileToShare)
-		s.router.With(compressor.Handler).Get(sharesPath+"/{id}/dirs", s.readBrowsableShareContents)
-		s.router.Get(sharesPath+"/{id}/files", s.downloadBrowsableSharedFile)
+	s.setupRESTAPIRoutes()
 
-		s.router.Get(tokenPath, s.getToken)
-		s.router.Post(adminPath+"/{username}/forgot-password", forgotAdminPassword)
-		s.router.Post(adminPath+"/{username}/reset-password", resetAdminPassword)
-		s.router.Post(userPath+"/{username}/forgot-password", forgotUserPassword)
-		s.router.Post(userPath+"/{username}/reset-password", resetUserPassword)
+	if s.enableWebAdmin || s.enableWebClient {
+		s.router.Group(func(router chi.Router) {
+			router.Use(cleanCacheControlMiddleware)
+			router.Use(compressor.Handler)
+			serveStaticDir(router, webStaticFilesPath, s.staticFilesPath, true)
+		})
+		if s.binding.OIDC.isEnabled() {
+			s.router.Get(webOIDCRedirectPath, s.handleOIDCRedirect)
+		}
+		if s.enableWebClient {
+			s.router.Get(webRootPath, func(w http.ResponseWriter, r *http.Request) {
+				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+				s.redirectToWebPath(w, r, webClientLoginPath)
+			})
+			s.router.Get(webBasePath, func(w http.ResponseWriter, r *http.Request) {
+				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+				s.redirectToWebPath(w, r, webClientLoginPath)
+			})
+		} else {
+			s.router.Get(webRootPath, func(w http.ResponseWriter, r *http.Request) {
+				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+				s.redirectToWebPath(w, r, webAdminLoginPath)
+			})
+			s.router.Get(webBasePath, func(w http.ResponseWriter, r *http.Request) {
+				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+				s.redirectToWebPath(w, r, webAdminLoginPath)
+			})
+		}
+	}
+
+	s.setupWebClientRoutes()
+	s.setupWebAdminRoutes()
+}
+
+func (s *httpdServer) setupRESTAPIRoutes() {
+	if s.enableRESTAPI {
+		if !s.binding.isAdminTokenEndpointDisabled() {
+			s.router.Get(tokenPath, s.getToken)
+			s.router.Post(adminPath+"/{username}/forgot-password", forgotAdminPassword)
+			s.router.Post(adminPath+"/{username}/reset-password", resetAdminPassword)
+		}
 
 		s.router.Group(func(router chi.Router) {
 			router.Use(checkNodeToken(s.tokenAuth))
-			router.Use(checkAPIKeyAuth(s.tokenAuth, dataprovider.APIKeyScopeAdmin))
+			if !s.binding.isAdminAPIKeyAuthDisabled() {
+				router.Use(checkAPIKeyAuth(s.tokenAuth, dataprovider.APIKeyScopeAdmin))
+			}
 			router.Use(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromHeader))
 			router.Use(jwtAuthenticatorAPI)
 
@@ -1429,10 +1461,23 @@ func (s *httpdServer) initializeRouter() {
 			})
 		})
 
-		s.router.Get(userTokenPath, s.getUserToken)
+		// share API available to external users
+		s.router.Get(sharesPath+"/{id}", s.downloadFromShare)
+		s.router.Post(sharesPath+"/{id}", s.uploadFilesToShare)
+		s.router.Post(sharesPath+"/{id}/{name}", s.uploadFileToShare)
+		s.router.With(compressor.Handler).Get(sharesPath+"/{id}/dirs", s.readBrowsableShareContents)
+		s.router.Get(sharesPath+"/{id}/files", s.downloadBrowsableSharedFile)
+
+		if !s.binding.isUserTokenEndpointDisabled() {
+			s.router.Get(userTokenPath, s.getUserToken)
+			s.router.Post(userPath+"/{username}/forgot-password", forgotUserPassword)
+			s.router.Post(userPath+"/{username}/reset-password", resetUserPassword)
+		}
 
 		s.router.Group(func(router chi.Router) {
-			router.Use(checkAPIKeyAuth(s.tokenAuth, dataprovider.APIKeyScopeUser))
+			if !s.binding.isUserAPIKeyAuthDisabled() {
+				router.Use(checkAPIKeyAuth(s.tokenAuth, dataprovider.APIKeyScopeUser))
+			}
 			router.Use(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromHeader))
 			router.Use(jwtAuthenticatorAPIUser)
 
@@ -1498,39 +1543,6 @@ func (s *httpdServer) initializeRouter() {
 			})
 		}
 	}
-
-	if s.enableWebAdmin || s.enableWebClient {
-		s.router.Group(func(router chi.Router) {
-			router.Use(cleanCacheControlMiddleware)
-			router.Use(compressor.Handler)
-			serveStaticDir(router, webStaticFilesPath, s.staticFilesPath, true)
-		})
-		if s.binding.OIDC.isEnabled() {
-			s.router.Get(webOIDCRedirectPath, s.handleOIDCRedirect)
-		}
-		if s.enableWebClient {
-			s.router.Get(webRootPath, func(w http.ResponseWriter, r *http.Request) {
-				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-				s.redirectToWebPath(w, r, webClientLoginPath)
-			})
-			s.router.Get(webBasePath, func(w http.ResponseWriter, r *http.Request) {
-				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-				s.redirectToWebPath(w, r, webClientLoginPath)
-			})
-		} else {
-			s.router.Get(webRootPath, func(w http.ResponseWriter, r *http.Request) {
-				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-				s.redirectToWebPath(w, r, webAdminLoginPath)
-			})
-			s.router.Get(webBasePath, func(w http.ResponseWriter, r *http.Request) {
-				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-				s.redirectToWebPath(w, r, webAdminLoginPath)
-			})
-		}
-	}
-
-	s.setupWebClientRoutes()
-	s.setupWebAdminRoutes()
 }
 
 func (s *httpdServer) setupWebClientRoutes() {

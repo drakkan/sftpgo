@@ -3899,6 +3899,116 @@ func TestHTTPSRedirect(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestDisabledAdminLoginMethods(t *testing.T) {
+	server := httpdServer{
+		binding: Binding{
+			Address:              "",
+			Port:                 8080,
+			EnableWebAdmin:       true,
+			EnableWebClient:      true,
+			EnableRESTAPI:        true,
+			DisabledLoginMethods: 20,
+		},
+		enableWebAdmin:  true,
+		enableWebClient: true,
+		enableRESTAPI:   true,
+	}
+	server.initializeRouter()
+	testServer := httptest.NewServer(server.router)
+	defer testServer.Close()
+
+	rr := httptest.NewRecorder()
+	req, err := http.NewRequest(http.MethodGet, tokenPath, nil)
+	require.NoError(t, err)
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+
+	rr = httptest.NewRecorder()
+	req, err = http.NewRequest(http.MethodPost, path.Join(adminPath, defaultAdminUsername, "forgot-password"), nil)
+	require.NoError(t, err)
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+
+	rr = httptest.NewRecorder()
+	req, err = http.NewRequest(http.MethodPost, path.Join(adminPath, defaultAdminUsername, "reset-password"), nil)
+	require.NoError(t, err)
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+
+	rr = httptest.NewRecorder()
+	req, err = http.NewRequest(http.MethodPost, webAdminLoginPath, nil)
+	require.NoError(t, err)
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusMethodNotAllowed, rr.Code)
+
+	rr = httptest.NewRecorder()
+	req, err = http.NewRequest(http.MethodPost, webAdminResetPwdPath, nil)
+	require.NoError(t, err)
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+
+	rr = httptest.NewRecorder()
+	req, err = http.NewRequest(http.MethodPost, webAdminForgotPwdPath, nil)
+	require.NoError(t, err)
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+}
+
+func TestDisabledUserLoginMethods(t *testing.T) {
+	server := httpdServer{
+		binding: Binding{
+			Address:              "",
+			Port:                 8080,
+			EnableWebAdmin:       true,
+			EnableWebClient:      true,
+			EnableRESTAPI:        true,
+			DisabledLoginMethods: 40,
+		},
+		enableWebAdmin:  true,
+		enableWebClient: true,
+		enableRESTAPI:   true,
+	}
+	server.initializeRouter()
+	testServer := httptest.NewServer(server.router)
+	defer testServer.Close()
+
+	rr := httptest.NewRecorder()
+	req, err := http.NewRequest(http.MethodGet, userTokenPath, nil)
+	require.NoError(t, err)
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+
+	rr = httptest.NewRecorder()
+	req, err = http.NewRequest(http.MethodPost, userPath+"/user/forgot-password", nil)
+	require.NoError(t, err)
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+
+	rr = httptest.NewRecorder()
+	req, err = http.NewRequest(http.MethodPost, userPath+"/user/reset-password", nil)
+	require.NoError(t, err)
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+
+	rr = httptest.NewRecorder()
+	req, err = http.NewRequest(http.MethodPost, webClientLoginPath, nil)
+	require.NoError(t, err)
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusMethodNotAllowed, rr.Code)
+
+	rr = httptest.NewRecorder()
+	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, nil)
+	require.NoError(t, err)
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+
+	rr = httptest.NewRecorder()
+	req, err = http.NewRequest(http.MethodPost, webClientForgotPwdPath, nil)
+	require.NoError(t, err)
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+}
+
 func TestGetLogEventString(t *testing.T) {
 	assert.Equal(t, "Login failed", getLogEventString(notifier.LogEventTypeLoginFailed))
 	assert.Equal(t, "Login with non-existent user", getLogEventString(notifier.LogEventTypeLoginNoUser))
@@ -4064,6 +4174,39 @@ func TestI18NErrors(t *testing.T) {
 	errI18n = util.NewI18nError(err, util.I18nError500Message, util.I18nErrorArgs(map[string]any{"a": "b"}))
 	assert.Equal(t, util.I18nError500Message, errI18n.Message)
 	assert.Equal(t, `{"a":"b"}`, errI18n.Args())
+}
+
+func TestConvertEnabledLoginMethods(t *testing.T) {
+	b := Binding{
+		EnabledLoginMethods:  0,
+		DisabledLoginMethods: 1,
+	}
+	b.convertLoginMethods()
+	assert.Equal(t, 1, b.DisabledLoginMethods)
+	b.DisabledLoginMethods = 0
+	b.EnabledLoginMethods = 1
+	b.convertLoginMethods()
+	assert.Equal(t, 14, b.DisabledLoginMethods)
+	b.DisabledLoginMethods = 0
+	b.EnabledLoginMethods = 2
+	b.convertLoginMethods()
+	assert.Equal(t, 13, b.DisabledLoginMethods)
+	b.DisabledLoginMethods = 0
+	b.EnabledLoginMethods = 3
+	b.convertLoginMethods()
+	assert.Equal(t, 12, b.DisabledLoginMethods)
+	b.DisabledLoginMethods = 0
+	b.EnabledLoginMethods = 4
+	b.convertLoginMethods()
+	assert.Equal(t, 11, b.DisabledLoginMethods)
+	b.DisabledLoginMethods = 0
+	b.EnabledLoginMethods = 7
+	b.convertLoginMethods()
+	assert.Equal(t, 8, b.DisabledLoginMethods)
+	b.DisabledLoginMethods = 0
+	b.EnabledLoginMethods = 15
+	b.convertLoginMethods()
+	assert.Equal(t, 0, b.DisabledLoginMethods)
 }
 
 func getCSRFTokenFromBody(body io.Reader) (string, error) {

@@ -99,26 +99,27 @@ var (
 		DisableWWWAuthHeader: false,
 	}
 	defaultHTTPDBinding = httpd.Binding{
-		Address:             "",
-		Port:                8080,
-		EnableWebAdmin:      true,
-		EnableWebClient:     true,
-		EnableRESTAPI:       true,
-		EnabledLoginMethods: 0,
-		EnableHTTPS:         false,
-		CertificateFile:     "",
-		CertificateKeyFile:  "",
-		MinTLSVersion:       12,
-		ClientAuthType:      0,
-		TLSCipherSuites:     nil,
-		Protocols:           nil,
-		ProxyMode:           0,
-		ProxyAllowed:        nil,
-		ClientIPProxyHeader: "",
-		ClientIPHeaderDepth: 0,
-		HideLoginURL:        0,
-		RenderOpenAPI:       true,
-		Languages:           []string{"en"},
+		Address:              "",
+		Port:                 8080,
+		EnableWebAdmin:       true,
+		EnableWebClient:      true,
+		EnableRESTAPI:        true,
+		EnabledLoginMethods:  0,
+		DisabledLoginMethods: 0,
+		EnableHTTPS:          false,
+		CertificateFile:      "",
+		CertificateKeyFile:   "",
+		MinTLSVersion:        12,
+		ClientAuthType:       0,
+		TLSCipherSuites:      nil,
+		Protocols:            nil,
+		ProxyMode:            0,
+		ProxyAllowed:         nil,
+		ClientIPProxyHeader:  "",
+		ClientIPHeaderDepth:  0,
+		HideLoginURL:         0,
+		RenderOpenAPI:        true,
+		Languages:            []string{"en"},
 		OIDC: httpd.OIDC{
 			ClientID:                   "",
 			ClientSecret:               "",
@@ -1865,6 +1866,12 @@ func getHTTPDBindingFromEnv(idx int) { //nolint:gocyclo
 	enabledLoginMethods, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__ENABLED_LOGIN_METHODS", idx), 32)
 	if ok {
 		binding.EnabledLoginMethods = int(enabledLoginMethods)
+		isSet = true
+	}
+
+	disabledLoginMethods, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__DISABLED_LOGIN_METHODS", idx), 32)
+	if ok {
+		binding.DisabledLoginMethods = int(disabledLoginMethods)
 		isSet = true
 	}
 
