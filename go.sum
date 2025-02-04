@@ -142,8 +142,8 @@ github.com/drakkan/crypto v0.0.0-20250111104604-342fa47816ba h1:v/uicDY0h9DI5NQ3
 github.com/drakkan/crypto v0.0.0-20250111104604-342fa47816ba/go.mod h1:ZnnJkOaASj8g0AjIduWNlq2NRxL0PlBrbKVyZ6V/Ugc=
 github.com/drakkan/ftp v0.0.0-20240430173938-7ba8270c8e7f h1:S9JUlrOzjK58UKoLqqb40YLyVlt0bcIFtYrvnanV3zc=
 github.com/drakkan/ftp v0.0.0-20240430173938-7ba8270c8e7f/go.mod h1:4p8lUl4vQ80L598CygL+3IFtm+3nggvvW/palOlViwE=
-github.com/drakkan/ftpserverlib v0.0.0-20240603150004-6a8f643fbf2e h1:VBpqQeChkGXSV1FXCtvd3BJTyB+DcMgiu7SfkpsGuKw=
-github.com/drakkan/ftpserverlib v0.0.0-20240603150004-6a8f643fbf2e/go.mod h1:aAwyOAC6IIe+IZeeGD1QjuE3GGDzqW/c5Xtn+Dp0JUM=
+github.com/drakkan/ftpserverlib v0.0.0-20250204143431-e069fad14727 h1:OwxAvQejxuEYFtuXcOxuepEjt6VPLEQ3zK+5k9p4M60=
+github.com/drakkan/ftpserverlib v0.0.0-20250204143431-e069fad14727/go.mod h1:TRdVBbJEt+KihZKGl6jgSp6H/yPc0NxMUAlMZuNHcmY=
 github.com/drakkan/webdav v0.0.0-20241026165615-b8b8f74ae71b h1:Y1tLiQ8fnxM5f3wiBjAXsHzHNwiY9BR+mXZA75nZwrs=
 github.com/drakkan/webdav v0.0.0-20241026165615-b8b8f74ae71b/go.mod h1:zOVb1QDhwwqWn2L2qZ0U3swMSO4GTSNyIwXCGO/UGWE=
 github.com/eikenb/pipeat v0.0.0-20210730190139-06b3e6902001 h1:/ZshrfQzayqRSBDodmp3rhNCHJCff+utvgBuWRbiqu4=
