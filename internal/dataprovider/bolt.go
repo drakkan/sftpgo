@@ -31,6 +31,7 @@ import (
 	"time"
 
 	bolt "go.etcd.io/bbolt"
+	bolterrors "go.etcd.io/bbolt/errors"
 
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/util"
@@ -3215,7 +3216,7 @@ func (p *BoltProvider) resetDatabase() error {
 	return p.dbHandle.Update(func(tx *bolt.Tx) error {
 		for _, bucketName := range boltBuckets {
 			err := tx.DeleteBucket(bucketName)
-			if err != nil && !errors.Is(err, bolt.ErrBucketNotFound) {
+			if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
 				return fmt.Errorf("unable to remove bucket %v: %w", bucketName, err)
 			}
 		}
