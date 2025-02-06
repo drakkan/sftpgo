@@ -17,7 +17,7 @@ jobs:
     strategy:
       matrix:
         os:
-          - ubuntu-latest
+          - ubuntu-22.04
         docker_pkg:
           - debian
           - alpine
@@ -25,10 +25,10 @@ jobs:
           - true
           - false
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             docker_pkg: distroless
             optional_deps: false
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             docker_pkg: debian-plugins
             optional_deps: true
     steps:
