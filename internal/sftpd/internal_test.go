@@ -829,7 +829,7 @@ func TestRsyncOptions(t *testing.T) {
 	user := dataprovider.User{
 		BaseUser: sdk.BaseUser{
 			Permissions: permissions,
-			HomeDir:     os.TempDir(),
+			HomeDir:     filepath.Clean(os.TempDir()),
 		},
 	}
 	conn := &Connection{
@@ -842,7 +842,7 @@ func TestRsyncOptions(t *testing.T) {
 	}
 	cmd, err := sshCmd.getSystemCommand()
 	assert.NoError(t, err)
-	assert.Equal(t, []string{"rsync", "--server", "-vlogDtprze.iLsfxC", "--safe-links", ".", user.HomeDir + "/"}, cmd.cmd.Args,
+	assert.Equal(t, []string{"rsync", "--server", "-vlogDtprze.iLsfxC", "--safe-links", ".", user.HomeDir + string(os.PathSeparator)}, cmd.cmd.Args,
 		"--safe-links must be added if the user has the create symlinks permission")
 
 	permissions["/"] = []string{dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermCreateDirs,
@@ -865,7 +865,7 @@ func TestRsyncOptions(t *testing.T) {
 	}
 	cmd, err = sshCmd.getSystemCommand()
 	assert.NoError(t, err)
-	assert.Equal(t, []string{"rsync", "--server", "-vlogDtprze.iLsfxC", "--munge-links", ".", user.HomeDir + "/"}, cmd.cmd.Args,
+	assert.Equal(t, []string{"rsync", "--server", "-vlogDtprze.iLsfxC", "--munge-links", ".", user.HomeDir + string(os.PathSeparator)}, cmd.cmd.Args,
 		"--munge-links must be added if the user hasn't the create symlinks permission")
 
 	sshCmd.connection.User.VirtualFolders = append(sshCmd.connection.User.VirtualFolders, vfs.VirtualFolder{
