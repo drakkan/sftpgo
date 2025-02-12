@@ -2782,7 +2782,8 @@ func validateAssociatedVirtualFolders(vfolders []vfs.VirtualFolder) ([]vfs.Virtu
 		}
 		virtualFolders = append(virtualFolders, vfs.VirtualFolder{
 			BaseVirtualFolder: vfs.BaseVirtualFolder{
-				Name: v.Name,
+				Name:     v.Name,
+				FsConfig: v.FsConfig,
 			},
 			VirtualPath: cleanedVPath,
 			QuotaSize:   v.QuotaSize,
