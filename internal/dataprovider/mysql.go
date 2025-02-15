@@ -194,6 +194,8 @@ const (
 		"CREATE INDEX `{{prefix}}ip_lists_deleted_at_idx` ON `{{ip_lists}}` (`deleted_at`);" +
 		"CREATE INDEX `{{prefix}}ip_lists_first_last_idx` ON `{{ip_lists}}` (`first`, `last`);" +
 		"INSERT INTO {{schema_version}} (version) VALUES (29);"
+	mysqlV30SQL     = "ALTER TABLE `{{shares}}` ADD COLUMN `options` longtext NULL;"
+	mysqlV30DownSQL = "ALTER TABLE `{{shares}}` DROP COLUMN `options`;"
 )
 
 // MySQLProvider defines the auth provider for MySQL/MariaDB database
@@ -802,6 +804,8 @@ func (p *MySQLProvider) migrateDatabase() error {
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
+	case version == 29:
+		return updateMySQLDatabaseFromV29(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -824,6 +828,8 @@ func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 	}
 
 	switch dbVersion.Version {
+	case 30:
+		return downgradeMySQLDatabaseFromV30(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
@@ -860,4 +866,28 @@ func (p *MySQLProvider) normalizeError(err error, fieldType int) error {
 		}
 	}
 	return err
+}
+
+func updateMySQLDatabaseFromV29(dbHandle *sql.DB) error {
+	return updateMySQLDatabaseFrom29To30(dbHandle)
+}
+
+func downgradeMySQLDatabaseFromV30(dbHandle *sql.DB) error {
+	return downgradeMySQLDatabaseFrom30To29(dbHandle)
+}
+
+func updateMySQLDatabaseFrom29To30(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database schema version: 29 -> 30")
+	providerLog(logger.LevelInfo, "updating database schema version: 29 -> 30")
+
+	sql := strings.ReplaceAll(mysqlV30SQL, "{{shares}}", sqlTableShares)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 30, true)
+}
+
+func downgradeMySQLDatabaseFrom30To29(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database schema version: 30 -> 29")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 30 -> 29")
+
+	sql := strings.ReplaceAll(mysqlV30DownSQL, "{{shares}}", sqlTableShares)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 29, false)
 }
