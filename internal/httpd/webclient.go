@@ -643,7 +643,7 @@ func (s *httpdServer) renderClientNotFoundPage(w http.ResponseWriter, r *http.Re
 func (s *httpdServer) renderClientTwoFactorPage(w http.ResponseWriter, r *http.Request, err *util.I18nError) {
 	data := twoFactorPage{
 		commonBasePage: getCommonBasePage(r),
-		Title:          pageTwoFactorTitle,
+		Title:          util.I18n2FATitle,
 		CurrentURL:     webClientTwoFactorPath,
 		Error:          err,
 		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, "", webBaseClientPath),
@@ -660,7 +660,7 @@ func (s *httpdServer) renderClientTwoFactorPage(w http.ResponseWriter, r *http.R
 func (s *httpdServer) renderClientTwoFactorRecoveryPage(w http.ResponseWriter, r *http.Request, err *util.I18nError) {
 	data := twoFactorPage{
 		commonBasePage: getCommonBasePage(r),
-		Title:          pageTwoFactorRecoveryTitle,
+		Title:          util.I18n2FATitle,
 		CurrentURL:     webClientTwoFactorRecoveryPath,
 		Error:          err,
 		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, "", webBaseClientPath),
