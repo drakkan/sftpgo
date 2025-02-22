@@ -150,12 +150,13 @@ type filesPage struct {
 
 type shareLoginPage struct {
 	commonBasePage
-	CurrentURL string
-	Error      *util.I18nError
-	CSRFToken  string
-	Title      string
-	Branding   UIBranding
-	Languages  []string
+	CurrentURL    string
+	Error         *util.I18nError
+	CSRFToken     string
+	Title         string
+	Branding      UIBranding
+	Languages     []string
+	CheckRedirect bool
 }
 
 type shareDownloadPage struct {
@@ -599,6 +600,7 @@ func (s *httpdServer) renderShareLoginPage(w http.ResponseWriter, r *http.Reques
 		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, xid.New().String(), webBaseClientPath),
 		Branding:       s.binding.webClientBranding(),
 		Languages:      s.binding.languages(),
+		CheckRedirect:  false,
 	}
 	renderClientTemplate(w, templateShareLogin, data)
 }
