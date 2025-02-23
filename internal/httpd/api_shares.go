@@ -494,7 +494,6 @@ func (s *httpdServer) checkPublicShare(w http.ResponseWriter, r *http.Request, v
 	if share.Password != "" {
 		if isWebClient {
 			if err := s.checkWebClientShareCredentials(w, r, &share); err != nil {
-				handleDefenderEventLoginFailed(ipAddr, err) //nolint:errcheck
 				return share, nil, dataprovider.ErrInvalidCredentials
 			}
 		} else {
