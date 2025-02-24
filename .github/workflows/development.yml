@@ -15,7 +15,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        go: ['1.23']
+        go: ['1.24']
         os: [ubuntu-latest, macos-latest]
 
     steps:
@@ -119,7 +119,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.24'
 
       - name: Build
         run: |
@@ -326,7 +326,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.24'
 
       - name: Build
         run: |
@@ -390,7 +390,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.24'
 
       - name: Build
         run: |
@@ -611,7 +611,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.24'
       - uses: actions/checkout@v4
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v6
