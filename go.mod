@@ -1,6 +1,6 @@
 module github.com/drakkan/sftpgo/v2
 
-go 1.22.7
+go 1.23.0
 
 require (
 	cloud.google.com/go/storage v1.50.0
@@ -33,11 +33,11 @@ require (
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/go-hclog v1.6.3
-	github.com/hashicorp/go-plugin v1.6.2
+	github.com/hashicorp/go-plugin v1.6.3
 	github.com/hashicorp/go-retryablehttp v0.7.7
 	github.com/jackc/pgx/v5 v5.7.2
 	github.com/jlaffaye/ftp v0.2.0
-	github.com/klauspost/compress v1.17.11
+	github.com/klauspost/compress v1.18.0
 	github.com/lestrrat-go/jwx/v2 v2.1.3
 	github.com/lithammer/shortuuid/v3 v3.0.7
 	github.com/mattn/go-sqlite3 v1.14.24
@@ -67,12 +67,12 @@ require (
 	go.etcd.io/bbolt v1.3.11
 	go.uber.org/automaxprocs v1.6.0
 	gocloud.dev v0.40.0
-	golang.org/x/crypto v0.33.0
-	golang.org/x/net v0.34.0
-	golang.org/x/oauth2 v0.25.0
-	golang.org/x/sys v0.29.0
-	golang.org/x/term v0.28.0
-	golang.org/x/time v0.8.0
+	golang.org/x/crypto v0.35.0
+	golang.org/x/net v0.35.0
+	golang.org/x/oauth2 v0.27.0
+	golang.org/x/sys v0.30.0
+	golang.org/x/term v0.29.0
+	golang.org/x/time v0.10.0
 	google.golang.org/api v0.215.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
@@ -200,5 +200,5 @@ replace (
 	github.com/fclairamb/ftpserverlib => github.com/drakkan/ftpserverlib v0.0.0-20250204143431-e069fad14727
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20240430173938-7ba8270c8e7f
 	github.com/robfig/cron/v3 => github.com/drakkan/cron/v3 v3.0.0-20230222140221-217a1e4d96c0
-	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20250205181920-2b7926925e2a
+	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20250224175017-e21889d0c84b
 )
