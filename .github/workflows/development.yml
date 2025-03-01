@@ -529,7 +529,7 @@ jobs:
           gzip output/man/man1/*
           cp sftpgo output/
 
-      - uses: uraimo/run-on-arch-action@v2
+      - uses: uraimo/run-on-arch-action@v3
         if: ${{ matrix.arch != 'amd64' }}
         name: Build for ${{ matrix.arch }}
         id: build
