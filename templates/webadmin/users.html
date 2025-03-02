@@ -319,6 +319,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "status",
+                        name: "status",
                         render: function(data, type, row) {
                             let result = data;
                             if (row.expiration_date){
@@ -341,6 +342,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "last_login",
+                        name: "last_login",
                         defaultContent: "",
                         render: function(data, type, row) {
                             if (type === 'display') {
@@ -359,6 +361,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "email",
+                        name: "email",
                         visible: false,
                         defaultContent: "",
                         render: function(data, type, row) {
@@ -373,6 +376,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "filesystem.provider",
+                        name: "storage",
                         visible: false,
                         defaultContent: "",
                         render: function(data, type, row) {
@@ -399,6 +403,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "role",
+                        name: "role",
                         visible: false,
                         defaultContent: "",
                         render: function(data, type, row) {
@@ -413,6 +418,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "filters.totp_config",
+                        name: "two_factor",
                         visible: false,
                         defaultContent: "",
                         render: function(data, type, row) {
@@ -430,6 +436,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "quota_files",
+                        name: "disk_quota",
                         visible: false,
                         searchable: false,
                         orderable: false,
@@ -464,6 +471,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "total_data_transfer",
+                        name: "transfer_quota",
                         visible: false,
                         searchable: false,
                         orderable: false,
@@ -509,6 +517,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "groups",
+                        name: "groups",
                         visible: false,
                         defaultContent: [],
                         render: function(data, type, row) {
@@ -626,10 +635,12 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             $('#table_body').localize();
         }
 
-        function handleColVisibilityCheckbox(el, index) {
+        function handleColVisibilityCheckbox(el, selector) {
+            let index = dt.column(selector).index();
             el.off("change");
             el.prop('checked', dt.column(index).visible());
             el.on("change", function(e){
+                let index = dt.column(selector).index();
                 dt.column(index).visible($(this).is(':checked'));
                 dt.draw('page');
             });
@@ -642,15 +653,15 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 dt.rows().deselect();
                 dt.search(e.target.value).draw();
             });
-            handleColVisibilityCheckbox($('#checkColStatus'), 1);
-            handleColVisibilityCheckbox($('#checkColLastLogin'), 2);
-            handleColVisibilityCheckbox($('#checkColEmail'), 3);
-            handleColVisibilityCheckbox($('#checkColStorage'), 4);
-            handleColVisibilityCheckbox($('#checkColRole'), 5);
-            handleColVisibilityCheckbox($('#checkCol2FA'), 6);
-            handleColVisibilityCheckbox($('#checkColDiskQuota'), 7);
-            handleColVisibilityCheckbox($('#checkColTransferQuota'), 8);
-            handleColVisibilityCheckbox($('#checkColGroups'), 9);
+            handleColVisibilityCheckbox($('#checkColStatus'), "status:name");
+            handleColVisibilityCheckbox($('#checkColLastLogin'), "last_login:name");
+            handleColVisibilityCheckbox($('#checkColEmail'), "email:name");
+            handleColVisibilityCheckbox($('#checkColStorage'), "storage:name");
+            handleColVisibilityCheckbox($('#checkColRole'), "role:name");
+            handleColVisibilityCheckbox($('#checkCol2FA'), "two_factor:name");
+            handleColVisibilityCheckbox($('#checkColDiskQuota'), "disk_quota:name");
+            handleColVisibilityCheckbox($('#checkColTransferQuota'), "transfer_quota:name");
+            handleColVisibilityCheckbox($('#checkColGroups'), "groups:name");
 
             const exportButton = $(document.querySelector('[data-table-filter="export"]'));
             exportButton.on('click', function(e){
