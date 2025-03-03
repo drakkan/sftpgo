@@ -286,12 +286,11 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     $('#card_content').removeClass("d-none");
                     let api = $.fn.dataTable.Api(settings);
                     api.columns.adjust().draw("page");
-                    drawAction();
                 }
             });
 
-            dt.on('draw', drawAction);
-            dt.on('column-reorder', function(e, settings, details){
+            dt.on('draw.dt', drawAction);
+            dt.on('columns-reordered', function(e, settings, details){
                 drawAction();
             });
         }
