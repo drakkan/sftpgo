@@ -2831,6 +2831,16 @@ func (j *eventCronJob) getTask(rule *dataprovider.EventRule) (dataprovider.Task,
 	return dataprovider.Task{}, nil
 }
 
+func (j *eventCronJob) getEventParams() EventParams {
+	return EventParams{
+		Event:                 "Schedule",
+		Name:                  j.ruleName,
+		Status:                1,
+		Timestamp:             time.Now(),
+		updateStatusFromError: true,
+	}
+}
+
 func (j *eventCronJob) Run() {
 	eventManagerLog(logger.LevelDebug, "executing scheduled rule %q", j.ruleName)
 	rule, err := dataprovider.EventRuleExists(j.ruleName)
@@ -2881,9 +2891,9 @@ func (j *eventCronJob) Run() {
 			}
 		}(task.Name)
 
-		executeAsyncRulesActions([]dataprovider.EventRule{rule}, EventParams{Status: 1, updateStatusFromError: true})
+		executeAsyncRulesActions([]dataprovider.EventRule{rule}, j.getEventParams())
 	} else {
-		executeAsyncRulesActions([]dataprovider.EventRule{rule}, EventParams{Status: 1, updateStatusFromError: true})
+		executeAsyncRulesActions([]dataprovider.EventRule{rule}, j.getEventParams())
 	}
 	eventManagerLog(logger.LevelDebug, "execution for scheduled rule %q finished", j.ruleName)
 }

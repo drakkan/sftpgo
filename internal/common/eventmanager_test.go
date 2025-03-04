@@ -1933,12 +1933,27 @@ func TestScheduledActions(t *testing.T) {
 	backupsPath := filepath.Join(os.TempDir(), "backups")
 	err := os.RemoveAll(backupsPath)
 	assert.NoError(t, err)
+	now := time.Now().UTC().Format(dateTimeMillisFormat)
+	// The backup action sets the home directory to the backup path.
+	expectedDirPath := filepath.Join(backupsPath, fmt.Sprintf("%s_%s_%s", now[0:4], now[5:7], now[8:10]))
 
-	action := &dataprovider.BaseEventAction{
-		Name: "action",
+	action1 := &dataprovider.BaseEventAction{
+		Name: "action1",
 		Type: dataprovider.ActionTypeBackup,
 	}
-	err = dataprovider.AddEventAction(action, "", "", "")
+	err = dataprovider.AddEventAction(action1, "", "", "")
+	assert.NoError(t, err)
+	action2 := &dataprovider.BaseEventAction{
+		Name: "action2",
+		Type: dataprovider.ActionTypeFilesystem,
+		Options: dataprovider.BaseEventActionOptions{
+			FsConfig: dataprovider.EventActionFilesystemConfig{
+				Type:   dataprovider.FilesystemActionMkdirs,
+				MkDirs: []string{"{{Year}}_{{Month}}_{{Day}}"},
+			},
+		},
+	}
+	err = dataprovider.AddEventAction(action2, "", "", "")
 	assert.NoError(t, err)
 	rule := &dataprovider.EventRule{
 		Name:    "rule",
@@ -1957,9 +1972,15 @@ func TestScheduledActions(t *testing.T) {
 		Actions: []dataprovider.EventAction{
 			{
 				BaseEventAction: dataprovider.BaseEventAction{
-					Name: action.Name,
+					Name: action1.Name,
 				},
 				Order: 1,
+			},
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action2.Name,
+				},
+				Order: 2,
 			},
 		},
 	}
@@ -1975,9 +1996,10 @@ func TestScheduledActions(t *testing.T) {
 
 	job.Run()
 	assert.DirExists(t, backupsPath)
+	assert.DirExists(t, expectedDirPath)
 
-	action.Type = dataprovider.ActionTypeEmail
-	action.Options = dataprovider.BaseEventActionOptions{
+	action1.Type = dataprovider.ActionTypeEmail
+	action1.Options = dataprovider.BaseEventActionOptions{
 		EmailConfig: dataprovider.EventActionEmailConfig{
 			Recipients:  []string{"example@example.com"},
 			Subject:     "test with attachments",
@@ -1985,16 +2007,19 @@ func TestScheduledActions(t *testing.T) {
 			Attachments: []string{"/file1.txt"},
 		},
 	}
-	err = dataprovider.UpdateEventAction(action, "", "", "")
+	err = dataprovider.UpdateEventAction(action1, "", "", "")
 	assert.NoError(t, err)
 	job.Run() // action is not compatible with a scheduled rule
 
 	err = dataprovider.DeleteEventRule(rule.Name, "", "", "")
 	assert.NoError(t, err)
-	err = dataprovider.DeleteEventAction(action.Name, "", "", "")
+	err = dataprovider.DeleteEventAction(action1.Name, "", "", "")
+	assert.NoError(t, err)
+	err = dataprovider.DeleteEventAction(action2.Name, "", "", "")
 	assert.NoError(t, err)
 	err = os.RemoveAll(backupsPath)
 	assert.NoError(t, err)
+
 	stopEventScheduler()
 }
 
