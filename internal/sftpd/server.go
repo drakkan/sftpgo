@@ -130,7 +130,7 @@ type Configuration struct {
 	// preference order.
 	KexAlgorithms []string `json:"kex_algorithms" mapstructure:"kex_algorithms"`
 	// MinDHGroupExchangeKeySize defines the minimum key size to allow for the
-	// key exchanges when using diffie-ellman-group-exchange-sha1 or sha256 key
+	// key exchanges when using diffie-hellman-group-exchange-sha1 or sha256 key
 	// exchange algorithms.
 	MinDHGroupExchangeKeySize int `json:"min_dh_group_exchange_key_size" mapstructure:"min_dh_group_exchange_key_size"`
 	// Ciphers specifies the ciphers allowed
@@ -327,7 +327,7 @@ func (c *Configuration) Initialize(configDir string) error {
 	}
 
 	ssh.SetDHKexServerMinBits(uint32(c.MinDHGroupExchangeKeySize))
-	logger.Debug(logSender, "", "minimum key size allowed for diffie-ellman-group-exchange: %d",
+	logger.Debug(logSender, "", "minimum key size allowed for diffie-hellman-group-exchange: %d",
 		ssh.GetDHKexServerMinBits())
 	sftp.SetSFTPExtensions(sftpExtensions...) //nolint:errcheck // we configure valid SFTP Extensions so we cannot get an error
 	sftp.MaxFilelist = 250
