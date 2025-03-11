@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/mattn/go-sqlite3"
@@ -180,6 +181,8 @@ CREATE INDEX "{{prefix}}ip_lists_ip_deleted_at_idx" ON "{{ip_lists}}" ("deleted_
 CREATE INDEX "{{prefix}}ip_lists_first_last_idx" ON "{{ip_lists}}" ("first", "last");
 INSERT INTO {{schema_version}} (version) VALUES (29);
 `
+	sqliteV30SQL     = `ALTER TABLE "{{shares}}" ADD COLUMN "options" text NULL;`
+	sqliteV30DownSQL = `ALTER TABLE "{{shares}}" DROP COLUMN "options";`
 )
 
 // SQLiteProvider defines the auth provider for SQLite database
@@ -722,6 +725,8 @@ func (p *SQLiteProvider) migrateDatabase() error { //nolint:dupl
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
+	case version == 29:
+		return updateSQLiteDatabaseFromV29(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -744,6 +749,8 @@ func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 	}
 
 	switch dbVersion.Version {
+	case 30:
+		return downgradeSQLiteDatabaseFromV30(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
@@ -787,6 +794,30 @@ func executePragmaOptimize(dbHandle *sql.DB) error {
 
 	_, err := dbHandle.ExecContext(ctx, "PRAGMA optimize;")
 	return err
+}
+
+func updateSQLiteDatabaseFromV29(dbHandle *sql.DB) error {
+	return updateSQLiteDatabaseFrom29To30(dbHandle)
+}
+
+func downgradeSQLiteDatabaseFromV30(dbHandle *sql.DB) error {
+	return downgradeSQLiteDatabaseFrom30To29(dbHandle)
+}
+
+func updateSQLiteDatabaseFrom29To30(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database schema version: 29 -> 30")
+	providerLog(logger.LevelInfo, "updating database schema version: 29 -> 30")
+
+	sql := strings.ReplaceAll(sqliteV30SQL, "{{shares}}", sqlTableShares)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 30, true)
+}
+
+func downgradeSQLiteDatabaseFrom30To29(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database schema version: 30 -> 29")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 30 -> 29")
+
+	sql := strings.ReplaceAll(sqliteV30DownSQL, "{{shares}}", sqlTableShares)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 29, false)
 }
 
 /*func setPragmaFK(dbHandle *sql.DB, value string) error {

@@ -40,7 +40,7 @@ import (
 )
 
 const (
-	boltDatabaseVersion = 29
+	boltDatabaseVersion = 30
 )
 
 var (
@@ -3186,6 +3186,10 @@ func (p *BoltProvider) migrateDatabase() error {
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
+	case version == 29:
+		logger.InfoToConsole("updating database schema version: %d -> 30", version)
+		providerLog(logger.LevelInfo, "updating database schema version: %d -> 30", version)
+		return updateBoltDatabaseVersion(p.dbHandle, 30)
 	default:
 		if version > boltDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -3207,6 +3211,10 @@ func (p *BoltProvider) revertDatabase(targetVersion int) error { //nolint:gocycl
 		return errors.New("current version match target version, nothing to do")
 	}
 	switch dbVersion.Version {
+	case 30:
+		logger.InfoToConsole("downgrading database schema version: %d -> 29", dbVersion.Version)
+		providerLog(logger.LevelInfo, "downgrading database schema version: %d -> 29", dbVersion.Version)
+		return updateBoltDatabaseVersion(p.dbHandle, 29)
 	default:
 		return fmt.Errorf("database schema version not handled: %v", dbVersion.Version)
 	}
@@ -3947,7 +3955,7 @@ func getBoltDatabaseVersion(dbHandle *bolt.DB) (schemaVersion, error) {
 	return dbVersion, err
 }
 
-/*func updateBoltDatabaseVersion(dbHandle *bolt.DB, version int) error {
+func updateBoltDatabaseVersion(dbHandle *bolt.DB, version int) error {
 	err := dbHandle.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(dbVersionBucket)
 		if bucket == nil {
@@ -3963,4 +3971,4 @@ func getBoltDatabaseVersion(dbHandle *bolt.DB) (schemaVersion, error) {
 		return bucket.Put(dbVersionKey, buf)
 	})
 	return err
-}*/
+}

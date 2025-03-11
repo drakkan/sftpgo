@@ -210,6 +210,8 @@ INSERT INTO {{schema_version}} (version) VALUES (29);
 `
 	// not supported in CockroachDB
 	ipListsLikeIndex = `CREATE INDEX "{{prefix}}ip_lists_ipornet_like_idx" ON "{{ip_lists}}" ("ipornet" varchar_pattern_ops);`
+	pgsqlV30SQL      = `ALTER TABLE "{{shares}}" ADD COLUMN "options" text NULL;`
+	pgsqlV30DownSQL  = `ALTER TABLE "{{shares}}" DROP COLUMN "options" CASCADE;`
 )
 
 var (
@@ -826,6 +828,8 @@ func (p *PGSQLProvider) migrateDatabase() error { //nolint:dupl
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
+	case version == 29:
+		return updatePGSQLDatabaseFromV29(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -848,6 +852,8 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 	}
 
 	switch dbVersion.Version {
+	case 30:
+		return downgradePGSQLDatabaseFromV30(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
@@ -884,4 +890,28 @@ func (p *PGSQLProvider) normalizeError(err error, fieldType int) error {
 		}
 	}
 	return err
+}
+
+func updatePGSQLDatabaseFromV29(dbHandle *sql.DB) error {
+	return updatePGSQLDatabaseFrom29To30(dbHandle)
+}
+
+func downgradePGSQLDatabaseFromV30(dbHandle *sql.DB) error {
+	return downgradePGSQLDatabaseFrom30To29(dbHandle)
+}
+
+func updatePGSQLDatabaseFrom29To30(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database schema version: 29 -> 30")
+	providerLog(logger.LevelInfo, "updating database schema version: 29 -> 30")
+
+	sql := strings.ReplaceAll(pgsqlV30SQL, "{{shares}}", sqlTableShares)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 30, true)
+}
+
+func downgradePGSQLDatabaseFrom30To29(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database schema version: 30 -> 29")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 30 -> 29")
+
+	sql := strings.ReplaceAll(pgsqlV30DownSQL, "{{shares}}", sqlTableShares)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 29, false)
 }

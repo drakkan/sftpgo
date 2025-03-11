@@ -150,12 +150,13 @@ type filesPage struct {
 
 type shareLoginPage struct {
 	commonBasePage
-	CurrentURL string
-	Error      *util.I18nError
-	CSRFToken  string
-	Title      string
-	Branding   UIBranding
-	Languages  []string
+	CurrentURL    string
+	Error         *util.I18nError
+	CSRFToken     string
+	Title         string
+	Branding      UIBranding
+	Languages     []string
+	CheckRedirect bool
 }
 
 type shareDownloadPage struct {
@@ -599,6 +600,7 @@ func (s *httpdServer) renderShareLoginPage(w http.ResponseWriter, r *http.Reques
 		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, xid.New().String(), webBaseClientPath),
 		Branding:       s.binding.webClientBranding(),
 		Languages:      s.binding.languages(),
+		CheckRedirect:  false,
 	}
 	renderClientTemplate(w, templateShareLogin, data)
 }
@@ -643,7 +645,7 @@ func (s *httpdServer) renderClientNotFoundPage(w http.ResponseWriter, r *http.Re
 func (s *httpdServer) renderClientTwoFactorPage(w http.ResponseWriter, r *http.Request, err *util.I18nError) {
 	data := twoFactorPage{
 		commonBasePage: getCommonBasePage(r),
-		Title:          pageTwoFactorTitle,
+		Title:          util.I18n2FATitle,
 		CurrentURL:     webClientTwoFactorPath,
 		Error:          err,
 		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, "", webBaseClientPath),
@@ -660,7 +662,7 @@ func (s *httpdServer) renderClientTwoFactorPage(w http.ResponseWriter, r *http.R
 func (s *httpdServer) renderClientTwoFactorRecoveryPage(w http.ResponseWriter, r *http.Request, err *util.I18nError) {
 	data := twoFactorPage{
 		commonBasePage: getCommonBasePage(r),
-		Title:          pageTwoFactorRecoveryTitle,
+		Title:          util.I18n2FATitle,
 		CurrentURL:     webClientTwoFactorRecoveryPath,
 		Error:          err,
 		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, "", webBaseClientPath),
