@@ -417,7 +417,7 @@ func checkAPIKeyAuth(tokenAuth *jwtauth.JWTAuth, scope dataprovider.APIKeyScope)
 			k, err := dataprovider.APIKeyExists(keyID)
 			if err != nil {
 				handleDefenderEventLoginFailed(util.GetIPFromRemoteAddress(r.RemoteAddr), util.NewRecordNotFoundError("invalid api key")) //nolint:errcheck
-				logger.Debug(logSender, "invalid api key %q: %v", apiKey, err)
+				logger.Debug(logSender, "", "invalid api key %q: %v", apiKey, err)
 				sendAPIResponse(w, r, errors.New("the provided api key is not valid"), "", http.StatusBadRequest)
 				return
 			}
