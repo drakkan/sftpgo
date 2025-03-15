@@ -734,6 +734,12 @@ func (c *AzBlobFsConfig) isSameResource(other AzBlobFsConfig) bool {
 	if c.Endpoint != other.Endpoint {
 		return false
 	}
+	if c.SASURL == nil {
+		c.SASURL = kms.NewEmptySecret()
+	}
+	if other.SASURL == nil {
+		other.SASURL = kms.NewEmptySecret()
+	}
 	return c.SASURL.GetPayload() == other.SASURL.GetPayload()
 }
 
