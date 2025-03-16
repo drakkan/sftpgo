@@ -528,7 +528,7 @@ func TestOverrideSliceValues(t *testing.T) {
 
 	c = make(map[string]any)
 	c["httpd"] = httpd.Conf{
-		Bindings: []httpd.Binding{},
+		Bindings: nil,
 	}
 	jsonConf, err = json.Marshal(c)
 	assert.NoError(t, err)
