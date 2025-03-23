@@ -132,11 +132,11 @@ func (o *dbOAuth2Manager) addPendingAuth(pendingAuth oauth2PendingAuth) {
 }
 
 func (o *dbOAuth2Manager) removePendingAuth(state string) {
-	dataprovider.DeleteSharedSession(state) //nolint:errcheck
+	dataprovider.DeleteSharedSession(state, dataprovider.SessionTypeOAuth2Auth) //nolint:errcheck
 }
 
 func (o *dbOAuth2Manager) getPendingAuth(state string) (oauth2PendingAuth, error) {
-	session, err := dataprovider.GetSharedSession(state)
+	session, err := dataprovider.GetSharedSession(state, dataprovider.SessionTypeOAuth2Auth)
 	if err != nil {
 		return oauth2PendingAuth{}, errors.New("oauth2: unable to get the auth request for the specified state")
 	}

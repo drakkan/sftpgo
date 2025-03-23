@@ -2117,11 +2117,11 @@ func (p *MemoryProvider) addSharedSession(_ Session) error {
 	return ErrNotImplemented
 }
 
-func (p *MemoryProvider) deleteSharedSession(_ string) error {
+func (p *MemoryProvider) deleteSharedSession(_ string, _ SessionType) error {
 	return ErrNotImplemented
 }
 
-func (p *MemoryProvider) getSharedSession(_ string) (Session, error) {
+func (p *MemoryProvider) getSharedSession(_ string, _ SessionType) (Session, error) {
 	return Session{}, ErrNotImplemented
 }
 

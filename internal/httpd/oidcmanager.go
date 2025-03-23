@@ -167,11 +167,11 @@ func (o *dbOIDCManager) addPendingAuth(pendingAuth oidcPendingAuth) {
 }
 
 func (o *dbOIDCManager) removePendingAuth(state string) {
-	dataprovider.DeleteSharedSession(state) //nolint:errcheck
+	dataprovider.DeleteSharedSession(state, dataprovider.SessionTypeOIDCAuth) //nolint:errcheck
 }
 
 func (o *dbOIDCManager) getPendingAuth(state string) (oidcPendingAuth, error) {
-	session, err := dataprovider.GetSharedSession(state)
+	session, err := dataprovider.GetSharedSession(state, dataprovider.SessionTypeOIDCAuth)
 	if err != nil {
 		return oidcPendingAuth{}, errors.New("oidc: unable to get the auth request for the specified state")
 	}
@@ -204,7 +204,7 @@ func (o *dbOIDCManager) addToken(token oidcToken) {
 }
 
 func (o *dbOIDCManager) removeToken(cookie string) {
-	dataprovider.DeleteSharedSession(cookie) //nolint:errcheck
+	dataprovider.DeleteSharedSession(cookie, dataprovider.SessionTypeOIDCToken) //nolint:errcheck
 }
 
 func (o *dbOIDCManager) updateTokenUsage(token oidcToken) {
@@ -215,7 +215,7 @@ func (o *dbOIDCManager) updateTokenUsage(token oidcToken) {
 }
 
 func (o *dbOIDCManager) getToken(cookie string) (oidcToken, error) {
-	session, err := dataprovider.GetSharedSession(cookie)
+	session, err := dataprovider.GetSharedSession(cookie, dataprovider.SessionTypeOIDCToken)
 	if err != nil {
 		return oidcToken{}, errors.New("oidc: unable to get the token for the specified session")
 	}

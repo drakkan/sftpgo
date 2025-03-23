@@ -40,7 +40,7 @@ import (
 )
 
 const (
-	boltDatabaseVersion = 30
+	boltDatabaseVersion = 31
 )
 
 var (
@@ -2135,11 +2135,11 @@ func (p *BoltProvider) addSharedSession(_ Session) error {
 	return ErrNotImplemented
 }
 
-func (p *BoltProvider) deleteSharedSession(_ string) error {
+func (p *BoltProvider) deleteSharedSession(_ string, _ SessionType) error {
 	return ErrNotImplemented
 }
 
-func (p *BoltProvider) getSharedSession(_ string) (Session, error) {
+func (p *BoltProvider) getSharedSession(_ string, _ SessionType) (Session, error) {
 	return Session{}, ErrNotImplemented
 }
 
@@ -3186,10 +3186,10 @@ func (p *BoltProvider) migrateDatabase() error {
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
-	case version == 29:
-		logger.InfoToConsole("updating database schema version: %d -> 30", version)
-		providerLog(logger.LevelInfo, "updating database schema version: %d -> 30", version)
-		return updateBoltDatabaseVersion(p.dbHandle, 30)
+	case version == 29, version == 30:
+		logger.InfoToConsole("updating database schema version: %d -> 31", version)
+		providerLog(logger.LevelInfo, "updating database schema version: %d -> 31", version)
+		return updateBoltDatabaseVersion(p.dbHandle, 31)
 	default:
 		if version > boltDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -3211,7 +3211,7 @@ func (p *BoltProvider) revertDatabase(targetVersion int) error { //nolint:gocycl
 		return errors.New("current version match target version, nothing to do")
 	}
 	switch dbVersion.Version {
-	case 30:
+	case 30, 31:
 		logger.InfoToConsole("downgrading database schema version: %d -> 29", dbVersion.Version)
 		providerLog(logger.LevelInfo, "downgrading database schema version: %d -> 29", dbVersion.Version)
 		return updateBoltDatabaseVersion(p.dbHandle, 29)

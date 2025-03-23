@@ -36,7 +36,7 @@ import (
 )
 
 const (
-	sqlDatabaseVersion     = 30
+	sqlDatabaseVersion     = 31
 	defaultSQLQueryTimeout = 10 * time.Second
 	longSQLQueryTimeout    = 60 * time.Second
 )
@@ -3265,14 +3265,14 @@ func sqlCommonAddSession(session Session, dbHandle *sql.DB) error {
 	return err
 }
 
-func sqlCommonGetSession(key string, dbHandle sqlQuerier) (Session, error) {
+func sqlCommonGetSession(key string, sessionType SessionType, dbHandle sqlQuerier) (Session, error) {
 	var session Session
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
 
 	q := getSessionQuery()
 	var data []byte // type hint, some driver will use string instead of []byte if the type is any
-	err := dbHandle.QueryRowContext(ctx, q, key).Scan(&session.Key, &data, &session.Type, &session.Timestamp)
+	err := dbHandle.QueryRowContext(ctx, q, key, sessionType).Scan(&session.Key, &data, &session.Type, &session.Timestamp)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return session, util.NewRecordNotFoundError(err.Error())
@@ -3283,12 +3283,12 @@ func sqlCommonGetSession(key string, dbHandle sqlQuerier) (Session, error) {
 	return session, nil
 }
 
-func sqlCommonDeleteSession(key string, dbHandle *sql.DB) error {
+func sqlCommonDeleteSession(key string, sessionType SessionType, dbHandle *sql.DB) error {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
 
 	q := getDeleteSessionQuery()
-	res, err := dbHandle.ExecContext(ctx, q, key)
+	res, err := dbHandle.ExecContext(ctx, q, key, sessionType)
 	if err != nil {
 		return err
 	}

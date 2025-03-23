@@ -2395,8 +2395,57 @@ func TestDbTokenManager(t *testing.T) {
 	dbTokenManager.Cleanup()
 	isInvalidated = dbTokenManager.Get(testToken)
 	assert.True(t, isInvalidated)
-	err := dataprovider.DeleteSharedSession(key)
+	err := dataprovider.DeleteSharedSession(key, dataprovider.SessionTypeInvalidToken)
 	assert.NoError(t, err)
+}
+
+func TestDatabaseSharedSessions(t *testing.T) {
+	if !isSharedProviderSupported() {
+		t.Skip("this test it is not available with this provider")
+	}
+	session1 := dataprovider.Session{
+		Key:       "1",
+		Data:      map[string]string{"a": "b"},
+		Type:      dataprovider.SessionTypeOIDCAuth,
+		Timestamp: 10,
+	}
+	err := dataprovider.AddSharedSession(session1)
+	assert.NoError(t, err)
+	// Adding another session with the same key but a different type should work
+	session2 := session1
+	session2.Type = dataprovider.SessionTypeOIDCToken
+	err = dataprovider.AddSharedSession(session2)
+	assert.NoError(t, err)
+	err = dataprovider.DeleteSharedSession(session1.Key, dataprovider.SessionTypeInvalidToken)
+	assert.ErrorIs(t, err, util.ErrNotFound)
+	_, err = dataprovider.GetSharedSession(session1.Key, dataprovider.SessionTypeResetCode)
+	assert.ErrorIs(t, err, util.ErrNotFound)
+	session1Get, err := dataprovider.GetSharedSession(session1.Key, dataprovider.SessionTypeOIDCAuth)
+	assert.NoError(t, err)
+	assert.Equal(t, session1.Timestamp, session1Get.Timestamp)
+	var stored map[string]string
+	err = json.Unmarshal(session1Get.Data.([]byte), &stored)
+	assert.NoError(t, err)
+	assert.Equal(t, session1.Data, stored)
+	session1.Timestamp = 20
+	session1.Data = map[string]string{"c": "d"}
+	err = dataprovider.AddSharedSession(session1)
+	assert.NoError(t, err)
+	session1Get, err = dataprovider.GetSharedSession(session1.Key, dataprovider.SessionTypeOIDCAuth)
+	assert.NoError(t, err)
+	assert.Equal(t, session1.Timestamp, session1Get.Timestamp)
+	stored = make(map[string]string)
+	err = json.Unmarshal(session1Get.Data.([]byte), &stored)
+	assert.NoError(t, err)
+	assert.Equal(t, session1.Data, stored)
+	err = dataprovider.DeleteSharedSession(session1.Key, dataprovider.SessionTypeOIDCAuth)
+	assert.NoError(t, err)
+	err = dataprovider.DeleteSharedSession(session2.Key, dataprovider.SessionTypeOIDCToken)
+	assert.NoError(t, err)
+	_, err = dataprovider.GetSharedSession(session1.Key, dataprovider.SessionTypeOIDCAuth)
+	assert.ErrorIs(t, err, util.ErrNotFound)
+	_, err = dataprovider.GetSharedSession(session2.Key, dataprovider.SessionTypeOIDCToken)
+	assert.ErrorIs(t, err, util.ErrNotFound)
 }
 
 func TestAllowedProxyUnixDomainSocket(t *testing.T) {
