@@ -197,7 +197,7 @@ const (
 	mysqlV30SQL     = "ALTER TABLE `{{shares}}` ADD COLUMN `options` longtext NULL;"
 	mysqlV30DownSQL = "ALTER TABLE `{{shares}}` DROP COLUMN `options`;"
 	mysqlV31SQL     = "DROP TABLE IF EXISTS `{{shared_sessions}}` CASCADE;" +
-		"CREATE TABLE `shared_sessions` (`key` varchar(128) NOT NULL, `type` integer NOT NULL, `data` longtext NOT NULL, " +
+		"CREATE TABLE `{{shared_sessions}}` (`key` varchar(128) NOT NULL, `type` integer NOT NULL, `data` longtext NOT NULL, " +
 		"`timestamp` bigint NOT NULL, PRIMARY KEY (`key`, `type`));" +
 		"CREATE INDEX `{{prefix}}shared_sessions_type_idx` ON `{{shared_sessions}}` (`type`);" +
 		"CREATE INDEX `{{prefix}}shared_sessions_timestamp_idx` ON `{{shared_sessions}}` (`timestamp`);"
