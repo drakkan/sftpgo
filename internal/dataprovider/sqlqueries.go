@@ -81,25 +81,27 @@ func getAddSessionQuery() string {
 			"ON DUPLICATE KEY UPDATE `data`=VALUES(`data`), `timestamp`=VALUES(`timestamp`)",
 			sqlTableSharedSessions, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3])
 	}
-	return fmt.Sprintf(`INSERT INTO %s (key,data,type,timestamp) VALUES (%s,%s,%s,%s) ON CONFLICT(key) DO UPDATE SET data=
+	return fmt.Sprintf(`INSERT INTO %s (key,data,type,timestamp) VALUES (%s,%s,%s,%s) ON CONFLICT(key,type) DO UPDATE SET data=
 		EXCLUDED.data, timestamp=EXCLUDED.timestamp`,
 		sqlTableSharedSessions, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3])
 }
 
 func getDeleteSessionQuery() string {
 	if config.Driver == MySQLDataProviderName {
-		return fmt.Sprintf("DELETE FROM %s WHERE `key` = %s", sqlTableSharedSessions, sqlPlaceholders[0])
+		return fmt.Sprintf("DELETE FROM %s WHERE `key` = %s AND `type` = %s",
+			sqlTableSharedSessions, sqlPlaceholders[0], sqlPlaceholders[1])
 	}
-	return fmt.Sprintf(`DELETE FROM %s WHERE key = %s`, sqlTableSharedSessions, sqlPlaceholders[0])
+	return fmt.Sprintf(`DELETE FROM %s WHERE key = %s AND type = %s`,
+		sqlTableSharedSessions, sqlPlaceholders[0], sqlPlaceholders[1])
 }
 
 func getSessionQuery() string {
 	if config.Driver == MySQLDataProviderName {
-		return fmt.Sprintf("SELECT `key`,`data`,`type`,`timestamp` FROM %s WHERE `key` = %s", sqlTableSharedSessions,
-			sqlPlaceholders[0])
+		return fmt.Sprintf("SELECT `key`,`data`,`type`,`timestamp` FROM %s WHERE `key` = %s AND `type` = %s",
+			sqlTableSharedSessions, sqlPlaceholders[0], sqlPlaceholders[1])
 	}
-	return fmt.Sprintf(`SELECT key,data,type,timestamp FROM %s WHERE key = %s`, sqlTableSharedSessions,
-		sqlPlaceholders[0])
+	return fmt.Sprintf(`SELECT key,data,type,timestamp FROM %s WHERE key = %s AND type = %s`,
+		sqlTableSharedSessions, sqlPlaceholders[0], sqlPlaceholders[1])
 }
 
 func getCleanupSessionsQuery() string {

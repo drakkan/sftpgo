@@ -824,8 +824,8 @@ type Provider interface {
 	cleanupActiveTransfers(before time.Time) error
 	getActiveTransfers(from time.Time) ([]ActiveTransfer, error)
 	addSharedSession(session Session) error
-	deleteSharedSession(key string) error
-	getSharedSession(key string) (Session, error)
+	deleteSharedSession(key string, sessionType SessionType) error
+	getSharedSession(key string, sessionType SessionType) (Session, error)
 	cleanupSharedSessions(sessionType SessionType, before int64) error
 	getEventActions(limit, offset int, order string, minimal bool) ([]BaseEventAction, error)
 	dumpEventActions() ([]BaseEventAction, error)
@@ -2244,8 +2244,8 @@ func AddSharedSession(session Session) error {
 }
 
 // DeleteSharedSession deletes the session with the specified key
-func DeleteSharedSession(key string) error {
-	err := provider.deleteSharedSession(key)
+func DeleteSharedSession(key string, sessionType SessionType) error {
+	err := provider.deleteSharedSession(key, sessionType)
 	if err != nil {
 		providerLog(logger.LevelError, "unable to add shared session, key %q, err: %v", key, err)
 	}
@@ -2253,8 +2253,8 @@ func DeleteSharedSession(key string) error {
 }
 
 // GetSharedSession retrieves the session with the specified key
-func GetSharedSession(key string) (Session, error) {
-	return provider.getSharedSession(key)
+func GetSharedSession(key string, sessionType SessionType) (Session, error) {
+	return provider.getSharedSession(key, sessionType)
 }
 
 // CleanupSharedSessions removes the shared session with the specified type and

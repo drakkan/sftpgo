@@ -196,6 +196,16 @@ const (
 		"INSERT INTO {{schema_version}} (version) VALUES (29);"
 	mysqlV30SQL     = "ALTER TABLE `{{shares}}` ADD COLUMN `options` longtext NULL;"
 	mysqlV30DownSQL = "ALTER TABLE `{{shares}}` DROP COLUMN `options`;"
+	mysqlV31SQL     = "DROP TABLE IF EXISTS `{{shared_sessions}}` CASCADE;" +
+		"CREATE TABLE `{{shared_sessions}}` (`key` varchar(128) NOT NULL, `type` integer NOT NULL, `data` longtext NOT NULL, " +
+		"`timestamp` bigint NOT NULL, PRIMARY KEY (`key`, `type`));" +
+		"CREATE INDEX `{{prefix}}shared_sessions_type_idx` ON `{{shared_sessions}}` (`type`);" +
+		"CREATE INDEX `{{prefix}}shared_sessions_timestamp_idx` ON `{{shared_sessions}}` (`timestamp`);"
+	mysqlV31DownSQL = "DROP TABLE IF EXISTS `{{shared_sessions}}` CASCADE;" +
+		"CREATE TABLE `{{shared_sessions}}` (`key` varchar(128) NOT NULL PRIMARY KEY, " +
+		"`data` longtext NOT NULL, `type` integer NOT NULL, `timestamp` bigint NOT NULL);" +
+		"CREATE INDEX `{{prefix}}shared_sessions_type_idx` ON `{{shared_sessions}}` (`type`);" +
+		"CREATE INDEX `{{prefix}}shared_sessions_timestamp_idx` ON `{{shared_sessions}}` (`timestamp`);"
 )
 
 // MySQLProvider defines the auth provider for MySQL/MariaDB database
@@ -589,12 +599,12 @@ func (p *MySQLProvider) addSharedSession(session Session) error {
 	return sqlCommonAddSession(session, p.dbHandle)
 }
 
-func (p *MySQLProvider) deleteSharedSession(key string) error {
-	return sqlCommonDeleteSession(key, p.dbHandle)
+func (p *MySQLProvider) deleteSharedSession(key string, sessionType SessionType) error {
+	return sqlCommonDeleteSession(key, sessionType, p.dbHandle)
 }
 
-func (p *MySQLProvider) getSharedSession(key string) (Session, error) {
-	return sqlCommonGetSession(key, p.dbHandle)
+func (p *MySQLProvider) getSharedSession(key string, sessionType SessionType) (Session, error) {
+	return sqlCommonGetSession(key, sessionType, p.dbHandle)
 }
 
 func (p *MySQLProvider) cleanupSharedSessions(sessionType SessionType, before int64) error {
@@ -806,6 +816,8 @@ func (p *MySQLProvider) migrateDatabase() error {
 		return err
 	case version == 29:
 		return updateMySQLDatabaseFromV29(p.dbHandle)
+	case version == 30:
+		return updateMySQLDatabaseFromV30(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -830,6 +842,8 @@ func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 	switch dbVersion.Version {
 	case 30:
 		return downgradeMySQLDatabaseFromV30(p.dbHandle)
+	case 31:
+		return downgradeMySQLDatabaseFromV31(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
@@ -869,11 +883,25 @@ func (p *MySQLProvider) normalizeError(err error, fieldType int) error {
 }
 
 func updateMySQLDatabaseFromV29(dbHandle *sql.DB) error {
-	return updateMySQLDatabaseFrom29To30(dbHandle)
+	if err := updateMySQLDatabaseFrom29To30(dbHandle); err != nil {
+		return err
+	}
+	return updateMySQLDatabaseFromV30(dbHandle)
+}
+
+func updateMySQLDatabaseFromV30(dbHandle *sql.DB) error {
+	return updateMySQLDatabaseFrom30To31(dbHandle)
 }
 
 func downgradeMySQLDatabaseFromV30(dbHandle *sql.DB) error {
 	return downgradeMySQLDatabaseFrom30To29(dbHandle)
+}
+
+func downgradeMySQLDatabaseFromV31(dbHandle *sql.DB) error {
+	if err := downgradeMySQLDatabaseFrom31To30(dbHandle); err != nil {
+		return err
+	}
+	return downgradeMySQLDatabaseFromV30(dbHandle)
 }
 
 func updateMySQLDatabaseFrom29To30(dbHandle *sql.DB) error {
@@ -890,4 +918,22 @@ func downgradeMySQLDatabaseFrom30To29(dbHandle *sql.DB) error {
 
 	sql := strings.ReplaceAll(mysqlV30DownSQL, "{{shares}}", sqlTableShares)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 29, false)
+}
+
+func updateMySQLDatabaseFrom30To31(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database schema version: 30 -> 31")
+	providerLog(logger.LevelInfo, "updating database schema version: 30 -> 31")
+
+	sql := strings.ReplaceAll(mysqlV31SQL, "{{shared_sessions}}", sqlTableSharedSessions)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 31, true)
+}
+
+func downgradeMySQLDatabaseFrom31To30(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database schema version: 31 -> 30")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 31 -> 30")
+
+	sql := strings.ReplaceAll(mysqlV31DownSQL, "{{shared_sessions}}", sqlTableSharedSessions)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 30, false)
 }
