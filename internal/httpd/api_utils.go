@@ -719,7 +719,7 @@ func updateLoginMetrics(user *dataprovider.User, loginMethod, ip string, err err
 	dataprovider.ExecutePostLoginHook(user, loginMethod, ip, protocol, err)
 }
 
-func checkHTTPClientUser(user *dataprovider.User, r *http.Request, connectionID string, checkSessions bool) error {
+func checkHTTPClientUser(user *dataprovider.User, r *http.Request, connectionID string, checkSessions, isOIDCLogin bool) error {
 	if util.Contains(user.Filters.DeniedProtocols, common.ProtocolHTTP) {
 		logger.Info(logSender, connectionID, "cannot login user %q, protocol HTTP is not allowed", user.Username)
 		return util.NewI18nError(
@@ -727,7 +727,7 @@ func checkHTTPClientUser(user *dataprovider.User, r *http.Request, connectionID 
 			util.I18nErrorProtocolForbidden,
 		)
 	}
-	if !isLoggedInWithOIDC(r) && !user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, common.ProtocolHTTP) {
+	if !isLoggedInWithOIDC(r) && !isOIDCLogin && !user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, common.ProtocolHTTP) {
 		logger.Info(logSender, connectionID, "cannot login user %q, password login method is not allowed", user.Username)
 		return util.NewI18nError(
 			fmt.Errorf("login method password is not allowed for user %q", user.Username),
@@ -771,7 +771,7 @@ func getActiveUser(username string, r *http.Request) (dataprovider.User, error) 
 	if err := user.CheckLoginConditions(); err != nil {
 		return user, util.NewRecordNotFoundError(fmt.Sprintf("user %q cannot login: %v", username, err))
 	}
-	if err := checkHTTPClientUser(&user, r, xid.New().String(), false); err != nil {
+	if err := checkHTTPClientUser(&user, r, xid.New().String(), false, false); err != nil {
 		return user, util.NewRecordNotFoundError(fmt.Sprintf("user %q cannot login: %v", username, err))
 	}
 	return user, nil

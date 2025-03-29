@@ -871,7 +871,7 @@ func (s *httpdServer) handleWebClientDownloadZip(w http.ResponseWriter, r *http.
 	connID := xid.New().String()
 	protocol := getProtocolFromRequest(r)
 	connectionID := fmt.Sprintf("%v_%v", protocol, connID)
-	if err := checkHTTPClientUser(&user, r, connectionID, false); err != nil {
+	if err := checkHTTPClientUser(&user, r, connectionID, false, false); err != nil {
 		s.renderClientForbiddenPage(w, r, err)
 		return
 	}
@@ -1160,7 +1160,7 @@ func (s *httpdServer) handleClientGetDirContents(w http.ResponseWriter, r *http.
 	connID := xid.New().String()
 	protocol := getProtocolFromRequest(r)
 	connectionID := fmt.Sprintf("%s_%s", protocol, connID)
-	if err := checkHTTPClientUser(&user, r, connectionID, false); err != nil {
+	if err := checkHTTPClientUser(&user, r, connectionID, false, false); err != nil {
 		sendAPIResponse(w, r, err, getI18NErrorString(err, util.I18nErrorDirList403), http.StatusForbidden)
 		return
 	}
@@ -1249,7 +1249,7 @@ func (s *httpdServer) handleClientGetFiles(w http.ResponseWriter, r *http.Reques
 	connID := xid.New().String()
 	protocol := getProtocolFromRequest(r)
 	connectionID := fmt.Sprintf("%v_%v", protocol, connID)
-	if err := checkHTTPClientUser(&user, r, connectionID, false); err != nil {
+	if err := checkHTTPClientUser(&user, r, connectionID, false, false); err != nil {
 		s.renderClientForbiddenPage(w, r, err)
 		return
 	}
@@ -1310,7 +1310,7 @@ func (s *httpdServer) handleClientEditFile(w http.ResponseWriter, r *http.Reques
 	connID := xid.New().String()
 	protocol := getProtocolFromRequest(r)
 	connectionID := fmt.Sprintf("%v_%v", protocol, connID)
-	if err := checkHTTPClientUser(&user, r, connectionID, false); err != nil {
+	if err := checkHTTPClientUser(&user, r, connectionID, false, false); err != nil {
 		s.renderClientForbiddenPage(w, r, err)
 		return
 	}
@@ -1797,7 +1797,7 @@ func (s *httpdServer) handleClientGetPDF(w http.ResponseWriter, r *http.Request)
 	connID := xid.New().String()
 	protocol := getProtocolFromRequest(r)
 	connectionID := fmt.Sprintf("%v_%v", protocol, connID)
-	if err := checkHTTPClientUser(&user, r, connectionID, false); err != nil {
+	if err := checkHTTPClientUser(&user, r, connectionID, false, false); err != nil {
 		s.renderClientForbiddenPage(w, r, err)
 		return
 	}

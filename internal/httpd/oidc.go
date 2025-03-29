@@ -392,7 +392,7 @@ func (t *oidcToken) refreshUser(r *http.Request) error {
 	if err := user.CheckLoginConditions(); err != nil {
 		return err
 	}
-	if err := checkHTTPClientUser(&user, r, xid.New().String(), true); err != nil {
+	if err := checkHTTPClientUser(&user, r, xid.New().String(), true, false); err != nil {
 		return err
 	}
 	t.Permissions = user.Filters.WebClient
@@ -453,7 +453,7 @@ func (t *oidcToken) getUser(r *http.Request) error {
 		return err
 	}
 	connectionID := fmt.Sprintf("%s_%s", common.ProtocolOIDC, xid.New().String())
-	if err := checkHTTPClientUser(user, r, connectionID, true); err != nil {
+	if err := checkHTTPClientUser(user, r, connectionID, true, true); err != nil {
 		updateLoginMetrics(user, dataprovider.LoginMethodIDP, ipAddr, err)
 		return err
 	}
