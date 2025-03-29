@@ -4189,18 +4189,19 @@ func executePreLoginHook(username, loginMethod, ip, protocol string, oidcTokenFi
 		u.Filters.TOTPConfig = totpConfig
 		u.Filters.RecoveryCodes = recoveryCodes
 		err = provider.updateUser(&u)
-		if err == nil {
-			webDAVUsersCache.swap(&u, "")
-		}
 	}
 	if err != nil {
 		return u, err
 	}
-	providerLog(logger.LevelDebug, "user %q added/updated from pre-login hook response, id: %d", username, userID)
-	if userID == 0 {
-		return provider.userExists(username, "")
+	user, err := provider.userExists(username, "")
+	if err != nil {
+		return u, err
 	}
-	return u, nil
+	providerLog(logger.LevelDebug, "user %q added/updated from pre-login hook response, id: %d", username, userID)
+	if userID > 0 {
+		webDAVUsersCache.swap(&user, "")
+	}
+	return user, nil
 }
 
 // ExecutePostLoginHook executes the post login hook if defined

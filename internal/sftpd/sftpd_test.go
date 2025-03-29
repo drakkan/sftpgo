@@ -2980,13 +2980,46 @@ func TestPreLoginScript(t *testing.T) {
 	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 
+	mappedPath := filepath.Join(os.TempDir(), "vdir")
+	folderName := filepath.Base(mappedPath)
+	f := vfs.BaseVirtualFolder{
+		Name:       folderName,
+		MappedPath: mappedPath,
+		FsConfig: vfs.Filesystem{
+			Provider: sdk.CryptedFilesystemProvider,
+			CryptConfig: vfs.CryptFsConfig{
+				Passphrase: kms.NewPlainSecret(defaultPassword),
+			},
+		},
+	}
+	_, _, err = httpdtest.AddFolder(f, http.StatusCreated)
+	assert.NoError(t, err)
+
+	folderMountPath := "/vpath"
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name: folderName,
+		},
+		VirtualPath: folderMountPath,
+	})
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	conn, client, err := getSftpClient(u, usePubKey)
 	if assert.NoError(t, err) {
 		defer conn.Close()
 		defer client.Close()
+
 		assert.NoError(t, checkBasicSFTP(client))
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testData := []byte("test data")
+		err = os.WriteFile(testFilePath, testData, 0666)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join(folderMountPath, testFileName), int64(len(testData)), client)
+		assert.NoError(t, err)
+		info, err := os.Stat(filepath.Join(mappedPath, testFileName))
+		if assert.NoError(t, err) {
+			assert.Greater(t, info.Size(), int64(len(testData)))
+		}
 	}
 	err = os.WriteFile(preLoginPath, getPreLoginScriptContent(user, true), os.ModePerm)
 	assert.NoError(t, err)
@@ -3022,6 +3055,10 @@ func TestPreLoginScript(t *testing.T) {
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName}, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath)
 	assert.NoError(t, err)
 	err = dataprovider.Close()
 	assert.NoError(t, err)
