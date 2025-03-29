@@ -906,7 +906,8 @@ func TestOIDCToken(t *testing.T) {
 		},
 		Filters: dataprovider.UserFilters{
 			BaseUserFilters: sdk.BaseUserFilters{
-				DeniedProtocols: []string{common.ProtocolHTTP},
+				DeniedProtocols:    []string{common.ProtocolHTTP},
+				DeniedLoginMethods: []string{dataprovider.LoginMethodPassword},
 			},
 		},
 	}
