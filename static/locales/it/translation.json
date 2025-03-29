@@ -662,6 +662,16 @@
         "endpoint_required": "$t(storage.fs_error): endpoint è obbligatorio",
         "username_required": "$t(storage.fs_error): nome utente è obbligatorio"
     },
+    "oidc": {
+        "token_expired": "Il tuo token OpenID è scaduto, effettua nuovamente l'accesso",
+        "token_invalid_webadmin": "Il tuo token OpenID non è valido per l'interfaccia utente WebAdmin. Esci dal tuo server OpenID e accedi a WebAdmin",
+        "token_invalid_webclient": "Il tuo token OpenID non è valido per l'interfaccia utente WebClient. Esci dal tuo server OpenID e accedi al WebClient",
+        "token_exchange_err": "Impossibile scambiare il token OpenID",
+        "token_invalid": "Token OpenID non valido",
+        "role_admin_err": "Ruolo OpenID errato, l'utente che ha effettuato l'accesso non è un amministratore",
+        "role_user_err": "Ruolo OpenID errato, l'utente che ha effettuato l'accesso è un amministratore",
+        "get_user_err": "Impossibile ottenere l'utente associato al token OpenID"
+    },
     "oauth2": {
         "auth_verify_error": "Impossibile verificare il codice OAuth2",
         "auth_validation_error": "Impossibile validare il codice OAuth2",
