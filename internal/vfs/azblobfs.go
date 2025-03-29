@@ -561,7 +561,7 @@ func (fs *AzureBlobFs) GetDirSize(dirname string) (int, int64, error) {
 			metric.AZListObjectsCompleted(err)
 			return numFiles, size, err
 		}
-		for _, blobItem := range resp.ListBlobsFlatSegmentResponse.Segment.BlobItems {
+		for _, blobItem := range resp.Segment.BlobItems {
 			if blobItem.Properties != nil {
 				contentType := util.GetStringFromPointer(blobItem.Properties.ContentType)
 				isDir := checkDirectoryMarkers(contentType, blobItem.Metadata)
@@ -629,7 +629,7 @@ func (fs *AzureBlobFs) Walk(root string, walkFn filepath.WalkFunc) error {
 			metric.AZListObjectsCompleted(err)
 			return err
 		}
-		for _, blobItem := range resp.ListBlobsFlatSegmentResponse.Segment.BlobItems {
+		for _, blobItem := range resp.Segment.BlobItems {
 			name := util.GetStringFromPointer(blobItem.Name)
 			if fs.isEqual(name, prefix) {
 				continue
@@ -886,7 +886,7 @@ func (fs *AzureBlobFs) hasContents(name string) (bool, error) {
 			return result, err
 		}
 
-		result = len(resp.ListBlobsFlatSegmentResponse.Segment.BlobItems) > 0
+		result = len(resp.Segment.BlobItems) > 0
 	}
 
 	metric.AZListObjectsCompleted(nil)
@@ -909,9 +909,9 @@ func (fs *AzureBlobFs) downloadPart(ctx context.Context, blockBlob *blockblob.Cl
 	if err != nil {
 		return err
 	}
-	defer resp.DownloadResponse.Body.Close()
+	defer resp.Body.Close()
 
-	_, err = io.ReadAtLeast(resp.DownloadResponse.Body, buf, int(count))
+	_, err = io.ReadAtLeast(resp.Body, buf, int(count))
 	if err != nil {
 		return err
 	}
@@ -1280,7 +1280,7 @@ func (l *azureBlobDirLister) Next(limit int) ([]os.FileInfo, error) {
 		return l.cache, err
 	}
 
-	for _, blobPrefix := range page.ListBlobsHierarchySegmentResponse.Segment.BlobPrefixes {
+	for _, blobPrefix := range page.Segment.BlobPrefixes {
 		name := util.GetStringFromPointer(blobPrefix.Name)
 		// we don't support prefixes == "/" this will be sent if a key starts with "/"
 		if name == "" || name == "/" {
@@ -1295,7 +1295,7 @@ func (l *azureBlobDirLister) Next(limit int) ([]os.FileInfo, error) {
 		l.prefixes[strings.TrimSuffix(name, "/")] = true
 	}
 
-	for _, blobItem := range page.ListBlobsHierarchySegmentResponse.Segment.BlobItems {
+	for _, blobItem := range page.Segment.BlobItems {
 		name := util.GetStringFromPointer(blobItem.Name)
 		name = strings.TrimPrefix(name, l.prefix)
 		size := int64(0)

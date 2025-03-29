@@ -857,11 +857,12 @@ func (c *Configuration) generateDefaultHostKeys(configDir string) error {
 		if _, err = os.Stat(autoFile); errors.Is(err, fs.ErrNotExist) {
 			logger.Info(logSender, "", "No host keys configured and %q does not exist; try to create a new host key", autoFile)
 			logger.InfoToConsole("No host keys configured and %q does not exist; try to create a new host key", autoFile)
-			if k == defaultPrivateRSAKeyName {
+			switch k {
+			case defaultPrivateRSAKeyName:
 				err = util.GenerateRSAKeys(autoFile)
-			} else if k == defaultPrivateECDSAKeyName {
+			case defaultPrivateECDSAKeyName:
 				err = util.GenerateECDSAKeys(autoFile)
-			} else {
+			default:
 				err = util.GenerateEd25519Keys(autoFile)
 			}
 			if err != nil {

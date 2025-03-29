@@ -287,7 +287,7 @@ func (c *Connection) RemoveDir(name string) error {
 func (c *Connection) Symlink(oldname, newname string) error {
 	c.UpdateLastActivity()
 
-	return c.BaseConnection.CreateSymlink(oldname, newname)
+	return c.CreateSymlink(oldname, newname)
 }
 
 // ReadDir implements ClientDriverExtensionFilelist

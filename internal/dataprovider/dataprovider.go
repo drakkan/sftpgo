@@ -3700,7 +3700,8 @@ func comparePbkdf2PasswordAndHash(password, hashedPassword string) (bool, error)
 }
 
 func getSSLMode() string {
-	if config.Driver == PGSQLDataProviderName || config.Driver == CockroachDataProviderName {
+	switch config.Driver {
+	case PGSQLDataProviderName, CockroachDataProviderName:
 		switch config.SSLMode {
 		case 0:
 			return "disable"
@@ -3715,7 +3716,7 @@ func getSSLMode() string {
 		case 5:
 			return "allow"
 		}
-	} else if config.Driver == MySQLDataProviderName {
+	case MySQLDataProviderName:
 		if config.requireCustomTLSForMySQL() {
 			return "custom"
 		}

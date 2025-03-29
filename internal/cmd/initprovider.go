@@ -78,11 +78,12 @@ Please take a look at the usage below to customize the options.`,
 			providerConf.Actions.ExecuteOn = nil
 			logger.InfoToConsole("Initializing provider: %q config file: %q", providerConf.Driver, viper.ConfigFileUsed())
 			err = dataprovider.InitializeDatabase(providerConf, configDir)
-			if err == nil {
+			switch err {
+			case nil:
 				logger.InfoToConsole("Data provider successfully initialized/updated")
-			} else if err == dataprovider.ErrNoInitRequired {
+			case dataprovider.ErrNoInitRequired:
 				logger.InfoToConsole("%v", err.Error())
-			} else {
+			default:
 				logger.ErrorToConsole("Unable to initialize/update the data provider: %v", err)
 				os.Exit(1)
 			}

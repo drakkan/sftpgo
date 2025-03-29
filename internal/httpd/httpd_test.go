@@ -1364,19 +1364,19 @@ func TestGroupSettingsOverride(t *testing.T) {
 			switch f.Name {
 			case folderName1:
 				assert.Equal(t, mappedPath1, f.MappedPath)
-				assert.Equal(t, 3, f.BaseVirtualFolder.FsConfig.OSConfig.ReadBufferSize)
-				assert.Equal(t, 5, f.BaseVirtualFolder.FsConfig.OSConfig.WriteBufferSize)
+				assert.Equal(t, 3, f.FsConfig.OSConfig.ReadBufferSize)
+				assert.Equal(t, 5, f.FsConfig.OSConfig.WriteBufferSize)
 				assert.True(t, slices.Contains([]string{"/vdir1", "/vdir2"}, f.VirtualPath))
 			case folderName2:
 				assert.Equal(t, mappedPath2, f.MappedPath)
 				assert.Equal(t, "/vdir3", f.VirtualPath)
-				assert.Equal(t, 0, f.BaseVirtualFolder.FsConfig.OSConfig.ReadBufferSize)
-				assert.Equal(t, 0, f.BaseVirtualFolder.FsConfig.OSConfig.WriteBufferSize)
+				assert.Equal(t, 0, f.FsConfig.OSConfig.ReadBufferSize)
+				assert.Equal(t, 0, f.FsConfig.OSConfig.WriteBufferSize)
 			case folderName3:
 				assert.Equal(t, mappedPath3, f.MappedPath)
 				assert.Equal(t, "/vdir4", f.VirtualPath)
-				assert.Equal(t, 1, f.BaseVirtualFolder.FsConfig.OSConfig.ReadBufferSize)
-				assert.Equal(t, 2, f.BaseVirtualFolder.FsConfig.OSConfig.WriteBufferSize)
+				assert.Equal(t, 1, f.FsConfig.OSConfig.ReadBufferSize)
+				assert.Equal(t, 2, f.FsConfig.OSConfig.WriteBufferSize)
 			}
 		}
 	}

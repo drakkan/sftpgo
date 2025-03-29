@@ -60,7 +60,7 @@ func (c *Conn) Read(b []byte) (n int, err error) {
 		c.BytesReadFromDeadline.Store(0)
 		// we set both read and write deadlines here otherwise after the request
 		// is read writing the response fails with an i/o timeout error
-		err = c.Conn.SetDeadline(time.Now().Add(c.ReadTimeout))
+		err = c.SetDeadline(time.Now().Add(c.ReadTimeout))
 		if err != nil {
 			return 0, err
 		}
@@ -75,7 +75,7 @@ func (c *Conn) Write(b []byte) (n int, err error) {
 		c.BytesWrittenFromDeadline.Store(0)
 		// we extend the read deadline too, not sure it's necessary,
 		// but it doesn't hurt
-		err = c.Conn.SetDeadline(time.Now().Add(c.WriteTimeout))
+		err = c.SetDeadline(time.Now().Add(c.WriteTimeout))
 		if err != nil {
 			return
 		}

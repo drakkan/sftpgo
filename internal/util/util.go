@@ -235,7 +235,7 @@ func ParseBytes(s string) (int64, error) {
 	lastDigit := 0
 	hasComma := false
 	for _, r := range s {
-		if !(unicode.IsDigit(r) || r == '.' || r == ',') {
+		if !unicode.IsDigit(r) && r != '.' && r != ',' {
 			break
 		}
 		if r == ',' {
@@ -246,7 +246,7 @@ func ParseBytes(s string) (int64, error) {
 
 	num := s[:lastDigit]
 	if hasComma {
-		num = strings.Replace(num, ",", "", -1)
+		num = strings.ReplaceAll(num, ",", "")
 	}
 
 	f, err := strconv.ParseFloat(num, 64)
@@ -489,10 +489,7 @@ func GetDirsForVirtualPath(virtualPath string) []string {
 		}
 	}
 	dirsForPath := []string{virtualPath}
-	for {
-		if virtualPath == "/" {
-			break
-		}
+	for virtualPath != "/" {
 		virtualPath = path.Dir(virtualPath)
 		dirsForPath = append(dirsForPath, virtualPath)
 	}

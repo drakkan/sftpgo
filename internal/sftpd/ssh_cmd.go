@@ -201,15 +201,16 @@ func (c *sshCommand) updateQuota(sshDestPath string, filesNum int, filesSize int
 
 func (c *sshCommand) handleHashCommands() error {
 	var h hash.Hash
-	if c.command == "md5sum" {
+	switch c.command {
+	case "md5sum":
 		h = md5.New()
-	} else if c.command == "sha1sum" {
+	case "sha1sum":
 		h = sha1.New()
-	} else if c.command == "sha256sum" {
+	case "sha256sum":
 		h = sha256.New()
-	} else if c.command == "sha384sum" {
+	case "sha384sum":
 		h = sha512.New384()
-	} else {
+	default:
 		h = sha512.New()
 	}
 	var response string

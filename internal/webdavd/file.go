@@ -165,7 +165,7 @@ func (f *webDavFile) checkFirstRead() error {
 	if !f.Connection.User.HasPerm(dataprovider.PermDownload, path.Dir(f.GetVirtualPath())) {
 		return f.Connection.GetPermissionDeniedError()
 	}
-	transferQuota := f.BaseTransfer.GetTransferQuota()
+	transferQuota := f.GetTransferQuota()
 	if !transferQuota.HasDownloadSpace() {
 		f.Connection.Log(logger.LevelInfo, "denying file read due to quota limits")
 		return f.Connection.GetReadQuotaExceededError()
@@ -212,7 +212,7 @@ func (f *webDavFile) Read(p []byte) (n int, err error) {
 			} else if r != nil {
 				f.reader = r
 			}
-			f.BaseTransfer.SetCancelFn(cancelFn)
+			f.SetCancelFn(cancelFn)
 		}
 		f.ErrTransfer = e
 		f.startOffset = 0
@@ -322,9 +322,10 @@ func (f *webDavFile) Seek(offset int64, whence int) (int64, error) {
 	if f.GetType() == common.TransferDownload {
 		readOffset := f.startOffset + f.BytesSent.Load()
 		if offset == 0 && readOffset == 0 {
-			if whence == io.SeekStart {
+			switch whence {
+			case io.SeekStart:
 				return 0, nil
-			} else if whence == io.SeekEnd {
+			case io.SeekEnd:
 				if err := f.updateStatInfo(); err != nil {
 					return 0, err
 				}
@@ -363,7 +364,7 @@ func (f *webDavFile) Seek(offset int64, whence int) (int64, error) {
 			f.reader = r
 		}
 		f.ErrTransfer = err
-		f.BaseTransfer.SetCancelFn(cancelFn)
+		f.SetCancelFn(cancelFn)
 		f.Unlock()
 
 		return startByte, err
@@ -403,7 +404,7 @@ func (f *webDavFile) closeIO() error {
 	} else if f.reader != nil {
 		err = f.reader.Close()
 		if metadater, ok := f.reader.(vfs.Metadater); ok {
-			f.BaseTransfer.SetMetadata(metadater.Metadata())
+			f.SetMetadata(metadater.Metadata())
 		}
 	}
 	return err

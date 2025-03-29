@@ -59,8 +59,8 @@ func NewCryptFs(connectionID, rootDir, mountPath string, config CryptFsConfig) (
 			connectionID:    connectionID,
 			rootDir:         rootDir,
 			mountPath:       getMountPath(mountPath),
-			readBufferSize:  config.OSFsConfig.ReadBufferSize * 1024 * 1024,
-			writeBufferSize: config.OSFsConfig.WriteBufferSize * 1024 * 1024,
+			readBufferSize:  config.ReadBufferSize * 1024 * 1024,
+			writeBufferSize: config.WriteBufferSize * 1024 * 1024,
 		},
 		masterKey: []byte(config.Passphrase.GetPayload()),
 	}

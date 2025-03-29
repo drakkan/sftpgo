@@ -1,52 +1,54 @@
+version: "2"
 run:
-  timeout: 10m
   issues-exit-code: 1
   tests: true
-
-
-linters-settings:
-  dupl:
-    threshold: 150
-  errcheck:
-    check-type-assertions: false
-    check-blank: false
-  goconst:
-    min-len: 3
-    min-occurrences: 3
-  gocyclo:
-    min-complexity: 15
-  gofmt:
-    simplify: true
-  goimports:
-    local-prefixes: github.com/drakkan/sftpgo
-  #govet:
-    # report about shadowed variables
-    #check-shadowing: true
-    #enable:
-    #  - fieldalignment
-
-issues:
-  include:
-    - EXC0002
-    - EXC0012
-    - EXC0013
-    - EXC0014
-    - EXC0015
-
 linters:
   enable:
-    - goconst
-    - errcheck
-    - gofmt
-    - goimports
-    - revive
-    - unconvert
-    - unparam
     - bodyclose
+    - dogsled
+    - dupl
+    - goconst
     - gocyclo
     - misspell
-    - whitespace
-    - dupl
+    - revive
     - rowserrcheck
-    - dogsled
-    - govet
+    - unconvert
+    - unparam
+    - whitespace
+  settings:
+    dupl:
+      threshold: 150
+    errcheck:
+      check-type-assertions: false
+      check-blank: false
+    goconst:
+      min-len: 3
+      min-occurrences: 3
+    gocyclo:
+      min-complexity: 15
+  exclusions:
+    generated: lax
+    presets:
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    gofmt:
+      simplify: true
+    goimports:
+      local-prefixes:
+        - github.com/drakkan/sftpgo
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

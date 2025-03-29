@@ -35,7 +35,7 @@ var (
 )
 
 // BaseTransfer contains protocols common transfer details for an upload or a download.
-type BaseTransfer struct { //nolint:maligned
+type BaseTransfer struct {
 	ID              int64
 	BytesSent       atomic.Int64
 	BytesReceived   atomic.Int64

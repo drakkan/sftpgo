@@ -730,10 +730,10 @@ func (fs *GCSFs) setWriterAttrs(objectWriter *storage.Writer, flag int, name str
 		contentType = mime.TypeByExtension(path.Ext(name))
 	}
 	if contentType != "" {
-		objectWriter.ObjectAttrs.ContentType = contentType
+		objectWriter.ContentType = contentType
 	}
 	if fs.config.StorageClass != "" {
-		objectWriter.ObjectAttrs.StorageClass = fs.config.StorageClass
+		objectWriter.StorageClass = fs.config.StorageClass
 	}
 	if fs.config.ACL != "" {
 		objectWriter.PredefinedACL = fs.config.ACL

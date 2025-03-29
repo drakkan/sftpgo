@@ -148,7 +148,7 @@ func (d *memoryDefender) IsBanned(ip, protocol string) bool {
 
 	defer d.RUnlock()
 
-	return d.baseDefender.isBanned(ip, protocol)
+	return d.isBanned(ip, protocol)
 }
 
 // DeleteHost removes the specified IP from the defender lists
@@ -188,7 +188,7 @@ func (d *memoryDefender) AddEvent(ip, protocol string, event HostEvent) bool {
 		delete(d.banned, ip)
 	}
 
-	score := d.baseDefender.getScore(event)
+	score := d.getScore(event)
 
 	ev := hostEvent{
 		dateTime: time.Now(),
@@ -207,11 +207,11 @@ func (d *memoryDefender) AddEvent(ip, protocol string, event HostEvent) bool {
 				idx++
 			}
 		}
-		d.baseDefender.logEvent(ip, protocol, event, hs.TotalScore)
+		d.logEvent(ip, protocol, event, hs.TotalScore)
 
 		hs.Events = hs.Events[:idx]
 		if hs.TotalScore >= d.config.Threshold {
-			d.baseDefender.logBan(ip, protocol)
+			d.logBan(ip, protocol)
 			d.banned[ip] = time.Now().Add(time.Duration(d.config.BanTime) * time.Minute)
 			delete(d.hosts, ip)
 			d.cleanupBanned()
@@ -225,7 +225,7 @@ func (d *memoryDefender) AddEvent(ip, protocol string, event HostEvent) bool {
 			d.hosts[ip] = hs
 		}
 	} else {
-		d.baseDefender.logEvent(ip, protocol, event, ev.score)
+		d.logEvent(ip, protocol, event, ev.score)
 		d.hosts[ip] = hostScore{
 			TotalScore: ev.score,
 			Events:     []hostEvent{ev},

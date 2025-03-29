@@ -136,7 +136,7 @@ func (t *transfer) closeIO() error {
 	} else if t.reader != nil {
 		err = t.reader.Close()
 		if metadater, ok := t.reader.(vfs.Metadater); ok {
-			t.BaseTransfer.SetMetadata(metadater.Metadata())
+			t.SetMetadata(metadater.Metadata())
 		}
 	}
 	return err
