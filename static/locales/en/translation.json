@@ -405,7 +405,7 @@
         "generate": "Generate new secret key",
         "recovery_codes": "Recovery codes",
         "new_recovery_codes": "New recovery codes",
-        "recovery_codes_msg1": "Recovery codes are a set of one time use codes that can be used in place of the authentication code to login to the web UI. You can use them if you lose access to your phone to login to your account and disable or regenerate two-factor auth configuration.",
+        "recovery_codes_msg1": "Recovery codes are one-time-use backup codes for logging in when you can't access your authentication app. Use them to access your account and manage two-factor authentication settings if you lose your phone.",
         "recovery_codes_msg2": "To keep your account secure, don't share or distribute your recovery codes. We recommend saving them with a secure password manager.",
         "recovery_codes_msg3": "If you generate new recovery codes, you automatically invalidate old ones.",
         "info_title": "Learn about two-factor authentication",
@@ -443,7 +443,7 @@
         "max_tokens": "Max tokens",
         "max_tokens_help": "Maximum number of times this share can be accessed. 0 means no limit",
         "view_manage": "View and manage shares",
-        "no_share": "No sharing",
+        "no_share": "No shares",
         "password_protected": "Password protected.",
         "expiration_date": "Expiration: {{- val, datetime}}. ",
         "last_use": "Last use: {{- val, datetime}}. ",
@@ -1030,7 +1030,7 @@
         "fs_types": {
             "rename": "Rename",
             "delete": "Delete",
-            "path_exists": "Paths exis",
+            "path_exists": "Paths exist",
             "compress": "Compress",
             "copy": "Copy",
             "create_dirs": "Create directories"
