@@ -591,7 +591,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 	conn.SetDeadline(time.Time{}) //nolint:errcheck
 	go ssh.DiscardRequests(reqs)
 
-	defer conn.Close()
+	defer sconn.Close()
 
 	var user dataprovider.User
 
@@ -614,7 +614,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 		sconn.Conn.(ssh.AlgorithmsConnMetadata).Algorithms())
 	dataprovider.UpdateLastLogin(&user)
 
-	sshConnection := common.NewSSHConnection(connectionID, conn)
+	sshConnection := common.NewSSHConnection(connectionID, sconn)
 	common.Connections.AddSSHConnection(sshConnection)
 
 	defer common.Connections.RemoveSSHConnection(connectionID)
