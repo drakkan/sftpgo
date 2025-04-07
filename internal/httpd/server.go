@@ -1257,6 +1257,7 @@ func (s *httpdServer) initializeRouter() {
 			CrossOriginOpenerPolicy:   s.binding.Security.CrossOriginOpenerPolicy,
 			CrossOriginResourcePolicy: s.binding.Security.CrossOriginResourcePolicy,
 			CrossOriginEmbedderPolicy: s.binding.Security.CrossOriginEmbedderPolicy,
+			ReferrerPolicy:            s.binding.Security.ReferrerPolicy,
 		})
 		secureMiddleware.SetBadHostHandler(http.HandlerFunc(s.badHostHandler))
 		if s.binding.Security.CacheControl == "private" {

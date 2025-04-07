@@ -1586,6 +1586,12 @@ func getHTTPDSecurityConfFromEnv(idx int) (httpd.SecurityConf, bool) { //nolint:
 		isSet = true
 	}
 
+	referredPolicy, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__REFERRER_POLICY", idx))
+	if ok {
+		result.ReferrerPolicy = referredPolicy
+		isSet = true
+	}
+
 	cacheControl, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__CACHE_CONTROL", idx))
 	if ok {
 		result.CacheControl = cacheControl
