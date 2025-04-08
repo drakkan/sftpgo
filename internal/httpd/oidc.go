@@ -542,7 +542,7 @@ func (s *httpdServer) oidcTokenAuthenticator(audience tokenAudience) func(next h
 				return
 			}
 			jwtTokenClaims := jwtTokenClaims{
-				Username:             token.Username,
+				Username:             dataprovider.ConvertName(token.Username),
 				Permissions:          token.Permissions,
 				Role:                 token.TokenRole,
 				HideUserPageSections: token.HideUserPageSections,
