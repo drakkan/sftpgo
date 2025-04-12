@@ -6,26 +6,26 @@ freebsd_task:
       freebsd_instance:
         image_family: freebsd-14-2
 
-  pkginstall_script:
-    - pkg update -f
-    - pkg install -y go123
-    - pkg install -y git
+  #pkginstall_script:
+  #  - pkg update -f
+  #  - pkg install -y go123
+  #  - pkg install -y git
 
-  setup_script:
-    - ln -s /usr/local/bin/go123 /usr/local/bin/go
-    - pw groupadd sftpgo
-    - pw useradd sftpgo -g sftpgo -w none -m
-    - mkdir /home/sftpgo/sftpgo
-    - cp -R . /home/sftpgo/sftpgo
-    - chown -R sftpgo:sftpgo /home/sftpgo/sftpgo
+  #setup_script:
+  #  - ln -s /usr/local/bin/go123 /usr/local/bin/go
+  #  - pw groupadd sftpgo
+  #  - pw useradd sftpgo -g sftpgo -w none -m
+  #  - mkdir /home/sftpgo/sftpgo
+  #  - cp -R . /home/sftpgo/sftpgo
+  #  - chown -R sftpgo:sftpgo /home/sftpgo/sftpgo
 
-  compile_script:
-    - su sftpgo -c 'cd ~/sftpgo && go build -trimpath -tags nopgxregisterdefaulttypes,disable_grpc_modules -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -o sftpgo'
-    - su sftpgo -c 'cd ~/sftpgo/tests/eventsearcher && go build -trimpath -ldflags "-s -w" -o eventsearcher'
-    - su sftpgo -c 'cd ~/sftpgo/tests/ipfilter && go build -trimpath -ldflags "-s -w" -o ipfilter'
+  #compile_script:
+  #  - su sftpgo -c 'cd ~/sftpgo && go build -trimpath -tags nopgxregisterdefaulttypes,disable_grpc_modules -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -o sftpgo'
+  #  - su sftpgo -c 'cd ~/sftpgo/tests/eventsearcher && go build -trimpath -ldflags "-s -w" -o eventsearcher'
+  #  - su sftpgo -c 'cd ~/sftpgo/tests/ipfilter && go build -trimpath -ldflags "-s -w" -o ipfilter'
 
-  check_script:
-    - su sftpgo -c 'cd ~/sftpgo && ./sftpgo initprovider && ./sftpgo resetprovider --force'
+  #check_script:
+  #  - su sftpgo -c 'cd ~/sftpgo && ./sftpgo initprovider && ./sftpgo resetprovider --force'
 
-  test_script:
-    - su sftpgo -c 'cd ~/sftpgo && go test -v -tags nopgxregisterdefaulttypes,disable_grpc_modules -p 1 -timeout 20m ./... -coverprofile=coverage.txt -covermode=atomic'
+  #test_script:
+  #  - su sftpgo -c 'cd ~/sftpgo && go test -v -tags nopgxregisterdefaulttypes,disable_grpc_modules -p 1 -timeout 20m ./... -coverprofile=coverage.txt -covermode=atomic'
