@@ -614,7 +614,7 @@ jobs:
           go-version: '1.24'
       - uses: actions/checkout@v4
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v7
         with:
           args: --timeout=10m
           version: latest

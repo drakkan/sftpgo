@@ -256,7 +256,7 @@ func ParseBytes(s string) (int64, error) {
 
 	num := s[:lastDigit]
 	if hasComma {
-		num = strings.Replace(num, ",", "", -1)
+		num = strings.ReplaceAll(num, ",", "")
 	}
 
 	f, err := strconv.ParseFloat(num, 64)
