@@ -818,6 +818,8 @@ func (p *MySQLProvider) migrateDatabase() error {
 		return updateMySQLDatabaseFromV29(p.dbHandle)
 	case version == 30:
 		return updateMySQLDatabaseFromV30(p.dbHandle)
+	case version == 31:
+		return updateMySQLDatabaseFromV31(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -844,6 +846,8 @@ func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 		return downgradeMySQLDatabaseFromV30(p.dbHandle)
 	case 31:
 		return downgradeMySQLDatabaseFromV31(p.dbHandle)
+	case 32:
+		return downgradeMySQLDatabaseFromV32(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
@@ -890,7 +894,14 @@ func updateMySQLDatabaseFromV29(dbHandle *sql.DB) error {
 }
 
 func updateMySQLDatabaseFromV30(dbHandle *sql.DB) error {
-	return updateMySQLDatabaseFrom30To31(dbHandle)
+	if err := updateMySQLDatabaseFrom30To31(dbHandle); err != nil {
+		return err
+	}
+	return updateMySQLDatabaseFromV31(dbHandle)
+}
+
+func updateMySQLDatabaseFromV31(dbHandle *sql.DB) error {
+	return updateSQLDatabaseFrom31To32(dbHandle)
 }
 
 func downgradeMySQLDatabaseFromV30(dbHandle *sql.DB) error {
@@ -902,6 +913,13 @@ func downgradeMySQLDatabaseFromV31(dbHandle *sql.DB) error {
 		return err
 	}
 	return downgradeMySQLDatabaseFromV30(dbHandle)
+}
+
+func downgradeMySQLDatabaseFromV32(dbHandle *sql.DB) error {
+	if err := downgradeSQLDatabaseFrom32To31(dbHandle); err != nil {
+		return err
+	}
+	return downgradeMySQLDatabaseFromV31(dbHandle)
 }
 
 func updateMySQLDatabaseFrom29To30(dbHandle *sql.DB) error {

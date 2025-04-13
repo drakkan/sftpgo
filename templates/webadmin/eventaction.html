@@ -889,115 +889,115 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
             <div class="modal-body fs-5 fw-semibold">
                 <p>
-                    <span class="shortcut">{{`{{Name}}`}}</span> => <span data-i18n="actions.placeholders_modal.name">Username, folder name, admin username for provider events, domain name for certificate events.</span>
+                    <span class="shortcut">{{`{{.Name}}`}}</span> => <span data-i18n="actions.placeholders_modal.name">Username, folder name, admin username for provider events, domain name for certificate events.</span>
                 </p>
                 <p>
-                    <span class="shortcut">{{`{{Event}}`}}</span> => <span data-i18n="actions.placeholders_modal.event">Event name, for example "upload", "download" for filesystem events or "add", "update" for provider events.</span>
+                    <span class="shortcut">{{`{{.Event}}`}}</span> => <span data-i18n="actions.placeholders_modal.event">Event name, for example "upload", "download" for filesystem events or "add", "update" for provider events.</span>
                 </p>
                 <p>
-                    <span class="shortcut">{{`{{Status}}`}}</span> => <span data-i18n="actions.placeholders_modal.status">Status for "upload", "download" and "ssh_cmd" events. 1 means no error, 2 means a generic error occurred, 3 means quota exceeded error.</span>
+                    <span class="shortcut">{{`{{.Status}}`}}</span> => <span data-i18n="actions.placeholders_modal.status">Status for "upload", "download" and "ssh_cmd" events. 1 means no error, 2 means a generic error occurred, 3 means quota exceeded error.</span>
                 </p>
                 <p>
-                    <span class="shortcut">{{`{{StatusString}}`}}</span> => <span data-i18n="actions.placeholders_modal.status_string">Status as string. Possible values "OK", "KO".</span>
+                    <span class="shortcut">{{`{{.StatusString}}`}}</span> => <span data-i18n="actions.placeholders_modal.status_string">Status as string. Possible values "OK", "KO".</span>
                 </p>
                 <p>
-                    <span class="shortcut">{{`{{ErrorString}}`}}</span> => <span data-i18n="actions.placeholders_modal.error_string">Error details. Replaced with an empty string if no errors occur.</span>
+                    <span class="shortcut">{{`{{.ErrorString}}`}}</span> => <span data-i18n="actions.placeholders_modal.error_string">Error details. Replaced with an empty string if no errors occur.</span>
                 </p>
                 <p>
-                    <span class="shortcut">{{`{{VirtualPath}}`}}</span> => <span data-i18n="actions.placeholders_modal.virtual_path">Path seen by SFTPGo users, for example "/adir/afile.txt".</span>
+                    <span class="shortcut">{{`{{.VirtualPath}}`}}</span> => <span data-i18n="actions.placeholders_modal.virtual_path">Path seen by SFTPGo users, for example "/adir/afile.txt".</span>
                 </p>
                 <p>
-                    <span class="shortcut">{{`{{EscapedVirtualPath}}`}}</span> => <span data-i18n="actions.placeholders_modal.escaped_virtual_path">HTTP query string encoded path, for example "%2Fadir%2Fafile.txt".</span>
+                    <span class="shortcut">{{`{{.EscapedVirtualPath}}`}}</span> => <span data-i18n="actions.placeholders_modal.escaped_virtual_path">HTTP query string encoded path, for example "%2Fadir%2Fafile.txt".</span>
                 </p>
                 <p>
-                    <span class="shortcut">{{`{{VirtualDirPath}}`}}</span> => <span data-i18n="actions.placeholders_modal.virtual_dir_path">Parent directory for VirtualPath, for example if VirtualPath is "/adir/afile.txt", VirtualDirPath is "/adir".</span>
+                    <span class="shortcut">{{`{{.VirtualDirPath}}`}}</span> => <span data-i18n="actions.placeholders_modal.virtual_dir_path">Parent directory for VirtualPath, for example if VirtualPath is "/adir/afile.txt", VirtualDirPath is "/adir".</span>
                 </p>
                 <p>
-                    <span class="shortcut">{{`{{FsPath}}`}}</span> => <span data-i18n="actions.placeholders_modal.fs_path">Full filesystem path, for example "/user/homedir/adir/afile.txt" or "C:/data/user/homedir/adir/afile.txt" on Windows.</span>
+                    <span class="shortcut">{{`{{.FsPath}}`}}</span> => <span data-i18n="actions.placeholders_modal.fs_path">Full filesystem path, for example "/user/homedir/adir/afile.txt" or "C:/data/user/homedir/adir/afile.txt" on Windows.</span>
                 </p>
                 <p>
-                    <span class="shortcut">{{`{{Ext}}`}}</span> => <span data-i18n="actions.placeholders_modal.ext">File extension, for example ".txt" if the filename is "afile.txt".</span>
+                    <span class="shortcut">{{`{{.Ext}}`}}</span> => <span data-i18n="actions.placeholders_modal.ext">File extension, for example ".txt" if the filename is "afile.txt".</span>
                 </p>
                 <p>
-                    <span class="shortcut">{{`{{ObjectName}}`}}</span> => <span data-i18n="actions.placeholders_modal.object_name">File/directory name, for example "afile.txt" or provider object name.</span>
+                    <span class="shortcut">{{`{{.ObjectName}}`}}</span> => <span data-i18n="actions.placeholders_modal.object_name">File/directory name, for example "afile.txt" or provider object name.</span>
                 </p>
                 <p>
-                    <span class="shortcut">{{`{{ObjectBaseName}}`}}</span> => <span data-i18n="actions.placeholders_modal.object_basename">Filename without extension, for example "afile" if the filename is "afile.txt".</span>
+                    <span class="shortcut">{{`{{.ObjectBaseName}}`}}</span> => <span data-i18n="actions.placeholders_modal.object_basename">Filename without extension, for example "afile" if the filename is "afile.txt".</span>
                 </p>
                 <p>
-                    <span class="shortcut">{{`{{ObjectType}}`}}</span> => <span data-i18n="actions.placeholders_modal.object_type">Object type for provider events: "user", "group", "admin", etc.</span>
+                    <span class="shortcut">{{`{{.ObjectType}}`}}</span> => <span data-i18n="actions.placeholders_modal.object_type">Object type for provider events: "user", "group", "admin", etc.</span>
                 </p>
                 <p>
-                    <span class="shortcut">{{`{{VirtualTargetPath}}`}}</span> => <span data-i18n="actions.placeholders_modal.virtual_target_path">Virtual target path for renames.</span>
+                    <span class="shortcut">{{`{{.VirtualTargetPath}}`}}</span> => <span data-i18n="actions.placeholders_modal.virtual_target_path">Virtual target path for renames.</span>
                 </p>
                 <p>
-                    <span class="shortcut">{{`{{VirtualTargetDirPath}}`}}</span> => <span data-i18n="actions.placeholders_modal.virtual_target_dir_path">Parent directory for VirtualTargetPath.</span>
+                    <span class="shortcut">{{`{{.VirtualTargetDirPath}}`}}</span> => <span data-i18n="actions.placeholders_modal.virtual_target_dir_path">Parent directory for VirtualTargetPath.</span>
                 </p>
                 <p>
-                    <span class="shortcut">{{`{{TargetName}}`}}</span> => <span data-i18n="actions.placeholders_modal.target_name">Target object name for renames.</span>
+                    <span class="shortcut">{{`{{.TargetName}}`}}</span> => <span data-i18n="actions.placeholders_modal.target_name">Target object name for renames.</span>
                 </p>
                 <p>
-                    <span class="shortcut">{{`{{FsTargetPath}}`}}</span> => <span data-i18n="actions.placeholders_modal.fs_target_path">Full filesystem target path for renames.</span>
+                    <span class="shortcut">{{`{{.FsTargetPath}}`}}</span> => <span data-i18n="actions.placeholders_modal.fs_target_path">Full filesystem target path for renames.</span>
                 </p>
                 <p>
-                    <span class="shortcut">{{`{{FileSize}}`}}</span> => <span data-i18n="actions.placeholders_modal.file_size">File size.</span>
+                    <span class="shortcut">{{`{{.FileSize}}`}}</span> => <span data-i18n="actions.placeholders_modal.file_size">File size.</span>
                 </p>
                 <p>
-                    <span class="shortcut">{{`{{Elapsed}}`}}</span> => <span data-i18n="actions.placeholders_modal.elapsed">Elapsed time as milliseconds for filesystem events.</span>
+                    <span class="shortcut">{{`{{.Elapsed}}`}}</span> => <span data-i18n="actions.placeholders_modal.elapsed">Elapsed time as milliseconds for filesystem events.</span>
                 </p>
                 <p>
-                    <span class="shortcut">{{`{{Protocol}}`}}</span> => <span data-i18n="actions.placeholders_modal.protocol">Protocol, for example "SFTP", "FTP".</span>
+                    <span class="shortcut">{{`{{.Protocol}}`}}</span> => <span data-i18n="actions.placeholders_modal.protocol">Protocol, for example "SFTP", "FTP".</span>
                 </p>
                 <p>
-                    <span class="shortcut">{{`{{IP}}`}}</span> => <span data-i18n="actions.placeholders_modal.ip">Client IP address.</span>
+                    <span class="shortcut">{{`{{.IP}}`}}</span> => <span data-i18n="actions.placeholders_modal.ip">Client IP address.</span>
                 </p>
                 <p>
-                    <span class="shortcut">{{`{{Role}}`}}</span> => <span data-i18n="actions.placeholders_modal.role">User or admin role.</span>
+                    <span class="shortcut">{{`{{.Role}}`}}</span> => <span data-i18n="actions.placeholders_modal.role">User or admin role.</span>
                 </p>
                 <p>
-                    <span class="shortcut">{{`{{Timestamp}}`}}</span> => <span data-i18n="actions.placeholders_modal.timestamp">Event timestamp as nanoseconds since epoch.</span>
+                    <span class="shortcut">{{`{{.Timestamp}}`}}</span> => <span data-i18n="actions.placeholders_modal.timestamp">Event timestamp as nanoseconds since epoch.</span>
                 </p>
                 <p>
-                    <span class="shortcut">{{`{{DateTime}}`}}</span> => <span data-i18n="actions.placeholders_modal.datetime">Timestamp formatted as YYYY-MM-DDTHH:MM:SS.ZZZ.</span>
+                    <span class="shortcut">{{`{{.DateTime}}`}}</span> => <span data-i18n="actions.placeholders_modal.datetime">Timestamp formatted as YYYY-MM-DDTHH:MM:SS.ZZZ.</span>
                 </p>
                 <p>
-                    <span class="shortcut">{{`{{Year}}`}}</span> => <span data-i18n="actions.placeholders_modal.year">Event year formatted as four digits.</span>
+                    <span class="shortcut">{{`{{.Year}}`}}</span> => <span data-i18n="actions.placeholders_modal.year">Event year formatted as four digits.</span>
                 </p>
                 <p>
-                    <span class="shortcut">{{`{{Month}}`}}</span> => <span data-i18n="actions.placeholders_modal.month">Event month formatted as two digits.</span>
+                    <span class="shortcut">{{`{{.Month}}`}}</span> => <span data-i18n="actions.placeholders_modal.month">Event month formatted as two digits.</span>
                 </p>
                 <p>
-                    <span class="shortcut">{{`{{Day}}`}}</span> => <span data-i18n="actions.placeholders_modal.day">Event day formatted as two digits.</span>
+                    <span class="shortcut">{{`{{.Day}}`}}</span> => <span data-i18n="actions.placeholders_modal.day">Event day formatted as two digits.</span>
                 </p>
                 <p>
-                    <span class="shortcut">{{`{{Hour}}`}}</span> => <span data-i18n="actions.placeholders_modal.hour">Event hour formatted as two digits.</span>
+                    <span class="shortcut">{{`{{.Hour}}`}}</span> => <span data-i18n="actions.placeholders_modal.hour">Event hour formatted as two digits.</span>
                 </p>
                 <p>
-                    <span class="shortcut">{{`{{Minute}}`}}</span> => <span data-i18n="actions.placeholders_modal.minute">Event minute formatted as two digits.</span>
+                    <span class="shortcut">{{`{{.Minute}}`}}</span> => <span data-i18n="actions.placeholders_modal.minute">Event minute formatted as two digits.</span>
                 </p>
                 <p>
-                    <span class="shortcut">{{`{{Email}}`}}</span> => <span data-i18n="actions.placeholders_modal.email">For filesystem events, this is the email associated with the user performing the action. For the provider events, this is the email associated with the affected user or admin. Blank in all other cases.</span>
+                    <span class="shortcut">{{`{{.Email}}`}}</span> => <span data-i18n="actions.placeholders_modal.email">For filesystem events, this is the email associated with the user performing the action. For the provider events, this is the email associated with the affected user or admin. Blank in all other cases.</span>
                 </p>
                 <p>
-                    <span class="shortcut">{{`{{ObjectData}}`}}</span> => <span data-i18n="actions.placeholders_modal.object_data">Provider object data serialized as JSON with sensitive fields removed.</span>
+                    <span class="shortcut">{{`{{.ObjectData}}`}}</span> => <span data-i18n="actions.placeholders_modal.object_data">Provider object data serialized as JSON with sensitive fields removed.</span>
                 </p>
                 <p>
-                    <span class="shortcut">{{`{{ObjectDataString}}`}}</span> => <span data-i18n="actions.placeholders_modal.object_data_string">Provider object data as JSON escaped string with sensitive fields removed.</span>
+                    <span class="shortcut">{{`{{.ObjectDataString}}`}}</span> => <span data-i18n="actions.placeholders_modal.object_data_string">Provider object data as JSON escaped string with sensitive fields removed.</span>
                 </p>
                 <p>
-                    <span class="shortcut">{{`{{RetentionReports}}`}}</span> => <span data-i18n="actions.placeholders_modal.retention_reports">Data retention reports as zip compressed CSV files. Supported as email attachment, file path for multipart HTTP request and as single parameter for HTTP requests body.</span>
+                    <span class="shortcut">{{`{{.RetentionReports}}`}}</span> => <span data-i18n="actions.placeholders_modal.retention_reports">Data retention reports as zip compressed CSV files. Supported as email attachment, file path for multipart HTTP request and as single parameter for HTTP requests body.</span>
                 </p>
                 <p>
-                    <span class="shortcut">{{`{{IDPField<fieldname>}}`}}</span> => <span data-i18n="actions.placeholders_modal.idp_field">Identity Provider custom fields containing a string.</span>
+                    <span class="shortcut">{{`{{.IDPField<fieldname>}}`}}</span> => <span data-i18n="actions.placeholders_modal.idp_field">Identity Provider custom fields containing a string.</span>
                 </p>
                 <p>
-                    <span class="shortcut">{{`{{Metadata}}`}}</span> => <span data-i18n="actions.placeholders_modal.metadata">Cloud storage metadata for the downloaded file serialized as JSON.</span>
+                    <span class="shortcut">{{`{{.Metadata}}`}}</span> => <span data-i18n="actions.placeholders_modal.metadata">Cloud storage metadata for the downloaded file serialized as JSON.</span>
                 </p>
                 <p>
-                    <span class="shortcut">{{`{{MetadataString}}`}}</span> => <span data-i18n="actions.placeholders_modal.metadata_string">Cloud storage metadata for the downloaded file as JSON escaped string.</span>
+                    <span class="shortcut">{{`{{.MetadataString}}`}}</span> => <span data-i18n="actions.placeholders_modal.metadata_string">Cloud storage metadata for the downloaded file as JSON escaped string.</span>
                 </p>
                 <p>
-                    <span class="shortcut">{{`{{UID}}`}}</span> => <span data-i18n="actions.placeholders_modal.uid">Unique ID.</span>
+                    <span class="shortcut">{{`{{.UID}}`}}</span> => <span data-i18n="actions.placeholders_modal.uid">Unique ID.</span>
                 </p>
             </div>
             <div class="modal-footer">

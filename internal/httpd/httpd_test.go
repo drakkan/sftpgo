@@ -628,6 +628,72 @@ func TestInitialization(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestMigrateEventActionPlaceholders(t *testing.T) {
+	if config.GetProviderConf().Driver == dataprovider.MemoryDataProviderName {
+		t.Skip("this test is not supported with the memory provider")
+	}
+	// Add some event actions using the old placeholders syntax
+	a1 := dataprovider.BaseEventAction{
+		Name: xid.New().String(),
+		Type: dataprovider.ActionTypeEmail,
+		Options: dataprovider.BaseEventActionOptions{
+			EmailConfig: dataprovider.EventActionEmailConfig{
+				Recipients: []string{"failure@example.com"},
+				Subject:    `Failed "{{Event}}" from "{{Name}}"`,
+				Body:       "Object name: {{ObjectName}} object type: {{ObjectType}}, IP: {{IP}}",
+			},
+		},
+	}
+	a2 := dataprovider.BaseEventAction{
+		Name: xid.New().String(),
+		Type: dataprovider.ActionTypeFilesystem,
+		Options: dataprovider.BaseEventActionOptions{
+			FsConfig: dataprovider.EventActionFilesystemConfig{
+				Type: dataprovider.FilesystemActionRename,
+				Renames: []dataprovider.RenameConfig{
+					{
+						KeyValue: dataprovider.KeyValue{
+							Key:   "/{{VirtualDirPath}}/{{ObjectName}}",
+							Value: "/{{ObjectName}}_renamed",
+						},
+					},
+				},
+			},
+		},
+	}
+	action1, _, err := httpdtest.AddEventAction(a1, http.StatusCreated)
+	assert.NoError(t, err)
+	action2, _, err := httpdtest.AddEventAction(a2, http.StatusCreated)
+	assert.NoError(t, err)
+	// Revert the database to the previous version.
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	err = dataprovider.RevertDatabase(providerConf, configDir, 29)
+	assert.NoError(t, err)
+	// Close and initialize.
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+	// Check that actions are migrated.
+	action1Get, _, err := httpdtest.GetEventActionByName(action1.Name, http.StatusOK)
+	assert.NoError(t, err)
+	action2Get, _, err := httpdtest.GetEventActionByName(action2.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, `Failed "{{.Event}}" from "{{.Name}}"`, action1Get.Options.EmailConfig.Subject)
+	assert.Equal(t, `Object name: {{.ObjectName}} object type: {{.ObjectType}}, IP: {{.IP}}`, action1Get.Options.EmailConfig.Body)
+	assert.Equal(t, `/{{.VirtualDirPath}}/{{.ObjectName}}`, action2Get.Options.FsConfig.Renames[0].Key)
+	assert.Equal(t, `/{{.ObjectName}}_renamed`, action2Get.Options.FsConfig.Renames[0].Value)
+	// Clenup.
+	_, err = httpdtest.RemoveEventAction(action1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action2, http.StatusOK)
+	assert.NoError(t, err)
+}
+
 func TestBasicUserHandling(t *testing.T) {
 	u := getTestUser()
 	u.Email = "user@user.com"
@@ -1863,9 +1929,9 @@ func TestBasicActionRulesHandling(t *testing.T) {
 		EmailConfig: dataprovider.EventActionEmailConfig{
 			Recipients:  []string{"email@example.com"},
 			Bcc:         []string{"bcc@example.com"},
-			Subject:     "Event: {{Event}}",
+			Subject:     "Event: {{.Event}}",
 			Body:        "test mail body",
-			Attachments: []string{"/{{VirtualPath}}"},
+			Attachments: []string{"/{{.VirtualPath}}"},
 		},
 	}
 
@@ -1903,7 +1969,7 @@ func TestBasicActionRulesHandling(t *testing.T) {
 					Value: "b",
 				},
 			},
-			Body: `{"event":"{{Event}}","name":"{{Name}}"}`,
+			Body: `{"event":"{{.Event}}","name":"{{.Name}}"}`,
 		},
 	}
 	action, _, err = httpdtest.UpdateEventAction(a, http.StatusOK)
@@ -8362,7 +8428,7 @@ func TestLoaddata(t *testing.T) {
 				Timeout:       10,
 				SkipTLSVerify: true,
 				Method:        http.MethodPost,
-				Body:          `{"event":"{{Event}}","name":"{{Name}}"}`,
+				Body:          `{"event":"{{.Event}}","name":"{{.Name}}"}`,
 			},
 		},
 	}
@@ -8608,6 +8674,85 @@ func TestLoaddata(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestLoaddataConvertActions(t *testing.T) {
+	a1 := dataprovider.BaseEventAction{
+		Name: xid.New().String(),
+		Type: dataprovider.ActionTypeEmail,
+		Options: dataprovider.BaseEventActionOptions{
+			EmailConfig: dataprovider.EventActionEmailConfig{
+				Recipients: []string{"failure@example.com"},
+				Subject:    `Failed "{{Event}}" from "{{Name}}"`,
+				Body:       "Object name: {{ObjectName}} object type: {{ObjectType}}, IP: {{IP}}",
+			},
+		},
+	}
+	a2 := dataprovider.BaseEventAction{
+		Name: xid.New().String(),
+		Type: dataprovider.ActionTypeFilesystem,
+		Options: dataprovider.BaseEventActionOptions{
+			FsConfig: dataprovider.EventActionFilesystemConfig{
+				Type: dataprovider.FilesystemActionRename,
+				Renames: []dataprovider.RenameConfig{
+					{
+						KeyValue: dataprovider.KeyValue{
+							Key:   "/{{VirtualDirPath}}/{{ObjectName}}",
+							Value: "/{{ObjectName}}_renamed",
+						},
+					},
+				},
+			},
+		},
+	}
+	backupData := dataprovider.BackupData{
+		EventActions: []dataprovider.BaseEventAction{a1, a2},
+		Version:      16,
+	}
+	backupContent, err := json.Marshal(backupData)
+	assert.NoError(t, err)
+	backupFilePath := filepath.Join(backupsPath, "backup.json")
+	err = os.WriteFile(backupFilePath, backupContent, os.ModePerm)
+	assert.NoError(t, err)
+	_, resp, err := httpdtest.Loaddata(backupFilePath, "1", "2", http.StatusOK)
+	assert.NoError(t, err, string(resp))
+	// Check that actions are migrated.
+	action1, _, err := httpdtest.GetEventActionByName(a1.Name, http.StatusOK)
+	assert.NoError(t, err)
+	action2, _, err := httpdtest.GetEventActionByName(a2.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, `Failed "{{.Event}}" from "{{.Name}}"`, action1.Options.EmailConfig.Subject)
+	assert.Equal(t, `Object name: {{.ObjectName}} object type: {{.ObjectType}}, IP: {{.IP}}`, action1.Options.EmailConfig.Body)
+	assert.Equal(t, `/{{.VirtualDirPath}}/{{.ObjectName}}`, action2.Options.FsConfig.Renames[0].Key)
+	assert.Equal(t, `/{{.ObjectName}}_renamed`, action2.Options.FsConfig.Renames[0].Value)
+	// If we restore a backup from the current version actions are not migrated.
+	backupData = dataprovider.BackupData{
+		EventActions: []dataprovider.BaseEventAction{a1, a2},
+		Version:      dataprovider.DumpVersion,
+	}
+	backupContent, err = json.Marshal(backupData)
+	assert.NoError(t, err)
+	backupFilePath = filepath.Join(backupsPath, "backup.json")
+	err = os.WriteFile(backupFilePath, backupContent, os.ModePerm)
+	assert.NoError(t, err)
+	_, resp, err = httpdtest.Loaddata(backupFilePath, "1", "2", http.StatusOK)
+	assert.NoError(t, err, string(resp))
+	action1, _, err = httpdtest.GetEventActionByName(a1.Name, http.StatusOK)
+	assert.NoError(t, err)
+	action2, _, err = httpdtest.GetEventActionByName(a2.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, `Failed "{{Event}}" from "{{Name}}"`, action1.Options.EmailConfig.Subject)
+	assert.Equal(t, `Object name: {{ObjectName}} object type: {{ObjectType}}, IP: {{IP}}`, action1.Options.EmailConfig.Body)
+	assert.Equal(t, `/{{VirtualDirPath}}/{{ObjectName}}`, action2.Options.FsConfig.Renames[0].Key)
+	assert.Equal(t, `/{{ObjectName}}_renamed`, action2.Options.FsConfig.Renames[0].Value)
+	// Cleanup.
+	_, err = httpdtest.RemoveEventAction(action1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action2, http.StatusOK)
+	assert.NoError(t, err)
+	actions, _, err := httpdtest.GetEventActions(0, 0, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, actions, 0)
+}
+
 func TestLoaddataMode(t *testing.T) {
 	err := dataprovider.UpdateConfigs(nil, "", "", "")
 	assert.NoError(t, err)
@@ -8665,7 +8810,7 @@ func TestLoaddataMode(t *testing.T) {
 				Timeout:       10,
 				SkipTLSVerify: true,
 				Method:        http.MethodPost,
-				Body:          `{"event":"{{Event}}","name":"{{Name}}"}`,
+				Body:          `{"event":"{{.Event}}","name":"{{.Name}}"}`,
 			},
 		},
 	}
@@ -23831,7 +23976,7 @@ func TestWebEventAction(t *testing.T) {
 						Value: "value1",
 					},
 				},
-				Body: `{"event":"{{Event}}","name":"{{Name}}"}`,
+				Body: `{"event":"{{.Event}}","name":"{{.Name}}"}`,
 			},
 		},
 	}
@@ -23950,12 +24095,12 @@ func TestWebEventAction(t *testing.T) {
 	form.Del("http_headers[0][http_header_key]")
 	form.Del("http_headers[0][http_header_val]")
 	form.Set("multipart_body[0][http_part_name]", "part1")
-	form.Set("multipart_body[0][http_part_file]", "{{VirtualPath}}")
+	form.Set("multipart_body[0][http_part_file]", "{{.VirtualPath}}")
 	form.Set("multipart_body[0][http_part_body]", "")
 	form.Set("multipart_body[0][http_part_headers]", "X-MyHeader: a:b,c")
 	form.Set("multipart_body[12][http_part_name]", "part2")
 	form.Set("multipart_body[12][http_part_headers]", "Content-Type:application/json \r\n")
-	form.Set("multipart_body[12][http_part_body]", "{{ObjectData}}")
+	form.Set("multipart_body[12][http_part_body]", "{{.ObjectData}}")
 	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminEventActionPath, action.Name),
 		bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
@@ -23972,12 +24117,12 @@ func TestWebEventAction(t *testing.T) {
 	assert.Equal(t, 0, dbAction.Options.HTTPConfig.Timeout)
 	if assert.Len(t, dbAction.Options.HTTPConfig.Parts, 2) {
 		assert.Equal(t, "part1", dbAction.Options.HTTPConfig.Parts[0].Name)
-		assert.Equal(t, "/{{VirtualPath}}", dbAction.Options.HTTPConfig.Parts[0].Filepath)
+		assert.Equal(t, "/{{.VirtualPath}}", dbAction.Options.HTTPConfig.Parts[0].Filepath)
 		assert.Empty(t, dbAction.Options.HTTPConfig.Parts[0].Body)
 		assert.Equal(t, "X-MyHeader", dbAction.Options.HTTPConfig.Parts[0].Headers[0].Key)
 		assert.Equal(t, "a:b,c", dbAction.Options.HTTPConfig.Parts[0].Headers[0].Value)
 		assert.Equal(t, "part2", dbAction.Options.HTTPConfig.Parts[1].Name)
-		assert.Equal(t, "{{ObjectData}}", dbAction.Options.HTTPConfig.Parts[1].Body)
+		assert.Equal(t, "{{.ObjectData}}", dbAction.Options.HTTPConfig.Parts[1].Body)
 		assert.Empty(t, dbAction.Options.HTTPConfig.Parts[1].Filepath)
 		assert.Equal(t, "Content-Type", dbAction.Options.HTTPConfig.Parts[1].Headers[0].Key)
 		assert.Equal(t, "application/json", dbAction.Options.HTTPConfig.Parts[1].Headers[0].Value)

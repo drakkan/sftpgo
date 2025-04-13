@@ -56,8 +56,8 @@ import (
 const (
 	ipBlockedEventName       = "IP Blocked"
 	maxAttachmentsSize       = int64(10 * 1024 * 1024)
-	objDataPlaceholder       = "{{ObjectData}}"
-	objDataPlaceholderString = "{{ObjectDataString}}"
+	objDataPlaceholder       = "{{.ObjectData}}"
+	objDataPlaceholderString = "{{.ObjectDataString}}"
 	dateTimeMillisFormat     = "2006-01-02T15:04:05.000"
 )
 
@@ -796,45 +796,45 @@ func (p *EventParams) getStringReplacements(addObjectData, jsonEscaped bool) []s
 	minute := dateTimeString[14:16]
 
 	replacements := []string{
-		"{{Name}}", p.getStringReplacement(p.Name, jsonEscaped),
-		"{{Event}}", p.Event,
-		"{{Status}}", fmt.Sprintf("%d", p.Status),
-		"{{VirtualPath}}", p.getStringReplacement(p.VirtualPath, jsonEscaped),
-		"{{EscapedVirtualPath}}", p.getStringReplacement(url.QueryEscape(p.VirtualPath), jsonEscaped),
-		"{{FsPath}}", p.getStringReplacement(p.FsPath, jsonEscaped),
-		"{{VirtualTargetPath}}", p.getStringReplacement(p.VirtualTargetPath, jsonEscaped),
-		"{{FsTargetPath}}", p.getStringReplacement(p.FsTargetPath, jsonEscaped),
-		"{{ObjectName}}", p.getStringReplacement(p.ObjectName, jsonEscaped),
-		"{{ObjectBaseName}}", p.getStringReplacement(strings.TrimSuffix(p.ObjectName, p.Extension), jsonEscaped),
-		"{{ObjectType}}", p.ObjectType,
-		"{{FileSize}}", strconv.FormatInt(p.FileSize, 10),
-		"{{Elapsed}}", strconv.FormatInt(p.Elapsed, 10),
-		"{{Protocol}}", p.Protocol,
-		"{{IP}}", p.IP,
-		"{{Role}}", p.getStringReplacement(p.Role, jsonEscaped),
-		"{{Email}}", p.getStringReplacement(p.Email, jsonEscaped),
-		"{{Timestamp}}", strconv.FormatInt(p.Timestamp.UnixNano(), 10),
-		"{{DateTime}}", dateTimeString,
-		"{{Year}}", year,
-		"{{Month}}", month,
-		"{{Day}}", day,
-		"{{Hour}}", hour,
-		"{{Minute}}", minute,
-		"{{StatusString}}", p.getStatusString(),
-		"{{UID}}", p.getStringReplacement(p.UID, jsonEscaped),
-		"{{Ext}}", p.getStringReplacement(p.Extension, jsonEscaped),
+		"{{.Name}}", p.getStringReplacement(p.Name, jsonEscaped),
+		"{{.Event}}", p.Event,
+		"{{.Status}}", fmt.Sprintf("%d", p.Status),
+		"{{.VirtualPath}}", p.getStringReplacement(p.VirtualPath, jsonEscaped),
+		"{{.EscapedVirtualPath}}", p.getStringReplacement(url.QueryEscape(p.VirtualPath), jsonEscaped),
+		"{{.FsPath}}", p.getStringReplacement(p.FsPath, jsonEscaped),
+		"{{.VirtualTargetPath}}", p.getStringReplacement(p.VirtualTargetPath, jsonEscaped),
+		"{{.FsTargetPath}}", p.getStringReplacement(p.FsTargetPath, jsonEscaped),
+		"{{.ObjectName}}", p.getStringReplacement(p.ObjectName, jsonEscaped),
+		"{{.ObjectBaseName}}", p.getStringReplacement(strings.TrimSuffix(p.ObjectName, p.Extension), jsonEscaped),
+		"{{.ObjectType}}", p.ObjectType,
+		"{{.FileSize}}", strconv.FormatInt(p.FileSize, 10),
+		"{{.Elapsed}}", strconv.FormatInt(p.Elapsed, 10),
+		"{{.Protocol}}", p.Protocol,
+		"{{.IP}}", p.IP,
+		"{{.Role}}", p.getStringReplacement(p.Role, jsonEscaped),
+		"{{.Email}}", p.getStringReplacement(p.Email, jsonEscaped),
+		"{{.Timestamp}}", strconv.FormatInt(p.Timestamp.UnixNano(), 10),
+		"{{.DateTime}}", dateTimeString,
+		"{{.Year}}", year,
+		"{{.Month}}", month,
+		"{{.Day}}", day,
+		"{{.Hour}}", hour,
+		"{{.Minute}}", minute,
+		"{{.StatusString}}", p.getStatusString(),
+		"{{.UID}}", p.getStringReplacement(p.UID, jsonEscaped),
+		"{{.Ext}}", p.getStringReplacement(p.Extension, jsonEscaped),
 	}
 	if p.VirtualPath != "" {
-		replacements = append(replacements, "{{VirtualDirPath}}", p.getStringReplacement(path.Dir(p.VirtualPath), jsonEscaped))
+		replacements = append(replacements, "{{.VirtualDirPath}}", p.getStringReplacement(path.Dir(p.VirtualPath), jsonEscaped))
 	}
 	if p.VirtualTargetPath != "" {
-		replacements = append(replacements, "{{VirtualTargetDirPath}}", p.getStringReplacement(path.Dir(p.VirtualTargetPath), jsonEscaped))
-		replacements = append(replacements, "{{TargetName}}", p.getStringReplacement(path.Base(p.VirtualTargetPath), jsonEscaped))
+		replacements = append(replacements, "{{.VirtualTargetDirPath}}", p.getStringReplacement(path.Dir(p.VirtualTargetPath), jsonEscaped))
+		replacements = append(replacements, "{{.TargetName}}", p.getStringReplacement(path.Base(p.VirtualTargetPath), jsonEscaped))
 	}
 	if len(p.errors) > 0 {
-		replacements = append(replacements, "{{ErrorString}}", p.getStringReplacement(strings.Join(p.errors, ", "), jsonEscaped))
+		replacements = append(replacements, "{{.ErrorString}}", p.getStringReplacement(strings.Join(p.errors, ", "), jsonEscaped))
 	} else {
-		replacements = append(replacements, "{{ErrorString}}", "")
+		replacements = append(replacements, "{{.ErrorString}}", "")
 	}
 	replacements = append(replacements, objDataPlaceholder, "{}")
 	replacements = append(replacements, objDataPlaceholderString, "")
@@ -848,11 +848,11 @@ func (p *EventParams) getStringReplacements(addObjectData, jsonEscaped bool) []s
 	}
 	if p.IDPCustomFields != nil {
 		for k, v := range *p.IDPCustomFields {
-			replacements = append(replacements, fmt.Sprintf("{{IDPField%s}}", k), p.getStringReplacement(v, jsonEscaped))
+			replacements = append(replacements, fmt.Sprintf("{{.IDPField%s}}", k), p.getStringReplacement(v, jsonEscaped))
 		}
 	}
-	replacements = append(replacements, "{{Metadata}}", "{}")
-	replacements = append(replacements, "{{MetadataString}}", "")
+	replacements = append(replacements, "{{.Metadata}}", "{}")
+	replacements = append(replacements, "{{.MetadataString}}", "")
 	if len(p.Metadata) > 0 {
 		data, err := json.Marshal(p.Metadata)
 		if err == nil {
@@ -1193,7 +1193,7 @@ func getMailAttachments(conn *BaseConnection, attachments []string, replacer *st
 }
 
 func replaceWithReplacer(input string, replacer *strings.Replacer) string {
-	if !strings.Contains(input, "{{") {
+	if !strings.Contains(input, "{{.") {
 		return input
 	}
 	return replacer.Replace(input)
@@ -1280,7 +1280,7 @@ func getHTTPRuleActionEndpoint(c *dataprovider.EventActionHTTPConfig, replacer *
 	if err != nil {
 		return "", fmt.Errorf("invalid endpoint: %w", err)
 	}
-	if strings.Contains(u.Path, "{{") {
+	if strings.Contains(u.Path, "{{.") {
 		pathComponents := strings.Split(u.Path, "/")
 		for idx := range pathComponents {
 			part := replaceWithReplacer(pathComponents[idx], replacer)

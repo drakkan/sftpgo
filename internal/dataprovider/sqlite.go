@@ -741,6 +741,8 @@ func (p *SQLiteProvider) migrateDatabase() error { //nolint:dupl
 		return updateSQLiteDatabaseFromV29(p.dbHandle)
 	case version == 30:
 		return updateSQLiteDatabaseFromV30(p.dbHandle)
+	case version == 31:
+		return updateSQLiteDatabaseFromV31(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -767,6 +769,8 @@ func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 		return downgradeSQLiteDatabaseFromV30(p.dbHandle)
 	case 31:
 		return downgradeSQLiteDatabaseFromV31(p.dbHandle)
+	case 32:
+		return downgradeSQLiteDatabaseFromV32(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
@@ -820,7 +824,14 @@ func updateSQLiteDatabaseFromV29(dbHandle *sql.DB) error {
 }
 
 func updateSQLiteDatabaseFromV30(dbHandle *sql.DB) error {
-	return updateSQLiteDatabaseFrom30To31(dbHandle)
+	if err := updateSQLiteDatabaseFrom30To31(dbHandle); err != nil {
+		return err
+	}
+	return updateSQLiteDatabaseFromV31(dbHandle)
+}
+
+func updateSQLiteDatabaseFromV31(dbHandle *sql.DB) error {
+	return updateSQLDatabaseFrom31To32(dbHandle)
 }
 
 func downgradeSQLiteDatabaseFromV30(dbHandle *sql.DB) error {
@@ -832,6 +843,13 @@ func downgradeSQLiteDatabaseFromV31(dbHandle *sql.DB) error {
 		return err
 	}
 	return downgradeSQLiteDatabaseFromV30(dbHandle)
+}
+
+func downgradeSQLiteDatabaseFromV32(dbHandle *sql.DB) error {
+	if err := downgradeSQLDatabaseFrom32To31(dbHandle); err != nil {
+		return err
+	}
+	return downgradeSQLiteDatabaseFromV31(dbHandle)
 }
 
 func updateSQLiteDatabaseFrom29To30(dbHandle *sql.DB) error {
