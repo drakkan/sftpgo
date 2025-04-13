@@ -296,7 +296,7 @@ jobs:
 
   prepare-linux:
     name: Prepare Linux binaries
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         include:
