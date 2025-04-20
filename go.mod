@@ -17,7 +17,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.17.72
 	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.29.0
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.79.2
-	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.35.3
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.35.4
 	github.com/aws/aws-sdk-go-v2/service/sts v1.33.19
 	github.com/bmatcuk/doublestar/v4 v4.8.1
 	github.com/cockroachdb/cockroach-go/v2 v2.4.0
@@ -26,7 +26,7 @@ require (
 	github.com/eikenb/pipeat v0.0.0-20210730190139-06b3e6902001
 	github.com/fclairamb/ftpserverlib v0.25.0
 	github.com/fclairamb/go-log v0.5.0
-	github.com/go-acme/lego/v4 v4.22.2
+	github.com/go-acme/lego/v4 v4.23.1
 	github.com/go-chi/chi/v5 v5.2.1
 	github.com/go-chi/jwtauth/v5 v5.3.3
 	github.com/go-chi/render v1.0.3
@@ -39,9 +39,9 @@ require (
 	github.com/jackc/pgx/v5 v5.7.4
 	github.com/jlaffaye/ftp v0.2.0
 	github.com/klauspost/compress v1.18.0
-	github.com/lestrrat-go/jwx/v2 v2.1.5-0.20250226052408-de7d95fda31a
+	github.com/lestrrat-go/jwx/v2 v2.1.6-0.20250420095048-a18531964875
 	github.com/lithammer/shortuuid/v4 v4.2.0
-	github.com/mattn/go-sqlite3 v1.14.27
+	github.com/mattn/go-sqlite3 v1.14.28
 	github.com/mhale/smtpd v0.8.3
 	github.com/minio/sio v0.4.1
 	github.com/otiai10/copy v1.14.1
@@ -74,18 +74,18 @@ require (
 	golang.org/x/sys v0.32.0
 	golang.org/x/term v0.31.0
 	golang.org/x/time v0.11.0
-	google.golang.org/api v0.228.0
+	google.golang.org/api v0.229.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
 require (
 	cel.dev/expr v0.23.1 // indirect
-	cloud.google.com/go v0.120.0 // indirect
-	cloud.google.com/go/auth v0.15.0 // indirect
+	cloud.google.com/go v0.120.1 // indirect
+	cloud.google.com/go/auth v0.16.0 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	cloud.google.com/go/compute/metadata v0.6.0 // indirect
-	cloud.google.com/go/iam v1.5.0 // indirect
-	cloud.google.com/go/monitoring v1.24.1 // indirect
+	cloud.google.com/go/iam v1.5.2 // indirect
+	cloud.google.com/go/monitoring v1.24.2 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.11.1 // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.4.2 // indirect
@@ -141,7 +141,7 @@ require (
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/kr/fs v0.1.0 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
-	github.com/lestrrat-go/blackmagic v1.0.2 // indirect
+	github.com/lestrrat-go/blackmagic v1.0.3 // indirect
 	github.com/lestrrat-go/httpcc v1.0.1 // indirect
 	github.com/lestrrat-go/httprc v1.0.6 // indirect
 	github.com/lestrrat-go/iter v1.0.2 // indirect
@@ -160,7 +160,7 @@ require (
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.63.0 // indirect
-	github.com/prometheus/procfs v0.16.0 // indirect
+	github.com/prometheus/procfs v0.16.1 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sagikazarmark/locafero v0.9.0 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
@@ -187,9 +187,9 @@ require (
 	golang.org/x/text v0.24.0 // indirect
 	golang.org/x/tools v0.32.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
-	google.golang.org/genproto v0.0.0-20250409194420-de1ac958c67a // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20250409194420-de1ac958c67a // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250409194420-de1ac958c67a // indirect
+	google.golang.org/genproto v0.0.0-20250414145226-207652e42e2e // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20250414145226-207652e42e2e // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250414145226-207652e42e2e // indirect
 	google.golang.org/grpc v1.71.1 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
@@ -199,5 +199,5 @@ replace (
 	github.com/fclairamb/ftpserverlib => github.com/drakkan/ftpserverlib v0.0.0-20250204143431-e069fad14727
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20240430173938-7ba8270c8e7f
 	github.com/robfig/cron/v3 => github.com/drakkan/cron/v3 v3.0.0-20230222140221-217a1e4d96c0
-	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20250412200336-e149d297a206
+	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20250420150858-04abdc60032d
 )

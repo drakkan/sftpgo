@@ -13,7 +13,6 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //go:build !nometrics
-// +build !nometrics
 
 // Package metric provides Prometheus metrics support
 package metric
