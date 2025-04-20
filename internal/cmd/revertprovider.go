@@ -24,6 +24,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/config"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
+	"github.com/drakkan/sftpgo/v2/internal/plugin"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 )
 
@@ -54,6 +55,21 @@ Please take a look at the usage below to customize the options.`,
 			err = kmsConfig.Initialize()
 			if err != nil {
 				logger.ErrorToConsole("unable to initialize KMS: %v", err)
+				os.Exit(1)
+			}
+			if config.HasKMSPlugin() {
+				if err := plugin.Initialize(config.GetPluginsConfig(), "debug"); err != nil {
+					logger.ErrorToConsole("unable to initialize plugin system: %v", err)
+					os.Exit(1)
+				}
+				registerSignals()
+				defer plugin.Handler.Cleanup()
+			}
+
+			mfaConfig := config.GetMFAConfig()
+			err = mfaConfig.Initialize()
+			if err != nil {
+				logger.ErrorToConsole("Unable to initialize MFA: %v", err)
 				os.Exit(1)
 			}
 			providerConf := config.GetProviderConf()

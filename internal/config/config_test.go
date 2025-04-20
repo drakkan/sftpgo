@@ -343,6 +343,18 @@ func TestSetGetConfig(t *testing.T) {
 	if assert.Len(t, config.GetPluginsConfig(), 1) {
 		assert.Equal(t, pluginConf[0].Type, config.GetPluginsConfig()[0].Type)
 	}
+	assert.False(t, config.HasKMSPlugin())
+	pluginConf = []plugin.Config{
+		{
+			Type: "notifier",
+		},
+		{
+			Type: "kms",
+		},
+	}
+	config.SetPluginsConfig(pluginConf)
+	assert.Len(t, config.GetPluginsConfig(), 2)
+	assert.True(t, config.HasKMSPlugin())
 }
 
 func TestServiceToStart(t *testing.T) {

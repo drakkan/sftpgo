@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"strings"
 
+	kmsplugin "github.com/sftpgo/sdk/plugin/kms"
 	"github.com/spf13/viper"
 	"github.com/subosito/gotenv"
 
@@ -586,6 +587,16 @@ func GetPluginsConfig() []plugin.Config {
 // SetPluginsConfig sets the plugin configuration
 func SetPluginsConfig(config []plugin.Config) {
 	globalConf.PluginsConfig = config
+}
+
+// HasKMSPlugin returns true if at least one KMS plugin is configured.
+func HasKMSPlugin() bool {
+	for _, c := range globalConf.PluginsConfig {
+		if c.Type == kmsplugin.PluginName {
+			return true
+		}
+	}
+	return false
 }
 
 // GetMFAConfig returns multi-factor authentication config
