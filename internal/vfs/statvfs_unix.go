@@ -13,7 +13,6 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //go:build freebsd || darwin
-// +build freebsd darwin
 
 package vfs
 

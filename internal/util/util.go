@@ -50,7 +50,7 @@ import (
 	"unsafe"
 
 	"github.com/google/uuid"
-	"github.com/lithammer/shortuuid/v3"
+	"github.com/lithammer/shortuuid/v4"
 	"golang.org/x/crypto/ssh"
 
 	"github.com/drakkan/sftpgo/v2/internal/logger"

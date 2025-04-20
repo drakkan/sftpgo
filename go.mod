@@ -38,9 +38,9 @@ require (
 	github.com/jackc/pgx/v5 v5.7.4
 	github.com/jlaffaye/ftp v0.2.0
 	github.com/klauspost/compress v1.18.0
-	github.com/lestrrat-go/jwx/v2 v2.1.5-0.20250226052408-de7d95fda31a
-	github.com/lithammer/shortuuid/v3 v3.0.7
-	github.com/mattn/go-sqlite3 v1.14.27
+	github.com/lestrrat-go/jwx/v2 v2.1.6-0.20250420095048-a18531964875
+	github.com/lithammer/shortuuid/v4 v4.2.0
+	github.com/mattn/go-sqlite3 v1.14.28
 	github.com/mhale/smtpd v0.8.3
 	github.com/minio/sio v0.4.1
 	github.com/otiai10/copy v1.14.1
@@ -117,12 +117,12 @@ require (
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
-	github.com/go-jose/go-jose/v4 v4.0.5 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.0 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
-	github.com/goccy/go-json v0.10.4 // indirect
+	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
@@ -137,7 +137,7 @@ require (
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/kr/fs v0.1.0 // indirect
-	github.com/lestrrat-go/blackmagic v1.0.2 // indirect
+	github.com/lestrrat-go/blackmagic v1.0.3 // indirect
 	github.com/lestrrat-go/httpcc v1.0.1 // indirect
 	github.com/lestrrat-go/httprc v1.0.6 // indirect
 	github.com/lestrrat-go/iter v1.0.2 // indirect
@@ -145,7 +145,7 @@ require (
 	github.com/lufia/plan9stats v0.0.0-20240909124753-873cd0166683 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/miekg/dns v1.1.62 // indirect
+	github.com/miekg/dns v1.1.64 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/oklog/run v1.1.0 // indirect
 	github.com/otiai10/mint v1.6.3 // indirect
@@ -177,10 +177,10 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.34.0 // indirect
 	go.opentelemetry.io/otel/trace v1.34.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/mod v0.22.0 // indirect
+	golang.org/x/mod v0.23.0 // indirect
 	golang.org/x/sync v0.13.0 // indirect
 	golang.org/x/text v0.24.0 // indirect
-	golang.org/x/tools v0.28.0 // indirect
+	golang.org/x/tools v0.30.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 	google.golang.org/genproto v0.0.0-20250303144028-a0af3efb3deb // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250303144028-a0af3efb3deb // indirect
@@ -194,5 +194,5 @@ replace (
 	github.com/fclairamb/ftpserverlib => github.com/drakkan/ftpserverlib v0.0.0-20250204143431-e069fad14727
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20240430173938-7ba8270c8e7f
 	github.com/robfig/cron/v3 => github.com/drakkan/cron/v3 v3.0.0-20230222140221-217a1e4d96c0
-	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20250412202113-488a7baf0216
+	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20250420101914-6ac0129dc1f7
 )

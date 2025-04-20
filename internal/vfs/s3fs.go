@@ -13,7 +13,6 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //go:build !nos3
-// +build !nos3
 
 package vfs
 
