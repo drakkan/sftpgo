@@ -251,7 +251,7 @@ func (u *User) CheckFsRoot(connectionID string) error {
 			delay = cacheTime
 		}
 	}
-	if isLastActivityRecent(u.LastLogin, delay) {
+	if isLastActivityRelativelyRecent(u.LastLogin, delay) {
 		if u.LastLogin > u.UpdatedAt {
 			if config.IsShared == 1 {
 				u.checkLocalHomeDir(connectionID)
@@ -1084,7 +1084,7 @@ func (u *User) skipExternalAuth() bool {
 	if u.Filters.ExternalAuthCacheTime <= 0 {
 		return false
 	}
-	return isLastActivityRecent(u.LastLogin, time.Duration(u.Filters.ExternalAuthCacheTime)*time.Second)
+	return isLastActivityRelativelyRecent(u.LastLogin, time.Duration(u.Filters.ExternalAuthCacheTime)*time.Second)
 }
 
 // CanManageShares returns true if the user can add, update and list shares
@@ -1357,7 +1357,7 @@ func (u *User) GetHomeDir() string {
 
 // HasRecentActivity returns true if the last user login is recent and so we can skip some expensive checks
 func (u *User) HasRecentActivity() bool {
-	return isLastActivityRecent(u.LastLogin, lastLoginMinDelay)
+	return isLastActivityRelativelyRecent(u.LastLogin, lastLoginMinDelay)
 }
 
 // HasQuotaRestrictions returns true if there are any disk quota restrictions

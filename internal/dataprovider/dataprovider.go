@@ -1483,7 +1483,7 @@ func UpdateLastLogin(user *User) {
 	if user.Filters.ExternalAuthCacheTime > 0 {
 		delay = time.Duration(user.Filters.ExternalAuthCacheTime) * time.Second
 	}
-	if user.LastLogin <= user.UpdatedAt || !isLastActivityRecent(user.LastLogin, delay) {
+	if user.LastLogin <= user.UpdatedAt || !isLastActivityRelativelyRecent(user.LastLogin, delay) {
 		err := provider.updateLastLogin(user.Username)
 		if err == nil {
 			webDAVUsersCache.updateLastLogin(user.Username)
@@ -1493,7 +1493,7 @@ func UpdateLastLogin(user *User) {
 
 // UpdateAdminLastLogin updates the last login field for the given SFTPGo admin
 func UpdateAdminLastLogin(admin *Admin) {
-	if !isLastActivityRecent(admin.LastLogin, lastLoginMinDelay) {
+	if !isLastActivityRelativelyRecent(admin.LastLogin, lastLoginMinDelay) {
 		provider.updateAdminLastLogin(admin.Username) //nolint:errcheck
 	}
 }
@@ -4649,13 +4649,16 @@ func getUserAndJSONForHook(username string, oidcTokenFields *map[string]any) (Us
 	return u, mergedUser, userAsJSON, err
 }
 
-func isLastActivityRecent(lastActivity int64, minDelay time.Duration) bool {
+// isLastActivityRelativelyRecent returns true if lastActivity is relatively
+// recent, i.e. not too recently, but within minDelay.
+func isLastActivityRelativelyRecent(lastActivity int64, minDelay time.Duration) bool {
 	lastActivityTime := util.GetTimeFromMsecSinceEpoch(lastActivity)
-	diff := -time.Until(lastActivityTime)
-	if diff < -10*time.Second {
+	elapsed := time.Since(lastActivityTime)
+	if elapsed < 10*time.Second {
+		// is very recent
 		return false
 	}
-	return diff < minDelay
+	return elapsed < minDelay
 }
 
 func isExternalAuthConfigured(loginMethod string) bool {
