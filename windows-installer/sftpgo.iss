@@ -48,7 +48,7 @@ PrivilegesRequired=admin
 ArchitecturesAllowed={#MyAppArch}
 MinVersion=10.0.14393
 VersionInfoVersion={#MyVersionInfo}
-VersionInfoCopyright=AGPL-3.0 with additional terms
+VersionInfoCopyright=2019-2025 Nicola Murino
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
