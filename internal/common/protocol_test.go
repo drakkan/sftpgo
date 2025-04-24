@@ -6966,7 +6966,7 @@ func TestEventRuleRenameEvent(t *testing.T) {
 				Recipients:  []string{"test@example.com"},
 				Subject:     `"{{.Event}}" from "{{.Name}}"`,
 				ContentType: 1,
-				Body:        `<p>Fs path {{.FsPath}}, Target path "{{.VirtualTargetDirPath}}/{{.TargetName}}", size: {{.FileSize}}</p>`,
+				Body:        `<p>Fs path {{.FsPath}}, Name: {{.Name}}, Target path "{{.VirtualTargetDirPath}}/{{.TargetName}}", size: {{.FileSize}}</p>`,
 			},
 		},
 	}
@@ -6991,7 +6991,9 @@ func TestEventRuleRenameEvent(t *testing.T) {
 	rule1, _, err := httpdtest.AddEventRule(r1, http.StatusCreated)
 	assert.NoError(t, err)
 
-	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	u := getTestUser()
+	u.Username = "test <html > chars"
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	conn, client, err := getSftpClient(user)
 	if assert.NoError(t, err) {
@@ -7015,6 +7017,7 @@ func TestEventRuleRenameEvent(t *testing.T) {
 		assert.Contains(t, email.Data, fmt.Sprintf(`Subject: "rename" from "%s"`, user.Username))
 		assert.Contains(t, email.Data, "Content-Type: text/html")
 		assert.Contains(t, email.Data, fmt.Sprintf("Target path %q", path.Join("/subdir", testFileName)))
+		assert.Contains(t, email.Data, "Name: test &lt;html &gt; chars,")
 	}
 
 	_, err = httpdtest.RemoveEventRule(rule1, http.StatusOK)
