@@ -805,7 +805,7 @@ func TestDateTimePlaceholder(t *testing.T) {
 	params := EventParams{
 		Timestamp: dateTime,
 	}
-	replacements := params.getStringReplacements(false, false)
+	replacements := params.getStringReplacements(false, 0)
 	r := strings.NewReplacer(replacements...)
 	res := r.Replace("{{DateTime}}")
 	assert.Equal(t, dateTime.UTC().Format(dateTimeMillisFormat), res)
@@ -2310,7 +2310,7 @@ func TestMetadataReplacement(t *testing.T) {
 			"key": "value",
 		},
 	}
-	replacements := params.getStringReplacements(false, false)
+	replacements := params.getStringReplacements(false, 0)
 	replacer := strings.NewReplacer(replacements...)
 	reader, _, err := getHTTPRuleActionBody(&dataprovider.EventActionHTTPConfig{Body: "{{Metadata}} {{MetadataString}}"}, replacer, nil, dataprovider.User{}, params, false)
 	require.NoError(t, err)

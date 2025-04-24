@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -774,14 +775,18 @@ func (p *EventParams) getRetentionReportsAsMailAttachment() (*mail.File, error) 
 	}, nil
 }
 
-func (*EventParams) getStringReplacement(val string, jsonEscaped bool) string {
-	if jsonEscaped {
+func (*EventParams) getStringReplacement(val string, escapeMode int) string {
+	switch escapeMode {
+	case 1:
 		return util.JSONEscape(val)
+	case 2:
+		return html.EscapeString(val)
+	default:
+		return val
 	}
-	return val
 }
 
-func (p *EventParams) getStringReplacements(addObjectData, jsonEscaped bool) []string {
+func (p *EventParams) getStringReplacements(addObjectData bool, escapeMode int) []string {
 	dateTimeString := p.Timestamp.UTC().Format(dateTimeMillisFormat)
 	year := dateTimeString[0:4]
 	month := dateTimeString[5:7]
@@ -790,22 +795,22 @@ func (p *EventParams) getStringReplacements(addObjectData, jsonEscaped bool) []s
 	minute := dateTimeString[14:16]
 
 	replacements := []string{
-		"{{Name}}", p.getStringReplacement(p.Name, jsonEscaped),
+		"{{Name}}", p.getStringReplacement(p.Name, escapeMode),
 		"{{Event}}", p.Event,
 		"{{Status}}", fmt.Sprintf("%d", p.Status),
-		"{{VirtualPath}}", p.getStringReplacement(p.VirtualPath, jsonEscaped),
-		"{{EscapedVirtualPath}}", p.getStringReplacement(url.QueryEscape(p.VirtualPath), jsonEscaped),
-		"{{FsPath}}", p.getStringReplacement(p.FsPath, jsonEscaped),
-		"{{VirtualTargetPath}}", p.getStringReplacement(p.VirtualTargetPath, jsonEscaped),
-		"{{FsTargetPath}}", p.getStringReplacement(p.FsTargetPath, jsonEscaped),
-		"{{ObjectName}}", p.getStringReplacement(p.ObjectName, jsonEscaped),
+		"{{VirtualPath}}", p.getStringReplacement(p.VirtualPath, escapeMode),
+		"{{EscapedVirtualPath}}", p.getStringReplacement(url.QueryEscape(p.VirtualPath), escapeMode),
+		"{{FsPath}}", p.getStringReplacement(p.FsPath, escapeMode),
+		"{{VirtualTargetPath}}", p.getStringReplacement(p.VirtualTargetPath, escapeMode),
+		"{{FsTargetPath}}", p.getStringReplacement(p.FsTargetPath, escapeMode),
+		"{{ObjectName}}", p.getStringReplacement(p.ObjectName, escapeMode),
 		"{{ObjectType}}", p.ObjectType,
 		"{{FileSize}}", strconv.FormatInt(p.FileSize, 10),
 		"{{Elapsed}}", strconv.FormatInt(p.Elapsed, 10),
 		"{{Protocol}}", p.Protocol,
 		"{{IP}}", p.IP,
-		"{{Role}}", p.getStringReplacement(p.Role, jsonEscaped),
-		"{{Email}}", p.getStringReplacement(p.Email, jsonEscaped),
+		"{{Role}}", p.getStringReplacement(p.Role, escapeMode),
+		"{{Email}}", p.getStringReplacement(p.Email, escapeMode),
 		"{{Timestamp}}", strconv.FormatInt(p.Timestamp.UnixNano(), 10),
 		"{{DateTime}}", dateTimeString,
 		"{{Year}}", year,
@@ -814,18 +819,18 @@ func (p *EventParams) getStringReplacements(addObjectData, jsonEscaped bool) []s
 		"{{Hour}}", hour,
 		"{{Minute}}", minute,
 		"{{StatusString}}", p.getStatusString(),
-		"{{UID}}", p.getStringReplacement(p.UID, jsonEscaped),
-		"{{Ext}}", p.getStringReplacement(p.Extension, jsonEscaped),
+		"{{UID}}", p.getStringReplacement(p.UID, escapeMode),
+		"{{Ext}}", p.getStringReplacement(p.Extension, escapeMode),
 	}
 	if p.VirtualPath != "" {
-		replacements = append(replacements, "{{VirtualDirPath}}", p.getStringReplacement(path.Dir(p.VirtualPath), jsonEscaped))
+		replacements = append(replacements, "{{VirtualDirPath}}", p.getStringReplacement(path.Dir(p.VirtualPath), escapeMode))
 	}
 	if p.VirtualTargetPath != "" {
-		replacements = append(replacements, "{{VirtualTargetDirPath}}", p.getStringReplacement(path.Dir(p.VirtualTargetPath), jsonEscaped))
-		replacements = append(replacements, "{{TargetName}}", p.getStringReplacement(path.Base(p.VirtualTargetPath), jsonEscaped))
+		replacements = append(replacements, "{{VirtualTargetDirPath}}", p.getStringReplacement(path.Dir(p.VirtualTargetPath), escapeMode))
+		replacements = append(replacements, "{{TargetName}}", p.getStringReplacement(path.Base(p.VirtualTargetPath), escapeMode))
 	}
 	if len(p.errors) > 0 {
-		replacements = append(replacements, "{{ErrorString}}", p.getStringReplacement(strings.Join(p.errors, ", "), jsonEscaped))
+		replacements = append(replacements, "{{ErrorString}}", p.getStringReplacement(strings.Join(p.errors, ", "), escapeMode))
 	} else {
 		replacements = append(replacements, "{{ErrorString}}", "")
 	}
@@ -835,13 +840,13 @@ func (p *EventParams) getStringReplacements(addObjectData, jsonEscaped bool) []s
 		data, err := p.Object.RenderAsJSON(p.Event != operationDelete)
 		if err == nil {
 			dataString := util.BytesToString(data)
-			replacements[len(replacements)-3] = p.getStringReplacement(dataString, false)
-			replacements[len(replacements)-1] = p.getStringReplacement(dataString, true)
+			replacements[len(replacements)-3] = p.getStringReplacement(dataString, 0)
+			replacements[len(replacements)-1] = p.getStringReplacement(dataString, 1)
 		}
 	}
 	if p.IDPCustomFields != nil {
 		for k, v := range *p.IDPCustomFields {
-			replacements = append(replacements, fmt.Sprintf("{{IDPField%s}}", k), p.getStringReplacement(v, jsonEscaped))
+			replacements = append(replacements, fmt.Sprintf("{{IDPField%s}}", k), p.getStringReplacement(v, escapeMode))
 		}
 	}
 	replacements = append(replacements, "{{Metadata}}", "{}")
@@ -850,8 +855,8 @@ func (p *EventParams) getStringReplacements(addObjectData, jsonEscaped bool) []s
 		data, err := json.Marshal(p.Metadata)
 		if err == nil {
 			dataString := util.BytesToString(data)
-			replacements[len(replacements)-3] = p.getStringReplacement(dataString, false)
-			replacements[len(replacements)-1] = p.getStringReplacement(dataString, true)
+			replacements[len(replacements)-3] = p.getStringReplacement(dataString, 0)
+			replacements[len(replacements)-1] = p.getStringReplacement(dataString, 1)
 		}
 	}
 	return replacements
@@ -1310,7 +1315,7 @@ func writeHTTPPart(m *multipart.Writer, part dataprovider.HTTPPart, h textproto.
 	if part.Body != "" {
 		cType := h.Get("Content-Type")
 		if strings.Contains(strings.ToLower(cType), "application/json") {
-			replacements := params.getStringReplacements(addObjectData, true)
+			replacements := params.getStringReplacements(addObjectData, 1)
 			jsonReplacer := strings.NewReplacer(replacements...)
 			_, err = partWriter.Write(util.StringToBytes(replaceWithReplacer(part.Body, jsonReplacer)))
 		} else {
@@ -1358,7 +1363,7 @@ func getHTTPRuleActionBody(c *dataprovider.EventActionHTTPConfig, replacer *stri
 			return bytes.NewBuffer(data), "", nil
 		}
 		if c.HasJSONBody() {
-			replacements := params.getStringReplacements(addObjectData, true)
+			replacements := params.getStringReplacements(addObjectData, 1)
 			jsonReplacer := strings.NewReplacer(replacements...)
 			return bytes.NewBufferString(replaceWithReplacer(c.Body, jsonReplacer)), "", nil
 		}
@@ -1446,7 +1451,7 @@ func executeHTTPRuleAction(c dataprovider.EventActionHTTPConfig, params *EventPa
 		addObjectData = c.HasObjectData()
 	}
 
-	replacements := params.getStringReplacements(addObjectData, false)
+	replacements := params.getStringReplacements(addObjectData, 0)
 	replacer := strings.NewReplacer(replacements...)
 	endpoint, err := getHTTPRuleActionEndpoint(&c, replacer)
 	if err != nil {
@@ -1517,7 +1522,7 @@ func executeCommandRuleAction(c dataprovider.EventActionCommandConfig, params *E
 			}
 		}
 	}
-	replacements := params.getStringReplacements(addObjectData, false)
+	replacements := params.getStringReplacements(addObjectData, 0)
 	replacer := strings.NewReplacer(replacements...)
 
 	args := make([]string, 0, len(c.Args))
@@ -1572,9 +1577,16 @@ func executeEmailRuleAction(c dataprovider.EventActionEmailConfig, params *Event
 			addObjectData = true
 		}
 	}
-	replacements := params.getStringReplacements(addObjectData, false)
+	replacements := params.getStringReplacements(addObjectData, 0)
 	replacer := strings.NewReplacer(replacements...)
-	body := replaceWithReplacer(c.Body, replacer)
+	var body string
+	if c.ContentType == 1 {
+		replacements := params.getStringReplacements(addObjectData, 2)
+		bodyReplacer := strings.NewReplacer(replacements...)
+		body = replaceWithReplacer(c.Body, bodyReplacer)
+	} else {
+		body = replaceWithReplacer(c.Body, replacer)
+	}
 	subject := replaceWithReplacer(c.Subject, replacer)
 	recipients := getEmailAddressesWithReplacer(c.Recipients, replacer)
 	bcc := getEmailAddressesWithReplacer(c.Bcc, replacer)
@@ -2142,7 +2154,7 @@ func executeFsRuleAction(c dataprovider.EventActionFilesystemConfig, conditions 
 	params *EventParams,
 ) error {
 	addObjectData := false
-	replacements := params.getStringReplacements(addObjectData, false)
+	replacements := params.getStringReplacements(addObjectData, 0)
 	replacer := strings.NewReplacer(replacements...)
 	switch c.Type {
 	case dataprovider.FilesystemActionRename:
@@ -2542,7 +2554,7 @@ func executeAdminCheckAction(c *dataprovider.EventActionIDPAccountCheck, params 
 		return nil, err
 	}
 
-	replacements := params.getStringReplacements(false, true)
+	replacements := params.getStringReplacements(false, 1)
 	replacer := strings.NewReplacer(replacements...)
 	data := replaceWithReplacer(c.TemplateAdmin, replacer)
 
@@ -2609,7 +2621,7 @@ func executeUserCheckAction(c *dataprovider.EventActionIDPAccountCheck, params *
 	if err != nil && !errors.Is(err, util.ErrNotFound) {
 		return nil, err
 	}
-	replacements := params.getStringReplacements(false, true)
+	replacements := params.getStringReplacements(false, 1)
 	replacer := strings.NewReplacer(replacements...)
 	data := replaceWithReplacer(c.TemplateUser, replacer)
 
