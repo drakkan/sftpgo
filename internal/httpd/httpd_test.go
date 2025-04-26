@@ -6908,6 +6908,57 @@ func TestAdminGenerateRecoveryCodesSaveError(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestAdminCredentialsWithSpaces(t *testing.T) {
+	a := getTestAdmin()
+	a.Username = xid.New().String()
+	a.Password = " " + xid.New().String() + " "
+	admin, _, err := httpdtest.AddAdmin(a, http.StatusCreated)
+	assert.NoError(t, err)
+	// For admins the password is always trimmed.
+	_, err = getJWTAPITokenFromTestServer(a.Username, a.Password)
+	assert.Error(t, err)
+	_, err = getJWTAPITokenFromTestServer(a.Username, strings.TrimSpace(a.Password))
+	assert.NoError(t, err)
+	// The password sent from the WebAdmin UI is automatically trimmed
+	_, err = getJWTWebToken(a.Username, a.Password)
+	assert.NoError(t, err)
+	_, err = getJWTWebToken(a.Username, strings.TrimSpace(a.Password))
+	assert.NoError(t, err)
+
+	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestUserCredentialsWithSpaces(t *testing.T) {
+	u := getTestUser()
+	u.Password = " " + xid.New().String() + " "
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	// For users the password is not trimmed
+	_, err = getJWTAPIUserTokenFromTestServer(u.Username, u.Password)
+	assert.NoError(t, err)
+	_, err = getJWTAPIUserTokenFromTestServer(u.Username, strings.TrimSpace(u.Password))
+	assert.Error(t, err)
+
+	_, err = getJWTWebClientTokenFromTestServer(u.Username, u.Password)
+	assert.NoError(t, err)
+	_, err = getJWTWebClientTokenFromTestServer(u.Username, strings.TrimSpace(u.Password))
+	assert.Error(t, err)
+
+	user.Password = u.Password
+	conn, sftpClient, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		conn.Close()
+		sftpClient.Close()
+	}
+	user.Password = strings.TrimSpace(u.Password)
+	_, _, err = getSftpClient(user)
+	assert.Error(t, err)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+}
+
 func TestNamingRules(t *testing.T) {
 	smtpCfg := smtp.Config{
 		Host:          "127.0.0.1",

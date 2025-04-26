@@ -3537,7 +3537,7 @@ func checkUserAndPass(user *User, password, ip, protocol string) (User, error) {
 	if err != nil {
 		return *user, ErrInvalidCredentials
 	}
-	if user.Password == "" || password == "" {
+	if user.Password == "" || strings.TrimSpace(password) == "" {
 		return *user, errors.New("credentials cannot be null or empty")
 	}
 	if !user.Filters.Hooks.CheckPasswordDisabled {
