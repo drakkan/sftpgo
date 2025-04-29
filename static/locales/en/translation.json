@@ -103,6 +103,7 @@
         "link": "Go to {{link}}"
     },
     "theme": {
+        "switcher": "Switch theme",
         "light": "Light",
         "dark": "Dark",
         "system": "Auto"
