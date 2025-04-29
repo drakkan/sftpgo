@@ -27,6 +27,7 @@ import (
 	"crypto/sha512"
 	"crypto/subtle"
 	"crypto/x509"
+	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -90,7 +91,7 @@ const (
 	CockroachDataProviderName = "cockroachdb"
 	// DumpVersion defines the version for the dump.
 	// For restore/load we support the current version and the previous one
-	DumpVersion = 16
+	DumpVersion = 17
 
 	argonPwdPrefix            = "$argon2id$"
 	bcryptPwdPrefix           = "$2a$"
@@ -824,8 +825,8 @@ type Provider interface {
 	cleanupActiveTransfers(before time.Time) error
 	getActiveTransfers(from time.Time) ([]ActiveTransfer, error)
 	addSharedSession(session Session) error
-	deleteSharedSession(key string) error
-	getSharedSession(key string) (Session, error)
+	deleteSharedSession(key string, sessionType SessionType) error
+	getSharedSession(key string, sessionType SessionType) (Session, error)
 	cleanupSharedSessions(sessionType SessionType, before int64) error
 	getEventActions(limit, offset int, order string, minimal bool) ([]BaseEventAction, error)
 	dumpEventActions() ([]BaseEventAction, error)
@@ -2244,8 +2245,8 @@ func AddSharedSession(session Session) error {
 }
 
 // DeleteSharedSession deletes the session with the specified key
-func DeleteSharedSession(key string) error {
-	err := provider.deleteSharedSession(key)
+func DeleteSharedSession(key string, sessionType SessionType) error {
+	err := provider.deleteSharedSession(key, sessionType)
 	if err != nil {
 		providerLog(logger.LevelError, "unable to add shared session, key %q, err: %v", key, err)
 	}
@@ -2253,8 +2254,8 @@ func DeleteSharedSession(key string) error {
 }
 
 // GetSharedSession retrieves the session with the specified key
-func GetSharedSession(key string) (Session, error) {
-	return provider.getSharedSession(key)
+func GetSharedSession(key string, sessionType SessionType) (Session, error) {
+	return provider.getSharedSession(key, sessionType)
 }
 
 // CleanupSharedSessions removes the shared session with the specified type and
@@ -2557,6 +2558,17 @@ func DumpData(scopes []string) (BackupData, error) {
 func ParseDumpData(data []byte) (BackupData, error) {
 	var dump BackupData
 	err := json.Unmarshal(data, &dump)
+	if err != nil {
+		return dump, err
+	}
+	if dump.Version < 17 {
+		providerLog(logger.LevelInfo, "updating placeholders for actions restored from dump version %d", dump.Version)
+		eventActions, err := updateEventActionPlaceholders(dump.EventActions)
+		if err != nil {
+			return dump, fmt.Errorf("unable to update event action placeholders for dump version %d: %w", dump.Version, err)
+		}
+		dump.EventActions = eventActions
+	}
 	return dump, err
 }
 
@@ -3525,7 +3537,7 @@ func checkUserAndPass(user *User, password, ip, protocol string) (User, error) {
 	if err != nil {
 		return *user, ErrInvalidCredentials
 	}
-	if user.Password == "" || password == "" {
+	if user.Password == "" || strings.TrimSpace(password) == "" {
 		return *user, errors.New("credentials cannot be null or empty")
 	}
 	if !user.Filters.Hooks.CheckPasswordDisabled {
@@ -3700,7 +3712,8 @@ func comparePbkdf2PasswordAndHash(password, hashedPassword string) (bool, error)
 }
 
 func getSSLMode() string {
-	if config.Driver == PGSQLDataProviderName || config.Driver == CockroachDataProviderName {
+	switch config.Driver {
+	case PGSQLDataProviderName, CockroachDataProviderName:
 		switch config.SSLMode {
 		case 0:
 			return "disable"
@@ -3715,7 +3728,7 @@ func getSSLMode() string {
 		case 5:
 			return "allow"
 		}
-	} else if config.Driver == MySQLDataProviderName {
+	case MySQLDataProviderName:
 		if config.requireCustomTLSForMySQL() {
 			return "custom"
 		}
@@ -4242,18 +4255,19 @@ func executePreLoginHook(username, loginMethod, ip, protocol string, oidcTokenFi
 		u.Filters.TOTPConfig = totpConfig
 		u.Filters.RecoveryCodes = recoveryCodes
 		err = provider.updateUser(&u)
-		if err == nil {
-			webDAVUsersCache.swap(&u, "")
-		}
 	}
 	if err != nil {
 		return u, err
 	}
-	providerLog(logger.LevelDebug, "user %q added/updated from pre-login hook response, id: %d", username, userID)
-	if userID == 0 {
-		return provider.userExists(username, "")
+	user, err := provider.userExists(username, "")
+	if err != nil {
+		return u, err
 	}
-	return u, nil
+	providerLog(logger.LevelDebug, "user %q added/updated from pre-login hook response, id: %d", username, userID)
+	if userID > 0 {
+		webDAVUsersCache.swap(&user, "")
+	}
+	return user, nil
 }
 
 // ExecutePostLoginHook executes the post login hook if defined
@@ -4669,6 +4683,176 @@ func isExternalAuthConfigured(loginMethod string) bool {
 	default:
 		return false
 	}
+}
+
+func replaceTemplateVars(input string) string {
+	var result strings.Builder
+	i := 0
+	for i < len(input) {
+		if i+2 <= len(input) && input[i:i+2] == "{{" {
+			if i+2 < len(input) {
+				nextChar := input[i+2]
+				if nextChar == ' ' || nextChar == '.' || nextChar == '-' {
+					// Don't replace if followed by space, dot or minus.
+					result.WriteString("{{")
+					i += 2
+					continue
+				}
+			}
+
+			// Find the closing "}}"
+			closing := strings.Index(input[i:], "}}")
+			if closing != -1 {
+				// Replace with {{. only if it's a proper template variable.
+				result.WriteString("{{.")
+				result.WriteString(input[i+2 : i+closing])
+				result.WriteString("}}")
+				i += closing + 2
+				continue
+			}
+		}
+		result.WriteByte(input[i])
+		i++
+	}
+	return result.String()
+}
+
+func restoreTemplateVars(input string) string {
+	var result strings.Builder
+	i := 0
+
+	for i < len(input) {
+		if i+3 <= len(input) && input[i:i+3] == "{{." {
+			if i+3 < len(input) {
+				nextChar := input[i+3]
+				if nextChar == ' ' || nextChar == '.' || nextChar == '-' {
+					// Don't change if it's a space, dot, or minus
+					result.WriteString("{{.")
+					i += 3
+					continue
+				}
+			}
+			// Find the closing "}}"
+			closing := strings.Index(input[i:], "}}")
+			if closing != -1 {
+				// Strip the dot and write the rest
+				result.WriteString("{{")
+				result.WriteString(input[i+3 : i+closing])
+				result.WriteString("}}")
+				i += closing + 2
+				continue
+			}
+		}
+
+		result.WriteByte(input[i])
+		i++
+	}
+
+	return result.String()
+}
+
+func updateEventActionPlaceholders(actions []BaseEventAction) ([]BaseEventAction, error) {
+	var result []BaseEventAction
+
+	for _, action := range actions {
+		options, err := json.Marshal(action.Options)
+		if err != nil {
+			return nil, err
+		}
+		convertedOptions := replaceTemplateVars(string(options))
+		var opts BaseEventActionOptions
+		err = json.Unmarshal([]byte(convertedOptions), &opts)
+		if err != nil {
+			return nil, err
+		}
+		action.Options = opts
+		result = append(result, action)
+	}
+
+	return result, nil
+}
+
+func restoreEventActionsPlaceholders(actions []BaseEventAction) ([]BaseEventAction, error) {
+	var result []BaseEventAction
+
+	for _, action := range actions {
+		options, err := json.Marshal(action.Options)
+		if err != nil {
+			return nil, err
+		}
+		convertedOptions := restoreTemplateVars(string(options))
+		var opts BaseEventActionOptions
+		err = json.Unmarshal([]byte(convertedOptions), &opts)
+		if err != nil {
+			return nil, err
+		}
+		action.Options = opts
+		result = append(result, action)
+	}
+
+	return result, nil
+}
+
+func updateEventActions() error {
+	actions, err := provider.dumpEventActions()
+	if err != nil {
+		return err
+	}
+	convertedActions, err := updateEventActionPlaceholders(actions)
+	if err != nil {
+		return err
+	}
+	for _, action := range convertedActions {
+		providerLog(logger.LevelInfo, "updating placeholders for event action %q", action.Name)
+		if err := provider.updateEventAction(&action); err != nil {
+			return fmt.Errorf("unable to save updated event action %q: %w", action.Name, err)
+		}
+	}
+	return nil
+}
+
+func restoreEventActions() error {
+	actions, err := provider.dumpEventActions()
+	if err != nil {
+		return err
+	}
+	convertedActions, err := restoreEventActionsPlaceholders(actions)
+	if err != nil {
+		return err
+	}
+	for _, action := range convertedActions {
+		providerLog(logger.LevelInfo, "restoring placeholders for event action %q", action.Name)
+		if err := provider.updateEventAction(&action); err != nil {
+			return fmt.Errorf("unable to save updated event action %q: %w", action.Name, err)
+		}
+	}
+	return nil
+}
+
+func updateSQLDatabaseFrom31To32(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database data version: 31 -> 32")
+	providerLog(logger.LevelInfo, "updating database data version: 31 -> 32")
+
+	if err := updateEventActions(); err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), longSQLQueryTimeout)
+	defer cancel()
+
+	return sqlCommonUpdateDatabaseVersion(ctx, dbHandle, 32)
+}
+
+func downgradeSQLDatabaseFrom32To31(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database data version: 32 -> 31")
+	providerLog(logger.LevelInfo, "downgrading database data version: 32 -> 31")
+
+	if err := restoreEventActions(); err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), longSQLQueryTimeout)
+	defer cancel()
+
+	return sqlCommonUpdateDatabaseVersion(ctx, dbHandle, 31)
 }
 
 func getConfigPath(name, configDir string) string {

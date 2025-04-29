@@ -752,7 +752,7 @@ func (s *httpdServer) renderResetPwdPage(w http.ResponseWriter, r *http.Request,
 func (s *httpdServer) renderTwoFactorPage(w http.ResponseWriter, r *http.Request, err *util.I18nError) {
 	data := twoFactorPage{
 		commonBasePage: getCommonBasePage(r),
-		Title:          pageTwoFactorTitle,
+		Title:          util.I18n2FATitle,
 		CurrentURL:     webAdminTwoFactorPath,
 		Error:          err,
 		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, "", webBaseAdminPath),
@@ -766,7 +766,7 @@ func (s *httpdServer) renderTwoFactorPage(w http.ResponseWriter, r *http.Request
 func (s *httpdServer) renderTwoFactorRecoveryPage(w http.ResponseWriter, r *http.Request, err *util.I18nError) {
 	data := twoFactorPage{
 		commonBasePage: getCommonBasePage(r),
-		Title:          pageTwoFactorRecoveryTitle,
+		Title:          util.I18n2FATitle,
 		CurrentURL:     webAdminTwoFactorRecoveryPath,
 		Error:          err,
 		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, "", webBaseAdminPath),
@@ -778,7 +778,7 @@ func (s *httpdServer) renderTwoFactorRecoveryPage(w http.ResponseWriter, r *http
 
 func (s *httpdServer) renderMFAPage(w http.ResponseWriter, r *http.Request) {
 	data := mfaPage{
-		basePage:        s.getBasePageData(pageMFATitle, webAdminMFAPath, w, r),
+		basePage:        s.getBasePageData(util.I18n2FATitle, webAdminMFAPath, w, r),
 		TOTPConfigs:     mfa.GetAvailableTOTPConfigNames(),
 		GenerateTOTPURL: webAdminTOTPGeneratePath,
 		ValidateTOTPURL: webAdminTOTPValidatePath,
@@ -3111,7 +3111,11 @@ func (s *httpdServer) handleWebAddAdminPost(w http.ResponseWriter, r *http.Reque
 		s.renderAddUpdateAdminPage(w, r, &admin, err, true)
 		return
 	}
-	if admin.Password == "" && s.binding.isWebAdminLoginFormDisabled() {
+	if admin.Password == "" {
+		// Administrators can be used with OpenID Connect or for authentication
+		// via API key, in these cases the password is not necessary, we create
+		// a non-usable one. This feature is only useful for WebAdmin, in REST
+		// API you can create an unusable password externally.
 		admin.Password = util.GenerateUniqueID()
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)

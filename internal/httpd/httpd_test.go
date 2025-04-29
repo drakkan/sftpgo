@@ -578,27 +578,28 @@ func TestInitialization(t *testing.T) {
 	httpdConf.Bindings[0].OIDC = httpd.OIDC{}
 	httpdConf.Bindings[0].EnableWebClient = true
 	httpdConf.Bindings[0].EnableWebAdmin = true
-	httpdConf.Bindings[0].EnabledLoginMethods = 1
+	httpdConf.Bindings[0].EnableRESTAPI = true
+	httpdConf.Bindings[0].DisabledLoginMethods = 14
 	err = httpdConf.Initialize(configDir, isShared)
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "no login method available for WebAdmin UI")
 	}
-	httpdConf.Bindings[0].EnabledLoginMethods = 2
+	httpdConf.Bindings[0].DisabledLoginMethods = 13
 	err = httpdConf.Initialize(configDir, isShared)
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "no login method available for WebAdmin UI")
 	}
-	httpdConf.Bindings[0].EnabledLoginMethods = 6
+	httpdConf.Bindings[0].DisabledLoginMethods = 9
 	err = httpdConf.Initialize(configDir, isShared)
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "no login method available for WebClient UI")
 	}
-	httpdConf.Bindings[0].EnabledLoginMethods = 4
+	httpdConf.Bindings[0].DisabledLoginMethods = 11
 	err = httpdConf.Initialize(configDir, isShared)
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "no login method available for WebClient UI")
 	}
-	httpdConf.Bindings[0].EnabledLoginMethods = 3
+	httpdConf.Bindings[0].DisabledLoginMethods = 12
 	err = httpdConf.Initialize(configDir, isShared)
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "no login method available for WebAdmin UI")
@@ -607,6 +608,12 @@ func TestInitialization(t *testing.T) {
 	err = httpdConf.Initialize(configDir, isShared)
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "no login method available for WebClient UI")
+	}
+	httpdConf.Bindings[0].EnableWebClient = false
+	httpdConf.Bindings[0].DisabledLoginMethods = 240
+	err = httpdConf.Initialize(configDir, isShared)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "no login method available for REST API")
 	}
 	err = dataprovider.Close()
 	assert.NoError(t, err)
@@ -618,6 +625,72 @@ func TestInitialization(t *testing.T) {
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
 	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+}
+
+func TestMigrateEventActionPlaceholders(t *testing.T) {
+	if config.GetProviderConf().Driver == dataprovider.MemoryDataProviderName {
+		t.Skip("this test is not supported with the memory provider")
+	}
+	// Add some event actions using the old placeholders syntax
+	a1 := dataprovider.BaseEventAction{
+		Name: xid.New().String(),
+		Type: dataprovider.ActionTypeEmail,
+		Options: dataprovider.BaseEventActionOptions{
+			EmailConfig: dataprovider.EventActionEmailConfig{
+				Recipients: []string{"failure@example.com"},
+				Subject:    `Failed "{{Event}}" from "{{Name}}"`,
+				Body:       "Object name: {{ObjectName}} object type: {{ObjectType}}, IP: {{IP}}",
+			},
+		},
+	}
+	a2 := dataprovider.BaseEventAction{
+		Name: xid.New().String(),
+		Type: dataprovider.ActionTypeFilesystem,
+		Options: dataprovider.BaseEventActionOptions{
+			FsConfig: dataprovider.EventActionFilesystemConfig{
+				Type: dataprovider.FilesystemActionRename,
+				Renames: []dataprovider.RenameConfig{
+					{
+						KeyValue: dataprovider.KeyValue{
+							Key:   "/{{VirtualDirPath}}/{{ObjectName}}",
+							Value: "/{{ObjectName}}_renamed",
+						},
+					},
+				},
+			},
+		},
+	}
+	action1, _, err := httpdtest.AddEventAction(a1, http.StatusCreated)
+	assert.NoError(t, err)
+	action2, _, err := httpdtest.AddEventAction(a2, http.StatusCreated)
+	assert.NoError(t, err)
+	// Revert the database to the previous version.
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	err = dataprovider.RevertDatabase(providerConf, configDir, 29)
+	assert.NoError(t, err)
+	// Close and initialize.
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+	// Check that actions are migrated.
+	action1Get, _, err := httpdtest.GetEventActionByName(action1.Name, http.StatusOK)
+	assert.NoError(t, err)
+	action2Get, _, err := httpdtest.GetEventActionByName(action2.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, `Failed "{{.Event}}" from "{{.Name}}"`, action1Get.Options.EmailConfig.Subject)
+	assert.Equal(t, `Object name: {{.ObjectName}} object type: {{.ObjectType}}, IP: {{.IP}}`, action1Get.Options.EmailConfig.Body)
+	assert.Equal(t, `/{{.VirtualDirPath}}/{{.ObjectName}}`, action2Get.Options.FsConfig.Renames[0].Key)
+	assert.Equal(t, `/{{.ObjectName}}_renamed`, action2Get.Options.FsConfig.Renames[0].Value)
+	// Clenup.
+	_, err = httpdtest.RemoveEventAction(action1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action2, http.StatusOK)
 	assert.NoError(t, err)
 }
 
@@ -1357,19 +1430,19 @@ func TestGroupSettingsOverride(t *testing.T) {
 			switch f.Name {
 			case folderName1:
 				assert.Equal(t, mappedPath1, f.MappedPath)
-				assert.Equal(t, 3, f.BaseVirtualFolder.FsConfig.OSConfig.ReadBufferSize)
-				assert.Equal(t, 5, f.BaseVirtualFolder.FsConfig.OSConfig.WriteBufferSize)
+				assert.Equal(t, 3, f.FsConfig.OSConfig.ReadBufferSize)
+				assert.Equal(t, 5, f.FsConfig.OSConfig.WriteBufferSize)
 				assert.True(t, slices.Contains([]string{"/vdir1", "/vdir2"}, f.VirtualPath))
 			case folderName2:
 				assert.Equal(t, mappedPath2, f.MappedPath)
 				assert.Equal(t, "/vdir3", f.VirtualPath)
-				assert.Equal(t, 0, f.BaseVirtualFolder.FsConfig.OSConfig.ReadBufferSize)
-				assert.Equal(t, 0, f.BaseVirtualFolder.FsConfig.OSConfig.WriteBufferSize)
+				assert.Equal(t, 0, f.FsConfig.OSConfig.ReadBufferSize)
+				assert.Equal(t, 0, f.FsConfig.OSConfig.WriteBufferSize)
 			case folderName3:
 				assert.Equal(t, mappedPath3, f.MappedPath)
 				assert.Equal(t, "/vdir4", f.VirtualPath)
-				assert.Equal(t, 1, f.BaseVirtualFolder.FsConfig.OSConfig.ReadBufferSize)
-				assert.Equal(t, 2, f.BaseVirtualFolder.FsConfig.OSConfig.WriteBufferSize)
+				assert.Equal(t, 1, f.FsConfig.OSConfig.ReadBufferSize)
+				assert.Equal(t, 2, f.FsConfig.OSConfig.WriteBufferSize)
 			}
 		}
 	}
@@ -1856,9 +1929,9 @@ func TestBasicActionRulesHandling(t *testing.T) {
 		EmailConfig: dataprovider.EventActionEmailConfig{
 			Recipients:  []string{"email@example.com"},
 			Bcc:         []string{"bcc@example.com"},
-			Subject:     "Event: {{Event}}",
+			Subject:     "Event: {{.Event}}",
 			Body:        "test mail body",
-			Attachments: []string{"/{{VirtualPath}}"},
+			Attachments: []string{"/{{.VirtualPath}}"},
 		},
 	}
 
@@ -1896,7 +1969,7 @@ func TestBasicActionRulesHandling(t *testing.T) {
 					Value: "b",
 				},
 			},
-			Body: `{"event":"{{Event}}","name":"{{Name}}"}`,
+			Body: `{"event":"{{.Event}}","name":"{{.Name}}"}`,
 		},
 	}
 	action, _, err = httpdtest.UpdateEventAction(a, http.StatusOK)
@@ -4879,9 +4952,6 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	u.FsConfig.AzBlobConfig.AccountName = "name"
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
-	u.FsConfig.AzBlobConfig.Container = "container"
-	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
-	assert.NoError(t, err)
 	u.FsConfig.AzBlobConfig.AccountKey = kms.NewSecret(sdkkms.SecretStatusRedacted, "key", "", "")
 	u.FsConfig.AzBlobConfig.KeyPrefix = "/amedir/subdir/"
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
@@ -6838,6 +6908,57 @@ func TestAdminGenerateRecoveryCodesSaveError(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestAdminCredentialsWithSpaces(t *testing.T) {
+	a := getTestAdmin()
+	a.Username = xid.New().String()
+	a.Password = " " + xid.New().String() + " "
+	admin, _, err := httpdtest.AddAdmin(a, http.StatusCreated)
+	assert.NoError(t, err)
+	// For admins the password is always trimmed.
+	_, err = getJWTAPITokenFromTestServer(a.Username, a.Password)
+	assert.Error(t, err)
+	_, err = getJWTAPITokenFromTestServer(a.Username, strings.TrimSpace(a.Password))
+	assert.NoError(t, err)
+	// The password sent from the WebAdmin UI is automatically trimmed
+	_, err = getJWTWebToken(a.Username, a.Password)
+	assert.NoError(t, err)
+	_, err = getJWTWebToken(a.Username, strings.TrimSpace(a.Password))
+	assert.NoError(t, err)
+
+	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestUserCredentialsWithSpaces(t *testing.T) {
+	u := getTestUser()
+	u.Password = " " + xid.New().String() + " "
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	// For users the password is not trimmed
+	_, err = getJWTAPIUserTokenFromTestServer(u.Username, u.Password)
+	assert.NoError(t, err)
+	_, err = getJWTAPIUserTokenFromTestServer(u.Username, strings.TrimSpace(u.Password))
+	assert.Error(t, err)
+
+	_, err = getJWTWebClientTokenFromTestServer(u.Username, u.Password)
+	assert.NoError(t, err)
+	_, err = getJWTWebClientTokenFromTestServer(u.Username, strings.TrimSpace(u.Password))
+	assert.Error(t, err)
+
+	user.Password = u.Password
+	conn, sftpClient, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		conn.Close()
+		sftpClient.Close()
+	}
+	user.Password = strings.TrimSpace(u.Password)
+	_, _, err = getSftpClient(user)
+	assert.Error(t, err)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+}
+
 func TestNamingRules(t *testing.T) {
 	smtpCfg := smtp.Config{
 		Host:          "127.0.0.1",
@@ -8358,7 +8479,7 @@ func TestLoaddata(t *testing.T) {
 				Timeout:       10,
 				SkipTLSVerify: true,
 				Method:        http.MethodPost,
-				Body:          `{"event":"{{Event}}","name":"{{Name}}"}`,
+				Body:          `{"event":"{{.Event}}","name":"{{.Name}}"}`,
 			},
 		},
 	}
@@ -8604,6 +8725,85 @@ func TestLoaddata(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestLoaddataConvertActions(t *testing.T) {
+	a1 := dataprovider.BaseEventAction{
+		Name: xid.New().String(),
+		Type: dataprovider.ActionTypeEmail,
+		Options: dataprovider.BaseEventActionOptions{
+			EmailConfig: dataprovider.EventActionEmailConfig{
+				Recipients: []string{"failure@example.com"},
+				Subject:    `Failed "{{Event}}" from "{{Name}}"`,
+				Body:       "Object name: {{ObjectName}} object type: {{ObjectType}}, IP: {{IP}}",
+			},
+		},
+	}
+	a2 := dataprovider.BaseEventAction{
+		Name: xid.New().String(),
+		Type: dataprovider.ActionTypeFilesystem,
+		Options: dataprovider.BaseEventActionOptions{
+			FsConfig: dataprovider.EventActionFilesystemConfig{
+				Type: dataprovider.FilesystemActionRename,
+				Renames: []dataprovider.RenameConfig{
+					{
+						KeyValue: dataprovider.KeyValue{
+							Key:   "/{{VirtualDirPath}}/{{ObjectName}}",
+							Value: "/{{ObjectName}}_renamed",
+						},
+					},
+				},
+			},
+		},
+	}
+	backupData := dataprovider.BackupData{
+		EventActions: []dataprovider.BaseEventAction{a1, a2},
+		Version:      16,
+	}
+	backupContent, err := json.Marshal(backupData)
+	assert.NoError(t, err)
+	backupFilePath := filepath.Join(backupsPath, "backup.json")
+	err = os.WriteFile(backupFilePath, backupContent, os.ModePerm)
+	assert.NoError(t, err)
+	_, resp, err := httpdtest.Loaddata(backupFilePath, "1", "2", http.StatusOK)
+	assert.NoError(t, err, string(resp))
+	// Check that actions are migrated.
+	action1, _, err := httpdtest.GetEventActionByName(a1.Name, http.StatusOK)
+	assert.NoError(t, err)
+	action2, _, err := httpdtest.GetEventActionByName(a2.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, `Failed "{{.Event}}" from "{{.Name}}"`, action1.Options.EmailConfig.Subject)
+	assert.Equal(t, `Object name: {{.ObjectName}} object type: {{.ObjectType}}, IP: {{.IP}}`, action1.Options.EmailConfig.Body)
+	assert.Equal(t, `/{{.VirtualDirPath}}/{{.ObjectName}}`, action2.Options.FsConfig.Renames[0].Key)
+	assert.Equal(t, `/{{.ObjectName}}_renamed`, action2.Options.FsConfig.Renames[0].Value)
+	// If we restore a backup from the current version actions are not migrated.
+	backupData = dataprovider.BackupData{
+		EventActions: []dataprovider.BaseEventAction{a1, a2},
+		Version:      dataprovider.DumpVersion,
+	}
+	backupContent, err = json.Marshal(backupData)
+	assert.NoError(t, err)
+	backupFilePath = filepath.Join(backupsPath, "backup.json")
+	err = os.WriteFile(backupFilePath, backupContent, os.ModePerm)
+	assert.NoError(t, err)
+	_, resp, err = httpdtest.Loaddata(backupFilePath, "1", "2", http.StatusOK)
+	assert.NoError(t, err, string(resp))
+	action1, _, err = httpdtest.GetEventActionByName(a1.Name, http.StatusOK)
+	assert.NoError(t, err)
+	action2, _, err = httpdtest.GetEventActionByName(a2.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, `Failed "{{Event}}" from "{{Name}}"`, action1.Options.EmailConfig.Subject)
+	assert.Equal(t, `Object name: {{ObjectName}} object type: {{ObjectType}}, IP: {{IP}}`, action1.Options.EmailConfig.Body)
+	assert.Equal(t, `/{{VirtualDirPath}}/{{ObjectName}}`, action2.Options.FsConfig.Renames[0].Key)
+	assert.Equal(t, `/{{ObjectName}}_renamed`, action2.Options.FsConfig.Renames[0].Value)
+	// Cleanup.
+	_, err = httpdtest.RemoveEventAction(action1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action2, http.StatusOK)
+	assert.NoError(t, err)
+	actions, _, err := httpdtest.GetEventActions(0, 0, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, actions, 0)
+}
+
 func TestLoaddataMode(t *testing.T) {
 	err := dataprovider.UpdateConfigs(nil, "", "", "")
 	assert.NoError(t, err)
@@ -8661,7 +8861,7 @@ func TestLoaddataMode(t *testing.T) {
 				Timeout:       10,
 				SkipTLSVerify: true,
 				Method:        http.MethodPost,
-				Body:          `{"event":"{{Event}}","name":"{{Name}}"}`,
+				Body:          `{"event":"{{.Event}}","name":"{{.Name}}"}`,
 			},
 		},
 	}
@@ -20874,13 +21074,6 @@ func TestWebAdminBasicMock(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), util.I18nError500Message)
 
 	form.Set("default_users_expiration", "10")
-	req, _ = http.NewRequest(http.MethodPost, webAdminPath, bytes.NewBuffer([]byte(form.Encode())))
-	req.RemoteAddr = defaultRemoteAddr
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	setJWTCookieForReq(req, token)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr)
-
 	form.Set("password", admin.Password)
 	req, _ = http.NewRequest(http.MethodPost, webAdminPath, bytes.NewBuffer([]byte(form.Encode())))
 	req.RemoteAddr = defaultRemoteAddr
@@ -23834,7 +24027,7 @@ func TestWebEventAction(t *testing.T) {
 						Value: "value1",
 					},
 				},
-				Body: `{"event":"{{Event}}","name":"{{Name}}"}`,
+				Body: `{"event":"{{.Event}}","name":"{{.Name}}"}`,
 			},
 		},
 	}
@@ -23953,12 +24146,12 @@ func TestWebEventAction(t *testing.T) {
 	form.Del("http_headers[0][http_header_key]")
 	form.Del("http_headers[0][http_header_val]")
 	form.Set("multipart_body[0][http_part_name]", "part1")
-	form.Set("multipart_body[0][http_part_file]", "{{VirtualPath}}")
+	form.Set("multipart_body[0][http_part_file]", "{{.VirtualPath}}")
 	form.Set("multipart_body[0][http_part_body]", "")
 	form.Set("multipart_body[0][http_part_headers]", "X-MyHeader: a:b,c")
 	form.Set("multipart_body[12][http_part_name]", "part2")
 	form.Set("multipart_body[12][http_part_headers]", "Content-Type:application/json \r\n")
-	form.Set("multipart_body[12][http_part_body]", "{{ObjectData}}")
+	form.Set("multipart_body[12][http_part_body]", "{{.ObjectData}}")
 	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminEventActionPath, action.Name),
 		bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
@@ -23975,12 +24168,12 @@ func TestWebEventAction(t *testing.T) {
 	assert.Equal(t, 0, dbAction.Options.HTTPConfig.Timeout)
 	if assert.Len(t, dbAction.Options.HTTPConfig.Parts, 2) {
 		assert.Equal(t, "part1", dbAction.Options.HTTPConfig.Parts[0].Name)
-		assert.Equal(t, "/{{VirtualPath}}", dbAction.Options.HTTPConfig.Parts[0].Filepath)
+		assert.Equal(t, "/{{.VirtualPath}}", dbAction.Options.HTTPConfig.Parts[0].Filepath)
 		assert.Empty(t, dbAction.Options.HTTPConfig.Parts[0].Body)
 		assert.Equal(t, "X-MyHeader", dbAction.Options.HTTPConfig.Parts[0].Headers[0].Key)
 		assert.Equal(t, "a:b,c", dbAction.Options.HTTPConfig.Parts[0].Headers[0].Value)
 		assert.Equal(t, "part2", dbAction.Options.HTTPConfig.Parts[1].Name)
-		assert.Equal(t, "{{ObjectData}}", dbAction.Options.HTTPConfig.Parts[1].Body)
+		assert.Equal(t, "{{.ObjectData}}", dbAction.Options.HTTPConfig.Parts[1].Body)
 		assert.Empty(t, dbAction.Options.HTTPConfig.Parts[1].Filepath)
 		assert.Equal(t, "Content-Type", dbAction.Options.HTTPConfig.Parts[1].Headers[0].Key)
 		assert.Equal(t, "application/json", dbAction.Options.HTTPConfig.Parts[1].Headers[0].Value)

@@ -24,6 +24,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/config"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
+	"github.com/drakkan/sftpgo/v2/internal/plugin"
 	"github.com/drakkan/sftpgo/v2/internal/service"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 )
@@ -65,6 +66,15 @@ Please take a look at the usage below to customize the options.`,
 				logger.ErrorToConsole("Unable to initialize KMS: %v", err)
 				os.Exit(1)
 			}
+			if config.HasKMSPlugin() {
+				if err := plugin.Initialize(config.GetPluginsConfig(), "debug"); err != nil {
+					logger.ErrorToConsole("unable to initialize plugin system: %v", err)
+					os.Exit(1)
+				}
+				registerSignals()
+				defer plugin.Handler.Cleanup()
+			}
+
 			mfaConfig := config.GetMFAConfig()
 			err = mfaConfig.Initialize()
 			if err != nil {
@@ -78,11 +88,12 @@ Please take a look at the usage below to customize the options.`,
 			providerConf.Actions.ExecuteOn = nil
 			logger.InfoToConsole("Initializing provider: %q config file: %q", providerConf.Driver, viper.ConfigFileUsed())
 			err = dataprovider.InitializeDatabase(providerConf, configDir)
-			if err == nil {
+			switch err {
+			case nil:
 				logger.InfoToConsole("Data provider successfully initialized/updated")
-			} else if err == dataprovider.ErrNoInitRequired {
+			case dataprovider.ErrNoInitRequired:
 				logger.InfoToConsole("%v", err.Error())
-			} else {
+			default:
 				logger.ErrorToConsole("Unable to initialize/update the data provider: %v", err)
 				os.Exit(1)
 			}

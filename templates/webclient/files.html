@@ -263,6 +263,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             "mscgen", "mscin", "msc", "xu", "msgenny", "wat", "wast", "env"];
     const supportedEditFilenames = ["readme", "dockerfile", "pkgbuild"];
     //{{- end}}
+    const keepAliveInterval = '{{.KeepAliveInterval}}';
     function keepAlive() {
         //{{- if not .ShareUploadBaseURL}}
         axios.get('{{.PingURL}}',{
@@ -348,6 +349,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 if (json.message) {
                                     txt = json.message;
                                 }
+                            } else {
+                                txt = "general.expired_session";
                             }
                         }
                         if (!txt){
@@ -499,6 +502,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     let errorMessage = "";
                     if (error && error.response) {
                         switch (error.response.status) {
+                            case 200:
+                                errorMessage = "general.expired_session";
                             case 403:
                                 errorMessage = "fs.create_dir.err_403";
                                 break;
@@ -835,11 +840,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     $('#file_manager_list_container').removeClass("d-none");
                     let api = $.fn.dataTable.Api(settings);
                     api.columns.adjust().draw("page");
-                    drawAction();
                 }
             });
 
-            dt.on('draw', drawAction);
+            dt.on('draw.dt', drawAction);
 
             function drawAction() {
                 //{{- if .CanAddFiles}}
@@ -1476,8 +1480,12 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         }).then((result)=>{
             if (result.error) {
                 hasError = true;
+                let message = "fs.copy.err_generic";
+                if (result.is_redirect){
+                    message = "general.expired_session";
+                }
                 ModalAlert.fire({
-                    text: $.t("fs.copy.err_generic"),
+                    text: $.t(message),
                     icon: "warning",
                     confirmButtonText: $.t('general.ok'),
                     customClass: {
@@ -1625,14 +1633,18 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         }).then((result)=>{
             if (result.error) {
                 hasError = true;
-                ModalAlert.fire({
-                text: $.t("fs.move.err_generic"),
-                icon: "warning",
-                confirmButtonText: $.t('general.ok'),
-                customClass: {
-                    confirmButton: "btn btn-primary"
+                let message = "fs.move.err_generic";
+                if (result.is_redirect){
+                    message = "general.expired_session";
                 }
-            });
+                ModalAlert.fire({
+                    text: $.t(message),
+                    icon: "warning",
+                    confirmButtonText: $.t('general.ok'),
+                    customClass: {
+                        confirmButton: "btn btn-primary"
+                    }
+                });
             } else if (result.data.length > 0){
                 hasError = true;
                 ModalAlert.fire({
@@ -1652,6 +1664,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         KTApp.hidePageLoading();
         let errorMessage;
         switch (status) {
+            case 405:
+                errorMessage = "general.expired_session";
+                break;
             case 403:
                 errorMessage = "fs.delete.err_403";
                 break;
@@ -1859,8 +1874,12 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         }).then((result)=>{
             if (result.error) {
                 KTApp.hidePageLoading();
+                let message = $.t('fs.rename.err_generic', { name: oldName });
+                if (result.is_redirect){
+                    message = $.t('general.expired_session');
+                }
                 ModalAlert.fire({
-                    text: $.t('fs.rename.err_generic', { name: oldName }),
+                    text: message,
                     icon: "warning",
                     confirmButtonText: $.t('general.ok'),
                     customClass: {
@@ -1950,6 +1969,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 let errorMessage = "";
                 if (error && error.response) {
                     switch (error.response.status) {
+                        case 200:
+                            errorMessage = "general.expired_session";
                         case 403:
                             errorMessage = "fs.create_dir.err_403";
                             break;
@@ -1974,7 +1995,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
     function uploadFiles(files) {
         keepAlive();
-        let keepAliveTimer = setInterval(keepAlive, 300000);
+        let keepAliveTimer = setInterval(keepAlive, keepAliveInterval);
 
         let has_errors = false;
         let index = 0;
@@ -2099,7 +2120,11 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         }).then((result)=> {
             if (result.error) {
                 has_errors = true;
-                setI18NData($('#errorTxt'), "fs.upload.err_generic");
+                let message = "fs.upload.err_generic";
+                if (result.is_redirect){
+                    message = "general.expired_session";
+                }
+                setI18NData($('#errorTxt'), message);
                 $('#errorMsg').removeClass("d-none");
                 uploadFile();
                 return;
@@ -2162,13 +2187,16 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         return status == 200;
                     }
                 }).then(function(response){
+                    let isJsonResponse = response.headers['content-type'] === 'application/json'
                     promiseResolve({
-                        error: false,
+                        error: !isJsonResponse,
+                        is_redirect: !isJsonResponse,
                         data: response.data
                     });
                 }).catch(function(error){
                     promiseResolve({
-                        error: true
+                        error: true,
+                        is_redirect: false
                     });
                 });
             }
@@ -2189,7 +2217,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         $("#video_player").get(0).load();
         $('#modal_video_player').modal('show');
         keepAlive();
-        playerKeepAlive = setInterval(keepAlive, 300000);
+        playerKeepAlive = setInterval(keepAlive, keepAliveInterval);
     }
 
     $(document).on("i18nshow", function(){

@@ -130,7 +130,7 @@ type Configuration struct {
 	// preference order.
 	KexAlgorithms []string `json:"kex_algorithms" mapstructure:"kex_algorithms"`
 	// MinDHGroupExchangeKeySize defines the minimum key size to allow for the
-	// key exchanges when using diffie-ellman-group-exchange-sha1 or sha256 key
+	// key exchanges when using diffie-hellman-group-exchange-sha1 or sha256 key
 	// exchange algorithms.
 	MinDHGroupExchangeKeySize int `json:"min_dh_group_exchange_key_size" mapstructure:"min_dh_group_exchange_key_size"`
 	// Ciphers specifies the ciphers allowed
@@ -327,7 +327,7 @@ func (c *Configuration) Initialize(configDir string) error {
 	}
 
 	ssh.SetDHKexServerMinBits(uint32(c.MinDHGroupExchangeKeySize))
-	logger.Debug(logSender, "", "minimum key size allowed for diffie-ellman-group-exchange: %d",
+	logger.Debug(logSender, "", "minimum key size allowed for diffie-hellman-group-exchange: %d",
 		ssh.GetDHKexServerMinBits())
 	sftp.SetSFTPExtensions(sftpExtensions...) //nolint:errcheck // we configure valid SFTP Extensions so we cannot get an error
 	sftp.MaxFilelist = 250
@@ -592,7 +592,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 	conn.SetDeadline(time.Time{}) //nolint:errcheck
 	go ssh.DiscardRequests(reqs)
 
-	defer conn.Close()
+	defer sconn.Close()
 
 	var user dataprovider.User
 
@@ -615,7 +615,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 
 	dataprovider.UpdateLastLogin(&user)
 
-	sshConnection := common.NewSSHConnection(connectionID, conn)
+	sshConnection := common.NewSSHConnection(connectionID, sconn)
 	common.Connections.AddSSHConnection(sshConnection)
 
 	defer common.Connections.RemoveSSHConnection(connectionID)
@@ -857,11 +857,12 @@ func (c *Configuration) generateDefaultHostKeys(configDir string) error {
 		if _, err = os.Stat(autoFile); errors.Is(err, fs.ErrNotExist) {
 			logger.Info(logSender, "", "No host keys configured and %q does not exist; try to create a new host key", autoFile)
 			logger.InfoToConsole("No host keys configured and %q does not exist; try to create a new host key", autoFile)
-			if k == defaultPrivateRSAKeyName {
+			switch k {
+			case defaultPrivateRSAKeyName:
 				err = util.GenerateRSAKeys(autoFile)
-			} else if k == defaultPrivateECDSAKeyName {
+			case defaultPrivateECDSAKeyName:
 				err = util.GenerateECDSAKeys(autoFile)
-			} else {
+			default:
 				err = util.GenerateEd25519Keys(autoFile)
 			}
 			if err != nil {

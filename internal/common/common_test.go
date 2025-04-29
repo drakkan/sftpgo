@@ -64,7 +64,7 @@ func (c *fakeConnection) AddUser(user dataprovider.User) error {
 	if err != nil {
 		return err
 	}
-	c.BaseConnection.User = user
+	c.User = user
 	return nil
 }
 
@@ -999,9 +999,10 @@ func TestConnectionStatus(t *testing.T) {
 	assert.Len(t, stats, 3)
 	for _, stat := range stats {
 		assert.Equal(t, stat.Username, username)
-		if stat.ConnectionID == "SFTP_id1" {
+		switch stat.ConnectionID {
+		case "SFTP_id1":
 			assert.Len(t, stat.Transfers, 2)
-		} else if stat.ConnectionID == "DAV_id3" {
+		case "DAV_id3":
 			assert.Len(t, stat.Transfers, 1)
 		}
 	}

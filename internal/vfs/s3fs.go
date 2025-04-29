@@ -13,7 +13,6 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //go:build !nos3
-// +build !nos3
 
 package vfs
 
@@ -154,6 +153,8 @@ func NewS3Fs(connectionID, localTempDir, mountPath string, s3Config S3FsConfig) 
 	fs.svc = s3.NewFromConfig(awsConfig, func(o *s3.Options) {
 		o.AppID = version.GetVersionHash()
 		o.UsePathStyle = fs.config.ForcePathStyle
+		o.RequestChecksumCalculation = aws.RequestChecksumCalculationWhenRequired
+		o.ResponseChecksumValidation = aws.ResponseChecksumValidationWhenRequired
 		if fs.config.Endpoint != "" {
 			o.BaseEndpoint = aws.String(fs.config.Endpoint)
 		}

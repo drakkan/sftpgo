@@ -5531,6 +5531,7 @@ components:
               type: array
               items:
                 type: string
+                format: email
     Secret:
       type: object
       properties:

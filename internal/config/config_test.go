@@ -343,6 +343,18 @@ func TestSetGetConfig(t *testing.T) {
 	if assert.Len(t, config.GetPluginsConfig(), 1) {
 		assert.Equal(t, pluginConf[0].Type, config.GetPluginsConfig()[0].Type)
 	}
+	assert.False(t, config.HasKMSPlugin())
+	pluginConf = []plugin.Config{
+		{
+			Type: "notifier",
+		},
+		{
+			Type: "kms",
+		},
+	}
+	config.SetPluginsConfig(pluginConf)
+	assert.Len(t, config.GetPluginsConfig(), 2)
+	assert.True(t, config.HasKMSPlugin())
 }
 
 func TestServiceToStart(t *testing.T) {
@@ -528,7 +540,7 @@ func TestOverrideSliceValues(t *testing.T) {
 
 	c = make(map[string]any)
 	c["httpd"] = httpd.Conf{
-		Bindings: []httpd.Binding{},
+		Bindings: nil,
 	}
 	jsonConf, err = json.Marshal(c)
 	assert.NoError(t, err)
@@ -1192,6 +1204,7 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__ENABLE_WEB_CLIENT", "0")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__ENABLE_REST_API", "0")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__ENABLED_LOGIN_METHODS", "3")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__DISABLED_LOGIN_METHODS", "12")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__RENDER_OPENAPI", "0")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__LANGUAGES", "en,es")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__ENABLE_HTTPS", "1 ")
@@ -1230,7 +1243,10 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__SECURITY__CONTENT_SECURITY_POLICY", "script-src $NONCE")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__SECURITY__PERMISSIONS_POLICY", "fullscreen=(), geolocation=()")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__SECURITY__CROSS_ORIGIN_OPENER_POLICY", "same-origin")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__SECURITY__CROSS_ORIGIN_RESOURCE_POLICY", "same-site")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__SECURITY__CROSS_ORIGIN_EMBEDDER_POLICY", "require-corp")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__SECURITY__CACHE_CONTROL", "private")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__SECURITY__REFERRER_POLICY", "no-referrer")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__EXTRA_CSS__0__PATH", "path1")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__EXTRA_CSS__1__PATH", "path2")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__BRANDING__WEB_ADMIN__FAVICON_PATH", "favicon.ico")
@@ -1261,6 +1277,7 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__ENABLE_WEB_CLIENT")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__ENABLE_REST_API")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__ENABLED_LOGIN_METHODS")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__DISABLED_LOGIN_METHODS")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__RENDER_OPENAPI")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__LANGUAGES")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__CLIENT_AUTH_TYPE")
@@ -1297,7 +1314,10 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__SECURITY__CONTENT_SECURITY_POLICY")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__SECURITY__PERMISSIONS_POLICY")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__SECURITY__CROSS_ORIGIN_OPENER_POLICY")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__SECURITY__CROSS_ORIGIN_RESOURCE_POLICY")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__SECURITY__CROSS_ORIGIN_EMBEDDER_POLICY")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__SECURITY__CACHE_CONTROL")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__SECURITY__REFERRER_POLICY")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__EXTRA_CSS__0__PATH")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__EXTRA_CSS__1__PATH")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__BRANDING__WEB_ADMIN__FAVICON_PATH")
@@ -1323,6 +1343,7 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 	require.True(t, bindings[0].EnableWebClient)
 	require.True(t, bindings[0].EnableRESTAPI)
 	require.Equal(t, 0, bindings[0].EnabledLoginMethods)
+	require.Equal(t, 0, bindings[0].DisabledLoginMethods)
 	require.True(t, bindings[0].RenderOpenAPI)
 	require.Len(t, bindings[0].Languages, 1)
 	assert.Contains(t, bindings[0].Languages, "en")
@@ -1336,6 +1357,7 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 	require.Len(t, bindings[0].OIDC.Scopes, 3)
 	require.False(t, bindings[0].OIDC.InsecureSkipSignatureCheck)
 	require.False(t, bindings[0].OIDC.Debug)
+	require.Empty(t, bindings[0].Security.ReferrerPolicy)
 	require.Equal(t, 8000, bindings[1].Port)
 	require.Equal(t, "127.0.0.1", bindings[1].Address)
 	require.False(t, bindings[1].EnableHTTPS)
@@ -1344,6 +1366,7 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 	require.True(t, bindings[1].EnableWebClient)
 	require.True(t, bindings[1].EnableRESTAPI)
 	require.Equal(t, 0, bindings[1].EnabledLoginMethods)
+	require.Equal(t, 0, bindings[1].DisabledLoginMethods)
 	require.True(t, bindings[1].RenderOpenAPI)
 	require.Len(t, bindings[1].Languages, 1)
 	assert.Contains(t, bindings[1].Languages, "en")
@@ -1366,6 +1389,7 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 	require.False(t, bindings[2].EnableWebClient)
 	require.False(t, bindings[2].EnableRESTAPI)
 	require.Equal(t, 3, bindings[2].EnabledLoginMethods)
+	require.Equal(t, 12, bindings[2].DisabledLoginMethods)
 	require.False(t, bindings[2].RenderOpenAPI)
 	require.Len(t, bindings[2].Languages, 2)
 	assert.Contains(t, bindings[2].Languages, "en")
@@ -1417,7 +1441,10 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 	require.Equal(t, "script-src $NONCE", bindings[2].Security.ContentSecurityPolicy)
 	require.Equal(t, "fullscreen=(), geolocation=()", bindings[2].Security.PermissionsPolicy)
 	require.Equal(t, "same-origin", bindings[2].Security.CrossOriginOpenerPolicy)
+	require.Equal(t, "same-site", bindings[2].Security.CrossOriginResourcePolicy)
+	require.Equal(t, "require-corp", bindings[2].Security.CrossOriginEmbedderPolicy)
 	require.Equal(t, "private", bindings[2].Security.CacheControl)
+	require.Equal(t, "no-referrer", bindings[2].Security.ReferrerPolicy)
 	require.Equal(t, "favicon.ico", bindings[2].Branding.WebAdmin.FaviconPath)
 	require.Equal(t, "logo.png", bindings[2].Branding.WebClient.LogoPath)
 	require.Equal(t, "disclaimer", bindings[2].Branding.WebClient.DisclaimerName)

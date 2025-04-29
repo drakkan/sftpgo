@@ -771,10 +771,7 @@ func (c *BaseConnection) Copy(virtualSourcePath, virtualTargetPath string) error
 			return err
 		}
 	}
-	createTargetDir := true
-	if dstInfo != nil && dstInfo.IsDir() {
-		createTargetDir = false
-	}
+	createTargetDir := dstInfo == nil || !dstInfo.IsDir()
 	if err := c.checkCopy(srcInfo, dstInfo, virtualSourcePath, destPath); err != nil {
 		return err
 	}

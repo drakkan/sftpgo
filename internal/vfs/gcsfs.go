@@ -13,7 +13,6 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //go:build !nogcs
-// +build !nogcs
 
 package vfs
 
@@ -86,7 +85,9 @@ func NewGCSFs(connectionID, localTempDir, mountPath string, config GCSFsConfig) 
 	if err = fs.config.validate(); err != nil {
 		return fs, err
 	}
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	if fs.config.AutomaticCredentials > 0 {
 		fs.svc, err = storage.NewClient(ctx,
 			storage.WithJSONReads(),
@@ -432,8 +433,9 @@ func (*GCSFs) IsNotExist(err error) bool {
 	if err == storage.ErrObjectNotExist || err == storage.ErrBucketNotExist {
 		return true
 	}
-	if e, ok := err.(*googleapi.Error); ok {
-		if e.Code == http.StatusNotFound {
+	var apiErr *googleapi.Error
+	if errors.As(err, &apiErr) {
+		if apiErr.Code == http.StatusNotFound {
 			return true
 		}
 	}
@@ -446,8 +448,9 @@ func (*GCSFs) IsPermission(err error) bool {
 	if err == nil {
 		return false
 	}
-	if e, ok := err.(*googleapi.Error); ok {
-		if e.Code == http.StatusForbidden || e.Code == http.StatusUnauthorized {
+	var apiErr *googleapi.Error
+	if errors.As(err, &apiErr) {
+		if apiErr.Code == http.StatusForbidden || apiErr.Code == http.StatusUnauthorized {
 			return true
 		}
 	}
@@ -726,10 +729,10 @@ func (fs *GCSFs) setWriterAttrs(objectWriter *storage.Writer, flag int, name str
 		contentType = mime.TypeByExtension(path.Ext(name))
 	}
 	if contentType != "" {
-		objectWriter.ObjectAttrs.ContentType = contentType
+		objectWriter.ContentType = contentType
 	}
 	if fs.config.StorageClass != "" {
-		objectWriter.ObjectAttrs.StorageClass = fs.config.StorageClass
+		objectWriter.StorageClass = fs.config.StorageClass
 	}
 	if fs.config.ACL != "" {
 		objectWriter.PredefinedACL = fs.config.ACL

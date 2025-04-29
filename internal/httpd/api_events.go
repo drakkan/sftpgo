@@ -68,8 +68,8 @@ func getCommonSearchParamsFromRequest(r *http.Request) (eventsearcher.CommonSear
 		}
 		c.EndTimestamp = ts
 	}
-	c.Username = r.URL.Query().Get("username")
-	c.IP = r.URL.Query().Get("ip")
+	c.Username = strings.TrimSpace(r.URL.Query().Get("username"))
+	c.IP = strings.TrimSpace(r.URL.Query().Get("ip"))
 	c.InstanceIDs = getCommaSeparatedQueryParam(r, "instance_ids")
 	c.FromID = r.URL.Query().Get("from_id")
 
@@ -93,9 +93,9 @@ func getFsSearchParamsFromRequest(r *http.Request) (eventsearcher.FsEventSearch,
 		s.FsProvider = val
 	}
 	s.Actions = getCommaSeparatedQueryParam(r, "actions")
-	s.SSHCmd = r.URL.Query().Get("ssh_cmd")
-	s.Bucket = r.URL.Query().Get("bucket")
-	s.Endpoint = r.URL.Query().Get("endpoint")
+	s.SSHCmd = strings.TrimSpace(r.URL.Query().Get("ssh_cmd"))
+	s.Bucket = strings.TrimSpace(r.URL.Query().Get("bucket"))
+	s.Endpoint = strings.TrimSpace(r.URL.Query().Get("endpoint"))
 	s.Protocols = getCommaSeparatedQueryParam(r, "protocols")
 	statuses := getCommaSeparatedQueryParam(r, "statuses")
 	for _, status := range statuses {
@@ -117,7 +117,7 @@ func getProviderSearchParamsFromRequest(r *http.Request) (eventsearcher.Provider
 		return s, err
 	}
 	s.Actions = getCommaSeparatedQueryParam(r, "actions")
-	s.ObjectName = r.URL.Query().Get("object_name")
+	s.ObjectName = strings.TrimSpace(r.URL.Query().Get("object_name"))
 	s.ObjectTypes = getCommaSeparatedQueryParam(r, "object_types")
 	return s, nil
 }

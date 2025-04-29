@@ -1,7 +1,6 @@
 # SFTPGo
 
-[![CI Status](https://github.com/drakkan/sftpgo/workflows/CI/badge.svg?branch=main&event=push)](https://github.com/drakkan/sftpgo/workflows/CI/badge.svg?branch=main&event=push)
-[![Code Coverage](https://codecov.io/gh/drakkan/sftpgo/branch/main/graph/badge.svg)](https://codecov.io/gh/drakkan/sftpgo/branch/main)
+[![CI Status](https://github.com/drakkan/sftpgo/workflows/CI/badge.svg)](https://github.com/drakkan/sftpgo/workflows/CI/badge.svg)
 [![License: AGPL-3.0-only](https://img.shields.io/badge/License-AGPLv3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go)
 
@@ -41,7 +40,9 @@ It is important to understand that you should support SFTPGo and any other Open 
 
 [<img src="./img/7digital.png" alt="7digital logo" width="178" height="56">](https://www.7digital.com/)
 </br></br>
-[<img src="./img/vps2day.png" alt="VPS2day logo" width="234" height="56">](https://www.vps2day.com/)
+[<img src="./img/servinga.png" alt="servinga logo" width="258" height="56">](https://servinga.com/)
+</br></br>
+[<img src="./img/reui.png" alt="ReUI logo" width="151" height="56">](https://www.reui.io/)
 
 ## Support
 
@@ -76,7 +77,7 @@ We are very grateful to all the people who contributed with ideas and/or pull re
 
 Thank you to [ysura](https://www.ysura.com/) for granting us stable access to a test AWS S3 account.
 
-Thank you to [KeenThemes](https://keenthemes.com/) for granting us a custom license to use their amazing [Mega Bundle](https://keenthemes.com/products/templates-mega-bundle) for SFTPGo UI.
+Thank you to [KeenThemes](https://keenthemes.com/) for granting us a custom license to use their amazing [themes](https://keenthemes.com/bootstrap-templates) for the SFTPGo WebAdmin and WebClient user interfaces, across both the Open Source and Open Core versions.
 
 Thank you to [Crowdin](https://crowdin.com/) for granting us an Open Source License.
 
@@ -86,7 +87,7 @@ Thank you to [Incode](https://www.incode.it/) for helping us to improve the UI/U
 
 SFTPGo source code is licensed under the GNU AGPL-3.0-only with [additional terms](./NOTICE).
 
-The [theme](https://keenthemes.com/products/templates-mega-bundle) used in WebAdmin and WebClient user interfaces is proprietary, this means:
+The [theme](https://keenthemes.com/bootstrap-templates) used in WebAdmin and WebClient user interfaces is proprietary, this means:
 
 - KeenThemes HTML/CSS/JS components are allowed for use only within the SFTPGo product and restricted to be used in a resealable HTML template that can compete with KeenThemes products anyhow.
 - The SFTPGo WebAdmin and WebClient user interfaces (HTML, CSS and JS components) based on this theme are allowed for use only within the SFTPGo product and therefore cannot be used in derivative works/products without an explicit grant from the [SFTPGo Team](mailto:support@sftpgo.com).
@@ -95,4 +96,4 @@ More information about [compliance](https://sftpgo.com/compliance.html).
 
 ## Copyright
 
-Copyright (C) 2019 Nicola Murino
+Copyright (C) 2019 - 2025 Nicola Murino

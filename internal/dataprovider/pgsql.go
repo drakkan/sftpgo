@@ -13,7 +13,6 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //go:build !nopgsql
-// +build !nopgsql
 
 package dataprovider
 
@@ -210,6 +209,19 @@ INSERT INTO {{schema_version}} (version) VALUES (29);
 `
 	// not supported in CockroachDB
 	ipListsLikeIndex = `CREATE INDEX "{{prefix}}ip_lists_ipornet_like_idx" ON "{{ip_lists}}" ("ipornet" varchar_pattern_ops);`
+	pgsqlV30SQL      = `ALTER TABLE "{{shares}}" ADD COLUMN "options" text NULL;`
+	pgsqlV30DownSQL  = `ALTER TABLE "{{shares}}" DROP COLUMN "options" CASCADE;`
+	pgsqlV31SQL      = `DROP TABLE "{{shared_sessions}}";
+CREATE TABLE "{{shared_sessions}}" ("key" varchar(128) NOT NULL, "type" integer NOT NULL,
+"data" text NOT NULL, "timestamp" bigint NOT NULL, PRIMARY KEY ("key", "type"));
+CREATE INDEX "{{prefix}}shared_sessions_type_idx" ON "{{shared_sessions}}" ("type");
+CREATE INDEX "{{prefix}}shared_sessions_timestamp_idx" ON "{{shared_sessions}}" ("timestamp");
+`
+	pgsqlV31DownSQL = `DROP TABLE "{{shared_sessions}}" CASCADE;
+CREATE TABLE "{{shared_sessions}}" ("key" varchar(128) NOT NULL PRIMARY KEY,
+"data" text NOT NULL, "type" integer NOT NULL, "timestamp" bigint NOT NULL);
+CREATE INDEX "{{prefix}}shared_sessions_type_idx" ON "{{shared_sessions}}" ("type");
+CREATE INDEX "{{prefix}}shared_sessions_timestamp_idx" ON "{{shared_sessions}}" ("timestamp");`
 )
 
 var (
@@ -605,12 +617,12 @@ func (p *PGSQLProvider) addSharedSession(session Session) error {
 	return sqlCommonAddSession(session, p.dbHandle)
 }
 
-func (p *PGSQLProvider) deleteSharedSession(key string) error {
-	return sqlCommonDeleteSession(key, p.dbHandle)
+func (p *PGSQLProvider) deleteSharedSession(key string, sessionType SessionType) error {
+	return sqlCommonDeleteSession(key, sessionType, p.dbHandle)
 }
 
-func (p *PGSQLProvider) getSharedSession(key string) (Session, error) {
-	return sqlCommonGetSession(key, p.dbHandle)
+func (p *PGSQLProvider) getSharedSession(key string, sessionType SessionType) (Session, error) {
+	return sqlCommonGetSession(key, sessionType, p.dbHandle)
 }
 
 func (p *PGSQLProvider) cleanupSharedSessions(sessionType SessionType, before int64) error {
@@ -826,6 +838,12 @@ func (p *PGSQLProvider) migrateDatabase() error { //nolint:dupl
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
+	case version == 29:
+		return updatePGSQLDatabaseFromV29(p.dbHandle)
+	case version == 30:
+		return updatePGSQLDatabaseFromV30(p.dbHandle)
+	case version == 31:
+		return updatePGSQLDatabaseFromV31(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -848,6 +866,12 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 	}
 
 	switch dbVersion.Version {
+	case 30:
+		return downgradePGSQLDatabaseFromV30(p.dbHandle)
+	case 31:
+		return downgradePGSQLDatabaseFromV31(p.dbHandle)
+	case 32:
+		return downgradePGSQLDatabaseFromV32(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
@@ -884,4 +908,74 @@ func (p *PGSQLProvider) normalizeError(err error, fieldType int) error {
 		}
 	}
 	return err
+}
+
+func updatePGSQLDatabaseFromV29(dbHandle *sql.DB) error {
+	if err := updatePGSQLDatabaseFrom29To30(dbHandle); err != nil {
+		return err
+	}
+	return updatePGSQLDatabaseFromV30(dbHandle)
+}
+
+func updatePGSQLDatabaseFromV30(dbHandle *sql.DB) error {
+	if err := updatePGSQLDatabaseFrom30To31(dbHandle); err != nil {
+		return err
+	}
+	return updatePGSQLDatabaseFromV31(dbHandle)
+}
+
+func updatePGSQLDatabaseFromV31(dbHandle *sql.DB) error {
+	return updateSQLDatabaseFrom31To32(dbHandle)
+}
+
+func downgradePGSQLDatabaseFromV30(dbHandle *sql.DB) error {
+	return downgradePGSQLDatabaseFrom30To29(dbHandle)
+}
+
+func downgradePGSQLDatabaseFromV31(dbHandle *sql.DB) error {
+	if err := downgradePGSQLDatabaseFrom31To30(dbHandle); err != nil {
+		return err
+	}
+	return downgradePGSQLDatabaseFromV30(dbHandle)
+}
+
+func downgradePGSQLDatabaseFromV32(dbHandle *sql.DB) error {
+	if err := downgradeSQLDatabaseFrom32To31(dbHandle); err != nil {
+		return err
+	}
+	return downgradePGSQLDatabaseFromV31(dbHandle)
+}
+
+func updatePGSQLDatabaseFrom29To30(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database schema version: 29 -> 30")
+	providerLog(logger.LevelInfo, "updating database schema version: 29 -> 30")
+
+	sql := strings.ReplaceAll(pgsqlV30SQL, "{{shares}}", sqlTableShares)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 30, true)
+}
+
+func downgradePGSQLDatabaseFrom30To29(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database schema version: 30 -> 29")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 30 -> 29")
+
+	sql := strings.ReplaceAll(pgsqlV30DownSQL, "{{shares}}", sqlTableShares)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 29, false)
+}
+
+func updatePGSQLDatabaseFrom30To31(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database schema version: 30 -> 31")
+	providerLog(logger.LevelInfo, "updating database schema version: 30 -> 31")
+
+	sql := strings.ReplaceAll(pgsqlV31SQL, "{{shared_sessions}}", sqlTableSharedSessions)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 31, true)
+}
+
+func downgradePGSQLDatabaseFrom31To30(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database schema version: 31 -> 30")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 31 -> 30")
+
+	sql := strings.ReplaceAll(pgsqlV31DownSQL, "{{shared_sessions}}", sqlTableSharedSessions)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 30, false)
 }

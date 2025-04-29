@@ -66,7 +66,7 @@ func testSMTPConfig(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if req.AuthType == 3 {
-		if err := req.Config.OAuth2.Validate(); err != nil {
+		if err := req.OAuth2.Validate(); err != nil {
 			sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 			return
 		}
@@ -106,10 +106,10 @@ func (s *httpdServer) handleSMTPOAuth2TokenRequestPost(w http.ResponseWriter, r 
 		}
 		configs.SetNilsToEmpty()
 		if err := configs.SMTP.TryDecrypt(); err == nil {
-			req.OAuth2Config.ClientSecret = configs.SMTP.OAuth2.ClientSecret.GetPayload()
+			req.ClientSecret = configs.SMTP.OAuth2.ClientSecret.GetPayload()
 		}
 	}
-	cfg := req.OAuth2Config.GetOAuth2()
+	cfg := req.GetOAuth2()
 	cfg.RedirectURL = req.BaseRedirectURL + webOAuth2RedirectPath
 	clientSecret := kms.NewPlainSecret(cfg.ClientSecret)
 	clientSecret.SetAdditionalData(xid.New().String())

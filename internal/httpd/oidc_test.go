@@ -906,7 +906,8 @@ func TestOIDCToken(t *testing.T) {
 		},
 		Filters: dataprovider.UserFilters{
 			BaseUserFilters: sdk.BaseUserFilters{
-				DeniedProtocols: []string{common.ProtocolHTTP},
+				DeniedProtocols:    []string{common.ProtocolHTTP},
+				DeniedLoginMethods: []string{dataprovider.LoginMethodPassword},
 			},
 		},
 	}
@@ -1181,18 +1182,18 @@ func TestOIDCEvMgrIntegration(t *testing.T) {
 	// add a special chars to check json replacer
 	username := `test_"oidc_eventmanager`
 	u := map[string]any{
-		"username": "{{Name}}",
+		"username": "{{.Name}}",
 		"status":   1,
-		"home_dir": filepath.Join(os.TempDir(), "{{IDPFieldcustom1.sub}}"),
+		"home_dir": filepath.Join(os.TempDir(), "{{.IDPFieldcustom1.sub}}"),
 		"permissions": map[string][]string{
 			"/": {dataprovider.PermAny},
 		},
-		"description": "{{IDPFieldcustom2}}",
+		"description": "{{.IDPFieldcustom2}}",
 	}
 	userTmpl, err := json.Marshal(u)
 	require.NoError(t, err)
 	a := map[string]any{
-		"username":    "{{Name}}",
+		"username":    "{{.Name}}",
 		"status":      1,
 		"permissions": []string{dataprovider.PermAdminAny},
 	}
@@ -1548,7 +1549,7 @@ func TestOIDCWithLoginFormsDisabled(t *testing.T) {
 
 	server := getTestOIDCServer()
 	server.binding.OIDC.ImplicitRoles = true
-	server.binding.EnabledLoginMethods = 3
+	server.binding.DisabledLoginMethods = 12
 	server.binding.EnableWebAdmin = true
 	server.binding.EnableWebClient = true
 	err := server.binding.OIDC.initialize()

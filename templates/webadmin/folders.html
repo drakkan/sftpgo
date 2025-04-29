@@ -204,6 +204,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "filesystem.provider",
+                        name: "storage",
                         defaultContent: "",
                         render: function(data, type, row) {
                             if (type === 'display') {
@@ -229,6 +230,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "used_quota_size",
+                        name: "quota",
                         visible: false,
                         searchable: false,
                         orderable: false,
@@ -249,6 +251,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "users",
+                        name: "associations",
                         defaultContent: "",
                         visible: false,
                         searchable: false,
@@ -270,6 +273,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "description",
+                        name: "description",
                         visible: false,
                         defaultContent: "",
                         render: function(data, type, row) {
@@ -346,12 +350,11 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     $('#card_content').removeClass("d-none");
                     let api = $.fn.dataTable.Api(settings);
                     api.columns.adjust().draw("page");
-                    drawAction();
                 }
             });
 
-            dt.on('draw', drawAction);
-            dt.on('column-reorder', function(e, settings, details){
+            dt.on('draw.dt', drawAction);
+            dt.on('columns-reordered', function(e, settings, details){
                 drawAction();
             });
         }
@@ -362,10 +365,12 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             $('#table_body').localize();
         }
 
-        function handleColVisibilityCheckbox(el, index) {
+        function handleColVisibilityCheckbox(el, selector) {
+            let index = dt.column(selector).index();
             el.off("change");
             el.prop('checked', dt.column(index).visible());
             el.on("change", function(e){
+                let index = dt.column(selector).index();
                 dt.column(index).visible($(this).is(':checked'));
                 dt.draw('page');
             });
@@ -378,10 +383,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 dt.rows().deselect();
                 dt.search(e.target.value).draw();
             });
-            handleColVisibilityCheckbox($('#checkColStorage'), 1);
-            handleColVisibilityCheckbox($('#checkColQuota'), 2);
-            handleColVisibilityCheckbox($('#checkColAssociations'), 3);
-            handleColVisibilityCheckbox($('#checkColDesc'), 4);
+            handleColVisibilityCheckbox($('#checkColStorage'), "storage:name");
+            handleColVisibilityCheckbox($('#checkColQuota'), "quota:name");
+            handleColVisibilityCheckbox($('#checkColAssociations'), "associations:name");
+            handleColVisibilityCheckbox($('#checkColDesc'), "description:name");
 
             const exportButton = $(document.querySelector('[data-table-filter="export"]'));
             exportButton.on('click', function(e){

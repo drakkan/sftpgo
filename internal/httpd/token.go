@@ -86,7 +86,7 @@ func (m *dbTokenManager) Add(token string, expiresAt time.Time) {
 
 func (m *dbTokenManager) Get(token string) bool {
 	key := m.getKey(token)
-	_, err := dataprovider.GetSharedSession(key)
+	_, err := dataprovider.GetSharedSession(key, dataprovider.SessionTypeInvalidToken)
 	return err == nil
 }
 

@@ -110,7 +110,7 @@ func (m *dbResetCodeManager) Add(code *resetCode) error {
 }
 
 func (m *dbResetCodeManager) Get(code string) (*resetCode, error) {
-	session, err := dataprovider.GetSharedSession(code)
+	session, err := dataprovider.GetSharedSession(code, dataprovider.SessionTypeResetCode)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +132,7 @@ func (m *dbResetCodeManager) decodeData(data any) (*resetCode, error) {
 }
 
 func (m *dbResetCodeManager) Delete(code string) error {
-	return dataprovider.DeleteSharedSession(code)
+	return dataprovider.DeleteSharedSession(code, dataprovider.SessionTypeResetCode)
 }
 
 func (m *dbResetCodeManager) Cleanup() {

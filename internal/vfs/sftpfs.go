@@ -1167,11 +1167,10 @@ func (c *sftpConnectionsCache) Get(config *SFTPFsConfig, sessionID string) (*sft
 	c.Lock()
 	defer c.Unlock()
 
-	var oldKey string
 	for {
 		if val, ok := c.items[key]; ok {
 			activeSessions := val.ActiveSessions()
-			if activeSessions < maxSessionsPerConnection || key == oldKey {
+			if activeSessions < maxSessionsPerConnection {
 				logger.Debug(logSenderSFTPCache, "",
 					"reusing connection for session ID %q, key %s, active sessions %d, active connections: %d",
 					sessionID, key, activeSessions+1, len(c.items))
@@ -1179,11 +1178,10 @@ func (c *sftpConnectionsCache) Get(config *SFTPFsConfig, sessionID string) (*sft
 				return val, nil
 			}
 			partition++
-			oldKey = key
 			key = config.getUniqueID(partition)
 			logger.Debug(logSenderSFTPCache, "",
-				"connection full, generated new key for partition: %d, active sessions: %d, key: %s, old key: %s",
-				partition, activeSessions, oldKey, key)
+				"connection full, generated new key for partition: %d, active sessions: %d, key: %s",
+				partition, activeSessions, key)
 		} else {
 			conn := newSFTPConnection(config, sessionID)
 			signer, err := config.getKeySigner()

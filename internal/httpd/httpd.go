@@ -414,11 +414,17 @@ type SecurityConf struct {
 	ContentSecurityPolicy string `json:"content_security_policy" mapstructure:"content_security_policy"`
 	// PermissionsPolicy allows to set the Permissions-Policy header value. Default is "".
 	PermissionsPolicy string `json:"permissions_policy" mapstructure:"permissions_policy"`
-	// CrossOriginOpenerPolicy allows to set the `Cross-Origin-Opener-Policy` header value. Default is "".
+	// CrossOriginOpenerPolicy allows to set the Cross-Origin-Opener-Policy header value. Default is "".
 	CrossOriginOpenerPolicy string `json:"cross_origin_opener_policy" mapstructure:"cross_origin_opener_policy"`
-	// CacheControl allow to set the Cache-Control header value.
+	// CrossOriginResourcePolicy allows to set the Cross-Origin-Resource-Policy header value. Default is "".
+	CrossOriginResourcePolicy string `json:"cross_origin_resource_policy" mapstructure:"cross_origin_resource_policy"`
+	// CrossOriginEmbedderPolicy allows to set the Cross-Origin-Embedder-Policy header value. Default is "".
+	CrossOriginEmbedderPolicy string `json:"cross_origin_embedder_policy" mapstructure:"cross_origin_embedder_policy"`
+	// CacheControl allows to set the Cache-Control header value.
 	CacheControl string `json:"cache_control" mapstructure:"cache_control"`
-	proxyHeaders []string
+	// ReferrerPolicy allows to set the Referrer-Policy header values.
+	ReferrerPolicy string `json:"referrer_policy" mapstructure:"referrer_policy"`
+	proxyHeaders   []string
 }
 
 func (s *SecurityConf) updateProxyHeaders() {
@@ -561,7 +567,21 @@ type Binding struct {
 	//
 	// You can combine the values. For example 3 means that you can only login using OIDC on
 	// both WebClient and WebAdmin UI.
+	// Deprecated because it is not extensible, use DisabledLoginMethods
 	EnabledLoginMethods int `json:"enabled_login_methods" mapstructure:"enabled_login_methods"`
+	// Defines the login methods disabled for the WebAdmin and WebClient UIs:
+	//
+	// - 1 means OIDC for the WebAdmin UI
+	// - 2 means OIDC for the WebClient UI
+	// - 4 means login form for the WebAdmin UI
+	// - 8 means login form for the WebClient UI
+	// - 16 means basic auth for admin REST API
+	// - 32 means basic auth for user REST API
+	// - 64 means API key auth for admins
+	// - 128 means API key auth for users
+	// You can combine the values. For example 12 means that you can only login using OIDC on
+	// both WebClient and WebAdmin UI.
+	DisabledLoginMethods int `json:"disabled_login_methods" mapstructure:"disabled_login_methods"`
 	// you also need to provide a certificate for enabling HTTPS
 	EnableHTTPS bool `json:"enable_https" mapstructure:"enable_https"`
 	// Certificate and matching private key for this specific binding, if empty the global
@@ -683,45 +703,76 @@ func (b *Binding) IsValid() bool {
 
 func (b *Binding) isWebAdminOIDCLoginDisabled() bool {
 	if b.EnableWebAdmin {
-		if b.EnabledLoginMethods == 0 {
-			return false
-		}
-		return b.EnabledLoginMethods&1 == 0
+		return b.DisabledLoginMethods&1 != 0
 	}
 	return false
 }
 
 func (b *Binding) isWebClientOIDCLoginDisabled() bool {
 	if b.EnableWebClient {
-		if b.EnabledLoginMethods == 0 {
-			return false
-		}
-		return b.EnabledLoginMethods&2 == 0
+		return b.DisabledLoginMethods&2 != 0
 	}
 	return false
 }
 
 func (b *Binding) isWebAdminLoginFormDisabled() bool {
 	if b.EnableWebAdmin {
-		if b.EnabledLoginMethods == 0 {
-			return false
-		}
-		return b.EnabledLoginMethods&4 == 0
+		return b.DisabledLoginMethods&4 != 0
 	}
 	return false
 }
 
 func (b *Binding) isWebClientLoginFormDisabled() bool {
 	if b.EnableWebClient {
-		if b.EnabledLoginMethods == 0 {
-			return false
-		}
-		return b.EnabledLoginMethods&8 == 0
+		return b.DisabledLoginMethods&8 != 0
 	}
 	return false
 }
 
+func (b *Binding) isAdminTokenEndpointDisabled() bool {
+	return b.DisabledLoginMethods&16 != 0
+}
+
+func (b *Binding) isUserTokenEndpointDisabled() bool {
+	return b.DisabledLoginMethods&32 != 0
+}
+
+func (b *Binding) isAdminAPIKeyAuthDisabled() bool {
+	return b.DisabledLoginMethods&64 != 0
+}
+
+func (b *Binding) isUserAPIKeyAuthDisabled() bool {
+	return b.DisabledLoginMethods&128 != 0
+}
+
+func (b *Binding) hasLoginForAPI() bool {
+	return !b.isAdminTokenEndpointDisabled() || !b.isUserTokenEndpointDisabled() ||
+		!b.isAdminAPIKeyAuthDisabled() || !b.isUserAPIKeyAuthDisabled()
+}
+
+// convertLoginMethods checks if the deprecated EnabledLoginMethods is set and
+// convert the value to DisabledLoginMethods.
+func (b *Binding) convertLoginMethods() {
+	if b.DisabledLoginMethods > 0 || b.EnabledLoginMethods == 0 {
+		// DisabledLoginMethods already in use or EnabledLoginMethods not set.
+		return
+	}
+	if b.EnabledLoginMethods&1 == 0 {
+		b.DisabledLoginMethods++
+	}
+	if b.EnabledLoginMethods&2 == 0 {
+		b.DisabledLoginMethods += 2
+	}
+	if b.EnabledLoginMethods&4 == 0 {
+		b.DisabledLoginMethods += 4
+	}
+	if b.EnabledLoginMethods&8 == 0 {
+		b.DisabledLoginMethods += 8
+	}
+}
+
 func (b *Binding) checkLoginMethods() error {
+	b.convertLoginMethods()
 	if b.isWebAdminLoginFormDisabled() && b.isWebAdminOIDCLoginDisabled() {
 		return errors.New("no login method available for WebAdmin UI")
 	}
@@ -737,6 +788,9 @@ func (b *Binding) checkLoginMethods() error {
 		if b.isWebClientLoginFormDisabled() && !b.OIDC.isEnabled() {
 			return errors.New("no login method available for WebClient UI")
 		}
+	}
+	if b.EnableRESTAPI && !b.hasLoginForAPI() {
+		return errors.New("no login method available for REST API")
 	}
 	return nil
 }

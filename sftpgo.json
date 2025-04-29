@@ -272,6 +272,7 @@
         "enable_web_client": true,
         "enable_rest_api": true,
         "enabled_login_methods": 0,
+        "disabled_login_methods": 0,
         "enable_https": false,
         "certificate_file": "",
         "certificate_key_file": "",
@@ -285,7 +286,9 @@
         "client_ip_header_depth": 0,
         "hide_login_url": 0,
         "render_openapi": true,
-        "languages": ["en"],
+        "languages": [
+          "en"
+        ],
         "oidc": {
           "client_id": "",
           "client_secret": "",
@@ -319,6 +322,9 @@
           "content_security_policy": "",
           "permissions_policy": "",
           "cross_origin_opener_policy": "",
+          "cross_origin_resource_policy": "",
+          "cross_origin_embedder_policy": "",
+          "referrer_policy": "",
           "cache_control": ""
         },
         "branding": {

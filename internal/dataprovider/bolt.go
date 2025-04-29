@@ -13,7 +13,6 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //go:build !nobolt
-// +build !nobolt
 
 package dataprovider
 
@@ -31,6 +30,7 @@ import (
 	"time"
 
 	bolt "go.etcd.io/bbolt"
+	bolterrors "go.etcd.io/bbolt/errors"
 
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/util"
@@ -39,7 +39,7 @@ import (
 )
 
 const (
-	boltDatabaseVersion = 29
+	boltDatabaseVersion = 32
 )
 
 var (
@@ -2134,11 +2134,11 @@ func (p *BoltProvider) addSharedSession(_ Session) error {
 	return ErrNotImplemented
 }
 
-func (p *BoltProvider) deleteSharedSession(_ string) error {
+func (p *BoltProvider) deleteSharedSession(_ string, _ SessionType) error {
 	return ErrNotImplemented
 }
 
-func (p *BoltProvider) getSharedSession(_ string) (Session, error) {
+func (p *BoltProvider) getSharedSession(_ string, _ SessionType) (Session, error) {
 	return Session{}, ErrNotImplemented
 }
 
@@ -3185,6 +3185,13 @@ func (p *BoltProvider) migrateDatabase() error {
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
+	case version == 29, version == 30, version == 31:
+		logger.InfoToConsole("updating database schema version: %d -> 32", version)
+		providerLog(logger.LevelInfo, "updating database schema version: %d -> 32", version)
+		if err := updateEventActions(); err != nil {
+			return err
+		}
+		return updateBoltDatabaseVersion(p.dbHandle, 32)
 	default:
 		if version > boltDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -3206,6 +3213,15 @@ func (p *BoltProvider) revertDatabase(targetVersion int) error { //nolint:gocycl
 		return errors.New("current version match target version, nothing to do")
 	}
 	switch dbVersion.Version {
+	case 30, 31, 32:
+		logger.InfoToConsole("downgrading database schema version: %d -> 29", dbVersion.Version)
+		providerLog(logger.LevelInfo, "downgrading database schema version: %d -> 29", dbVersion.Version)
+		if dbVersion.Version == 32 {
+			if err := restoreEventActions(); err != nil {
+				return err
+			}
+		}
+		return updateBoltDatabaseVersion(p.dbHandle, 29)
 	default:
 		return fmt.Errorf("database schema version not handled: %v", dbVersion.Version)
 	}
@@ -3215,7 +3231,7 @@ func (p *BoltProvider) resetDatabase() error {
 	return p.dbHandle.Update(func(tx *bolt.Tx) error {
 		for _, bucketName := range boltBuckets {
 			err := tx.DeleteBucket(bucketName)
-			if err != nil && !errors.Is(err, bolt.ErrBucketNotFound) {
+			if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
 				return fmt.Errorf("unable to remove bucket %v: %w", bucketName, err)
 			}
 		}
@@ -3946,7 +3962,7 @@ func getBoltDatabaseVersion(dbHandle *bolt.DB) (schemaVersion, error) {
 	return dbVersion, err
 }
 
-/*func updateBoltDatabaseVersion(dbHandle *bolt.DB, version int) error {
+func updateBoltDatabaseVersion(dbHandle *bolt.DB, version int) error {
 	err := dbHandle.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(dbVersionBucket)
 		if bucket == nil {
@@ -3962,4 +3978,4 @@ func getBoltDatabaseVersion(dbHandle *bolt.DB) (schemaVersion, error) {
 		return bucket.Put(dbVersionKey, buf)
 	})
 	return err
-}*/
+}

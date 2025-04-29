@@ -145,16 +145,18 @@ type filesPage struct {
 	Error              *util.I18nError
 	Paths              []dirMapping
 	QuotaUsage         *userQuotaUsage
+	KeepAliveInterval  int
 }
 
 type shareLoginPage struct {
 	commonBasePage
-	CurrentURL string
-	Error      *util.I18nError
-	CSRFToken  string
-	Title      string
-	Branding   UIBranding
-	Languages  []string
+	CurrentURL    string
+	Error         *util.I18nError
+	CSRFToken     string
+	Title         string
+	Branding      UIBranding
+	Languages     []string
+	CheckRedirect bool
 }
 
 type shareDownloadPage struct {
@@ -598,6 +600,7 @@ func (s *httpdServer) renderShareLoginPage(w http.ResponseWriter, r *http.Reques
 		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, xid.New().String(), webBaseClientPath),
 		Branding:       s.binding.webClientBranding(),
 		Languages:      s.binding.languages(),
+		CheckRedirect:  false,
 	}
 	renderClientTemplate(w, templateShareLogin, data)
 }
@@ -642,7 +645,7 @@ func (s *httpdServer) renderClientNotFoundPage(w http.ResponseWriter, r *http.Re
 func (s *httpdServer) renderClientTwoFactorPage(w http.ResponseWriter, r *http.Request, err *util.I18nError) {
 	data := twoFactorPage{
 		commonBasePage: getCommonBasePage(r),
-		Title:          pageTwoFactorTitle,
+		Title:          util.I18n2FATitle,
 		CurrentURL:     webClientTwoFactorPath,
 		Error:          err,
 		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, "", webBaseClientPath),
@@ -659,7 +662,7 @@ func (s *httpdServer) renderClientTwoFactorPage(w http.ResponseWriter, r *http.R
 func (s *httpdServer) renderClientTwoFactorRecoveryPage(w http.ResponseWriter, r *http.Request, err *util.I18nError) {
 	data := twoFactorPage{
 		commonBasePage: getCommonBasePage(r),
-		Title:          pageTwoFactorRecoveryTitle,
+		Title:          util.I18n2FATitle,
 		CurrentURL:     webClientTwoFactorRecoveryPath,
 		Error:          err,
 		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, "", webBaseClientPath),
@@ -781,6 +784,7 @@ func (s *httpdServer) renderSharedFilesPage(w http.ResponseWriter, r *http.Reque
 		CanCopy:            false,
 		Paths:              getDirMapping(dirName, currentURL),
 		QuotaUsage:         newUserQuotaUsage(&dataprovider.User{}),
+		KeepAliveInterval:  int(cookieRefreshThreshold / time.Millisecond),
 	}
 	renderClientTemplate(w, templateClientFiles, data)
 }
@@ -837,6 +841,7 @@ func (s *httpdServer) renderFilesPage(w http.ResponseWriter, r *http.Request, di
 		ShareUploadBaseURL: "",
 		Paths:              getDirMapping(dirName, webClientFilesPath),
 		QuotaUsage:         newUserQuotaUsage(user),
+		KeepAliveInterval:  int(cookieRefreshThreshold / time.Millisecond),
 	}
 	renderClientTemplate(w, templateClientFiles, data)
 }
@@ -897,7 +902,7 @@ func (s *httpdServer) handleWebClientDownloadZip(w http.ResponseWriter, r *http.
 	connID := xid.New().String()
 	protocol := getProtocolFromRequest(r)
 	connectionID := fmt.Sprintf("%v_%v", protocol, connID)
-	if err := checkHTTPClientUser(&user, r, connectionID, false); err != nil {
+	if err := checkHTTPClientUser(&user, r, connectionID, false, false); err != nil {
 		s.renderClientForbiddenPage(w, r, err)
 		return
 	}
@@ -1187,7 +1192,7 @@ func (s *httpdServer) handleClientGetDirContents(w http.ResponseWriter, r *http.
 	connID := xid.New().String()
 	protocol := getProtocolFromRequest(r)
 	connectionID := fmt.Sprintf("%s_%s", protocol, connID)
-	if err := checkHTTPClientUser(&user, r, connectionID, false); err != nil {
+	if err := checkHTTPClientUser(&user, r, connectionID, false, false); err != nil {
 		sendAPIResponse(w, r, err, getI18NErrorString(err, util.I18nErrorDirList403), http.StatusForbidden)
 		return
 	}
@@ -1276,7 +1281,7 @@ func (s *httpdServer) handleClientGetFiles(w http.ResponseWriter, r *http.Reques
 	connID := xid.New().String()
 	protocol := getProtocolFromRequest(r)
 	connectionID := fmt.Sprintf("%v_%v", protocol, connID)
-	if err := checkHTTPClientUser(&user, r, connectionID, false); err != nil {
+	if err := checkHTTPClientUser(&user, r, connectionID, false, false); err != nil {
 		s.renderClientForbiddenPage(w, r, err)
 		return
 	}
@@ -1337,7 +1342,7 @@ func (s *httpdServer) handleClientEditFile(w http.ResponseWriter, r *http.Reques
 	connID := xid.New().String()
 	protocol := getProtocolFromRequest(r)
 	connectionID := fmt.Sprintf("%v_%v", protocol, connID)
-	if err := checkHTTPClientUser(&user, r, connectionID, false); err != nil {
+	if err := checkHTTPClientUser(&user, r, connectionID, false, false); err != nil {
 		s.renderClientForbiddenPage(w, r, err)
 		return
 	}
@@ -1833,7 +1838,7 @@ func (s *httpdServer) handleClientGetPDF(w http.ResponseWriter, r *http.Request)
 	connID := xid.New().String()
 	protocol := getProtocolFromRequest(r)
 	connectionID := fmt.Sprintf("%v_%v", protocol, connID)
-	if err := checkHTTPClientUser(&user, r, connectionID, false); err != nil {
+	if err := checkHTTPClientUser(&user, r, connectionID, false, false); err != nil {
 		s.renderClientForbiddenPage(w, r, err)
 		return
 	}

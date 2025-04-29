@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"strings"
 
+	kmsplugin "github.com/sftpgo/sdk/plugin/kms"
 	"github.com/spf13/viper"
 	"github.com/subosito/gotenv"
 
@@ -99,26 +100,27 @@ var (
 		DisableWWWAuthHeader: false,
 	}
 	defaultHTTPDBinding = httpd.Binding{
-		Address:             "",
-		Port:                8080,
-		EnableWebAdmin:      true,
-		EnableWebClient:     true,
-		EnableRESTAPI:       true,
-		EnabledLoginMethods: 0,
-		EnableHTTPS:         false,
-		CertificateFile:     "",
-		CertificateKeyFile:  "",
-		MinTLSVersion:       12,
-		ClientAuthType:      0,
-		TLSCipherSuites:     nil,
-		Protocols:           nil,
-		ProxyMode:           0,
-		ProxyAllowed:        nil,
-		ClientIPProxyHeader: "",
-		ClientIPHeaderDepth: 0,
-		HideLoginURL:        0,
-		RenderOpenAPI:       true,
-		Languages:           []string{"en"},
+		Address:              "",
+		Port:                 8080,
+		EnableWebAdmin:       true,
+		EnableWebClient:      true,
+		EnableRESTAPI:        true,
+		EnabledLoginMethods:  0,
+		DisabledLoginMethods: 0,
+		EnableHTTPS:          false,
+		CertificateFile:      "",
+		CertificateKeyFile:   "",
+		MinTLSVersion:        12,
+		ClientAuthType:       0,
+		TLSCipherSuites:      nil,
+		Protocols:            nil,
+		ProxyMode:            0,
+		ProxyAllowed:         nil,
+		ClientIPProxyHeader:  "",
+		ClientIPHeaderDepth:  0,
+		HideLoginURL:         0,
+		RenderOpenAPI:        true,
+		Languages:            []string{"en"},
 		OIDC: httpd.OIDC{
 			ClientID:                   "",
 			ClientSecret:               "",
@@ -134,21 +136,23 @@ var (
 			Debug:                      false,
 		},
 		Security: httpd.SecurityConf{
-			Enabled:                 false,
-			AllowedHosts:            nil,
-			AllowedHostsAreRegex:    false,
-			HostsProxyHeaders:       nil,
-			HTTPSRedirect:           false,
-			HTTPSHost:               "",
-			HTTPSProxyHeaders:       nil,
-			STSSeconds:              0,
-			STSIncludeSubdomains:    false,
-			STSPreload:              false,
-			ContentTypeNosniff:      false,
-			ContentSecurityPolicy:   "",
-			PermissionsPolicy:       "",
-			CrossOriginOpenerPolicy: "",
-			CacheControl:            "",
+			Enabled:                   false,
+			AllowedHosts:              nil,
+			AllowedHostsAreRegex:      false,
+			HostsProxyHeaders:         nil,
+			HTTPSRedirect:             false,
+			HTTPSHost:                 "",
+			HTTPSProxyHeaders:         nil,
+			STSSeconds:                0,
+			STSIncludeSubdomains:      false,
+			STSPreload:                false,
+			ContentTypeNosniff:        false,
+			ContentSecurityPolicy:     "",
+			PermissionsPolicy:         "",
+			CrossOriginOpenerPolicy:   "",
+			CrossOriginResourcePolicy: "",
+			CrossOriginEmbedderPolicy: "",
+			CacheControl:              "",
 		},
 		Branding: httpd.Branding{},
 	}
@@ -583,6 +587,16 @@ func GetPluginsConfig() []plugin.Config {
 // SetPluginsConfig sets the plugin configuration
 func SetPluginsConfig(config []plugin.Config) {
 	globalConf.PluginsConfig = config
+}
+
+// HasKMSPlugin returns true if at least one KMS plugin is configured.
+func HasKMSPlugin() bool {
+	for _, c := range globalConf.PluginsConfig {
+		if c.Type == kmsplugin.PluginName {
+			return true
+		}
+	}
+	return false
 }
 
 // GetMFAConfig returns multi-factor authentication config
@@ -1565,9 +1579,27 @@ func getHTTPDSecurityConfFromEnv(idx int) (httpd.SecurityConf, bool) { //nolint:
 		isSet = true
 	}
 
-	crossOriginOpenedPolicy, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__CROSS_ORIGIN_OPENER_POLICY", idx))
+	crossOriginOpenerPolicy, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__CROSS_ORIGIN_OPENER_POLICY", idx))
 	if ok {
-		result.CrossOriginOpenerPolicy = crossOriginOpenedPolicy
+		result.CrossOriginOpenerPolicy = crossOriginOpenerPolicy
+		isSet = true
+	}
+
+	crossOriginResourcePolicy, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__CROSS_ORIGIN_RESOURCE_POLICY", idx))
+	if ok {
+		result.CrossOriginResourcePolicy = crossOriginResourcePolicy
+		isSet = true
+	}
+
+	crossOriginEmbedderPolicy, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__CROSS_ORIGIN_EMBEDDER_POLICY", idx))
+	if ok {
+		result.CrossOriginEmbedderPolicy = crossOriginEmbedderPolicy
+		isSet = true
+	}
+
+	referredPolicy, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__REFERRER_POLICY", idx))
+	if ok {
+		result.ReferrerPolicy = referredPolicy
 		isSet = true
 	}
 
@@ -1851,6 +1883,12 @@ func getHTTPDBindingFromEnv(idx int) { //nolint:gocyclo
 	enabledLoginMethods, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__ENABLED_LOGIN_METHODS", idx), 32)
 	if ok {
 		binding.EnabledLoginMethods = int(enabledLoginMethods)
+		isSet = true
+	}
+
+	disabledLoginMethods, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__DISABLED_LOGIN_METHODS", idx), 32)
+	if ok {
+		binding.DisabledLoginMethods = int(disabledLoginMethods)
 		isSet = true
 	}
 

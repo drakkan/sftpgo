@@ -93,7 +93,7 @@ func (m *dbTaskManager) Add(data webTaskData) error {
 }
 
 func (m *dbTaskManager) Get(ID string) (webTaskData, error) {
-	sess, err := dataprovider.GetSharedSession(ID)
+	sess, err := dataprovider.GetSharedSession(ID, dataprovider.SessionTypeWebTask)
 	if err != nil {
 		return webTaskData{}, err
 	}

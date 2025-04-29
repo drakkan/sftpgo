@@ -62,7 +62,7 @@ func (d *dbDefender) GetHost(ip string) (dataprovider.DefenderEntry, error) {
 // and increase ban time if the IP is found.
 // This method must be called as soon as the client connects
 func (d *dbDefender) IsBanned(ip, protocol string) bool {
-	if d.baseDefender.isBanned(ip, protocol) {
+	if d.isBanned(ip, protocol) {
 		return true
 	}
 
@@ -95,15 +95,15 @@ func (d *dbDefender) AddEvent(ip, protocol string, event HostEvent) bool {
 		return true
 	}
 
-	score := d.baseDefender.getScore(event)
+	score := d.getScore(event)
 
 	host, err := dataprovider.AddDefenderEvent(ip, score, d.getStartObservationTime())
 	if err != nil {
 		return false
 	}
-	d.baseDefender.logEvent(ip, protocol, event, host.Score)
+	d.logEvent(ip, protocol, event, host.Score)
 	if host.Score > d.config.Threshold {
-		d.baseDefender.logBan(ip, protocol)
+		d.logBan(ip, protocol)
 		banTime := time.Now().Add(time.Duration(d.config.BanTime) * time.Minute)
 		err = dataprovider.SetDefenderBanTime(ip, util.GetTimeAsMsSinceEpoch(banTime))
 		if err == nil {

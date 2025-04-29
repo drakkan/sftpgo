@@ -15,7 +15,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        go: ['1.23']
+        go: ['1.24']
         os: [ubuntu-latest, macos-latest]
 
     steps:
@@ -119,7 +119,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.24'
 
       - name: Build
         run: |
@@ -130,7 +130,7 @@ jobs:
           $COMMITS_FROM_TAG= ((git rev-list $REV_LIST --count) | Out-String).Trim()
           $FILE_VERSION = $LATEST_TAG.substring(1)  + "." + $COMMITS_FROM_TAG
           go install github.com/tc-hib/go-winres@latest
-          go-winres simply --arch amd64 --product-version $LATEST_TAG-dev-$GIT_COMMIT --file-version $FILE_VERSION --file-description "SFTPGo server" --product-name SFTPGo --copyright "AGPL-3.0 with additional terms" --original-filename sftpgo.exe --icon  .\windows-installer\icon.ico
+          go-winres simply --arch amd64 --product-version $LATEST_TAG-dev-$GIT_COMMIT --file-version "$FILE_VERSION" --file-description "SFTPGo server" --product-name SFTPGo --copyright "2019-2025 Nicola Murino" --original-filename sftpgo.exe --icon  .\windows-installer\icon.ico
           go build -trimpath -tags nopgxregisterdefaulttypes,disable_grpc_modules -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=$GIT_COMMIT -X github.com/drakkan/sftpgo/v2/internal/version.date=$DATE_TIME" -o sftpgo.exe
           cd tests/eventsearcher
           go build -trimpath -ldflags "-s -w" -o eventsearcher.exe
@@ -142,11 +142,11 @@ jobs:
           $Env:CGO_ENABLED='0'
           $Env:GOOS='windows'
           $Env:GOARCH='arm64'
-          go-winres simply --arch arm64 --product-version $LATEST_TAG-dev-$GIT_COMMIT --file-version $FILE_VERSION --file-description "SFTPGo server" --product-name SFTPGo --copyright "AGPL-3.0 with additional terms" --original-filename sftpgo.exe --icon  .\windows-installer\icon.ico
+          go-winres simply --arch arm64 --product-version $LATEST_TAG-dev-$GIT_COMMIT --file-version "$FILE_VERSION" --file-description "SFTPGo server" --product-name SFTPGo --copyright "2019-2025 Nicola Murino" --original-filename sftpgo.exe --icon  .\windows-installer\icon.ico
           go build -trimpath -tags nopgxregisterdefaulttypes,disable_grpc_modules,nosqlite -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=$GIT_COMMIT -X github.com/drakkan/sftpgo/v2/internal/version.date=$DATE_TIME" -o .\arm64\sftpgo.exe
           mkdir x86
           $Env:GOARCH='386'
-          go-winres simply --arch 386 --product-version $LATEST_TAG-dev-$GIT_COMMIT --file-version $FILE_VERSION --file-description "SFTPGo server" --product-name SFTPGo --copyright "AGPL-3.0 with additional terms" --original-filename sftpgo.exe --icon  .\windows-installer\icon.ico
+          go-winres simply --arch 386 --product-version $LATEST_TAG-dev-$GIT_COMMIT --file-version "$FILE_VERSION" --file-description "SFTPGo server" --product-name SFTPGo --copyright "2019-2025 Nicola Murino" --original-filename sftpgo.exe --icon  .\windows-installer\icon.ico
           go build -trimpath -tags nopgxregisterdefaulttypes,disable_grpc_modules,nosqlite -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=$GIT_COMMIT -X github.com/drakkan/sftpgo/v2/internal/version.date=$DATE_TIME" -o .\x86\sftpgo.exe
           Remove-Item Env:\CGO_ENABLED
           Remove-Item Env:\GOOS
@@ -154,7 +154,7 @@ jobs:
 
       - name: Sign binaries
         if: ${{ github.event_name != 'pull_request' }}
-        uses: azure/trusted-signing-action@v0.5.0
+        uses: azure/trusted-signing-action@v0.5.1
         with:
           endpoint: https://eus.codesigning.azure.net/
           trusted-signing-account-name: nicola
@@ -248,7 +248,7 @@ jobs:
 
       - name: Sign installers
         if: ${{ github.event_name != 'pull_request' }}
-        uses: azure/trusted-signing-action@v0.5.0
+        uses: azure/trusted-signing-action@v0.5.1
         with:
           endpoint: https://eus.codesigning.azure.net/
           trusted-signing-account-name: nicola
@@ -326,7 +326,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.24'
 
       - name: Build
         run: |
@@ -390,7 +390,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.24'
 
       - name: Build
         run: |
@@ -529,7 +529,7 @@ jobs:
           gzip output/man/man1/*
           cp sftpgo output/
 
-      - uses: uraimo/run-on-arch-action@v2
+      - uses: uraimo/run-on-arch-action@v3
         if: ${{ matrix.arch != 'amd64' }}
         name: Build for ${{ matrix.arch }}
         id: build
@@ -611,10 +611,9 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.24'
       - uses: actions/checkout@v4
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v7
         with:
-          args: --timeout=10m
           version: latest

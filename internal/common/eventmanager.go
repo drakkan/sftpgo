@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -56,8 +57,8 @@ import (
 const (
 	ipBlockedEventName       = "IP Blocked"
 	maxAttachmentsSize       = int64(10 * 1024 * 1024)
-	objDataPlaceholder       = "{{ObjectData}}"
-	objDataPlaceholderString = "{{ObjectDataString}}"
+	objDataPlaceholder       = "{{.ObjectData}}"
+	objDataPlaceholderString = "{{.ObjectDataString}}"
 	dateTimeMillisFormat     = "2006-01-02T15:04:05.000"
 )
 
@@ -775,55 +776,70 @@ func (p *EventParams) getRetentionReportsAsMailAttachment() (*mail.File, error) 
 	}, nil
 }
 
-func (*EventParams) getStringReplacement(val string, jsonEscaped bool) string {
-	if jsonEscaped {
+func (*EventParams) getStringReplacement(val string, escapeMode int) string {
+	switch escapeMode {
+	case 1:
 		return util.JSONEscape(val)
+	case 2:
+		return html.EscapeString(val)
+	default:
+		return val
 	}
-	return val
 }
 
-func (p *EventParams) getStringReplacements(addObjectData, jsonEscaped bool) []string {
+func (p *EventParams) getStringReplacements(addObjectData bool, escapeMode int) []string {
 	var dateTimeString string
 	if Config.TZ == "local" {
 		dateTimeString = p.Timestamp.Local().Format(dateTimeMillisFormat)
 	} else {
 		dateTimeString = p.Timestamp.UTC().Format(dateTimeMillisFormat)
 	}
+	year := dateTimeString[0:4]
+	month := dateTimeString[5:7]
+	day := dateTimeString[8:10]
+	hour := dateTimeString[11:13]
+	minute := dateTimeString[14:16]
+
 	replacements := []string{
-		"{{Name}}", p.getStringReplacement(p.Name, jsonEscaped),
-		"{{Event}}", p.Event,
-		"{{Status}}", fmt.Sprintf("%d", p.Status),
-		"{{VirtualPath}}", p.getStringReplacement(p.VirtualPath, jsonEscaped),
-		"{{EscapedVirtualPath}}", p.getStringReplacement(url.QueryEscape(p.VirtualPath), jsonEscaped),
-		"{{FsPath}}", p.getStringReplacement(p.FsPath, jsonEscaped),
-		"{{VirtualTargetPath}}", p.getStringReplacement(p.VirtualTargetPath, jsonEscaped),
-		"{{FsTargetPath}}", p.getStringReplacement(p.FsTargetPath, jsonEscaped),
-		"{{ObjectName}}", p.getStringReplacement(p.ObjectName, jsonEscaped),
-		"{{ObjectBaseName}}", p.getStringReplacement(strings.TrimSuffix(p.ObjectName, p.Extension), jsonEscaped),
-		"{{ObjectType}}", p.ObjectType,
-		"{{FileSize}}", strconv.FormatInt(p.FileSize, 10),
-		"{{Elapsed}}", strconv.FormatInt(p.Elapsed, 10),
-		"{{Protocol}}", p.Protocol,
-		"{{IP}}", p.IP,
-		"{{Role}}", p.getStringReplacement(p.Role, jsonEscaped),
-		"{{Email}}", p.getStringReplacement(p.Email, jsonEscaped),
-		"{{Timestamp}}", strconv.FormatInt(p.Timestamp.UnixNano(), 10),
-		"{{DateTime}}", dateTimeString,
-		"{{StatusString}}", p.getStatusString(),
-		"{{UID}}", p.getStringReplacement(p.UID, jsonEscaped),
-		"{{Ext}}", p.getStringReplacement(p.Extension, jsonEscaped),
+		"{{.Name}}", p.getStringReplacement(p.Name, escapeMode),
+		"{{.Event}}", p.Event,
+		"{{.Status}}", fmt.Sprintf("%d", p.Status),
+		"{{.VirtualPath}}", p.getStringReplacement(p.VirtualPath, escapeMode),
+		"{{.EscapedVirtualPath}}", p.getStringReplacement(url.QueryEscape(p.VirtualPath), escapeMode),
+		"{{.FsPath}}", p.getStringReplacement(p.FsPath, escapeMode),
+		"{{.VirtualTargetPath}}", p.getStringReplacement(p.VirtualTargetPath, escapeMode),
+		"{{.FsTargetPath}}", p.getStringReplacement(p.FsTargetPath, escapeMode),
+		"{{.ObjectName}}", p.getStringReplacement(p.ObjectName, escapeMode),
+		"{{.ObjectBaseName}}", p.getStringReplacement(strings.TrimSuffix(p.ObjectName, p.Extension), escapeMode),
+		"{{.ObjectType}}", p.ObjectType,
+		"{{.FileSize}}", strconv.FormatInt(p.FileSize, 10),
+		"{{.Elapsed}}", strconv.FormatInt(p.Elapsed, 10),
+		"{{.Protocol}}", p.Protocol,
+		"{{.IP}}", p.IP,
+		"{{.Role}}", p.getStringReplacement(p.Role, escapeMode),
+		"{{.Email}}", p.getStringReplacement(p.Email, escapeMode),
+		"{{.Timestamp}}", strconv.FormatInt(p.Timestamp.UnixNano(), 10),
+		"{{.DateTime}}", dateTimeString,
+		"{{.Year}}", year,
+		"{{.Month}}", month,
+		"{{.Day}}", day,
+		"{{.Hour}}", hour,
+		"{{.Minute}}", minute,
+		"{{.StatusString}}", p.getStatusString(),
+		"{{.UID}}", p.getStringReplacement(p.UID, escapeMode),
+		"{{.Ext}}", p.getStringReplacement(p.Extension, escapeMode),
 	}
 	if p.VirtualPath != "" {
-		replacements = append(replacements, "{{VirtualDirPath}}", p.getStringReplacement(path.Dir(p.VirtualPath), jsonEscaped))
+		replacements = append(replacements, "{{.VirtualDirPath}}", p.getStringReplacement(path.Dir(p.VirtualPath), escapeMode))
 	}
 	if p.VirtualTargetPath != "" {
-		replacements = append(replacements, "{{VirtualTargetDirPath}}", p.getStringReplacement(path.Dir(p.VirtualTargetPath), jsonEscaped))
-		replacements = append(replacements, "{{TargetName}}", p.getStringReplacement(path.Base(p.VirtualTargetPath), jsonEscaped))
+		replacements = append(replacements, "{{.VirtualTargetDirPath}}", p.getStringReplacement(path.Dir(p.VirtualTargetPath), escapeMode))
+		replacements = append(replacements, "{{.TargetName}}", p.getStringReplacement(path.Base(p.VirtualTargetPath), escapeMode))
 	}
 	if len(p.errors) > 0 {
-		replacements = append(replacements, "{{ErrorString}}", p.getStringReplacement(strings.Join(p.errors, ", "), jsonEscaped))
+		replacements = append(replacements, "{{.ErrorString}}", p.getStringReplacement(strings.Join(p.errors, ", "), escapeMode))
 	} else {
-		replacements = append(replacements, "{{ErrorString}}", "")
+		replacements = append(replacements, "{{.ErrorString}}", "")
 	}
 	replacements = append(replacements, objDataPlaceholder, "{}")
 	replacements = append(replacements, objDataPlaceholderString, "")
@@ -831,23 +847,23 @@ func (p *EventParams) getStringReplacements(addObjectData, jsonEscaped bool) []s
 		data, err := p.Object.RenderAsJSON(p.Event != operationDelete)
 		if err == nil {
 			dataString := util.BytesToString(data)
-			replacements[len(replacements)-3] = p.getStringReplacement(dataString, false)
-			replacements[len(replacements)-1] = p.getStringReplacement(dataString, true)
+			replacements[len(replacements)-3] = p.getStringReplacement(dataString, 0)
+			replacements[len(replacements)-1] = p.getStringReplacement(dataString, 1)
 		}
 	}
 	if p.IDPCustomFields != nil {
 		for k, v := range *p.IDPCustomFields {
-			replacements = append(replacements, fmt.Sprintf("{{IDPField%s}}", k), p.getStringReplacement(v, jsonEscaped))
+			replacements = append(replacements, fmt.Sprintf("{{.IDPField%s}}", k), p.getStringReplacement(v, escapeMode))
 		}
 	}
-	replacements = append(replacements, "{{Metadata}}", "{}")
-	replacements = append(replacements, "{{MetadataString}}", "")
+	replacements = append(replacements, "{{.Metadata}}", "{}")
+	replacements = append(replacements, "{{.MetadataString}}", "")
 	if len(p.Metadata) > 0 {
 		data, err := json.Marshal(p.Metadata)
 		if err == nil {
 			dataString := util.BytesToString(data)
-			replacements[len(replacements)-3] = p.getStringReplacement(dataString, false)
-			replacements[len(replacements)-1] = p.getStringReplacement(dataString, true)
+			replacements[len(replacements)-3] = p.getStringReplacement(dataString, 0)
+			replacements[len(replacements)-1] = p.getStringReplacement(dataString, 1)
 		}
 	}
 	return replacements
@@ -1182,7 +1198,7 @@ func getMailAttachments(conn *BaseConnection, attachments []string, replacer *st
 }
 
 func replaceWithReplacer(input string, replacer *strings.Replacer) string {
-	if !strings.Contains(input, "{{") {
+	if !strings.Contains(input, "{{.") {
 		return input
 	}
 	return replacer.Replace(input)
@@ -1269,7 +1285,7 @@ func getHTTPRuleActionEndpoint(c *dataprovider.EventActionHTTPConfig, replacer *
 	if err != nil {
 		return "", fmt.Errorf("invalid endpoint: %w", err)
 	}
-	if strings.Contains(u.Path, "{{") {
+	if strings.Contains(u.Path, "{{.") {
 		pathComponents := strings.Split(u.Path, "/")
 		for idx := range pathComponents {
 			part := replaceWithReplacer(pathComponents[idx], replacer)
@@ -1303,7 +1319,7 @@ func writeHTTPPart(m *multipart.Writer, part dataprovider.HTTPPart, h textproto.
 	if part.Body != "" {
 		cType := h.Get("Content-Type")
 		if strings.Contains(strings.ToLower(cType), "application/json") {
-			replacements := params.getStringReplacements(addObjectData, true)
+			replacements := params.getStringReplacements(addObjectData, 1)
 			jsonReplacer := strings.NewReplacer(replacements...)
 			_, err = partWriter.Write(util.StringToBytes(replaceWithReplacer(part.Body, jsonReplacer)))
 		} else {
@@ -1351,7 +1367,7 @@ func getHTTPRuleActionBody(c *dataprovider.EventActionHTTPConfig, replacer *stri
 			return bytes.NewBuffer(data), "", nil
 		}
 		if c.HasJSONBody() {
-			replacements := params.getStringReplacements(addObjectData, true)
+			replacements := params.getStringReplacements(addObjectData, 1)
 			jsonReplacer := strings.NewReplacer(replacements...)
 			return bytes.NewBufferString(replaceWithReplacer(c.Body, jsonReplacer)), "", nil
 		}
@@ -1439,7 +1455,7 @@ func executeHTTPRuleAction(c dataprovider.EventActionHTTPConfig, params *EventPa
 		addObjectData = c.HasObjectData()
 	}
 
-	replacements := params.getStringReplacements(addObjectData, false)
+	replacements := params.getStringReplacements(addObjectData, 0)
 	replacer := strings.NewReplacer(replacements...)
 	endpoint, err := getHTTPRuleActionEndpoint(&c, replacer)
 	if err != nil {
@@ -1510,7 +1526,7 @@ func executeCommandRuleAction(c dataprovider.EventActionCommandConfig, params *E
 			}
 		}
 	}
-	replacements := params.getStringReplacements(addObjectData, false)
+	replacements := params.getStringReplacements(addObjectData, 0)
 	replacer := strings.NewReplacer(replacements...)
 
 	args := make([]string, 0, len(c.Args))
@@ -1524,7 +1540,7 @@ func executeCommandRuleAction(c dataprovider.EventActionCommandConfig, params *E
 	cmd := exec.CommandContext(ctx, c.Cmd, args...)
 	cmd.Env = []string{}
 	for _, keyVal := range c.EnvVars {
-		if keyVal.Value == "$" {
+		if keyVal.Value == "$" && !strings.HasPrefix(strings.ToUpper(keyVal.Key), "SFTPGO_") {
 			val := os.Getenv(keyVal.Key)
 			if val == "" {
 				eventManagerLog(logger.LevelDebug, "empty value for environment variable %q", keyVal.Key)
@@ -1565,9 +1581,16 @@ func executeEmailRuleAction(c dataprovider.EventActionEmailConfig, params *Event
 			addObjectData = true
 		}
 	}
-	replacements := params.getStringReplacements(addObjectData, false)
+	replacements := params.getStringReplacements(addObjectData, 0)
 	replacer := strings.NewReplacer(replacements...)
-	body := replaceWithReplacer(c.Body, replacer)
+	var body string
+	if c.ContentType == 1 {
+		replacements := params.getStringReplacements(addObjectData, 2)
+		bodyReplacer := strings.NewReplacer(replacements...)
+		body = replaceWithReplacer(c.Body, bodyReplacer)
+	} else {
+		body = replaceWithReplacer(c.Body, replacer)
+	}
 	subject := replaceWithReplacer(c.Subject, replacer)
 	recipients := getEmailAddressesWithReplacer(c.Recipients, replacer)
 	bcc := getEmailAddressesWithReplacer(c.Bcc, replacer)
@@ -2139,7 +2162,7 @@ func executeFsRuleAction(c dataprovider.EventActionFilesystemConfig, conditions 
 	params *EventParams,
 ) error {
 	addObjectData := false
-	replacements := params.getStringReplacements(addObjectData, false)
+	replacements := params.getStringReplacements(addObjectData, 0)
 	replacer := strings.NewReplacer(replacements...)
 	switch c.Type {
 	case dataprovider.FilesystemActionRename:
@@ -2539,7 +2562,7 @@ func executeAdminCheckAction(c *dataprovider.EventActionIDPAccountCheck, params 
 		return nil, err
 	}
 
-	replacements := params.getStringReplacements(false, true)
+	replacements := params.getStringReplacements(false, 1)
 	replacer := strings.NewReplacer(replacements...)
 	data := replaceWithReplacer(c.TemplateAdmin, replacer)
 
@@ -2609,7 +2632,7 @@ func executeUserCheckAction(c *dataprovider.EventActionIDPAccountCheck, params *
 	if err != nil && !errors.Is(err, util.ErrNotFound) {
 		return nil, err
 	}
-	replacements := params.getStringReplacements(false, true)
+	replacements := params.getStringReplacements(false, 1)
 	replacer := strings.NewReplacer(replacements...)
 	data := replaceWithReplacer(c.TemplateUser, replacer)
 
@@ -2831,6 +2854,16 @@ func (j *eventCronJob) getTask(rule *dataprovider.EventRule) (dataprovider.Task,
 	return dataprovider.Task{}, nil
 }
 
+func (j *eventCronJob) getEventParams() EventParams {
+	return EventParams{
+		Event:                 "Schedule",
+		Name:                  j.ruleName,
+		Status:                1,
+		Timestamp:             time.Now(),
+		updateStatusFromError: true,
+	}
+}
+
 func (j *eventCronJob) Run() {
 	eventManagerLog(logger.LevelDebug, "executing scheduled rule %q", j.ruleName)
 	rule, err := dataprovider.EventRuleExists(j.ruleName)
@@ -2881,9 +2914,9 @@ func (j *eventCronJob) Run() {
 			}
 		}(task.Name)
 
-		executeAsyncRulesActions([]dataprovider.EventRule{rule}, EventParams{Status: 1, updateStatusFromError: true})
+		executeAsyncRulesActions([]dataprovider.EventRule{rule}, j.getEventParams())
 	} else {
-		executeAsyncRulesActions([]dataprovider.EventRule{rule}, EventParams{Status: 1, updateStatusFromError: true})
+		executeAsyncRulesActions([]dataprovider.EventRule{rule}, j.getEventParams())
 	}
 	eventManagerLog(logger.LevelDebug, "execution for scheduled rule %q finished", j.ruleName)
 }

@@ -49,7 +49,7 @@ func getUserConnection(w http.ResponseWriter, r *http.Request) (*Connection, err
 	connID := xid.New().String()
 	protocol := getProtocolFromRequest(r)
 	connectionID := fmt.Sprintf("%v_%v", protocol, connID)
-	if err := checkHTTPClientUser(&user, r, connectionID, false); err != nil {
+	if err := checkHTTPClientUser(&user, r, connectionID, false, false); err != nil {
 		sendAPIResponse(w, r, err, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 		return nil, err
 	}

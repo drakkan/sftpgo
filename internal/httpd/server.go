@@ -244,7 +244,7 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 	}
 	protocol := common.ProtocolHTTP
 	username := strings.TrimSpace(r.Form.Get("username"))
-	password := strings.TrimSpace(r.Form.Get("password"))
+	password := r.Form.Get("password")
 	if username == "" || password == "" {
 		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}},
 			dataprovider.LoginMethodPassword, ipAddr, common.ErrNoCredentials, r)
@@ -273,7 +273,7 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 		return
 	}
 	connectionID := fmt.Sprintf("%v_%v", protocol, xid.New().String())
-	if err := checkHTTPClientUser(&user, r, connectionID, true); err != nil {
+	if err := checkHTTPClientUser(&user, r, connectionID, true, false); err != nil {
 		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, err, r)
 		s.renderClientLoginPage(w, r, util.NewI18nError(err, util.I18nError403Message))
 		return
@@ -312,7 +312,7 @@ func (s *httpdServer) handleWebClientPasswordResetPost(w http.ResponseWriter, r 
 		return
 	}
 	connectionID := fmt.Sprintf("%v_%v", getProtocolFromRequest(r), xid.New().String())
-	if err := checkHTTPClientUser(user, r, connectionID, true); err != nil {
+	if err := checkHTTPClientUser(user, r, connectionID, true, false); err != nil {
 		s.renderClientResetPwdPage(w, r, util.NewI18nError(err, util.I18nErrorLoginAfterReset))
 		return
 	}
@@ -840,7 +840,7 @@ func (s *httpdServer) getUserToken(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, nil, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 		return
 	}
-	if username == "" || password == "" {
+	if username == "" || strings.TrimSpace(password) == "" {
 		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}},
 			dataprovider.LoginMethodPassword, ipAddr, common.ErrNoCredentials, r)
 		w.Header().Set(common.HTTPAuthenticationHeader, basicRealm)
@@ -862,7 +862,7 @@ func (s *httpdServer) getUserToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	connectionID := fmt.Sprintf("%v_%v", protocol, xid.New().String())
-	if err := checkHTTPClientUser(&user, r, connectionID, true); err != nil {
+	if err := checkHTTPClientUser(&user, r, connectionID, true, false); err != nil {
 		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, err, r)
 		sendAPIResponse(w, r, err, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 		return
@@ -1039,7 +1039,7 @@ func (s *httpdServer) refreshClientToken(w http.ResponseWriter, r *http.Request,
 		logger.Debug(logSender, "", "unable to refresh cookie for user %q: %v", user.Username, err)
 		return
 	}
-	if err := checkHTTPClientUser(&user, r, xid.New().String(), true); err != nil {
+	if err := checkHTTPClientUser(&user, r, xid.New().String(), true, false); err != nil {
 		logger.Debug(logSender, "", "unable to refresh cookie for user %q: %v", user.Username, err)
 		return
 	}
@@ -1188,8 +1188,9 @@ func (s *httpdServer) badHostHandler(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
+	logger.Debug(logSender, "", "the host %q is not allowed", host)
 	s.sendForbiddenResponse(w, r, util.NewI18nError(
-		util.NewGenericError(fmt.Sprintf("The host %q is not allowed", host)),
+		util.NewGenericError(http.StatusText(http.StatusForbidden)),
 		util.I18nErrorConnectionForbidden,
 	))
 }
@@ -1243,17 +1244,20 @@ func (s *httpdServer) initializeRouter() {
 	s.router.Use(middleware.Recoverer)
 	if s.binding.Security.Enabled {
 		secureMiddleware := secure.New(secure.Options{
-			AllowedHosts:            s.binding.Security.AllowedHosts,
-			AllowedHostsAreRegex:    s.binding.Security.AllowedHostsAreRegex,
-			HostsProxyHeaders:       s.binding.Security.HostsProxyHeaders,
-			SSLProxyHeaders:         s.binding.Security.getHTTPSProxyHeaders(),
-			STSSeconds:              s.binding.Security.STSSeconds,
-			STSIncludeSubdomains:    s.binding.Security.STSIncludeSubdomains,
-			STSPreload:              s.binding.Security.STSPreload,
-			ContentTypeNosniff:      s.binding.Security.ContentTypeNosniff,
-			ContentSecurityPolicy:   s.binding.Security.ContentSecurityPolicy,
-			PermissionsPolicy:       s.binding.Security.PermissionsPolicy,
-			CrossOriginOpenerPolicy: s.binding.Security.CrossOriginOpenerPolicy,
+			AllowedHosts:              s.binding.Security.AllowedHosts,
+			AllowedHostsAreRegex:      s.binding.Security.AllowedHostsAreRegex,
+			HostsProxyHeaders:         s.binding.Security.HostsProxyHeaders,
+			SSLProxyHeaders:           s.binding.Security.getHTTPSProxyHeaders(),
+			STSSeconds:                s.binding.Security.STSSeconds,
+			STSIncludeSubdomains:      s.binding.Security.STSIncludeSubdomains,
+			STSPreload:                s.binding.Security.STSPreload,
+			ContentTypeNosniff:        s.binding.Security.ContentTypeNosniff,
+			ContentSecurityPolicy:     s.binding.Security.ContentSecurityPolicy,
+			PermissionsPolicy:         s.binding.Security.PermissionsPolicy,
+			CrossOriginOpenerPolicy:   s.binding.Security.CrossOriginOpenerPolicy,
+			CrossOriginResourcePolicy: s.binding.Security.CrossOriginResourcePolicy,
+			CrossOriginEmbedderPolicy: s.binding.Security.CrossOriginEmbedderPolicy,
+			ReferrerPolicy:            s.binding.Security.ReferrerPolicy,
 		})
 		secureMiddleware.SetBadHostHandler(http.HandlerFunc(s.badHostHandler))
 		if s.binding.Security.CacheControl == "private" {
@@ -1295,23 +1299,55 @@ func (s *httpdServer) initializeRouter() {
 		}
 	}
 
-	if s.enableRESTAPI {
-		// share API available to external users
-		s.router.Get(sharesPath+"/{id}", s.downloadFromShare) //nolint:goconst
-		s.router.Post(sharesPath+"/{id}", s.uploadFilesToShare)
-		s.router.Post(sharesPath+"/{id}/{name}", s.uploadFileToShare)
-		s.router.With(compressor.Handler).Get(sharesPath+"/{id}/dirs", s.readBrowsableShareContents)
-		s.router.Get(sharesPath+"/{id}/files", s.downloadBrowsableSharedFile)
+	s.setupRESTAPIRoutes()
 
-		s.router.Get(tokenPath, s.getToken)
-		s.router.Post(adminPath+"/{username}/forgot-password", forgotAdminPassword)
-		s.router.Post(adminPath+"/{username}/reset-password", resetAdminPassword)
-		s.router.Post(userPath+"/{username}/forgot-password", forgotUserPassword)
-		s.router.Post(userPath+"/{username}/reset-password", resetUserPassword)
+	if s.enableWebAdmin || s.enableWebClient {
+		s.router.Group(func(router chi.Router) {
+			router.Use(cleanCacheControlMiddleware)
+			router.Use(compressor.Handler)
+			serveStaticDir(router, webStaticFilesPath, s.staticFilesPath, true)
+		})
+		if s.binding.OIDC.isEnabled() {
+			s.router.Get(webOIDCRedirectPath, s.handleOIDCRedirect)
+		}
+		if s.enableWebClient {
+			s.router.Get(webRootPath, func(w http.ResponseWriter, r *http.Request) {
+				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+				s.redirectToWebPath(w, r, webClientLoginPath)
+			})
+			s.router.Get(webBasePath, func(w http.ResponseWriter, r *http.Request) {
+				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+				s.redirectToWebPath(w, r, webClientLoginPath)
+			})
+		} else {
+			s.router.Get(webRootPath, func(w http.ResponseWriter, r *http.Request) {
+				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+				s.redirectToWebPath(w, r, webAdminLoginPath)
+			})
+			s.router.Get(webBasePath, func(w http.ResponseWriter, r *http.Request) {
+				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+				s.redirectToWebPath(w, r, webAdminLoginPath)
+			})
+		}
+	}
+
+	s.setupWebClientRoutes()
+	s.setupWebAdminRoutes()
+}
+
+func (s *httpdServer) setupRESTAPIRoutes() {
+	if s.enableRESTAPI {
+		if !s.binding.isAdminTokenEndpointDisabled() {
+			s.router.Get(tokenPath, s.getToken)
+			s.router.Post(adminPath+"/{username}/forgot-password", forgotAdminPassword)
+			s.router.Post(adminPath+"/{username}/reset-password", resetAdminPassword)
+		}
 
 		s.router.Group(func(router chi.Router) {
 			router.Use(checkNodeToken(s.tokenAuth))
-			router.Use(checkAPIKeyAuth(s.tokenAuth, dataprovider.APIKeyScopeAdmin))
+			if !s.binding.isAdminAPIKeyAuthDisabled() {
+				router.Use(checkAPIKeyAuth(s.tokenAuth, dataprovider.APIKeyScopeAdmin))
+			}
 			router.Use(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromHeader))
 			router.Use(jwtAuthenticatorAPI)
 
@@ -1426,10 +1462,23 @@ func (s *httpdServer) initializeRouter() {
 			})
 		})
 
-		s.router.Get(userTokenPath, s.getUserToken)
+		// share API available to external users
+		s.router.Get(sharesPath+"/{id}", s.downloadFromShare)
+		s.router.Post(sharesPath+"/{id}", s.uploadFilesToShare)
+		s.router.Post(sharesPath+"/{id}/{name}", s.uploadFileToShare)
+		s.router.With(compressor.Handler).Get(sharesPath+"/{id}/dirs", s.readBrowsableShareContents)
+		s.router.Get(sharesPath+"/{id}/files", s.downloadBrowsableSharedFile)
+
+		if !s.binding.isUserTokenEndpointDisabled() {
+			s.router.Get(userTokenPath, s.getUserToken)
+			s.router.Post(userPath+"/{username}/forgot-password", forgotUserPassword)
+			s.router.Post(userPath+"/{username}/reset-password", resetUserPassword)
+		}
 
 		s.router.Group(func(router chi.Router) {
-			router.Use(checkAPIKeyAuth(s.tokenAuth, dataprovider.APIKeyScopeUser))
+			if !s.binding.isUserAPIKeyAuthDisabled() {
+				router.Use(checkAPIKeyAuth(s.tokenAuth, dataprovider.APIKeyScopeUser))
+			}
 			router.Use(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromHeader))
 			router.Use(jwtAuthenticatorAPIUser)
 
@@ -1495,39 +1544,6 @@ func (s *httpdServer) initializeRouter() {
 			})
 		}
 	}
-
-	if s.enableWebAdmin || s.enableWebClient {
-		s.router.Group(func(router chi.Router) {
-			router.Use(cleanCacheControlMiddleware)
-			router.Use(compressor.Handler)
-			serveStaticDir(router, webStaticFilesPath, s.staticFilesPath, true)
-		})
-		if s.binding.OIDC.isEnabled() {
-			s.router.Get(webOIDCRedirectPath, s.handleOIDCRedirect)
-		}
-		if s.enableWebClient {
-			s.router.Get(webRootPath, func(w http.ResponseWriter, r *http.Request) {
-				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-				s.redirectToWebPath(w, r, webClientLoginPath)
-			})
-			s.router.Get(webBasePath, func(w http.ResponseWriter, r *http.Request) {
-				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-				s.redirectToWebPath(w, r, webClientLoginPath)
-			})
-		} else {
-			s.router.Get(webRootPath, func(w http.ResponseWriter, r *http.Request) {
-				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-				s.redirectToWebPath(w, r, webAdminLoginPath)
-			})
-			s.router.Get(webBasePath, func(w http.ResponseWriter, r *http.Request) {
-				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-				s.redirectToWebPath(w, r, webAdminLoginPath)
-			})
-		}
-	}
-
-	s.setupWebClientRoutes()
-	s.setupWebAdminRoutes()
 }
 
 func (s *httpdServer) setupWebClientRoutes() {

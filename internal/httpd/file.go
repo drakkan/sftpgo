@@ -126,7 +126,7 @@ func (f *httpdFile) closeIO() error {
 	} else if f.reader != nil {
 		err = f.reader.Close()
 		if metadater, ok := f.reader.(vfs.Metadater); ok {
-			f.BaseTransfer.SetMetadata(metadater.Metadata())
+			f.SetMetadata(metadater.Metadata())
 		}
 	}
 	return err

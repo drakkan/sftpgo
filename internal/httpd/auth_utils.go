@@ -96,8 +96,8 @@ func updateTokensDuration(api, cookie, share int) {
 	if isTokenDurationValid(share) {
 		shareTokenDuration = time.Duration(share) * time.Minute
 	}
-	logger.Debug(logSender, "", "API token duration %s, cookie token duration %s, cookie refresh threshold %s, share token duration %s",
-		apiTokenDuration, cookieTokenDuration, cookieRefreshThreshold, shareTokenDuration)
+	logger.Debug(logSender, "", "API token duration %s, cookie token duration %s, cookie refresh threshold %s, share token duration %s, csrf token duration %s",
+		apiTokenDuration, cookieTokenDuration, cookieRefreshThreshold, shareTokenDuration, csrfTokenDuration)
 }
 
 func getTokenDuration(audience tokenAudience) time.Duration {

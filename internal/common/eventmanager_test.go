@@ -808,16 +808,20 @@ func TestDateTimePlaceholder(t *testing.T) {
 	params := EventParams{
 		Timestamp: dateTime,
 	}
-	replacements := params.getStringReplacements(false, false)
+	replacements := params.getStringReplacements(false, 0)
 	r := strings.NewReplacer(replacements...)
-	res := r.Replace("{{DateTime}}")
+	res := r.Replace("{{.DateTime}}")
 	assert.Equal(t, dateTime.UTC().Format(dateTimeMillisFormat), res)
+	res = r.Replace("{{.Year}}-{{.Month}}-{{.Day}}T{{.Hour}}:{{.Minute}}")
+	assert.Equal(t, dateTime.UTC().Format(dateTimeMillisFormat)[:16], res)
 
 	Config.TZ = "local"
-	replacements = params.getStringReplacements(false, false)
+	replacements = params.getStringReplacements(false, 0)
 	r = strings.NewReplacer(replacements...)
-	res = r.Replace("{{DateTime}}")
+	res = r.Replace("{{.DateTime}}")
 	assert.Equal(t, dateTime.Local().Format(dateTimeMillisFormat), res)
+	res = r.Replace("{{.Year}}-{{.Month}}-{{.Day}}T{{.Hour}}:{{.Minute}}")
+	assert.Equal(t, dateTime.Local().Format(dateTimeMillisFormat)[:16], res)
 
 	Config.TZ = oldTZ
 }
@@ -841,7 +845,7 @@ func TestEventRuleActions(t *testing.T) {
 			HTTPConfig: dataprovider.EventActionHTTPConfig{
 				Endpoint:      "http://foo\x7f.com/", // invalid URL
 				SkipTLSVerify: true,
-				Body:          `"data": "{{ObjectDataString}}"`,
+				Body:          `"data": "{{.ObjectDataString}}"`,
 				Method:        http.MethodPost,
 				QueryParameters: []dataprovider.KeyValue{
 					{
@@ -909,7 +913,7 @@ func TestEventRuleActions(t *testing.T) {
 	assert.Contains(t, getErrorString(err), "error getting user")
 
 	action.Options.HTTPConfig.Parts = nil
-	action.Options.HTTPConfig.Body = "{{ObjectData}}"
+	action.Options.HTTPConfig.Body = "{{.ObjectData}}"
 	// test disk and transfer quota reset
 	username1 := "user1"
 	username2 := "user2"
@@ -1245,7 +1249,7 @@ func TestEventRuleActions(t *testing.T) {
 			Type: dataprovider.FilesystemActionCompress,
 			Compress: dataprovider.EventActionFsCompress{
 				Name:  "test.zip",
-				Paths: []string{"/{{VirtualPath}}"},
+				Paths: []string{"/{{.VirtualPath}}"},
 			},
 		},
 	}
@@ -1950,12 +1954,27 @@ func TestScheduledActions(t *testing.T) {
 	backupsPath := filepath.Join(os.TempDir(), "backups")
 	err := os.RemoveAll(backupsPath)
 	assert.NoError(t, err)
+	now := time.Now().UTC().Format(dateTimeMillisFormat)
+	// The backup action sets the home directory to the backup path.
+	expectedDirPath := filepath.Join(backupsPath, fmt.Sprintf("%s_%s_%s", now[0:4], now[5:7], now[8:10]))
 
-	action := &dataprovider.BaseEventAction{
-		Name: "action",
+	action1 := &dataprovider.BaseEventAction{
+		Name: "action1",
 		Type: dataprovider.ActionTypeBackup,
 	}
-	err = dataprovider.AddEventAction(action, "", "", "")
+	err = dataprovider.AddEventAction(action1, "", "", "")
+	assert.NoError(t, err)
+	action2 := &dataprovider.BaseEventAction{
+		Name: "action2",
+		Type: dataprovider.ActionTypeFilesystem,
+		Options: dataprovider.BaseEventActionOptions{
+			FsConfig: dataprovider.EventActionFilesystemConfig{
+				Type:   dataprovider.FilesystemActionMkdirs,
+				MkDirs: []string{"{{.Year}}_{{.Month}}_{{.Day}}"},
+			},
+		},
+	}
+	err = dataprovider.AddEventAction(action2, "", "", "")
 	assert.NoError(t, err)
 	rule := &dataprovider.EventRule{
 		Name:    "rule",
@@ -1974,9 +1993,15 @@ func TestScheduledActions(t *testing.T) {
 		Actions: []dataprovider.EventAction{
 			{
 				BaseEventAction: dataprovider.BaseEventAction{
-					Name: action.Name,
+					Name: action1.Name,
 				},
 				Order: 1,
+			},
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action2.Name,
+				},
+				Order: 2,
 			},
 		},
 	}
@@ -1992,9 +2017,10 @@ func TestScheduledActions(t *testing.T) {
 
 	job.Run()
 	assert.DirExists(t, backupsPath)
+	assert.DirExists(t, expectedDirPath)
 
-	action.Type = dataprovider.ActionTypeEmail
-	action.Options = dataprovider.BaseEventActionOptions{
+	action1.Type = dataprovider.ActionTypeEmail
+	action1.Options = dataprovider.BaseEventActionOptions{
 		EmailConfig: dataprovider.EventActionEmailConfig{
 			Recipients:  []string{"example@example.com"},
 			Subject:     "test with attachments",
@@ -2002,16 +2028,19 @@ func TestScheduledActions(t *testing.T) {
 			Attachments: []string{"/file1.txt"},
 		},
 	}
-	err = dataprovider.UpdateEventAction(action, "", "", "")
+	err = dataprovider.UpdateEventAction(action1, "", "", "")
 	assert.NoError(t, err)
 	job.Run() // action is not compatible with a scheduled rule
 
 	err = dataprovider.DeleteEventRule(rule.Name, "", "", "")
 	assert.NoError(t, err)
-	err = dataprovider.DeleteEventAction(action.Name, "", "", "")
+	err = dataprovider.DeleteEventAction(action1.Name, "", "", "")
+	assert.NoError(t, err)
+	err = dataprovider.DeleteEventAction(action2.Name, "", "", "")
 	assert.NoError(t, err)
 	err = os.RemoveAll(backupsPath)
 	assert.NoError(t, err)
+
 	stopEventScheduler()
 }
 
@@ -2130,11 +2159,11 @@ func TestWriteHTTPPartsError(t *testing.T) {
 }
 
 func TestReplacePathsPlaceholders(t *testing.T) {
-	replacer := strings.NewReplacer("{{VirtualPath}}", "/path1")
-	paths := []string{"{{VirtualPath}}", "/path1"}
+	replacer := strings.NewReplacer("{{.VirtualPath}}", "/path1")
+	paths := []string{"{{.VirtualPath}}", "/path1"}
 	paths = replacePathsPlaceholders(paths, replacer)
 	assert.Equal(t, []string{"/path1"}, paths)
-	paths = []string{"{{VirtualPath}}", "/path2"}
+	paths = []string{"{{.VirtualPath}}", "/path2"}
 	paths = replacePathsPlaceholders(paths, replacer)
 	assert.Equal(t, []string{"/path1", "/path2"}, paths)
 }
@@ -2227,7 +2256,7 @@ func TestOnDemandRule(t *testing.T) {
 				Recipients:  []string{"example@example.org"},
 				Subject:     "subject",
 				Body:        "body",
-				Attachments: []string{"/{{VirtualPath}}"},
+				Attachments: []string{"/{{.VirtualPath}}"},
 			},
 		},
 	}
@@ -2268,21 +2297,21 @@ func getErrorString(err error) string {
 
 func TestHTTPEndpointWithPlaceholders(t *testing.T) {
 	c := dataprovider.EventActionHTTPConfig{
-		Endpoint: "http://127.0.0.1:8080/base/url/{{Name}}/{{VirtualPath}}/upload",
+		Endpoint: "http://127.0.0.1:8080/base/url/{{.Name}}/{{.VirtualPath}}/upload",
 		QueryParameters: []dataprovider.KeyValue{
 			{
 				Key:   "u",
-				Value: "{{Name}}",
+				Value: "{{.Name}}",
 			},
 			{
 				Key:   "p",
-				Value: "{{VirtualPath}}",
+				Value: "{{.VirtualPath}}",
 			},
 		},
 	}
 	name := "uname"
 	vPath := "/a dir/@ file.txt"
-	replacer := strings.NewReplacer("{{Name}}", name, "{{VirtualPath}}", vPath)
+	replacer := strings.NewReplacer("{{.Name}}", name, "{{.VirtualPath}}", vPath)
 	u, err := getHTTPRuleActionEndpoint(&c, replacer)
 	assert.NoError(t, err)
 	expected := "http://127.0.0.1:8080/base/url/" + url.PathEscape(name) + "/" + url.PathEscape(vPath) +
@@ -2302,9 +2331,9 @@ func TestMetadataReplacement(t *testing.T) {
 			"key": "value",
 		},
 	}
-	replacements := params.getStringReplacements(false, false)
+	replacements := params.getStringReplacements(false, 0)
 	replacer := strings.NewReplacer(replacements...)
-	reader, _, err := getHTTPRuleActionBody(&dataprovider.EventActionHTTPConfig{Body: "{{Metadata}} {{MetadataString}}"}, replacer, nil, dataprovider.User{}, params, false)
+	reader, _, err := getHTTPRuleActionBody(&dataprovider.EventActionHTTPConfig{Body: "{{.Metadata}} {{.MetadataString}}"}, replacer, nil, dataprovider.User{}, params, false)
 	require.NoError(t, err)
 	data, err := io.ReadAll(reader)
 	require.NoError(t, err)

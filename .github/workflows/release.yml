@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 env:
-  GO_VERSION: 1.23.3
+  GO_VERSION: 1.24.0
 
 jobs:
   prepare-sources-with-deps:
@@ -72,17 +72,17 @@ jobs:
           $DATE_TIME = ([datetime]::Now.ToUniversalTime().toString("yyyy-MM-ddTHH:mm:ssZ")) | Out-String
           $FILE_VERSION = $Env:SFTPGO_VERSION.substring(1)  + ".0"
           go install github.com/tc-hib/go-winres@latest
-          go-winres simply --arch amd64 --product-version $Env:SFTPGO_VERSION-$GIT_COMMIT --file-version $FILE_VERSION --file-description "SFTPGo server" --product-name SFTPGo --copyright "AGPL-3.0 with additional terms" --original-filename sftpgo.exe --icon  .\windows-installer\icon.ico
+          go-winres simply --arch amd64 --product-version $Env:SFTPGO_VERSION-$GIT_COMMIT --file-version "$FILE_VERSION" --file-description "SFTPGo server" --product-name SFTPGo --copyright "2019-2025 Nicola Murino" --original-filename sftpgo.exe --icon  .\windows-installer\icon.ico
           go build -trimpath -tags nopgxregisterdefaulttypes,disable_grpc_modules -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=$GIT_COMMIT -X github.com/drakkan/sftpgo/v2/internal/version.date=$DATE_TIME" -o sftpgo.exe
           mkdir arm64
           $Env:CGO_ENABLED='0'
           $Env:GOOS='windows'
           $Env:GOARCH='arm64'
-          go-winres simply --arch arm64 --product-version $Env:SFTPGO_VERSION-$GIT_COMMIT --file-version $FILE_VERSION --file-description "SFTPGo server" --product-name SFTPGo --copyright "AGPL-3.0 with additional terms" --original-filename sftpgo.exe --icon  .\windows-installer\icon.ico
+          go-winres simply --arch arm64 --product-version $Env:SFTPGO_VERSION-$GIT_COMMIT --file-version "$FILE_VERSION" --file-description "SFTPGo server" --product-name SFTPGo --copyright "2019-2025 Nicola Murino" --original-filename sftpgo.exe --icon  .\windows-installer\icon.ico
           go build -trimpath -tags nopgxregisterdefaulttypes,disable_grpc_modules,nosqlite -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=$GIT_COMMIT -X github.com/drakkan/sftpgo/v2/internal/version.date=$DATE_TIME" -o .\arm64\sftpgo.exe
           mkdir x86
           $Env:GOARCH='386'
-          go-winres simply --arch 386 --product-version $Env:SFTPGO_VERSION-$GIT_COMMIT --file-version $FILE_VERSION --file-description "SFTPGo server" --product-name SFTPGo --copyright "AGPL-3.0 with additional terms" --original-filename sftpgo.exe --icon  .\windows-installer\icon.ico
+          go-winres simply --arch 386 --product-version $Env:SFTPGO_VERSION-$GIT_COMMIT --file-version "$FILE_VERSION" --file-description "SFTPGo server" --product-name SFTPGo --copyright "2019-2025 Nicola Murino" --original-filename sftpgo.exe --icon  .\windows-installer\icon.ico
           go build -trimpath -tags nopgxregisterdefaulttypes,disable_grpc_modules,nosqlite -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=$GIT_COMMIT -X github.com/drakkan/sftpgo/v2/internal/version.date=$DATE_TIME" -o .\x86\sftpgo.exe
           Remove-Item Env:\CGO_ENABLED
           Remove-Item Env:\GOOS
@@ -91,7 +91,7 @@ jobs:
           SFTPGO_VERSION: ${{ steps.get_version.outputs.VERSION }}
 
       - name: Sign binaries
-        uses: azure/trusted-signing-action@v0.5.0
+        uses: azure/trusted-signing-action@v0.5.1
         with:
           endpoint: https://eus.codesigning.azure.net/
           trusted-signing-account-name: nicola
@@ -153,7 +153,7 @@ jobs:
           SFTPGO_ISS_VERSION: ${{ steps.get_version.outputs.VERSION }}
 
       - name: Sign installers
-        uses: azure/trusted-signing-action@v0.5.0
+        uses: azure/trusted-signing-action@v0.5.1
         with:
           endpoint: https://eus.codesigning.azure.net/
           trusted-signing-account-name: nicola
@@ -227,7 +227,7 @@ jobs:
 
   prepare-mac:
     name: Prepare macOS binaries
-    runs-on: macos-12
+    runs-on: macos-13
 
     steps:
       - uses: actions/checkout@v4
@@ -379,7 +379,7 @@ jobs:
         env:
           SFTPGO_VERSION: ${{ steps.get_version.outputs.SFTPGO_VERSION }}
 
-      - uses: uraimo/run-on-arch-action@v2
+      - uses: uraimo/run-on-arch-action@v3
         if: ${{ matrix.arch != 'amd64' }}
         name: Build for ${{ matrix.arch }}
         id: build

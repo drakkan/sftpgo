@@ -60,13 +60,20 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         </button>
     </div>
 </form>
-{{- if gt (len .Languages) 1}}
+{{- if or (gt (len .Languages) 1) (and .Branding.DisclaimerName .Branding.DisclaimerPath)}}
 <hr>
 {{- end}}
 <div class=" d-flex flex-stack pt-5 mt-5">
     <div class="me-10">
         <select id="languageSwitcher" name="language" class="form-select form-select-solid form-select-sm" data-control="i18n-select2" data-hide-search="true">
         </select>
+    </div>
+    <div class="d-flex fw-semibold text-primary">
+        {{- if and .Branding.DisclaimerName .Branding.DisclaimerPath}}
+        <a href="{{.Branding.DisclaimerPath}}" target="_blank" rel="noopener noreferrer" class="px-2">
+            <span data-i18n="custom.disclaimer_webclient">{{.Branding.DisclaimerName}}</span>
+        </a>
+        {{- end}}
     </div>
 </div>
 {{- end}}

@@ -2395,8 +2395,57 @@ func TestDbTokenManager(t *testing.T) {
 	dbTokenManager.Cleanup()
 	isInvalidated = dbTokenManager.Get(testToken)
 	assert.True(t, isInvalidated)
-	err := dataprovider.DeleteSharedSession(key)
+	err := dataprovider.DeleteSharedSession(key, dataprovider.SessionTypeInvalidToken)
 	assert.NoError(t, err)
+}
+
+func TestDatabaseSharedSessions(t *testing.T) {
+	if !isSharedProviderSupported() {
+		t.Skip("this test it is not available with this provider")
+	}
+	session1 := dataprovider.Session{
+		Key:       "1",
+		Data:      map[string]string{"a": "b"},
+		Type:      dataprovider.SessionTypeOIDCAuth,
+		Timestamp: 10,
+	}
+	err := dataprovider.AddSharedSession(session1)
+	assert.NoError(t, err)
+	// Adding another session with the same key but a different type should work
+	session2 := session1
+	session2.Type = dataprovider.SessionTypeOIDCToken
+	err = dataprovider.AddSharedSession(session2)
+	assert.NoError(t, err)
+	err = dataprovider.DeleteSharedSession(session1.Key, dataprovider.SessionTypeInvalidToken)
+	assert.ErrorIs(t, err, util.ErrNotFound)
+	_, err = dataprovider.GetSharedSession(session1.Key, dataprovider.SessionTypeResetCode)
+	assert.ErrorIs(t, err, util.ErrNotFound)
+	session1Get, err := dataprovider.GetSharedSession(session1.Key, dataprovider.SessionTypeOIDCAuth)
+	assert.NoError(t, err)
+	assert.Equal(t, session1.Timestamp, session1Get.Timestamp)
+	var stored map[string]string
+	err = json.Unmarshal(session1Get.Data.([]byte), &stored)
+	assert.NoError(t, err)
+	assert.Equal(t, session1.Data, stored)
+	session1.Timestamp = 20
+	session1.Data = map[string]string{"c": "d"}
+	err = dataprovider.AddSharedSession(session1)
+	assert.NoError(t, err)
+	session1Get, err = dataprovider.GetSharedSession(session1.Key, dataprovider.SessionTypeOIDCAuth)
+	assert.NoError(t, err)
+	assert.Equal(t, session1.Timestamp, session1Get.Timestamp)
+	stored = make(map[string]string)
+	err = json.Unmarshal(session1Get.Data.([]byte), &stored)
+	assert.NoError(t, err)
+	assert.Equal(t, session1.Data, stored)
+	err = dataprovider.DeleteSharedSession(session1.Key, dataprovider.SessionTypeOIDCAuth)
+	assert.NoError(t, err)
+	err = dataprovider.DeleteSharedSession(session2.Key, dataprovider.SessionTypeOIDCToken)
+	assert.NoError(t, err)
+	_, err = dataprovider.GetSharedSession(session1.Key, dataprovider.SessionTypeOIDCAuth)
+	assert.ErrorIs(t, err, util.ErrNotFound)
+	_, err = dataprovider.GetSharedSession(session2.Key, dataprovider.SessionTypeOIDCToken)
+	assert.ErrorIs(t, err, util.ErrNotFound)
 }
 
 func TestAllowedProxyUnixDomainSocket(t *testing.T) {
@@ -3389,11 +3438,15 @@ func TestSecureMiddlewareIntegration(t *testing.T) {
 						Value: "https",
 					},
 				},
-				STSSeconds:           31536000,
-				STSIncludeSubdomains: true,
-				STSPreload:           true,
-				ContentTypeNosniff:   true,
-				CacheControl:         "private",
+				STSSeconds:                31536000,
+				STSIncludeSubdomains:      true,
+				STSPreload:                true,
+				ContentTypeNosniff:        true,
+				CacheControl:              "private",
+				CrossOriginOpenerPolicy:   "same-origin",
+				CrossOriginResourcePolicy: "same-site",
+				CrossOriginEmbedderPolicy: "require-corp",
+				ReferrerPolicy:            "no-referrer",
 			},
 		},
 		enableWebAdmin:  true,
@@ -3448,6 +3501,10 @@ func TestSecureMiddlewareIntegration(t *testing.T) {
 	assert.NotEmpty(t, r.Header.Get(forwardedHostHeader))
 	assert.Equal(t, "max-age=31536000; includeSubDomains; preload", rr.Header().Get("Strict-Transport-Security"))
 	assert.Equal(t, "nosniff", rr.Header().Get("X-Content-Type-Options"))
+	assert.Equal(t, "require-corp", rr.Header().Get("Cross-Origin-Embedder-Policy"))
+	assert.Equal(t, "same-origin", rr.Header().Get("Cross-Origin-Opener-Policy"))
+	assert.Equal(t, "same-site", rr.Header().Get("Cross-Origin-Resource-Policy"))
+	assert.Equal(t, "no-referrer", rr.Header().Get("Referrer-Policy"))
 
 	server.binding.Security.Enabled = false
 	server.binding.Security.updateProxyHeaders()
@@ -3893,6 +3950,116 @@ func TestHTTPSRedirect(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestDisabledAdminLoginMethods(t *testing.T) {
+	server := httpdServer{
+		binding: Binding{
+			Address:              "",
+			Port:                 8080,
+			EnableWebAdmin:       true,
+			EnableWebClient:      true,
+			EnableRESTAPI:        true,
+			DisabledLoginMethods: 20,
+		},
+		enableWebAdmin:  true,
+		enableWebClient: true,
+		enableRESTAPI:   true,
+	}
+	server.initializeRouter()
+	testServer := httptest.NewServer(server.router)
+	defer testServer.Close()
+
+	rr := httptest.NewRecorder()
+	req, err := http.NewRequest(http.MethodGet, tokenPath, nil)
+	require.NoError(t, err)
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+
+	rr = httptest.NewRecorder()
+	req, err = http.NewRequest(http.MethodPost, path.Join(adminPath, defaultAdminUsername, "forgot-password"), nil)
+	require.NoError(t, err)
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+
+	rr = httptest.NewRecorder()
+	req, err = http.NewRequest(http.MethodPost, path.Join(adminPath, defaultAdminUsername, "reset-password"), nil)
+	require.NoError(t, err)
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+
+	rr = httptest.NewRecorder()
+	req, err = http.NewRequest(http.MethodPost, webAdminLoginPath, nil)
+	require.NoError(t, err)
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusMethodNotAllowed, rr.Code)
+
+	rr = httptest.NewRecorder()
+	req, err = http.NewRequest(http.MethodPost, webAdminResetPwdPath, nil)
+	require.NoError(t, err)
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+
+	rr = httptest.NewRecorder()
+	req, err = http.NewRequest(http.MethodPost, webAdminForgotPwdPath, nil)
+	require.NoError(t, err)
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+}
+
+func TestDisabledUserLoginMethods(t *testing.T) {
+	server := httpdServer{
+		binding: Binding{
+			Address:              "",
+			Port:                 8080,
+			EnableWebAdmin:       true,
+			EnableWebClient:      true,
+			EnableRESTAPI:        true,
+			DisabledLoginMethods: 40,
+		},
+		enableWebAdmin:  true,
+		enableWebClient: true,
+		enableRESTAPI:   true,
+	}
+	server.initializeRouter()
+	testServer := httptest.NewServer(server.router)
+	defer testServer.Close()
+
+	rr := httptest.NewRecorder()
+	req, err := http.NewRequest(http.MethodGet, userTokenPath, nil)
+	require.NoError(t, err)
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+
+	rr = httptest.NewRecorder()
+	req, err = http.NewRequest(http.MethodPost, userPath+"/user/forgot-password", nil)
+	require.NoError(t, err)
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+
+	rr = httptest.NewRecorder()
+	req, err = http.NewRequest(http.MethodPost, userPath+"/user/reset-password", nil)
+	require.NoError(t, err)
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+
+	rr = httptest.NewRecorder()
+	req, err = http.NewRequest(http.MethodPost, webClientLoginPath, nil)
+	require.NoError(t, err)
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusMethodNotAllowed, rr.Code)
+
+	rr = httptest.NewRecorder()
+	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, nil)
+	require.NoError(t, err)
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+
+	rr = httptest.NewRecorder()
+	req, err = http.NewRequest(http.MethodPost, webClientForgotPwdPath, nil)
+	require.NoError(t, err)
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+}
+
 func TestGetLogEventString(t *testing.T) {
 	assert.Equal(t, "Login failed", getLogEventString(notifier.LogEventTypeLoginFailed))
 	assert.Equal(t, "Login with non-existent user", getLogEventString(notifier.LogEventTypeLoginNoUser))
@@ -4058,6 +4225,39 @@ func TestI18NErrors(t *testing.T) {
 	errI18n = util.NewI18nError(err, util.I18nError500Message, util.I18nErrorArgs(map[string]any{"a": "b"}))
 	assert.Equal(t, util.I18nError500Message, errI18n.Message)
 	assert.Equal(t, `{"a":"b"}`, errI18n.Args())
+}
+
+func TestConvertEnabledLoginMethods(t *testing.T) {
+	b := Binding{
+		EnabledLoginMethods:  0,
+		DisabledLoginMethods: 1,
+	}
+	b.convertLoginMethods()
+	assert.Equal(t, 1, b.DisabledLoginMethods)
+	b.DisabledLoginMethods = 0
+	b.EnabledLoginMethods = 1
+	b.convertLoginMethods()
+	assert.Equal(t, 14, b.DisabledLoginMethods)
+	b.DisabledLoginMethods = 0
+	b.EnabledLoginMethods = 2
+	b.convertLoginMethods()
+	assert.Equal(t, 13, b.DisabledLoginMethods)
+	b.DisabledLoginMethods = 0
+	b.EnabledLoginMethods = 3
+	b.convertLoginMethods()
+	assert.Equal(t, 12, b.DisabledLoginMethods)
+	b.DisabledLoginMethods = 0
+	b.EnabledLoginMethods = 4
+	b.convertLoginMethods()
+	assert.Equal(t, 11, b.DisabledLoginMethods)
+	b.DisabledLoginMethods = 0
+	b.EnabledLoginMethods = 7
+	b.convertLoginMethods()
+	assert.Equal(t, 8, b.DisabledLoginMethods)
+	b.DisabledLoginMethods = 0
+	b.EnabledLoginMethods = 15
+	b.convertLoginMethods()
+	assert.Equal(t, 0, b.DisabledLoginMethods)
 }
 
 func getCSRFTokenFromBody(body io.Reader) (string, error) {
