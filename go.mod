@@ -3,7 +3,7 @@ module github.com/drakkan/sftpgo/v2
 go 1.24.0
 
 require (
-	cloud.google.com/go/storage v1.52.0
+	cloud.google.com/go/storage v1.53.0
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.18.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.9.0
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.6.1
@@ -14,9 +14,9 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.29.14
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.67
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.30
-	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.17.73
+	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.17.75
 	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.29.0
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.79.2
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.79.3
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.35.4
 	github.com/aws/aws-sdk-go-v2/service/sts v1.33.19
 	github.com/bmatcuk/doublestar/v4 v4.8.1
@@ -39,13 +39,13 @@ require (
 	github.com/jackc/pgx/v5 v5.7.4
 	github.com/jlaffaye/ftp v0.2.0
 	github.com/klauspost/compress v1.18.0
-	github.com/lestrrat-go/jwx/v2 v2.1.6-0.20250420095048-a18531964875
+	github.com/lestrrat-go/jwx/v2 v2.1.6
 	github.com/lithammer/shortuuid/v4 v4.2.0
 	github.com/mattn/go-sqlite3 v1.14.28
 	github.com/mhale/smtpd v0.8.3
 	github.com/minio/sio v0.4.1
 	github.com/otiai10/copy v1.14.1
-	github.com/pires/go-proxyproto v0.8.0
+	github.com/pires/go-proxyproto v0.8.1
 	github.com/pkg/sftp v1.13.9
 	github.com/pquerna/otp v1.4.0
 	github.com/prometheus/client_golang v1.22.0
@@ -68,19 +68,19 @@ require (
 	go.etcd.io/bbolt v1.4.0
 	go.uber.org/automaxprocs v1.6.0
 	gocloud.dev v0.41.0
-	golang.org/x/crypto v0.37.0
-	golang.org/x/net v0.39.0
-	golang.org/x/oauth2 v0.29.0
-	golang.org/x/sys v0.32.0
-	golang.org/x/term v0.31.0
+	golang.org/x/crypto v0.38.0
+	golang.org/x/net v0.40.0
+	golang.org/x/oauth2 v0.30.0
+	golang.org/x/sys v0.33.0
+	golang.org/x/term v0.32.0
 	golang.org/x/time v0.11.0
-	google.golang.org/api v0.230.0
+	google.golang.org/api v0.232.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
 require (
-	cel.dev/expr v0.23.1 // indirect
-	cloud.google.com/go v0.120.1 // indirect
+	cel.dev/expr v0.24.0 // indirect
+	cloud.google.com/go v0.121.0 // indirect
 	cloud.google.com/go/auth v0.16.1 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	cloud.google.com/go/compute/metadata v0.6.0 // indirect
@@ -99,7 +99,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.3 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/v4a v1.3.34 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.12.3 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.7.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.7.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.12.15 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.18.15 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.25.3 // indirect
@@ -109,9 +109,9 @@ require (
 	github.com/boombuler/barcode v1.0.2 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/cncf/xds/go v0.0.0-20250326154945-ae57f3c0d45f // indirect
+	github.com/cncf/xds/go v0.0.0-20250501225837-2ac532fd4443 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
-	github.com/cpuguy83/go-md2man/v2 v2.0.6 // indirect
+	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0 // indirect
 	github.com/envoyproxy/go-control-plane/envoy v1.32.4 // indirect
@@ -149,7 +149,7 @@ require (
 	github.com/lufia/plan9stats v0.0.0-20250317134145-8bc96cf8fc35 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/miekg/dns v1.1.65 // indirect
+	github.com/miekg/dns v1.1.66 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/oklog/run v1.1.0 // indirect
 	github.com/otiai10/mint v1.6.3 // indirect
@@ -166,7 +166,7 @@ require (
 	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
-	github.com/spf13/cast v1.7.1 // indirect
+	github.com/spf13/cast v1.8.0 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/spiffe/go-spiffe/v2 v2.5.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.15 // indirect
@@ -185,13 +185,13 @@ require (
 	go.opentelemetry.io/otel/trace v1.35.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/mod v0.24.0 // indirect
-	golang.org/x/sync v0.13.0 // indirect
-	golang.org/x/text v0.24.0 // indirect
-	golang.org/x/tools v0.32.0 // indirect
+	golang.org/x/sync v0.14.0 // indirect
+	golang.org/x/text v0.25.0 // indirect
+	golang.org/x/tools v0.33.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
-	google.golang.org/genproto v0.0.0-20250422160041-2d3770c4ea7f // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20250422160041-2d3770c4ea7f // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250422160041-2d3770c4ea7f // indirect
+	google.golang.org/genproto v0.0.0-20250505200425-f936aa4a68b2 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20250505200425-f936aa4a68b2 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250505200425-f936aa4a68b2 // indirect
 	google.golang.org/grpc v1.72.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
@@ -201,5 +201,5 @@ replace (
 	github.com/fclairamb/ftpserverlib => github.com/drakkan/ftpserverlib v0.0.0-20250204143431-e069fad14727
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20240430173938-7ba8270c8e7f
 	github.com/robfig/cron/v3 => github.com/drakkan/cron/v3 v3.0.0-20230222140221-217a1e4d96c0
-	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20250420150858-04abdc60032d
+	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20250510170535-6faa3aa595a5
 )
