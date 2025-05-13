@@ -878,19 +878,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             dt.on('user-select', function(e, dt, type, cell, originalEvent){
                 let pageSelected = dt.rows({ selected: true, page: 'current' }).count();
                 let totalSelected = dt.rows({ selected: true, search: 'applied' }).count();
-                if (totalSelected > pageSelected){
-                    let currentIndexes = [];
-                    dt.rows({ page: 'current' }).every(function (rowIdx, tableLoop, rowLoop){
-                        currentIndexes.push(rowIdx);
-                    });
-
-                    dt.rows().deselect();
-                    currentIndexes.forEach((idx) => {
-                        dt.row(idx).select();
-                    });
-
-                    totalSelected = dt.rows({ selected: true, search: 'applied' }).count();
-                }
                 if ($(originalEvent.target).is(':checked')){
                     pageSelected++;
                     totalSelected++;
@@ -910,7 +897,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             const selectAllContainer = document.querySelector('[data-kt-filemanager-table-select="select_all_pages_container"]');
             const selectAllCheck = document.querySelector('[data-kt-filemanager-table-select="select_all_pages"]');
 
-            if (pageSelected > 0) {
+            if (totalSelected > 0) {
                 let pageTotal = dt.rows({ page: 'current' }).count();
                 if (pageSelected === pageTotal){
                     selectAllContainer.classList.remove("d-none");
