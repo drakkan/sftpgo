@@ -257,7 +257,7 @@ func TestMain(m *testing.M) {
 	}
 	sftpdConf.KexAlgorithms = []string{"curve25519-sha256@libssh.org", ssh.KeyExchangeECDHP256,
 		ssh.KeyExchangeECDHP384}
-	sftpdConf.Ciphers = []string{ssh.CipherChacha20Poly1305, ssh.CipherAES128GCM,
+	sftpdConf.Ciphers = []string{ssh.CipherChaCha20Poly1305, ssh.CipherAES128GCM,
 		ssh.CipherAES256CTR}
 	sftpdConf.LoginBannerFile = loginBannerFileName
 	// we need to test all supported ssh commands

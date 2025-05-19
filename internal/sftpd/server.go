@@ -452,9 +452,9 @@ func (c *Configuration) checkKeyExchangeAlgorithms() {
 		}
 		kexs = append(kexs, k)
 		if strings.TrimSpace(k) == keyExchangeCurve25519SHA256LibSSH {
-			kexs = append(kexs, ssh.KeyExchangeCurve25519SHA256)
+			kexs = append(kexs, ssh.KeyExchangeCurve25519)
 		}
-		if strings.TrimSpace(k) == ssh.KeyExchangeCurve25519SHA256 {
+		if strings.TrimSpace(k) == ssh.KeyExchangeCurve25519 {
 			kexs = append(kexs, keyExchangeCurve25519SHA256LibSSH)
 		}
 	}
