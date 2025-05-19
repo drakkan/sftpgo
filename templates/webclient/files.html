@@ -2219,6 +2219,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         uploadFiles(dropzone.getAcceptedFiles());
                     }
                 });
+                $("#upload_files_cancel").click(function(){
+                    dropzone.removeAllFiles();
+                });
             }
         });
 
@@ -2471,7 +2474,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </form>
             </div>
             <div class="modal-footer border-0">
-                <button data-i18n="general.cancel" type="button" class="btn btn-light me-5" data-bs-dismiss="modal">Cancel</button>
+                <button data-i18n="general.cancel" type="button" id="upload_files_cancel" class="btn btn-light me-5" data-bs-dismiss="modal">Cancel</button>
                 <button data-i18n="general.submit" type="button" id="upload_files_button" class="btn btn-primary" data-bs-dismiss="modal">Submit</button>
             </div>
         </div>
