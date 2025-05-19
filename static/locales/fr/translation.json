@@ -284,6 +284,7 @@
         "download": "Télécharger",
         "download_ready": "Votre téléchargement est prêt",
         "upload_queue_not_ready": "La file d'attente de téléchargement est en cours de chargement, veuillez réessayer dans quelques instants",
+        "upload_no_files": "Aucun fichier sélectionné. Veuillez choisir ou glisser des fichiers à téléverser",
         "move_copy": "Déplacer ou copier",
         "share": "Partager",
         "home": "Accueil",

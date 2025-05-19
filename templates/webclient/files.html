@@ -1981,6 +1981,17 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     var playerKeepAlive;
 
     function uploadFiles(files) {
+        if (files.length == 0) {
+            ModalAlert.fire({
+                text: $.t('fs.upload_no_files'),
+                icon: "warning",
+                confirmButtonText: $.t('general.ok'),
+                customClass: {
+                    confirmButton: "btn btn-primary"
+                }
+            });
+            return;
+        }
         keepAlive();
         let keepAliveTimer = setInterval(keepAlive, keepAliveInterval);
 
