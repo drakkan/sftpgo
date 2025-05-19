@@ -1865,7 +1865,7 @@ func TestConfigsFromProvider(t *testing.T) {
 			KexAlgorithms:  []string{ssh.InsecureKeyExchangeDHGEXSHA1},
 			Ciphers:        []string{ssh.InsecureCipherAES128CBC, ssh.InsecureCipherAES192CBC, ssh.InsecureCipherAES256CBC},
 			MACs:           []string{ssh.HMACSHA512ETM},
-			PublicKeyAlgos: []string{ssh.InsecureKeyAlgoDSA},
+			PublicKeyAlgos: []string{ssh.InsecureKeyAlgoDSA}, //nolint:staticcheck
 		},
 	}
 	err = dataprovider.UpdateConfigs(&configs, "", "", "")
@@ -1896,7 +1896,7 @@ func TestSupportedSecurityOptions(t *testing.T) {
 	var defaultKexs []string
 	for _, k := range supportedKexAlgos {
 		defaultKexs = append(defaultKexs, k)
-		if k == ssh.KeyExchangeCurve25519SHA256 {
+		if k == ssh.KeyExchangeCurve25519 {
 			defaultKexs = append(defaultKexs, keyExchangeCurve25519SHA256LibSSH)
 		}
 	}
@@ -1913,7 +1913,7 @@ func TestSupportedSecurityOptions(t *testing.T) {
 	c.MACs = []string{
 		" hmac-sha2-256-etm@openssh.com ", " hmac-sha2-512-etm@openssh.com",
 		"hmac-sha2-256", "hmac-sha2-512 ",
-		" hmac-sha1-96", "hmac-sha1 ",
+		"hmac-sha1 ", " hmac-sha1-96",
 	}
 	err = c.configureSecurityOptions(serverConfig)
 	assert.NoError(t, err)

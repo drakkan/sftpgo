@@ -2919,7 +2919,7 @@ func validatePublicKeys(user *User) error {
 				util.I18nErrorPubKeyInvalid,
 			)
 		}
-		if out.Type() == ssh.InsecureKeyAlgoDSA {
+		if out.Type() == ssh.InsecureKeyAlgoDSA { //nolint:staticcheck
 			providerLog(logger.LevelError, "dsa public key not accepted, position: %d", idx)
 			return util.NewI18nError(
 				util.NewValidationError(fmt.Sprintf("DSA key format is insecure and it is not allowed for key at position %d", idx)),
