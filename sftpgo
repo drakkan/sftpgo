@@ -1,0 +1,102 @@
+#! /bin/sh
+
+### BEGIN INIT INFO
+# Provides:             SFTPGo
+# Required-Start:       $remote_fs $syslog
+# Required-Stop:        $remote_fs $syslog
+# Default-Start:        2 3 4 5
+# Default-Stop:
+# Short-Description:    SFTPGo server
+### END INIT INFO
+
+set -e
+
+# /etc/init.d/sftpgo: start and stop the SFTPGo "server" daemon
+
+SFTPGO_USER="sftpgo"
+SFTPGO_GROUP="sftpgo"
+SFTPGO_BIN_NAME="sftpgo"
+SFTPGO_BIN="/usr/bin/sftpgo"
+SFTPGO_PID="/var/lib/sftpgo/sftpgo.pid"
+SFTPGO_CONF_DIR="/etc/sftpgo"
+SFTPGO_CONF_FILE="sftpgo.json"
+SFTPGO_OPTS="serve -c $SFTPGO_CONF_DIR --config-file $SFTPGO_CONF_FILE"
+
+umask 022
+
+test -x $SFTPGO_BIN || exit 0
+
+
+if test -f /etc/default/$SFTPGO_BIN_NAME; then
+    . /etc/default/$SFTPGO_BIN_NAME
+fi
+
+. /lib/lsb/init-functions
+
+if [ -n "$2" ]; then
+    SFTPGO_OPTS="$SFTPGO_OPTS $2"
+fi
+
+# Are we running from init?
+run_by_init() {
+    ([ "$previous" ] && [ "$runlevel" ]) || [ "$runlevel" = S ]
+}
+
+check_dev_null() {
+    if [ ! -c /dev/null ]; then
+        if [ "$1" = log_end_msg ]; then
+            log_end_msg 1 || true
+        fi
+        if ! run_by_init; then
+            log_action_msg "/dev/null is not a character device!" || true
+        fi
+        exit 1
+    fi
+}
+
+write_pid() {
+     sleep 0.25
+     echo $(/bin/pidof $SFTPGO_BIN_NAME) > $SFTPGO_PID
+}
+
+export PATH="${PATH:+$PATH:}/usr/sbin:/sbin"
+
+case "$1" in
+  start)
+        check_dev_null
+        log_daemon_msg "Starting SFTPGo server" "$SFTPGO_BIN_NAME" || true
+        if start-stop-daemon --start --background --quiet --oknodo --chuid $SFTPGO_USER:$SFTPGO_GROUP --pidfile $SFTPGO_PID --exec $SFTPGO_BIN -- $SFTPGO_OPTS; then
+            log_end_msg 0 || true
+            write_pid
+        else
+            log_end_msg 1 || true
+        fi
+        ;;
+  stop)
+        log_daemon_msg "Stopping SFTPGo server" "$SFTPGO_BIN_NAME" || true
+        if start-stop-daemon --stop --quiet --oknodo --pidfile $SFTPGO_PID --exec $SFTPGO_BIN; then
+            log_end_msg 0 || true
+        else
+            log_end_msg 1 || true
+        fi
+        ;;
+
+  reload)
+        log_daemon_msg "Reloading SFTPGo server" "$SFTPGO_BIN_NAME" || true
+        if start-stop-daemon --stop --signal 1 --quiet --oknodo --pidfile $SFTPGO_PID --exec $SFTPGO_BIN; then
+            log_end_msg 0 || true
+        else
+            log_end_msg 1 || true
+        fi
+        ;;
+
+  status)
+        status_of_proc -p $SFTPGO_PID $SFTPGO_BIN $SFTPGO_BIN_NAME && exit 0 || exit $?
+        ;;
+
+  *)
+        log_action_msg "Usage: /etc/init.d/$SFTPGO_BIN_NAME {start|stop|reload|status}" || true
+        exit 1
+esac
+
+exit 0
