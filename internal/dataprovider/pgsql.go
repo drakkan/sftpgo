@@ -281,7 +281,7 @@ func getPGSQLHostsAndPorts(configHost string, configPort int) (string, string) {
 		defaultPort = "5432"
 	}
 
-	for _, hostport := range strings.Split(configHost, ",") {
+	for hostport := range strings.SplitSeq(configHost, ",") {
 		hostport = strings.TrimSpace(hostport)
 		if hostport == "" {
 			continue

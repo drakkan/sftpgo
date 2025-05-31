@@ -2278,7 +2278,7 @@ func lookupStringListFromEnv(envName string) ([]string, bool) {
 	value, ok := os.LookupEnv(envName)
 	if ok {
 		var result []string
-		for _, v := range strings.Split(value, ",") {
+		for v := range strings.SplitSeq(value, ",") {
 			val := strings.TrimSpace(v)
 			if val != "" {
 				result = append(result, val)

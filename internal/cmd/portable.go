@@ -496,7 +496,7 @@ func getPatternsFilterValues(value string) (string, []string) {
 		if len(dirExts) > 1 {
 			dir := strings.TrimSpace(dirExts[0])
 			exts := []string{}
-			for _, e := range strings.Split(dirExts[1], ",") {
+			for e := range strings.SplitSeq(dirExts[1], ",") {
 				cleanedExt := strings.TrimSpace(e)
 				if cleanedExt != "" {
 					exts = append(exts, cleanedExt)

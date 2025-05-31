@@ -767,7 +767,7 @@ func (c *Configuration) renewCertificates() error {
 
 func isDomainValid(domain string) (string, bool) {
 	isValid := false
-	for _, d := range strings.Split(domain, ",") {
+	for d := range strings.SplitSeq(domain, ",") {
 		d = strings.TrimSpace(d)
 		if d != "" {
 			isValid = true
@@ -785,7 +785,7 @@ func getDomains(domain string) []string {
 		delimiter = " "
 	}
 
-	for _, d := range strings.Split(domain, delimiter) {
+	for d := range strings.SplitSeq(domain, delimiter) {
 		d = strings.TrimSpace(d)
 		if d != "" {
 			domains = append(domains, d)

@@ -161,7 +161,7 @@ func getURLPath(r *http.Request) string {
 func getCommaSeparatedQueryParam(r *http.Request, key string) []string {
 	var result []string
 
-	for _, val := range strings.Split(r.URL.Query().Get(key), ",") {
+	for val := range strings.SplitSeq(r.URL.Query().Get(key), ",") {
 		val = strings.TrimSpace(val)
 		if val != "" {
 			result = append(result, val)
