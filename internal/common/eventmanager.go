@@ -1380,8 +1380,7 @@ func getHTTPRuleActionBody(c *dataprovider.EventActionHTTPConfig, replacer *stri
 		var conn *BaseConnection
 		if user.Username != "" {
 			var err error
-			user, err = getUserForEventAction(user)
-			if err != nil {
+			if err := getUserForEventAction(&user); err != nil {
 				return body, "", err
 			}
 			connectionID := fmt.Sprintf("%s_%s", protocolEventAction, xid.New().String())
@@ -1613,8 +1612,7 @@ func executeEmailRuleAction(c dataprovider.EventActionEmailConfig, params *Event
 		if err != nil {
 			return err
 		}
-		user, err = getUserForEventAction(user)
-		if err != nil {
+		if err := getUserForEventAction(&user); err != nil {
 			return err
 		}
 		connectionID := fmt.Sprintf("%s_%s", protocolEventAction, xid.New().String())
@@ -1641,11 +1639,11 @@ func executeEmailRuleAction(c dataprovider.EventActionEmailConfig, params *Event
 	return nil
 }
 
-func getUserForEventAction(user dataprovider.User) (dataprovider.User, error) {
+func getUserForEventAction(user *dataprovider.User) error {
 	err := user.LoadAndApplyGroupSettings()
 	if err != nil {
 		eventManagerLog(logger.LevelError, "unable to get group for user %q: %+v", user.Username, err)
-		return dataprovider.User{}, fmt.Errorf("unable to get groups for user %q", user.Username)
+		return fmt.Errorf("unable to get groups for user %q", user.Username)
 	}
 	user.UploadDataTransfer = 0
 	user.UploadBandwidth = 0
@@ -1656,7 +1654,7 @@ func getUserForEventAction(user dataprovider.User) (dataprovider.User, error) {
 	for k := range user.Permissions {
 		user.Permissions[k] = []string{dataprovider.PermAny}
 	}
-	return user, nil
+	return nil
 }
 
 func replacePathsPlaceholders(paths []string, replacer *strings.Replacer) []string {
@@ -1676,12 +1674,11 @@ func executeDeleteFileFsAction(conn *BaseConnection, item string, info os.FileIn
 }
 
 func executeDeleteFsActionForUser(deletes []string, replacer *strings.Replacer, user dataprovider.User) error {
-	user, err := getUserForEventAction(user)
-	if err != nil {
+	if err := getUserForEventAction(&user); err != nil {
 		return err
 	}
 	connectionID := fmt.Sprintf("%s_%s", protocolEventAction, xid.New().String())
-	err = user.CheckFsRoot(connectionID)
+	err := user.CheckFsRoot(connectionID)
 	defer user.CloseFs() //nolint:errcheck
 	if err != nil {
 		return fmt.Errorf("delete error, unable to check root fs for user %q: %w", user.Username, err)
@@ -1746,12 +1743,11 @@ func executeDeleteFsRuleAction(deletes []string, replacer *strings.Replacer,
 }
 
 func executeMkDirsFsActionForUser(dirs []string, replacer *strings.Replacer, user dataprovider.User) error {
-	user, err := getUserForEventAction(user)
-	if err != nil {
+	if err := getUserForEventAction(&user); err != nil {
 		return err
 	}
 	connectionID := fmt.Sprintf("%s_%s", protocolEventAction, xid.New().String())
-	err = user.CheckFsRoot(connectionID)
+	err := user.CheckFsRoot(connectionID)
 	defer user.CloseFs() //nolint:errcheck
 	if err != nil {
 		return fmt.Errorf("mkdir error, unable to check root fs for user %q: %w", user.Username, err)
@@ -1807,12 +1803,11 @@ func executeMkdirFsRuleAction(dirs []string, replacer *strings.Replacer,
 func executeRenameFsActionForUser(renames []dataprovider.RenameConfig, replacer *strings.Replacer,
 	user dataprovider.User,
 ) error {
-	user, err := getUserForEventAction(user)
-	if err != nil {
+	if err := getUserForEventAction(&user); err != nil {
 		return err
 	}
 	connectionID := fmt.Sprintf("%s_%s", protocolEventAction, xid.New().String())
-	err = user.CheckFsRoot(connectionID)
+	err := user.CheckFsRoot(connectionID)
 	defer user.CloseFs() //nolint:errcheck
 	if err != nil {
 		return fmt.Errorf("rename error, unable to check root fs for user %q: %w", user.Username, err)
@@ -1838,12 +1833,11 @@ func executeRenameFsActionForUser(renames []dataprovider.RenameConfig, replacer 
 func executeCopyFsActionForUser(keyVals []dataprovider.KeyValue, replacer *strings.Replacer,
 	user dataprovider.User,
 ) error {
-	user, err := getUserForEventAction(user)
-	if err != nil {
+	if err := getUserForEventAction(&user); err != nil {
 		return err
 	}
 	connectionID := fmt.Sprintf("%s_%s", protocolEventAction, xid.New().String())
-	err = user.CheckFsRoot(connectionID)
+	err := user.CheckFsRoot(connectionID)
 	defer user.CloseFs() //nolint:errcheck
 	if err != nil {
 		return fmt.Errorf("copy error, unable to check root fs for user %q: %w", user.Username, err)
@@ -1871,12 +1865,11 @@ func executeCopyFsActionForUser(keyVals []dataprovider.KeyValue, replacer *strin
 func executeExistFsActionForUser(exist []string, replacer *strings.Replacer,
 	user dataprovider.User,
 ) error {
-	user, err := getUserForEventAction(user)
-	if err != nil {
+	if err := getUserForEventAction(&user); err != nil {
 		return err
 	}
 	connectionID := fmt.Sprintf("%s_%s", protocolEventAction, xid.New().String())
-	err = user.CheckFsRoot(connectionID)
+	err := user.CheckFsRoot(connectionID)
 	defer user.CloseFs() //nolint:errcheck
 	if err != nil {
 		return fmt.Errorf("existence check error, unable to check root fs for user %q: %w", user.Username, err)
@@ -2031,12 +2024,11 @@ func estimateZipSize(conn *BaseConnection, zipPath string, paths []string) (int6
 func executeCompressFsActionForUser(c dataprovider.EventActionFsCompress, replacer *strings.Replacer,
 	user dataprovider.User,
 ) error {
-	user, err := getUserForEventAction(user)
-	if err != nil {
+	if err := getUserForEventAction(&user); err != nil {
 		return err
 	}
 	connectionID := fmt.Sprintf("%s_%s", protocolEventAction, xid.New().String())
-	err = user.CheckFsRoot(connectionID)
+	err := user.CheckFsRoot(connectionID)
 	defer user.CloseFs() //nolint:errcheck
 	if err != nil {
 		return fmt.Errorf("compress error, unable to check root fs for user %q: %w", user.Username, err)

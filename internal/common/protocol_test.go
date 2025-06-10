@@ -5402,6 +5402,7 @@ func TestEventActionCommandEnvVars(t *testing.T) {
 }
 
 func TestFsActionCopy(t *testing.T) {
+	dirCopy := "/dircopy"
 	a1 := dataprovider.BaseEventAction{
 		Name: "a1",
 		Type: dataprovider.ActionTypeFilesystem,
@@ -5411,7 +5412,7 @@ func TestFsActionCopy(t *testing.T) {
 				Copy: []dataprovider.KeyValue{
 					{
 						Key:   "/{{.VirtualPath}}/",
-						Value: "/dircopy/",
+						Value: dirCopy + "/",
 					},
 				},
 			},
@@ -5441,7 +5442,29 @@ func TestFsActionCopy(t *testing.T) {
 	}
 	rule1, _, err := httpdtest.AddEventRule(r1, http.StatusCreated)
 	assert.NoError(t, err)
+	g1 := dataprovider.Group{
+		BaseGroup: sdk.BaseGroup{
+			Name: "group1",
+		},
+		UserSettings: dataprovider.GroupUserSettings{
+			BaseGroupUserSettings: sdk.BaseGroupUserSettings{
+				Permissions: map[string][]string{
+					// Restrict permissions in copyPath to check that action
+					// will have full permissions anyway.
+					dirCopy: {dataprovider.PermListItems, dataprovider.PermDelete},
+				},
+			},
+		},
+	}
+	group1, resp, err := httpdtest.AddGroup(g1, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
 	u := getTestUser()
+	u.Groups = []sdk.GroupMapping{
+		{
+			Name: group1.Name,
+			Type: sdk.GroupTypePrimary,
+		},
+	}
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	conn, client, err := getSftpClient(user)
@@ -5451,7 +5474,7 @@ func TestFsActionCopy(t *testing.T) {
 
 		err = writeSFTPFile(testFileName, 100, client)
 		assert.NoError(t, err)
-		_, err = client.Stat(path.Join("dircopy", testFileName))
+		_, err = client.Stat(path.Join(dirCopy, testFileName))
 		assert.NoError(t, err)
 
 		action1.Options.FsConfig.Copy = []dataprovider.KeyValue{
@@ -5473,6 +5496,8 @@ func TestFsActionCopy(t *testing.T) {
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group1, http.StatusOK)
 	assert.NoError(t, err)
 }
 

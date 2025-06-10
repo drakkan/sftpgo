@@ -617,8 +617,10 @@ func (c *BaseConnection) checkCopy(srcInfo, dstInfo os.FileInfo, virtualSource, 
 	if dstInfo != nil && dstInfo.IsDir() {
 		return fmt.Errorf("cannot overwrite file %q with dir %q: %w", virtualSource, virtualTarget, c.GetOpUnsupportedError())
 	}
-	if fsSourcePath == fsTargetPath {
-		return fmt.Errorf("the copy source and target cannot be the same: %w", c.GetOpUnsupportedError())
+	if c.IsSameResource(virtualSource, virtualTarget) {
+		if fsSourcePath == fsTargetPath {
+			return fmt.Errorf("the copy source and target cannot be the same: %w", c.GetOpUnsupportedError())
+		}
 	}
 	return nil
 }
