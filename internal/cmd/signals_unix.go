@@ -1,4 +1,4 @@
-// Copyright (C) 2019 Nicola Murino
+// Copyright (C) 2025 Nicola Murino
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -12,20 +12,30 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//go:build nobolt
+//go:build !windows
 
-package dataprovider
+package cmd
 
 import (
-	"errors"
+	"os"
+	"os/signal"
+	"syscall"
 
-	"github.com/drakkan/sftpgo/v2/internal/version"
+	"github.com/drakkan/sftpgo/v2/internal/logger"
+	"github.com/drakkan/sftpgo/v2/internal/plugin"
 )
 
-func init() {
-	version.AddFeature("-bolt")
-}
-
-func initializeBoltProvider(_ string) error {
-	return errors.New("bolt disabled at build time")
+func registerSignals() {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		for sig := range c {
+			switch sig {
+			case syscall.SIGINT, syscall.SIGTERM:
+				logger.DebugToConsole("Received interrupt request")
+				plugin.Handler.Cleanup()
+				os.Exit(0)
+			}
+		}
+	}()
 }

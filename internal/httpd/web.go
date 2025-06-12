@@ -107,7 +107,7 @@ type resetPwdPage struct {
 
 func getSliceFromDelimitedValues(values, delimiter string) []string {
 	result := []string{}
-	for _, v := range strings.Split(values, delimiter) {
+	for v := range strings.SplitSeq(values, delimiter) {
 		cleaned := strings.TrimSpace(v)
 		if cleaned != "" {
 			result = append(result, cleaned)

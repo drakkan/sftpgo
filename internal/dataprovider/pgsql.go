@@ -13,7 +13,6 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //go:build !nopgsql
-// +build !nopgsql
 
 package dataprovider
 
@@ -282,7 +281,7 @@ func getPGSQLHostsAndPorts(configHost string, configPort int) (string, string) {
 		defaultPort = "5432"
 	}
 
-	for _, hostport := range strings.Split(configHost, ",") {
+	for hostport := range strings.SplitSeq(configHost, ",") {
 		hostport = strings.TrimSpace(hostport)
 		if hostport == "" {
 			continue
@@ -843,6 +842,8 @@ func (p *PGSQLProvider) migrateDatabase() error { //nolint:dupl
 		return updatePGSQLDatabaseFromV29(p.dbHandle)
 	case version == 30:
 		return updatePGSQLDatabaseFromV30(p.dbHandle)
+	case version == 31:
+		return updatePGSQLDatabaseFromV31(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -869,6 +870,8 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 		return downgradePGSQLDatabaseFromV30(p.dbHandle)
 	case 31:
 		return downgradePGSQLDatabaseFromV31(p.dbHandle)
+	case 32:
+		return downgradePGSQLDatabaseFromV32(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
@@ -915,7 +918,14 @@ func updatePGSQLDatabaseFromV29(dbHandle *sql.DB) error {
 }
 
 func updatePGSQLDatabaseFromV30(dbHandle *sql.DB) error {
-	return updatePGSQLDatabaseFrom30To31(dbHandle)
+	if err := updatePGSQLDatabaseFrom30To31(dbHandle); err != nil {
+		return err
+	}
+	return updatePGSQLDatabaseFromV31(dbHandle)
+}
+
+func updatePGSQLDatabaseFromV31(dbHandle *sql.DB) error {
+	return updateSQLDatabaseFrom31To32(dbHandle)
 }
 
 func downgradePGSQLDatabaseFromV30(dbHandle *sql.DB) error {
@@ -927,6 +937,13 @@ func downgradePGSQLDatabaseFromV31(dbHandle *sql.DB) error {
 		return err
 	}
 	return downgradePGSQLDatabaseFromV30(dbHandle)
+}
+
+func downgradePGSQLDatabaseFromV32(dbHandle *sql.DB) error {
+	if err := downgradeSQLDatabaseFrom32To31(dbHandle); err != nil {
+		return err
+	}
+	return downgradePGSQLDatabaseFromV31(dbHandle)
 }
 
 func updatePGSQLDatabaseFrom29To30(dbHandle *sql.DB) error {

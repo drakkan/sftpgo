@@ -731,7 +731,7 @@ func GetRealIP(r *http.Request, header string, depth int) string {
 	var ipAddresses []string
 
 	for _, h := range r.Header.Values(header) {
-		for _, ipStr := range strings.Split(h, ",") {
+		for ipStr := range strings.SplitSeq(h, ",") {
 			ipStr = strings.TrimSpace(ipStr)
 			ipAddresses = append(ipAddresses, ipStr)
 		}

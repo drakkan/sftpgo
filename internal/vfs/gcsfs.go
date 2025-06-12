@@ -13,7 +13,6 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //go:build !nogcs
-// +build !nogcs
 
 package vfs
 
@@ -431,7 +430,7 @@ func (*GCSFs) IsNotExist(err error) bool {
 	if err == nil {
 		return false
 	}
-	if err == storage.ErrObjectNotExist || err == storage.ErrBucketNotExist {
+	if errors.Is(err, storage.ErrObjectNotExist) {
 		return true
 	}
 	var apiErr *googleapi.Error
@@ -634,7 +633,7 @@ func (*GCSFs) Join(elem ...string) string {
 }
 
 // HasVirtualFolders returns true if folders are emulated
-func (GCSFs) HasVirtualFolders() bool {
+func (*GCSFs) HasVirtualFolders() bool {
 	return true
 }
 

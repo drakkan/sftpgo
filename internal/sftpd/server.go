@@ -453,9 +453,9 @@ func (c *Configuration) checkKeyExchangeAlgorithms() {
 		}
 		kexs = append(kexs, k)
 		if strings.TrimSpace(k) == keyExchangeCurve25519SHA256LibSSH {
-			kexs = append(kexs, ssh.KeyExchangeCurve25519SHA256)
+			kexs = append(kexs, ssh.KeyExchangeCurve25519)
 		}
-		if strings.TrimSpace(k) == ssh.KeyExchangeCurve25519SHA256 {
+		if strings.TrimSpace(k) == ssh.KeyExchangeCurve25519 {
 			kexs = append(kexs, keyExchangeCurve25519SHA256LibSSH)
 		}
 	}
@@ -592,7 +592,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 	conn.SetDeadline(time.Time{}) //nolint:errcheck
 	go ssh.DiscardRequests(reqs)
 
-	defer conn.Close()
+	defer sconn.Close()
 
 	var user dataprovider.User
 
@@ -615,7 +615,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 
 	dataprovider.UpdateLastLogin(&user)
 
-	sshConnection := common.NewSSHConnection(connectionID, conn)
+	sshConnection := common.NewSSHConnection(connectionID, sconn)
 	common.Connections.AddSSHConnection(sshConnection)
 
 	defer common.Connections.RemoveSSHConnection(connectionID)

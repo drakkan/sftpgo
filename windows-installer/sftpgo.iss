@@ -33,7 +33,7 @@ AppPublisher=Nicola Murino
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
-AppCopyright=AGPL-3.0
+AppCopyright=2019-2025 Nicola Murino
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 LicenseFile=LICENSE_with_NOTICE.txt
@@ -48,7 +48,7 @@ PrivilegesRequired=admin
 ArchitecturesAllowed={#MyAppArch}
 MinVersion=10.0.14393
 VersionInfoVersion={#MyVersionInfo}
-VersionInfoCopyright=AGPL-3.0 with additional terms
+VersionInfoCopyright=2019-2025 Nicola Murino
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"

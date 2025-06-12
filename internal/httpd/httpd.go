@@ -420,9 +420,11 @@ type SecurityConf struct {
 	CrossOriginResourcePolicy string `json:"cross_origin_resource_policy" mapstructure:"cross_origin_resource_policy"`
 	// CrossOriginEmbedderPolicy allows to set the Cross-Origin-Embedder-Policy header value. Default is "".
 	CrossOriginEmbedderPolicy string `json:"cross_origin_embedder_policy" mapstructure:"cross_origin_embedder_policy"`
-	// CacheControl allow to set the Cache-Control header value.
+	// CacheControl allows to set the Cache-Control header value.
 	CacheControl string `json:"cache_control" mapstructure:"cache_control"`
-	proxyHeaders []string
+	// ReferrerPolicy allows to set the Referrer-Policy header values.
+	ReferrerPolicy string `json:"referrer_policy" mapstructure:"referrer_policy"`
+	proxyHeaders   []string
 }
 
 func (s *SecurityConf) updateProxyHeaders() {

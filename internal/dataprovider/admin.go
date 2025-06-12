@@ -366,6 +366,7 @@ func (a *Admin) validateGroups() error {
 
 func (a *Admin) validate() error {
 	a.SetEmptySecretsIfNil()
+	a.Password = strings.TrimSpace(a.Password)
 	if a.Username == "" {
 		return util.NewI18nError(util.NewValidationError("username is mandatory"), util.I18nErrorUsernameRequired)
 	}
@@ -481,7 +482,7 @@ func (a *Admin) checkUserAndPass(password, ip string) error {
 	if err := a.CanLogin(ip); err != nil {
 		return err
 	}
-	if a.Password == "" || password == "" {
+	if a.Password == "" || strings.TrimSpace(password) == "" {
 		return errors.New("credentials cannot be null or empty")
 	}
 	match, err := a.CheckPassword(password)

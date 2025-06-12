@@ -3446,6 +3446,7 @@ func TestSecureMiddlewareIntegration(t *testing.T) {
 				CrossOriginOpenerPolicy:   "same-origin",
 				CrossOriginResourcePolicy: "same-site",
 				CrossOriginEmbedderPolicy: "require-corp",
+				ReferrerPolicy:            "no-referrer",
 			},
 		},
 		enableWebAdmin:  true,
@@ -3503,6 +3504,7 @@ func TestSecureMiddlewareIntegration(t *testing.T) {
 	assert.Equal(t, "require-corp", rr.Header().Get("Cross-Origin-Embedder-Policy"))
 	assert.Equal(t, "same-origin", rr.Header().Get("Cross-Origin-Opener-Policy"))
 	assert.Equal(t, "same-site", rr.Header().Get("Cross-Origin-Resource-Policy"))
+	assert.Equal(t, "no-referrer", rr.Header().Get("Referrer-Policy"))
 
 	server.binding.Security.Enabled = false
 	server.binding.Security.updateProxyHeaders()

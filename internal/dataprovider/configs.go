@@ -32,7 +32,7 @@ import (
 // Supported values for host keys, KEXs, ciphers, MACs
 var (
 	supportedHostKeyAlgos   = []string{ssh.KeyAlgoRSA}
-	supportedPublicKeyAlgos = []string{ssh.KeyAlgoRSA, ssh.InsecureKeyAlgoDSA}
+	supportedPublicKeyAlgos = []string{ssh.KeyAlgoRSA, ssh.InsecureKeyAlgoDSA} //nolint:staticcheck
 	supportedKexAlgos       = []string{
 		ssh.KeyExchangeDH16SHA512, ssh.InsecureKeyExchangeDH14SHA1, ssh.InsecureKeyExchangeDH1SHA1,
 		ssh.InsecureKeyExchangeDHGEXSHA1,
@@ -43,7 +43,7 @@ var (
 	}
 	supportedMACs = []string{
 		ssh.HMACSHA512ETM, ssh.HMACSHA512,
-		ssh.InsecureHMACSHA1, ssh.InsecureHMACSHA196,
+		ssh.HMACSHA1, ssh.InsecureHMACSHA196,
 	}
 )
 

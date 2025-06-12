@@ -244,7 +244,7 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 	}
 	protocol := common.ProtocolHTTP
 	username := strings.TrimSpace(r.Form.Get("username"))
-	password := strings.TrimSpace(r.Form.Get("password"))
+	password := r.Form.Get("password")
 	if username == "" || password == "" {
 		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}},
 			dataprovider.LoginMethodPassword, ipAddr, common.ErrNoCredentials, r)
@@ -840,7 +840,7 @@ func (s *httpdServer) getUserToken(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, nil, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 		return
 	}
-	if username == "" || password == "" {
+	if username == "" || strings.TrimSpace(password) == "" {
 		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}},
 			dataprovider.LoginMethodPassword, ipAddr, common.ErrNoCredentials, r)
 		w.Header().Set(common.HTTPAuthenticationHeader, basicRealm)
@@ -1257,6 +1257,7 @@ func (s *httpdServer) initializeRouter() {
 			CrossOriginOpenerPolicy:   s.binding.Security.CrossOriginOpenerPolicy,
 			CrossOriginResourcePolicy: s.binding.Security.CrossOriginResourcePolicy,
 			CrossOriginEmbedderPolicy: s.binding.Security.CrossOriginEmbedderPolicy,
+			ReferrerPolicy:            s.binding.Security.ReferrerPolicy,
 		})
 		secureMiddleware.SetBadHostHandler(http.HandlerFunc(s.badHostHandler))
 		if s.binding.Security.CacheControl == "private" {

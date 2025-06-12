@@ -259,7 +259,7 @@ func TestMain(m *testing.M) {
 	}
 	sftpdConf.KexAlgorithms = []string{"curve25519-sha256@libssh.org", ssh.KeyExchangeECDHP256,
 		ssh.KeyExchangeECDHP384}
-	sftpdConf.Ciphers = []string{ssh.CipherChacha20Poly1305, ssh.CipherAES128GCM,
+	sftpdConf.Ciphers = []string{ssh.CipherChaCha20Poly1305, ssh.CipherAES128GCM,
 		ssh.CipherAES256CTR}
 	sftpdConf.LoginBannerFile = loginBannerFileName
 	// we need to test all supported ssh commands
@@ -2474,7 +2474,7 @@ func TestLoginWithDatabaseCredentials(t *testing.T) {
 	u := getTestUser(usePubKey)
 	u.FsConfig.Provider = sdk.GCSFilesystemProvider
 	u.FsConfig.GCSConfig.Bucket = "testbucket"
-	u.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret(`{ "type": "service_account" }`)
+	u.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret(`{ "type": "service_account", "private_key": " ", "client_email": "example@iam.gserviceaccount.com" }`)
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.FsConfig.GCSConfig.Credentials.GetStatus())

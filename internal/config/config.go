@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"strings"
 
+	kmsplugin "github.com/sftpgo/sdk/plugin/kms"
 	"github.com/spf13/viper"
 	"github.com/subosito/gotenv"
 
@@ -586,6 +587,16 @@ func GetPluginsConfig() []plugin.Config {
 // SetPluginsConfig sets the plugin configuration
 func SetPluginsConfig(config []plugin.Config) {
 	globalConf.PluginsConfig = config
+}
+
+// HasKMSPlugin returns true if at least one KMS plugin is configured.
+func HasKMSPlugin() bool {
+	for _, c := range globalConf.PluginsConfig {
+		if c.Type == kmsplugin.PluginName {
+			return true
+		}
+	}
+	return false
 }
 
 // GetMFAConfig returns multi-factor authentication config
@@ -1586,6 +1597,12 @@ func getHTTPDSecurityConfFromEnv(idx int) (httpd.SecurityConf, bool) { //nolint:
 		isSet = true
 	}
 
+	referredPolicy, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__REFERRER_POLICY", idx))
+	if ok {
+		result.ReferrerPolicy = referredPolicy
+		isSet = true
+	}
+
 	cacheControl, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__CACHE_CONTROL", idx))
 	if ok {
 		result.CacheControl = cacheControl
@@ -2261,7 +2278,7 @@ func lookupStringListFromEnv(envName string) ([]string, bool) {
 	value, ok := os.LookupEnv(envName)
 	if ok {
 		var result []string
-		for _, v := range strings.Split(value, ",") {
+		for v := range strings.SplitSeq(value, ",") {
 			val := strings.TrimSpace(v)
 			if val != "" {
 				result = append(result, val)

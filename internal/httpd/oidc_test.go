@@ -1182,18 +1182,18 @@ func TestOIDCEvMgrIntegration(t *testing.T) {
 	// add a special chars to check json replacer
 	username := `test_"oidc_eventmanager`
 	u := map[string]any{
-		"username": "{{Name}}",
+		"username": "{{.Name}}",
 		"status":   1,
-		"home_dir": filepath.Join(os.TempDir(), "{{IDPFieldcustom1.sub}}"),
+		"home_dir": filepath.Join(os.TempDir(), "{{.IDPFieldcustom1.sub}}"),
 		"permissions": map[string][]string{
 			"/": {dataprovider.PermAny},
 		},
-		"description": "{{IDPFieldcustom2}}",
+		"description": "{{.IDPFieldcustom2}}",
 	}
 	userTmpl, err := json.Marshal(u)
 	require.NoError(t, err)
 	a := map[string]any{
-		"username":    "{{Name}}",
+		"username":    "{{.Name}}",
 		"status":      1,
 		"permissions": []string{dataprovider.PermAdminAny},
 	}

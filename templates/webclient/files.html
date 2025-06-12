@@ -762,7 +762,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 														<span class="path4"></span>
 													</i>
 												</button>
-												<div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-700 menu-state-bg-light-primary fw-semibold fs-6 w-150px py-4" data-kt-menu="true">
+												<div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-700 menu-state-bg-light-primary fw-semibold fs-6 w-200px py-4" data-kt-menu="true">
 													{{- if .CanRename}}
                                                     <div class="menu-item px-3">
 														<a data-i18n="general.rename" href="#" class="menu-link px-3" data-kt-filemanager-table-action="rename">Rename</a>
@@ -883,19 +883,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             dt.on('user-select', function(e, dt, type, cell, originalEvent){
                 let pageSelected = dt.rows({ selected: true, page: 'current' }).count();
                 let totalSelected = dt.rows({ selected: true, search: 'applied' }).count();
-                if (totalSelected > pageSelected){
-                    let currentIndexes = [];
-                    dt.rows({ page: 'current' }).every(function (rowIdx, tableLoop, rowLoop){
-                        currentIndexes.push(rowIdx);
-                    });
-
-                    dt.rows().deselect();
-                    currentIndexes.forEach((idx) => {
-                        dt.row(idx).select();
-                    });
-
-                    totalSelected = dt.rows({ selected: true, search: 'applied' }).count();
-                }
                 if ($(originalEvent.target).is(':checked')){
                     pageSelected++;
                     totalSelected++;
@@ -915,7 +902,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             const selectAllContainer = document.querySelector('[data-kt-filemanager-table-select="select_all_pages_container"]');
             const selectAllCheck = document.querySelector('[data-kt-filemanager-table-select="select_all_pages"]');
 
-            if (pageSelected > 0) {
+            if (totalSelected > 0) {
                 let pageTotal = dt.rows({ page: 'current' }).count();
                 if (pageSelected === pageTotal){
                     selectAllContainer.classList.remove("d-none");
@@ -1994,6 +1981,17 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     var playerKeepAlive;
 
     function uploadFiles(files) {
+        if (files.length == 0) {
+            ModalAlert.fire({
+                text: $.t('fs.upload_no_files'),
+                icon: "warning",
+                confirmButtonText: $.t('general.ok'),
+                customClass: {
+                    confirmButton: "btn btn-primary"
+                }
+            });
+            return;
+        }
         keepAlive();
         let keepAliveTimer = setInterval(keepAlive, keepAliveInterval);
 
@@ -2261,6 +2259,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         uploadFiles(dropzone.getAcceptedFiles());
                     }
                 });
+                $("#upload_files_cancel").click(function(){
+                    dropzone.removeAllFiles();
+                });
             }
         });
 
@@ -2513,7 +2514,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </form>
             </div>
             <div class="modal-footer border-0">
-                <button data-i18n="general.cancel" type="button" class="btn btn-light me-5" data-bs-dismiss="modal">Cancel</button>
+                <button data-i18n="general.cancel" type="button" id="upload_files_cancel" class="btn btn-light me-5" data-bs-dismiss="modal">Cancel</button>
                 <button data-i18n="general.submit" type="button" id="upload_files_button" class="btn btn-primary" data-bs-dismiss="modal">Submit</button>
             </div>
         </div>

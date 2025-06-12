@@ -284,6 +284,7 @@
         "download": "Herunterladen",
         "download_ready": "Download abgeschlossen",
         "upload_queue_not_ready": "Die Upload-Warteschlange wird noch geladen, bitte versuche es in ein paar Augenblicken erneut!",
+        "upload_no_files": "Keine Dateien ausgewählt. Bitte wählen oder ziehen Sie Dateien zum Hochladen",
         "move_copy": "Verschieben oder kopieren",
         "share": "Teilen",
         "home": "Startseite",
