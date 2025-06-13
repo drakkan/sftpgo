@@ -284,6 +284,7 @@
         "download": "Tải xuống",
         "download_ready": "Tệp tải xuống của bạn đã sẵn sàng",
         "upload_queue_not_ready": "Hàng đợi tải lên vẫn đang xử lý, vui lòng thử lại sau vài giây",
+        "upload_no_files": "Không có tệp nào được chọn. Vui lòng chọn hoặc kéo thả tệp để tải lên",
         "move_copy": "Di chuyển hoặc sao chép",
         "share": "Chia sẻ",
         "home": "Trang chủ",

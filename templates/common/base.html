@@ -174,24 +174,21 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
     const lngs = {};
     //{{- range .Languages}}
-    //{{- if eq . "vi"}}
-    // lngs.vi = { nativeName: 'Vietnamese' };
-    //{{- else if eq . "en" }}
-    // lngs.en = { nativeName: 'English' };
-    // //{{- else if eq . "it" }}
-    // lngs.it = { nativeName: 'Italiano' };
-    // //{{- else if eq . "de" }}
-    // lngs.de = { nativeName: 'Deutsch' };
-    // //{{- else if eq . "fr" }}
-    // lngs.fr = { nativeName: 'Français' };
+    //{{- if eq . "en"}}
+    lngs.en = { nativeName: 'English' };
+    //{{- else if eq . "it" }}
+    lngs.it = { nativeName: 'Italiano' };
+    //{{- else if eq . "de" }}
+    lngs.de = { nativeName: 'Deutsch' };
+    //{{- else if eq . "fr" }}
+    lngs.fr = { nativeName: 'Français' };
+    //{{- else if eq . "vi" }}
+     lngs.vi = { nativeName: 'Vietnamese' };
     //{{- end}}
     //{{- end}}
-    // if (Object.keys(lngs).length == 0){
-    //     lngs.en = { nativeName: 'English' };
-    // }
-
-    // vi only
-    lngs.vi = { nativeName: 'Vietnamese' };
+    if (Object.keys(lngs).length == 0){
+        lngs.en = { nativeName: 'English' };
+    }
 
     const renderI18n = () => {
         document.documentElement.setAttribute('lang', i18next.resolvedLanguage);
@@ -208,10 +205,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             .use(i18nextChainedBackend)
             .use(i18nextBrowserLanguageDetector)
             .init({
-                // lng: 'vi', // if you're using a language detector, do not define the lng option
-                debug: true,
+                debug: false,
                 supportedLngs: Object.keys(lngs),
-                fallbackLng: Object.keys(lngs)[1], // vi fallback to en
+                fallbackLng: Object.keys(lngs)[0],
                 load: 'languageOnly',
                 backend: {
                     backends: [
