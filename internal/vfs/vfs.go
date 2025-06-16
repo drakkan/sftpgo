@@ -16,6 +16,7 @@
 package vfs
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -1269,6 +1270,76 @@ func doRecursiveRename(fs Fs, source, target string,
 			return numFiles, filesSize, nil
 		}
 	}
+}
+
+// copied from rclone
+func readFill(r io.Reader, buf []byte) (n int, err error) {
+	var nn int
+	for n < len(buf) && err == nil {
+		nn, err = r.Read(buf[n:])
+		n += nn
+	}
+	return n, err
+}
+
+type bytesReaderWrapper struct {
+	*bytes.Reader
+}
+
+func (b *bytesReaderWrapper) Close() error {
+	return nil
+}
+
+type bufferAllocator struct {
+	sync.Mutex
+	available  [][]byte
+	bufferSize int
+	finalized  bool
+}
+
+func newBufferAllocator(size int) *bufferAllocator {
+	return &bufferAllocator{
+		bufferSize: size,
+		finalized:  false,
+	}
+}
+
+func (b *bufferAllocator) getBuffer() []byte {
+	b.Lock()
+	defer b.Unlock()
+
+	if len(b.available) > 0 {
+		var result []byte
+
+		truncLength := len(b.available) - 1
+		result = b.available[truncLength]
+
+		b.available[truncLength] = nil
+		b.available = b.available[:truncLength]
+
+		return result
+	}
+
+	return make([]byte, b.bufferSize)
+}
+
+func (b *bufferAllocator) releaseBuffer(buf []byte) {
+	b.Lock()
+	defer b.Unlock()
+
+	if b.finalized || len(buf) != b.bufferSize {
+		return
+	}
+
+	b.available = append(b.available, buf)
+}
+
+func (b *bufferAllocator) free() {
+	b.Lock()
+	defer b.Unlock()
+
+	b.available = nil
+	b.finalized = true
 }
 
 func fsLog(fs Fs, level logger.LogLevel, format string, v ...any) {

@@ -17,6 +17,7 @@
 package vfs
 
 import (
+	"bytes"
 	"context"
 	"crypto/md5"
 	"crypto/sha256"
@@ -255,7 +256,7 @@ func (fs *S3Fs) Open(name string, offset int64) (File, PipeReader, func(), error
 
 	var streamRange *string
 	if offset > 0 {
-		streamRange = aws.String(fmt.Sprintf("bytes=%v-", offset))
+		streamRange = aws.String(fmt.Sprintf("bytes=%d-", offset))
 	}
 
 	go func() {
@@ -295,16 +296,6 @@ func (fs *S3Fs) Create(name string, flag, checks int) (File, PipeWriter, func(),
 		p = NewPipeWriter(w)
 	}
 	ctx, cancelFn := context.WithCancel(context.Background())
-	uploader := manager.NewUploader(fs.svc, func(u *manager.Uploader) {
-		u.Concurrency = fs.config.UploadConcurrency
-		u.PartSize = fs.config.UploadPartSize
-		if fs.config.UploadPartMaxTime > 0 {
-			u.ClientOptions = append(u.ClientOptions, func(o *s3.Options) {
-				o.HTTPClient = getAWSHTTPClient(fs.config.UploadPartMaxTime, 100*time.Millisecond,
-					fs.config.SkipTLSVerify)
-			})
-		}
-	})
 
 	go func() {
 		defer cancelFn()
@@ -315,17 +306,7 @@ func (fs *S3Fs) Create(name string, flag, checks int) (File, PipeWriter, func(),
 		} else {
 			contentType = mime.TypeByExtension(path.Ext(name))
 		}
-		_, err := uploader.Upload(ctx, &s3.PutObjectInput{
-			Bucket:               aws.String(fs.config.Bucket),
-			Key:                  aws.String(name),
-			Body:                 r,
-			ACL:                  types.ObjectCannedACL(fs.config.ACL),
-			StorageClass:         types.StorageClass(fs.config.StorageClass),
-			ContentType:          util.NilIfEmpty(contentType),
-			SSECustomerKey:       util.NilIfEmpty(fs.sseCustomerKey),
-			SSECustomerAlgorithm: util.NilIfEmpty(fs.sseCustomerAlgo),
-			SSECustomerKeyMD5:    util.NilIfEmpty(fs.sseCustomerKeyMD5),
-		})
+		err := fs.handleMultipartUpload(ctx, r, name, contentType)
 		r.CloseWithError(err) //nolint:errcheck
 		p.Done(err)
 		fsLog(fs, logger.LevelDebug, "upload completed, path: %q, acl: %q, readed bytes: %d, err: %+v",
@@ -834,6 +815,181 @@ func (fs *S3Fs) hasContents(name string) (bool, error) {
 	return false, nil
 }
 
+func (fs *S3Fs) initiateMultipartUpload(ctx context.Context, name, contentType string) (string, error) {
+	ctx, cancelFn := context.WithDeadline(ctx, time.Now().Add(fs.ctxTimeout))
+	defer cancelFn()
+
+	res, err := fs.svc.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
+		Bucket:               aws.String(fs.config.Bucket),
+		Key:                  aws.String(name),
+		StorageClass:         types.StorageClass(fs.config.StorageClass),
+		ACL:                  types.ObjectCannedACL(fs.config.ACL),
+		ContentType:          util.NilIfEmpty(contentType),
+		SSECustomerKey:       util.NilIfEmpty(fs.sseCustomerKey),
+		SSECustomerAlgorithm: util.NilIfEmpty(fs.sseCustomerAlgo),
+		SSECustomerKeyMD5:    util.NilIfEmpty(fs.sseCustomerKeyMD5),
+	})
+	if err != nil {
+		return "", fmt.Errorf("unable to create multipart upload request: %w", err)
+	}
+	uploadID := util.GetStringFromPointer(res.UploadId)
+	if uploadID == "" {
+		return "", errors.New("unable to get multipart upload ID")
+	}
+	return uploadID, nil
+}
+
+func (fs *S3Fs) uploadPart(ctx context.Context, name, uploadID string, partNumber int32, data []byte) (*string, error) {
+	timeout := time.Duration(fs.config.UploadPartSize/(1024*1024)) * time.Minute
+	if fs.config.UploadPartMaxTime > 0 {
+		timeout = time.Duration(fs.config.UploadPartMaxTime)
+	}
+	ctx, cancelFn := context.WithDeadline(ctx, time.Now().Add(timeout))
+	defer cancelFn()
+
+	resp, err := fs.svc.UploadPart(ctx, &s3.UploadPartInput{
+		Bucket:               aws.String(fs.config.Bucket),
+		Key:                  aws.String(name),
+		PartNumber:           &partNumber,
+		UploadId:             aws.String(uploadID),
+		Body:                 bytes.NewReader(data),
+		SSECustomerKey:       util.NilIfEmpty(fs.sseCustomerKey),
+		SSECustomerAlgorithm: util.NilIfEmpty(fs.sseCustomerAlgo),
+		SSECustomerKeyMD5:    util.NilIfEmpty(fs.sseCustomerKeyMD5),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("unable to upload part number %d: %w", partNumber, err)
+	}
+	return resp.ETag, nil
+}
+
+func (fs *S3Fs) completeMultipartUpload(ctx context.Context, name, uploadID string, completedParts []types.CompletedPart) error {
+	ctx, cancelFn := context.WithDeadline(ctx, time.Now().Add(fs.ctxTimeout))
+	defer cancelFn()
+
+	_, err := fs.svc.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
+		Bucket:   aws.String(fs.config.Bucket),
+		Key:      aws.String(name),
+		UploadId: aws.String(uploadID),
+		MultipartUpload: &types.CompletedMultipartUpload{
+			Parts: completedParts,
+		},
+	})
+	return err
+}
+
+func (fs *S3Fs) abortMultipartUpload(name, uploadID string) error {
+	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+	defer cancelFn()
+
+	_, err := fs.svc.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
+		Bucket:   aws.String(fs.config.Bucket),
+		Key:      aws.String(name),
+		UploadId: aws.String(uploadID),
+	})
+	return err
+}
+
+func (fs *S3Fs) handleMultipartUpload(ctx context.Context, reader io.Reader, name, contentType string) error {
+	uploadID, err := fs.initiateMultipartUpload(ctx, name, contentType)
+	if err != nil {
+		return err
+	}
+	guard := make(chan struct{}, fs.config.UploadConcurrency)
+	finished := false
+	var partMutex sync.Mutex
+	var completedParts []types.CompletedPart
+	var wg sync.WaitGroup
+	var hasError atomic.Bool
+	var poolErr error
+	var errOnce sync.Once
+	var partNumber int32
+
+	pool := newBufferAllocator(int(fs.config.UploadPartSize))
+	defer pool.free()
+
+	poolCtx, poolCancel := context.WithCancel(ctx)
+	defer poolCancel()
+
+	finalizeFailedUpload := func(err error) {
+		fsLog(fs, logger.LevelError, "finalize failed multipart upload after error: %v", err)
+		hasError.Store(true)
+		poolErr = err
+		poolCancel()
+		if abortErr := fs.abortMultipartUpload(name, uploadID); abortErr != nil {
+			fsLog(fs, logger.LevelError, "unable to abort multipart upload: %+v", abortErr)
+		}
+	}
+
+	for partNumber = 1; !finished; partNumber++ {
+		buf := pool.getBuffer()
+
+		n, err := readFill(reader, buf)
+		if err == io.EOF {
+			if n == 0 && partNumber > 1 {
+				pool.releaseBuffer(buf)
+				break
+			}
+			finished = true
+		} else if err != nil {
+			pool.releaseBuffer(buf)
+			errOnce.Do(func() {
+				finalizeFailedUpload(err)
+			})
+			return err
+		}
+		guard <- struct{}{}
+		if hasError.Load() {
+			fsLog(fs, logger.LevelError, "pool error, upload for part %d not started", partNumber)
+			pool.releaseBuffer(buf)
+			break
+		}
+
+		wg.Add(1)
+		go func(partNum int32, buf []byte, bytesRead int) {
+			defer func() {
+				pool.releaseBuffer(buf)
+				<-guard
+				wg.Done()
+			}()
+
+			etag, err := fs.uploadPart(poolCtx, name, uploadID, partNum, buf[:bytesRead])
+			if err != nil {
+				errOnce.Do(func() {
+					finalizeFailedUpload(err)
+				})
+				return
+			}
+			partMutex.Lock()
+			completedParts = append(completedParts, types.CompletedPart{
+				PartNumber: &partNum,
+				ETag:       etag,
+			})
+			partMutex.Unlock()
+		}(partNumber, buf, n)
+	}
+
+	wg.Wait()
+	close(guard)
+
+	if poolErr != nil {
+		return poolErr
+	}
+
+	sort.Slice(completedParts, func(i, j int) bool {
+		getPartNumber := func(number *int32) int32 {
+			if number == nil {
+				return 0
+			}
+			return *number
+		}
+
+		return getPartNumber(completedParts[i].PartNumber) < getPartNumber(completedParts[j].PartNumber)
+	})
+
+	return fs.completeMultipartUpload(ctx, name, uploadID, completedParts)
+}
+
 func (fs *S3Fs) doMultipartCopy(source, target, contentType string, fileSize int64) error {
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()
@@ -921,15 +1077,7 @@ func (fs *S3Fs) doMultipartCopy(source, target, contentType string, fileSize int
 					copyError = fmt.Errorf("error copying part number %d: %w", partNum, err)
 					opCancel()
 
-					abortCtx, abortCancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
-					defer abortCancelFn()
-
-					_, errAbort := fs.svc.AbortMultipartUpload(abortCtx, &s3.AbortMultipartUploadInput{
-						Bucket:   aws.String(fs.config.Bucket),
-						Key:      aws.String(target),
-						UploadId: aws.String(uploadID),
-					})
-					if errAbort != nil {
+					if errAbort := fs.abortMultipartUpload(target, uploadID); errAbort != nil {
 						fsLog(fs, logger.LevelError, "unable to abort multipart copy: %+v", errAbort)
 					}
 				})
