@@ -18,6 +18,9 @@
 package metric
 
 import (
+	"errors"
+	"io"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -648,7 +651,7 @@ func AddMetricsEndpoint(metricsPath string, handler chi.Router) {
 func TransferCompleted(bytesSent, bytesReceived int64, transferKind int, err error, isSFTPFs bool) {
 	if transferKind == 0 {
 		// upload
-		if err == nil {
+		if err == nil || errors.Is(err, io.EOF) {
 			totalUploads.Inc()
 		} else {
 			totalUploadErrors.Inc()
