@@ -2188,7 +2188,7 @@ func TestLoginWithDatabaseCredentials(t *testing.T) {
 	u := getTestUser()
 	u.FsConfig.Provider = sdk.GCSFilesystemProvider
 	u.FsConfig.GCSConfig.Bucket = "test"
-	u.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret(`{ "type": "service_account" }`)
+	u.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret(`{ "type": "service_account", "private_key": " ", "client_email": "example@iam.gserviceaccount.com" }`)
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.FsConfig.GCSConfig.Credentials.GetStatus())
