@@ -2732,7 +2732,7 @@ paths:
           $ref: '#/components/responses/InternalServerError'
         default:
           $ref: '#/components/responses/DefaultResponse'
-  /events/log:
+  /events/logs:
     get:
       tags:
         - events
