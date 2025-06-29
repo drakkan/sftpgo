@@ -26,6 +26,18 @@ linters:
       min-occurrences: 3
     gocyclo:
       min-complexity: 15
+    # https://golangci-lint.run/usage/linters/#revive
+    revive:
+      rules:
+        - name: var-naming
+          severity: warning
+          disabled: true
+          exclude: [""]
+          arguments:
+            - ["ID"] # AllowList
+            - ["VM"] # DenyList
+            - - upper-case-const: true
+            - - skip-package-name-checks: true
   exclusions:
     generated: lax
     presets:
