@@ -29,6 +29,18 @@ linters:
     staticcheck:
       checks:
         ["all", "-QF1003", "-ST1003", "-QF1008", "-QF1006", "-QF1007", "-QF1001", "-ST1020"]
+    # https://golangci-lint.run/usage/linters/#revive
+    revive:
+      rules:
+        - name: var-naming
+          severity: warning
+          disabled: true
+          exclude: [""]
+          arguments:
+            - ["ID"] # AllowList
+            - ["VM"] # DenyList
+            - - upper-case-const: true
+            - - skip-package-name-checks: true
   exclusions:
     generated: lax
     presets:
