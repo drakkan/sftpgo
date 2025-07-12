@@ -5109,6 +5109,13 @@ func TestRetentionAPI(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
 
+	t.Cleanup(func() {
+		_, err = httpdtest.RemoveUser(user, http.StatusOK)
+		assert.NoError(t, err)
+		err = os.RemoveAll(user.GetHomeDir())
+		assert.NoError(t, err)
+	})
+
 	checks, _, err := httpdtest.GetRetentionChecks(http.StatusOK)
 	assert.NoError(t, err)
 	assert.Len(t, checks, 0)
@@ -5122,21 +5129,19 @@ func TestRetentionAPI(t *testing.T) {
 	folderRetention := []dataprovider.FolderRetention{
 		{
 			Path:            "/",
-			Retention:       0,
+			Retention:       24,
 			DeleteEmptyDirs: true,
 		},
 	}
 
-	_, err = httpdtest.StartRetentionCheck(altAdminUsername, folderRetention, http.StatusNotFound)
-	assert.NoError(t, err)
+	check := common.RetentionCheck{
+		Folders: folderRetention,
+	}
+	c := common.RetentionChecks.Add(check, &user)
+	require.NotNil(t, c)
 
-	resp, err := httpdtest.StartRetentionCheck(user.Username, folderRetention, http.StatusBadRequest)
-	assert.NoError(t, err)
-	assert.Contains(t, string(resp), "Invalid retention check")
-
-	folderRetention[0].Retention = 24
-	_, err = httpdtest.StartRetentionCheck(user.Username, folderRetention, http.StatusAccepted)
-	assert.NoError(t, err)
+	err = c.Start()
+	require.NoError(t, err)
 
 	assert.Eventually(t, func() bool {
 		return len(common.RetentionChecks.Get("")) == 0
@@ -5147,8 +5152,8 @@ func TestRetentionAPI(t *testing.T) {
 	err = os.Chtimes(localFilePath, time.Now().Add(-48*time.Hour), time.Now().Add(-48*time.Hour))
 	assert.NoError(t, err)
 
-	_, err = httpdtest.StartRetentionCheck(user.Username, folderRetention, http.StatusAccepted)
-	assert.NoError(t, err)
+	err = c.Start()
+	require.NoError(t, err)
 
 	assert.Eventually(t, func() bool {
 		return len(common.RetentionChecks.Get("")) == 0
@@ -5157,54 +5162,25 @@ func TestRetentionAPI(t *testing.T) {
 	assert.NoFileExists(t, localFilePath)
 	assert.NoDirExists(t, filepath.Dir(localFilePath))
 
-	check := common.RetentionCheck{
-		Folders: folderRetention,
-	}
-	c := common.RetentionChecks.Add(check, &user)
+	c = common.RetentionChecks.Add(check, &user)
 	assert.NotNil(t, c)
 
-	_, err = httpdtest.StartRetentionCheck(user.Username, folderRetention, http.StatusConflict)
+	assert.Nil(t, common.RetentionChecks.Add(check, &user)) // a check for this user is already in progress
+
+	checks, _, err = httpdtest.GetRetentionChecks(http.StatusOK)
 	assert.NoError(t, err)
+	assert.Len(t, checks, 1)
 
 	err = c.Start()
 	assert.NoError(t, err)
-	assert.Len(t, common.RetentionChecks.Get(""), 0)
 
-	admin := getTestAdmin()
-	admin.Username = altAdminUsername
-	admin.Password = altAdminPassword
-	admin, _, err = httpdtest.AddAdmin(admin, http.StatusCreated)
-	assert.NoError(t, err)
+	assert.Eventually(t, func() bool {
+		return len(common.RetentionChecks.Get("")) == 0
+	}, 1000*time.Millisecond, 50*time.Millisecond)
 
-	token, err := getJWTAPITokenFromTestServer(altAdminUsername, altAdminPassword)
+	checks, _, err = httpdtest.GetRetentionChecks(http.StatusOK)
 	assert.NoError(t, err)
-	req, _ := http.NewRequest(http.MethodPost, retentionBasePath+"/"+user.Username+"/check",
-		bytes.NewBuffer([]byte("invalid json")))
-	setBearerForReq(req, token)
-	rr := executeRequest(req)
-	checkResponseCode(t, http.StatusBadRequest, rr)
-
-	asJSON, err := json.Marshal(folderRetention)
-	assert.NoError(t, err)
-	req, _ = http.NewRequest(http.MethodPost, retentionBasePath+"/"+user.Username+"/check?notifications=Email,",
-		bytes.NewBuffer(asJSON))
-	setBearerForReq(req, token)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.Contains(t, rr.Body.String(), "to notify results via email")
-
-	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
-	assert.NoError(t, err)
-	req, _ = http.NewRequest(http.MethodPost, retentionBasePath+"/"+user.Username+"/check?notifications=Email",
-		bytes.NewBuffer(asJSON))
-	setBearerForReq(req, token)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusNotFound, rr)
-
-	_, err = httpdtest.RemoveUser(user, http.StatusOK)
-	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
+	assert.Len(t, checks, 0)
 }
 
 func TestAddUserInvalidVirtualFolders(t *testing.T) {

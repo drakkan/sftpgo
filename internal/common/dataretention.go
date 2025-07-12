@@ -15,42 +15,18 @@
 package common
 
 import (
-	"bytes"
-	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
-	"net/url"
 	"os"
-	"os/exec"
 	"path"
-	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
-	"github.com/wneessen/go-mail"
-
-	"github.com/drakkan/sftpgo/v2/internal/command"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/httpclient"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/smtp"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 	"github.com/drakkan/sftpgo/v2/internal/vfs"
-)
-
-// RetentionCheckNotification defines the supported notification methods for a retention check result
-type RetentionCheckNotification = string
-
-// Supported notification methods
-const (
-	// notify results using the defined "data_retention_hook"
-	RetentionCheckNotificationHook = "Hook"
-	// notify results by email
-	RetentionCheckNotificationEmail = "Email"
 )
 
 var (
@@ -74,14 +50,10 @@ func (c *ActiveRetentionChecks) Get(role string) []RetentionCheck {
 		if role == "" || role == check.Role {
 			foldersCopy := make([]dataprovider.FolderRetention, len(check.Folders))
 			copy(foldersCopy, check.Folders)
-			notificationsCopy := make([]string, len(check.Notifications))
-			copy(notificationsCopy, check.Notifications)
 			checks = append(checks, RetentionCheck{
-				Username:      check.Username,
-				StartTime:     check.StartTime,
-				Notifications: notificationsCopy,
-				Email:         check.Email,
-				Folders:       foldersCopy,
+				Username:  check.Username,
+				StartTime: check.StartTime,
+				Folders:   foldersCopy,
 			})
 		}
 	}
@@ -150,54 +122,10 @@ type RetentionCheck struct {
 	StartTime int64 `json:"start_time"`
 	// affected folders
 	Folders []dataprovider.FolderRetention `json:"folders"`
-	// how cleanup results will be notified
-	Notifications []RetentionCheckNotification `json:"notifications,omitempty"`
-	// email to use if the notification method is set to email
-	Email string `json:"email,omitempty"`
-	Role  string `json:"-"`
+	Role    string                         `json:"-"`
 	// Cleanup results
 	results []folderRetentionCheckResult `json:"-"`
-	conn    *BaseConnection
-}
-
-// Validate returns an error if the specified folders are not valid
-func (c *RetentionCheck) Validate() error {
-	folderPaths := make(map[string]bool)
-	nothingToDo := true
-	for idx := range c.Folders {
-		f := &c.Folders[idx]
-		if err := f.Validate(); err != nil {
-			return err
-		}
-		if f.Retention > 0 {
-			nothingToDo = false
-		}
-		if _, ok := folderPaths[f.Path]; ok {
-			return util.NewValidationError(fmt.Sprintf("duplicated folder path %q", f.Path))
-		}
-		folderPaths[f.Path] = true
-	}
-	if nothingToDo {
-		return util.NewValidationError("nothing to delete!")
-	}
-	for _, notification := range c.Notifications {
-		switch notification {
-		case RetentionCheckNotificationEmail:
-			if !smtp.IsEnabled() {
-				return util.NewValidationError("in order to notify results via email you must configure an SMTP server")
-			}
-			if c.Email == "" {
-				return util.NewValidationError("in order to notify results via email you must add a valid email address to your profile")
-			}
-		case RetentionCheckNotificationHook:
-			if Config.DataRetentionHook == "" {
-				return util.NewValidationError("in order to notify results via hook you must define a data_retention_hook")
-			}
-		default:
-			return util.NewValidationError(fmt.Sprintf("invalid notification %q", notification))
-		}
-	}
-	return nil
+	conn    *BaseConnection              `json:"-"`
 }
 
 func (c *RetentionCheck) updateUserPermissions() {
@@ -359,130 +287,13 @@ func (c *RetentionCheck) Start() error {
 	for _, folder := range c.Folders {
 		if folder.Retention > 0 {
 			if err := c.cleanupFolder(folder.Path, 0); err != nil {
-				c.conn.Log(logger.LevelError, "retention check failed, unable to cleanup folder %q", folder.Path)
-				c.sendNotifications(time.Since(startTime), err)
+				c.conn.Log(logger.LevelError, "retention check failed, unable to cleanup folder %q, elapsed: %s",
+					folder.Path, time.Since(startTime))
 				return err
 			}
 		}
 	}
 
-	c.conn.Log(logger.LevelInfo, "retention check completed")
-	c.sendNotifications(time.Since(startTime), nil)
+	c.conn.Log(logger.LevelInfo, "retention check completed, elapsed: %s", time.Since(startTime))
 	return nil
-}
-
-func (c *RetentionCheck) sendNotifications(elapsed time.Duration, err error) {
-	for _, notification := range c.Notifications {
-		switch notification {
-		case RetentionCheckNotificationEmail:
-			c.sendEmailNotification(err) //nolint:errcheck
-		case RetentionCheckNotificationHook:
-			c.sendHookNotification(elapsed, err) //nolint:errcheck
-		}
-	}
-}
-
-func (c *RetentionCheck) sendEmailNotification(errCheck error) error {
-	params := EventParams{}
-	if len(c.results) > 0 || errCheck != nil {
-		params.retentionChecks = append(params.retentionChecks, executedRetentionCheck{
-			Username:   c.conn.User.Username,
-			ActionName: "Retention check",
-			Results:    c.results,
-		})
-	}
-	var files []*mail.File
-	f, err := params.getRetentionReportsAsMailAttachment()
-	if err != nil {
-		c.conn.Log(logger.LevelError, "unable to get retention report as mail attachment: %v", err)
-		return err
-	}
-	f.Name = "retention-report.zip"
-	files = append(files, f)
-
-	startTime := time.Now()
-	var subject string
-	if errCheck == nil {
-		subject = fmt.Sprintf("Successful retention check for user %q", c.conn.User.Username)
-	} else {
-		subject = fmt.Sprintf("Retention check failed for user %q", c.conn.User.Username)
-	}
-	body := "Further details attached."
-	err = smtp.SendEmail([]string{c.Email}, nil, subject, body, smtp.EmailContentTypeTextPlain, files...)
-	if err != nil {
-		c.conn.Log(logger.LevelError, "unable to notify retention check result via email: %v, elapsed: %s", err,
-			time.Since(startTime))
-		return err
-	}
-	c.conn.Log(logger.LevelInfo, "retention check result successfully notified via email, elapsed: %s", time.Since(startTime))
-	return nil
-}
-
-func (c *RetentionCheck) sendHookNotification(elapsed time.Duration, errCheck error) error {
-	startNewHook()
-	defer hookEnded()
-
-	data := make(map[string]any)
-	totalDeletedFiles := 0
-	totalDeletedSize := int64(0)
-	for _, result := range c.results {
-		totalDeletedFiles += result.DeletedFiles
-		totalDeletedSize += result.DeletedSize
-	}
-	data["username"] = c.conn.User.Username
-	data["start_time"] = c.StartTime
-	data["elapsed"] = elapsed.Milliseconds()
-	if errCheck == nil {
-		data["status"] = 1
-	} else {
-		data["status"] = 0
-	}
-	data["total_deleted_files"] = totalDeletedFiles
-	data["total_deleted_size"] = totalDeletedSize
-	data["details"] = c.results
-	jsonData, _ := json.Marshal(data)
-
-	startTime := time.Now()
-
-	if strings.HasPrefix(Config.DataRetentionHook, "http") {
-		var url *url.URL
-		url, err := url.Parse(Config.DataRetentionHook)
-		if err != nil {
-			c.conn.Log(logger.LevelError, "invalid data retention hook %q: %v", Config.DataRetentionHook, err)
-			return err
-		}
-		respCode := 0
-
-		resp, err := httpclient.RetryablePost(url.String(), "application/json", bytes.NewBuffer(jsonData))
-		if err == nil {
-			respCode = resp.StatusCode
-			resp.Body.Close()
-
-			if respCode != http.StatusOK {
-				err = errUnexpectedHTTResponse
-			}
-		}
-
-		c.conn.Log(logger.LevelDebug, "notified result to URL: %q, status code: %v, elapsed: %v err: %v",
-			url.Redacted(), respCode, time.Since(startTime), err)
-
-		return err
-	}
-	if !filepath.IsAbs(Config.DataRetentionHook) {
-		err := fmt.Errorf("invalid data retention hook %q", Config.DataRetentionHook)
-		c.conn.Log(logger.LevelError, "%v", err)
-		return err
-	}
-	timeout, env, args := command.GetConfig(Config.DataRetentionHook, command.HookDataRetention)
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, Config.DataRetentionHook, args...)
-	cmd.Env = append(env,
-		fmt.Sprintf("SFTPGO_DATA_RETENTION_RESULT=%s", jsonData))
-	err := cmd.Run()
-
-	c.conn.Log(logger.LevelDebug, "notified result using command: %q, elapsed: %s err: %v",
-		Config.DataRetentionHook, time.Since(startTime), err)
-	return err
 }

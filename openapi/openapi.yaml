@@ -1088,60 +1088,6 @@ paths:
           $ref: '#/components/responses/InternalServerError'
         default:
           $ref: '#/components/responses/DefaultResponse'
-  /retention/users/{username}/check:
-    parameters:
-      - name: username
-        in: path
-        description: the username
-        required: true
-        schema:
-          type: string
-      - name: notifications
-        in: query
-        description: 'specify how to notify results'
-        explode: false
-        schema:
-          type: array
-          items:
-            $ref: '#/components/schemas/RetentionCheckNotification'
-    post:
-      tags:
-        - data retention
-      summary: Start a retention check
-      description: 'Starts a new retention check for the given user. If a retention check for this user is already active a 409 status code is returned'
-      operationId: start_user_retention_check
-      requestBody:
-        required: true
-        description: 'Defines virtual paths to check and their retention time in hours'
-        content:
-          application/json:
-            schema:
-              type: array
-              items:
-                $ref: '#/components/schemas/FolderRetention'
-      responses:
-        '202':
-          description: successful operation
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse'
-              example:
-                message: Check started
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-        default:
-          $ref: '#/components/responses/DefaultResponse'
   /quotas/users/scans:
     get:
       tags:
@@ -5142,15 +5088,6 @@ components:
           * `shares-disabled` - sharing files and directories with external users is not allowed
           * `password-reset-disabled` - resetting the password is not allowed
           * `shares-without-password-disabled` - creating shares without password protection is not allowed
-    RetentionCheckNotification:
-      type: string
-      enum:
-        - Hook
-        - Email
-      description: |
-        Options:
-          * `Hook` - notify result using the defined hook. A "data_retention_hook" must be defined in your configuration file for this to work
-          * `Email` - notify results by email. The admin starting the retention check must have an associated email address and the SMTP server must be configured for this to work
     APIKeyScope:
       type: integer
       enum:
@@ -6271,9 +6208,6 @@ components:
         delete_empty_dirs:
           type: boolean
           description: if enabled, empty directories will be deleted
-        ignore_user_permissions:
-          type: boolean
-          description: 'if enabled, files will be deleted even if the user does not have the delete permission. The default is "false" which means that files will be skipped if the user does not have permission to delete them. File patterns filters will always be silently ignored'
     RetentionCheck:
       type: object
       properties:
@@ -6288,14 +6222,6 @@ components:
           type: integer
           format: int64
           description: check start time as unix timestamp in milliseconds
-        notifications:
-          type: array
-          items:
-            $ref: '#/components/schemas/RetentionCheckNotification'
-        email:
-          type: string
-          format: email
-          description: 'if the notification method is set to "Email", this is the e-mail address that receives the retention check report. This field is automatically set to the email address associated with the administrator starting the check'
     QuotaScan:
       type: object
       properties:

@@ -1173,20 +1173,6 @@ func GetRetentionChecks(expectedStatusCode int) ([]common.ActiveRetentionChecks,
 	return checks, body, err
 }
 
-// StartRetentionCheck starts a new retention check
-func StartRetentionCheck(username string, retention []dataprovider.FolderRetention, expectedStatusCode int) ([]byte, error) {
-	var body []byte
-	asJSON, _ := json.Marshal(retention)
-	resp, err := sendHTTPRequest(http.MethodPost, buildURLRelativeToBase(retentionBasePath, username, "check"),
-		bytes.NewBuffer(asJSON), "application/json", getDefaultToken())
-	if err != nil {
-		return body, err
-	}
-	defer resp.Body.Close()
-	body, _ = getResponseBody(resp)
-	return body, checkResponse(resp.StatusCode, expectedStatusCode)
-}
-
 // GetConnections returns status and stats for active SFTP/SCP connections
 func GetConnections(expectedStatusCode int) ([]common.ConnectionStatus, []byte, error) {
 	var connections []common.ConnectionStatus

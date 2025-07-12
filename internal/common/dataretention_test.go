@@ -15,227 +15,16 @@
 package common
 
 import (
-	"errors"
 	"fmt"
-	"os/exec"
-	"runtime"
 	"testing"
-	"time"
 
 	"github.com/sftpgo/sdk"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/smtp"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 )
-
-func TestRetentionValidation(t *testing.T) {
-	check := RetentionCheck{}
-	check.Folders = []dataprovider.FolderRetention{
-		{
-			Path:      "/",
-			Retention: -1,
-		},
-	}
-	err := check.Validate()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid folder retention")
-
-	check.Folders = []dataprovider.FolderRetention{
-		{
-			Path:      "/ab/..",
-			Retention: 0,
-		},
-	}
-	err = check.Validate()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "nothing to delete")
-	assert.Equal(t, "/", check.Folders[0].Path)
-
-	check.Folders = append(check.Folders, dataprovider.FolderRetention{
-		Path:      "/../..",
-		Retention: 24,
-	})
-	err = check.Validate()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), `duplicated folder path "/"`)
-
-	check.Folders = []dataprovider.FolderRetention{
-		{
-			Path:      "/dir1",
-			Retention: 48,
-		},
-		{
-			Path:      "/dir2",
-			Retention: 96,
-		},
-	}
-	err = check.Validate()
-	assert.NoError(t, err)
-	assert.Len(t, check.Notifications, 0)
-	assert.Empty(t, check.Email)
-
-	check.Notifications = []RetentionCheckNotification{RetentionCheckNotificationEmail}
-	err = check.Validate()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "you must configure an SMTP server")
-
-	smtpCfg := smtp.Config{
-		Host:          "mail.example.com",
-		Port:          25,
-		From:          "notification@example.com",
-		TemplatesPath: "templates",
-	}
-	err = smtpCfg.Initialize(configDir, true)
-	require.NoError(t, err)
-
-	err = check.Validate()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "you must add a valid email address")
-
-	check.Email = "admin@example.com"
-	err = check.Validate()
-	assert.NoError(t, err)
-
-	smtpCfg = smtp.Config{}
-	err = smtpCfg.Initialize(configDir, true)
-	require.NoError(t, err)
-
-	check.Notifications = []RetentionCheckNotification{RetentionCheckNotificationHook}
-	err = check.Validate()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "data_retention_hook")
-
-	check.Notifications = []string{"not valid"}
-	err = check.Validate()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid notification")
-}
-
-func TestRetentionEmailNotifications(t *testing.T) {
-	smtpCfg := smtp.Config{
-		Host:          "127.0.0.1",
-		Port:          2525,
-		From:          "notification@example.com",
-		TemplatesPath: "templates",
-	}
-	err := smtpCfg.Initialize(configDir, true)
-	require.NoError(t, err)
-
-	user := dataprovider.User{
-		BaseUser: sdk.BaseUser{
-			Username: "user1",
-		},
-	}
-	user.Permissions = make(map[string][]string)
-	user.Permissions["/"] = []string{dataprovider.PermAny}
-	check := RetentionCheck{
-		Notifications: []RetentionCheckNotification{RetentionCheckNotificationEmail},
-		Email:         "notification@example.com",
-		results: []folderRetentionCheckResult{
-			{
-				Path:         "/",
-				Retention:    24,
-				DeletedFiles: 10,
-				DeletedSize:  32657,
-				Elapsed:      10 * time.Second,
-			},
-		},
-	}
-	conn := NewBaseConnection("", "", "", "", user)
-	conn.SetProtocol(ProtocolDataRetention)
-	conn.ID = fmt.Sprintf("data_retention_%v", user.Username)
-	check.conn = conn
-	check.sendNotifications(1*time.Second, nil)
-	err = check.sendEmailNotification(nil)
-	assert.NoError(t, err)
-	err = check.sendEmailNotification(errors.New("test error"))
-	assert.NoError(t, err)
-
-	check.results = nil
-	err = check.sendEmailNotification(nil)
-	if assert.Error(t, err) {
-		assert.Contains(t, err.Error(), "no data retention report available")
-	}
-
-	smtpCfg.Port = 2626
-	err = smtpCfg.Initialize(configDir, true)
-	require.NoError(t, err)
-	err = check.sendEmailNotification(nil)
-	assert.Error(t, err)
-	check.results = []folderRetentionCheckResult{
-		{
-			Path:         "/",
-			Retention:    24,
-			DeletedFiles: 20,
-			DeletedSize:  456789,
-			Elapsed:      12 * time.Second,
-		},
-	}
-
-	smtpCfg = smtp.Config{}
-	err = smtpCfg.Initialize(configDir, true)
-	require.NoError(t, err)
-	err = check.sendEmailNotification(nil)
-	assert.Error(t, err)
-}
-
-func TestRetentionHookNotifications(t *testing.T) {
-	dataRetentionHook := Config.DataRetentionHook
-
-	Config.DataRetentionHook = fmt.Sprintf("http://%v", httpAddr)
-	user := dataprovider.User{
-		BaseUser: sdk.BaseUser{
-			Username: "user2",
-		},
-	}
-	user.Permissions = make(map[string][]string)
-	user.Permissions["/"] = []string{dataprovider.PermAny}
-	check := RetentionCheck{
-		Notifications: []RetentionCheckNotification{RetentionCheckNotificationHook},
-		results: []folderRetentionCheckResult{
-			{
-				Path:         "/",
-				Retention:    24,
-				DeletedFiles: 10,
-				DeletedSize:  32657,
-				Elapsed:      10 * time.Second,
-			},
-		},
-	}
-	conn := NewBaseConnection("", "", "", "", user)
-	conn.SetProtocol(ProtocolDataRetention)
-	conn.ID = fmt.Sprintf("data_retention_%v", user.Username)
-	check.conn = conn
-	check.sendNotifications(1*time.Second, nil)
-	err := check.sendHookNotification(1*time.Second, nil)
-	assert.NoError(t, err)
-
-	Config.DataRetentionHook = fmt.Sprintf("http://%v/404", httpAddr)
-	err = check.sendHookNotification(1*time.Second, nil)
-	assert.ErrorIs(t, err, errUnexpectedHTTResponse)
-
-	Config.DataRetentionHook = "http://foo\x7f.com/retention"
-	err = check.sendHookNotification(1*time.Second, err)
-	assert.Error(t, err)
-
-	Config.DataRetentionHook = "relativepath"
-	err = check.sendHookNotification(1*time.Second, err)
-	assert.Error(t, err)
-
-	if runtime.GOOS != osWindows {
-		hookCmd, err := exec.LookPath("true")
-		assert.NoError(t, err)
-
-		Config.DataRetentionHook = hookCmd
-		err = check.sendHookNotification(1*time.Second, err)
-		assert.NoError(t, err)
-	}
-
-	Config.DataRetentionHook = dataRetentionHook
-}
 
 func TestRetentionPermissionsAndGetFolder(t *testing.T) {
 	user := dataprovider.User{
@@ -311,7 +100,6 @@ func TestRetentionCheckAddRemove(t *testing.T) {
 				Retention: 48,
 			},
 		},
-		Notifications: []RetentionCheckNotification{RetentionCheckNotificationHook},
 	}
 	assert.NotNil(t, RetentionChecks.Add(check, &user))
 	checks := RetentionChecks.Get("")
@@ -321,8 +109,6 @@ func TestRetentionCheckAddRemove(t *testing.T) {
 	require.Len(t, checks[0].Folders, 1)
 	assert.Equal(t, check.Folders[0].Path, checks[0].Folders[0].Path)
 	assert.Equal(t, check.Folders[0].Retention, checks[0].Folders[0].Retention)
-	require.Len(t, checks[0].Notifications, 1)
-	assert.Equal(t, RetentionCheckNotificationHook, checks[0].Notifications[0])
 
 	assert.Nil(t, RetentionChecks.Add(check, &user))
 	assert.True(t, RetentionChecks.remove(username))
@@ -349,7 +135,6 @@ func TestRetentionCheckRole(t *testing.T) {
 				Retention: 48,
 			},
 		},
-		Notifications: []RetentionCheckNotification{RetentionCheckNotificationHook},
 	}
 	assert.NotNil(t, RetentionChecks.Add(check, &user))
 	checks := RetentionChecks.Get("")

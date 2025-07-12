@@ -1430,8 +1430,6 @@ func (s *httpdServer) setupRESTAPIRoutes() {
 				router.With(s.checkPerms(dataprovider.PermAdminAny)).Delete(adminPath+"/{username}", deleteAdmin)
 				router.With(s.checkPerms(dataprovider.PermAdminDisableMFA)).Put(adminPath+"/{username}/2fa/disable", disableAdmin2FA)
 				router.With(s.checkPerms(dataprovider.PermAdminAny)).Get(retentionChecksPath, getRetentionChecks)
-				router.With(s.checkPerms(dataprovider.PermAdminAny)).Post(retentionBasePath+"/{username}/check",
-					startRetentionCheck)
 				router.With(s.checkPerms(dataprovider.PermAdminViewEvents), compressor.Handler).
 					Get(fsEventsPath, searchFsEvents)
 				router.With(s.checkPerms(dataprovider.PermAdminViewEvents), compressor.Handler).

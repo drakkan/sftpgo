@@ -1175,46 +1175,6 @@ func TestUpdateWebAdminInvalidClaims(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 }
 
-func TestRetentionInvalidTokenClaims(t *testing.T) {
-	username := "retentionuser"
-	user := dataprovider.User{
-		BaseUser: sdk.BaseUser{
-			Username: username,
-			Password: "pwd",
-			HomeDir:  filepath.Join(os.TempDir(), username),
-			Status:   1,
-		},
-	}
-	user.Permissions = make(map[string][]string)
-	user.Permissions["/"] = []string{dataprovider.PermAny}
-	user.Filters.AllowAPIKeyAuth = true
-	err := dataprovider.AddUser(&user, "", "", "")
-	assert.NoError(t, err)
-	folderRetention := []dataprovider.FolderRetention{
-		{
-			Path:            "/",
-			Retention:       0,
-			DeleteEmptyDirs: true,
-		},
-	}
-	asJSON, err := json.Marshal(folderRetention)
-	assert.NoError(t, err)
-	req, _ := http.NewRequest(http.MethodPost, retentionBasePath+"/"+username+"/check?notifications=Email", bytes.NewBuffer(asJSON))
-
-	rctx := chi.NewRouteContext()
-	rctx.URLParams.Add("username", username)
-
-	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
-	req = req.WithContext(context.WithValue(req.Context(), jwtauth.ErrorCtxKey, errors.New("error")))
-	rr := httptest.NewRecorder()
-	startRetentionCheck(rr, req)
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Invalid token claims")
-
-	err = dataprovider.DeleteUser(username, "", "", "")
-	assert.NoError(t, err)
-}
-
 func TestUpdateSMTPSecrets(t *testing.T) {
 	currentConfigs := &dataprovider.SMTPConfigs{
 		OAuth2: dataprovider.SMTPOAuth2{

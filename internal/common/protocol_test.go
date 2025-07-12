@@ -8343,7 +8343,12 @@ func TestRetentionAPI(t *testing.T) {
 				DeleteEmptyDirs: true,
 			},
 		}
-		_, err = httpdtest.StartRetentionCheck(user.Username, folderRetention, http.StatusAccepted)
+		check := common.RetentionCheck{
+			Folders: folderRetention,
+		}
+		c := common.RetentionChecks.Add(check, &user)
+		assert.NotNil(t, c)
+		err = c.Start()
 		assert.NoError(t, err)
 
 		assert.Eventually(t, func() bool {
@@ -8356,7 +8361,7 @@ func TestRetentionAPI(t *testing.T) {
 		err = client.Chtimes(uploadPath, time.Now().Add(-48*time.Hour), time.Now().Add(-48*time.Hour))
 		assert.NoError(t, err)
 
-		_, err = httpdtest.StartRetentionCheck(user.Username, folderRetention, http.StatusAccepted)
+		err = c.Start()
 		assert.NoError(t, err)
 
 		assert.Eventually(t, func() bool {
@@ -8374,11 +8379,13 @@ func TestRetentionAPI(t *testing.T) {
 		err = writeSFTPFile(uploadPath, 32, client)
 		assert.NoError(t, err)
 
-		folderRetention[0].DeleteEmptyDirs = false
+		check.Folders[0].DeleteEmptyDirs = false
 		err = client.Chtimes(uploadPath, time.Now().Add(-48*time.Hour), time.Now().Add(-48*time.Hour))
 		assert.NoError(t, err)
 
-		_, err = httpdtest.StartRetentionCheck(user.Username, folderRetention, http.StatusAccepted)
+		c = common.RetentionChecks.Add(check, &user)
+		assert.NotNil(t, c)
+		err = c.Start()
 		assert.NoError(t, err)
 
 		assert.Eventually(t, func() bool {
@@ -8432,7 +8439,12 @@ func TestRetentionAPI(t *testing.T) {
 				Retention: 0,
 			},
 		}
-		_, err = httpdtest.StartRetentionCheck(user.Username, folderRetention, http.StatusAccepted)
+		check := common.RetentionCheck{
+			Folders: folderRetention,
+		}
+		c := common.RetentionChecks.Add(check, &user)
+		assert.NotNil(t, c)
+		err = c.Start()
 		assert.NoError(t, err)
 
 		assert.Eventually(t, func() bool {
@@ -8453,7 +8465,12 @@ func TestRetentionAPI(t *testing.T) {
 			},
 		}
 
-		_, err = httpdtest.StartRetentionCheck(user.Username, folderRetention, http.StatusAccepted)
+		check = common.RetentionCheck{
+			Folders: folderRetention,
+		}
+		c = common.RetentionChecks.Add(check, &user)
+		assert.NotNil(t, c)
+		err = c.Start()
 		assert.NoError(t, err)
 
 		assert.Eventually(t, func() bool {
@@ -8487,8 +8504,13 @@ func TestRetentionAPI(t *testing.T) {
 			},
 		}
 
-		_, err = httpdtest.StartRetentionCheck(user.Username, folderRetention, http.StatusAccepted)
-		assert.NoError(t, err)
+		check := common.RetentionCheck{
+			Folders: folderRetention,
+		}
+		c := common.RetentionChecks.Add(check, &user)
+		assert.NotNil(t, c)
+		err = c.Start()
+		assert.ErrorIs(t, err, os.ErrPermission)
 
 		assert.Eventually(t, func() bool {
 			return len(common.RetentionChecks.Get("")) == 0
@@ -8497,8 +8519,10 @@ func TestRetentionAPI(t *testing.T) {
 		err = os.Chmod(dirPath, 0555)
 		assert.NoError(t, err)
 
-		_, err = httpdtest.StartRetentionCheck(user.Username, folderRetention, http.StatusAccepted)
-		assert.NoError(t, err)
+		c = common.RetentionChecks.Add(check, &user)
+		assert.NotNil(t, c)
+		err = c.Start()
+		assert.ErrorIs(t, err, os.ErrPermission)
 
 		assert.Eventually(t, func() bool {
 			return len(common.RetentionChecks.Get("")) == 0
@@ -8507,7 +8531,12 @@ func TestRetentionAPI(t *testing.T) {
 		err = os.Chmod(dirPath, os.ModePerm)
 		assert.NoError(t, err)
 
-		_, err = httpdtest.StartRetentionCheck(user.Username, folderRetention, http.StatusAccepted)
+		check = common.RetentionCheck{
+			Folders: folderRetention,
+		}
+		c = common.RetentionChecks.Add(check, &user)
+		assert.NotNil(t, c)
+		err = c.Start()
 		assert.NoError(t, err)
 
 		assert.Eventually(t, func() bool {
