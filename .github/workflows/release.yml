@@ -91,7 +91,7 @@ jobs:
           SFTPGO_VERSION: ${{ steps.get_version.outputs.VERSION }}
 
       - name: Sign binaries
-        uses: azure/trusted-signing-action@v0.5.1
+        uses: azure/trusted-signing-action@v0.5.9
         with:
           endpoint: https://eus.codesigning.azure.net/
           trusted-signing-account-name: nicola
@@ -153,7 +153,7 @@ jobs:
           SFTPGO_ISS_VERSION: ${{ steps.get_version.outputs.VERSION }}
 
       - name: Sign installers
-        uses: azure/trusted-signing-action@v0.5.1
+        uses: azure/trusted-signing-action@v0.5.9
         with:
           endpoint: https://eus.codesigning.azure.net/
           trusted-signing-account-name: nicola
