@@ -35,7 +35,6 @@ const (
 	HookStartup             = "startup"
 	HookPostConnect         = "post_connect"
 	HookPostDisconnect      = "post_disconnect"
-	HookDataRetention       = "data_retention"
 	HookCheckPassword       = "check_password"
 	HookPreLogin            = "pre_login"
 	HookPostLogin           = "post_login"
@@ -46,7 +45,7 @@ const (
 var (
 	config         Config
 	supportedHooks = []string{HookFsActions, HookProviderActions, HookStartup, HookPostConnect, HookPostDisconnect,
-		HookDataRetention, HookCheckPassword, HookPreLogin, HookPostLogin, HookExternalAuth, HookKeyboardInteractive}
+		HookCheckPassword, HookPreLogin, HookPostLogin, HookExternalAuth, HookKeyboardInteractive}
 )
 
 // Command define the configuration for a specific commands

@@ -32,6 +32,7 @@ import (
 	"time"
 
 	"github.com/pkg/sftp"
+	"github.com/rs/xid"
 	"github.com/sftpgo/sdk/plugin/notifier"
 	"golang.org/x/crypto/ssh"
 
@@ -563,7 +564,7 @@ func (c *Configuration) configureKeyboardInteractiveAuth(serverConfig *ssh.Serve
 }
 
 // AcceptInboundConnection handles an inbound connection to the server instance and determines if the request should be served or not.
-func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.ServerConfig) {
+func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.ServerConfig) { //nolint:gocyclo
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Error(logSender, "", "panic in AcceptInboundConnection: %q stack trace: %v", r, string(debug.Stack()))
@@ -600,7 +601,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 	json.Unmarshal(util.StringToBytes(sconn.Permissions.Extensions["sftpgo_user"]), &user) //nolint:errcheck
 
 	loginType := sconn.Permissions.Extensions["sftpgo_login_method"]
-	connectionID := hex.EncodeToString(sconn.SessionID())
+	connectionID := xid.New().String()
 
 	defer user.CloseFs() //nolint:errcheck
 	if err = user.CheckFsRoot(connectionID); err != nil {
@@ -638,7 +639,6 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 		}
 
 		channelCounter++
-		sshConnection.UpdateLastActivity()
 		// Channels have a type that is dependent on the protocol. For SFTP this is "subsystem"
 		// with a payload that (should) be "sftp". Discard anything else we receive ("pty", "shell", etc)
 		go func(in <-chan *ssh.Request, counter int64) {
@@ -650,6 +650,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 				case "subsystem":
 					if bytes.Equal(req.Payload[4:], []byte("sftp")) {
 						ok = true
+						sshConnection.UpdateLastActivity()
 						connection := &Connection{
 							BaseConnection: common.NewBaseConnection(connID, common.ProtocolSFTP, conn.LocalAddr().String(),
 								conn.RemoteAddr().String(), user),
@@ -671,6 +672,9 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 						channel:       channel,
 					}
 					ok = processSSHCommand(req.Payload, &connection, c.EnabledSSHCommands)
+					if ok {
+						sshConnection.UpdateLastActivity()
+					}
 				}
 				if req.WantReply {
 					req.Reply(ok, nil) //nolint:errcheck

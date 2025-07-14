@@ -615,9 +615,6 @@ type Configuration struct {
 	// Absolute path to an external program or an HTTP URL to invoke after an SSH/FTP connection ends.
 	// Leave empty do disable.
 	PostDisconnectHook string `json:"post_disconnect_hook" mapstructure:"post_disconnect_hook"`
-	// Absolute path to an external program or an HTTP URL to invoke after a data retention check completes.
-	// Leave empty do disable.
-	DataRetentionHook string `json:"data_retention_hook" mapstructure:"data_retention_hook"`
 	// Maximum number of concurrent client connections. 0 means unlimited
 	MaxTotalConnections int `json:"max_total_connections" mapstructure:"max_total_connections"`
 	// Maximum number of concurrent client connections from the same host (IP). 0 means unlimited
