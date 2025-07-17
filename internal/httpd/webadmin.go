@@ -348,9 +348,10 @@ type messagePage struct {
 }
 
 type userTemplateFields struct {
-	Username   string
-	Password   string
-	PublicKeys []string
+	Username         string
+	Password         string
+	PublicKeys       []string
+	RequirePwdChange bool
 }
 
 func loadAdminTemplates(templatesPath string) {
@@ -1225,9 +1226,10 @@ func getUsersForTemplate(r *http.Request) []userTemplateFields {
 
 		users[username] = true
 		res = append(res, userTemplateFields{
-			Username:   username,
-			Password:   password,
-			PublicKeys: []string{publicKey},
+			Username:         username,
+			Password:         password,
+			PublicKeys:       []string{publicKey},
+			RequirePwdChange: r.Form.Get("tpl_require_password_change") != "",
 		})
 	}
 
@@ -1910,6 +1912,7 @@ func getUserFromTemplate(user dataprovider.User, template userTemplateFields) da
 	user.Username = template.Username
 	user.Password = template.Password
 	user.PublicKeys = template.PublicKeys
+	user.Filters.RequirePasswordChange = template.RequirePwdChange
 	replacements := make(map[string]string)
 	replacements["%username%"] = user.Username
 	if user.Password != "" && !user.IsPasswordHashed() {
@@ -3461,9 +3464,10 @@ func (s *httpdServer) handleWebAddUserPost(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	user = getUserFromTemplate(user, userTemplateFields{
-		Username:   user.Username,
-		Password:   user.Password,
-		PublicKeys: user.PublicKeys,
+		Username:         user.Username,
+		Password:         user.Password,
+		PublicKeys:       user.PublicKeys,
+		RequirePwdChange: user.Filters.RequirePasswordChange,
 	})
 	if claims.Role != "" {
 		user.Role = claims.Role
@@ -3518,9 +3522,10 @@ func (s *httpdServer) handleWebUpdateUserPost(w http.ResponseWriter, r *http.Req
 	updateEncryptedSecrets(&updatedUser.FsConfig, &user.FsConfig)
 
 	updatedUser = getUserFromTemplate(updatedUser, userTemplateFields{
-		Username:   updatedUser.Username,
-		Password:   updatedUser.Password,
-		PublicKeys: updatedUser.PublicKeys,
+		Username:         updatedUser.Username,
+		Password:         updatedUser.Password,
+		PublicKeys:       updatedUser.PublicKeys,
+		RequirePwdChange: updatedUser.Filters.RequirePasswordChange,
 	})
 	if claims.Role != "" {
 		updatedUser.Role = claims.Role

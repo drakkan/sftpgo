@@ -22389,8 +22389,30 @@ func TestUserSaveFromTemplateMock(t *testing.T) {
 
 	u1, _, err := httpdtest.GetUserByUsername(user1, http.StatusOK)
 	assert.NoError(t, err)
+	assert.False(t, u1.Filters.RequirePasswordChange)
 	u2, _, err := httpdtest.GetUserByUsername(user2, http.StatusOK)
 	assert.NoError(t, err)
+	assert.False(t, u2.Filters.RequirePasswordChange)
+
+	_, err = httpdtest.RemoveUser(u1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(u2, http.StatusOK)
+	assert.NoError(t, err)
+
+	form.Add("tpl_require_password_change", "checked")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webTemplateUser, &b)
+	setJWTCookieForReq(req, token)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+
+	u1, _, err = httpdtest.GetUserByUsername(user1, http.StatusOK)
+	assert.NoError(t, err)
+	assert.True(t, u1.Filters.RequirePasswordChange)
+	u2, _, err = httpdtest.GetUserByUsername(user2, http.StatusOK)
+	assert.NoError(t, err)
+	assert.True(t, u2.Filters.RequirePasswordChange)
 
 	_, err = httpdtest.RemoveUser(u1, http.StatusOK)
 	assert.NoError(t, err)
