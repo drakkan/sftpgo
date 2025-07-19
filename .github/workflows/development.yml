@@ -154,7 +154,7 @@ jobs:
 
       - name: Sign binaries
         if: ${{ github.event_name != 'pull_request' }}
-        uses: azure/trusted-signing-action@v0.5.1
+        uses: azure/trusted-signing-action@v0.5.9
         with:
           endpoint: https://eus.codesigning.azure.net/
           trusted-signing-account-name: nicola
@@ -248,7 +248,7 @@ jobs:
 
       - name: Sign installers
         if: ${{ github.event_name != 'pull_request' }}
-        uses: azure/trusted-signing-action@v0.5.1
+        uses: azure/trusted-signing-action@v0.5.9
         with:
           endpoint: https://eus.codesigning.azure.net/
           trusted-signing-account-name: nicola
