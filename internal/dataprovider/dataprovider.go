@@ -4131,7 +4131,7 @@ func getPasswordHookResponse(username, password, ip, protocol string) ([]byte, e
 		fmt.Sprintf("SFTPGO_AUTHD_IP=%s", ip),
 		fmt.Sprintf("SFTPGO_AUTHD_PROTOCOL=%s", protocol),
 	)
-	return cmd.Output()
+	return getCmdOutput(cmd, "check_password_hook")
 }
 
 func executeCheckPasswordHook(username, password, ip, protocol string) (checkPasswordResponse, error) {
@@ -4192,7 +4192,7 @@ func getPreLoginHookResponse(loginMethod, ip, protocol string, userAsJSON []byte
 		fmt.Sprintf("SFTPGO_LOGIND_IP=%s", ip),
 		fmt.Sprintf("SFTPGO_LOGIND_PROTOCOL=%s", protocol),
 	)
-	return cmd.Output()
+	return getCmdOutput(cmd, "pre_login_hook")
 }
 
 func executePreLoginHook(username, loginMethod, ip, protocol string, oidcTokenFields *map[string]any) (User, error) {
@@ -4407,7 +4407,7 @@ func getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, 
 		fmt.Sprintf("SFTPGO_AUTHD_TLS_CERT=%s", strings.ReplaceAll(tlsCert, "\n", "\\n")),
 		fmt.Sprintf("SFTPGO_AUTHD_KEYBOARD_INTERACTIVE=%v", keyboardInteractive))
 
-	return cmd.Output()
+	return getCmdOutput(cmd, "external_auth_hook")
 }
 
 func updateUserFromExtAuthResponse(user *User, password, pkey string) {
@@ -4874,6 +4874,37 @@ func checkReservedUsernames(username string) error {
 
 func errSchemaVersionTooOld(version int) error {
 	return fmt.Errorf("database schema version %d is too old, please see the upgrading docs: https://docs.sftpgo.com/latest/data-provider/#upgrading", version)
+}
+
+func getCmdOutput(cmd *exec.Cmd, sender string) ([]byte, error) {
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return nil, err
+	}
+
+	err = cmd.Start()
+	if err != nil {
+		return nil, err
+	}
+
+	scanner := bufio.NewScanner(stderr)
+
+	go func() {
+		for scanner.Scan() {
+			if out := scanner.Text(); out != "" {
+				logger.Log(logger.LevelWarn, sender, "", "%s", out)
+			}
+		}
+		if err := scanner.Err(); err != nil {
+			logger.Log(logger.LevelError, sender, "", "error reading stderr: %v", err)
+		}
+	}()
+
+	err = cmd.Wait()
+	return stdout.Bytes(), err
 }
 
 func providerLog(level logger.LogLevel, format string, v ...any) {
