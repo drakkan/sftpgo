@@ -7,8 +7,10 @@ body:
     attributes:
       value: |
         ### 👍 Thank you for contributing to our project!
-        Before asking for help please check the [support policy](https://github.com/drakkan/sftpgo#support-policy).
-        If you are a commercial user or a project sponsor please contact us using the dedicated [email address](mailto:support@sftpgo.com).
+        Before asking for help please check our [support policy](https://github.com/drakkan/sftpgo?tab=readme-ov-file#support).
+        If you are a [commercial user](https://sftpgo.com/) please contact us using the dedicated [email address](mailto:support@sftpgo.com).
+        If you'd like to contribute code, please make sure to read and understand our [Contributor License Agreement (CLA)](https://sftpgo.com/cla.html).
+        You’ll be asked to accept it when submitting a pull request.
   - type: checkboxes
     id: before-posting
     attributes:
