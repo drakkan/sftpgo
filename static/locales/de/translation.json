@@ -156,6 +156,7 @@
         "datetime": "{{- val, datetime}}",
         "selected_items_one": "{{count}} Element ausgewählt",
         "selected_items_other": "{{count}} Elemente ausgewählt",
+        "selected_with_placeholder": "%d Elemente ausgewählt",
         "name_required": "Name ist erforderlich!",
         "name_different": "Der neue Name muss sich vom aktuellen Namen unterscheiden!",
         "html5_media_not_supported": "Ihr Browser unterstützt keine HTML5-Audio/Video.",

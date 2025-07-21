@@ -831,7 +831,14 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     loadingRecords: "",
                     processing: $.t('datatable.processing'),
                     zeroRecords: "",
-                    emptyTable: $.t('fs.no_files_folders')
+                    emptyTable: $.t('fs.no_files_folders'),
+                    select: {
+                        rows: {
+                            _: $.t('general.selected_with_placeholder'),
+                            0: '',
+                            1: $.t('general.selected_items', { count: 1})
+                        }
+                    }
                 },
                 orderFixed: [1, 'asc'],
                 order: [2, 'asc'],
