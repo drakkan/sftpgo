@@ -244,7 +244,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                               `;
 
     //{{- if not .ShareUploadBaseURL}}
-    const supportedEditExtensions = ["csv", "bat", "dyalog", "apl", "asc", "pgp", "sig", "asn", "asn1", "b", "bf",
+    const supportedEditExtensions = ["csv", "bat", "dyalog", "apl", "asc", "sig", "asn", "asn1", "b", "bf",
             "c", "h", "ino", "cpp", "c++", "cc", "cxx", "hpp", "h++", "hh", "hxx", "cob", "cpy", "cbl", "cs", "clj",
             "cljc", "cljx", "cljs", "gss", "cmake", "cmake.in", "coffee", "cl", "lisp", "el", "cyp", "cypher",
             "pyx", "pxd", "pxi", "cr", "css", "cql", "d", "dart", "diff", "patch", "dtd", "dylan", "dyl", "intr",
@@ -504,6 +504,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         switch (error.response.status) {
                             case 200:
                                 errorMessage = "general.expired_session";
+                                break;
                             case 403:
                                 errorMessage = "fs.create_dir.err_403";
                                 break;
@@ -677,6 +678,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                     {
                         data: "edit_url",
+                        defaultContent: '',
                         className: 'text-end',
                         render: function (data, type, row) {
                             if (type === 'display') {
@@ -692,16 +694,19 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                         case "webp":
                                         case "bmp":
                                         case "svg":
-                                            let desc = escapeHTML(filename).replace(/"/g, '&quot;');
+                                            let desc = escapeHTML(filename);
+                                            let descHtml = `<span class="fs-5 fw-bold">${desc}</span>`;
+                                            let descId = `desc-${row.id}`;
                                             previewDiv = `<div class="ms-2" data-kt-filemanger-table="view_item">
-												    <a href="${row['url']}" data-gallery="gallery" data-glightbox="description: &lt;span class=&quot;fs-5 fw-bold&quot;&gt;${desc}&lt;/span&gt;" class="btn btn-sm btn-icon btn-light btn-active-light-primary glightbox">
-													    <i class="ki-duotone ki-eye fs-6 m-0">
-														    <span class="path1"></span>
-														    <span class="path2"></span>
+                                                    <a href="${row['url']}" data-gallery="gallery" data-description=".${descId}" class="btn btn-sm btn-icon btn-light btn-active-light-primary glightbox">
+                                                        <i class="ki-duotone ki-eye fs-6 m-0">
+                                                            <span class="path1"></span>
+                                                            <span class="path2"></span>
                                                             <span class="path3"></span>
-													    </i>
-												    </a>
-											    </div>`;
+                                                        </i>
+                                                    </a>
+                                                    <div class="glightbox-desc ${descId} d-none">${descHtml}</div>
+                                                </div>`;
                                             break;
                                         case "mp4":
                                         case "mov":
@@ -1965,6 +1970,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     switch (error.response.status) {
                         case 200:
                             errorMessage = "general.expired_session";
+                            break;
                         case 403:
                             errorMessage = "fs.create_dir.err_403";
                             break;
