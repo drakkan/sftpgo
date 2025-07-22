@@ -660,6 +660,7 @@ func getRedactedGlobalConf() globalConfig {
 		binding.OIDC.ClientSecret = getRedactedPassword(binding.OIDC.ClientSecret)
 		conf.HTTPDConfig.Bindings = append(conf.HTTPDConfig.Bindings, binding)
 	}
+	conf.KMSConfig.Secrets.MasterKeyString = getRedactedPassword(conf.KMSConfig.Secrets.MasterKeyString)
 	conf.PluginsConfig = nil
 	for _, plugin := range globalConf.PluginsConfig {
 		var args []string
