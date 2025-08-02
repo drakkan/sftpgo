@@ -593,7 +593,7 @@ func HTTPListenAndServe(srv *http.Server, address string, port int, isTLS bool,
 			logger.Error(logSender, "", "error creating Unix-domain socket parent dir: %v", err)
 		}
 		os.Remove(address)
-		listener, err = newListener("unix", address, srv.ReadTimeout, srv.WriteTimeout)
+		listener, err = net.Listen("unix", address)
 		if err == nil {
 			// should a chmod err be fatal?
 			if errChmod := os.Chmod(address, 0770); errChmod != nil {
@@ -602,7 +602,7 @@ func HTTPListenAndServe(srv *http.Server, address string, port int, isTLS bool,
 		}
 	} else {
 		CheckTCP4Port(port)
-		listener, err = newListener("tcp", fmt.Sprintf("%s:%d", address, port), srv.ReadTimeout, srv.WriteTimeout)
+		listener, err = net.Listen("tcp", fmt.Sprintf("%s:%d", address, port))
 	}
 	if err != nil {
 		return err

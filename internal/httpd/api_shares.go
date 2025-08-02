@@ -532,11 +532,8 @@ func (s *httpdServer) checkPublicShare(w http.ResponseWriter, r *http.Request, v
 		return share, nil, err
 	}
 	connID := xid.New().String()
-	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(connID, common.ProtocolHTTPShare, util.GetHTTPLocalAddress(r),
-			r.RemoteAddr, user),
-		request: r,
-	}
+	baseConn := common.NewBaseConnection(connID, common.ProtocolHTTPShare, util.GetHTTPLocalAddress(r), r.RemoteAddr, user)
+	connection := newConnection(baseConn, w, r)
 
 	return share, connection, nil
 }

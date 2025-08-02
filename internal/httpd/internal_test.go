@@ -2686,10 +2686,11 @@ func TestCompressorAbortHandler(t *testing.T) {
 		assert.Equal(t, http.ErrAbortHandler, rcv)
 	}()
 
-	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, "", "", dataprovider.User{}),
-		request:        nil,
-	}
+	connection := newConnection(
+		common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, "", "", dataprovider.User{}),
+		nil,
+		nil,
+	)
 	share := &dataprovider.Share{}
 	renderCompressedFiles(&failingWriter{}, connection, "", nil, share)
 }
@@ -2711,10 +2712,11 @@ func TestZipErrors(t *testing.T) {
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
-	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, "", "", user),
-		request:        nil,
-	}
+	connection := newConnection(
+		common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, "", "", user),
+		nil,
+		nil,
+	)
 
 	testDir := filepath.Join(os.TempDir(), "testDir")
 	err := os.MkdirAll(testDir, os.ModePerm)
@@ -2935,10 +2937,11 @@ func TestConnection(t *testing.T) {
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
-	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, "", "", user),
-		request:        nil,
-	}
+	connection := newConnection(
+		common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, "", "", user),
+		nil,
+		nil,
+	)
 	assert.Empty(t, connection.GetClientVersion())
 	assert.Empty(t, connection.GetRemoteAddress())
 	assert.Empty(t, connection.GetCommand())
@@ -2959,10 +2962,11 @@ func TestGetFileWriterErrors(t *testing.T) {
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
-	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, "", "", user),
-		request:        nil,
-	}
+	connection := newConnection(
+		common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, "", "", user),
+		nil,
+		nil,
+	)
 	_, err := connection.getFileWriter("name")
 	assert.Error(t, err)
 
@@ -2975,10 +2979,11 @@ func TestGetFileWriterErrors(t *testing.T) {
 		},
 		AccessSecret: kms.NewPlainSecret("secret"),
 	}
-	connection = &Connection{
-		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, "", "", user),
-		request:        nil,
-	}
+	connection = newConnection(
+		common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, "", "", user),
+		nil,
+		nil,
+	)
 	_, err = connection.getFileWriter("/path")
 	assert.Error(t, err)
 }
@@ -3007,9 +3012,11 @@ func TestHTTPDFile(t *testing.T) {
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
-	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, "", "", user),
-	}
+	connection := newConnection(
+		common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, "", "", user),
+		nil,
+		nil,
+	)
 
 	fs, err := user.GetFilesystem("")
 	assert.NoError(t, err)

@@ -55,8 +55,6 @@ func (s *webDavServer) listenAndServe(compressor *middleware.Compressor) error {
 	handler := compressor.Handler(s)
 	httpServer := &http.Server{
 		ReadHeaderTimeout: 30 * time.Second,
-		ReadTimeout:       60 * time.Second,
-		WriteTimeout:      60 * time.Second,
 		IdleTimeout:       60 * time.Second,
 		MaxHeaderBytes:    1 << 16, // 64KB
 		ErrorLog:          log.New(&logger.StdLoggerWrapper{Sender: logSender}, "", 0),
@@ -170,6 +168,11 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
+	responseControllerDeadlines(
+		http.NewResponseController(w),
+		time.Now().Add(60*time.Second),
+		time.Now().Add(60*time.Second),
+	)
 	w.Header().Set("Server", version.GetServerVersion("/", false))
 	ipAddr := s.checkRemoteAddress(r)
 
@@ -228,11 +231,9 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(connectionID, common.ProtocolWebDAV, util.GetHTTPLocalAddress(r),
-			r.RemoteAddr, user),
-		request: r,
-	}
+	baseConn := common.NewBaseConnection(connectionID, common.ProtocolWebDAV, util.GetHTTPLocalAddress(r),
+		r.RemoteAddr, user)
+	connection := newConnection(baseConn, w, r)
 	if err = common.Connections.Add(connection); err != nil {
 		errClose := user.CloseFs()
 		logger.Warn(logSender, connectionID, "unable add connection: %v close fs error: %v", err, errClose)
@@ -387,6 +388,15 @@ func (s *webDavServer) checkRemoteAddress(r *http.Request) string {
 		}
 	}
 	return ipAddr
+}
+
+func responseControllerDeadlines(rc *http.ResponseController, read, write time.Time) {
+	if err := rc.SetReadDeadline(read); err != nil {
+		logger.Error(logSender, "", "unable to set read timeout to %s: %v", read, err)
+	}
+	if err := rc.SetWriteDeadline(write); err != nil {
+		logger.Error(logSender, "", "unable to set write timeout to %s: %v", write, err)
+	}
 }
 
 func writeLog(r *http.Request, status int, err error) {

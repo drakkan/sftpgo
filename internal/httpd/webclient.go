@@ -906,11 +906,8 @@ func (s *httpdServer) handleWebClientDownloadZip(w http.ResponseWriter, r *http.
 		s.renderClientForbiddenPage(w, r, err)
 		return
 	}
-	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(connID, protocol, util.GetHTTPLocalAddress(r),
-			r.RemoteAddr, user),
-		request: r,
-	}
+	baseConn := common.NewBaseConnection(connID, protocol, util.GetHTTPLocalAddress(r), r.RemoteAddr, user)
+	connection := newConnection(baseConn, w, r)
 	if err = common.Connections.Add(connection); err != nil {
 		s.renderClientMessagePage(w, r, util.I18nError429Title, http.StatusTooManyRequests,
 			util.NewI18nError(err, util.I18nError429Message), "")
@@ -1197,11 +1194,8 @@ func (s *httpdServer) handleClientGetDirContents(w http.ResponseWriter, r *http.
 		sendAPIResponse(w, r, err, getI18NErrorString(err, util.I18nErrorDirList403), http.StatusForbidden)
 		return
 	}
-	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(connID, protocol, util.GetHTTPLocalAddress(r),
-			r.RemoteAddr, user),
-		request: r,
-	}
+	baseConn := common.NewBaseConnection(connID, protocol, util.GetHTTPLocalAddress(r), r.RemoteAddr, user)
+	connection := newConnection(baseConn, w, r)
 	if err = common.Connections.Add(connection); err != nil {
 		sendAPIResponse(w, r, err, util.I18nErrorDirList429, http.StatusTooManyRequests)
 		return
@@ -1287,11 +1281,8 @@ func (s *httpdServer) handleClientGetFiles(w http.ResponseWriter, r *http.Reques
 		s.renderClientForbiddenPage(w, r, err)
 		return
 	}
-	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(connID, protocol, util.GetHTTPLocalAddress(r),
-			r.RemoteAddr, user),
-		request: r,
-	}
+	baseConn := common.NewBaseConnection(connID, protocol, util.GetHTTPLocalAddress(r), r.RemoteAddr, user)
+	connection := newConnection(baseConn, w, r)
 	if err = common.Connections.Add(connection); err != nil {
 		s.renderClientMessagePage(w, r, util.I18nError429Title, http.StatusTooManyRequests,
 			util.NewI18nError(err, util.I18nError429Message), "")
@@ -1348,11 +1339,8 @@ func (s *httpdServer) handleClientEditFile(w http.ResponseWriter, r *http.Reques
 		s.renderClientForbiddenPage(w, r, err)
 		return
 	}
-	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(connID, protocol, util.GetHTTPLocalAddress(r),
-			r.RemoteAddr, user),
-		request: r,
-	}
+	baseConn := common.NewBaseConnection(connID, protocol, util.GetHTTPLocalAddress(r), r.RemoteAddr, user)
+	connection := newConnection(baseConn, w, r)
 	if err = common.Connections.Add(connection); err != nil {
 		s.renderClientMessagePage(w, r, util.I18nError429Title, http.StatusTooManyRequests,
 			util.NewI18nError(err, util.I18nError429Message), "")
@@ -1844,11 +1832,8 @@ func (s *httpdServer) handleClientGetPDF(w http.ResponseWriter, r *http.Request)
 		s.renderClientForbiddenPage(w, r, err)
 		return
 	}
-	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(connID, protocol, util.GetHTTPLocalAddress(r),
-			r.RemoteAddr, user),
-		request: r,
-	}
+	baseConn := common.NewBaseConnection(connID, protocol, util.GetHTTPLocalAddress(r), r.RemoteAddr, user)
+	connection := newConnection(baseConn, w, r)
 	if err = common.Connections.Add(connection); err != nil {
 		s.renderClientMessagePage(w, r, util.I18nError429Title, http.StatusTooManyRequests,
 			util.NewI18nError(err, util.I18nError429Message), "")

@@ -53,11 +53,8 @@ func getUserConnection(w http.ResponseWriter, r *http.Request) (*Connection, err
 		sendAPIResponse(w, r, err, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 		return nil, err
 	}
-	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(connID, protocol, util.GetHTTPLocalAddress(r),
-			r.RemoteAddr, user),
-		request: r,
-	}
+	baseConn := common.NewBaseConnection(connID, protocol, util.GetHTTPLocalAddress(r), r.RemoteAddr, user)
+	connection := newConnection(baseConn, w, r)
 	if err = common.Connections.Add(connection); err != nil {
 		sendAPIResponse(w, r, err, "Unable to add connection", http.StatusTooManyRequests)
 		return connection, err

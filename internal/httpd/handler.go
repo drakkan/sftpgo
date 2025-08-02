@@ -35,6 +35,17 @@ import (
 type Connection struct {
 	*common.BaseConnection
 	request *http.Request
+	rc      *http.ResponseController
+}
+
+func newConnection(conn *common.BaseConnection, w http.ResponseWriter, r *http.Request) *Connection {
+	rc := http.NewResponseController(w)
+	responseControllerDeadlines(rc, time.Time{}, time.Time{})
+	return &Connection{
+		BaseConnection: conn,
+		request:        r,
+		rc:             rc,
+	}
 }
 
 // GetClientVersion returns the connected client's version.
@@ -60,6 +71,9 @@ func (c *Connection) GetRemoteAddress() string {
 
 // Disconnect closes the active transfer
 func (c *Connection) Disconnect() (err error) {
+	if c.rc != nil {
+		responseControllerDeadlines(c.rc, time.Now().Add(5*time.Second), time.Now().Add(5*time.Second))
+	}
 	return c.SignalTransfersAbort()
 }
 

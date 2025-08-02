@@ -946,3 +946,12 @@ func hideConfidentialData(claims *jwtTokenClaims, r *http.Request) bool {
 	}
 	return r.URL.Query().Get("confidential_data") != "1"
 }
+
+func responseControllerDeadlines(rc *http.ResponseController, read, write time.Time) {
+	if err := rc.SetReadDeadline(read); err != nil {
+		logger.Error(logSender, "", "unable to set read timeout to %s: %v", read, err)
+	}
+	if err := rc.SetWriteDeadline(write); err != nil {
+		logger.Error(logSender, "", "unable to set write timeout to %s: %v", write, err)
+	}
+}

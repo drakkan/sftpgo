@@ -103,8 +103,6 @@ func (s *httpdServer) listenAndServe() error {
 	httpServer := &http.Server{
 		Handler:           s.router,
 		ReadHeaderTimeout: 30 * time.Second,
-		ReadTimeout:       60 * time.Second,
-		WriteTimeout:      60 * time.Second,
 		IdleTimeout:       60 * time.Second,
 		MaxHeaderBytes:    1 << 16, // 64KB
 		ErrorLog:          log.New(&logger.StdLoggerWrapper{Sender: logSender}, "", 0),
@@ -1087,6 +1085,11 @@ func (s *httpdServer) updateContextFromCookie(r *http.Request) *http.Request {
 
 func (s *httpdServer) parseHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		responseControllerDeadlines(
+			http.NewResponseController(w),
+			time.Now().Add(60*time.Second),
+			time.Now().Add(60*time.Second),
+		)
 		w.Header().Set("Server", version.GetServerVersion("/", false))
 		ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 		var ip net.IP
