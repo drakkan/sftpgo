@@ -126,7 +126,6 @@ const (
 	user2FARecoveryCodesPath       = "/api/v2/user/2fa/recoverycodes"
 	userProfilePath                = "/api/v2/user/profile"
 	userSharesPath                 = "/api/v2/user/shares"
-	retentionBasePath              = "/api/v2/retention/users"
 	fsEventsPath                   = "/api/v2/events/fs"
 	providerEventsPath             = "/api/v2/events/provider"
 	logEventsPath                  = "/api/v2/events/logs"
