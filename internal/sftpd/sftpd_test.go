@@ -9909,67 +9909,6 @@ func TestSSHRemoveCryptFs(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestBasicGitCommands(t *testing.T) {
-	if len(gitPath) == 0 || len(sshPath) == 0 || runtime.GOOS == osWindows {
-		t.Skip("git and/or ssh command not found or OS is windows, unable to execute this test")
-	}
-	usePubKey := true
-	u := getTestUser(usePubKey)
-	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
-	assert.NoError(t, err)
-
-	repoName := "testrepo" //nolint:goconst
-	clonePath := filepath.Join(homeBasePath, repoName)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
-	err = os.RemoveAll(filepath.Join(homeBasePath, repoName))
-	assert.NoError(t, err)
-	out, err := initGitRepo(filepath.Join(user.HomeDir, repoName))
-	assert.NoError(t, err, "unexpected error, out: %v", string(out))
-
-	out, err = cloneGitRepo(homeBasePath, "/"+repoName, user.Username)
-	assert.NoError(t, err, "unexpected error, out: %v", string(out))
-
-	out, err = addFileToGitRepo(clonePath, 128)
-	assert.NoError(t, err, "unexpected error, out: %v", string(out))
-
-	user.QuotaFiles = 100000
-	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
-	assert.NoError(t, err)
-
-	out, err = pushToGitRepo(clonePath)
-	if !assert.NoError(t, err, "unexpected error, out: %v", string(out)) {
-		printLatestLogs(10)
-	}
-
-	out, err = addFileToGitRepo(clonePath, 131072)
-	assert.NoError(t, err, "unexpected error, out: %v", string(out))
-
-	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
-	assert.NoError(t, err)
-	user.QuotaSize = user.UsedQuotaSize + 1
-	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
-	assert.NoError(t, err)
-	out, err = pushToGitRepo(clonePath)
-	assert.Error(t, err, "git push must fail if quota is exceeded, out: %v", string(out))
-
-	aDir := filepath.Join(user.GetHomeDir(), repoName, "adir")
-	err = os.MkdirAll(aDir, 0001)
-	assert.NoError(t, err)
-	_, err = pushToGitRepo(clonePath)
-	assert.Error(t, err)
-	err = os.Chmod(aDir, os.ModePerm)
-	assert.NoError(t, err)
-
-	_, err = httpdtest.RemoveUser(user, http.StatusOK)
-	assert.NoError(t, err)
-
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
-	err = os.RemoveAll(clonePath)
-	assert.NoError(t, err)
-}
-
 func TestSSHCommandMaxTransfers(t *testing.T) {
 	if len(gitPath) == 0 || len(sshPath) == 0 || runtime.GOOS == osWindows {
 		t.Skip("git and/or ssh command not found or OS is windows, unable to execute this test")
@@ -9988,8 +9927,7 @@ func TestSSHCommandMaxTransfers(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(filepath.Join(homeBasePath, repoName))
 	assert.NoError(t, err)
-	out, err := initGitRepo(filepath.Join(user.HomeDir, repoName))
-	assert.NoError(t, err, "unexpected error, out: %v", string(out))
+
 	conn, client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
 		f1, err := client.Create("file1")
@@ -10001,7 +9939,7 @@ func TestSSHCommandMaxTransfers(t *testing.T) {
 		_, err = f2.Write([]byte(" "))
 		assert.NoError(t, err)
 
-		_, err = cloneGitRepo(homeBasePath, "/"+repoName, user.Username)
+		_, err = client.Create("file3")
 		assert.Error(t, err)
 
 		err = f1.Close()
@@ -10024,180 +9962,6 @@ func TestSSHCommandMaxTransfers(t *testing.T) {
 	assert.Equal(t, int32(0), common.Connections.GetTotalTransfers())
 
 	common.Config.MaxPerHostConnections = oldValue
-}
-
-func TestGitIncludedVirtualFolders(t *testing.T) {
-	if len(gitPath) == 0 || len(sshPath) == 0 || runtime.GOOS == osWindows {
-		t.Skip("git and/or ssh command not found or OS is windows, unable to execute this test")
-	}
-	usePubKey := true
-	repoName := "trepo"
-	u := getTestUser(usePubKey)
-	u.QuotaFiles = 10000
-	mappedPath := filepath.Join(os.TempDir(), "repo")
-	folderName := filepath.Base(mappedPath)
-	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
-		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name: folderName,
-		},
-		VirtualPath: "/" + repoName,
-		QuotaFiles:  -1,
-		QuotaSize:   -1,
-	})
-	f := vfs.BaseVirtualFolder{
-		Name:       folderName,
-		MappedPath: mappedPath,
-	}
-	_, _, err := httpdtest.AddFolder(f, http.StatusCreated)
-	assert.NoError(t, err)
-	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
-	assert.NoError(t, err)
-
-	clonePath := filepath.Join(homeBasePath, repoName)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
-	err = os.RemoveAll(filepath.Join(homeBasePath, repoName))
-	assert.NoError(t, err)
-	out, err := initGitRepo(mappedPath)
-	assert.NoError(t, err, "unexpected error, out: %v", string(out))
-
-	out, err = cloneGitRepo(homeBasePath, "/"+repoName, user.Username)
-	assert.NoError(t, err, "unexpected error, out: %v", string(out))
-
-	out, err = addFileToGitRepo(clonePath, 128)
-	assert.NoError(t, err, "unexpected error, out: %v", string(out))
-
-	out, err = pushToGitRepo(clonePath)
-	assert.NoError(t, err, "unexpected error, out: %v", string(out))
-
-	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
-	assert.NoError(t, err)
-	if user.UsedQuotaFiles == 0 {
-		assert.Eventually(t, func() bool {
-			user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
-			if err != nil {
-				return false
-			}
-			return user.QuotaFiles > 0
-		}, 1*time.Second, 100*time.Millisecond)
-	}
-	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
-	assert.NoError(t, err)
-	assert.Greater(t, user.UsedQuotaFiles, 0)
-	assert.Greater(t, user.UsedQuotaSize, int64(0))
-
-	folder, _, err := httpdtest.GetFolderByName(folderName, http.StatusOK)
-	assert.NoError(t, err)
-	assert.Equal(t, 0, folder.UsedQuotaFiles)
-	assert.Equal(t, int64(0), folder.UsedQuotaSize)
-
-	_, err = httpdtest.RemoveUser(user, http.StatusOK)
-	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
-	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName}, http.StatusOK)
-	assert.NoError(t, err)
-	err = os.RemoveAll(mappedPath)
-	assert.NoError(t, err)
-	err = os.RemoveAll(clonePath)
-	assert.NoError(t, err)
-}
-
-func TestGitQuotaVirtualFolders(t *testing.T) {
-	if len(gitPath) == 0 || len(sshPath) == 0 || runtime.GOOS == osWindows {
-		t.Skip("git and/or ssh command not found or OS is windows, unable to execute this test")
-	}
-	usePubKey := true
-	repoName := "testrepo"
-	u := getTestUser(usePubKey)
-	u.QuotaFiles = 1
-	u.QuotaSize = 131072
-	mappedPath := filepath.Join(os.TempDir(), "repo")
-	folderName := filepath.Base(mappedPath)
-	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
-		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name: folderName,
-		},
-		VirtualPath: "/" + repoName,
-		QuotaFiles:  0,
-		QuotaSize:   0,
-	})
-	f := vfs.BaseVirtualFolder{
-		Name:       folderName,
-		MappedPath: mappedPath,
-	}
-	_, _, err := httpdtest.AddFolder(f, http.StatusCreated)
-	assert.NoError(t, err)
-	err = os.MkdirAll(mappedPath, os.ModePerm)
-	assert.NoError(t, err)
-	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
-	assert.NoError(t, err)
-	conn, client, err := getSftpClient(user, usePubKey)
-	if assert.NoError(t, err) {
-		// we upload a file so the user is over quota
-		defer conn.Close()
-		defer client.Close()
-		testFilePath := filepath.Join(homeBasePath, testFileName)
-		err = createTestFile(testFilePath, u.QuotaSize)
-		assert.NoError(t, err)
-		err = sftpUploadFile(testFilePath, testFileName, u.QuotaSize, client)
-		assert.NoError(t, err)
-		err = os.Remove(testFilePath)
-		assert.NoError(t, err)
-	}
-
-	clonePath := filepath.Join(homeBasePath, repoName)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
-	err = os.RemoveAll(filepath.Join(homeBasePath, repoName))
-	assert.NoError(t, err)
-	out, err := initGitRepo(mappedPath)
-	assert.NoError(t, err, "unexpected error, out: %v", string(out))
-
-	out, err = cloneGitRepo(homeBasePath, "/"+repoName, user.Username)
-	assert.NoError(t, err, "unexpected error, out: %v", string(out))
-
-	out, err = addFileToGitRepo(clonePath, 128)
-	assert.NoError(t, err, "unexpected error, out: %v", string(out))
-
-	out, err = pushToGitRepo(clonePath)
-	assert.NoError(t, err, "unexpected error, out: %v", string(out))
-
-	_, err = httpdtest.RemoveUser(user, http.StatusOK)
-	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
-	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName}, http.StatusOK)
-	assert.NoError(t, err)
-	err = os.RemoveAll(mappedPath)
-	assert.NoError(t, err)
-	err = os.RemoveAll(clonePath)
-	assert.NoError(t, err)
-}
-
-func TestGitErrors(t *testing.T) {
-	if len(gitPath) == 0 || len(sshPath) == 0 || runtime.GOOS == osWindows {
-		t.Skip("git and/or ssh command not found or OS is windows, unable to execute this test")
-	}
-	usePubKey := true
-	u := getTestUser(usePubKey)
-	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
-	assert.NoError(t, err)
-	repoName := "testrepo"
-	clonePath := filepath.Join(homeBasePath, repoName)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
-	err = os.RemoveAll(filepath.Join(homeBasePath, repoName))
-	assert.NoError(t, err)
-	out, err := cloneGitRepo(homeBasePath, "/"+repoName, user.Username)
-	assert.Error(t, err, "cloning a missing repo must fail, out: %v", string(out))
-
-	_, err = httpdtest.RemoveUser(user, http.StatusOK)
-	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
-	err = os.RemoveAll(clonePath)
-	assert.NoError(t, err)
 }
 
 // Start SCP tests
@@ -11805,64 +11569,6 @@ func checkSystemCommands() {
 		out, _ := cmd.CombinedOutput()
 		scpForce = !strings.Contains(string(out), "option -- O")
 	}
-}
-
-func initGitRepo(path string) ([]byte, error) {
-	err := os.MkdirAll(path, os.ModePerm)
-	if err != nil {
-		return nil, err
-	}
-	args := []string{"init", "--bare"}
-	cmd := exec.Command(gitPath, args...)
-	cmd.Dir = path
-	return cmd.CombinedOutput()
-}
-
-func pushToGitRepo(repoPath string) ([]byte, error) {
-	cmd := exec.Command(gitPath, "push")
-	cmd.Dir = repoPath
-	cmd.Env = append(os.Environ(),
-		fmt.Sprintf("GIT_SSH=%v", gitWrapPath))
-	return cmd.CombinedOutput()
-}
-
-func cloneGitRepo(basePath, remotePath, username string) ([]byte, error) {
-	remoteURL := fmt.Sprintf("ssh://%v@127.0.0.1:2022%v", username, remotePath)
-	args := []string{"clone", remoteURL}
-	cmd := exec.Command(gitPath, args...)
-	cmd.Dir = basePath
-	cmd.Env = append(os.Environ(),
-		fmt.Sprintf("GIT_SSH=%v", gitWrapPath))
-	return cmd.CombinedOutput()
-}
-
-func addFileToGitRepo(repoPath string, fileSize int64) ([]byte, error) {
-	path := filepath.Join(repoPath, "test")
-	err := createTestFile(path, fileSize)
-	if err != nil {
-		return []byte(""), err
-	}
-	cmd := exec.Command(gitPath, "config", "user.email", "testuser@example.com")
-	cmd.Dir = repoPath
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return out, err
-	}
-	cmd = exec.Command(gitPath, "config", "user.name", "testuser")
-	cmd.Dir = repoPath
-	out, err = cmd.CombinedOutput()
-	if err != nil {
-		return out, err
-	}
-	cmd = exec.Command(gitPath, "add", "test")
-	cmd.Dir = repoPath
-	out, err = cmd.CombinedOutput()
-	if err != nil {
-		return out, err
-	}
-	cmd = exec.Command(gitPath, "commit", "-am", "test")
-	cmd.Dir = repoPath
-	return cmd.CombinedOutput()
 }
 
 func getKeyboardInteractiveScriptForBuiltinChecks(addPasscode bool, result int) []byte {

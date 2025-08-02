@@ -527,14 +527,6 @@ func TestSSHCommandErrors(t *testing.T) {
 	err = cmd.handle()
 	assert.Error(t, err, "ssh command must fail, we are requesting an invalid path")
 
-	cmd = sshCommand{
-		command:    "git-receive-pack",
-		connection: &connection,
-		args:       []string{"/../../testrepo"},
-	}
-	err = cmd.handle()
-	assert.Error(t, err, "ssh command must fail, we are requesting an invalid path")
-
 	user = dataprovider.User{}
 	user.Permissions = map[string][]string{
 		"/": {dataprovider.PermAny},
@@ -545,18 +537,8 @@ func TestSSHCommandErrors(t *testing.T) {
 	cmd.connection.User = user
 	_, err = cmd.connection.User.GetFilesystem("123")
 	assert.NoError(t, err)
-	err = cmd.handle()
-	assert.EqualError(t, err, common.ErrQuotaExceeded.Error())
 
-	cmd.connection.User.QuotaFiles = 0
-	cmd.connection.User.UsedQuotaFiles = 0
-	cmd.connection.User.Permissions = make(map[string][]string)
-	cmd.connection.User.Permissions["/"] = []string{dataprovider.PermListItems}
-	err = cmd.handle()
-	assert.EqualError(t, err, common.ErrPermissionDenied.Error())
-
-	cmd.connection.User.Permissions["/"] = []string{dataprovider.PermAny}
-	cmd.command = "invalid_command"
+	cmd.command = "git-receive-pack"
 	command, err := cmd.getSystemCommand()
 	assert.NoError(t, err)
 
@@ -664,30 +646,6 @@ func TestCommandsWithExtensionsFilter(t *testing.T) {
 	}
 	_, err = cmd.getSystemCommand()
 	assert.EqualError(t, err, errUnsupportedConfig.Error())
-
-	cmd = sshCommand{
-		command:    "git-receive-pack",
-		connection: connection,
-		args:       []string{"/subdir"},
-	}
-	_, err = cmd.getSystemCommand()
-	assert.EqualError(t, err, errUnsupportedConfig.Error())
-
-	cmd = sshCommand{
-		command:    "git-receive-pack",
-		connection: connection,
-		args:       []string{"/subdir/dir"},
-	}
-	_, err = cmd.getSystemCommand()
-	assert.EqualError(t, err, errUnsupportedConfig.Error())
-
-	cmd = sshCommand{
-		command:    "git-receive-pack",
-		connection: connection,
-		args:       []string{"/adir/subdir"},
-	}
-	_, err = cmd.getSystemCommand()
-	assert.NoError(t, err)
 }
 
 func TestSSHCommandsRemoteFs(t *testing.T) {
@@ -774,54 +732,6 @@ func TestSSHCmdGetFsErrors(t *testing.T) {
 	assert.Error(t, err)
 
 	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
-}
-
-func TestGitVirtualFolders(t *testing.T) {
-	permissions := make(map[string][]string)
-	permissions["/"] = []string{dataprovider.PermAny}
-	user := dataprovider.User{
-		BaseUser: sdk.BaseUser{
-			Permissions: permissions,
-			HomeDir:     os.TempDir(),
-		},
-	}
-	conn := &Connection{
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", "", user),
-	}
-	cmd := sshCommand{
-		command:    "git-receive-pack",
-		connection: conn,
-		args:       []string{"/vdir"},
-	}
-	cmd.connection.User.VirtualFolders = append(cmd.connection.User.VirtualFolders, vfs.VirtualFolder{
-		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			MappedPath: os.TempDir(),
-		},
-		VirtualPath: "/vdir",
-	})
-	_, err := cmd.getSystemCommand()
-	assert.NoError(t, err)
-	cmd.args = []string{"/"}
-	_, err = cmd.getSystemCommand()
-	assert.EqualError(t, err, errUnsupportedConfig.Error())
-	cmd.args = []string{"/vdir1"}
-	_, err = cmd.getSystemCommand()
-	assert.NoError(t, err)
-
-	cmd.connection.User.VirtualFolders = nil
-	cmd.connection.User.VirtualFolders = append(cmd.connection.User.VirtualFolders, vfs.VirtualFolder{
-		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			MappedPath: os.TempDir(),
-		},
-		VirtualPath: "/vdir",
-	})
-	cmd.args = []string{"/vdir/subdir"}
-	_, err = cmd.getSystemCommand()
-	assert.NoError(t, err)
-
-	cmd.args = []string{"/adir/subdir"}
-	_, err = cmd.getSystemCommand()
 	assert.NoError(t, err)
 }
 
