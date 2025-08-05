@@ -968,7 +968,7 @@ func TestConnectionStatus(t *testing.T) {
 			Username: username,
 		},
 	}
-	fs := vfs.NewOsFs("", os.TempDir(), "", nil)
+	fs := vfs.NewOsFs("", os.TempDir(), "", "", nil)
 	c1 := NewBaseConnection("id1", ProtocolSFTP, "", "", user)
 	fakeConn1 := &fakeConnection{
 		BaseConnection: c1,
@@ -1271,7 +1271,7 @@ func TestPostConnectHook(t *testing.T) {
 
 func TestCryptoConvertFileInfo(t *testing.T) {
 	name := "name"
-	fs, err := vfs.NewCryptFs("connID1", os.TempDir(), "", vfs.CryptFsConfig{
+	fs, err := vfs.NewCryptFs("connID1", os.TempDir(), "", "", vfs.CryptFsConfig{
 		Passphrase: kms.NewPlainSecret("secret"),
 	})
 	require.NoError(t, err)

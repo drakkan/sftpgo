@@ -199,13 +199,14 @@ type HTTPFs struct {
 	localTempDir string
 	// if not empty this fs is mouted as virtual folder in the specified path
 	mountPath  string
+	subDir     string
 	config     *HTTPFsConfig
 	client     *http.Client
 	ctxTimeout time.Duration
 }
 
 // NewHTTPFs returns an HTTPFs object that allows to interact with SFTPGo HTTP filesystem backends
-func NewHTTPFs(connectionID, localTempDir, mountPath string, config HTTPFsConfig) (Fs, error) {
+func NewHTTPFs(connectionID, localTempDir, subDir, mountPath string, config HTTPFsConfig) (Fs, error) {
 	if localTempDir == "" {
 		localTempDir = getLocalTempDir()
 	}
@@ -223,6 +224,7 @@ func NewHTTPFs(connectionID, localTempDir, mountPath string, config HTTPFsConfig
 	fs := &HTTPFs{
 		connectionID: connectionID,
 		localTempDir: localTempDir,
+		subDir:       subDir,
 		mountPath:    mountPath,
 		config:       &config,
 		ctxTimeout:   30 * time.Second,
@@ -555,7 +557,7 @@ func (*HTTPFs) IsNotSupported(err error) bool {
 // CheckRootPath creates the specified local root directory if it does not exists
 func (fs *HTTPFs) CheckRootPath(username string, uid int, gid int) bool {
 	// we need a local directory for temporary files
-	osFs := NewOsFs(fs.ConnectionID(), fs.localTempDir, "", nil)
+	osFs := NewOsFs(fs.ConnectionID(), fs.localTempDir, "", "", nil)
 	return osFs.CheckRootPath(username, uid, gid)
 }
 
@@ -642,6 +644,9 @@ func (fs *HTTPFs) ResolvePath(virtualPath string) (string, error) {
 	}
 	if !path.IsAbs(virtualPath) {
 		virtualPath = path.Clean("/" + virtualPath)
+	}
+	if fs.subDir != "" {
+		virtualPath = path.Join(fs.subDir, virtualPath)
 	}
 	return virtualPath, nil
 }

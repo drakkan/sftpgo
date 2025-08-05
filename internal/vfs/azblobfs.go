@@ -66,6 +66,7 @@ type AzureBlobFs struct {
 	localTempDir string
 	// if not empty this fs is mouted as virtual folder in the specified path
 	mountPath       string
+	subDir          string
 	config          *AzBlobFsConfig
 	containerClient *container.Client
 	ctxTimeout      time.Duration
@@ -77,13 +78,14 @@ func init() {
 }
 
 // NewAzBlobFs returns an AzBlobFs object that allows to interact with Azure Blob storage
-func NewAzBlobFs(connectionID, localTempDir, mountPath string, config AzBlobFsConfig) (Fs, error) {
+func NewAzBlobFs(connectionID, localTempDir, subDir, mountPath string, config AzBlobFsConfig) (Fs, error) {
 	if localTempDir == "" {
 		localTempDir = getLocalTempDir()
 	}
 	fs := &AzureBlobFs{
 		connectionID:   connectionID,
 		localTempDir:   localTempDir,
+		subDir:         subDir,
 		mountPath:      getMountPath(mountPath),
 		config:         &config,
 		ctxTimeout:     30 * time.Second,
@@ -526,7 +528,7 @@ func (*AzureBlobFs) isBadRequestError(err error) bool {
 // CheckRootPath creates the specified local root directory if it does not exists
 func (fs *AzureBlobFs) CheckRootPath(username string, uid int, gid int) bool {
 	// we need a local directory for temporary files
-	osFs := NewOsFs(fs.ConnectionID(), fs.localTempDir, "", nil)
+	osFs := NewOsFs(fs.ConnectionID(), fs.localTempDir, "", "", nil)
 	return osFs.CheckRootPath(username, uid, gid)
 }
 
@@ -674,7 +676,11 @@ func (fs *AzureBlobFs) ResolvePath(virtualPath string) (string, error) {
 	if !path.IsAbs(virtualPath) {
 		virtualPath = path.Clean("/" + virtualPath)
 	}
-	return fs.Join(fs.config.KeyPrefix, strings.TrimPrefix(virtualPath, "/")), nil
+	resolvedPath := strings.TrimPrefix(virtualPath, "/")
+	if fs.subDir != "" {
+		resolvedPath = path.Join(fs.subDir, resolvedPath)
+	}
+	return fs.Join(fs.config.KeyPrefix, resolvedPath), nil
 }
 
 // CopyFile implements the FsFileCopier interface

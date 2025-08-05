@@ -37,7 +37,7 @@ func TestTransferUpdateQuota(t *testing.T) {
 	transfer := BaseTransfer{
 		Connection:   conn,
 		transferType: TransferUpload,
-		Fs:           vfs.NewOsFs("", os.TempDir(), "", nil),
+		Fs:           vfs.NewOsFs("", os.TempDir(), "", "", nil),
 	}
 	transfer.BytesReceived.Store(123)
 	errFake := errors.New("fake error")
@@ -76,7 +76,7 @@ func TestTransferThrottling(t *testing.T) {
 			DownloadBandwidth: 40,
 		},
 	}
-	fs := vfs.NewOsFs("", os.TempDir(), "", nil)
+	fs := vfs.NewOsFs("", os.TempDir(), "", "", nil)
 	testFileSize := int64(131072)
 	wantedUploadElapsed := 1000 * (testFileSize / 1024) / u.UploadBandwidth
 	wantedDownloadElapsed := 1000 * (testFileSize / 1024) / u.DownloadBandwidth
@@ -108,7 +108,7 @@ func TestTransferThrottling(t *testing.T) {
 
 func TestRealPath(t *testing.T) {
 	testFile := filepath.Join(os.TempDir(), "afile.txt")
-	fs := vfs.NewOsFs("123", os.TempDir(), "", nil)
+	fs := vfs.NewOsFs("123", os.TempDir(), "", "", nil)
 	u := dataprovider.User{
 		BaseUser: sdk.BaseUser{
 			Username: "user",
@@ -142,7 +142,7 @@ func TestRealPath(t *testing.T) {
 
 func TestTruncate(t *testing.T) {
 	testFile := filepath.Join(os.TempDir(), "transfer_test_file")
-	fs := vfs.NewOsFs("123", os.TempDir(), "", nil)
+	fs := vfs.NewOsFs("123", os.TempDir(), "", "", nil)
 	u := dataprovider.User{
 		BaseUser: sdk.BaseUser{
 			Username: "user",
@@ -211,7 +211,7 @@ func TestTransferErrors(t *testing.T) {
 		isCancelled = true
 	}
 	testFile := filepath.Join(os.TempDir(), "transfer_test_file")
-	fs := vfs.NewOsFs("id", os.TempDir(), "", nil)
+	fs := vfs.NewOsFs("id", os.TempDir(), "", "", nil)
 	u := dataprovider.User{
 		BaseUser: sdk.BaseUser{
 			Username: "test",
@@ -302,7 +302,7 @@ func TestTransferErrors(t *testing.T) {
 
 func TestRemovePartialCryptoFile(t *testing.T) {
 	testFile := filepath.Join(os.TempDir(), "transfer_test_file")
-	fs, err := vfs.NewCryptFs("id", os.TempDir(), "", vfs.CryptFsConfig{Passphrase: kms.NewPlainSecret("secret")})
+	fs, err := vfs.NewCryptFs("id", os.TempDir(), "", "", vfs.CryptFsConfig{Passphrase: kms.NewPlainSecret("secret")})
 	require.NoError(t, err)
 	u := dataprovider.User{
 		BaseUser: sdk.BaseUser{
@@ -334,7 +334,7 @@ func TestFTPMode(t *testing.T) {
 	transfer := BaseTransfer{
 		Connection:   conn,
 		transferType: TransferUpload,
-		Fs:           vfs.NewOsFs("", os.TempDir(), "", nil),
+		Fs:           vfs.NewOsFs("", os.TempDir(), "", "", nil),
 	}
 	transfer.BytesReceived.Store(123)
 	assert.Empty(t, transfer.ftpMode)
@@ -393,7 +393,7 @@ func TestTransferQuota(t *testing.T) {
 
 	conn := NewBaseConnection("", ProtocolSFTP, "", "", user)
 	transfer := NewBaseTransfer(nil, conn, nil, "file.txt", "file.txt", "/transfer_test_file", TransferUpload,
-		0, 0, 0, 0, true, vfs.NewOsFs("", os.TempDir(), "", nil), dataprovider.TransferQuota{})
+		0, 0, 0, 0, true, vfs.NewOsFs("", os.TempDir(), "", "", nil), dataprovider.TransferQuota{})
 	err := transfer.CheckRead()
 	assert.NoError(t, err)
 	err = transfer.CheckWrite()
@@ -452,7 +452,7 @@ func TestUploadOutsideHomeRenameError(t *testing.T) {
 	transfer := BaseTransfer{
 		Connection:   conn,
 		transferType: TransferUpload,
-		Fs:           vfs.NewOsFs("", filepath.Join(os.TempDir(), "home"), "", nil),
+		Fs:           vfs.NewOsFs("", filepath.Join(os.TempDir(), "home"), "", "", nil),
 	}
 	transfer.BytesReceived.Store(123)
 
