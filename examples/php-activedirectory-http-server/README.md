@@ -49,6 +49,26 @@ $virtual_folders['example'] = [
       "quota_files" => -1
     ]
 ];
+
+// Alternative example using virtual_subdirectory for multi-tenant shared storage:
+$virtual_folders['shared_example'] = [
+    [
+      "name" => "shared-documents",
+      "mapped_path" => 'F:\files\shared\documents',
+      "virtual_path" => "/documents",
+      "virtual_subdirectory" => "#USERNAME#",  // Each user gets their own subdirectory
+      "quota_size" => 1073741824,  // 1GB limit per user
+      "quota_files" => 1000
+    ],
+    [
+      "name" => "shared-projects",
+      "mapped_path" => 'F:\files\shared\projects',
+      "virtual_path" => "/projects",
+      "virtual_subdirectory" => "#DEPARTMENT#",  // Users in same department share space
+      "quota_size" => 0,  // Unlimited
+      "quota_files" => 0
+    ]
+];
 ```
 
 ## Example Connection "Output Object" Allowing For No Files in the User's Home Directory ("Root Directory") but Allowing for Files in the Public/Private Virtual Folders
@@ -99,8 +119,20 @@ $auto_groups_mode_virtual_folder_template = [
       //"used_quota_files" => 0,
       //"last_quota_update" => 0,
       "virtual_path" => "/groups/#GROUP#",
-      "quota_size" => 0,
-      "quota_files" => 100000
+      "quota_size" => -1,
+      "quota_files" => -1
+    ]
+];
+
+// Alternative group template using virtual_subdirectory for shared group storage:
+$auto_groups_mode_shared_template = [
+    [
+      "name" => "shared-group-storage",
+      "mapped_path" => 'F:\files\shared\groups',
+      "virtual_path" => "/group_shared",
+      "virtual_subdirectory" => "#GROUP#",  // Each group gets isolated subdirectory
+      "quota_size" => 5368709120,  // 5GB per group
+      "quota_files" => 0
     ]
 ];
 

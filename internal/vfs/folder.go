@@ -132,6 +132,8 @@ func (v *BaseVirtualFolder) hasPathPlaceholder() bool {
 type VirtualFolder struct {
 	BaseVirtualFolder
 	VirtualPath string `json:"virtual_path"`
+	// Optional subdirectory within the mapped path where files are stored
+	VirtualSubdirectory string `json:"virtual_subdirectory,omitempty"`
 	// Maximum size allowed as bytes. 0 means unlimited, -1 included in user quota
 	QuotaSize int64 `json:"quota_size"`
 	// Maximum number of files allowed. 0 means unlimited, -1 included in user quota
@@ -142,19 +144,19 @@ type VirtualFolder struct {
 func (v *VirtualFolder) GetFilesystem(connectionID string, forbiddenSelfUsers []string) (Fs, error) {
 	switch v.FsConfig.Provider {
 	case sdk.S3FilesystemProvider:
-		return NewS3Fs(connectionID, v.MappedPath, v.VirtualPath, v.FsConfig.S3Config)
+		return NewS3Fs(connectionID, v.MappedPath, v.VirtualSubdirectory, v.VirtualPath, v.FsConfig.S3Config)
 	case sdk.GCSFilesystemProvider:
-		return NewGCSFs(connectionID, v.MappedPath, v.VirtualPath, v.FsConfig.GCSConfig)
+		return NewGCSFs(connectionID, v.MappedPath, v.VirtualSubdirectory, v.VirtualPath, v.FsConfig.GCSConfig)
 	case sdk.AzureBlobFilesystemProvider:
-		return NewAzBlobFs(connectionID, v.MappedPath, v.VirtualPath, v.FsConfig.AzBlobConfig)
+		return NewAzBlobFs(connectionID, v.MappedPath, v.VirtualSubdirectory, v.VirtualPath, v.FsConfig.AzBlobConfig)
 	case sdk.CryptedFilesystemProvider:
-		return NewCryptFs(connectionID, v.MappedPath, v.VirtualPath, v.FsConfig.CryptConfig)
+		return NewCryptFs(connectionID, v.MappedPath, v.VirtualSubdirectory, v.VirtualPath, v.FsConfig.CryptConfig)
 	case sdk.SFTPFilesystemProvider:
-		return NewSFTPFs(connectionID, v.VirtualPath, v.MappedPath, forbiddenSelfUsers, v.FsConfig.SFTPConfig)
+		return NewSFTPFs(connectionID, v.MappedPath, v.VirtualSubdirectory, v.VirtualPath, forbiddenSelfUsers, v.FsConfig.SFTPConfig)
 	case sdk.HTTPFilesystemProvider:
-		return NewHTTPFs(connectionID, v.MappedPath, v.VirtualPath, v.FsConfig.HTTPConfig)
+		return NewHTTPFs(connectionID, v.MappedPath, v.VirtualSubdirectory, v.VirtualPath, v.FsConfig.HTTPConfig)
 	default:
-		return NewOsFs(connectionID, v.MappedPath, v.VirtualPath, &v.FsConfig.OSConfig), nil
+		return NewOsFs(connectionID, v.MappedPath, v.VirtualSubdirectory, v.VirtualPath, &v.FsConfig.OSConfig), nil
 	}
 }
 
@@ -188,9 +190,10 @@ func (v *VirtualFolder) HasNoQuotaRestrictions(checkFiles bool) bool {
 // GetACopy returns a copy
 func (v *VirtualFolder) GetACopy() VirtualFolder {
 	return VirtualFolder{
-		BaseVirtualFolder: v.BaseVirtualFolder.GetACopy(),
-		VirtualPath:       v.VirtualPath,
-		QuotaSize:         v.QuotaSize,
-		QuotaFiles:        v.QuotaFiles,
+		BaseVirtualFolder:   v.BaseVirtualFolder.GetACopy(),
+		VirtualPath:         v.VirtualPath,
+		VirtualSubdirectory: v.VirtualSubdirectory,
+		QuotaSize:           v.QuotaSize,
+		QuotaFiles:          v.QuotaFiles,
 	}
 }

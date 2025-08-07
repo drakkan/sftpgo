@@ -55,6 +55,7 @@ type OsFs struct {
 	connectionID string
 	rootDir      string
 	// if not empty this fs is mouted as virtual folder in the specified path
+	subDir          string
 	mountPath       string
 	localTempDir    string
 	readBufferSize  int
@@ -62,7 +63,7 @@ type OsFs struct {
 }
 
 // NewOsFs returns an OsFs object that allows to interact with local Os filesystem
-func NewOsFs(connectionID, rootDir, mountPath string, config *sdk.OSFsConfig) Fs {
+func NewOsFs(connectionID, rootDir, subDir, mountPath string, config *sdk.OSFsConfig) Fs {
 	var readBufferSize, writeBufferSize int
 	if config != nil {
 		readBufferSize = config.ReadBufferSize * 1024 * 1024
@@ -72,6 +73,7 @@ func NewOsFs(connectionID, rootDir, mountPath string, config *sdk.OSFsConfig) Fs
 		name:            osFsName,
 		connectionID:    connectionID,
 		rootDir:         rootDir,
+		subDir:          subDir,
 		mountPath:       getMountPath(mountPath),
 		localTempDir:    getLocalTempDir(),
 		readBufferSize:  readBufferSize,
@@ -315,13 +317,17 @@ func (*OsFs) IsNotSupported(err error) bool {
 
 // CheckRootPath creates the root directory if it does not exists
 func (fs *OsFs) CheckRootPath(username string, uid int, gid int) bool {
+	fullPath := fs.rootDir
+	if fs.subDir != "" {
+		fullPath = filepath.Join(fs.rootDir, fs.subDir)
+	}
 	var err error
-	if _, err = fs.Stat(fs.rootDir); fs.IsNotExist(err) {
-		err = os.MkdirAll(fs.rootDir, os.ModePerm)
+	if _, err = fs.Stat(fullPath); fs.IsNotExist(err) {
+		err = os.MkdirAll(fullPath, os.ModePerm)
 		if err == nil {
-			SetPathPermissions(fs, fs.rootDir, uid, gid)
+			SetPathPermissions(fs, fullPath, uid, gid)
 		} else {
-			fsLog(fs, logger.LevelError, "error creating root directory %q for user %q: %v", fs.rootDir, username, err)
+			fsLog(fs, logger.LevelError, "error creating directory %q for user %q: %v", fullPath, username, err)
 		}
 	}
 	return err == nil
@@ -355,11 +361,14 @@ func (fs *OsFs) GetRelativePath(name string) string {
 	if fs.mountPath != "" {
 		virtualPath = fs.mountPath
 	}
-	rel, err := filepath.Rel(fs.rootDir, filepath.Clean(name))
-	if err != nil {
-		return ""
+	var effectiveRoot string
+	if fs.subDir != "" {
+		effectiveRoot = filepath.Join(fs.rootDir, fs.subDir)
+	} else {
+		effectiveRoot = fs.rootDir
 	}
-	if rel == "." || strings.HasPrefix(rel, "..") {
+	rel, err := filepath.Rel(effectiveRoot, filepath.Clean(name))
+	if err != nil || rel == "." || strings.HasPrefix(rel, "..") {
 		rel = ""
 	}
 	return path.Join(virtualPath, filepath.ToSlash(rel))
@@ -384,7 +393,12 @@ func (fs *OsFs) ResolvePath(virtualPath string) (string, error) {
 	if fs.mountPath != "" {
 		virtualPath = strings.TrimPrefix(virtualPath, fs.mountPath)
 	}
-	r := filepath.Clean(filepath.Join(fs.rootDir, virtualPath))
+	var r string
+	if fs.subDir != "" {
+		r = filepath.Clean(filepath.Join(fs.rootDir, fs.subDir, virtualPath))
+	} else {
+		r = filepath.Clean(filepath.Join(fs.rootDir, virtualPath))
+	}
 	p, err := filepath.EvalSymlinks(r)
 	if isInvalidNameError(err) {
 		err = os.ErrNotExist
