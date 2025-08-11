@@ -472,22 +472,22 @@ jobs:
         shell: bash
 
       - name: Download amd64 artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_x86_64.tar.xz
 
       - name: Download arm64 artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_arm64.tar.xz
 
       - name: Download ppc64le artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_ppc64le.tar.xz
 
       - name: Download armv7 artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_armv7.tar.xz
 
@@ -533,102 +533,102 @@ jobs:
         shell: bash
 
       - name: Download amd64 artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_x86_64.tar.xz
 
       - name: Download arm64 artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_arm64.tar.xz
 
       - name: Download ppc64le artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_ppc64le.tar.xz
 
       - name: Download armv7 artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_armv7.tar.xz
 
       - name: Download Linux bundle artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_bundle.tar.xz
 
       - name: Download Deb amd64 artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: sftpgo_${{ steps.get_version.outputs.PKG_VERSION }}-1_amd64.deb
 
       - name: Download Deb arm64 artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: sftpgo_${{ steps.get_version.outputs.PKG_VERSION }}-1_arm64.deb
 
       - name: Download Deb ppc64le artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: sftpgo_${{ steps.get_version.outputs.PKG_VERSION }}-1_ppc64el.deb
 
       - name: Download Deb armv7 artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: sftpgo_${{ steps.get_version.outputs.PKG_VERSION }}-1_armhf.deb
 
       - name: Download RPM x86_64 artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: sftpgo-${{ steps.get_version.outputs.PKG_VERSION }}-1.x86_64.rpm
 
       - name: Download RPM aarch64 artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: sftpgo-${{ steps.get_version.outputs.PKG_VERSION }}-1.aarch64.rpm
 
       - name: Download RPM ppc64le artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: sftpgo-${{ steps.get_version.outputs.PKG_VERSION }}-1.ppc64le.rpm
 
       - name: Download RPM armv7 artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: sftpgo-${{ steps.get_version.outputs.PKG_VERSION }}-1.armv7hl.rpm
 
       - name: Download macOS x86_64 artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_macOS_x86_64.tar.xz
 
       - name: Download macOS arm64 artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_macOS_arm64.tar.xz
 
       - name: Download Windows installer x86_64 artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_windows_x86_64.exe
 
       - name: Download Windows installer arm64 artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_windows_arm64.exe
 
       - name: Download Windows installer x86 artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_windows_x86.exe
 
       - name: Download Windows portable artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_windows_portable.zip
 
       - name: Download source with deps artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_src_with_deps.tar.xz
 
