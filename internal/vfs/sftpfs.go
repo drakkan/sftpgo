@@ -310,13 +310,14 @@ type SFTPFs struct {
 	connectionID string
 	// if not empty this fs is mouted as virtual folder in the specified path
 	mountPath    string
+	subDir       string
 	localTempDir string
 	config       *SFTPFsConfig
 	conn         *sftpConnection
 }
 
 // NewSFTPFs returns an SFTPFs object that allows to interact with an SFTP server
-func NewSFTPFs(connectionID, mountPath, localTempDir string, forbiddenSelfUsernames []string, config SFTPFsConfig) (Fs, error) {
+func NewSFTPFs(connectionID, localTempDir, subDir, mountPath string, forbiddenSelfUsernames []string, config SFTPFsConfig) (Fs, error) {
 	if localTempDir == "" {
 		localTempDir = getLocalTempDir()
 	}
@@ -346,6 +347,7 @@ func NewSFTPFs(connectionID, mountPath, localTempDir string, forbiddenSelfUserna
 	sftpFs := &SFTPFs{
 		connectionID: connectionID,
 		mountPath:    getMountPath(mountPath),
+		subDir:       subDir,
 		localTempDir: localTempDir,
 		config:       &config,
 		conn:         conn,
@@ -641,17 +643,21 @@ func (*SFTPFs) IsNotSupported(err error) bool {
 // CheckRootPath creates the specified local root directory if it does not exists
 func (fs *SFTPFs) CheckRootPath(username string, uid int, gid int) bool {
 	// local directory for temporary files in buffer mode
-	osFs := NewOsFs(fs.ConnectionID(), fs.localTempDir, "", nil)
+	osFs := NewOsFs(fs.ConnectionID(), fs.localTempDir, "", "", nil)
 	osFs.CheckRootPath(username, uid, gid)
-	if fs.config.Prefix == "/" {
+	if fs.config.Prefix == "/" && fs.subDir == "" {
 		return true
+	}
+	fullPath := fs.config.Prefix
+	if fs.subDir != "" {
+		fullPath = path.Join(fs.config.Prefix, fs.subDir)
 	}
 	client, err := fs.conn.getClient()
 	if err != nil {
 		return false
 	}
-	if err := client.MkdirAll(fs.config.Prefix); err != nil {
-		fsLog(fs, logger.LevelDebug, "error creating root directory %q for user %q: %v", fs.config.Prefix, username, err)
+	if err := client.MkdirAll(fullPath); err != nil {
+		fsLog(fs, logger.LevelDebug, "error creating root directory %q for user %q: %v", fullPath, username, err)
 		return false
 	}
 	return true
@@ -735,6 +741,9 @@ func (fs *SFTPFs) ResolvePath(virtualPath string) (string, error) {
 	}
 	if !path.IsAbs(virtualPath) {
 		virtualPath = path.Clean("/" + virtualPath)
+	}
+	if fs.subDir != "" {
+		virtualPath = path.Join(fs.subDir, virtualPath)
 	}
 	fsPath := fs.Join(fs.config.Prefix, virtualPath)
 	if fs.config.Prefix != "/" && fsPath != "/" {

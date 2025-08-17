@@ -75,6 +75,7 @@ type S3Fs struct {
 	localTempDir string
 	// if not empty this fs is mouted as virtual folder in the specified path
 	mountPath         string
+	subDir            string
 	config            *S3FsConfig
 	svc               *s3.Client
 	ctxTimeout        time.Duration
@@ -89,13 +90,14 @@ func init() {
 
 // NewS3Fs returns an S3Fs object that allows to interact with an s3 compatible
 // object storage
-func NewS3Fs(connectionID, localTempDir, mountPath string, s3Config S3FsConfig) (Fs, error) {
+func NewS3Fs(connectionID, localTempDir, subDir, mountPath string, s3Config S3FsConfig) (Fs, error) {
 	if localTempDir == "" {
 		localTempDir = getLocalTempDir()
 	}
 	fs := &S3Fs{
 		connectionID: connectionID,
 		localTempDir: localTempDir,
+		subDir:       subDir,
 		mountPath:    getMountPath(mountPath),
 		config:       &s3Config,
 		ctxTimeout:   30 * time.Second,
@@ -507,7 +509,7 @@ func (*S3Fs) IsNotSupported(err error) bool {
 // CheckRootPath creates the specified local root directory if it does not exists
 func (fs *S3Fs) CheckRootPath(username string, uid int, gid int) bool {
 	// we need a local directory for temporary files
-	osFs := NewOsFs(fs.ConnectionID(), fs.localTempDir, "", nil)
+	osFs := NewOsFs(fs.ConnectionID(), fs.localTempDir, "", "", nil)
 	return osFs.CheckRootPath(username, uid, gid)
 }
 
@@ -641,7 +643,11 @@ func (fs *S3Fs) ResolvePath(virtualPath string) (string, error) {
 	if !path.IsAbs(virtualPath) {
 		virtualPath = path.Clean("/" + virtualPath)
 	}
-	return fs.Join(fs.config.KeyPrefix, strings.TrimPrefix(virtualPath, "/")), nil
+	resolvedPath := strings.TrimPrefix(virtualPath, "/")
+	if fs.subDir != "" {
+		resolvedPath = path.Join(fs.subDir, resolvedPath)
+	}
+	return fs.Join(fs.config.KeyPrefix, resolvedPath), nil
 }
 
 // CopyFile implements the FsFileCopier interface

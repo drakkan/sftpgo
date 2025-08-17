@@ -2761,7 +2761,7 @@ func validateAssociatedVirtualFolders(vfolders []vfs.VirtualFolder) ([]vfs.Virtu
 		return []vfs.VirtualFolder{}, nil
 	}
 	var virtualFolders []vfs.VirtualFolder
-	folderNames := make(map[string]bool)
+	folderKeys := make(map[[2]string]bool)
 
 	for _, v := range vfolders {
 		if v.VirtualPath == "" {
@@ -2777,11 +2777,22 @@ func validateAssociatedVirtualFolders(vfolders []vfs.VirtualFolder) ([]vfs.Virtu
 		if v.Name == "" {
 			return nil, util.NewI18nError(util.NewValidationError("folder name is mandatory"), util.I18nErrorFolderNameRequired)
 		}
-		if folderNames[v.Name] {
-			return nil, util.NewI18nError(
-				util.NewValidationError(fmt.Sprintf("the folder %q is duplicated", v.Name)),
-				util.I18nErrorDuplicatedFolders,
-			)
+		if err := validateVirtualSubdirectory(v.VirtualSubdirectory); err != nil {
+			return nil, err
+		}
+		folderKey := [2]string{v.Name, v.VirtualSubdirectory}
+		if folderKeys[folderKey] {
+			if v.VirtualSubdirectory != "" {
+				return nil, util.NewI18nError(
+					util.NewValidationError(fmt.Sprintf("the folder %q with subdirectory %q is duplicated", v.Name, v.VirtualSubdirectory)),
+					util.I18nErrorDuplicatedFolders,
+				)
+			} else {
+				return nil, util.NewI18nError(
+					util.NewValidationError(fmt.Sprintf("the folder %q is duplicated", v.Name)),
+					util.I18nErrorDuplicatedFolders,
+				)
+			}
 		}
 		for _, vFolder := range virtualFolders {
 			if util.IsDirOverlapped(vFolder.VirtualPath, cleanedVPath, false, "/") {
@@ -2793,16 +2804,25 @@ func validateAssociatedVirtualFolders(vfolders []vfs.VirtualFolder) ([]vfs.Virtu
 			}
 		}
 		virtualFolders = append(virtualFolders, vfs.VirtualFolder{
-			BaseVirtualFolder: vfs.BaseVirtualFolder{
-				Name: v.Name,
-			},
-			VirtualPath: cleanedVPath,
-			QuotaSize:   v.QuotaSize,
-			QuotaFiles:  v.QuotaFiles,
+			BaseVirtualFolder:   v.BaseVirtualFolder,
+			VirtualPath:         cleanedVPath,
+			VirtualSubdirectory: v.VirtualSubdirectory,
+			QuotaSize:           v.QuotaSize,
+			QuotaFiles:          v.QuotaFiles,
 		})
-		folderNames[v.Name] = true
+		folderKeys[folderKey] = true
 	}
 	return virtualFolders, nil
+}
+
+func validateVirtualSubdirectory(subdirectory string) error {
+	if path.IsAbs(subdirectory) || strings.Contains(subdirectory, "..") {
+		return util.NewI18nError(
+			util.NewValidationError("invalid virtual subdirectory path"),
+			util.I18nErrorPathInvalid,
+		)
+	}
+	return nil
 }
 
 func validateUserTOTPConfig(c *UserTOTPConfig, username string) error {
@@ -4849,10 +4869,19 @@ func downgradeSQLDatabaseFrom32To31(dbHandle *sql.DB) error {
 	if err := restoreEventActions(); err != nil {
 		return err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), longSQLQueryTimeout)
-	defer cancel()
 
-	return sqlCommonUpdateDatabaseVersion(ctx, dbHandle, 31)
+	return sqlCommonUpdateDatabaseVersion(context.Background(), dbHandle, 31)
+}
+
+func downgradeSQLDatabaseFrom33To32(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database schema version: 33 -> 32")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 33 -> 32")
+
+	sql := fmt.Sprintf("ALTER TABLE %s DROP COLUMN subdirectory;"+
+		"ALTER TABLE %s DROP COLUMN subdirectory;",
+		sqlTableUsersFoldersMapping, sqlTableGroupsFoldersMapping)
+
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 32, false)
 }
 
 func getConfigPath(name, configDir string) string {
