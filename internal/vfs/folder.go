@@ -107,18 +107,24 @@ func (v *BaseVirtualFolder) HasRedactedSecret() bool {
 
 // hasPathPlaceholder returns true if the folder has a path placeholder
 func (v *BaseVirtualFolder) hasPathPlaceholder() bool {
-	placeholder := "%username%"
+	placeholders := []string{"%username%", "%role%"}
+	var config string
 	switch v.FsConfig.Provider {
 	case sdk.S3FilesystemProvider:
-		return strings.Contains(v.FsConfig.S3Config.KeyPrefix, placeholder)
+		config = v.FsConfig.S3Config.KeyPrefix
 	case sdk.GCSFilesystemProvider:
-		return strings.Contains(v.FsConfig.GCSConfig.KeyPrefix, placeholder)
+		config = v.FsConfig.GCSConfig.KeyPrefix
 	case sdk.AzureBlobFilesystemProvider:
-		return strings.Contains(v.FsConfig.AzBlobConfig.KeyPrefix, placeholder)
+		config = v.FsConfig.AzBlobConfig.KeyPrefix
 	case sdk.SFTPFilesystemProvider:
-		return strings.Contains(v.FsConfig.SFTPConfig.Prefix, placeholder)
+		config = v.FsConfig.SFTPConfig.Prefix
 	case sdk.LocalFilesystemProvider, sdk.CryptedFilesystemProvider:
-		return strings.Contains(v.MappedPath, placeholder)
+		config = v.MappedPath
+	}
+	for _, placeholder := range placeholders {
+		if strings.Contains(config, placeholder) {
+			return true
+		}
 	}
 	return false
 }
