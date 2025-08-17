@@ -69,7 +69,7 @@ func (s *Service) StartPortableMode(sftpdPort, ftpPort, webdavPort, httpPort int
 	configurePortableWebDAVService(webdavPort, webDavCert, webDavKey)
 	configurePortableHTTPService(httpPort, httpsCert, httpsKey)
 
-	err = s.Start(true)
+	err = s.Start()
 	if err != nil {
 		return err
 	}

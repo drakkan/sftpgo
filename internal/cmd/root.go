@@ -85,8 +85,6 @@ var (
 	loadDataQuotaScan int
 	loadDataClean     bool
 	graceTime         int
-	// used if awscontainer build tag is enabled
-	disableAWSInstallationCode bool
 
 	rootCmd = &cobra.Command{
 		Use:   "sftpgo",
