@@ -39,7 +39,7 @@ import (
 )
 
 const (
-	boltDatabaseVersion = 32
+	boltDatabaseVersion = 33
 )
 
 var (
@@ -446,9 +446,6 @@ func (p *BoltProvider) addAdmin(admin *Admin) error {
 		admin.LastLogin = 0
 		admin.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 		admin.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
-		sort.Slice(admin.Groups, func(i, j int) bool {
-			return admin.Groups[i].Name < admin.Groups[j].Name
-		})
 		for idx := range admin.Groups {
 			err = p.addAdminToGroupMapping(admin.Username, admin.Groups[idx].Name, groupBucket)
 			if err != nil {
@@ -507,9 +504,6 @@ func (p *BoltProvider) updateAdmin(admin *Admin) error {
 		if err = p.addAdminToRole(admin.Username, admin.Role, rolesBucket); err != nil {
 			return err
 		}
-		sort.Slice(admin.Groups, func(i, j int) bool {
-			return admin.Groups[i].Name < admin.Groups[j].Name
-		})
 		for idx := range admin.Groups {
 			err = p.addAdminToGroupMapping(admin.Username, admin.Groups[idx].Name, groupBucket)
 			if err != nil {
@@ -721,18 +715,12 @@ func (p *BoltProvider) addUser(user *User) error {
 		if err := p.addUserToRole(user.Username, user.Role, rolesBucket); err != nil {
 			return err
 		}
-		sort.Slice(user.VirtualFolders, func(i, j int) bool {
-			return user.VirtualFolders[i].Name < user.VirtualFolders[j].Name
-		})
 		for idx := range user.VirtualFolders {
 			err = p.addRelationToFolderMapping(user.VirtualFolders[idx].Name, user, nil, foldersBucket)
 			if err != nil {
 				return err
 			}
 		}
-		sort.Slice(user.Groups, func(i, j int) bool {
-			return user.Groups[i].Name < user.Groups[j].Name
-		})
 		for idx := range user.Groups {
 			err = p.addUserToGroupMapping(user.Username, user.Groups[idx].Name, groupBucket)
 			if err != nil {
@@ -1504,9 +1492,6 @@ func (p *BoltProvider) addGroup(group *Group) error {
 		group.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 		group.Users = nil
 		group.Admins = nil
-		sort.Slice(group.VirtualFolders, func(i, j int) bool {
-			return group.VirtualFolders[i].Name < group.VirtualFolders[j].Name
-		})
 		for idx := range group.VirtualFolders {
 			err = p.addRelationToFolderMapping(group.VirtualFolders[idx].Name, nil, group, foldersBucket)
 			if err != nil {
@@ -1549,9 +1534,6 @@ func (p *BoltProvider) updateGroup(group *Group) error {
 				return err
 			}
 		}
-		sort.Slice(group.VirtualFolders, func(i, j int) bool {
-			return group.VirtualFolders[i].Name < group.VirtualFolders[j].Name
-		})
 		for idx := range group.VirtualFolders {
 			err = p.addRelationToFolderMapping(group.VirtualFolders[idx].Name, nil, group, foldersBucket)
 			if err != nil {
@@ -3185,13 +3167,15 @@ func (p *BoltProvider) migrateDatabase() error {
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
-	case version == 29, version == 30, version == 31:
-		logger.InfoToConsole("updating database schema version: %d -> 32", version)
-		providerLog(logger.LevelInfo, "updating database schema version: %d -> 32", version)
-		if err := updateEventActions(); err != nil {
-			return err
+	case version == 29, version == 30, version == 31, version == 32:
+		logger.InfoToConsole("updating database schema version: %d -> 33", version)
+		providerLog(logger.LevelInfo, "updating database schema version: %d -> 33", version)
+		if version <= 31 {
+			if err := updateEventActions(); err != nil {
+				return err
+			}
 		}
-		return updateBoltDatabaseVersion(p.dbHandle, 32)
+		return updateBoltDatabaseVersion(p.dbHandle, 33)
 	default:
 		if version > boltDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -3213,10 +3197,10 @@ func (p *BoltProvider) revertDatabase(targetVersion int) error { //nolint:gocycl
 		return errors.New("current version match target version, nothing to do")
 	}
 	switch dbVersion.Version {
-	case 30, 31, 32:
+	case 30, 31, 32, 33:
 		logger.InfoToConsole("downgrading database schema version: %d -> 29", dbVersion.Version)
 		providerLog(logger.LevelInfo, "downgrading database schema version: %d -> 29", dbVersion.Version)
-		if dbVersion.Version == 32 {
+		if dbVersion.Version >= 32 {
 			if err := restoreEventActions(); err != nil {
 				return err
 			}
@@ -3745,18 +3729,12 @@ func (p *BoltProvider) updateUserRelations(tx *bolt.Tx, user *User, oldUser User
 	if err = p.removeUserFromRole(oldUser.Username, oldUser.Role, rolesBucket); err != nil {
 		return err
 	}
-	sort.Slice(user.VirtualFolders, func(i, j int) bool {
-		return user.VirtualFolders[i].Name < user.VirtualFolders[j].Name
-	})
 	for idx := range user.VirtualFolders {
 		err = p.addRelationToFolderMapping(user.VirtualFolders[idx].Name, user, nil, foldersBucket)
 		if err != nil {
 			return err
 		}
 	}
-	sort.Slice(user.Groups, func(i, j int) bool {
-		return user.Groups[i].Name < user.Groups[j].Name
-	})
 	for idx := range user.Groups {
 		err = p.addUserToGroupMapping(user.Username, user.Groups[idx].Name, groupsBucket)
 		if err != nil {

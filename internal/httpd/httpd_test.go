@@ -960,6 +960,282 @@ func TestTLSCert(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestSortRelatedFolders(t *testing.T) {
+	folder1 := util.GenerateUniqueID()
+	folder2 := util.GenerateUniqueID()
+	folder3 := util.GenerateUniqueID()
+
+	f1 := vfs.BaseVirtualFolder{
+		Name:       folder1,
+		MappedPath: filepath.Clean(os.TempDir()),
+	}
+	f2 := vfs.BaseVirtualFolder{
+		Name:       folder2,
+		MappedPath: filepath.Clean(os.TempDir()),
+	}
+	f3 := vfs.BaseVirtualFolder{
+		Name:       folder3,
+		MappedPath: filepath.Clean(os.TempDir()),
+	}
+	_, _, err := httpdtest.AddFolder(f1, http.StatusCreated)
+	assert.NoError(t, err)
+	_, _, err = httpdtest.AddFolder(f2, http.StatusCreated)
+	assert.NoError(t, err)
+	_, _, err = httpdtest.AddFolder(f3, http.StatusCreated)
+	assert.NoError(t, err)
+
+	u := getTestUser()
+	u.VirtualFolders = []vfs.VirtualFolder{
+		{
+			BaseVirtualFolder: f1,
+			VirtualPath:       "/" + folder1,
+		},
+		{
+			BaseVirtualFolder: f2,
+			VirtualPath:       "/" + folder2,
+		},
+		{
+			BaseVirtualFolder: f3,
+			VirtualPath:       "/" + folder3,
+		},
+	}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, user.VirtualFolders, 3) {
+		assert.Equal(t, folder1, user.VirtualFolders[0].Name)
+		assert.Equal(t, folder2, user.VirtualFolders[1].Name)
+		assert.Equal(t, folder3, user.VirtualFolders[2].Name)
+	}
+	// Update
+	user.VirtualFolders = []vfs.VirtualFolder{
+		{
+			BaseVirtualFolder: f2,
+			VirtualPath:       "/" + folder2,
+		},
+		{
+			BaseVirtualFolder: f1,
+			VirtualPath:       "/" + folder1,
+		},
+		{
+			BaseVirtualFolder: f3,
+			VirtualPath:       "/" + folder3,
+		},
+	}
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, user.VirtualFolders, 3) {
+		assert.Equal(t, folder2, user.VirtualFolders[0].Name)
+		assert.Equal(t, folder1, user.VirtualFolders[1].Name)
+		assert.Equal(t, folder3, user.VirtualFolders[2].Name)
+	}
+
+	g := getTestGroup()
+	g.VirtualFolders = []vfs.VirtualFolder{
+		{
+			BaseVirtualFolder: f1,
+			VirtualPath:       "/" + folder1,
+		},
+		{
+			BaseVirtualFolder: f2,
+			VirtualPath:       "/" + folder2,
+		},
+		{
+			BaseVirtualFolder: f3,
+			VirtualPath:       "/" + folder3,
+		},
+	}
+	group, _, err := httpdtest.AddGroup(g, http.StatusCreated)
+	assert.NoError(t, err)
+	group, _, err = httpdtest.GetGroupByName(group.Name, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, group.VirtualFolders, 3) {
+		assert.Equal(t, folder1, group.VirtualFolders[0].Name)
+		assert.Equal(t, folder2, group.VirtualFolders[1].Name)
+		assert.Equal(t, folder3, group.VirtualFolders[2].Name)
+	}
+	group, _, err = httpdtest.GetGroupByName(group.Name, http.StatusOK)
+	assert.NoError(t, err)
+	group.VirtualFolders = []vfs.VirtualFolder{
+		{
+			BaseVirtualFolder: f3,
+			VirtualPath:       "/" + folder3,
+		},
+		{
+			BaseVirtualFolder: f1,
+			VirtualPath:       "/" + folder1,
+		},
+		{
+			BaseVirtualFolder: f2,
+			VirtualPath:       "/" + folder2,
+		},
+	}
+	group, _, err = httpdtest.UpdateGroup(group, http.StatusOK)
+	assert.NoError(t, err)
+	group, _, err = httpdtest.GetGroupByName(group.Name, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, group.VirtualFolders, 3) {
+		assert.Equal(t, folder3, group.VirtualFolders[0].Name)
+		assert.Equal(t, folder1, group.VirtualFolders[1].Name)
+		assert.Equal(t, folder2, group.VirtualFolders[2].Name)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group, http.StatusOK)
+	assert.NoError(t, err)
+
+	_, err = httpdtest.RemoveFolder(f1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(f2, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(f3, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestSortRelatedGroups(t *testing.T) {
+	name1 := util.GenerateUniqueID()
+	name2 := util.GenerateUniqueID()
+	name3 := util.GenerateUniqueID()
+
+	g1 := getTestGroup()
+	g1.Name = name1
+	g2 := getTestGroup()
+	g2.Name = name2
+	g3 := getTestGroup()
+	g3.Name = name3
+
+	group1, _, err := httpdtest.AddGroup(g1, http.StatusCreated)
+	assert.NoError(t, err)
+	group2, _, err := httpdtest.AddGroup(g2, http.StatusCreated)
+	assert.NoError(t, err)
+	group3, _, err := httpdtest.AddGroup(g3, http.StatusCreated)
+	assert.NoError(t, err)
+
+	u := getTestUser()
+	u.Groups = []sdk.GroupMapping{
+		{
+			Name: name1,
+			Type: sdk.GroupTypePrimary,
+		},
+		{
+			Name: name2,
+			Type: sdk.GroupTypeSecondary,
+		},
+		{
+			Name: name3,
+			Type: sdk.GroupTypeMembership,
+		},
+	}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, user.Groups, 3) {
+		assert.Equal(t, name1, user.Groups[0].Name)
+		assert.Equal(t, name2, user.Groups[1].Name)
+		assert.Equal(t, name3, user.Groups[2].Name)
+	}
+	user.Groups = []sdk.GroupMapping{
+		{
+			Name: name2,
+			Type: sdk.GroupTypeSecondary,
+		},
+		{
+			Name: name3,
+			Type: sdk.GroupTypeMembership,
+		},
+		{
+			Name: name1,
+			Type: sdk.GroupTypePrimary,
+		},
+	}
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, user.Groups, 3) {
+		assert.Equal(t, name2, user.Groups[0].Name)
+		assert.Equal(t, name3, user.Groups[1].Name)
+		assert.Equal(t, name1, user.Groups[2].Name)
+	}
+
+	a := getTestAdmin()
+	a.Username = altAdminUsername
+	a.Groups = []dataprovider.AdminGroupMapping{
+		{
+			Name: name3,
+			Options: dataprovider.AdminGroupMappingOptions{
+				AddToUsersAs: dataprovider.GroupAddToUsersAsSecondary,
+			},
+		},
+		{
+			Name: name2,
+			Options: dataprovider.AdminGroupMappingOptions{
+				AddToUsersAs: dataprovider.GroupAddToUsersAsPrimary,
+			},
+		},
+		{
+			Name: name1,
+			Options: dataprovider.AdminGroupMappingOptions{
+				AddToUsersAs: dataprovider.GroupAddToUsersAsMembership,
+			},
+		},
+	}
+	admin, _, err := httpdtest.AddAdmin(a, http.StatusCreated)
+	assert.NoError(t, err)
+	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, admin.Groups, 3) {
+		assert.Equal(t, name3, admin.Groups[0].Name)
+		assert.Equal(t, name2, admin.Groups[1].Name)
+		assert.Equal(t, name1, admin.Groups[2].Name)
+	}
+	admin.Groups = []dataprovider.AdminGroupMapping{
+		{
+			Name: name1,
+			Options: dataprovider.AdminGroupMappingOptions{
+				AddToUsersAs: dataprovider.GroupAddToUsersAsPrimary,
+			},
+		},
+		{
+			Name: name3,
+			Options: dataprovider.AdminGroupMappingOptions{
+				AddToUsersAs: dataprovider.GroupAddToUsersAsMembership,
+			},
+		},
+		{
+			Name: name2,
+			Options: dataprovider.AdminGroupMappingOptions{
+				AddToUsersAs: dataprovider.GroupAddToUsersAsSecondary,
+			},
+		},
+	}
+	admin, _, err = httpdtest.UpdateAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, admin.Groups, 3) {
+		assert.Equal(t, name1, admin.Groups[0].Name)
+		assert.Equal(t, name3, admin.Groups[1].Name)
+		assert.Equal(t, name2, admin.Groups[2].Name)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group2, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group3, http.StatusOK)
+	assert.NoError(t, err)
+}
+
 func TestBasicGroupHandling(t *testing.T) {
 	g := getTestGroup()
 	g.UserSettings.Filters.TLSCerts = []string{"invalid cert"} // ignored for groups

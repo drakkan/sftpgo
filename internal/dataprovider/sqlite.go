@@ -194,6 +194,24 @@ CREATE TABLE "{{shared_sessions}}" ("key" varchar(128) NOT NULL PRIMARY KEY, "da
 CREATE INDEX "{{prefix}}shared_sessions_type_idx" ON "{{shared_sessions}}" ("type");
 CREATE INDEX "{{prefix}}shared_sessions_timestamp_idx" ON "{{shared_sessions}}" ("timestamp");
 `
+	sqliteV33SQL = `ALTER TABLE "{{admins_groups_mapping}}" ADD COLUMN "sort_order" integer DEFAULT 0 NOT NULL;
+ALTER TABLE "{{groups_folders_mapping}}" ADD COLUMN "sort_order" integer DEFAULT 0 NOT NULL;
+ALTER TABLE "{{users_folders_mapping}}" ADD COLUMN "sort_order" integer DEFAULT 0 NOT NULL;
+ALTER TABLE "{{users_groups_mapping}}" ADD COLUMN "sort_order" integer DEFAULT 0 NOT NULL;
+CREATE INDEX "{{prefix}}admins_groups_mapping_sort_order_idx" ON "{{admins_groups_mapping}}" ("sort_order");
+CREATE INDEX "{{prefix}}groups_folders_mapping_sort_order_idx" ON "{{groups_folders_mapping}}" ("sort_order");
+CREATE INDEX "{{prefix}}users_folders_mapping_sort_order_idx" ON "{{users_folders_mapping}}" ("sort_order");
+CREATE INDEX "{{prefix}}users_groups_mapping_sort_order_idx" ON "{{users_groups_mapping}}" ("sort_order");
+`
+	sqliteV33DownSQL = `DROP INDEX "{{prefix}}users_groups_mapping_sort_order_idx";
+DROP INDEX "{{prefix}}users_folders_mapping_sort_order_idx";
+DROP INDEX "{{prefix}}groups_folders_mapping_sort_order_idx";
+DROP INDEX "{{prefix}}admins_groups_mapping_sort_order_idx";
+ALTER TABLE "{{users_groups_mapping}}" DROP COLUMN "sort_order";
+ALTER TABLE "{{users_folders_mapping}}" DROP COLUMN "sort_order";
+ALTER TABLE "{{groups_folders_mapping}}" DROP COLUMN "sort_order";
+ALTER TABLE "{{admins_groups_mapping}}" DROP COLUMN "sort_order";
+`
 )
 
 // SQLiteProvider defines the auth provider for SQLite database
@@ -742,6 +760,8 @@ func (p *SQLiteProvider) migrateDatabase() error { //nolint:dupl
 		return updateSQLiteDatabaseFromV30(p.dbHandle)
 	case version == 31:
 		return updateSQLiteDatabaseFromV31(p.dbHandle)
+	case version == 32:
+		return updateSQLiteDatabaseFromV32(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -770,6 +790,8 @@ func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 		return downgradeSQLiteDatabaseFromV31(p.dbHandle)
 	case 32:
 		return downgradeSQLiteDatabaseFromV32(p.dbHandle)
+	case 33:
+		return downgradeSQLiteDatabaseFromV33(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
@@ -830,7 +852,14 @@ func updateSQLiteDatabaseFromV30(dbHandle *sql.DB) error {
 }
 
 func updateSQLiteDatabaseFromV31(dbHandle *sql.DB) error {
-	return updateSQLDatabaseFrom31To32(dbHandle)
+	if err := updateSQLDatabaseFrom31To32(dbHandle); err != nil {
+		return err
+	}
+	return updateSQLiteDatabaseFromV32(dbHandle)
+}
+
+func updateSQLiteDatabaseFromV32(dbHandle *sql.DB) error {
+	return updateSQLiteDatabaseFrom32To33(dbHandle)
 }
 
 func downgradeSQLiteDatabaseFromV30(dbHandle *sql.DB) error {
@@ -849,6 +878,13 @@ func downgradeSQLiteDatabaseFromV32(dbHandle *sql.DB) error {
 		return err
 	}
 	return downgradeSQLiteDatabaseFromV31(dbHandle)
+}
+
+func downgradeSQLiteDatabaseFromV33(dbHandle *sql.DB) error {
+	if err := downgradeSQLiteDatabaseFrom33To32(dbHandle); err != nil {
+		return err
+	}
+	return downgradeSQLiteDatabaseFromV32(dbHandle)
 }
 
 func updateSQLiteDatabaseFrom29To30(dbHandle *sql.DB) error {
@@ -883,6 +919,31 @@ func downgradeSQLiteDatabaseFrom31To30(dbHandle *sql.DB) error {
 	sql := strings.ReplaceAll(sqliteV31DownSQL, "{{shared_sessions}}", sqlTableSharedSessions)
 	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 30, false)
+}
+
+func updateSQLiteDatabaseFrom32To33(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database schema version: 32 -> 33")
+	providerLog(logger.LevelInfo, "updating database schema version: 32 -> 33")
+
+	sql := strings.ReplaceAll(sqliteV33SQL, "{{prefix}}", config.SQLTablesPrefix)
+	sql = strings.ReplaceAll(sql, "{{users_folders_mapping}}", sqlTableUsersFoldersMapping)
+	sql = strings.ReplaceAll(sql, "{{users_groups_mapping}}", sqlTableUsersGroupsMapping)
+	sql = strings.ReplaceAll(sql, "{{admins_groups_mapping}}", sqlTableAdminsGroupsMapping)
+	sql = strings.ReplaceAll(sql, "{{groups_folders_mapping}}", sqlTableGroupsFoldersMapping)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 33, true)
+}
+
+func downgradeSQLiteDatabaseFrom33To32(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database schema version: 33 -> 32")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 33 -> 32")
+
+	sql := strings.ReplaceAll(sqliteV33DownSQL, "{{prefix}}", config.SQLTablesPrefix)
+	sql = strings.ReplaceAll(sql, "{{users_folders_mapping}}", sqlTableUsersFoldersMapping)
+	sql = strings.ReplaceAll(sql, "{{users_groups_mapping}}", sqlTableUsersGroupsMapping)
+	sql = strings.ReplaceAll(sql, "{{admins_groups_mapping}}", sqlTableAdminsGroupsMapping)
+	sql = strings.ReplaceAll(sql, "{{groups_folders_mapping}}", sqlTableGroupsFoldersMapping)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 32, false)
 }
 
 /*func setPragmaFK(dbHandle *sql.DB, value string) error {

@@ -36,7 +36,7 @@ import (
 )
 
 const (
-	sqlDatabaseVersion     = 32
+	sqlDatabaseVersion     = 33
 	defaultSQLQueryTimeout = 10 * time.Second
 	longSQLQueryTimeout    = 60 * time.Second
 )
@@ -2523,9 +2523,9 @@ func sqlCommonClearUserGroupMapping(ctx context.Context, user *User, dbHandle sq
 	return err
 }
 
-func sqlCommonAddUserFolderMapping(ctx context.Context, user *User, folder *vfs.VirtualFolder, dbHandle sqlQuerier) error {
+func sqlCommonAddUserFolderMapping(ctx context.Context, user *User, folder *vfs.VirtualFolder, sortOrder int, dbHandle sqlQuerier) error {
 	q := getAddUserFolderMappingQuery()
-	_, err := dbHandle.ExecContext(ctx, q, folder.VirtualPath, folder.QuotaSize, folder.QuotaFiles, folder.Name, user.Username)
+	_, err := dbHandle.ExecContext(ctx, q, folder.VirtualPath, folder.QuotaSize, folder.QuotaFiles, folder.Name, user.Username, sortOrder)
 	return err
 }
 
@@ -2535,27 +2535,29 @@ func sqlCommonClearAdminGroupMapping(ctx context.Context, admin *Admin, dbHandle
 	return err
 }
 
-func sqlCommonAddGroupFolderMapping(ctx context.Context, group *Group, folder *vfs.VirtualFolder, dbHandle sqlQuerier) error {
+func sqlCommonAddGroupFolderMapping(ctx context.Context, group *Group, folder *vfs.VirtualFolder, sortOrder int,
+	dbHandle sqlQuerier,
+) error {
 	q := getAddGroupFolderMappingQuery()
-	_, err := dbHandle.ExecContext(ctx, q, folder.VirtualPath, folder.QuotaSize, folder.QuotaFiles, folder.Name, group.Name)
+	_, err := dbHandle.ExecContext(ctx, q, folder.VirtualPath, folder.QuotaSize, folder.QuotaFiles, folder.Name, group.Name, sortOrder)
 	return err
 }
 
-func sqlCommonAddUserGroupMapping(ctx context.Context, username, groupName string, groupType int, dbHandle sqlQuerier) error {
+func sqlCommonAddUserGroupMapping(ctx context.Context, username, groupName string, groupType, sortOrder int, dbHandle sqlQuerier) error {
 	q := getAddUserGroupMappingQuery()
-	_, err := dbHandle.ExecContext(ctx, q, username, groupName, groupType)
+	_, err := dbHandle.ExecContext(ctx, q, username, groupName, groupType, sortOrder)
 	return err
 }
 
 func sqlCommonAddAdminGroupMapping(ctx context.Context, username, groupName string, mappingOptions AdminGroupMappingOptions,
-	dbHandle sqlQuerier,
+	sortOrder int, dbHandle sqlQuerier,
 ) error {
 	options, err := json.Marshal(mappingOptions)
 	if err != nil {
 		return err
 	}
 	q := getAddAdminGroupMappingQuery()
-	_, err = dbHandle.ExecContext(ctx, q, username, groupName, options)
+	_, err = dbHandle.ExecContext(ctx, q, username, groupName, options, sortOrder)
 	return err
 }
 
@@ -2566,7 +2568,7 @@ func generateGroupVirtualFoldersMapping(ctx context.Context, group *Group, dbHan
 	}
 	for idx := range group.VirtualFolders {
 		vfolder := &group.VirtualFolders[idx]
-		err = sqlCommonAddGroupFolderMapping(ctx, group, vfolder, dbHandle)
+		err = sqlCommonAddGroupFolderMapping(ctx, group, vfolder, idx, dbHandle)
 		if err != nil {
 			return err
 		}
@@ -2581,7 +2583,7 @@ func generateUserVirtualFoldersMapping(ctx context.Context, user *User, dbHandle
 	}
 	for idx := range user.VirtualFolders {
 		vfolder := &user.VirtualFolders[idx]
-		err = sqlCommonAddUserFolderMapping(ctx, user, vfolder, dbHandle)
+		err = sqlCommonAddUserFolderMapping(ctx, user, vfolder, idx, dbHandle)
 		if err != nil {
 			return err
 		}
@@ -2594,8 +2596,8 @@ func generateUserGroupMapping(ctx context.Context, user *User, dbHandle sqlQueri
 	if err != nil {
 		return err
 	}
-	for _, group := range user.Groups {
-		err = sqlCommonAddUserGroupMapping(ctx, user.Username, group.Name, group.Type, dbHandle)
+	for idx, group := range user.Groups {
+		err = sqlCommonAddUserGroupMapping(ctx, user.Username, group.Name, group.Type, idx, dbHandle)
 		if err != nil {
 			return err
 		}
@@ -2608,8 +2610,8 @@ func generateAdminGroupMapping(ctx context.Context, admin *Admin, dbHandle sqlQu
 	if err != nil {
 		return err
 	}
-	for _, group := range admin.Groups {
-		err = sqlCommonAddAdminGroupMapping(ctx, admin.Username, group.Name, group.Options, dbHandle)
+	for idx, group := range admin.Groups {
+		err = sqlCommonAddAdminGroupMapping(ctx, admin.Username, group.Name, group.Options, idx, dbHandle)
 		if err != nil {
 			return err
 		}
