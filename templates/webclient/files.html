@@ -64,20 +64,20 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     </div>
     <div class="card-body">
         <div class="d-flex flex-stack">
-            <div class="badge badge-lg badge-light-primary" data-kt-filemanager-table-nav-bar="base">
+            <nav class="badge badge-lg badge-light-primary" data-kt-filemanager-table-nav-bar="base">
                 <div class="d-flex align-items-center flex-wrap">
                     <i class="ki-duotone ki-home fs-1 text-primary me-3"></i>
                     <a data-i18n="fs.home" href="{{.FilesURL}}?path=%2F">Home</a>
                     {{- range .Paths}}
                     <i class="ki-duotone ki-right fs-2x text-primary mx-1"></i>
                     {{- if eq .Href ""}}
-                    <span>{{.DirName}}</span>
+                    <span aria-current="page">{{.DirName}}</span>
                     {{- else}}
-                    <a href="{{.Href}}">{{.DirName}}</a>
+                    <a aria-current="page" href="{{.Href}}">{{.DirName}}</a>
                     {{- end}}
                     {{- end}}
                 </div>
-            </div>
+            </nav>
             <div class="d-flex align-items-center d-none" data-kt-filemanager-table-toolbar="selected">
                 <div class="fw-bold me-5">
                     <span class="me-2" data-kt-filemanager-table-select="selected_count"></span>
@@ -140,8 +140,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     <span class="path2"></span>
                 </i>
             </span>
-            <input data-i18n="[placeholder]fs.create_folder_msg" id="file_manager_new_folder_input" type="text" name="new_folder_name" placeholder="Enter the new folder name" class="form-control mw-250px me-3" />
-            <button class="btn btn-icon btn-light-primary me-3" id="file_manager_add_folder">
+            <input required data-i18n="[placeholder]fs.create_folder_msg" id="file_manager_new_folder_input" type="text" name="new_folder_name" placeholder="Enter the new folder name" class="form-control mw-250px me-3" />
+            <button data-i18n="[aria-label]general.add" class="btn btn-icon btn-light-primary me-3" id="file_manager_add_folder">
                 <span class="indicator-label">
                     <i class="ki-duotone ki-check fs-1"></i>
                 </span>
@@ -149,7 +149,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     <span class="spinner-border spinner-border-sm align-middle"></span>
                 </span>
             </button>
-            <button class="btn btn-icon btn-light-danger" id="file_manager_cancel_folder">
+            <button data-i18n="[aria-label]general.cancel" class="btn btn-icon btn-light-danger" id="file_manager_cancel_folder">
                 <i class="ki-solid ki-cross fs-1"></i>
             </button>
         </div>
@@ -159,7 +159,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <div id="upload_files_empty_container" class="d-none mt-10">
             <form id="upload_files_empty_form" action="{{.FilesURL}}?path={{.CurrentDir}}" method="POST" enctype="multipart/form-data">
                 <div class="fv-row">
-                    <div class="dropzone mh-350px overflow-auto visibility-auto" id="upload_files_empty">
+                    <button type="button" class="dropzone mh-350px overflow-auto visibility-auto" id="upload_files_empty">
                         <div class="dz-message needsclick align-items-center">
                             <i class="ki-duotone ki-file-up fs-3x text-primary">
                                 <span class="path1"></span>
@@ -170,7 +170,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 <!-- <span class="fs-7 fw-semibold text-gray-500">Upload up to 30 files</span> -->
                             </div>
                         </div>
-                    </div>
+                    </button>
                 </div>
             </form>
             <div class="d-flex justify-content-end mt-5">
@@ -2410,14 +2410,14 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 {{- define "additionalnavitems"}}
 {{- if .QuotaUsage.HasQuotaInfo}}
 <div class="d-flex align-items-center ms-2 ms-lg-3">
-    <div class="btn btn-icon btn-active-light-primary position-relative w-35px h-35px w-md-40px h-md-40px" data-kt-menu-trigger="{default:'click', lg: 'hover'}" data-kt-menu-attach="parent" data-kt-menu-placement="bottom-end">
+    <button aria-haspopup="menu" class="btn btn-icon btn-active-light-primary position-relative w-35px h-35px w-md-40px h-md-40px" data-kt-menu-trigger="{default:'click', lg: 'click'}" data-kt-menu-attach="parent" data-kt-menu-placement="bottom-end">
         <i class="ki-duotone {{if .QuotaUsage.IsQuotaLow}}ki-information-5 text-warning{{else}}ki-information-2{{end}} fs-2">
             <span class="path1"></span>
             <span class="path2"></span>
             <span class="path3"></span>
         </i>
-    </div>
-    <div class="menu menu-sub menu-sub-dropdown menu-column w-375px" data-kt-menu="true">
+    </button>
+    <div role="menu" class="menu menu-sub menu-sub-dropdown menu-column w-375px" data-kt-menu="true">
         <div class="card">
             <div class="card-header">
                 <h3 class="card-title"><span data-i18n="fs.quota_usage.title" class="text-gray-700 fw-bold fs-6">Quota usage</span></h3>
@@ -2507,14 +2507,14 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <div class="modal-content">
             <div class="modal-header border-0">
                 <h3 data-i18n="fs.upload.text" class="modal-title">Upload files</h3>
-                <div data-i18n="[aria-label]general.close" class="btn btn-icon btn-sm btn-active-light-primary" data-bs-dismiss="modal" aria-label="Close">
+                <button data-i18n="[aria-label]general.close" class="btn btn-icon btn-sm btn-active-light-primary" data-bs-dismiss="modal" aria-label="Close">
                     <i class="ki-solid ki-cross fs-2x text-gray-700"></i>
-                </div>
+                </button>
             </div>
             <div class="modal-body">
                 <form id="upload_files_form" action="{{.FilesURL}}?path={{.CurrentDir}}" method="POST" enctype="multipart/form-data">
                     <div class="fv-row">
-                        <div class="dropzone mh-350px overflow-auto visibility-auto" id="upload_files">
+                        <button type="button" class="dropzone mh-350px overflow-auto visibility-auto" id="upload_files">
                             <div class="dz-message needsclick align-items-center">
                                 <i class="ki-duotone ki-file-up fs-3x text-primary"><span class="path1"></span><span class="path2"></span></i>
                                 <div class="ms-4">
@@ -2522,7 +2522,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                     <!-- <span class="fs-7 fw-semibold text-gray-500">Upload up to 30 files</span> -->
                                 </div>
                             </div>
-                        </div>
+                        </button>
                     </div>
                 </form>
             </div>
@@ -2541,9 +2541,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 <h5 class="modal-title">
                     <span id="video_title"></span>
                 </h5>
-                <div data-i18n="[aria-label]general.close" class="btn btn-icon btn-sm btn-active-light-primary" data-bs-dismiss="modal" aria-label="Close">
+                <button data-i18n="[aria-label]general.close" class="btn btn-icon btn-sm btn-active-light-primary" data-bs-dismiss="modal" aria-label="Close">
                     <i class="ki-solid ki-cross fs-2x text-gray-700"></i>
-                </div>
+                </button>
             </div>
 
             <div class="modal-body">
@@ -2563,9 +2563,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 <h5 class="modal-title">
                     <span id="rename_title"></span>
                 </h5>
-                <div data-i18n="[aria-label]general.close" class="btn btn-icon btn-sm btn-active-light-primary" data-bs-dismiss="modal" aria-label="Close">
+                <button data-i18n="[aria-label]general.close" class="btn btn-icon btn-sm btn-active-light-primary" data-bs-dismiss="modal" aria-label="Close">
                     <i class="ki-solid ki-cross fs-2x text-gray-700"></i>
-                </div>
+                </button>
             </div>
 
             <div class="modal-body">
@@ -2591,9 +2591,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 <h3 data-i18n="general.choose_target_folder" class="modal-title">
                     Choose target folder
                 </h3>
-                <div data-i18n="[aria-label]general.close" class="btn btn-icon btn-sm btn-active-light-primary" data-bs-dismiss="modal" aria-label="Close">
+                <button data-i18n="[aria-label]general.close" class="btn btn-icon btn-sm btn-active-light-primary" data-bs-dismiss="modal" aria-label="Close">
                     <i class="ki-solid ki-cross fs-2x text-gray-700"></i>
-                </div>
+                </button>
             </div>
 
             <div class="modal-body">
@@ -2608,10 +2608,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </div>
                 <div class="row">
                     <div class="col-md-9 align-items-center d-flex flex-stack">
-                        <div class="badge badge-lg badge-light-primary">
+                        <nav class="badge badge-lg badge-light-primary">
                             <div id="dirs_browser_nav" class="d-flex align-items-center flex-wrap">
                             </div>
-                        </div>
+                        </nav>
                     </div>
                     <div class="col-md-3 align-items-center d-flex justify-content-end">
                         <button id="id_dir_browser_create_dir" type="button" class="btn btn-flex btn-primary">
