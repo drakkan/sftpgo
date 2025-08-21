@@ -4520,7 +4520,6 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 				webDAVUsersCache.swap(&user, password)
 			}
 			cachedUserPasswords.Add(user.Username, password, user.Password)
-			executeAction(operationUpdate, ActionExecutorSelf, "", actionObjectUser, user.Username, "", &user)
 		}
 		return user, err
 	}
@@ -4528,7 +4527,6 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 	if err != nil {
 		return user, err
 	}
-	executeAction(operationAdd, ActionExecutorSelf, "", actionObjectUser, user.Username, "", &user)
 	return provider.userExists(user.Username, "")
 }
 
@@ -4594,7 +4592,6 @@ func doPluginAuth(username, password string, pubKey []byte, ip, protocol string,
 				webDAVUsersCache.swap(&user, password)
 			}
 			cachedUserPasswords.Add(user.Username, password, user.Password)
-			executeAction(operationUpdate, ActionExecutorSelf, "", actionObjectUser, user.Username, "", &user)
 		}
 		return user, err
 	}
@@ -4602,7 +4599,6 @@ func doPluginAuth(username, password string, pubKey []byte, ip, protocol string,
 	if err != nil {
 		return user, err
 	}
-	executeAction(operationAdd, ActionExecutorSelf, "", actionObjectUser, user.Username, "", &user)
 	return provider.userExists(user.Username, "")
 }
 
