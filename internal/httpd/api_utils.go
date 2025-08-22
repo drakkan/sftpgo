@@ -217,7 +217,9 @@ func handleCloseConnection(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, nil, http.StatusText(status), status)
 		return
 	}
-	if err := n.SendDeleteRequest(claims.Username, claims.Role, fmt.Sprintf("%s/%s", activeConnectionsPath, connectionID)); err != nil {
+	perms := []string{dataprovider.PermAdminCloseConnections}
+	uri := fmt.Sprintf("%s/%s", activeConnectionsPath, connectionID)
+	if err := n.SendDeleteRequest(claims.Username, claims.Role, uri, perms); err != nil {
 		logger.Warn(logSender, "", "unable to delete connection id %q from node %q: %v", connectionID, n.Name, err)
 		sendAPIResponse(w, r, nil, "Not Found", http.StatusNotFound)
 		return
@@ -243,7 +245,8 @@ func getNodesConnections(admin, role string) []common.ConnectionStatus {
 			defer wg.Done()
 
 			var stats []common.ConnectionStatus
-			if err := node.SendGetRequest(admin, role, activeConnectionsPath, &stats); err != nil {
+			perms := []string{dataprovider.PermAdminViewConnections}
+			if err := node.SendGetRequest(admin, role, activeConnectionsPath, perms, &stats); err != nil {
 				logger.Warn(logSender, "", "unable to get connections from node %s: %v", node.Name, err)
 				return
 			}

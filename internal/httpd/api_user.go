@@ -264,7 +264,9 @@ func disconnectUser(username, admin, role string) {
 				logger.Warn(logSender, "", "unable to disconnect user %q, error getting node %q: %v", username, stat.Node, err)
 				continue
 			}
-			if err := n.SendDeleteRequest(admin, role, fmt.Sprintf("%s/%s", activeConnectionsPath, stat.ConnectionID)); err != nil {
+			perms := []string{dataprovider.PermAdminCloseConnections}
+			uri := fmt.Sprintf("%s/%s", activeConnectionsPath, stat.ConnectionID)
+			if err := n.SendDeleteRequest(admin, role, uri, perms); err != nil {
 				logger.Warn(logSender, "", "unable to disconnect user %q from node %q, error: %v", username, n.Name, err)
 			}
 		}

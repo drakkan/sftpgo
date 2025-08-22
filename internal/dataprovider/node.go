@@ -132,17 +132,17 @@ func (n *Node) validate() error {
 	return n.Data.validate()
 }
 
-func (n *Node) authenticate(token string) (string, string, error) {
+func (n *Node) authenticate(token string) (string, string, []string, error) {
 	if err := n.Data.Key.TryDecrypt(); err != nil {
 		providerLog(logger.LevelError, "unable to decrypt node key: %v", err)
-		return "", "", err
+		return "", "", nil, err
 	}
 	if token == "" {
-		return "", "", ErrInvalidCredentials
+		return "", "", nil, ErrInvalidCredentials
 	}
 	t, err := jwt.Parse([]byte(token), jwt.WithKey(jwa.HS256, []byte(n.Data.Key.GetPayload())), jwt.WithValidate(true))
 	if err != nil {
-		return "", "", fmt.Errorf("unable to parse and validate token: %v", err)
+		return "", "", nil, fmt.Errorf("unable to parse and validate token: %v", err)
 	}
 	var adminUsername, role string
 	if admin, ok := t.Get("admin"); ok {
@@ -151,14 +151,16 @@ func (n *Node) authenticate(token string) (string, string, error) {
 		}
 	}
 	if adminUsername == "" {
-		return "", "", errors.New("no admin username associated with node token")
+		return "", "", nil, errors.New("no admin username associated with node token")
 	}
 	if r, ok := t.Get("role"); ok {
 		if val, ok := r.(string); ok && val != "" {
 			role = val
 		}
 	}
-	return adminUsername, role, nil
+	perms := getPermsFromToken(t)
+
+	return adminUsername, role, perms, nil
 }
 
 // getBaseURL returns the base URL for this node
@@ -175,7 +177,7 @@ func (n *Node) getBaseURL() string {
 }
 
 // generateAuthToken generates a new auth token
-func (n *Node) generateAuthToken(username, role string) (string, error) {
+func (n *Node) generateAuthToken(username, role string, permissions []string) (string, error) {
 	if err := n.Data.Key.TryDecrypt(); err != nil {
 		return "", fmt.Errorf("unable to decrypt node key: %w", err)
 	}
@@ -184,6 +186,7 @@ func (n *Node) generateAuthToken(username, role string) (string, error) {
 	t := jwt.New()
 	t.Set("admin", username)                          //nolint:errcheck
 	t.Set("role", role)                               //nolint:errcheck
+	t.Set("perms", permissions)                       //nolint:errcheck
 	t.Set(jwt.IssuedAtKey, now)                       //nolint:errcheck
 	t.Set(jwt.JwtIDKey, xid.New().String())           //nolint:errcheck
 	t.Set(jwt.NotBeforeKey, now.Add(-30*time.Second)) //nolint:errcheck
@@ -197,14 +200,14 @@ func (n *Node) generateAuthToken(username, role string) (string, error) {
 }
 
 func (n *Node) prepareRequest(ctx context.Context, username, role, relativeURL, method string,
-	body io.Reader,
+	permissions []string, body io.Reader,
 ) (*http.Request, error) {
 	url := fmt.Sprintf("%s%s", n.getBaseURL(), relativeURL)
 	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return nil, err
 	}
-	token, err := n.generateAuthToken(username, role)
+	token, err := n.generateAuthToken(username, role, permissions)
 	if err != nil {
 		return nil, err
 	}
@@ -214,11 +217,11 @@ func (n *Node) prepareRequest(ctx context.Context, username, role, relativeURL, 
 
 // SendGetRequest sends an HTTP GET request to this node.
 // The responseHolder must be a pointer
-func (n *Node) SendGetRequest(username, role, relativeURL string, responseHolder any) error {
+func (n *Node) SendGetRequest(username, role, relativeURL string, permissions []string, responseHolder any) error {
 	ctx, cancel := context.WithTimeout(context.Background(), nodeReqTimeout)
 	defer cancel()
 
-	req, err := n.prepareRequest(ctx, username, role, relativeURL, http.MethodGet, nil)
+	req, err := n.prepareRequest(ctx, username, role, relativeURL, http.MethodGet, permissions, nil)
 	if err != nil {
 		return err
 	}
@@ -246,11 +249,11 @@ func (n *Node) SendGetRequest(username, role, relativeURL string, responseHolder
 }
 
 // SendDeleteRequest sends an HTTP DELETE request to this node
-func (n *Node) SendDeleteRequest(username, role, relativeURL string) error {
+func (n *Node) SendDeleteRequest(username, role, relativeURL string, permissions []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), nodeReqTimeout)
 	defer cancel()
 
-	req, err := n.prepareRequest(ctx, username, role, relativeURL, http.MethodDelete, nil)
+	req, err := n.prepareRequest(ctx, username, role, relativeURL, http.MethodDelete, permissions, nil)
 	if err != nil {
 		return err
 	}
@@ -270,9 +273,9 @@ func (n *Node) SendDeleteRequest(username, role, relativeURL string) error {
 }
 
 // AuthenticateNodeToken check the validity of the provided token
-func AuthenticateNodeToken(token string) (string, string, error) {
+func AuthenticateNodeToken(token string) (string, string, []string, error) {
 	if currentNode == nil {
-		return "", "", errNoClusterNodes
+		return "", "", nil, errNoClusterNodes
 	}
 	return currentNode.authenticate(token)
 }
@@ -283,4 +286,22 @@ func GetNodeName() string {
 		return ""
 	}
 	return currentNode.Name
+}
+
+func getPermsFromToken(t jwt.Token) []string {
+	var perms []string
+	if p, ok := t.Get("perms"); ok {
+		switch v := p.(type) {
+		case []any:
+			for _, elem := range v {
+				switch elemValue := elem.(type) {
+				case string:
+					perms = append(perms, elemValue)
+				}
+			}
+		case []string:
+			perms = v
+		}
+	}
+	return perms
 }

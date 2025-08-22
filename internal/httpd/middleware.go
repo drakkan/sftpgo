@@ -22,6 +22,7 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/rs/xid"
@@ -369,15 +370,22 @@ func checkNodeToken(tokenAuth *jwtauth.JWTAuth) func(next http.Handler) http.Han
 			if len(token) > 7 && strings.ToUpper(token[0:6]) == "BEARER" {
 				token = token[7:]
 			}
-			admin, role, err := dataprovider.AuthenticateNodeToken(token)
+			if invalidatedJWTTokens.Get(token) {
+				logger.Debug(logSender, "", "the node token has been invalidated")
+				sendAPIResponse(w, r, fmt.Errorf("the provided token is not valid"), "", http.StatusUnauthorized)
+				return
+			}
+			admin, role, perms, err := dataprovider.AuthenticateNodeToken(token)
 			if err != nil {
 				logger.Debug(logSender, "", "unable to authenticate node token %q: %v", token, err)
 				sendAPIResponse(w, r, fmt.Errorf("the provided token cannot be authenticated"), "", http.StatusUnauthorized)
 				return
 			}
+			defer invalidatedJWTTokens.Add(token, time.Now().Add(2*time.Minute).UTC())
+
 			c := jwtTokenClaims{
 				Username:    admin,
-				Permissions: []string{dataprovider.PermAdminViewConnections, dataprovider.PermAdminCloseConnections},
+				Permissions: perms,
 				NodeID:      dataprovider.GetNodeName(),
 				Role:        role,
 			}
