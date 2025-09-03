@@ -149,6 +149,10 @@ loop:
 			if err != nil {
 				logger.Warn(logSender, "", "error reloading cert manager: %v", err)
 			}
+			err = httpd.ReloadOIDC()
+			if err != nil {
+				logger.Warn(logSender, "", "error reloading OIDC: %v", err)
+			}
 			err = ftpd.ReloadCertificateMgr()
 			if err != nil {
 				logger.Warn(logSender, "", "error reloading FTPD cert manager: %v", err)
