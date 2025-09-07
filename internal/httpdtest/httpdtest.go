@@ -58,7 +58,6 @@ const (
 	adminPath             = "/api/v2/admins"
 	adminPwdPath          = "/api/v2/admin/changepwd"
 	apiKeysPath           = "/api/v2/apikeys"
-	retentionBasePath     = "/api/v2/retention/users"
 	retentionChecksPath   = "/api/v2/retention/users/checks"
 	eventActionsPath      = "/api/v2/eventactions"
 	eventRulesPath        = "/api/v2/eventrules"
