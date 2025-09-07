@@ -46,14 +46,16 @@ It is important to understand that you should support SFTPGo and any other Open 
 
 ## Support
 
-You can use SFTPGo for free, respecting the obligations of the Open Source [license](#license), but please do not ask or expect free support as well.
+SFTPGo is free to use under the terms of its Open Source [license](#license). We are proud to offer a powerful and fully functional open source edition that is suitable for many production use cases.
 
-Use [discussions](https://github.com/drakkan/sftpgo/discussions) to ask questions and get support from the community.
+While we do not offer direct free support, community support is available. You can use [GitHub Discussions](https://github.com/drakkan/sftpgo/discussions) to ask questions, share feedback, and engage with other users of the project.
 
-We offer commercial support, guarantees, and advice for SFTPGo:
+If you require guaranteed support, expert guidance, or advanced features, consider using SFTPGo Enterprise: a commercially licensed edition of SFTPGo that extends the open source version with enterprise-only features and full support.
 
-- With our [plans](https://sftpgo.com/plans) you can safely install and use SFTPGo on-premise in professional environments.
-- With our [SaaS offerings](https://sftpgo.com/saas) you can use SFTPGo hosted in the cloud, fully managed and supported.
+SFTPGo Enterprise is available in two deployment options:
+
+- On-premises: Deploy on your own infrastructure with full control and commercial-grade support. More details: [sftpgo.com/on-premises](https://sftpgo.com/on-premises)
+- Fully managed SaaS: Let us handle the infrastructure. Ideal for teams that want a secure, scalable, and maintenance-free setup with full support included. More details: [sftpgo.com/saas](https://sftpgo.com/saas)
 
 ## Documentation
 
@@ -67,7 +69,9 @@ Before start translating please take a look at our contribution [guidelines](htt
 
 ## Release Cadence
 
-SFTPGo releases are feature-driven, we don't have a fixed time based schedule. As a rough estimate, you can expect 1 or 2 new major releases per year and several bug fix releases.
+SFTPGo follows a feature-driven release cycle rather than a fixed, time-based schedule. Currently, our primary development efforts are focused on the [Enterprise edition](https://docs.sftpgo.com/enterprise/#enterprise-edition), which benefits from a faster release cadence and receives major new features (see [changelog](https://docs.sftpgo.com/enterprise/changelog/)).
+
+This open-source version of SFTPGo remains maintained and will continue to receive bug fixes and essential updates. However, not all enhancements introduced in the Enterprise edition will be available.
 
 ## Acknowledgements
 
@@ -93,6 +97,8 @@ The [theme](https://keenthemes.com/bootstrap-templates) used in WebAdmin and Web
 - The SFTPGo WebAdmin and WebClient user interfaces (HTML, CSS and JS components) based on this theme are allowed for use only within the SFTPGo product and therefore cannot be used in derivative works/products without an explicit grant from the [SFTPGo Team](mailto:support@sftpgo.com).
 
 More information about [compliance](https://sftpgo.com/compliance.html).
+
+**Note:** We do not provide legal advice. If you have questions about license compliance or whether your use case is permitted under the license terms, please consult your legal team.
 
 ## Copyright
 

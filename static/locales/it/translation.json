@@ -71,7 +71,7 @@
         "desc": "Per iniziare a utilizzare SFTPGo devi creare un utente amministratore",
         "submit": "Crea amministratore e accedi",
         "install_code_mismatch": "Il codice di installazione non corrisponde",
-        "help_text": "SFTPGo ha bisogno del tuo aiuto"
+        "help_text": "Supporto commerciale"
     },
     "login": {
         "username": "Nome utente",

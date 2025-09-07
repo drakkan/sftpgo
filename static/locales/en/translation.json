@@ -71,7 +71,7 @@
         "desc": "To start using SFTPGo you need to create an administrator user",
         "submit": "Create admin and Sign in",
         "install_code_mismatch": "The installation code does not match",
-        "help_text": "SFTPGo needs your help"
+        "help_text": "Commercial support"
     },
     "login": {
         "username": "Username",
