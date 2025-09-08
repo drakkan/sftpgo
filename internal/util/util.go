@@ -648,6 +648,21 @@ func GetTLSCiphersFromNames(cipherNames []string) []uint16 {
 	return ciphers
 }
 
+// GetTLSCipherSuiteName returns the TLS cipher suite name from the specified ID
+func GetTLSCipherSuiteName(cipherID uint16) string {
+	for _, c := range tls.CipherSuites() {
+		if c.ID == cipherID {
+			return c.Name
+		}
+	}
+	for _, c := range tls.InsecureCipherSuites() {
+		if c.ID == cipherID {
+			return c.Name
+		}
+	}
+	return fmt.Sprintf("Unknown(0x%04x)", cipherID)
+}
+
 // GetALPNProtocols returns the ALPN protocols, any invalid protocol will be
 // silently ignored. If no protocol or no valid protocol is provided the default
 // is http/1.1, h2

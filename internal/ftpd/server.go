@@ -322,6 +322,15 @@ func (s *Server) VerifyTLSConnectionState(_ ftpserver.ClientContext, cs tls.Conn
 }
 
 func (s *Server) verifyTLSConnection(state tls.ConnectionState) error {
+	// Log the negotiated TLS cipher suite for each new connection
+	cipherName := util.GetTLSCipherSuiteName(state.CipherSuite)
+	clientInfo := "unknown"
+	if len(state.PeerCertificates) > 0 {
+		clientInfo = state.PeerCertificates[0].Subject.CommonName
+	}
+	logger.Info(logSender, "", "new TLS connection from %v, cipher: %s, TLS version: %s",
+		clientInfo, cipherName, tls.VersionName(state.Version))
+
 	if certMgr != nil {
 		var clientCrt *x509.Certificate
 		var clientCrtName string
