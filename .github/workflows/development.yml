@@ -108,18 +108,41 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Azure login
-        if: ${{ github.event_name != 'pull_request' }}
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
           go-version: '1.24'
+
+      - name: Run test cases using SQLite provider
+        run: |
+          cd tests/eventsearcher
+          go build -trimpath -ldflags "-s -w" -o eventsearcher.exe
+          cd ../..
+          cd tests/ipfilter
+          go build -trimpath -ldflags "-s -w" -o ipfilter.exe
+          cd ../..
+          go test -v -tags nopgxregisterdefaulttypes,disable_grpc_modules -p 1 -timeout 15m ./... -coverprofile=coverage.txt -covermode=atomic
+
+      - name: Run test cases using bolt provider
+        run: |
+          go test -v -tags nopgxregisterdefaulttypes,disable_grpc_modules -p 1 -timeout 2m ./internal/config -covermode=atomic
+          go test -v -tags nopgxregisterdefaulttypes,disable_grpc_modules -p 1 -timeout 5m ./internal/common -covermode=atomic
+          go test -v -tags nopgxregisterdefaulttypes,disable_grpc_modules -p 1 -timeout 5m ./internal/httpd -covermode=atomic
+          go test -v -tags nopgxregisterdefaulttypes,disable_grpc_modules -p 1 -timeout 8m ./internal/sftpd -covermode=atomic
+          go test -v -tags nopgxregisterdefaulttypes,disable_grpc_modules -p 1 -timeout 5m ./internal/ftpd -covermode=atomic
+          go test -v -tags nopgxregisterdefaulttypes,disable_grpc_modules -p 1 -timeout 5m ./internal/webdavd -covermode=atomic
+          go test -v -tags nopgxregisterdefaulttypes,disable_grpc_modules -p 1 -timeout 2m ./internal/telemetry -covermode=atomic
+          go test -v -tags nopgxregisterdefaulttypes,disable_grpc_modules -p 1 -timeout 2m ./internal/mfa -covermode=atomic
+          go test -v -tags nopgxregisterdefaulttypes,disable_grpc_modules -p 1 -timeout 2m ./internal/command -covermode=atomic
+        env:
+          SFTPGO_DATA_PROVIDER__DRIVER: bolt
+          SFTPGO_DATA_PROVIDER__NAME: 'sftpgo_bolt.db'
+
+      - name: Run test cases using memory provider
+        run: go test -v -tags nopgxregisterdefaulttypes,disable_grpc_modules -p 1 -timeout 15m ./... -covermode=atomic
+        env:
+          SFTPGO_DATA_PROVIDER__DRIVER: memory
+          SFTPGO_DATA_PROVIDER__NAME: ''
 
       - name: Build
         run: |
@@ -132,12 +155,6 @@ jobs:
           go install github.com/tc-hib/go-winres@latest
           go-winres simply --arch amd64 --product-version $LATEST_TAG-dev-$GIT_COMMIT --file-version "$FILE_VERSION" --file-description "SFTPGo server" --product-name SFTPGo --copyright "2019-2025 Nicola Murino" --original-filename sftpgo.exe --icon  .\windows-installer\icon.ico
           go build -trimpath -tags nopgxregisterdefaulttypes,disable_grpc_modules -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=$GIT_COMMIT -X github.com/drakkan/sftpgo/v2/internal/version.date=$DATE_TIME" -o sftpgo.exe
-          cd tests/eventsearcher
-          go build -trimpath -ldflags "-s -w" -o eventsearcher.exe
-          cd ../..
-          cd tests/ipfilter
-          go build -trimpath -ldflags "-s -w" -o ipfilter.exe
-          cd ../..
           mkdir arm64
           $Env:CGO_ENABLED='0'
           $Env:GOOS='windows'
@@ -151,6 +168,14 @@ jobs:
           Remove-Item Env:\CGO_ENABLED
           Remove-Item Env:\GOOS
           Remove-Item Env:\GOARCH
+
+      - name: Azure login
+        if: ${{ github.event_name != 'pull_request' }}
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Sign binaries
         if: ${{ github.event_name != 'pull_request' }}
@@ -176,30 +201,6 @@ jobs:
           exclude-azure-powershell-credential: true
           exclude-azure-developer-cli-credential: true
           exclude-interactive-browser-credential: true
-
-      - name: Run test cases using SQLite provider
-        run: go test -v -tags nopgxregisterdefaulttypes,disable_grpc_modules -p 1 -timeout 15m ./... -coverprofile=coverage.txt -covermode=atomic
-
-      - name: Run test cases using bolt provider
-        run: |
-          go test -v -tags nopgxregisterdefaulttypes,disable_grpc_modules -p 1 -timeout 2m ./internal/config -covermode=atomic
-          go test -v -tags nopgxregisterdefaulttypes,disable_grpc_modules -p 1 -timeout 5m ./internal/common -covermode=atomic
-          go test -v -tags nopgxregisterdefaulttypes,disable_grpc_modules -p 1 -timeout 5m ./internal/httpd -covermode=atomic
-          go test -v -tags nopgxregisterdefaulttypes,disable_grpc_modules -p 1 -timeout 8m ./internal/sftpd -covermode=atomic
-          go test -v -tags nopgxregisterdefaulttypes,disable_grpc_modules -p 1 -timeout 5m ./internal/ftpd -covermode=atomic
-          go test -v -tags nopgxregisterdefaulttypes,disable_grpc_modules -p 1 -timeout 5m ./internal/webdavd -covermode=atomic
-          go test -v -tags nopgxregisterdefaulttypes,disable_grpc_modules -p 1 -timeout 2m ./internal/telemetry -covermode=atomic
-          go test -v -tags nopgxregisterdefaulttypes,disable_grpc_modules -p 1 -timeout 2m ./internal/mfa -covermode=atomic
-          go test -v -tags nopgxregisterdefaulttypes,disable_grpc_modules -p 1 -timeout 2m ./internal/command -covermode=atomic
-        env:
-          SFTPGO_DATA_PROVIDER__DRIVER: bolt
-          SFTPGO_DATA_PROVIDER__NAME: 'sftpgo_bolt.db'
-
-      - name: Run test cases using memory provider
-        run: go test -v -tags nopgxregisterdefaulttypes,disable_grpc_modules -p 1 -timeout 15m ./... -covermode=atomic
-        env:
-          SFTPGO_DATA_PROVIDER__DRIVER: memory
-          SFTPGO_DATA_PROVIDER__NAME: ''
 
       - name: Initialize data provider
         run: |
