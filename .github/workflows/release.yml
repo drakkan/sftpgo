@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 env:
-  GO_VERSION: 1.24.0
+  GO_VERSION: 1.24.7
 
 jobs:
   prepare-sources-with-deps:
@@ -54,13 +54,6 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
-      - name: Azure login
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
       - name: Get SFTPGo version
         id: get_version
         run: echo "VERSION=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_OUTPUT
@@ -89,6 +82,13 @@ jobs:
           Remove-Item Env:\GOARCH
         env:
           SFTPGO_VERSION: ${{ steps.get_version.outputs.VERSION }}
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Sign binaries
         uses: azure/trusted-signing-action@v0.5.9
