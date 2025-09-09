@@ -16,11 +16,10 @@ The WebClient UI allows end users to change their credentials, browse and manage
 
 ## Sponsors
 
-We strongly believe in Open Source software model, so we decided to make SFTPGo available to everyone, but maintaining and evolving SFTPGo takes a lot of time and work. To make development and maintenance sustainable you should consider to support the project with a [sponsorship](https://github.com/sponsors/drakkan).
+SFTPGo remains committed to open source. The core features are freely available and maintained.
+If you rely on SFTPGo in your projects, consider becoming a [sponsor](https://github.com/sponsors/drakkan) to help ensure its long-term sustainability.
 
-We love doing the work and we'd like to keep doing it - your support helps make SFTPGo possible.
-
-It is important to understand that you should support SFTPGo and any other Open Source project you rely on for ongoing maintenance, even if you don't have any questions or need new features, to mitigate the business risk of a project you depend on going unmaintained, with its security and development velocity implications.
+Your sponsorship helps cover maintenance, security updates and ongoing development of the open-source edition.
 
 ### Thank you to our sponsors
 
@@ -48,7 +47,7 @@ It is important to understand that you should support SFTPGo and any other Open 
 
 SFTPGo is free to use under the terms of its Open Source [license](#license). We are proud to offer a powerful and fully functional open source edition that is suitable for many production use cases.
 
-While we do not offer direct free support, community support is available. You can use [GitHub Discussions](https://github.com/drakkan/sftpgo/discussions) to ask questions, share feedback, and engage with other users of the project.
+While we do not offer direct free support, community support is available. You can use [GitHub Discussions](https://github.com/drakkan/sftpgo/discussions) to ask questions, share feedback and engage with other users of the project.
 
 If you require guaranteed support, expert guidance, or advanced features, consider using SFTPGo Enterprise: a commercially licensed edition of SFTPGo that extends the open source version with enterprise-only features and full support.
 
@@ -59,7 +58,10 @@ SFTPGo Enterprise is available in two deployment options:
 
 ## Documentation
 
-You can read more about supported features and documentation at [docs.sftpgo.com](https://docs.sftpgo.com/).
+You can explore all supported features and configuration options at [docs.sftpgo.com](https://docs.sftpgo.com/).
+
+In the top-left corner of the documentation site, you can select the version you're using.
+If you're using the open-source edition, do not select the "Enterprise" docs, as they describe features only available in the licensed version or our SaaS offerings.
 
 ## Internationalization
 
