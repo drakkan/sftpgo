@@ -45,7 +45,7 @@ Your sponsorship helps cover maintenance, security updates and ongoing developme
 
 ## Support
 
-SFTPGo is free to use under the terms of its Open Source [license](#license). We are proud to offer a powerful and fully functional open source edition that is suitable for many production use cases.
+The open-source version of SFTPGo is free to use under the terms of its [license](#license). We are proud to provide a robust and fully functional edition that meets the needs of many production environments.
 
 While we do not offer direct free support, community support is available. You can use [GitHub Discussions](https://github.com/drakkan/sftpgo/discussions) to ask questions, share feedback and engage with other users of the project.
 
@@ -60,8 +60,8 @@ SFTPGo Enterprise is available in two deployment options:
 
 You can explore all supported features and configuration options at [docs.sftpgo.com](https://docs.sftpgo.com/).
 
-In the top-left corner of the documentation site, you can select the version you're using.
-If you're using the open-source edition, do not select the "Enterprise" docs, as they describe features only available in the licensed version or our SaaS offerings.
+You can select the version you're using from the top-left corner of the documentation site.
+If you're using the open-source edition, please make sure to switch to the corresponding documentation. The "Enterprise" docs, shown by default, include features that may only be available in the licensed edition or our SaaS offerings.
 
 ## Internationalization
 
