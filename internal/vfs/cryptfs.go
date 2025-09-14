@@ -46,7 +46,7 @@ type CryptFs struct {
 }
 
 // NewCryptFs returns a CryptFs object
-func NewCryptFs(connectionID, rootDir, mountPath string, config CryptFsConfig) (Fs, error) {
+func NewCryptFs(connectionID, rootDir, subDir, mountPath string, config CryptFsConfig) (Fs, error) {
 	if err := config.validate(); err != nil {
 		return nil, err
 	}
@@ -58,6 +58,7 @@ func NewCryptFs(connectionID, rootDir, mountPath string, config CryptFsConfig) (
 			name:            cryptFsName,
 			connectionID:    connectionID,
 			rootDir:         rootDir,
+			subDir:          subDir,
 			mountPath:       getMountPath(mountPath),
 			readBufferSize:  config.ReadBufferSize * 1024 * 1024,
 			writeBufferSize: config.WriteBufferSize * 1024 * 1024,
