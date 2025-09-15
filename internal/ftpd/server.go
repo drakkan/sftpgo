@@ -346,6 +346,7 @@ func (s *Server) verifyTLSConnection(state tls.ConnectionState) error {
 				return common.ErrCrtRevoked
 			}
 		}
+		logger.Debug(logSender, "", "TLS connection ciphersuite used: %s", tls.CipherSuiteName(state.CipherSuite))
 	}
 
 	return nil
