@@ -719,7 +719,7 @@ func updateLoginMetrics(user *dataprovider.User, loginMethod, ip string, err err
 		protocol = common.ProtocolHTTP
 	}
 	if err == nil {
-		logger.LoginLog(user.Username, ip, loginMethod, protocol, "", r.UserAgent(), r.TLS != nil, "")
+		logger.LoginLog(user.Username, ip, loginMethod, protocol, "", r.UserAgent(), r.TLS != nil, "", "")
 		plugin.Handler.NotifyLogEvent(notifier.LogEventTypeLoginOK, protocol, user.Username, ip, "", nil)
 		common.DelayLogin(nil)
 	} else if err != common.ErrInternalFailure && err != common.ErrNoCredentials {

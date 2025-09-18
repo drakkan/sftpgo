@@ -269,9 +269,7 @@ ubwF00Drdvk2+kDZfxIM137nBiy7wgCJi2Ksm5ihN3dUF6Q0oNPl
 -----END RSA PRIVATE KEY-----`
 )
 
-var (
-	configDir = filepath.Join(".", "..", "..")
-)
+var configDir = filepath.Join(".", "..", "..")
 
 type mockFTPClientContext struct {
 	lastDataChannel ftpserver.DataChannel

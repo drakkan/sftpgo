@@ -611,7 +611,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 	}
 
 	logger.LoginLog(user.Username, ipAddr, loginType, common.ProtocolSSH, connectionID,
-		util.BytesToString(sconn.ClientVersion()), true,
+		util.BytesToString(sconn.ClientVersion()), true, "",
 		fmt.Sprintf("negotiated algorithms: %+v", sconn.Conn.(ssh.AlgorithmsConnMetadata).Algorithms()))
 
 	dataprovider.UpdateLastLogin(&user)

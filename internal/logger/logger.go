@@ -229,7 +229,8 @@ func TransferLog(operation, path string, elapsed int64, size int64, user, connec
 
 // CommandLog logs an SFTP/SCP/SSH command
 func CommandLog(command, path, target, user, fileMode, connectionID, protocol string, uid, gid int, atime, mtime,
-	sshCommand string, size int64, localAddr, remoteAddr string, elapsed int64) {
+	sshCommand string, size int64, localAddr, remoteAddr string, elapsed int64,
+) {
 	logger.Info().
 		Timestamp().
 		Str("sender", command).
@@ -268,7 +269,7 @@ func ConnectionFailedLog(user, ip, loginType, protocol, errorString string) {
 }
 
 // LoginLog logs successful logins.
-func LoginLog(user, ip, loginMethod, protocol, connectionID, clientVersion string, encrypted bool, info string) {
+func LoginLog(user, ip, loginMethod, protocol, connectionID, clientVersion string, encrypted bool, ciphersuite string, info string) {
 	ev := logger.Info()
 	ev.Timestamp().
 		Str("sender", "login").
@@ -281,6 +282,10 @@ func LoginLog(user, ip, loginMethod, protocol, connectionID, clientVersion strin
 	}
 	ev.Str("client", clientVersion).
 		Bool("encrypted", encrypted)
+
+	if ciphersuite != "" {
+		ev.Str("ciphersuite", ciphersuite)
+	}
 	if info != "" {
 		ev.Str("info", info)
 	}
