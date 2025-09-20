@@ -83,37 +83,6 @@ jobs:
         env:
           SFTPGO_VERSION: ${{ steps.get_version.outputs.VERSION }}
 
-      - name: Azure login
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Sign binaries
-        uses: azure/trusted-signing-action@v0.5.9
-        with:
-          endpoint: https://eus.codesigning.azure.net/
-          trusted-signing-account-name: nicola
-          certificate-profile-name: SFTPGo
-          files: |
-            ${{ github.workspace }}\sftpgo.exe
-            ${{ github.workspace }}\arm64\sftpgo.exe
-            ${{ github.workspace }}\x86\sftpgo.exe
-          file-digest: SHA256
-          timestamp-rfc3161: http://timestamp.acs.microsoft.com
-          timestamp-digest: SHA256
-          exclude-environment-credential: true
-          exclude-workload-identity-credential: true
-          exclude-managed-identity-credential: true
-          exclude-shared-token-cache-credential: true
-          exclude-visual-studio-credential: true
-          exclude-visual-studio-code-credential: true
-          exclude-azure-cli-credential: false
-          exclude-azure-powershell-credential: true
-          exclude-azure-developer-cli-credential: true
-          exclude-interactive-browser-credential: true
-
       - name: Initialize data provider
         run: ./sftpgo initprovider
         shell: bash
@@ -151,30 +120,6 @@ jobs:
           iscc .\windows-installer\sftpgo.iss
         env:
           SFTPGO_ISS_VERSION: ${{ steps.get_version.outputs.VERSION }}
-
-      - name: Sign installers
-        uses: azure/trusted-signing-action@v0.5.9
-        with:
-          endpoint: https://eus.codesigning.azure.net/
-          trusted-signing-account-name: nicola
-          certificate-profile-name: SFTPGo
-          files: |
-            ${{ github.workspace }}\sftpgo_windows_x86_64.exe
-            ${{ github.workspace }}\sftpgo_windows_arm64.exe
-            ${{ github.workspace }}\sftpgo_windows_x86.exe
-          file-digest: SHA256
-          timestamp-rfc3161: http://timestamp.acs.microsoft.com
-          timestamp-digest: SHA256
-          exclude-environment-credential: true
-          exclude-workload-identity-credential: true
-          exclude-managed-identity-credential: true
-          exclude-shared-token-cache-credential: true
-          exclude-visual-studio-credential: true
-          exclude-visual-studio-code-credential: true
-          exclude-azure-cli-credential: false
-          exclude-azure-powershell-credential: true
-          exclude-azure-developer-cli-credential: true
-          exclude-interactive-browser-credential: true
 
       - name: Prepare Portable Release
         run: |

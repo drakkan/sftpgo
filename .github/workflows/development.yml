@@ -169,39 +169,6 @@ jobs:
           Remove-Item Env:\GOOS
           Remove-Item Env:\GOARCH
 
-      - name: Azure login
-        if: ${{ github.event_name != 'pull_request' }}
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Sign binaries
-        if: ${{ github.event_name != 'pull_request' }}
-        uses: azure/trusted-signing-action@v0.5.9
-        with:
-          endpoint: https://eus.codesigning.azure.net/
-          trusted-signing-account-name: nicola
-          certificate-profile-name: SFTPGo
-          files: |
-            ${{ github.workspace }}\sftpgo.exe
-            ${{ github.workspace }}\arm64\sftpgo.exe
-            ${{ github.workspace }}\x86\sftpgo.exe
-          file-digest: SHA256
-          timestamp-rfc3161: http://timestamp.acs.microsoft.com
-          timestamp-digest: SHA256
-          exclude-environment-credential: true
-          exclude-workload-identity-credential: true
-          exclude-managed-identity-credential: true
-          exclude-shared-token-cache-credential: true
-          exclude-visual-studio-credential: true
-          exclude-visual-studio-code-credential: true
-          exclude-azure-cli-credential: false
-          exclude-azure-powershell-credential: true
-          exclude-azure-developer-cli-credential: true
-          exclude-interactive-browser-credential: true
-
       - name: Initialize data provider
         run: |
           rm sftpgo.db
@@ -246,31 +213,6 @@ jobs:
           copy .\x86\sftpgo.exe .\output
           $Env:SFTPGO_ISS_ARCH='x86'
           iscc .\windows-installer\sftpgo.iss
-
-      - name: Sign installers
-        if: ${{ github.event_name != 'pull_request' }}
-        uses: azure/trusted-signing-action@v0.5.9
-        with:
-          endpoint: https://eus.codesigning.azure.net/
-          trusted-signing-account-name: nicola
-          certificate-profile-name: SFTPGo
-          files: |
-            ${{ github.workspace }}\sftpgo_windows_x86_64.exe
-            ${{ github.workspace }}\sftpgo_windows_arm64.exe
-            ${{ github.workspace }}\sftpgo_windows_x86.exe
-          file-digest: SHA256
-          timestamp-rfc3161: http://timestamp.acs.microsoft.com
-          timestamp-digest: SHA256
-          exclude-environment-credential: true
-          exclude-workload-identity-credential: true
-          exclude-managed-identity-credential: true
-          exclude-shared-token-cache-credential: true
-          exclude-visual-studio-credential: true
-          exclude-visual-studio-code-credential: true
-          exclude-azure-cli-credential: false
-          exclude-azure-powershell-credential: true
-          exclude-azure-developer-cli-credential: true
-          exclude-interactive-browser-credential: true
 
       - name: Upload Windows installer x86_64 artifact
         if: ${{ github.event_name != 'pull_request' }}
