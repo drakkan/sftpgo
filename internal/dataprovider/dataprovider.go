@@ -4797,8 +4797,20 @@ func updateEventActions() error {
 	if err != nil {
 		return err
 	}
+	enabledCommands := slices.Clone(EnabledActionCommands)
+	defer func() {
+		EnabledActionCommands = enabledCommands
+	}()
+
 	for _, action := range convertedActions {
 		providerLog(logger.LevelInfo, "updating placeholders for event action %q", action.Name)
+		if action.Options.CmdConfig.Cmd != "" {
+			// EnabledActionCommands are initialized after the data provider,
+			// so all commands should be allowed here temporarily.
+			if !slices.Contains(EnabledActionCommands, action.Options.CmdConfig.Cmd) {
+				EnabledActionCommands = append(EnabledActionCommands, action.Options.CmdConfig.Cmd)
+			}
+		}
 		if err := provider.updateEventAction(&action); err != nil {
 			return fmt.Errorf("unable to save updated event action %q: %w", action.Name, err)
 		}
