@@ -7397,6 +7397,9 @@ func TestEventRuleEmailField(t *testing.T) {
 		Trigger: dataprovider.EventTriggerProviderEvent,
 		Conditions: dataprovider.EventConditions{
 			ProviderEvents: []string{"add"},
+			Options: dataprovider.ConditionOptions{
+				ProviderObjects: []string{"user"},
+			},
 		},
 		Actions: []dataprovider.EventAction{
 			{
