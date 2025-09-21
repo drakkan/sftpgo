@@ -273,7 +273,6 @@ func Init() {
 			HostCertificates:                  []string{},
 			HostKeyAlgorithms:                 []string{},
 			KexAlgorithms:                     []string{},
-			MinDHGroupExchangeKeySize:         2048,
 			Ciphers:                           []string{},
 			MACs:                              []string{},
 			PublicKeyAlgorithms:               []string{},
@@ -2103,7 +2102,6 @@ func setViperDefaults() {
 	viper.SetDefault("sftpd.host_certificates", globalConf.SFTPD.HostCertificates)
 	viper.SetDefault("sftpd.host_key_algorithms", globalConf.SFTPD.HostKeyAlgorithms)
 	viper.SetDefault("sftpd.kex_algorithms", globalConf.SFTPD.KexAlgorithms)
-	viper.SetDefault("sftpd.min_dh_group_exchange_key_size", globalConf.SFTPD.MinDHGroupExchangeKeySize)
 	viper.SetDefault("sftpd.ciphers", globalConf.SFTPD.Ciphers)
 	viper.SetDefault("sftpd.macs", globalConf.SFTPD.MACs)
 	viper.SetDefault("sftpd.public_key_algorithms", globalConf.SFTPD.PublicKeyAlgorithms)

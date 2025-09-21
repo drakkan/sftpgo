@@ -130,10 +130,6 @@ type Configuration struct {
 	// KexAlgorithms specifies the available KEX (Key Exchange) algorithms in
 	// preference order.
 	KexAlgorithms []string `json:"kex_algorithms" mapstructure:"kex_algorithms"`
-	// MinDHGroupExchangeKeySize defines the minimum key size to allow for the
-	// key exchanges when using diffie-hellman-group-exchange-sha1 or sha256 key
-	// exchange algorithms.
-	MinDHGroupExchangeKeySize int `json:"min_dh_group_exchange_key_size" mapstructure:"min_dh_group_exchange_key_size"`
 	// Ciphers specifies the ciphers allowed
 	Ciphers []string `json:"ciphers" mapstructure:"ciphers"`
 	// MACs Specifies the available MAC (message authentication code) algorithms
@@ -327,9 +323,6 @@ func (c *Configuration) Initialize(configDir string) error {
 		return common.ErrNoBinding
 	}
 
-	ssh.SetDHKexServerMinBits(uint32(c.MinDHGroupExchangeKeySize))
-	logger.Debug(logSender, "", "minimum key size allowed for diffie-hellman-group-exchange: %d",
-		ssh.GetDHKexServerMinBits())
 	sftp.SetSFTPExtensions(sftpExtensions...) //nolint:errcheck // we configure valid SFTP Extensions so we cannot get an error
 	sftp.MaxFilelist = 250
 
@@ -488,6 +481,9 @@ func (c *Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig)
 	if len(c.Ciphers) > 0 {
 		c.Ciphers = util.RemoveDuplicates(c.Ciphers, true)
 		for _, cipher := range c.Ciphers {
+			if slices.Contains([]string{"aes192-cbc", "aes256-cbc"}, cipher) {
+				continue
+			}
 			if !slices.Contains(supportedCiphers, cipher) {
 				return fmt.Errorf("unsupported cipher %q", cipher)
 			}

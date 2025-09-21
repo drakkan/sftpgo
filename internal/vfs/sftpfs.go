@@ -996,8 +996,7 @@ func (c *sftpConnection) openConnNoLock() error {
 	supportedAlgos := ssh.SupportedAlgorithms()
 	insecureAlgos := ssh.InsecureAlgorithms()
 	// add all available ciphers, KEXs and MACs, they are negotiated according to the order
-	clientConfig.Ciphers = append(supportedAlgos.Ciphers, ssh.InsecureCipherAES128CBC,
-		ssh.InsecureCipherAES192CBC, ssh.InsecureCipherAES256CBC)
+	clientConfig.Ciphers = append(supportedAlgos.Ciphers, ssh.InsecureCipherAES128CBC)
 	clientConfig.KeyExchanges = append(supportedAlgos.KeyExchanges, insecureAlgos.KeyExchanges...)
 	clientConfig.MACs = append(supportedAlgos.MACs, insecureAlgos.MACs...)
 	sshClient, err := ssh.Dial("tcp", c.config.Endpoint, clientConfig)

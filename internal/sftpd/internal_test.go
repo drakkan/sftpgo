@@ -1773,7 +1773,7 @@ func TestConfigsFromProvider(t *testing.T) {
 		SFTPD: &dataprovider.SFTPDConfigs{
 			HostKeyAlgos:   []string{ssh.KeyAlgoRSA},
 			KexAlgorithms:  []string{ssh.InsecureKeyExchangeDHGEXSHA1},
-			Ciphers:        []string{ssh.InsecureCipherAES128CBC, ssh.InsecureCipherAES192CBC, ssh.InsecureCipherAES256CBC},
+			Ciphers:        []string{ssh.InsecureCipherAES128CBC},
 			MACs:           []string{ssh.HMACSHA512ETM},
 			PublicKeyAlgos: []string{ssh.InsecureKeyAlgoDSA}, //nolint:staticcheck
 		},

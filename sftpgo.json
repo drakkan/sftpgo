@@ -95,7 +95,6 @@
     "host_certificates": [],
     "host_key_algorithms": [],
     "kex_algorithms": [],
-    "min_dh_group_exchange_key_size": 2048,
     "ciphers": [],
     "macs": [],
     "public_key_algorithms": [],

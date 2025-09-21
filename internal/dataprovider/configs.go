@@ -38,7 +38,7 @@ var (
 		ssh.InsecureKeyExchangeDHGEXSHA1,
 	}
 	supportedCiphers = []string{
-		ssh.InsecureCipherAES128CBC, ssh.InsecureCipherAES192CBC, ssh.InsecureCipherAES256CBC,
+		ssh.InsecureCipherAES128CBC,
 		ssh.InsecureCipherTripleDESCBC,
 	}
 	supportedMACs = []string{
@@ -124,6 +124,9 @@ func (c *SFTPDConfigs) validate() error {
 	}
 	c.KexAlgorithms = kexAlgos
 	for _, cipher := range c.Ciphers {
+		if slices.Contains([]string{"aes192-cbc", "aes256-cbc"}, cipher) {
+			continue
+		}
 		if !slices.Contains(supportedCiphers, cipher) {
 			return util.NewValidationError(fmt.Sprintf("unsupported cipher %q", cipher))
 		}
