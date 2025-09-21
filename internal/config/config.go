@@ -1201,12 +1201,6 @@ func getFTPDBindingSecurityFromEnv(idx int, binding *ftpd.Binding) bool {
 		isSet = true
 	}
 
-	tlsSessionReuse, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__TLS_SESSION_REUSE", idx), 32)
-	if ok {
-		binding.TLSSessionReuse = int(tlsSessionReuse)
-		isSet = true
-	}
-
 	tlsVer, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__MIN_TLS_VERSION", idx), 32)
 	if ok {
 		binding.MinTLSVersion = int(tlsVer)
@@ -1234,12 +1228,6 @@ func getFTPDBindingSecurityFromEnv(idx int, binding *ftpd.Binding) bool {
 	activeSecurity, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__ACTIVE_CONNECTIONS_SECURITY", idx), 32)
 	if ok {
 		binding.ActiveConnectionsSecurity = int(activeSecurity)
-		isSet = true
-	}
-
-	ignoreASCIITransferType, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%d__IGNORE_ASCII_TRANSFER_TYPE", idx), 32)
-	if ok {
-		binding.IgnoreASCIITransferType = int(ignoreASCIITransferType)
 		isSet = true
 	}
 

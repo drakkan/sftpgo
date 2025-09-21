@@ -291,7 +291,7 @@ func (c *Connection) Symlink(oldname, newname string) error {
 }
 
 // ReadDir implements ClientDriverExtensionFilelist
-func (c *Connection) ReadDir(name string) (ftpserver.DirLister, error) {
+func (c *Connection) ReadDir(name string) ([]os.FileInfo, error) {
 	c.UpdateLastActivity()
 
 	if c.doWildcardListDir {
@@ -306,16 +306,21 @@ func (c *Connection) ReadDir(name string) (ftpserver.DirLister, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &patternDirLister{
+		patternLister := &patternDirLister{
 			DirLister:      lister,
 			pattern:        baseName,
 			lastCommand:    c.clientContext.GetLastCommand(),
 			dirName:        name,
 			connectionPath: c.clientContext.Path(),
-		}, nil
+		}
+		return consumeDirLister(patternLister)
 	}
 
-	return c.ListDir(name)
+	lister, err := c.ListDir(name)
+	if err != nil {
+		return nil, err
+	}
+	return consumeDirLister(lister)
 }
 
 // GetHandle implements ClientDriverExtentionFileTransfer
@@ -582,4 +587,25 @@ func (l *patternDirLister) Next(limit int) ([]os.FileInfo, error) {
 			return files, err
 		}
 	}
+}
+
+func consumeDirLister(lister vfs.DirLister) ([]os.FileInfo, error) {
+	defer lister.Close()
+
+	var results []os.FileInfo
+
+	for {
+		files, err := lister.Next(vfs.ListerBatchSize)
+		finished := errors.Is(err, io.EOF)
+		results = append(results, files...)
+		if err != nil && !finished {
+			return results, err
+		}
+		if finished {
+			lister.Close()
+			break
+		}
+	}
+
+	return results, nil
 }

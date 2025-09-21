@@ -110,11 +110,7 @@ func (s *Server) GetSettings() (*ftpserver.Settings, error) {
 		return nil, fmt.Errorf("unsupported TLS mode: %d", s.binding.TLSMode)
 	}
 
-	if !s.binding.isTLSSessionReuseValid() {
-		return nil, fmt.Errorf("unsupported TLS reuse mode %d", s.binding.TLSSessionReuse)
-	}
-
-	if (s.binding.TLSMode > 0 || s.binding.TLSSessionReuse > 0) && certMgr == nil {
+	if s.binding.TLSMode > 0 && certMgr == nil {
 		return nil, errors.New("to enable TLS you need to provide a certificate")
 	}
 
@@ -128,13 +124,11 @@ func (s *Server) GetSettings() (*ftpserver.Settings, error) {
 		ConnectionTimeout:        20,
 		Banner:                   s.statusBanner,
 		TLSRequired:              ftpserver.TLSRequirement(s.binding.TLSMode),
-		TLSSessionReuse:          ftpserver.TLSSessionReuse(s.binding.TLSSessionReuse),
 		DisableSite:              !s.config.EnableSite,
 		DisableActiveMode:        s.config.DisableActiveMode,
 		EnableHASH:               s.config.HASHSupport > 0,
 		EnableCOMB:               s.config.CombineSupport > 0,
 		DefaultTransferType:      ftpserver.TransferTypeBinary,
-		IgnoreASCIITranferType:   s.binding.IgnoreASCIITransferType == 1,
 		ActiveConnectionsCheck:   ftpserver.DataConnectionRequirement(s.binding.ActiveConnectionsSecurity),
 		PasvConnectionsCheck:     ftpserver.DataConnectionRequirement(s.binding.PassiveConnectionsSecurity),
 	}, nil
@@ -292,9 +286,7 @@ func (s *Server) buildTLSConfig() {
 			s.binding.GetAddress(), s.binding.ciphers, certID)
 		if s.binding.isMutualTLSEnabled() {
 			s.tlsConfig.ClientCAs = certMgr.GetRootCAs()
-			if s.binding.TLSSessionReuse != int(ftpserver.TLSSessionReuseRequired) {
-				s.tlsConfig.VerifyConnection = s.verifyTLSConnection
-			}
+			s.tlsConfig.VerifyConnection = s.verifyTLSConnection
 			switch s.binding.ClientAuthType {
 			case 1:
 				s.tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert

@@ -443,7 +443,6 @@ func TestMain(m *testing.M) { //nolint:gocyclo
 			CertificateFile:    certPath,
 			CertificateKeyFile: keyPath,
 			TLSMode:            1,
-			TLSSessionReuse:    1,
 			ClientAuthType:     2,
 		},
 	}
@@ -530,16 +529,6 @@ func TestInitializationFailure(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "the provided passive IP \"127001\" is not valid")
 	ftpdConf.Bindings[1].ForcePassiveIP = ""
-	ftpdConf.Bindings[1].TLSMode = 2
-	ftpdConf.Bindings[1].TLSSessionReuse = 1
-	err = ftpdConf.Initialize(configDir)
-	require.Error(t, err, "TLS session resumption should not be supported with implicit FTPS")
-	ftpdConf.Bindings[1].TLSMode = 0
-	ftpdConf.Bindings[1].TLSSessionReuse = 100
-	err = ftpdConf.Initialize(configDir)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unsupported TLS reuse mode")
-	ftpdConf.Bindings[1].TLSSessionReuse = 0
 	err = ftpdConf.Initialize(configDir)
 	require.Error(t, err)
 
@@ -3165,12 +3154,12 @@ func TestMODEType(t *testing.T) {
 	if assert.NoError(t, err) {
 		code, response, err := client.SendCommand("MODE s")
 		assert.NoError(t, err)
-		assert.Equal(t, ftp.StatusCommandOK, code)
-		assert.Equal(t, "Transfer mode set to 'S'", response)
+		assert.Equal(t, ftp.StatusNotImplementedParameter, code)
+		assert.Equal(t, "Unsupported mode", response)
 		code, response, err = client.SendCommand("MODE S")
 		assert.NoError(t, err)
 		assert.Equal(t, ftp.StatusCommandOK, code)
-		assert.Equal(t, "Transfer mode set to 'S'", response)
+		assert.Equal(t, "Using stream mode", response)
 
 		code, _, err = client.SendCommand("MODE Z")
 		assert.NoError(t, err)
@@ -3178,7 +3167,7 @@ func TestMODEType(t *testing.T) {
 
 		code, _, err = client.SendCommand("MODE SS")
 		assert.NoError(t, err)
-		assert.Equal(t, ftp.StatusBadArguments, code)
+		assert.Equal(t, ftp.StatusNotImplementedParameter, code)
 
 		err = client.Quit()
 		assert.NoError(t, err)
@@ -3535,61 +3524,6 @@ func TestCombine(t *testing.T) {
 	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(localUser.GetHomeDir())
-	assert.NoError(t, err)
-}
-
-func TestTLSSessionReuse(t *testing.T) {
-	u := getTestUser()
-	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
-	assert.NoError(t, err)
-
-	client, err := getFTPClientWithSessionReuse(user, nil)
-	if assert.NoError(t, err) {
-		err = checkBasicFTP(client)
-		assert.NoError(t, err)
-
-		testFilePath := filepath.Join(homeBasePath, testFileName)
-		testFileSize := int64(65535)
-		err = createTestFile(testFilePath, testFileSize)
-		assert.NoError(t, err)
-
-		err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
-		assert.NoError(t, err)
-
-		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
-		err = ftpDownloadFile(testFileName, localDownloadPath, testFileSize, client, 0)
-		assert.NoError(t, err)
-
-		entries, err := client.List("/")
-		assert.NoError(t, err)
-		assert.Len(t, entries, 1)
-
-		err = client.Quit()
-		assert.NoError(t, err)
-		err = os.Remove(testFilePath)
-		assert.NoError(t, err)
-		err = os.Remove(localDownloadPath)
-		assert.NoError(t, err)
-	}
-
-	// this TLS config does not support session resumption
-	tlsConfig := &tls.Config{
-		ServerName:         "localhost",
-		InsecureSkipVerify: true, // use this for tests only
-		MinVersion:         tls.VersionTLS12,
-	}
-	client, err = getFTPClientWithSessionReuse(user, tlsConfig)
-	if assert.NoError(t, err) {
-		err = checkBasicFTP(client)
-		assert.Error(t, err)
-
-		err = client.Quit()
-		assert.NoError(t, err)
-	}
-
-	_, err = httpdtest.RemoveUser(user, http.StatusOK)
-	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 

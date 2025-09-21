@@ -66,8 +66,6 @@ type Binding struct {
 	// Set to 1 to require TLS for both data and control connection.
 	// Set to 2 to enable implicit TLS
 	TLSMode int `json:"tls_mode" mapstructure:"tls_mode"`
-	// 0 disabled, 1 required
-	TLSSessionReuse int `json:"tls_session_reuse" mapstructure:"tls_session_reuse"`
 	// Certificate and matching private key for this specific binding, if empty the global
 	// ones will be used, if any
 	CertificateFile    string `json:"certificate_file" mapstructure:"certificate_file"`
@@ -109,11 +107,6 @@ type Binding struct {
 	// Please note that disabling the security checks you will make the FTP service vulnerable to bounce attacks
 	// on active data connections, so change the default value only if you are on a trusted/internal network
 	ActiveConnectionsSecurity int `json:"active_connections_security" mapstructure:"active_connections_security"`
-	// Set to 1 to silently ignore any client requests to perform ASCII translations via the TYPE command.
-	// That is, FTP clients can request ASCII translations, and SFTPGo will respond as the client expects,
-	// but will not actually perform the translation for either uploads or downloads. This behavior can be
-	// useful in circumstances involving older/mainframe clients and EBCDIC files.
-	IgnoreASCIITransferType int `json:"ignore_ascii_transfer_type" mapstructure:"ignore_ascii_transfer_type"`
 	// Debug enables the FTP debug mode. In debug mode, every FTP command will be logged
 	Debug   bool `json:"debug" mapstructure:"debug"`
 	ciphers []uint16
@@ -139,10 +132,6 @@ func (b *Binding) IsValid() bool {
 
 func (b *Binding) isTLSModeValid() bool {
 	return b.TLSMode >= 0 && b.TLSMode <= 2
-}
-
-func (b *Binding) isTLSSessionReuseValid() bool {
-	return b.TLSSessionReuse >= 0 && b.TLSSessionReuse <= 1
 }
 
 func (b *Binding) checkSecuritySettings() error {
