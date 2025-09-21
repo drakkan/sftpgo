@@ -63,7 +63,6 @@ require (
 	github.com/wneessen/go-mail v0.7.0
 	github.com/yl2chen/cidranger v1.0.3-0.20210928021809-d1cb2c52f37a
 	go.etcd.io/bbolt v1.4.3
-	go.uber.org/automaxprocs v1.6.0
 	gocloud.dev v0.43.0
 	golang.org/x/crypto v0.42.0
 	golang.org/x/net v0.44.0
