@@ -114,24 +114,27 @@ func (s *Server) GetSettings() (*ftpserver.Settings, error) {
 		return nil, errors.New("to enable TLS you need to provide a certificate")
 	}
 
-	return &ftpserver.Settings{
-		Listener:                 ftpListener,
-		ListenAddr:               s.binding.GetAddress(),
-		PublicIPResolver:         s.binding.passiveIPResolver,
-		PassiveTransferPortRange: portRange,
-		ActiveTransferPortNon20:  s.config.ActiveTransfersPortNon20,
-		IdleTimeout:              -1,
-		ConnectionTimeout:        20,
-		Banner:                   s.statusBanner,
-		TLSRequired:              ftpserver.TLSRequirement(s.binding.TLSMode),
-		DisableSite:              !s.config.EnableSite,
-		DisableActiveMode:        s.config.DisableActiveMode,
-		EnableHASH:               s.config.HASHSupport > 0,
-		EnableCOMB:               s.config.CombineSupport > 0,
-		DefaultTransferType:      ftpserver.TransferTypeBinary,
-		ActiveConnectionsCheck:   ftpserver.DataConnectionRequirement(s.binding.ActiveConnectionsSecurity),
-		PasvConnectionsCheck:     ftpserver.DataConnectionRequirement(s.binding.PassiveConnectionsSecurity),
-	}, nil
+	settings := &ftpserver.Settings{
+		Listener:                ftpListener,
+		ListenAddr:              s.binding.GetAddress(),
+		PublicIPResolver:        s.binding.passiveIPResolver,
+		ActiveTransferPortNon20: s.config.ActiveTransfersPortNon20,
+		IdleTimeout:             -1,
+		ConnectionTimeout:       20,
+		Banner:                  s.statusBanner,
+		TLSRequired:             ftpserver.TLSRequirement(s.binding.TLSMode),
+		DisableSite:             !s.config.EnableSite,
+		DisableActiveMode:       s.config.DisableActiveMode,
+		EnableHASH:              s.config.HASHSupport > 0,
+		EnableCOMB:              s.config.CombineSupport > 0,
+		DefaultTransferType:     ftpserver.TransferTypeBinary,
+		ActiveConnectionsCheck:  ftpserver.DataConnectionRequirement(s.binding.ActiveConnectionsSecurity),
+		PasvConnectionsCheck:    ftpserver.DataConnectionRequirement(s.binding.PassiveConnectionsSecurity),
+	}
+	if portRange != nil {
+		settings.PassiveTransferPortRange = portRange
+	}
+	return settings, nil
 }
 
 // ClientConnected is called to send the very first welcome message

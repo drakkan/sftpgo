@@ -534,8 +534,10 @@ func TestServerGetSettings(t *testing.T) {
 	server := NewServer(c, configDir, binding, 0)
 	settings, err := server.GetSettings()
 	assert.NoError(t, err)
-	assert.Equal(t, 10000, settings.PassiveTransferPortRange.Start)
-	assert.Equal(t, 11000, settings.PassiveTransferPortRange.End)
+	if ranger, ok := settings.PassiveTransferPortRange.(*ftpserver.PortRange); ok {
+		assert.Equal(t, 10000, ranger.Start)
+		assert.Equal(t, 11000, ranger.End)
+	}
 
 	common.Config.ProxyProtocol = 1
 	_, err = server.GetSettings()
