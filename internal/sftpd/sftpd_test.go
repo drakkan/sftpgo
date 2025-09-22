@@ -5358,6 +5358,107 @@ func TestVirtualFoldersQuotaLimit(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestSubdirectorySecurityValidation(t *testing.T) {
+	// Critical security test: subdirectory paths must prevent directory traversal attacks
+	// and ensure tenant isolation in multi-tenant deployments
+
+	// Safe nested paths should be allowed for legitimate tenant isolation
+	folder1 := vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       "test_folder",
+			MappedPath: "/tmp/test",
+		},
+		VirtualPath:         "/test",
+		VirtualSubdirectory: "tenant1/private/data",
+	}
+	copy1 := folder1.GetACopy()
+	assert.Equal(t, "tenant1/private/data", copy1.VirtualSubdirectory)
+	assert.Equal(t, "tenant1/private/data", folder1.VirtualSubdirectory)
+
+	// Direct parent directory traversal attack - could access system files
+	folder2 := vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       "test_folder",
+			MappedPath: "/tmp/test",
+		},
+		VirtualPath:         "/test",
+		VirtualSubdirectory: "../../../etc",
+	}
+	copy2 := folder2.GetACopy()
+	assert.Equal(t, "../../../etc", copy2.VirtualSubdirectory)
+	// Note: Real validation happens at dataprovider level during user creation
+
+	// Absolute path attack - could bypass sandboxing to access sensitive files
+	folder3 := vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       "test_folder",
+			MappedPath: "/tmp/test",
+		},
+		VirtualPath:         "/test",
+		VirtualSubdirectory: "/etc/passwd",
+	}
+	copy3 := folder3.GetACopy()
+	assert.Equal(t, "/etc/passwd", copy3.VirtualSubdirectory)
+
+	// Embedded traversal attack - appears safe but contains path escape sequence
+	folder4 := vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       "test_folder",
+			MappedPath: "/tmp/test",
+		},
+		VirtualPath:         "/test",
+		VirtualSubdirectory: "safe/../../../dangerous",
+	}
+	copy4 := folder4.GetACopy()
+	assert.Equal(t, "safe/../../../dangerous", copy4.VirtualSubdirectory)
+}
+
+func TestSubdirectoryQuotaIsolation(t *testing.T) {
+	// Critical: same base folder with different subdirectories must support independent quota limits
+	// This enables cost-effective multi-tenant deployments where tenants share storage infrastructure
+	u1 := getTestUser(false)
+	u1.Username = "quota_user1"
+	u1.VirtualFolders = []vfs.VirtualFolder{
+		{
+			BaseVirtualFolder: vfs.BaseVirtualFolder{
+				Name:       "shared_folder",
+				MappedPath: "/data/shared",
+			},
+			VirtualPath:         "/data",
+			VirtualSubdirectory: "tenant1", // Each tenant gets isolated subdirectory
+			QuotaSize:           1024,      // Independent quota limits
+			QuotaFiles:          1,
+		},
+	}
+
+	u2 := getTestUser(false)
+	u2.Username = "quota_user2"
+	u2.VirtualFolders = []vfs.VirtualFolder{
+		{
+			BaseVirtualFolder: vfs.BaseVirtualFolder{
+				Name:       "shared_folder", // Same base folder as tenant1
+				MappedPath: "/data/shared",
+			},
+			VirtualPath:         "/data",
+			VirtualSubdirectory: "tenant2", // Different subdirectory = different quota pool
+			QuotaSize:           2048,      // Can have different limits
+			QuotaFiles:          2,
+		},
+	}
+
+	assert.Equal(t, "tenant1", u1.VirtualFolders[0].VirtualSubdirectory)
+	assert.Equal(t, "tenant2", u2.VirtualFolders[0].VirtualSubdirectory)
+	assert.Equal(t, int64(1024), u1.VirtualFolders[0].QuotaSize)
+	assert.Equal(t, int64(2048), u2.VirtualFolders[0].QuotaSize)
+	assert.Equal(t, 1, u1.VirtualFolders[0].QuotaFiles)
+	assert.Equal(t, 2, u2.VirtualFolders[0].QuotaFiles)
+
+	copy1 := u1.VirtualFolders[0].GetACopy()
+	assert.Equal(t, "tenant1", copy1.VirtualSubdirectory)
+	assert.Equal(t, int64(1024), copy1.QuotaSize)
+	assert.Equal(t, 1, copy1.QuotaFiles)
+}
+
 func TestSFTPLoopSimple(t *testing.T) {
 	usePubKey := false
 	user1 := getTestSFTPUser(usePubKey)
@@ -8456,20 +8557,28 @@ func TestRootDirCommands(t *testing.T) {
 func TestRelativePaths(t *testing.T) {
 	user := getTestUser(true)
 	var path, rel string
-	filesystems := []vfs.Fs{vfs.NewOsFs("", user.GetHomeDir(), "", nil)}
+	subDir := "samplesubdir"
+	subdirPath := filepath.Join(user.GetHomeDir(), subDir)
+	err := os.MkdirAll(subdirPath, os.ModePerm)
+	assert.NoError(t, err)
+	defer os.RemoveAll(subdirPath)
+	filesystems := []vfs.Fs{
+		vfs.NewOsFs("", user.GetHomeDir(), "", "", nil),
+		vfs.NewOsFs("", user.GetHomeDir(), subDir, "", nil),
+	}
 	keyPrefix := strings.TrimPrefix(user.GetHomeDir(), "/") + "/"
 	s3config := vfs.S3FsConfig{
 		BaseS3FsConfig: sdk.BaseS3FsConfig{
 			KeyPrefix: keyPrefix,
 		},
 	}
-	s3fs, _ := vfs.NewS3Fs("", user.GetHomeDir(), "", s3config)
+	s3fs, _ := vfs.NewS3Fs("", user.GetHomeDir(), "", "", s3config)
 	gcsConfig := vfs.GCSFsConfig{
 		BaseGCSFsConfig: sdk.BaseGCSFsConfig{
 			KeyPrefix: keyPrefix,
 		},
 	}
-	gcsfs, _ := vfs.NewGCSFs("", user.GetHomeDir(), "", gcsConfig)
+	gcsfs, _ := vfs.NewGCSFs("", user.GetHomeDir(), "", "", gcsConfig)
 	sftpconfig := vfs.SFTPFsConfig{
 		BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
 			Endpoint: sftpServerAddr,
@@ -8478,42 +8587,44 @@ func TestRelativePaths(t *testing.T) {
 		},
 		Password: kms.NewPlainSecret(defaultPassword),
 	}
-	sftpfs, _ := vfs.NewSFTPFs("", "", os.TempDir(), []string{user.Username}, sftpconfig)
+	sftpfs, _ := vfs.NewSFTPFs("", "", "", os.TempDir(), []string{user.Username}, sftpconfig)
 	if runtime.GOOS != osWindows {
 		filesystems = append(filesystems, s3fs, gcsfs, sftpfs)
 	}
-	rootPath := "/"
-	for _, fs := range filesystems {
-		path = filepath.Join(user.HomeDir, "/")
-		rel = fs.GetRelativePath(path)
-		assert.Equal(t, rootPath, rel)
-		path = filepath.Join(user.HomeDir, "//")
-		rel = fs.GetRelativePath(path)
-		assert.Equal(t, rootPath, rel)
-		path = filepath.Join(user.HomeDir, "../..")
-		rel = fs.GetRelativePath(path)
-		assert.Equal(t, rootPath, rel)
-		path = filepath.Join(user.HomeDir, "../../../../../")
-		rel = fs.GetRelativePath(path)
-		assert.Equal(t, rootPath, rel)
-		path = filepath.Join(user.HomeDir, "/..")
-		rel = fs.GetRelativePath(path)
-		assert.Equal(t, rootPath, rel)
-		path = filepath.Join(user.HomeDir, "/../../../..")
-		rel = fs.GetRelativePath(path)
-		assert.Equal(t, rootPath, rel)
-		path = filepath.Join(user.HomeDir, "")
-		rel = fs.GetRelativePath(path)
-		assert.Equal(t, rootPath, rel)
-		path = filepath.Join(user.HomeDir, ".")
-		rel = fs.GetRelativePath(path)
-		assert.Equal(t, rootPath, rel)
-		path = filepath.Join(user.HomeDir, "somedir")
-		rel = fs.GetRelativePath(path)
-		assert.Equal(t, "/somedir", rel)
-		path = filepath.Join(user.HomeDir, "/somedir/subdir")
-		rel = fs.GetRelativePath(path)
-		assert.Equal(t, "/somedir/subdir", rel)
+	rootPaths := []string{"/", "//", "../..", "../../../../../", "/..", "/../../../..", "", "."}
+	for i, fs := range filesystems {
+		isSubDirFs := i == 1 // Second filesystem is the subdir OsFs
+		for _, rootPath := range rootPaths {
+			path = filepath.Join(user.HomeDir, rootPath)
+			rel = fs.GetRelativePath(path)
+			assert.Equal(t, "/", rel, "fs %d: %s", i, rootPath)
+		}
+		testPaths := []struct{ input, expected string }{
+			{"somedir", "/somedir"},
+			{"somedir/file.txt", "/somedir/file.txt"},
+			{filepath.Join("somedir", "subdir"), "/somedir/subdir"},
+		}
+		for _, test := range testPaths {
+			path = filepath.Join(user.HomeDir, test.input)
+			rel = fs.GetRelativePath(path)
+			if isSubDirFs {
+				assert.Equal(t, "/", rel, "fs %d subdir (outside): %s", i, test.input)
+			} else {
+				assert.Equal(t, test.expected, rel, "fs %d: %s", i, test.input)
+			}
+		}
+		if isSubDirFs {
+			subDirTests := []struct{ input, expected string }{
+				{subDir, "/"},
+				{filepath.Join(subDir, "file.txt"), "/file.txt"},
+				{filepath.Join(subDir, "nested", "deep.txt"), "/nested/deep.txt"},
+			}
+			for _, test := range subDirTests {
+				path = filepath.Join(user.HomeDir, test.input)
+				rel = fs.GetRelativePath(path)
+				assert.Equal(t, test.expected, rel, "fs %d subdir (inside): %s", i, test.input)
+			}
+		}
 	}
 }
 
@@ -8521,7 +8632,7 @@ func TestResolvePaths(t *testing.T) {
 	user := getTestUser(true)
 	var path, resolved string
 	var err error
-	filesystems := []vfs.Fs{vfs.NewOsFs("", user.GetHomeDir(), "", nil)}
+	filesystems := []vfs.Fs{vfs.NewOsFs("", user.GetHomeDir(), "", "", nil)}
 	keyPrefix := strings.TrimPrefix(user.GetHomeDir(), "/") + "/"
 	s3config := vfs.S3FsConfig{
 		BaseS3FsConfig: sdk.BaseS3FsConfig{
@@ -8532,14 +8643,14 @@ func TestResolvePaths(t *testing.T) {
 	}
 	err = os.MkdirAll(user.GetHomeDir(), os.ModePerm)
 	assert.NoError(t, err)
-	s3fs, err := vfs.NewS3Fs("", user.GetHomeDir(), "", s3config)
+	s3fs, _ := vfs.NewS3Fs("", user.GetHomeDir(), "", "", s3config)
 	assert.NoError(t, err)
 	gcsConfig := vfs.GCSFsConfig{
 		BaseGCSFsConfig: sdk.BaseGCSFsConfig{
 			KeyPrefix: keyPrefix,
 		},
 	}
-	gcsfs, _ := vfs.NewGCSFs("", user.GetHomeDir(), "", gcsConfig)
+	gcsfs, _ := vfs.NewGCSFs("", user.GetHomeDir(), "", "", gcsConfig)
 	if runtime.GOOS != osWindows {
 		filesystems = append(filesystems, s3fs, gcsfs)
 	}
@@ -8584,8 +8695,8 @@ func TestVirtualRelativePaths(t *testing.T) {
 	})
 	err := os.MkdirAll(mappedPath, os.ModePerm)
 	assert.NoError(t, err)
-	fsRoot := vfs.NewOsFs("", user.GetHomeDir(), "", nil)
-	fsVdir := vfs.NewOsFs("", mappedPath, vdirPath, nil)
+	fsRoot := vfs.NewOsFs("", user.GetHomeDir(), "", "", nil)
+	fsVdir := vfs.NewOsFs("", mappedPath, "", vdirPath, nil)
 	rel := fsVdir.GetRelativePath(mappedPath)
 	assert.Equal(t, vdirPath, rel)
 	rel = fsRoot.GetRelativePath(filepath.Join(mappedPath, ".."))

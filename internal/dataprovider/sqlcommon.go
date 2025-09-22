@@ -36,7 +36,7 @@ import (
 )
 
 const (
-	sqlDatabaseVersion     = 33
+	sqlDatabaseVersion     = 34
 	defaultSQLQueryTimeout = 10 * time.Second
 	longSQLQueryTimeout    = 60 * time.Second
 )
@@ -2525,7 +2525,7 @@ func sqlCommonClearUserGroupMapping(ctx context.Context, user *User, dbHandle sq
 
 func sqlCommonAddUserFolderMapping(ctx context.Context, user *User, folder *vfs.VirtualFolder, sortOrder int, dbHandle sqlQuerier) error {
 	q := getAddUserFolderMappingQuery()
-	_, err := dbHandle.ExecContext(ctx, q, folder.VirtualPath, folder.QuotaSize, folder.QuotaFiles, folder.Name, user.Username, sortOrder)
+	_, err := dbHandle.ExecContext(ctx, q, folder.VirtualPath, folder.VirtualSubdirectory, folder.QuotaSize, folder.QuotaFiles, folder.Name, user.Username, sortOrder)
 	return err
 }
 
@@ -2539,7 +2539,7 @@ func sqlCommonAddGroupFolderMapping(ctx context.Context, group *Group, folder *v
 	dbHandle sqlQuerier,
 ) error {
 	q := getAddGroupFolderMappingQuery()
-	_, err := dbHandle.ExecContext(ctx, q, folder.VirtualPath, folder.QuotaSize, folder.QuotaFiles, folder.Name, group.Name, sortOrder)
+	_, err := dbHandle.ExecContext(ctx, q, folder.VirtualPath, folder.VirtualSubdirectory, folder.QuotaSize, folder.QuotaFiles, folder.Name, group.Name, sortOrder)
 	return err
 }
 
@@ -2747,7 +2747,7 @@ func getUsersWithVirtualFolders(ctx context.Context, users []User, dbHandle sqlQ
 		var mappedPath, description sql.NullString
 		var fsConfig []byte
 		err = rows.Scan(&folder.ID, &folder.Name, &mappedPath, &folder.UsedQuotaSize, &folder.UsedQuotaFiles,
-			&folder.LastQuotaUpdate, &folder.VirtualPath, &folder.QuotaSize, &folder.QuotaFiles, &userID, &fsConfig,
+			&folder.LastQuotaUpdate, &folder.VirtualPath, &folder.VirtualSubdirectory, &folder.QuotaSize, &folder.QuotaFiles, &userID, &fsConfig,
 			&description)
 		if err != nil {
 			return users, err
@@ -2898,7 +2898,7 @@ func getGroupsWithVirtualFolders(ctx context.Context, groups []Group, dbHandle s
 		var mappedPath, description sql.NullString
 		var fsConfig []byte
 		err = rows.Scan(&folder.ID, &folder.Name, &mappedPath, &folder.UsedQuotaSize, &folder.UsedQuotaFiles,
-			&folder.LastQuotaUpdate, &folder.VirtualPath, &folder.QuotaSize, &folder.QuotaFiles, &groupID, &fsConfig,
+			&folder.LastQuotaUpdate, &folder.VirtualPath, &folder.VirtualSubdirectory, &folder.QuotaSize, &folder.QuotaFiles, &groupID, &fsConfig,
 			&description)
 		if err != nil {
 			return groups, err
