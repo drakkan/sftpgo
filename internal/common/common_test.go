@@ -1412,6 +1412,19 @@ func TestUserPerms(t *testing.T) {
 	u.Permissions["/"] = []string{dataprovider.PermDeleteDirs, dataprovider.PermRenameFiles, dataprovider.PermRenameDirs}
 	assert.False(t, u.HasPermsDeleteAll("/"))
 	assert.True(t, u.HasPermsRenameAll("/"))
+
+	toCheck := []string{dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermCreateDirs, dataprovider.PermListItems,
+		dataprovider.PermOverwrite, dataprovider.PermDelete}
+	u.Permissions = make(map[string][]string)
+	u.Permissions["/"] = []string{dataprovider.PermListItems}
+	u.Permissions["/example-dir/bar"] = []string{dataprovider.PermListItems}
+	u.Permissions["/example-dir"] = toCheck
+	assert.True(t, u.HasPerms(toCheck, "/example-dir"))
+	assert.False(t, u.HasRecursivePerms(toCheck, "/example-dir"))
+	delete(u.Permissions, "/example-dir/bar")
+	assert.True(t, u.HasRecursivePerms(toCheck, "/example-dir"))
+	u.Permissions["/example-dirbar"] = []string{dataprovider.PermListItems}
+	assert.True(t, u.HasRecursivePerms(toCheck, "/example-dir"))
 }
 
 func TestGetTLSVersion(t *testing.T) {

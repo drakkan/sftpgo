@@ -876,6 +876,27 @@ func (u *User) HasAnyPerm(permissions []string, path string) bool {
 	return false
 }
 
+// HasRecursivePerms returns true if the user has all the specified permissions
+// in the given folder and in every subfolder that has explicit permissions
+// defined.
+func (u *User) HasRecursivePerms(permissions []string, virtualPath string) bool {
+	if !u.HasPerms(permissions, virtualPath) {
+		return false
+	}
+	for dir, perms := range u.Permissions {
+		if len(dir) > len(virtualPath) {
+			if strings.HasPrefix(dir, virtualPath+"/") {
+				for _, permission := range permissions {
+					if !slices.Contains(perms, permission) {
+						return false
+					}
+				}
+			}
+		}
+	}
+	return true
+}
+
 // HasPerms returns true if the user has all the given permissions
 func (u *User) HasPerms(permissions []string, path string) bool {
 	perms := u.GetPermissionsForPath(path)

@@ -262,7 +262,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error { //nolin
 	}
 	perms := []string{dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermCreateDirs, dataprovider.PermListItems,
 		dataprovider.PermOverwrite, dataprovider.PermDelete}
-	if !c.connection.User.HasPerms(perms, sshDestPath) {
+	if !c.connection.User.HasRecursivePerms(perms, sshDestPath) {
 		return c.sendErrorResponse(c.connection.GetPermissionDeniedError())
 	}
 
