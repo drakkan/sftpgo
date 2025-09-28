@@ -100,7 +100,7 @@ jobs:
 
   test-deploy-windows:
     name: Test and deploy Windows
-    runs-on: windows-2022
+    runs-on: windows-latest
 
     steps:
       - uses: actions/checkout@v5
@@ -177,6 +177,7 @@ jobs:
       - name: Prepare Windows installers
         if: ${{ github.event_name != 'pull_request' }}
         run: |
+          choco install innosetup
           Remove-Item -LiteralPath "output" -Force -Recurse -ErrorAction Ignore
           mkdir output
           copy .\sftpgo.exe .\output
