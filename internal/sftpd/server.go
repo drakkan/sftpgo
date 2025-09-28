@@ -712,6 +712,7 @@ func (c *Configuration) handleSftpConnection(channel ssh.Channel, connection *Co
 		}
 	}()
 	if err := common.Connections.Add(connection); err != nil {
+		defer connection.CloseFS() //nolint:errcheck
 		errClose := connection.Disconnect()
 		logger.Info(logSender, "", "unable to add connection: %v, close err: %v", err, errClose)
 		return

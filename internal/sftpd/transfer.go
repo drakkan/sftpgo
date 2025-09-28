@@ -19,7 +19,6 @@ import (
 	"io"
 
 	"github.com/drakkan/sftpgo/v2/internal/common"
-	"github.com/drakkan/sftpgo/v2/internal/metric"
 	"github.com/drakkan/sftpgo/v2/internal/vfs"
 )
 
@@ -191,64 +190,4 @@ func (t *transfer) setFinished() error {
 	}
 	t.isFinished = true
 	return nil
-}
-
-// used for ssh commands.
-// It reads from src until EOF so it does not treat an EOF from Read as an error to be reported.
-// EOF from Write is reported as error
-func (t *transfer) copyFromReaderToWriter(dst io.Writer, src io.Reader) (int64, error) {
-	defer t.Connection.RemoveTransfer(t)
-
-	var written int64
-	var err error
-
-	if t.MaxWriteSize < 0 {
-		return 0, common.ErrQuotaExceeded
-	}
-	isDownload := t.GetType() == common.TransferDownload
-	buf := make([]byte, 32768)
-	for {
-		t.Connection.UpdateLastActivity()
-		nr, er := src.Read(buf)
-		if nr > 0 {
-			nw, ew := dst.Write(buf[0:nr])
-			if nw > 0 {
-				written += int64(nw)
-				if isDownload {
-					t.BytesSent.Store(written)
-					if errCheck := t.CheckRead(); errCheck != nil {
-						err = errCheck
-						break
-					}
-				} else {
-					t.BytesReceived.Store(written)
-					if errCheck := t.CheckWrite(); errCheck != nil {
-						err = errCheck
-						break
-					}
-				}
-			}
-			if ew != nil {
-				err = ew
-				break
-			}
-			if nr != nw {
-				err = io.ErrShortWrite
-				break
-			}
-		}
-		if er != nil {
-			if er != io.EOF {
-				err = er
-			}
-			break
-		}
-		t.HandleThrottle()
-	}
-	t.ErrTransfer = err
-	if written > 0 || err != nil {
-		metric.TransferCompleted(t.BytesSent.Load(), t.BytesReceived.Load(), t.GetType(),
-			t.ErrTransfer, vfs.IsSFTPFs(t.Fs))
-	}
-	return written, err
 }

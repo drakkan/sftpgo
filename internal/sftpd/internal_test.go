@@ -538,33 +538,6 @@ func TestSSHCommandErrors(t *testing.T) {
 	_, err = cmd.connection.User.GetFilesystem("123")
 	assert.NoError(t, err)
 
-	cmd.command = "git-receive-pack"
-	command, err := cmd.getSystemCommand()
-	assert.NoError(t, err)
-
-	err = cmd.executeSystemCommand(command)
-	assert.Error(t, err, "invalid command must fail")
-
-	command, err = cmd.getSystemCommand()
-	assert.NoError(t, err)
-
-	_, err = command.cmd.StderrPipe()
-	assert.NoError(t, err)
-
-	err = cmd.executeSystemCommand(command)
-	assert.Error(t, err, "command must fail, pipe was already assigned")
-
-	err = cmd.executeSystemCommand(command)
-	assert.Error(t, err, "command must fail, pipe was already assigned")
-
-	command, err = cmd.getSystemCommand()
-	assert.NoError(t, err)
-
-	_, err = command.cmd.StdoutPipe()
-	assert.NoError(t, err)
-	err = cmd.executeSystemCommand(command)
-	assert.Error(t, err, "command must fail, pipe was already assigned")
-
 	cmd = sshCommand{
 		command:    "sftpgo-remove",
 		connection: &connection,
@@ -580,23 +553,6 @@ func TestSSHCommandErrors(t *testing.T) {
 	}
 	err = cmd.handle()
 	assert.Error(t, err, "ssh command must fail, we are requesting an invalid path")
-
-	cmd.connection.User.HomeDir = filepath.Clean(os.TempDir())
-
-	cmd = sshCommand{
-		command:    "sftpgo-copy",
-		connection: &connection,
-		args:       []string{"src", "dst"},
-	}
-
-	cmd.connection.User.Permissions = make(map[string][]string)
-	cmd.connection.User.Permissions["/"] = []string{dataprovider.PermAny}
-
-	common.WaitForTransfers(1)
-	_, err = cmd.getSystemCommand()
-	if assert.Error(t, err) {
-		assert.Contains(t, err.Error(), common.ErrShuttingDown.Error())
-	}
 
 	err = common.Initialize(common.Config, 0)
 	assert.NoError(t, err)
@@ -638,14 +594,6 @@ func TestCommandsWithExtensionsFilter(t *testing.T) {
 	}
 	err := cmd.handleHashCommands()
 	assert.EqualError(t, err, common.ErrPermissionDenied.Error())
-
-	cmd = sshCommand{
-		command:    "rsync",
-		connection: connection,
-		args:       []string{"--server", "-vlogDtprze.iLsfxC", ".", "/"},
-	}
-	_, err = cmd.getSystemCommand()
-	assert.EqualError(t, err, errUnsupportedConfig.Error())
 }
 
 func TestSSHCommandsRemoteFs(t *testing.T) {
@@ -676,17 +624,7 @@ func TestSSHCommandsRemoteFs(t *testing.T) {
 		args:       []string{},
 	}
 
-	command, err := cmd.getSystemCommand()
-	assert.NoError(t, err)
-
-	err = cmd.executeSystemCommand(command)
-	assert.Error(t, err, "command must fail for a non local filesystem")
-	cmd = sshCommand{
-		command:    "sftpgo-copy",
-		connection: connection,
-		args:       []string{},
-	}
-	err = cmd.handleSFTPGoCopy()
+	err := cmd.handleSFTPGoCopy()
 	assert.Error(t, err)
 	cmd = sshCommand{
 		command:    "sftpgo-remove",
@@ -735,246 +673,12 @@ func TestSSHCmdGetFsErrors(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestRsyncOptions(t *testing.T) {
-	permissions := make(map[string][]string)
-	permissions["/"] = []string{dataprovider.PermAny}
-	user := dataprovider.User{
-		BaseUser: sdk.BaseUser{
-			Permissions: permissions,
-			HomeDir:     filepath.Clean(os.TempDir()),
-		},
-	}
-	conn := &Connection{
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", "", user),
-	}
-	sshCmd := sshCommand{
-		command:    "rsync",
-		connection: conn,
-		args:       []string{"--server", "-vlogDtprze.iLsfxC", ".", "/"},
-	}
-	cmd, err := sshCmd.getSystemCommand()
-	assert.NoError(t, err)
-	assert.Equal(t, []string{"rsync", "--server", "-vlogDtprze.iLsfxC", "--safe-links", ".", user.HomeDir + string(os.PathSeparator)}, cmd.cmd.Args,
-		"--safe-links must be added if the user has the create symlinks permission")
-
-	permissions["/"] = []string{dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermCreateDirs,
-		dataprovider.PermListItems, dataprovider.PermOverwrite, dataprovider.PermDelete, dataprovider.PermRename}
-	user.Permissions = permissions
-
-	conn = &Connection{
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", "", user),
-	}
-	sshCmd = sshCommand{
-		command:    "rsync",
-		connection: conn,
-	}
-	_, err = sshCmd.getSystemCommand()
-	assert.Error(t, err)
-	sshCmd = sshCommand{
-		command:    "rsync",
-		connection: conn,
-		args:       []string{"--server", "-vlogDtprze.iLsfxC", ".", "/"},
-	}
-	cmd, err = sshCmd.getSystemCommand()
-	assert.NoError(t, err)
-	assert.Equal(t, []string{"rsync", "--server", "-vlogDtprze.iLsfxC", "--munge-links", ".", user.HomeDir + string(os.PathSeparator)}, cmd.cmd.Args,
-		"--munge-links must be added if the user hasn't the create symlinks permission")
-
-	sshCmd.connection.User.VirtualFolders = append(sshCmd.connection.User.VirtualFolders, vfs.VirtualFolder{
-		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			MappedPath: os.TempDir(),
-		},
-		VirtualPath: "/vdir",
-	})
-	_, err = sshCmd.getSystemCommand()
-	assert.EqualError(t, err, errUnsupportedConfig.Error())
-}
-
-func TestSystemCommandSizeForPath(t *testing.T) {
-	permissions := make(map[string][]string)
-	permissions["/"] = []string{dataprovider.PermAny}
-	user := dataprovider.User{
-		BaseUser: sdk.BaseUser{
-			Permissions: permissions,
-			HomeDir:     os.TempDir(),
-		},
-	}
-	fs, err := user.GetFilesystem("123")
-	assert.NoError(t, err)
-	conn := &Connection{
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", "", user),
-	}
-	sshCmd := sshCommand{
-		command:    "rsync",
-		connection: conn,
-		args:       []string{"--server", "-vlogDtprze.iLsfxC", ".", "/"},
-	}
-	_, _, err = sshCmd.getSizeForPath(fs, "missing path")
-	assert.NoError(t, err)
-	testDir := filepath.Join(os.TempDir(), "dir")
-	err = os.MkdirAll(testDir, os.ModePerm)
-	assert.NoError(t, err)
-	testFile := filepath.Join(testDir, "testfile")
-	err = os.WriteFile(testFile, []byte("test content"), os.ModePerm)
-	assert.NoError(t, err)
-	err = os.Symlink(testFile, testFile+".link")
-	assert.NoError(t, err)
-	numFiles, size, err := sshCmd.getSizeForPath(fs, testFile+".link")
-	assert.NoError(t, err)
-	assert.Equal(t, 0, numFiles)
-	assert.Equal(t, int64(0), size)
-	numFiles, size, err = sshCmd.getSizeForPath(fs, testFile)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, numFiles)
-	assert.Equal(t, int64(12), size)
-	if runtime.GOOS != osWindows {
-		err = os.Chmod(testDir, 0001)
-		assert.NoError(t, err)
-		_, _, err = sshCmd.getSizeForPath(fs, testFile)
-		assert.Error(t, err)
-		err = os.Chmod(testDir, os.ModePerm)
-		assert.NoError(t, err)
-	}
-	err = os.RemoveAll(testDir)
-	assert.NoError(t, err)
-}
-
-func TestSystemCommandErrors(t *testing.T) {
-	buf := make([]byte, 65535)
-	stdErrBuf := make([]byte, 65535)
-	readErr := fmt.Errorf("test read error")
-	writeErr := fmt.Errorf("test write error")
-	mockSSHChannel := MockChannel{
-		Buffer:       bytes.NewBuffer(buf),
-		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
-		ReadError:    nil,
-		WriteError:   writeErr,
-	}
-	permissions := make(map[string][]string)
-	permissions["/"] = []string{dataprovider.PermAny}
-	homeDir := filepath.Join(os.TempDir(), "adir")
-	err := os.MkdirAll(homeDir, os.ModePerm)
-	assert.NoError(t, err)
-	err = os.WriteFile(filepath.Join(homeDir, "afile"), []byte("content"), os.ModePerm)
-	assert.NoError(t, err)
-	user := dataprovider.User{
-		BaseUser: sdk.BaseUser{
-			Permissions: permissions,
-			HomeDir:     homeDir,
-		},
-	}
-	fs, err := user.GetFilesystem("123")
-	assert.NoError(t, err)
-	connection := &Connection{
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", "", user),
-		channel:        &mockSSHChannel,
-	}
-	var sshCmd sshCommand
-	if runtime.GOOS == osWindows {
-		sshCmd = sshCommand{
-			command:    "dir",
-			connection: connection,
-			args:       []string{"/"},
-		}
-	} else {
-		sshCmd = sshCommand{
-			command:    "ls",
-			connection: connection,
-			args:       []string{"/"},
-		}
-	}
-	systemCmd, err := sshCmd.getSystemCommand()
-	assert.NoError(t, err)
-
-	systemCmd.cmd.Dir = os.TempDir()
-	// FIXME: the command completes but the fake client is unable to read the response
-	// no error is reported in this case. We can see that the expected code is executed
-	// reading the test coverage
-	sshCmd.executeSystemCommand(systemCmd) //nolint:errcheck
-
-	mockSSHChannel = MockChannel{
-		Buffer:       bytes.NewBuffer(buf),
-		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
-		ReadError:    readErr,
-		WriteError:   nil,
-	}
-	sshCmd.connection.channel = &mockSSHChannel
-	baseTransfer := common.NewBaseTransfer(nil, sshCmd.connection.BaseConnection, nil, "", "", "",
-		common.TransferUpload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
-	transfer := newTransfer(baseTransfer, nil, nil, nil)
-	destBuff := make([]byte, 65535)
-	dst := bytes.NewBuffer(destBuff)
-	_, err = transfer.copyFromReaderToWriter(dst, sshCmd.connection.channel)
-	assert.EqualError(t, err, readErr.Error())
-
-	mockSSHChannel = MockChannel{
-		Buffer:       bytes.NewBuffer(buf),
-		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
-		ReadError:    nil,
-		WriteError:   nil,
-	}
-	sshCmd.connection.channel = &mockSSHChannel
-	transfer.MaxWriteSize = 1
-	_, err = transfer.copyFromReaderToWriter(dst, sshCmd.connection.channel)
-	assert.True(t, transfer.Connection.IsQuotaExceededError(err))
-
-	mockSSHChannel = MockChannel{
-		Buffer:        bytes.NewBuffer(buf),
-		StdErrBuffer:  bytes.NewBuffer(stdErrBuf),
-		ReadError:     nil,
-		WriteError:    nil,
-		ShortWriteErr: true,
-	}
-	sshCmd.connection.channel = &mockSSHChannel
-	_, err = transfer.copyFromReaderToWriter(sshCmd.connection.channel, dst)
-	assert.EqualError(t, err, io.ErrShortWrite.Error())
-	transfer.MaxWriteSize = -1
-	_, err = transfer.copyFromReaderToWriter(sshCmd.connection.channel, dst)
-	assert.True(t, transfer.Connection.IsQuotaExceededError(err))
-	err = transfer.Close()
-	assert.Error(t, err)
-
-	baseTransfer = common.NewBaseTransfer(nil, sshCmd.connection.BaseConnection, nil, "", "", "",
-		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{
-			AllowedDLSize: 1,
-		})
-	transfer = newTransfer(baseTransfer, nil, nil, nil)
-	mockSSHChannel = MockChannel{
-		Buffer:       bytes.NewBuffer(buf),
-		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
-		ReadError:    nil,
-		WriteError:   nil,
-	}
-	sshCmd.connection.channel = &mockSSHChannel
-	_, err = transfer.copyFromReaderToWriter(dst, sshCmd.connection.channel)
-	if assert.Error(t, err) {
-		assert.Contains(t, err.Error(), common.ErrReadQuotaExceeded.Error())
-	}
-	err = transfer.Close()
-	assert.Error(t, err)
-
-	err = os.RemoveAll(homeDir)
-	assert.NoError(t, err)
-
-	assert.Equal(t, int32(0), common.Connections.GetTotalTransfers())
-}
-
 func TestCommandGetFsError(t *testing.T) {
 	user := dataprovider.User{
 		FsConfig: vfs.Filesystem{
 			Provider: sdk.CryptedFilesystemProvider,
 		},
 	}
-	conn := &Connection{
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", "", user),
-	}
-	sshCmd := sshCommand{
-		command:    "rsync",
-		connection: conn,
-		args:       []string{"--server", "-vlogDtprze.iLsfxC", ".", "/"},
-	}
-	_, err := sshCmd.getSystemCommand()
-	assert.Error(t, err)
 
 	buf := make([]byte, 65535)
 	stdErrBuf := make([]byte, 65535)
@@ -983,7 +687,7 @@ func TestCommandGetFsError(t *testing.T) {
 		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
 		ReadError:    nil,
 	}
-	conn = &Connection{
+	conn := &Connection{
 		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", "", user),
 		channel:        &mockSSHChannel,
 	}
@@ -995,7 +699,7 @@ func TestCommandGetFsError(t *testing.T) {
 		},
 	}
 
-	err = scpCommand.handleRecursiveUpload()
+	err := scpCommand.handleRecursiveUpload()
 	assert.Error(t, err)
 	err = scpCommand.handleDownload("")
 	assert.Error(t, err)
@@ -1910,40 +1614,6 @@ func TestCertCheckerInitErrors(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestSFTPSubSystem(t *testing.T) {
-	permissions := make(map[string][]string)
-	permissions["/"] = []string{dataprovider.PermAny}
-	user := &dataprovider.User{
-		BaseUser: sdk.BaseUser{
-			Permissions: permissions,
-			HomeDir:     os.TempDir(),
-		},
-	}
-	user.FsConfig.Provider = sdk.AzureBlobFilesystemProvider
-	err := ServeSubSystemConnection(user, "connID", nil, nil)
-	assert.Error(t, err)
-	user.FsConfig.Provider = sdk.LocalFilesystemProvider
-
-	buf := make([]byte, 0, 4096)
-	stdErrBuf := make([]byte, 0, 4096)
-	mockSSHChannel := &MockChannel{
-		Buffer:       bytes.NewBuffer(buf),
-		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
-	}
-	// this is 327680 and it will result in packet too long error
-	_, err = mockSSHChannel.Write([]byte{0x00, 0x05, 0x00, 0x00, 0x00, 0x00})
-	assert.NoError(t, err)
-	err = ServeSubSystemConnection(user, "id", mockSSHChannel, mockSSHChannel)
-	assert.EqualError(t, err, "packet too long")
-
-	subsystemChannel := newSubsystemChannel(mockSSHChannel, mockSSHChannel)
-	n, err := subsystemChannel.Write([]byte{0x00})
-	assert.NoError(t, err)
-	assert.Equal(t, n, 1)
-	err = subsystemChannel.Close()
-	assert.NoError(t, err)
-}
-
 func TestRecoverer(t *testing.T) {
 	c := Configuration{}
 	c.AcceptInboundConnection(nil, nil)
@@ -2074,9 +1744,27 @@ func TestMaxUserSessions(t *testing.T) {
 	c := Configuration{}
 	c.handleSftpConnection(nil, connection)
 
+	buf := make([]byte, 65535)
+	stdErrBuf := make([]byte, 65535)
+	mockSSHChannel := MockChannel{
+		Buffer:       bytes.NewBuffer(buf),
+		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
+	}
+
+	conn := &Connection{
+		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolSFTP, "", "", dataprovider.User{
+			BaseUser: sdk.BaseUser{
+				Username:    "user_max_sessions",
+				HomeDir:     filepath.Clean(os.TempDir()),
+				MaxSessions: 1,
+			},
+		}),
+		channel: &mockSSHChannel,
+	}
+
 	sshCmd := sshCommand{
 		command:    "cd",
-		connection: connection,
+		connection: conn,
 	}
 	err = sshCmd.handle()
 	if assert.Error(t, err) {
@@ -2085,17 +1773,14 @@ func TestMaxUserSessions(t *testing.T) {
 	scpCmd := scpCommand{
 		sshCommand: sshCommand{
 			command:    "scp",
-			connection: connection,
+			connection: conn,
 		},
 	}
 	err = scpCmd.handle()
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "too many open sessions")
 	}
-	err = ServeSubSystemConnection(&connection.User, connection.ID, nil, nil)
-	if assert.Error(t, err) {
-		assert.Contains(t, err.Error(), "too many open sessions")
-	}
+
 	common.Connections.Remove(connection.GetID())
 	assert.Len(t, common.Connections.GetStats(""), 0)
 	assert.Equal(t, int32(0), common.Connections.GetTotalTransfers())
@@ -2156,44 +1841,4 @@ func TestAuthenticationErrors(t *testing.T) {
 	err = newAuthenticationError(nil, loginMethod, username)
 	assert.ErrorIs(t, err, sftpAuthError)
 	assert.NotErrorIs(t, err, util.ErrNotFound)
-}
-
-func TestRsyncArguments(t *testing.T) {
-	assert.False(t, canAcceptRsyncArgs(nil))
-	args := []string{"-e", "--server"}
-	assert.False(t, canAcceptRsyncArgs(args))
-	args = []string{"--server", "--sender", "-vlogDtpre.iLsfxCIvu", ".", "."}
-	assert.True(t, canAcceptRsyncArgs(args))
-	args = []string{"--server", "--sender", "--server", "-vlogDtpre.iLsfxCIvu", ".", "."}
-	assert.False(t, canAcceptRsyncArgs(args))
-	args = []string{"--server", "..", "/"}
-	assert.False(t, canAcceptRsyncArgs(args))
-	args = []string{"--server", ".", "/"}
-	assert.False(t, canAcceptRsyncArgs(args))
-	args = []string{"--server", "--sender", "-vlogDtpre.iLsfxCIvu", ".", "."}
-	assert.True(t, canAcceptRsyncArgs(args))
-	args = []string{"--server", "--sender", "-vlogDtpre.iLsfxCIvu", "--delete", ".", "/"}
-	assert.True(t, canAcceptRsyncArgs(args))
-	args = []string{"--server", "-vlogDtpre.iLsfxCIvu", "--delete", ".", "/"}
-	assert.True(t, canAcceptRsyncArgs(args))
-	args = []string{"--server", "-vlogDtpre.iLsfxCIvu", "--delete", "/", ".", "/"}
-	assert.False(t, canAcceptRsyncArgs(args))
-	args = []string{"--server", "--sender", "-vlogDtpre.iLsfxCIvu", ".", "path1", "path2"}
-	assert.False(t, canAcceptRsyncArgs(args))
-	args = []string{"--server", "--sender", "-vlogDtpre.iLsfxCIvu", "."}
-	assert.False(t, canAcceptRsyncArgs(args))
-	args = []string{"--sender", "-vlogDtpre.iLsfxCIvu", "--delete", ".", "/"}
-	assert.False(t, canAcceptRsyncArgs(args))
-	args = []string{"--server", "-vlogDtpre.", "--delete", ".", "/"}
-	assert.False(t, canAcceptRsyncArgs(args))
-	args = []string{"--server", "--sender", "-vlogDtpre.", "--delete", ".", "/"}
-	assert.False(t, canAcceptRsyncArgs(args))
-	args = []string{"--server", "--sender", "-e.iLsfxCIvu", ".", "/"}
-	assert.True(t, canAcceptRsyncArgs(args))
-	args = []string{"--server", "-vlogDtpre.iLsfxCIvu", "--delete", "/"}
-	assert.False(t, canAcceptRsyncArgs(args))
-	args = []string{"--server", "-vlogDtpre.iLsfxCIvu", "--delete", "--safe-links"}
-	assert.False(t, canAcceptRsyncArgs(args))
-	args = []string{"--server", "-vlogDtpre.iLsfxCIvu", "--unsupported-option", ".", "/"}
-	assert.False(t, canAcceptRsyncArgs(args))
 }

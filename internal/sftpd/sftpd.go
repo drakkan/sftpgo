@@ -31,10 +31,9 @@ const (
 
 var (
 	supportedSSHCommands = []string{"scp", "md5sum", "sha1sum", "sha256sum", "sha384sum", "sha512sum", "cd", "pwd",
-		"rsync", "sftpgo-copy", "sftpgo-remove"}
+		"sftpgo-copy", "sftpgo-remove"}
 	defaultSSHCommands = []string{"md5sum", "sha1sum", "sha256sum", "cd", "pwd", "scp"}
 	sshHashCommands    = []string{"md5sum", "sha1sum", "sha256sum", "sha384sum", "sha512sum"}
-	systemCommands     = []string{"rsync"}
 	serviceStatus      ServiceStatus
 	certKeyAlgoNames   = map[string]string{
 		ssh.CertAlgoRSAv01:         ssh.KeyAlgoRSA,

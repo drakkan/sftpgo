@@ -51,8 +51,9 @@ func (c *scpCommand) handle() (err error) {
 		}
 	}()
 	if err := common.Connections.Add(c.connection); err != nil {
+		defer c.connection.CloseFS() //nolint:errcheck
 		logger.Info(logSender, "", "unable to add SCP connection: %v", err)
-		return err
+		return c.sendErrorResponse(err)
 	}
 	defer common.Connections.Remove(c.connection.GetID())
 
