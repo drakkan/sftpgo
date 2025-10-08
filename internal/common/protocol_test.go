@@ -8563,7 +8563,9 @@ func TestPerUserTransferLimits(t *testing.T) {
 	u := getTestUser()
 	u.UploadBandwidth = 32
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
-	assert.NoError(t, err)
+	if !assert.NoError(t, err) {
+		printLatestLogs(20)
+	}
 	conn, client, err := getSftpClient(user)
 	if assert.NoError(t, err) {
 		defer conn.Close()
