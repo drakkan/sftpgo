@@ -23,6 +23,7 @@ import (
 	"github.com/go-chi/render"
 
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
+	"github.com/drakkan/sftpgo/v2/internal/jwt"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 )
 
@@ -44,7 +45,7 @@ func getGroups(w http.ResponseWriter, r *http.Request) {
 func addGroup(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
@@ -61,12 +62,12 @@ func addGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Add("Location", fmt.Sprintf("%s/%s", groupPath, url.PathEscape(group.Name)))
-	renderGroup(w, r, group.Name, &claims, http.StatusCreated)
+	renderGroup(w, r, group.Name, claims, http.StatusCreated)
 }
 
 func updateGroup(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
@@ -98,7 +99,7 @@ func updateGroup(w http.ResponseWriter, r *http.Request) {
 	sendAPIResponse(w, r, nil, "Group updated", http.StatusOK)
 }
 
-func renderGroup(w http.ResponseWriter, r *http.Request, name string, claims *jwtTokenClaims, status int) {
+func renderGroup(w http.ResponseWriter, r *http.Request, name string, claims *jwt.Claims, status int) {
 	group, err := dataprovider.GroupExists(name)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
@@ -117,18 +118,18 @@ func renderGroup(w http.ResponseWriter, r *http.Request, name string, claims *jw
 
 func getGroupByName(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
 	}
 	name := getURLParam(r, "name")
-	renderGroup(w, r, name, &claims, http.StatusOK)
+	renderGroup(w, r, name, claims, http.StatusOK)
 }
 
 func deleteGroup(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return

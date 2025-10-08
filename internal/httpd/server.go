@@ -16,6 +16,7 @@ package httpd
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
@@ -32,9 +33,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/go-chi/jwtauth/v5"
 	"github.com/go-chi/render"
-	"github.com/lestrrat-go/jwx/v2/jwa"
+	"github.com/go-jose/go-jose/v4"
 	"github.com/rs/cors"
 	"github.com/rs/xid"
 	"github.com/sftpgo/sdk"
@@ -43,6 +43,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/acme"
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
+	"github.com/drakkan/sftpgo/v2/internal/jwt"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/mfa"
 	"github.com/drakkan/sftpgo/v2/internal/smtp"
@@ -69,8 +70,8 @@ type httpdServer struct {
 	renderOpenAPI     bool
 	isShared          int
 	router            *chi.Mux
-	tokenAuth         *jwtauth.JWTAuth
-	csrfTokenAuth     *jwtauth.JWTAuth
+	tokenAuth         *jwt.Signer
+	csrfTokenAuth     *jwt.Signer
 	signingPassphrase string
 	cors              CorsConfig
 }
@@ -99,7 +100,9 @@ func (s *httpdServer) setShared(value int) {
 }
 
 func (s *httpdServer) listenAndServe() error {
-	s.initializeRouter()
+	if err := s.initializeRouter(); err != nil {
+		return err
+	}
 	httpServer := &http.Server{
 		Handler:           s.router,
 		ReadHeaderTimeout: 30 * time.Second,
@@ -173,7 +176,7 @@ func (s *httpdServer) renderClientLoginPage(w http.ResponseWriter, r *http.Reque
 		Title:          util.I18nLoginTitle,
 		CurrentURL:     webClientLoginPath,
 		Error:          err,
-		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, xid.New().String(), webBaseClientPath),
+		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, rand.Text(), webBaseClientPath),
 		Branding:       s.binding.webClientBranding(),
 		Languages:      s.binding.languages(),
 		FormDisabled:   s.binding.isWebClientLoginFormDisabled(),
@@ -327,7 +330,7 @@ func (s *httpdServer) handleWebClientPasswordResetPost(w http.ResponseWriter, r 
 
 func (s *httpdServer) handleWebClientTwoFactorRecoveryPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil {
 		s.renderNotFoundPage(w, r, nil)
 		return
@@ -393,7 +396,7 @@ func (s *httpdServer) handleWebClientTwoFactorRecoveryPost(w http.ResponseWriter
 
 func (s *httpdServer) handleWebClientTwoFactorPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil {
 		s.renderNotFoundPage(w, r, nil)
 		return
@@ -451,7 +454,7 @@ func (s *httpdServer) handleWebClientTwoFactorPost(w http.ResponseWriter, r *htt
 func (s *httpdServer) handleWebAdminTwoFactorRecoveryPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
 
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil {
 		s.renderNotFoundPage(w, r, nil)
 		return
@@ -511,7 +514,7 @@ func (s *httpdServer) handleWebAdminTwoFactorRecoveryPost(w http.ResponseWriter,
 
 func (s *httpdServer) handleWebAdminTwoFactorPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil {
 		s.renderNotFoundPage(w, r, nil)
 		return
@@ -592,7 +595,7 @@ func (s *httpdServer) renderAdminLoginPage(w http.ResponseWriter, r *http.Reques
 		Title:          util.I18nLoginTitle,
 		CurrentURL:     webAdminLoginPath,
 		Error:          err,
-		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, xid.New().String(), webBaseAdminPath),
+		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, rand.Text(), webBaseAdminPath),
 		Branding:       s.binding.webAdminBranding(),
 		Languages:      s.binding.languages(),
 		FormDisabled:   s.binding.isWebAdminLoginFormDisabled(),
@@ -735,15 +738,15 @@ func (s *httpdServer) loginUser(
 	w http.ResponseWriter, r *http.Request, user *dataprovider.User, connectionID, ipAddr string,
 	isSecondFactorAuth bool, errorFunc func(w http.ResponseWriter, r *http.Request, err *util.I18nError),
 ) {
-	c := jwtTokenClaims{
+	c := &jwt.Claims{
 		Username:                   user.Username,
 		Permissions:                user.Filters.WebClient,
-		Signature:                  user.GetSignature(),
 		Role:                       user.Role,
 		MustSetTwoFactorAuth:       user.MustSetSecondFactor(),
 		MustChangePassword:         user.MustChangePassword(),
 		RequiredTwoFactorProtocols: user.Filters.TwoFactorAuthProtocols,
 	}
+	c.Subject = user.GetSignature()
 
 	audience := tokenAudienceWebClient
 	if user.Filters.TOTPConfig.Enabled && slices.Contains(user.Filters.TOTPConfig.Protocols, common.ProtocolHTTP) &&
@@ -751,7 +754,7 @@ func (s *httpdServer) loginUser(
 		audience = tokenAudienceWebClientPartial
 	}
 
-	err := c.createAndSetCookie(w, r, s.tokenAuth, audience, ipAddr)
+	err := createAndSetCookie(w, r, c, s.tokenAuth, audience, ipAddr)
 	if err != nil {
 		logger.Warn(logSender, connectionID, "unable to set user login cookie %v", err)
 		updateLoginMetrics(user, dataprovider.LoginMethodPassword, ipAddr, common.ErrInternalFailure, r)
@@ -781,22 +784,22 @@ func (s *httpdServer) loginAdmin(
 	isSecondFactorAuth bool, errorFunc func(w http.ResponseWriter, r *http.Request, err *util.I18nError),
 	ipAddr string,
 ) {
-	c := jwtTokenClaims{
+	c := &jwt.Claims{
 		Username:             admin.Username,
 		Permissions:          admin.Permissions,
 		Role:                 admin.Role,
-		Signature:            admin.GetSignature(),
 		HideUserPageSections: admin.Filters.Preferences.HideUserPageSections,
 		MustSetTwoFactorAuth: admin.Filters.RequireTwoFactor && !admin.Filters.TOTPConfig.Enabled,
 		MustChangePassword:   admin.Filters.RequirePasswordChange,
 	}
+	c.Subject = admin.GetSignature()
 
 	audience := tokenAudienceWebAdmin
 	if admin.Filters.TOTPConfig.Enabled && admin.CanManageMFA() && !isSecondFactorAuth {
 		audience = tokenAudienceWebAdminPartial
 	}
 
-	err := c.createAndSetCookie(w, r, s.tokenAuth, audience, ipAddr)
+	err := createAndSetCookie(w, r, c, s.tokenAuth, audience, ipAddr)
 	if err != nil {
 		logger.Warn(logSender, "", "unable to set admin login cookie %v", err)
 		if errorFunc == nil {
@@ -907,17 +910,17 @@ func (s *httpdServer) getUserToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *httpdServer) generateAndSendUserToken(w http.ResponseWriter, r *http.Request, ipAddr string, user dataprovider.User) {
-	c := jwtTokenClaims{
+	c := &jwt.Claims{
 		Username:                   user.Username,
 		Permissions:                user.Filters.WebClient,
-		Signature:                  user.GetSignature(),
 		Role:                       user.Role,
 		MustSetTwoFactorAuth:       user.MustSetSecondFactor(),
 		MustChangePassword:         user.MustChangePassword(),
 		RequiredTwoFactorProtocols: user.Filters.TwoFactorAuthProtocols,
 	}
+	c.Subject = user.GetSignature()
 
-	resp, err := c.createTokenResponse(s.tokenAuth, tokenAudienceAPIUser, ipAddr)
+	token, err := s.tokenAuth.SignWithParams(c, tokenAudienceAPIUser, ipAddr, getTokenDuration(tokenAudienceAPIUser))
 	if err != nil {
 		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, common.ErrInternalFailure, r)
 		sendAPIResponse(w, r, err, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -926,7 +929,7 @@ func (s *httpdServer) generateAndSendUserToken(w http.ResponseWriter, r *http.Re
 	updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, err, r)
 	dataprovider.UpdateLastLogin(&user)
 
-	render.JSON(w, r, resp)
+	render.JSON(w, r, c.BuildTokenResponse(token))
 }
 
 func (s *httpdServer) getToken(w http.ResponseWriter, r *http.Request) {
@@ -976,17 +979,16 @@ func (s *httpdServer) getToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *httpdServer) generateAndSendToken(w http.ResponseWriter, r *http.Request, admin dataprovider.Admin, ip string) {
-	c := jwtTokenClaims{
+	c := &jwt.Claims{
 		Username:             admin.Username,
 		Permissions:          admin.Permissions,
 		Role:                 admin.Role,
-		Signature:            admin.GetSignature(),
 		MustSetTwoFactorAuth: admin.Filters.RequireTwoFactor && !admin.Filters.TOTPConfig.Enabled,
 		MustChangePassword:   admin.Filters.RequirePasswordChange,
 	}
+	c.Subject = admin.GetSignature()
 
-	resp, err := c.createTokenResponse(s.tokenAuth, tokenAudienceAPI, ip)
-
+	token, err := s.tokenAuth.SignWithParams(c, tokenAudienceAPI, ip, getTokenDuration(tokenAudienceAPI))
 	if err != nil {
 		sendAPIResponse(w, r, err, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
@@ -994,42 +996,39 @@ func (s *httpdServer) generateAndSendToken(w http.ResponseWriter, r *http.Reques
 
 	dataprovider.UpdateAdminLastLogin(&admin)
 	common.DelayLogin(nil)
-	render.JSON(w, r, resp)
+	render.JSON(w, r, c.BuildTokenResponse(token))
 }
 
 func (s *httpdServer) checkCookieExpiration(w http.ResponseWriter, r *http.Request) {
 	if _, ok := r.Context().Value(oidcTokenKey).(string); ok {
 		return
 	}
-	token, claims, err := jwtauth.FromContext(r.Context())
-	if err != nil || token == nil {
+	claims, err := jwt.FromContext(r.Context())
+	if err != nil {
 		return
 	}
-	tokenClaims := jwtTokenClaims{}
-	tokenClaims.Decode(claims)
-	if tokenClaims.Username == "" || tokenClaims.Signature == "" {
+	if claims.Username == "" || claims.Subject == "" {
 		return
 	}
-	if time.Until(token.Expiration()) > cookieRefreshThreshold {
+	if time.Until(claims.Expiry.Time()) > cookieRefreshThreshold {
 		return
 	}
-	if (time.Since(token.IssuedAt()) + cookieTokenDuration) > maxTokenDuration {
+	if (time.Since(claims.IssuedAt.Time()) + cookieTokenDuration) > maxTokenDuration {
 		return
 	}
-	tokenClaims.JwtIssuedAt = token.IssuedAt()
-	if slices.Contains(token.Audience(), tokenAudienceWebClient) {
-		s.refreshClientToken(w, r, &tokenClaims)
+	if claims.Audience.Contains(tokenAudienceWebClient) {
+		s.refreshClientToken(w, r, claims)
 	} else {
-		s.refreshAdminToken(w, r, &tokenClaims)
+		s.refreshAdminToken(w, r, claims)
 	}
 }
 
-func (s *httpdServer) refreshClientToken(w http.ResponseWriter, r *http.Request, tokenClaims *jwtTokenClaims) {
+func (s *httpdServer) refreshClientToken(w http.ResponseWriter, r *http.Request, tokenClaims *jwt.Claims) {
 	user, err := dataprovider.GetUserWithGroupSettings(tokenClaims.Username, "")
 	if err != nil {
 		return
 	}
-	if user.GetSignature() != tokenClaims.Signature {
+	if user.GetSignature() != tokenClaims.Subject {
 		logger.Debug(logSender, "", "signature mismatch for user %q, unable to refresh cookie", user.Username)
 		return
 	}
@@ -1045,15 +1044,15 @@ func (s *httpdServer) refreshClientToken(w http.ResponseWriter, r *http.Request,
 	tokenClaims.Permissions = user.Filters.WebClient
 	tokenClaims.Role = user.Role
 	logger.Debug(logSender, "", "cookie refreshed for user %q", user.Username)
-	tokenClaims.createAndSetCookie(w, r, s.tokenAuth, tokenAudienceWebClient, util.GetIPFromRemoteAddress(r.RemoteAddr)) //nolint:errcheck
+	createAndSetCookie(w, r, tokenClaims, s.tokenAuth, tokenAudienceWebClient, util.GetIPFromRemoteAddress(r.RemoteAddr)) //nolint:errcheck
 }
 
-func (s *httpdServer) refreshAdminToken(w http.ResponseWriter, r *http.Request, tokenClaims *jwtTokenClaims) {
+func (s *httpdServer) refreshAdminToken(w http.ResponseWriter, r *http.Request, tokenClaims *jwt.Claims) {
 	admin, err := dataprovider.AdminExists(tokenClaims.Username)
 	if err != nil {
 		return
 	}
-	if admin.GetSignature() != tokenClaims.Signature {
+	if admin.GetSignature() != tokenClaims.Subject {
 		logger.Debug(logSender, "", "signature mismatch for admin %q, unable to refresh cookie", admin.Username)
 		return
 	}
@@ -1066,18 +1065,18 @@ func (s *httpdServer) refreshAdminToken(w http.ResponseWriter, r *http.Request, 
 	tokenClaims.Role = admin.Role
 	tokenClaims.HideUserPageSections = admin.Filters.Preferences.HideUserPageSections
 	logger.Debug(logSender, "", "cookie refreshed for admin %q", admin.Username)
-	tokenClaims.createAndSetCookie(w, r, s.tokenAuth, tokenAudienceWebAdmin, ipAddr) //nolint:errcheck
+	createAndSetCookie(w, r, tokenClaims, s.tokenAuth, tokenAudienceWebAdmin, ipAddr) //nolint:errcheck
 }
 
 func (s *httpdServer) updateContextFromCookie(r *http.Request) *http.Request {
-	token, _, err := jwtauth.FromContext(r.Context())
-	if token == nil || err != nil {
+	_, err := jwt.FromContext(r.Context())
+	if err != nil {
 		_, err = r.Cookie(jwtCookieKey)
 		if err != nil {
 			return r
 		}
-		token, err = jwtauth.VerifyRequest(s.tokenAuth, r, jwtauth.TokenFromCookie)
-		ctx := jwtauth.NewContext(r.Context(), token, err)
+		token, err := jwt.VerifyRequest(s.tokenAuth, r, jwt.TokenFromCookie)
+		ctx := jwt.NewContext(r.Context(), token, err)
 		return r.WithContext(ctx)
 	}
 	return r
@@ -1235,10 +1234,18 @@ func (s *httpdServer) mustCheckPath(r *http.Request) bool {
 	return !strings.HasPrefix(urlPath, webStaticFilesPath) && !strings.HasPrefix(urlPath, acmeChallengeURI)
 }
 
-func (s *httpdServer) initializeRouter() {
+func (s *httpdServer) initializeRouter() error {
+	signer, err := jwt.NewSigner(jose.HS256, getSigningKey(s.signingPassphrase))
+	if err != nil {
+		return err
+	}
+	csrfSigner, err := jwt.NewSigner(jose.HS256, getSigningKey(s.signingPassphrase))
+	if err != nil {
+		return err
+	}
 	var hasHTTPSRedirect bool
-	s.tokenAuth = jwtauth.New(jwa.HS256.String(), getSigningKey(s.signingPassphrase), nil)
-	s.csrfTokenAuth = jwtauth.New(jwa.HS256.String(), getSigningKey(s.signingPassphrase), nil)
+	s.tokenAuth = signer
+	s.csrfTokenAuth = csrfSigner
 	s.router = chi.NewRouter()
 
 	s.router.Use(middleware.RequestID)
@@ -1336,6 +1343,7 @@ func (s *httpdServer) initializeRouter() {
 
 	s.setupWebClientRoutes()
 	s.setupWebAdminRoutes()
+	return nil
 }
 
 func (s *httpdServer) setupRESTAPIRoutes() {
@@ -1351,7 +1359,7 @@ func (s *httpdServer) setupRESTAPIRoutes() {
 			if !s.binding.isAdminAPIKeyAuthDisabled() {
 				router.Use(checkAPIKeyAuth(s.tokenAuth, dataprovider.APIKeyScopeAdmin))
 			}
-			router.Use(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromHeader))
+			router.Use(jwt.Verify(s.tokenAuth, jwt.TokenFromHeader))
 			router.Use(jwtAuthenticatorAPI)
 
 			router.Get(versionPath, func(w http.ResponseWriter, r *http.Request) {
@@ -1480,7 +1488,7 @@ func (s *httpdServer) setupRESTAPIRoutes() {
 			if !s.binding.isUserAPIKeyAuthDisabled() {
 				router.Use(checkAPIKeyAuth(s.tokenAuth, dataprovider.APIKeyScopeUser))
 			}
-			router.Use(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromHeader))
+			router.Use(jwt.Verify(s.tokenAuth, jwt.TokenFromHeader))
 			router.Use(jwtAuthenticatorAPIUser)
 
 			router.With(forbidAPIKeyAuthentication).Get(userLogoutPath, s.logout)
@@ -1568,31 +1576,31 @@ func (s *httpdServer) setupWebClientRoutes() {
 			s.router.Get(webClientOIDCLoginPath, s.handleWebClientOIDCLogin)
 		}
 		if !s.binding.isWebClientLoginFormDisabled() {
-			s.router.With(jwtauth.Verify(s.csrfTokenAuth, jwtauth.TokenFromCookie)).
+			s.router.With(jwt.Verify(s.csrfTokenAuth, jwt.TokenFromCookie)).
 				Post(webClientLoginPath, s.handleWebClientLoginPost)
 			s.router.Get(webClientForgotPwdPath, s.handleWebClientForgotPwd)
-			s.router.With(jwtauth.Verify(s.csrfTokenAuth, jwtauth.TokenFromCookie)).
+			s.router.With(jwt.Verify(s.csrfTokenAuth, jwt.TokenFromCookie)).
 				Post(webClientForgotPwdPath, s.handleWebClientForgotPwdPost)
-			s.router.With(jwtauth.Verify(s.csrfTokenAuth, jwtauth.TokenFromCookie)).
+			s.router.With(jwt.Verify(s.csrfTokenAuth, jwt.TokenFromCookie)).
 				Get(webClientResetPwdPath, s.handleWebClientPasswordReset)
-			s.router.With(jwtauth.Verify(s.csrfTokenAuth, jwtauth.TokenFromCookie)).
+			s.router.With(jwt.Verify(s.csrfTokenAuth, jwt.TokenFromCookie)).
 				Post(webClientResetPwdPath, s.handleWebClientPasswordResetPost)
-			s.router.With(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromCookie),
+			s.router.With(jwt.Verify(s.tokenAuth, jwt.TokenFromCookie),
 				s.jwtAuthenticatorPartial(tokenAudienceWebClientPartial)).
 				Get(webClientTwoFactorPath, s.handleWebClientTwoFactor)
-			s.router.With(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromCookie),
+			s.router.With(jwt.Verify(s.tokenAuth, jwt.TokenFromCookie),
 				s.jwtAuthenticatorPartial(tokenAudienceWebClientPartial)).
 				Post(webClientTwoFactorPath, s.handleWebClientTwoFactorPost)
-			s.router.With(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromCookie),
+			s.router.With(jwt.Verify(s.tokenAuth, jwt.TokenFromCookie),
 				s.jwtAuthenticatorPartial(tokenAudienceWebClientPartial)).
 				Get(webClientTwoFactorRecoveryPath, s.handleWebClientTwoFactorRecovery)
-			s.router.With(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromCookie),
+			s.router.With(jwt.Verify(s.tokenAuth, jwt.TokenFromCookie),
 				s.jwtAuthenticatorPartial(tokenAudienceWebClientPartial)).
 				Post(webClientTwoFactorRecoveryPath, s.handleWebClientTwoFactorRecoveryPost)
 		}
 		// share routes available to external users
 		s.router.Get(webClientPubSharesPath+"/{id}/login", s.handleClientShareLoginGet)
-		s.router.With(jwtauth.Verify(s.csrfTokenAuth, jwtauth.TokenFromCookie)).
+		s.router.With(jwt.Verify(s.csrfTokenAuth, jwt.TokenFromCookie)).
 			Post(webClientPubSharesPath+"/{id}/login", s.handleClientShareLoginPost)
 		s.router.Get(webClientPubSharesPath+"/{id}/logout", s.handleClientShareLogout)
 		s.router.Get(webClientPubSharesPath+"/{id}", s.downloadFromShare)
@@ -1611,7 +1619,7 @@ func (s *httpdServer) setupWebClientRoutes() {
 			if s.binding.OIDC.isEnabled() {
 				router.Use(s.oidcTokenAuthenticator(tokenAudienceWebClient))
 			}
-			router.Use(jwtauth.Verify(s.tokenAuth, oidcTokenFromContext, jwtauth.TokenFromCookie))
+			router.Use(jwt.Verify(s.tokenAuth, oidcTokenFromContext, jwt.TokenFromCookie))
 			router.Use(jwtAuthenticatorWebClient)
 
 			router.Get(webClientLogoutPath, s.handleWebClientLogout)
@@ -1702,29 +1710,29 @@ func (s *httpdServer) setupWebAdminRoutes() {
 		}
 		s.router.Get(webOAuth2RedirectPath, s.handleOAuth2TokenRedirect)
 		s.router.Get(webAdminSetupPath, s.handleWebAdminSetupGet)
-		s.router.With(jwtauth.Verify(s.csrfTokenAuth, jwtauth.TokenFromCookie)).
+		s.router.With(jwt.Verify(s.csrfTokenAuth, jwt.TokenFromCookie)).
 			Post(webAdminSetupPath, s.handleWebAdminSetupPost)
 		if !s.binding.isWebAdminLoginFormDisabled() {
-			s.router.With(jwtauth.Verify(s.csrfTokenAuth, jwtauth.TokenFromCookie)).
+			s.router.With(jwt.Verify(s.csrfTokenAuth, jwt.TokenFromCookie)).
 				Post(webAdminLoginPath, s.handleWebAdminLoginPost)
-			s.router.With(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromCookie),
+			s.router.With(jwt.Verify(s.tokenAuth, jwt.TokenFromCookie),
 				s.jwtAuthenticatorPartial(tokenAudienceWebAdminPartial)).
 				Get(webAdminTwoFactorPath, s.handleWebAdminTwoFactor)
-			s.router.With(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromCookie),
+			s.router.With(jwt.Verify(s.tokenAuth, jwt.TokenFromCookie),
 				s.jwtAuthenticatorPartial(tokenAudienceWebAdminPartial)).
 				Post(webAdminTwoFactorPath, s.handleWebAdminTwoFactorPost)
-			s.router.With(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromCookie),
+			s.router.With(jwt.Verify(s.tokenAuth, jwt.TokenFromCookie),
 				s.jwtAuthenticatorPartial(tokenAudienceWebAdminPartial)).
 				Get(webAdminTwoFactorRecoveryPath, s.handleWebAdminTwoFactorRecovery)
-			s.router.With(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromCookie),
+			s.router.With(jwt.Verify(s.tokenAuth, jwt.TokenFromCookie),
 				s.jwtAuthenticatorPartial(tokenAudienceWebAdminPartial)).
 				Post(webAdminTwoFactorRecoveryPath, s.handleWebAdminTwoFactorRecoveryPost)
 			s.router.Get(webAdminForgotPwdPath, s.handleWebAdminForgotPwd)
-			s.router.With(jwtauth.Verify(s.csrfTokenAuth, jwtauth.TokenFromCookie)).
+			s.router.With(jwt.Verify(s.csrfTokenAuth, jwt.TokenFromCookie)).
 				Post(webAdminForgotPwdPath, s.handleWebAdminForgotPwdPost)
-			s.router.With(jwtauth.Verify(s.csrfTokenAuth, jwtauth.TokenFromCookie)).
+			s.router.With(jwt.Verify(s.csrfTokenAuth, jwt.TokenFromCookie)).
 				Get(webAdminResetPwdPath, s.handleWebAdminPasswordReset)
-			s.router.With(jwtauth.Verify(s.csrfTokenAuth, jwtauth.TokenFromCookie)).
+			s.router.With(jwt.Verify(s.csrfTokenAuth, jwt.TokenFromCookie)).
 				Post(webAdminResetPwdPath, s.handleWebAdminPasswordResetPost)
 		}
 
@@ -1732,7 +1740,7 @@ func (s *httpdServer) setupWebAdminRoutes() {
 			if s.binding.OIDC.isEnabled() {
 				router.Use(s.oidcTokenAuthenticator(tokenAudienceWebAdmin))
 			}
-			router.Use(jwtauth.Verify(s.tokenAuth, oidcTokenFromContext, jwtauth.TokenFromCookie))
+			router.Use(jwt.Verify(s.tokenAuth, oidcTokenFromContext, jwt.TokenFromCookie))
 			router.Use(jwtAuthenticatorWebAdmin)
 
 			router.Get(webLogoutPath, s.handleWebAdminLogout)

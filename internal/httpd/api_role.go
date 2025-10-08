@@ -23,6 +23,7 @@ import (
 	"github.com/go-chi/render"
 
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
+	"github.com/drakkan/sftpgo/v2/internal/jwt"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 )
 
@@ -44,7 +45,7 @@ func getRoles(w http.ResponseWriter, r *http.Request) {
 func addRole(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
@@ -67,7 +68,7 @@ func addRole(w http.ResponseWriter, r *http.Request) {
 
 func updateRole(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
@@ -119,7 +120,7 @@ func getRoleByName(w http.ResponseWriter, r *http.Request) {
 
 func deleteRole(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return

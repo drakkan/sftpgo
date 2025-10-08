@@ -29,6 +29,7 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
+	"github.com/drakkan/sftpgo/v2/internal/jwt"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 	"github.com/drakkan/sftpgo/v2/internal/vfs"
@@ -115,7 +116,7 @@ func dumpData(w http.ResponseWriter, r *http.Request) {
 
 func loadDataFromRequest(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, MaxRestoreSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
@@ -143,7 +144,7 @@ func loadDataFromRequest(w http.ResponseWriter, r *http.Request) {
 
 func loadData(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return

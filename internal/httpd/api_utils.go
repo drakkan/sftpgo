@@ -42,6 +42,7 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
+	"github.com/drakkan/sftpgo/v2/internal/jwt"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/metric"
 	"github.com/drakkan/sftpgo/v2/internal/plugin"
@@ -177,7 +178,7 @@ func getBoolQueryParam(r *http.Request, param string) bool {
 
 func getActiveConnections(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
@@ -191,7 +192,7 @@ func getActiveConnections(w http.ResponseWriter, r *http.Request) {
 
 func handleCloseConnection(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
@@ -943,8 +944,8 @@ func getProtocolFromRequest(r *http.Request) string {
 	return common.ProtocolHTTP
 }
 
-func hideConfidentialData(claims *jwtTokenClaims, r *http.Request) bool {
-	if !claims.hasPerm(dataprovider.PermAdminAny) {
+func hideConfidentialData(claims *jwt.Claims, r *http.Request) bool {
+	if !claims.HasPerm(dataprovider.PermAdminAny) {
 		return true
 	}
 	return r.URL.Query().Get("confidential_data") != "1"

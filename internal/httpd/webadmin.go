@@ -16,6 +16,7 @@ package httpd
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -31,7 +32,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rs/xid"
 	"github.com/sftpgo/sdk"
 	sdkkms "github.com/sftpgo/sdk/kms"
 
@@ -39,6 +39,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/ftpd"
+	"github.com/drakkan/sftpgo/v2/internal/jwt"
 	"github.com/drakkan/sftpgo/v2/internal/kms"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/mfa"
@@ -726,7 +727,7 @@ func (s *httpdServer) renderForgotPwdPage(w http.ResponseWriter, r *http.Request
 		commonBasePage: getCommonBasePage(r),
 		CurrentURL:     webAdminForgotPwdPath,
 		Error:          err,
-		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, xid.New().String(), webBaseAdminPath),
+		CSRFToken:      createCSRFToken(w, r, s.csrfTokenAuth, rand.Text(), webBaseAdminPath),
 		LoginURL:       webAdminLoginPath,
 		Title:          util.I18nForgotPwdTitle,
 		Branding:       s.binding.webAdminBranding(),
@@ -863,7 +864,7 @@ func (s *httpdServer) renderAdminSetupPage(w http.ResponseWriter, r *http.Reques
 		commonBasePage:       getCommonBasePage(r),
 		Title:                util.I18nSetupTitle,
 		CurrentURL:           webAdminSetupPath,
-		CSRFToken:            createCSRFToken(w, r, s.csrfTokenAuth, xid.New().String(), webBaseAdminPath),
+		CSRFToken:            createCSRFToken(w, r, s.csrfTokenAuth, rand.Text(), webBaseAdminPath),
 		Username:             username,
 		HasInstallationCode:  installationCode != "",
 		InstallationCodeHint: installationCodeHint,
@@ -2964,7 +2965,7 @@ func (s *httpdServer) handleWebAdminProfilePost(w http.ResponseWriter, r *http.R
 		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		s.renderProfilePage(w, r, util.NewI18nError(err, util.I18nErrorInvalidToken))
 		return
@@ -2992,7 +2993,7 @@ func (s *httpdServer) handleWebMaintenance(w http.ResponseWriter, r *http.Reques
 
 func (s *httpdServer) handleWebRestore(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, MaxRestoreSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
@@ -3045,7 +3046,7 @@ func (s *httpdServer) handleWebRestore(w http.ResponseWriter, r *http.Request) {
 
 func getAllAdmins(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, nil, util.I18nErrorInvalidToken, http.StatusForbidden)
 		return
@@ -3103,7 +3104,7 @@ func (s *httpdServer) handleWebUpdateAdminGet(w http.ResponseWriter, r *http.Req
 
 func (s *httpdServer) handleWebAddAdminPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
@@ -3163,7 +3164,7 @@ func (s *httpdServer) handleWebUpdateAdminPost(w http.ResponseWriter, r *http.Re
 	}
 	updatedAdmin.Filters.TOTPConfig = admin.Filters.TOTPConfig
 	updatedAdmin.Filters.RecoveryCodes = admin.Filters.RecoveryCodes
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		s.renderAddUpdateAdminPage(w, r, &updatedAdmin, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken), false)
 		return
@@ -3214,7 +3215,7 @@ func (s *httpdServer) handleWebDefenderPage(w http.ResponseWriter, r *http.Reque
 
 func getAllUsers(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, nil, util.I18nErrorInvalidToken, http.StatusForbidden)
 		return
@@ -3234,7 +3235,7 @@ func getAllUsers(w http.ResponseWriter, r *http.Request) {
 
 func (s *httpdServer) handleGetWebUsers(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
@@ -3264,7 +3265,7 @@ func (s *httpdServer) handleWebTemplateFolderGet(w http.ResponseWriter, r *http.
 
 func (s *httpdServer) handleWebTemplateFolderPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
@@ -3361,7 +3362,7 @@ func (s *httpdServer) handleWebTemplateUserGet(w http.ResponseWriter, r *http.Re
 
 func (s *httpdServer) handleWebTemplateUserPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
@@ -3429,7 +3430,7 @@ func (s *httpdServer) handleWebAddUserGet(w http.ResponseWriter, r *http.Request
 
 func (s *httpdServer) handleWebUpdateUserGet(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
@@ -3447,7 +3448,7 @@ func (s *httpdServer) handleWebUpdateUserGet(w http.ResponseWriter, r *http.Requ
 
 func (s *httpdServer) handleWebAddUserPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
@@ -3485,7 +3486,7 @@ func (s *httpdServer) handleWebAddUserPost(w http.ResponseWriter, r *http.Reques
 
 func (s *httpdServer) handleWebUpdateUserPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
@@ -3552,7 +3553,7 @@ func (s *httpdServer) handleWebGetStatus(w http.ResponseWriter, r *http.Request)
 
 func (s *httpdServer) handleWebGetConnections(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
@@ -3569,7 +3570,7 @@ func (s *httpdServer) handleWebAddFolderGet(w http.ResponseWriter, r *http.Reque
 
 func (s *httpdServer) handleWebAddFolderPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
@@ -3621,7 +3622,7 @@ func (s *httpdServer) handleWebUpdateFolderGet(w http.ResponseWriter, r *http.Re
 
 func (s *httpdServer) handleWebUpdateFolderPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
@@ -3756,7 +3757,7 @@ func (s *httpdServer) handleWebAddGroupGet(w http.ResponseWriter, r *http.Reques
 
 func (s *httpdServer) handleWebAddGroupPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
@@ -3794,7 +3795,7 @@ func (s *httpdServer) handleWebUpdateGroupGet(w http.ResponseWriter, r *http.Req
 
 func (s *httpdServer) handleWebUpdateGroupPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
@@ -3881,7 +3882,7 @@ func (s *httpdServer) handleWebAddEventActionGet(w http.ResponseWriter, r *http.
 
 func (s *httpdServer) handleWebAddEventActionPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
@@ -3918,7 +3919,7 @@ func (s *httpdServer) handleWebUpdateEventActionGet(w http.ResponseWriter, r *ht
 
 func (s *httpdServer) handleWebUpdateEventActionPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
@@ -3992,7 +3993,7 @@ func (s *httpdServer) handleWebAddEventRuleGet(w http.ResponseWriter, r *http.Re
 
 func (s *httpdServer) handleWebAddEventRulePost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
@@ -4030,7 +4031,7 @@ func (s *httpdServer) handleWebUpdateEventRuleGet(w http.ResponseWriter, r *http
 
 func (s *httpdServer) handleWebUpdateEventRulePost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
@@ -4114,7 +4115,7 @@ func (s *httpdServer) handleWebAddRolePost(w http.ResponseWriter, r *http.Reques
 		s.renderRolePage(w, r, role, genericPageModeAdd, err)
 		return
 	}
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
@@ -4146,7 +4147,7 @@ func (s *httpdServer) handleWebUpdateRoleGet(w http.ResponseWriter, r *http.Requ
 
 func (s *httpdServer) handleWebUpdateRolePost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
@@ -4228,7 +4229,7 @@ func (s *httpdServer) handleWebAddIPListEntryPost(w http.ResponseWriter, r *http
 		return
 	}
 	entry.Type = listType
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
@@ -4265,7 +4266,7 @@ func (s *httpdServer) handleWebUpdateIPListEntryGet(w http.ResponseWriter, r *ht
 
 func (s *httpdServer) handleWebUpdateIPListEntryPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return
@@ -4315,7 +4316,7 @@ func (s *httpdServer) handleWebConfigs(w http.ResponseWriter, r *http.Request) {
 
 func (s *httpdServer) handleWebConfigsPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
 		return

@@ -23,6 +23,7 @@ import (
 	"github.com/go-chi/render"
 
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
+	"github.com/drakkan/sftpgo/v2/internal/jwt"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 	"github.com/drakkan/sftpgo/v2/internal/vfs"
 )
@@ -45,7 +46,7 @@ func getFolders(w http.ResponseWriter, r *http.Request) {
 func addFolder(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
@@ -62,12 +63,12 @@ func addFolder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Add("Location", fmt.Sprintf("%s/%s", folderPath, url.PathEscape(folder.Name)))
-	renderFolder(w, r, folder.Name, &claims, http.StatusCreated)
+	renderFolder(w, r, folder.Name, claims, http.StatusCreated)
 }
 
 func updateFolder(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
@@ -100,7 +101,7 @@ func updateFolder(w http.ResponseWriter, r *http.Request) {
 	sendAPIResponse(w, r, nil, "Folder updated", http.StatusOK)
 }
 
-func renderFolder(w http.ResponseWriter, r *http.Request, name string, claims *jwtTokenClaims, status int) {
+func renderFolder(w http.ResponseWriter, r *http.Request, name string, claims *jwt.Claims, status int) {
 	folder, err := dataprovider.GetFolderByName(name)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
@@ -119,18 +120,18 @@ func renderFolder(w http.ResponseWriter, r *http.Request, name string, claims *j
 
 func getFolderByName(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
 	}
 	name := getURLParam(r, "name")
-	renderFolder(w, r, name, &claims, http.StatusOK)
+	renderFolder(w, r, name, claims, http.StatusOK)
 }
 
 func deleteFolder(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return

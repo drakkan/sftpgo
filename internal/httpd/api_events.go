@@ -27,6 +27,7 @@ import (
 	"github.com/sftpgo/sdk/plugin/notifier"
 
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
+	"github.com/drakkan/sftpgo/v2/internal/jwt"
 	"github.com/drakkan/sftpgo/v2/internal/plugin"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 )
@@ -143,7 +144,7 @@ func getLogSearchParamsFromRequest(r *http.Request) (eventsearcher.LogEventSearc
 
 func searchFsEvents(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
@@ -176,7 +177,7 @@ func searchFsEvents(w http.ResponseWriter, r *http.Request) {
 
 func searchProviderEvents(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
@@ -211,7 +212,7 @@ func searchProviderEvents(w http.ResponseWriter, r *http.Request) {
 
 func searchLogEvents(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return

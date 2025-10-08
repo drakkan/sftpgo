@@ -1334,10 +1334,12 @@ func updateWebAdminURLs(baseURL string) {
 }
 
 // GetHTTPRouter returns an HTTP handler suitable to use for test cases
-func GetHTTPRouter(b Binding) http.Handler {
+func GetHTTPRouter(b Binding) (http.Handler, error) {
 	server := newHttpdServer(b, filepath.Join("..", "..", "static"), "", CorsConfig{}, filepath.Join("..", "..", "openapi"))
-	server.initializeRouter()
-	return server.router
+	if err := server.initializeRouter(); err != nil {
+		return nil, err
+	}
+	return server.router, nil
 }
 
 // the ticker cannot be started/stopped from multiple goroutines

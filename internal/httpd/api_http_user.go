@@ -31,12 +31,13 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
+	"github.com/drakkan/sftpgo/v2/internal/jwt"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 )
 
 func getUserConnection(w http.ResponseWriter, r *http.Request) (*Connection, error) {
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return nil, fmt.Errorf("invalid token claims %w", err)
@@ -457,7 +458,7 @@ func getUserFilesAsZipStream(w http.ResponseWriter, r *http.Request) {
 
 func getUserProfile(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
@@ -482,7 +483,7 @@ func getUserProfile(w http.ResponseWriter, r *http.Request) {
 
 func updateUserProfile(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
@@ -557,7 +558,7 @@ func doChangeUserPassword(r *http.Request, currentPassword, newPassword, confirm
 			util.I18nErrorChangePwdNoDifferent,
 		)
 	}
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		return util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken)
 	}

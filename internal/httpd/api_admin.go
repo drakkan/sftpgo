@@ -21,10 +21,10 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/go-chi/jwtauth/v5"
 	"github.com/go-chi/render"
 
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
+	"github.com/drakkan/sftpgo/v2/internal/jwt"
 	"github.com/drakkan/sftpgo/v2/internal/smtp"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 )
@@ -68,7 +68,7 @@ func renderAdmin(w http.ResponseWriter, r *http.Request, username string, status
 func addAdmin(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
@@ -90,7 +90,7 @@ func addAdmin(w http.ResponseWriter, r *http.Request) {
 
 func disableAdmin2FA(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
@@ -138,7 +138,7 @@ func updateAdmin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
@@ -182,7 +182,7 @@ func updateAdmin(w http.ResponseWriter, r *http.Request) {
 func deleteAdmin(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	username := getURLParam(r, "username")
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
@@ -202,7 +202,7 @@ func deleteAdmin(w http.ResponseWriter, r *http.Request) {
 
 func getAdminProfile(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
@@ -224,7 +224,7 @@ func getAdminProfile(w http.ResponseWriter, r *http.Request) {
 
 func updateAdminProfile(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
@@ -317,7 +317,7 @@ func doChangeAdminPassword(r *http.Request, currentPassword, newPassword, confir
 			util.I18nErrorChangePwdNoDifferent,
 		)
 	}
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil {
 		return util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken)
 	}
@@ -334,15 +334,4 @@ func doChangeAdminPassword(r *http.Request, currentPassword, newPassword, confir
 	admin.Filters.RequirePasswordChange = false
 
 	return dataprovider.UpdateAdmin(&admin, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
-}
-
-func getTokenClaims(r *http.Request) (jwtTokenClaims, error) {
-	tokenClaims := jwtTokenClaims{}
-	_, claims, err := jwtauth.FromContext(r.Context())
-	if err != nil {
-		return tokenClaims, err
-	}
-	tokenClaims.Decode(claims)
-
-	return tokenClaims, nil
 }

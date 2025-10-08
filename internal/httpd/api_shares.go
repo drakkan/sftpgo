@@ -26,20 +26,20 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-chi/jwtauth/v5"
 	"github.com/go-chi/render"
 	"github.com/rs/xid"
 	"github.com/sftpgo/sdk"
 
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
+	"github.com/drakkan/sftpgo/v2/internal/jwt"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 )
 
 func getShares(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
@@ -59,7 +59,7 @@ func getShares(w http.ResponseWriter, r *http.Request) {
 
 func getShareByID(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
@@ -77,7 +77,7 @@ func getShareByID(w http.ResponseWriter, r *http.Request) {
 
 func addShare(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
@@ -126,7 +126,7 @@ func addShare(w http.ResponseWriter, r *http.Request) {
 
 func updateShare(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
@@ -177,7 +177,7 @@ func updateShare(w http.ResponseWriter, r *http.Request) {
 func deleteShare(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	shareID := getURLParam(r, "id")
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
@@ -432,16 +432,16 @@ func (s *httpdServer) uploadFilesToShare(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-func (s *httpdServer) getShareClaims(r *http.Request, shareID string) (context.Context, *jwtTokenClaims, error) {
-	token, err := jwtauth.VerifyRequest(s.tokenAuth, r, jwtauth.TokenFromCookie)
+func (s *httpdServer) getShareClaims(r *http.Request, shareID string) (context.Context, *jwt.Claims, error) {
+	token, err := jwt.VerifyRequest(s.tokenAuth, r, jwt.TokenFromCookie)
 	if err != nil || token == nil {
 		return nil, nil, errInvalidToken
 	}
-	tokenString := jwtauth.TokenFromCookie(r)
+	tokenString := jwt.TokenFromCookie(r)
 	if tokenString == "" || invalidatedJWTTokens.Get(tokenString) {
 		return nil, nil, errInvalidToken
 	}
-	if !slices.Contains(token.Audience(), tokenAudienceWebShare) {
+	if !token.Audience.Contains(tokenAudienceWebShare) {
 		logger.Debug(logSender, "", "invalid token audience for share %q", shareID)
 		return nil, nil, errInvalidToken
 	}
@@ -450,13 +450,12 @@ func (s *httpdServer) getShareClaims(r *http.Request, shareID string) (context.C
 		logger.Debug(logSender, "", "token for share %q is not valid for the ip address %q", shareID, ipAddr)
 		return nil, nil, err
 	}
-	ctx := jwtauth.NewContext(r.Context(), token, nil)
-	claims, err := getTokenClaims(r.WithContext(ctx))
-	if err != nil || claims.Username != shareID {
+	if token.Username != shareID {
 		logger.Debug(logSender, "", "token not valid for share %q", shareID)
 		return nil, nil, errInvalidToken
 	}
-	return ctx, &claims, nil
+	ctx := jwt.NewContext(r.Context(), token, nil)
+	return ctx, token, nil
 }
 
 func (s *httpdServer) checkWebClientShareCredentials(w http.ResponseWriter, r *http.Request, share *dataprovider.Share) error {

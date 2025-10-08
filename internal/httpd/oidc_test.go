@@ -32,7 +32,6 @@ import (
 	"unsafe"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/go-chi/jwtauth/v5"
 	"github.com/rs/xid"
 	"github.com/sftpgo/sdk"
 	"github.com/stretchr/testify/assert"
@@ -41,6 +40,7 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
+	"github.com/drakkan/sftpgo/v2/internal/jwt"
 	"github.com/drakkan/sftpgo/v2/internal/kms"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 	"github.com/drakkan/sftpgo/v2/internal/vfs"
@@ -142,7 +142,8 @@ func TestOIDCLoginLogout(t *testing.T) {
 	server := getTestOIDCServer()
 	err := server.binding.OIDC.initialize()
 	assert.NoError(t, err)
-	server.initializeRouter()
+	err = server.initializeRouter()
+	require.NoError(t, err)
 
 	rr := httptest.NewRecorder()
 	r, err := http.NewRequest(http.MethodGet, webOIDCRedirectPath, nil)
@@ -768,7 +769,8 @@ func TestValidateOIDCToken(t *testing.T) {
 	server := getTestOIDCServer()
 	err := server.binding.OIDC.initialize()
 	assert.NoError(t, err)
-	server.initializeRouter()
+	err = server.initializeRouter()
+	require.NoError(t, err)
 
 	rr := httptest.NewRecorder()
 	r, err := http.NewRequest(http.MethodGet, webClientLogoutPath, nil)
@@ -796,7 +798,7 @@ func TestValidateOIDCToken(t *testing.T) {
 	oidcMgr.removeToken(token.Cookie)
 	assert.Len(t, oidcMgr.tokens, 0)
 
-	server.tokenAuth = jwtauth.New("PS256", util.GenerateRandomBytes(32), nil)
+	server.tokenAuth.SetSigner(&failingJoseSigner{})
 	token = oidcToken{
 		Cookie:      util.GenerateOpaqueString(),
 		AccessToken: util.GenerateUniqueID(),
@@ -833,11 +835,12 @@ func TestSkipOIDCAuth(t *testing.T) {
 	server := getTestOIDCServer()
 	err := server.binding.OIDC.initialize()
 	assert.NoError(t, err)
-	server.initializeRouter()
-	jwtTokenClaims := jwtTokenClaims{
-		Username: "user",
-	}
-	_, tokenString, err := jwtTokenClaims.createToken(server.tokenAuth, tokenAudienceWebClient, "")
+	err = server.initializeRouter()
+	require.NoError(t, err)
+
+	claims := jwt.NewClaims(tokenAudienceWebClient, "", getTokenDuration(tokenAudienceWebClient))
+	claims.Username = "user"
+	tokenString, err := server.tokenAuth.Sign(claims)
 	assert.NoError(t, err)
 	rr := httptest.NewRecorder()
 	r, err := http.NewRequest(http.MethodGet, webClientLogoutPath, nil)
@@ -968,7 +971,8 @@ func TestOIDCImplicitRoles(t *testing.T) {
 	server.binding.OIDC.ImplicitRoles = true
 	err := server.binding.OIDC.initialize()
 	assert.NoError(t, err)
-	server.initializeRouter()
+	err = server.initializeRouter()
+	require.NoError(t, err)
 
 	authReq := newOIDCPendingAuth(tokenAudienceWebAdmin)
 	oidcMgr.addPendingAuth(authReq)
@@ -1241,7 +1245,8 @@ func TestOIDCEvMgrIntegration(t *testing.T) {
 	server.binding.OIDC.CustomFields = []string{"custom1.sub", "custom2"}
 	err = server.binding.OIDC.initialize()
 	assert.NoError(t, err)
-	server.initializeRouter()
+	err = server.initializeRouter()
+	require.NoError(t, err)
 	// login a user with OIDC
 	_, err = dataprovider.UserExists(username, "")
 	assert.ErrorIs(t, err, util.ErrNotFound)
@@ -1378,7 +1383,8 @@ func TestOIDCPreLoginHook(t *testing.T) {
 	server.binding.OIDC.CustomFields = []string{"field1", "field2"}
 	err = server.binding.OIDC.initialize()
 	assert.NoError(t, err)
-	server.initializeRouter()
+	err = server.initializeRouter()
+	require.NoError(t, err)
 
 	_, err = dataprovider.UserExists(username, "")
 	assert.ErrorIs(t, err, util.ErrNotFound)
@@ -1554,7 +1560,8 @@ func TestOIDCWithLoginFormsDisabled(t *testing.T) {
 	server.binding.EnableWebClient = true
 	err := server.binding.OIDC.initialize()
 	assert.NoError(t, err)
-	server.initializeRouter()
+	err = server.initializeRouter()
+	require.NoError(t, err)
 	// login with an admin user
 	authReq := newOIDCPendingAuth(tokenAudienceWebAdmin)
 	oidcMgr.addPendingAuth(authReq)

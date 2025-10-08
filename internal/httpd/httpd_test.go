@@ -328,7 +328,7 @@ type recoveryCode struct {
 	Used bool   `json:"used"`
 }
 
-func TestMain(m *testing.M) {
+func TestMain(m *testing.M) { //nolint:gocyclo
 	homeBasePath = os.TempDir()
 	logfilePath := filepath.Join(configDir, "sftpgo_api_test.log")
 	logger.InitLogger(logfilePath, 5, 1, 28, false, false, zerolog.DebugLevel)
@@ -480,7 +480,12 @@ func TestMain(m *testing.M) {
 	waitTCPListening(httpdConf.Bindings[0].GetAddress())
 	httpd.ReloadCertificateMgr() //nolint:errcheck
 
-	testServer = httptest.NewServer(httpd.GetHTTPRouter(httpdConf.Bindings[0]))
+	handler, err := httpd.GetHTTPRouter(httpdConf.Bindings[0])
+	if err != nil {
+		logger.ErrorToConsole("unable to get http test handler: %v", err)
+		os.Exit(1)
+	}
+	testServer = httptest.NewServer(handler)
 	defer testServer.Close()
 
 	exitCode := m.Run()

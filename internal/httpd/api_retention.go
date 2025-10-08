@@ -20,11 +20,12 @@ import (
 	"github.com/go-chi/render"
 
 	"github.com/drakkan/sftpgo/v2/internal/common"
+	"github.com/drakkan/sftpgo/v2/internal/jwt"
 )
 
 func getRetentionChecks(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return

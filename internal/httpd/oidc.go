@@ -31,6 +31,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/httpclient"
+	"github.com/drakkan/sftpgo/v2/internal/jwt"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 )
@@ -551,19 +552,20 @@ func (s *httpdServer) oidcTokenAuthenticator(audience tokenAudience) func(next h
 			if err != nil {
 				return
 			}
-			jwtTokenClaims := jwtTokenClaims{
-				JwtID:                token.Cookie,
+			claims := jwt.Claims{
 				Username:             dataprovider.ConvertName(token.Username),
 				Permissions:          token.Permissions,
 				Role:                 token.TokenRole,
 				HideUserPageSections: token.HideUserPageSections,
 			}
+			claims.ID = token.Cookie
 			if audience == tokenAudienceWebClient {
-				jwtTokenClaims.MustSetTwoFactorAuth = token.MustSetTwoFactorAuth
-				jwtTokenClaims.MustChangePassword = token.MustChangePassword
-				jwtTokenClaims.RequiredTwoFactorProtocols = token.RequiredTwoFactorProtocols
+				claims.MustSetTwoFactorAuth = token.MustSetTwoFactorAuth
+				claims.MustChangePassword = token.MustChangePassword
+				claims.RequiredTwoFactorProtocols = token.RequiredTwoFactorProtocols
 			}
-			_, tokenString, err := jwtTokenClaims.createToken(s.tokenAuth, audience, util.GetIPFromRemoteAddress(r.RemoteAddr))
+			tokenString, err := s.tokenAuth.SignWithParams(&claims, audience, util.GetIPFromRemoteAddress(r.RemoteAddr),
+				getTokenDuration(audience))
 			if err != nil {
 				setFlashMessage(w, r, newFlashMessage("Unable to create cookie", util.I18nError500Message))
 				if audience == tokenAudienceWebAdmin {

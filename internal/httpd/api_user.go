@@ -27,6 +27,7 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
+	"github.com/drakkan/sftpgo/v2/internal/jwt"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/smtp"
 	"github.com/drakkan/sftpgo/v2/internal/util"
@@ -39,7 +40,7 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
@@ -55,16 +56,16 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 
 func getUserByUsername(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
 	}
 	username := getURLParam(r, "username")
-	renderUser(w, r, username, &claims, http.StatusOK)
+	renderUser(w, r, username, claims, http.StatusOK)
 }
 
-func renderUser(w http.ResponseWriter, r *http.Request, username string, claims *jwtTokenClaims, status int) {
+func renderUser(w http.ResponseWriter, r *http.Request, username string, claims *jwt.Claims, status int) {
 	user, err := dataprovider.UserExists(username, claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
@@ -84,7 +85,7 @@ func renderUser(w http.ResponseWriter, r *http.Request, username string, claims 
 func addUser(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
@@ -117,12 +118,12 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Add("Location", fmt.Sprintf("%s/%s", userPath, url.PathEscape(user.Username)))
-	renderUser(w, r, user.Username, &claims, http.StatusCreated)
+	renderUser(w, r, user.Username, claims, http.StatusCreated)
 }
 
 func disableUser2FA(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
@@ -150,7 +151,7 @@ func disableUser2FA(w http.ResponseWriter, r *http.Request) {
 
 func updateUser(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
@@ -202,7 +203,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 
 func deleteUser(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return

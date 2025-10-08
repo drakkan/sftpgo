@@ -27,6 +27,7 @@ import (
 	"github.com/go-chi/render"
 
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
+	"github.com/drakkan/sftpgo/v2/internal/jwt"
 	"github.com/drakkan/sftpgo/v2/internal/kms"
 	"github.com/drakkan/sftpgo/v2/internal/mfa"
 	"github.com/drakkan/sftpgo/v2/internal/util"
@@ -66,13 +67,13 @@ func getTOTPConfigs(w http.ResponseWriter, r *http.Request) {
 
 func generateTOTPSecret(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
 	}
 	var accountName string
-	if claims.hasUserAudience() {
+	if hasUserAudience(claims) {
 		accountName = fmt.Sprintf("User %q", claims.Username)
 	} else {
 		accountName = fmt.Sprintf("Admin %q", claims.Username)
@@ -113,7 +114,7 @@ func getQRCode(w http.ResponseWriter, r *http.Request) {
 
 func saveTOTPConfig(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
@@ -124,7 +125,7 @@ func saveTOTPConfig(w http.ResponseWriter, r *http.Request) {
 		recoveryCodes = append(recoveryCodes, dataprovider.RecoveryCode{Secret: kms.NewPlainSecret(code)})
 	}
 	baseURL := webBaseClientPath
-	if claims.hasUserAudience() {
+	if hasUserAudience(claims) {
 		if err := saveUserTOTPConfig(claims.Username, r, recoveryCodes); err != nil {
 			sendAPIResponse(w, r, err, "", getRespStatus(err))
 			return
@@ -164,14 +165,14 @@ func validateTOTPPasscode(w http.ResponseWriter, r *http.Request) {
 
 func getRecoveryCodes(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
 	}
 	recoveryCodes := make([]recoveryCode, 0, 12)
 	var accountRecoveryCodes []dataprovider.RecoveryCode
-	if claims.hasUserAudience() {
+	if hasUserAudience(claims) {
 		user, err := dataprovider.UserExists(claims.Username, "")
 		if err != nil {
 			sendAPIResponse(w, r, err, "", getRespStatus(err))
@@ -210,7 +211,7 @@ func getRecoveryCodes(w http.ResponseWriter, r *http.Request) {
 
 func generateRecoveryCodes(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
@@ -222,7 +223,7 @@ func generateRecoveryCodes(w http.ResponseWriter, r *http.Request) {
 		recoveryCodes = append(recoveryCodes, code)
 		accountRecoveryCodes = append(accountRecoveryCodes, dataprovider.RecoveryCode{Secret: kms.NewPlainSecret(code)})
 	}
-	if claims.hasUserAudience() {
+	if hasUserAudience(claims) {
 		user, err := dataprovider.UserExists(claims.Username, "")
 		if err != nil {
 			sendAPIResponse(w, r, err, "", getRespStatus(err))

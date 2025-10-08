@@ -24,6 +24,7 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
+	"github.com/drakkan/sftpgo/v2/internal/jwt"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 )
 
@@ -42,7 +43,7 @@ func getEventActions(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, actions)
 }
 
-func renderEventAction(w http.ResponseWriter, r *http.Request, name string, claims *jwtTokenClaims, status int) {
+func renderEventAction(w http.ResponseWriter, r *http.Request, name string, claims *jwt.Claims, status int) {
 	action, err := dataprovider.EventActionExists(name)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
@@ -61,19 +62,19 @@ func renderEventAction(w http.ResponseWriter, r *http.Request, name string, clai
 
 func getEventActionByName(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
 	}
 	name := getURLParam(r, "name")
-	renderEventAction(w, r, name, &claims, http.StatusOK)
+	renderEventAction(w, r, name, claims, http.StatusOK)
 }
 
 func addEventAction(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
@@ -91,12 +92,12 @@ func addEventAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Add("Location", fmt.Sprintf("%s/%s", eventActionsPath, url.PathEscape(action.Name)))
-	renderEventAction(w, r, action.Name, &claims, http.StatusCreated)
+	renderEventAction(w, r, action.Name, claims, http.StatusCreated)
 }
 
 func updateEventAction(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
@@ -136,7 +137,7 @@ func updateEventAction(w http.ResponseWriter, r *http.Request) {
 
 func deleteEventAction(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
@@ -165,7 +166,7 @@ func getEventRules(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, rules)
 }
 
-func renderEventRule(w http.ResponseWriter, r *http.Request, name string, claims *jwtTokenClaims, status int) {
+func renderEventRule(w http.ResponseWriter, r *http.Request, name string, claims *jwt.Claims, status int) {
 	rule, err := dataprovider.EventRuleExists(name)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
@@ -184,19 +185,19 @@ func renderEventRule(w http.ResponseWriter, r *http.Request, name string, claims
 
 func getEventRuleByName(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
 	}
 	name := getURLParam(r, "name")
-	renderEventRule(w, r, name, &claims, http.StatusOK)
+	renderEventRule(w, r, name, claims, http.StatusOK)
 }
 
 func addEventRule(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
@@ -213,12 +214,12 @@ func addEventRule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Add("Location", fmt.Sprintf("%s/%s", eventRulesPath, url.PathEscape(rule.Name)))
-	renderEventRule(w, r, rule.Name, &claims, http.StatusCreated)
+	renderEventRule(w, r, rule.Name, claims, http.StatusCreated)
 }
 
 func updateEventRule(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
@@ -249,7 +250,7 @@ func updateEventRule(w http.ResponseWriter, r *http.Request) {
 
 func deleteEventRule(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
+	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
