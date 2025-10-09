@@ -121,7 +121,6 @@
         "address": "",
         "apply_proxy_config": true,
         "tls_mode": 0,
-        "tls_session_reuse": 0,
         "certificate_file": "",
         "certificate_key_file": "",
         "min_tls_version": 12,
@@ -132,7 +131,6 @@
         "tls_cipher_suites": [],
         "passive_connections_security": 0,
         "active_connections_security": 0,
-        "ignore_ascii_transfer_type": 0,
         "debug": false
       }
     ],
