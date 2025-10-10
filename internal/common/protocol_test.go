@@ -8405,6 +8405,8 @@ func TestRetentionAPI(t *testing.T) {
 		assert.NoError(t, err)
 		err = client.Chtimes(uploadPath, time.Now().Add(-48*time.Hour), time.Now().Add(-48*time.Hour))
 		assert.NoError(t, err)
+		conn.Close()
+		client.Close()
 	}
 
 	// remove delete permissions to the user, it will be automatically granted
@@ -8415,9 +8417,6 @@ func TestRetentionAPI(t *testing.T) {
 
 	conn, client, err = getSftpClient(user)
 	if assert.NoError(t, err) {
-		defer conn.Close()
-		defer client.Close()
-
 		innerUploadFilePath := path.Join("/"+testDir, testDir, testFileName)
 		err = client.Mkdir(path.Join(testDir, testDir))
 		assert.NoError(t, err)
@@ -8482,6 +8481,8 @@ func TestRetentionAPI(t *testing.T) {
 
 		_, err = client.Stat(innerUploadFilePath)
 		assert.ErrorIs(t, err, os.ErrNotExist)
+		conn.Close()
+		client.Close()
 	}
 	// finally test some errors removing files or folders
 	if runtime.GOOS != osWindows {
@@ -8553,6 +8554,10 @@ func TestRetentionAPI(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
+
+	assert.Eventually(t, func() bool {
+		return common.Connections.GetClientConnections() == 0
+	}, 1*time.Second, 50*time.Millisecond)
 }
 
 func TestPerUserTransferLimits(t *testing.T) {
