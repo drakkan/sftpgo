@@ -1,4 +1,4 @@
-FROM golang:1.25-bookworm AS builder
+FROM golang:1.25-trixie AS builder
 
 ENV GOFLAGS="-mod=readonly"
 
@@ -30,7 +30,7 @@ ARG DOWNLOAD_PLUGINS=false
 
 RUN if [ "${DOWNLOAD_PLUGINS}" = "true" ]; then apt-get update && apt-get install --no-install-recommends -y curl && ./docker/scripts/download-plugins.sh; fi
 
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 # Set to "true" to install jq and the optional git and rsync dependencies
 ARG INSTALL_OPTIONAL_PACKAGES=false

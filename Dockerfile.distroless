@@ -1,4 +1,4 @@
-FROM golang:1.25-bookworm AS builder
+FROM golang:1.25-trixie AS builder
 
 ENV CGO_ENABLED=0 GOFLAGS="-mod=readonly"
 
@@ -32,7 +32,7 @@ RUN sed -i 's|"users_base_dir": "",|"users_base_dir": "/srv/sftpgo/data",|' sftp
 
 RUN mkdir /etc/sftpgo /var/lib/sftpgo /srv/sftpgo
 
-FROM gcr.io/distroless/static-debian12
+FROM gcr.io/distroless/static-debian13
 
 COPY --from=builder --chown=1000:1000 /etc/sftpgo /etc/sftpgo
 COPY --from=builder --chown=1000:1000 /srv/sftpgo /srv/sftpgo
