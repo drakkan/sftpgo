@@ -1071,7 +1071,7 @@ func (s *httpdServer) refreshAdminToken(w http.ResponseWriter, r *http.Request, 
 func (s *httpdServer) updateContextFromCookie(r *http.Request) *http.Request {
 	_, err := jwt.FromContext(r.Context())
 	if err != nil {
-		_, err = r.Cookie(jwtCookieKey)
+		_, err = r.Cookie(jwt.CookieKey)
 		if err != nil {
 			return r
 		}

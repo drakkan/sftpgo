@@ -809,7 +809,7 @@ func removeOIDCCookie(w http.ResponseWriter, r *http.Request) {
 func canSkipOIDCValidation(r *http.Request) bool {
 	_, err := r.Cookie(oidcCookieKey)
 	if err != nil {
-		_, err = r.Cookie(jwtCookieKey)
+		_, err = r.Cookie(jwt.CookieKey)
 		return err == nil
 	}
 	return false

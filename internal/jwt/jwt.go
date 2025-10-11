@@ -30,6 +30,10 @@ import (
 	"github.com/rs/xid"
 )
 
+const (
+	CookieKey = "jwt"
+)
+
 var (
 	TokenCtxKey = &contextKey{"Token"}
 	ErrorCtxKey = &contextKey{"Error"}
@@ -235,7 +239,7 @@ func VerifyTokenWithKey(payload string, algo []jose.SignatureAlgorithm, key any)
 	if err != nil {
 		return nil, err
 	}
-	if err := claims.ValidateWithLeeway(jwt.Expected{Time: time.Now()}, 15*time.Second); err != nil {
+	if err := claims.ValidateWithLeeway(jwt.Expected{Time: time.Now()}, 30*time.Second); err != nil {
 		return nil, err
 	}
 	return &claims, nil
@@ -244,7 +248,7 @@ func VerifyTokenWithKey(payload string, algo []jose.SignatureAlgorithm, key any)
 // TokenFromCookie tries to retrieve the token string from a cookie named
 // "jwt".
 func TokenFromCookie(r *http.Request) string {
-	cookie, err := r.Cookie("jwt")
+	cookie, err := r.Cookie(CookieKey)
 	if err != nil {
 		return ""
 	}

@@ -223,3 +223,33 @@ func TestContext(t *testing.T) {
 
 	assert.Equal(t, "jwt context value Token", TokenCtxKey.String())
 }
+
+func TestValidationLeeway(t *testing.T) {
+	s, err := NewSigner(jose.HS256, util.GenerateRandomBytes(32))
+	require.NoError(t, err)
+	claims := &Claims{}
+	claims.Audience = []string{util.GenerateUniqueID()}
+	claims.SetIssuedAt(time.Now().Add(10 * time.Second)) // issued at in the future
+	claims.SetExpiry(time.Now().Add(10 * time.Second))
+	token, err := s.Sign(claims)
+	require.NoError(t, err)
+	_, err = VerifyToken(s, token)
+	assert.NoError(t, err)
+
+	claims = &Claims{}
+	claims.Audience = []string{util.GenerateUniqueID()}
+	claims.SetExpiry(time.Now().Add(-10 * time.Second)) // expired
+	token, err = s.Sign(claims)
+	require.NoError(t, err)
+	_, err = VerifyToken(s, token)
+	assert.NoError(t, err)
+
+	claims = &Claims{}
+	claims.Audience = []string{util.GenerateUniqueID()}
+	claims.SetExpiry(time.Now().Add(30 * time.Second))
+	claims.SetNotBefore(time.Now().Add(10 * time.Second)) // not before in the future
+	token, err = s.Sign(claims)
+	require.NoError(t, err)
+	_, err = VerifyToken(s, token)
+	assert.NoError(t, err)
+}

@@ -49,8 +49,7 @@ const (
 )
 
 const (
-	basicRealm   = "Basic realm=\"SFTPGo\""
-	jwtCookieKey = "jwt"
+	basicRealm = "Basic realm=\"SFTPGo\""
 )
 
 var (
@@ -142,7 +141,7 @@ func createAndSetCookie(w http.ResponseWriter, r *http.Request, claims *jwt.Clai
 
 func setCookie(w http.ResponseWriter, r *http.Request, cookiePath, cookieValue string, duration time.Duration) {
 	http.SetCookie(w, &http.Cookie{
-		Name:     jwtCookieKey,
+		Name:     jwt.CookieKey,
 		Value:    cookieValue,
 		Path:     cookiePath,
 		Expires:  time.Now().Add(duration),
@@ -156,7 +155,7 @@ func setCookie(w http.ResponseWriter, r *http.Request, cookiePath, cookieValue s
 func removeCookie(w http.ResponseWriter, r *http.Request, cookiePath string) {
 	invalidateToken(r)
 	http.SetCookie(w, &http.Cookie{
-		Name:     jwtCookieKey,
+		Name:     jwt.CookieKey,
 		Value:    "",
 		Path:     cookiePath,
 		Expires:  time.Unix(0, 0),

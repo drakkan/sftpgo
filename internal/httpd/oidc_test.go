@@ -845,7 +845,7 @@ func TestSkipOIDCAuth(t *testing.T) {
 	rr := httptest.NewRecorder()
 	r, err := http.NewRequest(http.MethodGet, webClientLogoutPath, nil)
 	assert.NoError(t, err)
-	r.Header.Set("Cookie", fmt.Sprintf("%v=%v", jwtCookieKey, tokenString))
+	r.Header.Set("Cookie", fmt.Sprintf("%v=%v", jwt.CookieKey, tokenString))
 	server.router.ServeHTTP(rr, r)
 	assert.Equal(t, http.StatusFound, rr.Code)
 	assert.Equal(t, webClientLoginPath, rr.Header().Get("Location"))
