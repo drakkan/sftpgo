@@ -111,8 +111,7 @@
     ],
     "keyboard_interactive_authentication": true,
     "keyboard_interactive_auth_hook": "",
-    "password_authentication": true,
-    "folder_prefix": ""
+    "password_authentication": true
   },
   "ftpd": {
     "bindings": [
