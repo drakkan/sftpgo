@@ -161,24 +161,24 @@ func (u *User) GetFilesystem(connectionID string) (fs vfs.Fs, err error) {
 func (u *User) getRootFs(connectionID string) (fs vfs.Fs, err error) {
 	switch u.FsConfig.Provider {
 	case sdk.S3FilesystemProvider:
-		return vfs.NewS3Fs(connectionID, u.GetHomeDir(), "", u.FsConfig.S3Config)
+		return vfs.NewS3Fs(connectionID, u.GetHomeDir(), "", "", u.FsConfig.S3Config)
 	case sdk.GCSFilesystemProvider:
-		return vfs.NewGCSFs(connectionID, u.GetHomeDir(), "", u.FsConfig.GCSConfig)
+		return vfs.NewGCSFs(connectionID, u.GetHomeDir(), "", "", u.FsConfig.GCSConfig)
 	case sdk.AzureBlobFilesystemProvider:
-		return vfs.NewAzBlobFs(connectionID, u.GetHomeDir(), "", u.FsConfig.AzBlobConfig)
+		return vfs.NewAzBlobFs(connectionID, u.GetHomeDir(), "", "", u.FsConfig.AzBlobConfig)
 	case sdk.CryptedFilesystemProvider:
-		return vfs.NewCryptFs(connectionID, u.GetHomeDir(), "", u.FsConfig.CryptConfig)
+		return vfs.NewCryptFs(connectionID, u.GetHomeDir(), "", "", u.FsConfig.CryptConfig)
 	case sdk.SFTPFilesystemProvider:
 		forbiddenSelfUsers, err := u.getForbiddenSFTPSelfUsers(u.FsConfig.SFTPConfig.Username)
 		if err != nil {
 			return nil, err
 		}
 		forbiddenSelfUsers = append(forbiddenSelfUsers, u.Username)
-		return vfs.NewSFTPFs(connectionID, "", u.GetHomeDir(), forbiddenSelfUsers, u.FsConfig.SFTPConfig)
+		return vfs.NewSFTPFs(connectionID, "", "", u.GetHomeDir(), forbiddenSelfUsers, u.FsConfig.SFTPConfig)
 	case sdk.HTTPFilesystemProvider:
-		return vfs.NewHTTPFs(connectionID, u.GetHomeDir(), "", u.FsConfig.HTTPConfig)
+		return vfs.NewHTTPFs(connectionID, u.GetHomeDir(), "", "", u.FsConfig.HTTPConfig)
 	default:
-		return vfs.NewOsFs(connectionID, u.GetHomeDir(), "", &u.FsConfig.OSConfig), nil
+		return vfs.NewOsFs(connectionID, u.GetHomeDir(), "", "", &u.FsConfig.OSConfig), nil
 	}
 }
 
@@ -223,7 +223,7 @@ func (u *User) checkLocalHomeDir(connectionID string) {
 	case sdk.LocalFilesystemProvider, sdk.CryptedFilesystemProvider:
 		return
 	default:
-		osFs := vfs.NewOsFs(connectionID, u.GetHomeDir(), "", nil)
+		osFs := vfs.NewOsFs(connectionID, u.GetHomeDir(), "", "", nil)
 		osFs.CheckRootPath(u.Username, u.GetUID(), u.GetGID())
 	}
 }

@@ -27,6 +27,6 @@ func init() {
 }
 
 // NewGCSFs returns an error, GCS is disabled
-func NewGCSFs(_, _, _ string, _ GCSFsConfig) (Fs, error) {
+func NewGCSFs(_, _, _, _ string, _ GCSFsConfig) (Fs, error) {
 	return nil, errors.New("Google Cloud Storage disabled at build time")
 }
