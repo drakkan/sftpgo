@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 env:
-  GO_VERSION: 1.25.1
+  GO_VERSION: 1.25.3
 
 jobs:
   prepare-sources-with-deps:
