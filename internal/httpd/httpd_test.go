@@ -1842,6 +1842,19 @@ func TestGroupSettingsOverride(t *testing.T) {
 		assert.Contains(t, user.Filters.WebClient, sdk.WebClientInfoChangeDisabled)
 		assert.Contains(t, user.Filters.WebClient, sdk.WebClientMFADisabled)
 	}
+	// Attempt to create a user with a weak password and group1 as the primary group: this should fail
+	u = getTestUser()
+	u.Username = rand.Text()
+	u.Password = defaultPassword
+	u.Groups = []sdk.GroupMapping{
+		{
+			Name: group1.Name,
+			Type: sdk.GroupTypePrimary,
+		},
+	}
+	_, resp, err = httpdtest.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "insecure password")
 
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -15107,6 +15120,47 @@ func TestShareUsage(t *testing.T) {
 	assert.NoError(t, err)
 	req.SetBasicAuth(defaultUsername, defaultPassword)
 	executeRequest(req)
+}
+
+func TestSharePasswordPolicy(t *testing.T) {
+	g := getTestGroup()
+	g.UserSettings.Filters.PasswordStrength = 70
+	group, _, err := httpdtest.AddGroup(g, http.StatusCreated)
+	assert.NoError(t, err)
+
+	u := getTestUser()
+	u.Groups = []sdk.GroupMapping{
+		{
+			Name: g.Name,
+			Type: sdk.GroupTypePrimary,
+		},
+	}
+	u.Password = rand.Text()
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	webAPIToken, err := getJWTAPIUserTokenFromTestServer(defaultUsername, u.Password)
+	assert.NoError(t, err)
+
+	share := dataprovider.Share{
+		Name:     util.GenerateUniqueID(),
+		Scope:    dataprovider.ShareScopeRead,
+		Paths:    []string{"/"},
+		Password: defaultPassword,
+	}
+	asJSON, err := json.Marshal(share)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "insecure password")
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group, http.StatusOK)
+	assert.NoError(t, err)
 }
 
 func TestShareMaxExpiration(t *testing.T) {

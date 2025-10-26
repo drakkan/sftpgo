@@ -2144,9 +2144,6 @@ func UpdateUserPassword(username, plainPwd, executor, ipAddress, role string) er
 		return err
 	}
 	userCopy := user.getACopy()
-	if err := userCopy.LoadAndApplyGroupSettings(); err != nil {
-		return err
-	}
 	userCopy.Password = plainPwd
 	if err := createUserPasswordHash(&userCopy); err != nil {
 		return err
@@ -3336,6 +3333,19 @@ func hashPlainPassword(plainPwd string) (string, error) {
 
 func createUserPasswordHash(user *User) error {
 	if user.Password != "" && !user.IsPasswordHashed() {
+		for _, g := range user.Groups {
+			if g.Type == sdk.GroupTypePrimary {
+				group, err := GroupExists(g.Name)
+				if err != nil {
+					return errors.New("unable to load group password policies")
+				}
+				if minEntropy := group.UserSettings.Filters.PasswordStrength; minEntropy > 0 {
+					if err := passwordvalidator.Validate(user.Password, float64(minEntropy)); err != nil {
+						return util.NewI18nError(util.NewValidationError(err.Error()), util.I18nErrorPasswordComplexity)
+					}
+				}
+			}
+		}
 		if minEntropy := user.getMinPasswordEntropy(); minEntropy > 0 {
 			if err := passwordvalidator.Validate(user.Password, minEntropy); err != nil {
 				return util.NewI18nError(util.NewValidationError(err.Error()), util.I18nErrorPasswordComplexity)
