@@ -10,12 +10,12 @@ require (
 	github.com/GehirnInc/crypt v0.0.0-20230320061759-8cc1b52080c5
 	github.com/alexedwards/argon2id v1.0.0
 	github.com/amoghe/go-crypt v0.0.0-20220222110647-20eada5f5964
-	github.com/aws/aws-sdk-go-v2 v1.39.3
-	github.com/aws/aws-sdk-go-v2/config v1.31.14
-	github.com/aws/aws-sdk-go-v2/credentials v1.18.18
-	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.19.14
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.88.6
-	github.com/aws/aws-sdk-go-v2/service/sts v1.38.8
+	github.com/aws/aws-sdk-go-v2 v1.39.4
+	github.com/aws/aws-sdk-go-v2/config v1.31.15
+	github.com/aws/aws-sdk-go-v2/credentials v1.18.19
+	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.19.15
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.88.7
+	github.com/aws/aws-sdk-go-v2/service/sts v1.38.9
 	github.com/bmatcuk/doublestar/v4 v4.9.1
 	github.com/cockroachdb/cockroach-go/v2 v2.4.2
 	github.com/coreos/go-oidc/v3 v3.16.0
@@ -42,7 +42,7 @@ require (
 	github.com/minio/sio v0.4.2
 	github.com/otiai10/copy v1.14.1
 	github.com/pires/go-proxyproto v0.8.1
-	github.com/pkg/sftp v1.13.9
+	github.com/pkg/sftp v1.13.10
 	github.com/pquerna/otp v1.5.0
 	github.com/prometheus/client_golang v1.23.2
 	github.com/robfig/cron/v3 v3.0.1
@@ -89,17 +89,17 @@ require (
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.54.0 // indirect
 	github.com/ajg/form v1.5.1 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.2 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.10 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.10 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.10 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.11 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.11 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.11 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.4 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.10 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.11 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.2 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.9.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.10 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.10 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.29.7 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.2 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.9.2 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.11 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.11 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.29.8 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.3 // indirect
 	github.com/aws/smithy-go v1.23.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/boombuler/barcode v1.1.0 // indirect
@@ -147,7 +147,7 @@ require (
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.67.1 // indirect
-	github.com/prometheus/procfs v0.18.0 // indirect
+	github.com/prometheus/procfs v0.19.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sagikazarmark/locafero v0.12.0 // indirect
 	github.com/shoenig/go-m1cpu v0.1.7 // indirect
