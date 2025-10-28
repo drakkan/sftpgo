@@ -212,6 +212,9 @@ func newActionNotification(
 		endpoint = fsConfig.S3Config.Endpoint
 	case sdk.GCSFilesystemProvider:
 		bucket = fsConfig.GCSConfig.Bucket
+		if fsConfig.GCSConfig.Endpoint != "" {
+            endpoint = fsConfig.GCSConfig.Endpoint
+        }
 	case sdk.AzureBlobFilesystemProvider:
 		bucket = fsConfig.AzBlobConfig.Container
 		if fsConfig.AzBlobConfig.Endpoint != "" {

@@ -238,6 +238,14 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         </div>
 
         <div class="form-group row mt-10 fsconfig-gcs">
+            <label for="idGCSEndpoint" data-i18n="storage.endpoint" class="col-md-3 col-form-label">Endpoint</label>
+            <div class="col-md-9">
+                <input id="idGCSEndpoint" type="text" class="form-control" name="gcs_endpoint" value="{{.GCSConfig.Endpoint}}" aria-describedby="idGCSEndpointHelp"/>
+                <div id="idGCSEndpointHelp" class="form-text" data-i18n="storage.endpoint_help"></div>
+            </div>
+        </div>
+
+        <div class="form-group row mt-10 fsconfig-gcs">
             <label for="idGCSStorageClass" data-i18n="storage.class" class="col-md-3 col-form-label">Storage Class</label>
             <div class="col-md-3">
                 <input id="idGCSStorageClass" type="text" class="form-control" name="gcs_storage_class" value="{{.GCSConfig.StorageClass}}" aria-describedby="idGCSStorageClassHelp" />
