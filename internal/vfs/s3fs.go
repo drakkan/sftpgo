@@ -786,9 +786,10 @@ func (fs *S3Fs) hasContents(name string) (bool, error) {
 	prefix := fs.getPrefix(name)
 	maxKeys := int32(2)
 	paginator := s3.NewListObjectsV2Paginator(fs.svc, &s3.ListObjectsV2Input{
-		Bucket:  aws.String(fs.config.Bucket),
-		Prefix:  aws.String(prefix),
-		MaxKeys: &maxKeys,
+		Bucket:    aws.String(fs.config.Bucket),
+		Prefix:    aws.String(prefix),
+		Delimiter: aws.String("/"),
+		MaxKeys:   &maxKeys,
 	})
 
 	if paginator.HasMorePages() {
@@ -806,6 +807,9 @@ func (fs *S3Fs) hasContents(name string) (bool, error) {
 			if name == "" || name == "/" {
 				continue
 			}
+			return true, nil
+		}
+		if len(page.CommonPrefixes) > 0 {
 			return true, nil
 		}
 		return false, nil
