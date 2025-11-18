@@ -57,6 +57,7 @@ type GCSFs struct {
 	localTempDir string
 	// if not empty this fs is mouted as virtual folder in the specified path
 	mountPath      string
+	subDir         string
 	config         *GCSFsConfig
 	svc            *storage.Client
 	ctxTimeout     time.Duration
@@ -68,7 +69,7 @@ func init() {
 }
 
 // NewGCSFs returns an GCSFs object that allows to interact with Google Cloud Storage
-func NewGCSFs(connectionID, localTempDir, mountPath string, config GCSFsConfig) (Fs, error) {
+func NewGCSFs(connectionID, localTempDir, subDir, mountPath string, config GCSFsConfig) (Fs, error) {
 	if localTempDir == "" {
 		localTempDir = getLocalTempDir()
 	}
@@ -77,6 +78,7 @@ func NewGCSFs(connectionID, localTempDir, mountPath string, config GCSFsConfig) 
 	fs := &GCSFs{
 		connectionID:   connectionID,
 		localTempDir:   localTempDir,
+		subDir:         subDir,
 		mountPath:      getMountPath(mountPath),
 		config:         &config,
 		ctxTimeout:     30 * time.Second,
@@ -466,7 +468,7 @@ func (*GCSFs) IsNotSupported(err error) bool {
 // CheckRootPath creates the specified local root directory if it does not exists
 func (fs *GCSFs) CheckRootPath(username string, uid int, gid int) bool {
 	// we need a local directory for temporary files
-	osFs := NewOsFs(fs.ConnectionID(), fs.localTempDir, "", nil)
+	osFs := NewOsFs(fs.ConnectionID(), fs.localTempDir, "", "", nil)
 	return osFs.CheckRootPath(username, uid, gid)
 }
 
@@ -643,7 +645,11 @@ func (fs *GCSFs) ResolvePath(virtualPath string) (string, error) {
 	if !path.IsAbs(virtualPath) {
 		virtualPath = path.Clean("/" + virtualPath)
 	}
-	return fs.Join(fs.config.KeyPrefix, strings.TrimPrefix(virtualPath, "/")), nil
+	resolvedPath := strings.TrimPrefix(virtualPath, "/")
+	if fs.subDir != "" {
+		resolvedPath = path.Join(fs.subDir, resolvedPath)
+	}
+	return fs.Join(fs.config.KeyPrefix, resolvedPath), nil
 }
 
 // CopyFile implements the FsFileCopier interface
