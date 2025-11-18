@@ -185,13 +185,13 @@ func (s *Server) AuthUser(cc ftpserver.ClientContext, username, password string)
 	user, err := dataprovider.CheckUserAndPass(username, password, ipAddr, common.ProtocolFTP)
 	if err != nil {
 		user.Username = username
-		updateLoginMetrics(&user, ipAddr, loginMethod, err, nil)
+		updateLoginMetrics(&user, ipAddr, loginMethod, err, nil, "")
 		return nil, dataprovider.ErrInvalidCredentials
 	}
 
 	connection, err := s.validateUser(user, cc, loginMethod)
 
-	defer updateLoginMetrics(&user, ipAddr, loginMethod, err, connection)
+	defer updateLoginMetrics(&user, ipAddr, loginMethod, err, connection, "")
 
 	if err != nil {
 		return nil, err
@@ -236,12 +236,16 @@ func (s *Server) VerifyConnection(cc ftpserver.ClientContext, user string, tlsCo
 	cc.SetExtra(false)
 	if tlsConn != nil {
 		state := tlsConn.ConnectionState()
+		ciphersuiteName := tls.CipherSuiteName(state.CipherSuite)
+		cc.SetExtra(fmt.Sprintf("ciphersuiteName: %s", ciphersuiteName))
+
+			"user %s with ciphersuite: %s", user, ciphersuiteName)
 		if len(state.PeerCertificates) > 0 {
 			ipAddr := util.GetIPFromRemoteAddress(cc.RemoteAddr().String())
 			dbUser, err := dataprovider.CheckUserBeforeTLSAuth(user, ipAddr, common.ProtocolFTP, state.PeerCertificates[0])
 			if err != nil {
 				dbUser.Username = user
-				updateLoginMetrics(&dbUser, ipAddr, dataprovider.LoginMethodTLSCertificate, err, nil)
+				updateLoginMetrics(&dbUser, ipAddr, dataprovider.LoginMethodTLSCertificate, err, nil, ciphersuiteName)
 				return nil, dataprovider.ErrInvalidCredentials
 			}
 			if dbUser.IsTLSVerificationEnabled() {
@@ -255,7 +259,7 @@ func (s *Server) VerifyConnection(cc ftpserver.ClientContext, user string, tlsCo
 				if dbUser.IsLoginMethodAllowed(dataprovider.LoginMethodTLSCertificate, common.ProtocolFTP) {
 					connection, err := s.validateUser(dbUser, cc, dataprovider.LoginMethodTLSCertificate)
 
-					defer updateLoginMetrics(&dbUser, ipAddr, dataprovider.LoginMethodTLSCertificate, err, connection)
+					defer updateLoginMetrics(&dbUser, ipAddr, dataprovider.LoginMethodTLSCertificate, err, connection, ciphersuiteName)
 
 					if err != nil {
 						return nil, err
@@ -408,11 +412,14 @@ func setStartDirectory(startDirectory string, cc ftpserver.ClientContext) {
 	cc.SetPath(startDirectory)
 }
 
-func updateLoginMetrics(user *dataprovider.User, ip, loginMethod string, err error, c *Connection) {
+func updateLoginMetrics(user *dataprovider.User, ip, loginMethod string, err error, c *Connection, ciphersuiteName string) {
 	metric.AddLoginAttempt(loginMethod)
 	if err == nil {
+		if ciphersuiteName == "" {
+			ciphersuiteName = "none"
+		}
 		logger.LoginLog(user.Username, ip, loginMethod, common.ProtocolFTP, c.ID, c.GetClientVersion(),
-			c.clientContext.HasTLSForControl(), "")
+			c.clientContext.HasTLSForControl(), fmt.Sprintf("ciphersuite used: %s", ciphersuiteName))
 		plugin.Handler.NotifyLogEvent(notifier.LogEventTypeLoginOK, common.ProtocolFTP, user.Username, ip, "", nil)
 		common.DelayLogin(nil)
 	} else if err != common.ErrInternalFailure {
