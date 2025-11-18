@@ -3000,6 +3000,15 @@ func TestPreLoginScript(t *testing.T) {
 	}
 	usePubKey := true
 	u := getTestUser(usePubKey)
+	mappedPath := filepath.Join(os.TempDir(), "vdir")
+	folderName := filepath.Base(mappedPath)
+	folderMountPath := "/vpath"
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name: folderName,
+		},
+		VirtualPath: folderMountPath,
+	})
 	err := dataprovider.Close()
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, "")
@@ -3011,8 +3020,6 @@ func TestPreLoginScript(t *testing.T) {
 	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 
-	mappedPath := filepath.Join(os.TempDir(), "vdir")
-	folderName := filepath.Base(mappedPath)
 	f := vfs.BaseVirtualFolder{
 		Name:       folderName,
 		MappedPath: mappedPath,
@@ -3026,13 +3033,6 @@ func TestPreLoginScript(t *testing.T) {
 	_, _, err = httpdtest.AddFolder(f, http.StatusCreated)
 	assert.NoError(t, err)
 
-	folderMountPath := "/vpath"
-	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
-		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name: folderName,
-		},
-		VirtualPath: folderMountPath,
-	})
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	conn, client, err := getSftpClient(u, usePubKey)
@@ -3108,6 +3108,7 @@ func TestPreLoginUserCreation(t *testing.T) {
 	}
 	usePubKey := false
 	u := getTestUser(usePubKey)
+	u.Permissions["/list"] = []string{"list", "download"}
 	err := dataprovider.Close()
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, "")
@@ -3129,6 +3130,23 @@ func TestPreLoginUserCreation(t *testing.T) {
 	}
 	user, _, err := httpdtest.GetUserByUsername(defaultUsername, http.StatusOK)
 	assert.NoError(t, err)
+	assert.Len(t, user.Permissions, 2)
+	assert.Empty(t, user.Description)
+	u.Description = "some desc"
+	delete(u.Permissions, "/list")
+	err = os.WriteFile(preLoginPath, getPreLoginScriptContent(u, false), os.ModePerm)
+	assert.NoError(t, err)
+	// The user should be updated and list permission removed
+	conn, client, err = getSftpClient(u, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		assert.NoError(t, checkBasicSFTP(client))
+	}
+	user, _, err = httpdtest.GetUserByUsername(defaultUsername, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, user.Permissions, 1)
+	assert.NotEmpty(t, user.Description)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
