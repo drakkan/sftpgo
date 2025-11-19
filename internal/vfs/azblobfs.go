@@ -915,8 +915,7 @@ func (fs *AzureBlobFs) downloadPart(ctx context.Context, blockBlob *blockblob.Cl
 		return err
 	}
 
-	_, err = writeAtFull(w, buf, writeOffset, int(count))
-	return err
+	return writeAtFull(w, buf, writeOffset, int(count))
 }
 
 func (fs *AzureBlobFs) handleMultipartDownload(ctx context.Context, blockBlob *blockblob.Client,

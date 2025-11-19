@@ -814,8 +814,7 @@ func (fs *S3Fs) downloadPart(ctx context.Context, name string, buf []byte, w io.
 		return err
 	}
 
-	_, err = writeAtFull(w, buf, writeOffset, int(count))
-	return err
+	return writeAtFull(w, buf, writeOffset, int(count))
 }
 
 func (fs *S3Fs) handleDownload(ctx context.Context, name string, offset int64, writer io.WriterAt, attrs *s3.HeadObjectOutput) error {
