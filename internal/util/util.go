@@ -23,6 +23,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/subtle"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/hex"
@@ -30,6 +31,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"hash"
 	"io"
 	"io/fs"
 	"math"
@@ -929,4 +931,41 @@ func SlicesEqual(s1, s2 []string) bool {
 	}
 
 	return true
+}
+
+// VerifyFileChecksum computes the hash of the given file using the provided
+// hash algorithm and compares it against the expected checksum (in hex format).
+// It returns an error if the checksum does not match or if the operation fails.
+func VerifyFileChecksum(filePath string, h hash.Hash, expectedHex string, maxSize int64) error {
+	expected, err := hex.DecodeString(expectedHex)
+	if err != nil {
+		return fmt.Errorf("invalid checksum %q: %w", expectedHex, err)
+	}
+
+	f, err := os.Open(filePath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	if maxSize > 0 {
+		fi, err := f.Stat()
+		if err != nil {
+			return err
+		}
+		if fi.Size() > maxSize {
+			return fmt.Errorf("file too large: %s", ByteCountIEC(fi.Size()))
+		}
+	}
+
+	if _, err := io.Copy(h, f); err != nil {
+		return err
+	}
+
+	actual := h.Sum(nil)
+	if subtle.ConstantTimeCompare(actual, expected) != 1 {
+		return errors.New("checksum mismatch")
+	}
+
+	return nil
 }

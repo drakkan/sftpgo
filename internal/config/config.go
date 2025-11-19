@@ -278,6 +278,8 @@ func Init() {
 			PublicKeyAlgorithms:               []string{},
 			TrustedUserCAKeys:                 []string{},
 			RevokedUserCertsFile:              "",
+			OPKSSHPath:                        "",
+			OPKSSHChecksum:                    "",
 			LoginBannerFile:                   "",
 			EnabledSSHCommands:                []string{},
 			KeyboardInteractiveAuthentication: true,
@@ -2095,6 +2097,8 @@ func setViperDefaults() {
 	viper.SetDefault("sftpd.public_key_algorithms", globalConf.SFTPD.PublicKeyAlgorithms)
 	viper.SetDefault("sftpd.trusted_user_ca_keys", globalConf.SFTPD.TrustedUserCAKeys)
 	viper.SetDefault("sftpd.revoked_user_certs_file", globalConf.SFTPD.RevokedUserCertsFile)
+	viper.SetDefault("sftpd.opkssh_path", globalConf.SFTPD.OPKSSHPath)
+	viper.SetDefault("sftpd.opkssh_checksum", globalConf.SFTPD.OPKSSHChecksum)
 	viper.SetDefault("sftpd.login_banner_file", globalConf.SFTPD.LoginBannerFile)
 	viper.SetDefault("sftpd.enabled_ssh_commands", sftpd.GetDefaultSSHCommands())
 	viper.SetDefault("sftpd.keyboard_interactive_authentication", globalConf.SFTPD.KeyboardInteractiveAuthentication)
