@@ -488,6 +488,17 @@ func TestInitialization(t *testing.T) {
 	assert.NoError(t, err)
 	sftpdConf.HostKeys = nil
 	sftpdConf.HostCertificates = nil
+	sftpdConf.OPKSSHPath = "relative path"
+	err = sftpdConf.Initialize(configDir)
+	assert.Error(t, err)
+	sftpdConf.OPKSSHPath = filepath.Join(os.TempDir(), "missing path")
+	err = sftpdConf.Initialize(configDir)
+	assert.Error(t, err)
+	sftpdConf.OPKSSHChecksum = "invalid checksum"
+	err = sftpdConf.Initialize(configDir)
+	assert.Error(t, err)
+	sftpdConf.OPKSSHPath = ""
+	sftpdConf.OPKSSHChecksum = ""
 	sftpdConf.RevokedUserCertsFile = "."
 	err = sftpdConf.Initialize(configDir)
 	assert.Error(t, err)
