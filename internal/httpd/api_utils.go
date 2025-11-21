@@ -711,7 +711,7 @@ func handleDefenderEventLoginFailed(ipAddr string, err error) error {
 }
 
 func updateLoginMetrics(user *dataprovider.User, loginMethod, ip string, err error, r *http.Request) {
-	metric.AddLoginAttempt(loginMethod)
+	metric.AddLoginAttempt(loginMethod, user.Username)
 	var protocol string
 	switch loginMethod {
 	case dataprovider.LoginMethodIDP:
@@ -732,7 +732,7 @@ func updateLoginMetrics(user *dataprovider.User, loginMethod, ip string, err err
 		}
 		plugin.Handler.NotifyLogEvent(logEv, protocol, user.Username, ip, "", err)
 	}
-	metric.AddLoginResult(loginMethod, err)
+	metric.AddLoginResult(loginMethod, err, user.Username)
 	dataprovider.ExecutePostLoginHook(user, loginMethod, ip, protocol, err)
 }
 

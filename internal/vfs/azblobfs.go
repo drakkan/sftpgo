@@ -238,7 +238,7 @@ func (fs *AzureBlobFs) Open(name string, offset int64) (File, PipeReader, func()
 		err := fs.handleMultipartDownload(ctx, blockBlob, offset, w, p)
 		w.CloseWithError(err) //nolint:errcheck
 		fsLog(fs, logger.LevelDebug, "download completed, path: %q size: %v, err: %+v", name, w.GetWrittenBytes(), err)
-		metric.AZTransferCompleted(w.GetWrittenBytes(), 1, err)
+		metric.AZTransferCompleted(w.GetWrittenBytes(), 1, err, "")
 	}()
 
 	return nil, p, cancelFn, nil
@@ -287,7 +287,7 @@ func (fs *AzureBlobFs) Create(name string, flag, checks int) (File, PipeWriter, 
 		r.CloseWithError(err) //nolint:errcheck
 		p.Done(err)
 		fsLog(fs, logger.LevelDebug, "upload completed, path: %q, readed bytes: %v, err: %+v", name, r.GetReadedBytes(), err)
-		metric.AZTransferCompleted(r.GetReadedBytes(), 0, err)
+		metric.AZTransferCompleted(r.GetReadedBytes(), 0, err, "")
 	}()
 
 	if checks&CheckResume != 0 {
@@ -365,7 +365,7 @@ func (fs *AzureBlobFs) Remove(name string, isDir bool) error {
 			})
 		}
 	}
-	metric.AZDeleteObjectCompleted(err)
+	metric.AZDeleteObjectCompleted(err, "")
 	return err
 }
 
@@ -557,7 +557,7 @@ func (fs *AzureBlobFs) GetDirSize(dirname string) (int, int64, error) {
 
 		resp, err := pager.NextPage(ctx)
 		if err != nil {
-			metric.AZListObjectsCompleted(err)
+			metric.AZListObjectsCompleted(err, "")
 			return numFiles, size, err
 		}
 		for _, blobItem := range resp.Segment.BlobItems {
@@ -574,7 +574,7 @@ func (fs *AzureBlobFs) GetDirSize(dirname string) (int, int64, error) {
 		}
 		fsLog(fs, logger.LevelDebug, "scan in progress for %q, files: %d, size: %d", dirname, numFiles, size)
 	}
-	metric.AZListObjectsCompleted(nil)
+	metric.AZListObjectsCompleted(nil, "")
 
 	return numFiles, size, nil
 }
@@ -625,7 +625,7 @@ func (fs *AzureBlobFs) Walk(root string, walkFn filepath.WalkFunc) error {
 
 		resp, err := pager.NextPage(ctx)
 		if err != nil {
-			metric.AZListObjectsCompleted(err)
+			metric.AZListObjectsCompleted(err, "")
 			return err
 		}
 		for _, blobItem := range resp.Segment.BlobItems {
@@ -652,7 +652,7 @@ func (fs *AzureBlobFs) Walk(root string, walkFn filepath.WalkFunc) error {
 		}
 	}
 
-	metric.AZListObjectsCompleted(nil)
+	metric.AZListObjectsCompleted(nil, "")
 	return walkFn(root, NewFileInfo(root, true, 0, time.Unix(0, 0), false), nil)
 }
 
@@ -702,7 +702,7 @@ func (fs *AzureBlobFs) headObject(name string) (blob.GetPropertiesResponse, erro
 
 	resp, err := fs.containerClient.NewBlockBlobClient(name).GetProperties(ctx, &blob.GetPropertiesOptions{})
 
-	metric.AZHeadObjectCompleted(err)
+	metric.AZHeadObjectCompleted(err, "")
 	return resp, err
 }
 
@@ -781,7 +781,7 @@ func (fs *AzureBlobFs) copyFileInternal(source, target string, srcInfo os.FileIn
 	dstBlob := fs.containerClient.NewBlockBlobClient(target)
 	resp, err := dstBlob.StartCopyFromURL(ctx, srcBlob.URL(), fs.getCopyOptions(srcInfo, updateModTime))
 	if err != nil {
-		metric.AZCopyObjectCompleted(err)
+		metric.AZCopyObjectCompleted(err, "")
 		return err
 	}
 	copyStatus := blob.CopyStatusType(util.GetStringFromPointer((*string)(resp.CopyStatus)))
@@ -795,7 +795,7 @@ func (fs *AzureBlobFs) copyFileInternal(source, target string, srcInfo os.FileIn
 			// of them before giving up.
 			nErrors++
 			if ctx.Err() != nil || nErrors == 3 {
-				metric.AZCopyObjectCompleted(err)
+				metric.AZCopyObjectCompleted(err, "")
 				return err
 			}
 		} else {
@@ -804,11 +804,11 @@ func (fs *AzureBlobFs) copyFileInternal(source, target string, srcInfo os.FileIn
 	}
 	if copyStatus != blob.CopyStatusTypeSuccess {
 		err := fmt.Errorf("copy failed with status: %s", copyStatus)
-		metric.AZCopyObjectCompleted(err)
+		metric.AZCopyObjectCompleted(err, "")
 		return err
 	}
 
-	metric.AZCopyObjectCompleted(nil)
+	metric.AZCopyObjectCompleted(nil, "")
 	return nil
 }
 
@@ -881,14 +881,14 @@ func (fs *AzureBlobFs) hasContents(name string) (bool, error) {
 
 		resp, err := pager.NextPage(ctx)
 		if err != nil {
-			metric.AZListObjectsCompleted(err)
+			metric.AZListObjectsCompleted(err, "")
 			return result, err
 		}
 
 		result = len(resp.Segment.BlobItems) > 0
 	}
 
-	metric.AZListObjectsCompleted(nil)
+	metric.AZListObjectsCompleted(nil, "")
 	return result, nil
 }
 
@@ -922,7 +922,7 @@ func (fs *AzureBlobFs) handleMultipartDownload(ctx context.Context, blockBlob *b
 	offset int64, writer io.WriterAt, pipeReader PipeReader,
 ) error {
 	props, err := blockBlob.GetProperties(ctx, &blob.GetPropertiesOptions{})
-	metric.AZHeadObjectCompleted(err)
+	metric.AZHeadObjectCompleted(err, "")
 	if err != nil {
 		fsLog(fs, logger.LevelError, "unable to get blob properties, download aborted: %+v", err)
 		return err
@@ -1138,7 +1138,7 @@ func (fs *AzureBlobFs) downloadToWriter(name string, w PipeWriter) (int64, error
 	n := w.GetWrittenBytes()
 	fsLog(fs, logger.LevelDebug, "download before resuming upload completed, path %q size: %d, err: %+v",
 		name, n, err)
-	metric.AZTransferCompleted(n, 1, err)
+	metric.AZTransferCompleted(n, 1, err, "")
 	return n, err
 }
 
@@ -1183,7 +1183,7 @@ func (l *azureBlobDirLister) Next(limit int) ([]os.FileInfo, error) {
 	if !l.paginator.More() {
 		if !l.metricUpdated {
 			l.metricUpdated = true
-			metric.AZListObjectsCompleted(nil)
+			metric.AZListObjectsCompleted(nil, "")
 		}
 		return l.returnFromCache(limit), io.EOF
 	}
@@ -1192,7 +1192,7 @@ func (l *azureBlobDirLister) Next(limit int) ([]os.FileInfo, error) {
 
 	page, err := l.paginator.NextPage(ctx)
 	if err != nil {
-		metric.AZListObjectsCompleted(err)
+		metric.AZListObjectsCompleted(err, "")
 		return l.cache, err
 	}
 

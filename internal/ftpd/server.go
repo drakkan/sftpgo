@@ -409,7 +409,7 @@ func setStartDirectory(startDirectory string, cc ftpserver.ClientContext) {
 }
 
 func updateLoginMetrics(user *dataprovider.User, ip, loginMethod string, err error, c *Connection) {
-	metric.AddLoginAttempt(loginMethod)
+	metric.AddLoginAttempt(loginMethod, user.Username)
 	if err == nil {
 		logger.LoginLog(user.Username, ip, loginMethod, common.ProtocolFTP, c.ID, c.GetClientVersion(),
 			c.clientContext.HasTLSForControl(), "")
@@ -429,6 +429,6 @@ func updateLoginMetrics(user *dataprovider.User, ip, loginMethod string, err err
 			common.DelayLogin(err)
 		}
 	}
-	metric.AddLoginResult(loginMethod, err)
+	metric.AddLoginResult(loginMethod, err, user.Username)
 	dataprovider.ExecutePostLoginHook(user, loginMethod, ip, common.ProtocolFTP, err)
 }
