@@ -5571,6 +5571,9 @@ components:
         acl:
           type: string
           description: 'The ACL to apply to uploaded objects. Leave empty to use the default ACL. For more information and available ACLs, refer to the JSON API here: https://cloud.google.com/storage/docs/access-control/lists#predefined-acl'
+        endpoint:
+          type: string
+          description: 'optional endpoint. Default is "storage.googleapis.com"'
         key_prefix:
           type: string
           description: 'key_prefix is similar to a chroot directory for a local filesystem. If specified the user will only see contents that starts with this prefix and so you can restrict access to a specific virtual folder. The prefix, if not empty, must not start with "/" and must end with "/". If empty the whole bucket contents will be available'

@@ -345,6 +345,7 @@ func (f *Filesystem) GetACopy() Filesystem {
 			BaseGCSFsConfig: sdk.BaseGCSFsConfig{
 				Bucket:               f.GCSConfig.Bucket,
 				AutomaticCredentials: f.GCSConfig.AutomaticCredentials,
+				Endpoint:             f.GCSConfig.Endpoint,
 				StorageClass:         f.GCSConfig.StorageClass,
 				ACL:                  f.GCSConfig.ACL,
 				KeyPrefix:            f.GCSConfig.KeyPrefix,
