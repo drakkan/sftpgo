@@ -27,6 +27,7 @@ import (
 )
 
 const (
+	unknownUsername                 = "unknown"
 	loginMethodPublicKey            = "publickey"
 	loginMethodKeyboardInteractive  = "keyboard-interactive"
 	loginMethodKeyAndPassword       = "publickey+password"
@@ -647,7 +648,7 @@ func AddMetricsEndpoint(metricsPath string, handler chi.Router) {
 // TransferCompleted updates metrics after an upload or a download
 func TransferCompleted(bytesSent, bytesReceived int64, transferKind int, err error, isSFTPFs bool, username string) {
 	if username == "" {
-		username = "unknown"
+		username = unknownUsername
 	}
 	if transferKind == 0 {
 		// upload
@@ -678,7 +679,7 @@ func TransferCompleted(bytesSent, bytesReceived int64, transferKind int, err err
 // S3TransferCompleted updates metrics after an S3 upload or a download
 func S3TransferCompleted(bytes int64, transferKind int, err error, username string) {
 	if username == "" {
-		username = "unknown"
+		username = unknownUsername
 	}
 	if transferKind == 0 {
 		// upload
@@ -702,7 +703,7 @@ func S3TransferCompleted(bytes int64, transferKind int, err error, username stri
 // S3ListObjectsCompleted updates metrics after an S3 list objects request terminates
 func S3ListObjectsCompleted(err error, username string) {
 	if username == "" {
-		username = "unknown"
+		username = unknownUsername
 	}
 	if err == nil {
 		totalS3ListObjects.WithLabelValues(username).Inc()
@@ -714,7 +715,7 @@ func S3ListObjectsCompleted(err error, username string) {
 // S3CopyObjectCompleted updates metrics after an S3 copy object request terminates
 func S3CopyObjectCompleted(err error, username string) {
 	if username == "" {
-		username = "unknown"
+		username = unknownUsername
 	}
 	if err == nil {
 		totalS3CopyObject.WithLabelValues(username).Inc()
@@ -726,7 +727,7 @@ func S3CopyObjectCompleted(err error, username string) {
 // S3DeleteObjectCompleted updates metrics after an S3 delete object request terminates
 func S3DeleteObjectCompleted(err error, username string) {
 	if username == "" {
-		username = "unknown"
+		username = unknownUsername
 	}
 	if err == nil {
 		totalS3DeleteObject.WithLabelValues(username).Inc()
@@ -738,7 +739,7 @@ func S3DeleteObjectCompleted(err error, username string) {
 // S3HeadObjectCompleted updates metrics after a S3 head object request terminates
 func S3HeadObjectCompleted(err error, username string) {
 	if username == "" {
-		username = "unknown"
+		username = unknownUsername
 	}
 	if err == nil {
 		totalS3HeadObject.WithLabelValues(username).Inc()
@@ -750,7 +751,7 @@ func S3HeadObjectCompleted(err error, username string) {
 // GCSTransferCompleted updates metrics after a GCS upload or a download
 func GCSTransferCompleted(bytes int64, transferKind int, err error, username string) {
 	if username == "" {
-		username = "unknown"
+		username = unknownUsername
 	}
 	if transferKind == 0 {
 		// upload
@@ -774,7 +775,7 @@ func GCSTransferCompleted(bytes int64, transferKind int, err error, username str
 // GCSListObjectsCompleted updates metrics after a GCS list objects request terminates
 func GCSListObjectsCompleted(err error, username string) {
 	if username == "" {
-		username = "unknown"
+		username = unknownUsername
 	}
 	if err == nil {
 		totalGCSListObjects.WithLabelValues(username).Inc()
@@ -786,7 +787,7 @@ func GCSListObjectsCompleted(err error, username string) {
 // GCSCopyObjectCompleted updates metrics after a GCS copy object request terminates
 func GCSCopyObjectCompleted(err error, username string) {
 	if username == "" {
-		username = "unknown"
+		username = unknownUsername
 	}
 	if err == nil {
 		totalGCSCopyObject.WithLabelValues(username).Inc()
@@ -798,7 +799,7 @@ func GCSCopyObjectCompleted(err error, username string) {
 // GCSDeleteObjectCompleted updates metrics after a GCS delete object request terminates
 func GCSDeleteObjectCompleted(err error, username string) {
 	if username == "" {
-		username = "unknown"
+		username = unknownUsername
 	}
 	if err == nil {
 		totalGCSDeleteObject.WithLabelValues(username).Inc()
@@ -810,7 +811,7 @@ func GCSDeleteObjectCompleted(err error, username string) {
 // GCSHeadObjectCompleted updates metrics after a GCS head object request terminates
 func GCSHeadObjectCompleted(err error, username string) {
 	if username == "" {
-		username = "unknown"
+		username = unknownUsername
 	}
 	if err == nil {
 		totalGCSHeadObject.WithLabelValues(username).Inc()
@@ -822,7 +823,7 @@ func GCSHeadObjectCompleted(err error, username string) {
 // AZTransferCompleted updates metrics after a Azure upload or a download
 func AZTransferCompleted(bytes int64, transferKind int, err error, username string) {
 	if username == "" {
-		username = "unknown"
+		username = unknownUsername
 	}
 	if transferKind == 0 {
 		// upload
@@ -846,7 +847,7 @@ func AZTransferCompleted(bytes int64, transferKind int, err error, username stri
 // AZListObjectsCompleted updates metrics after a Azure list objects request terminates
 func AZListObjectsCompleted(err error, username string) {
 	if username == "" {
-		username = "unknown"
+		username = unknownUsername
 	}
 	if err == nil {
 		totalAZListObjects.WithLabelValues(username).Inc()
@@ -858,7 +859,7 @@ func AZListObjectsCompleted(err error, username string) {
 // AZCopyObjectCompleted updates metrics after a Azure copy object request terminates
 func AZCopyObjectCompleted(err error, username string) {
 	if username == "" {
-		username = "unknown"
+		username = unknownUsername
 	}
 	if err == nil {
 		totalAZCopyObject.WithLabelValues(username).Inc()
@@ -870,7 +871,7 @@ func AZCopyObjectCompleted(err error, username string) {
 // AZDeleteObjectCompleted updates metrics after a Azure delete object request terminates
 func AZDeleteObjectCompleted(err error, username string) {
 	if username == "" {
-		username = "unknown"
+		username = unknownUsername
 	}
 	if err == nil {
 		totalAZDeleteObject.WithLabelValues(username).Inc()
@@ -882,7 +883,7 @@ func AZDeleteObjectCompleted(err error, username string) {
 // AZHeadObjectCompleted updates metrics after a Azure head object request terminates
 func AZHeadObjectCompleted(err error, username string) {
 	if username == "" {
-		username = "unknown"
+		username = unknownUsername
 	}
 	if err == nil {
 		totalAZHeadObject.WithLabelValues(username).Inc()
@@ -894,7 +895,7 @@ func AZHeadObjectCompleted(err error, username string) {
 // sftpFsTransferCompleted updates metrics after an SFTPFs upload or a download
 func sftpFsTransferCompleted(bytesSent, bytesReceived int64, transferKind int, err error, username string) {
 	if username == "" {
-		username = "unknown"
+		username = unknownUsername
 	}
 	if transferKind == 0 {
 		// upload
@@ -922,7 +923,7 @@ func sftpFsTransferCompleted(bytesSent, bytesReceived int64, transferKind int, e
 // HTTPFsTransferCompleted updates metrics after an HTTPFs upload or a download
 func HTTPFsTransferCompleted(bytes int64, transferKind int, err error, username string) {
 	if username == "" {
-		username = "unknown"
+		username = unknownUsername
 	}
 	if transferKind == 0 {
 		// upload
@@ -946,7 +947,7 @@ func HTTPFsTransferCompleted(bytes int64, transferKind int, err error, username 
 // SSHCommandCompleted update metrics after an SSH command terminates
 func SSHCommandCompleted(err error, username string) {
 	if username == "" {
-		username = "unknown"
+		username = unknownUsername
 	}
 	if err == nil {
 		totalSSHCommands.WithLabelValues(username).Inc()
@@ -967,7 +968,7 @@ func UpdateDataProviderAvailability(err error) {
 // AddLoginAttempt increments the metrics for login attempts
 func AddLoginAttempt(authMethod string, username string) {
 	if username == "" {
-		username = "unknown"
+		username = unknownUsername
 	}
 	totalLoginAttempts.WithLabelValues(username).Inc()
 	switch authMethod {
@@ -992,7 +993,7 @@ func AddLoginAttempt(authMethod string, username string) {
 
 func incLoginOK(authMethod string, username string) {
 	if username == "" {
-		username = "unknown"
+		username = unknownUsername
 	}
 	totalLoginOK.WithLabelValues(username).Inc()
 	switch authMethod {
@@ -1017,7 +1018,7 @@ func incLoginOK(authMethod string, username string) {
 
 func incLoginFailed(authMethod string, username string) {
 	if username == "" {
-		username = "unknown"
+		username = unknownUsername
 	}
 	totalLoginFailed.WithLabelValues(username).Inc()
 	switch authMethod {
@@ -1070,7 +1071,7 @@ func HTTPRequestServed(status int) {
 // UpdateActiveConnectionsSize sets the metric for active connections
 func UpdateActiveConnectionsSize(size int, username string) {
 	if username == "" {
-		username = "unknown"
+		username = unknownUsername
 	}
 	activeConnections.WithLabelValues(username).Set(float64(size))
 }
