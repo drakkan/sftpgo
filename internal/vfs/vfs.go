@@ -444,9 +444,9 @@ func (c *S3FsConfig) ValidateAndEncryptCredentials(additionalData string) error 
 }
 
 func (c *S3FsConfig) checkPartSizeAndConcurrency() error {
-	if c.UploadPartSize != 0 && (c.UploadPartSize < 5 || c.UploadPartSize > 5000) {
+	if c.UploadPartSize != 0 && (c.UploadPartSize < 5 || c.UploadPartSize > 2000) {
 		return util.NewI18nError(
-			errors.New("upload_part_size cannot be != 0, lower than 5 (MB) or greater than 5000 (MB)"),
+			errors.New("upload_part_size cannot be != 0, lower than 5 (MB) or greater than 2000 (MB)"),
 			util.I18nErrorULPartSizeInvalid,
 		)
 	}
@@ -456,9 +456,9 @@ func (c *S3FsConfig) checkPartSizeAndConcurrency() error {
 			util.I18nErrorULConcurrencyInvalid,
 		)
 	}
-	if c.DownloadPartSize != 0 && (c.DownloadPartSize < 5 || c.DownloadPartSize > 5000) {
+	if c.DownloadPartSize != 0 && (c.DownloadPartSize < 5 || c.DownloadPartSize > 2000) {
 		return util.NewI18nError(
-			errors.New("download_part_size cannot be != 0, lower than 5 (MB) or greater than 5000 (MB)"),
+			errors.New("download_part_size cannot be != 0, lower than 5 (MB) or greater than 2000 (MB)"),
 			util.I18nErrorDLPartSizeInvalid,
 		)
 	}
@@ -586,7 +586,7 @@ func (c *GCSFsConfig) isSameResource(other GCSFsConfig) bool {
 }
 
 // validate returns an error if the configuration is not valid
-func (c *GCSFsConfig) validate() error {
+func (c *GCSFsConfig) validate() error { //nolint:gocyclo
 	if c.Credentials == nil || c.AutomaticCredentials == 1 {
 		c.Credentials = kms.NewEmptySecret()
 	}
@@ -610,7 +610,7 @@ func (c *GCSFsConfig) validate() error {
 	}
 	c.StorageClass = strings.TrimSpace(c.StorageClass)
 	c.ACL = strings.TrimSpace(c.ACL)
-	if c.UploadPartSize < 0 {
+	if c.UploadPartSize < 0 || c.UploadPartSize > 2000 {
 		c.UploadPartSize = 0
 	}
 	if c.UploadPartMaxTime < 0 {
@@ -747,7 +747,7 @@ func (c *AzBlobFsConfig) checkCredentials() error {
 }
 
 func (c *AzBlobFsConfig) checkPartSizeAndConcurrency() error {
-	if c.UploadPartSize < 0 || c.UploadPartSize > 100 {
+	if c.UploadPartSize < 0 || c.UploadPartSize > 2000 {
 		return util.NewI18nError(
 			fmt.Errorf("invalid upload part size: %v", c.UploadPartSize),
 			util.I18nErrorULPartSizeInvalid,
@@ -759,7 +759,7 @@ func (c *AzBlobFsConfig) checkPartSizeAndConcurrency() error {
 			util.I18nErrorULConcurrencyInvalid,
 		)
 	}
-	if c.DownloadPartSize < 0 || c.DownloadPartSize > 100 {
+	if c.DownloadPartSize < 0 || c.DownloadPartSize > 2000 {
 		return util.NewI18nError(
 			fmt.Errorf("invalid download part size: %v", c.DownloadPartSize),
 			util.I18nErrorDLPartSizeInvalid,
