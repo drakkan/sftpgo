@@ -19,7 +19,7 @@ jobs:
         os: [ubuntu-latest, macos-latest]
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -103,7 +103,7 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -264,7 +264,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Set up Go
         uses: actions/setup-go@v6
@@ -328,7 +328,7 @@ jobs:
           - 3308:3306
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Set up Go
         uses: actions/setup-go@v6
@@ -427,7 +427,7 @@ jobs:
             go: latest
             go-arch: arm7
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -555,7 +555,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version: '1.25'
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
