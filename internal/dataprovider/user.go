@@ -161,11 +161,11 @@ func (u *User) GetFilesystem(connectionID string) (fs vfs.Fs, err error) {
 func (u *User) getRootFs(connectionID string) (fs vfs.Fs, err error) {
 	switch u.FsConfig.Provider {
 	case sdk.S3FilesystemProvider:
-		return vfs.NewS3Fs(connectionID, u.GetHomeDir(), "", u.FsConfig.S3Config)
+		return vfs.NewS3Fs(connectionID, u.GetHomeDir(), "", u.FsConfig.S3Config, u.Username)
 	case sdk.GCSFilesystemProvider:
-		return vfs.NewGCSFs(connectionID, u.GetHomeDir(), "", u.FsConfig.GCSConfig)
+		return vfs.NewGCSFs(connectionID, u.GetHomeDir(), "", u.FsConfig.GCSConfig, u.Username)
 	case sdk.AzureBlobFilesystemProvider:
-		return vfs.NewAzBlobFs(connectionID, u.GetHomeDir(), "", u.FsConfig.AzBlobConfig)
+		return vfs.NewAzBlobFs(connectionID, u.GetHomeDir(), "", u.FsConfig.AzBlobConfig, u.Username)
 	case sdk.CryptedFilesystemProvider:
 		return vfs.NewCryptFs(connectionID, u.GetHomeDir(), "", u.FsConfig.CryptConfig)
 	case sdk.SFTPFilesystemProvider:
@@ -176,7 +176,7 @@ func (u *User) getRootFs(connectionID string) (fs vfs.Fs, err error) {
 		forbiddenSelfUsers = append(forbiddenSelfUsers, u.Username)
 		return vfs.NewSFTPFs(connectionID, "", u.GetHomeDir(), forbiddenSelfUsers, u.FsConfig.SFTPConfig)
 	case sdk.HTTPFilesystemProvider:
-		return vfs.NewHTTPFs(connectionID, u.GetHomeDir(), "", u.FsConfig.HTTPConfig)
+		return vfs.NewHTTPFs(connectionID, u.GetHomeDir(), "", u.FsConfig.HTTPConfig, u.Username)
 	default:
 		return vfs.NewOsFs(connectionID, u.GetHomeDir(), "", &u.FsConfig.OSConfig), nil
 	}

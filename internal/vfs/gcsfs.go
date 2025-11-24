@@ -61,6 +61,7 @@ type GCSFs struct {
 	svc            *storage.Client
 	ctxTimeout     time.Duration
 	ctxLongTimeout time.Duration
+	username       string
 }
 
 func init() {
@@ -68,7 +69,7 @@ func init() {
 }
 
 // NewGCSFs returns an GCSFs object that allows to interact with Google Cloud Storage
-func NewGCSFs(connectionID, localTempDir, mountPath string, config GCSFsConfig) (Fs, error) {
+func NewGCSFs(connectionID, localTempDir, mountPath string, config GCSFsConfig, username string) (Fs, error) {
 	if localTempDir == "" {
 		localTempDir = getLocalTempDir()
 	}
@@ -81,6 +82,7 @@ func NewGCSFs(connectionID, localTempDir, mountPath string, config GCSFsConfig) 
 		config:         &config,
 		ctxTimeout:     30 * time.Second,
 		ctxLongTimeout: 300 * time.Second,
+		username:       username,
 	}
 	if err = fs.config.validate(); err != nil {
 		return fs, err
@@ -168,7 +170,7 @@ func (fs *GCSFs) Open(name string, offset int64) (File, PipeReader, func(), erro
 		n, err := io.Copy(w, objectReader)
 		w.CloseWithError(err) //nolint:errcheck
 		fsLog(fs, logger.LevelDebug, "download completed, path: %q size: %v, err: %+v", name, n, err)
-		metric.GCSTransferCompleted(n, 1, err, "")
+		metric.GCSTransferCompleted(n, 1, err, fs.username)
 	}()
 	return nil, p, cancelFn, nil
 }
@@ -252,7 +254,7 @@ func (fs *GCSFs) Create(name string, flag, checks int) (File, PipeWriter, func()
 		p.Done(err)
 		fsLog(fs, logger.LevelDebug, "upload completed, path: %q, acl: %q, readed bytes: %v, err: %+v",
 			name, fs.config.ACL, n, err)
-		metric.GCSTransferCompleted(n, 0, err, "")
+		metric.GCSTransferCompleted(n, 0, err, fs.username)
 	}()
 
 	if uploadMode&8 != 0 {
@@ -313,7 +315,7 @@ func (fs *GCSFs) Remove(name string, isDir bool) error {
 
 		err = fs.svc.Bucket(fs.config.Bucket).Object(strings.TrimSuffix(name, "/")).Delete(ctx)
 	}
-	metric.GCSDeleteObjectCompleted(err, "")
+	metric.GCSDeleteObjectCompleted(err, fs.username)
 	return err
 }
 
@@ -400,6 +402,7 @@ func (fs *GCSFs) ReadDir(dirname string) (DirLister, error) {
 		timeout:  fs.ctxTimeout,
 		prefix:   prefix,
 		prefixes: make(map[string]bool),
+		username: fs.username,
 	}, nil
 }
 
@@ -520,7 +523,7 @@ func (fs *GCSFs) GetDirSize(dirname string) (int, int64, error) {
 	for {
 		pageToken, err = iteratePage(pageToken)
 		if err != nil {
-			metric.GCSListObjectsCompleted(err, "")
+			metric.GCSListObjectsCompleted(err, fs.username)
 			return numFiles, size, err
 		}
 		fsLog(fs, logger.LevelDebug, "scan in progress for %q, files: %d, size: %d", dirname, numFiles, size)
@@ -529,7 +532,7 @@ func (fs *GCSFs) GetDirSize(dirname string) (int, int64, error) {
 		}
 	}
 
-	metric.GCSListObjectsCompleted(nil, "")
+	metric.GCSListObjectsCompleted(nil, fs.username)
 	return numFiles, size, err
 }
 
@@ -612,7 +615,7 @@ func (fs *GCSFs) Walk(root string, walkFn filepath.WalkFunc) error {
 	for {
 		pageToken, err = iteratePage(pageToken)
 		if err != nil {
-			metric.GCSListObjectsCompleted(err, "")
+			metric.GCSListObjectsCompleted(err, fs.username)
 			return err
 		}
 		if pageToken == "" {
@@ -621,7 +624,7 @@ func (fs *GCSFs) Walk(root string, walkFn filepath.WalkFunc) error {
 	}
 
 	walkFn(root, NewFileInfo(root, true, 0, time.Unix(0, 0), false), err) //nolint:errcheck
-	metric.GCSListObjectsCompleted(err, "")
+	metric.GCSListObjectsCompleted(err, fs.username)
 	return err
 }
 
@@ -758,7 +761,7 @@ func (fs *GCSFs) composeObjects(ctx context.Context, dst, partialObject *storage
 	defer cancelFn()
 
 	errDelete := partialObject.Delete(delCtx)
-	metric.GCSDeleteObjectCompleted(errDelete, "")
+	metric.GCSDeleteObjectCompleted(errDelete, fs.username)
 	fsLog(fs, logger.LevelDebug, "deleted partial file %q after composing with %q, err: %v",
 		partialObject.ObjectName(), dst.ObjectName(), errDelete)
 	return err
@@ -805,7 +808,7 @@ func (fs *GCSFs) copyFileInternal(source, target string, conditions *storage.Con
 		copier.Metadata = metadata
 	}
 	_, err := copier.Run(ctx)
-	metric.GCSCopyObjectCompleted(err, "")
+	metric.GCSCopyObjectCompleted(err, fs.username)
 	return err
 }
 
@@ -880,7 +883,7 @@ func (fs *GCSFs) hasContents(name string) (bool, error) {
 	var objects []*storage.ObjectAttrs
 	_, err = pager.NextPage(&objects)
 	if err != nil {
-		metric.GCSListObjectsCompleted(err, "")
+		metric.GCSListObjectsCompleted(err, fs.username)
 		return result, err
 	}
 
@@ -894,7 +897,7 @@ func (fs *GCSFs) hasContents(name string) (bool, error) {
 		break
 	}
 
-	metric.GCSListObjectsCompleted(nil, "")
+	metric.GCSListObjectsCompleted(nil, fs.username)
 	return result, nil
 }
 
@@ -916,7 +919,7 @@ func (fs *GCSFs) headObject(name string) (*storage.ObjectAttrs, error) {
 	bkt := fs.svc.Bucket(fs.config.Bucket)
 	obj := bkt.Object(name)
 	attrs, err := obj.Attrs(ctx)
-	metric.GCSHeadObjectCompleted(err, "")
+	metric.GCSHeadObjectCompleted(err, fs.username)
 	return attrs, err
 }
 
@@ -955,6 +958,7 @@ type gcsDirLister struct {
 	prefix        string
 	prefixes      map[string]bool
 	metricUpdated bool
+	username      string
 }
 
 func (l *gcsDirLister) resolve(name, contentType string) (string, bool) {
@@ -980,7 +984,7 @@ func (l *gcsDirLister) Next(limit int) ([]os.FileInfo, error) {
 	if l.noMorePages {
 		if !l.metricUpdated {
 			l.metricUpdated = true
-			metric.GCSListObjectsCompleted(nil, "")
+			metric.GCSListObjectsCompleted(nil, l.username)
 		}
 		return l.returnFromCache(limit), io.EOF
 	}
@@ -994,7 +998,7 @@ func (l *gcsDirLister) Next(limit int) ([]os.FileInfo, error) {
 
 	pageToken, err := paginator.NextPage(&objects)
 	if err != nil {
-		metric.GCSListObjectsCompleted(err, "")
+		metric.GCSListObjectsCompleted(err, l.username)
 		return l.cache, err
 	}
 
