@@ -4205,6 +4205,8 @@ func getPreLoginHookResponse(loginMethod, ip, protocol string, userAsJSON []byte
 }
 
 func executePreLoginHook(username, loginMethod, ip, protocol string, oidcTokenFields *map[string]any) (User, error) {
+	var user User
+
 	u, mergedUser, userAsJSON, err := getUserAndJSONForHook(username, oidcTokenFields)
 	if err != nil {
 		return u, err
@@ -4227,53 +4229,38 @@ func executePreLoginHook(username, loginMethod, ip, protocol string, oidcTokenFi
 		}
 		return u, nil
 	}
-
-	userID := u.ID
-	userUsedQuotaSize := u.UsedQuotaSize
-	userUsedQuotaFiles := u.UsedQuotaFiles
-	userUsedDownloadTransfer := u.UsedDownloadDataTransfer
-	userUsedUploadTransfer := u.UsedUploadDataTransfer
-	userLastQuotaUpdate := u.LastQuotaUpdate
-	userLastLogin := u.LastLogin
-	userFirstDownload := u.FirstDownload
-	userFirstUpload := u.FirstUpload
-	userLastPwdChange := u.LastPasswordChange
-	userCreatedAt := u.CreatedAt
-	totpConfig := u.Filters.TOTPConfig
-	recoveryCodes := u.Filters.RecoveryCodes
-	err = json.Unmarshal(out, &u)
+	err = json.Unmarshal(out, &user)
 	if err != nil {
 		return u, fmt.Errorf("invalid pre-login hook response %q, error: %v", out, err)
 	}
-	u.ID = userID
-	u.UsedQuotaSize = userUsedQuotaSize
-	u.UsedQuotaFiles = userUsedQuotaFiles
-	u.UsedUploadDataTransfer = userUsedUploadTransfer
-	u.UsedDownloadDataTransfer = userUsedDownloadTransfer
-	u.LastQuotaUpdate = userLastQuotaUpdate
-	u.LastLogin = userLastLogin
-	u.LastPasswordChange = userLastPwdChange
-	u.FirstDownload = userFirstDownload
-	u.FirstUpload = userFirstUpload
-	u.CreatedAt = userCreatedAt
-	if userID == 0 {
-		err = provider.addUser(&u)
-	} else {
-		u.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+	if u.ID > 0 {
+		user.ID = u.ID
+		user.UsedQuotaSize = u.UsedQuotaSize
+		user.UsedQuotaFiles = u.UsedQuotaFiles
+		user.UsedUploadDataTransfer = u.UsedUploadDataTransfer
+		user.UsedDownloadDataTransfer = u.UsedDownloadDataTransfer
+		user.LastQuotaUpdate = u.LastQuotaUpdate
+		user.LastLogin = u.LastLogin
+		user.LastPasswordChange = u.LastPasswordChange
+		user.FirstDownload = u.FirstDownload
+		user.FirstUpload = u.FirstUpload
 		// preserve TOTP config and recovery codes
-		u.Filters.TOTPConfig = totpConfig
-		u.Filters.RecoveryCodes = recoveryCodes
-		err = provider.updateUser(&u)
+		user.Filters.TOTPConfig = u.Filters.TOTPConfig
+		user.Filters.RecoveryCodes = u.Filters.RecoveryCodes
+		if err := provider.updateUser(&user); err != nil {
+			return u, err
+		}
+	} else {
+		if err := provider.addUser(&user); err != nil {
+			return u, err
+		}
 	}
+	user, err = provider.userExists(user.Username, "")
 	if err != nil {
 		return u, err
 	}
-	user, err := provider.userExists(username, "")
-	if err != nil {
-		return u, err
-	}
-	providerLog(logger.LevelDebug, "user %q added/updated from pre-login hook response, id: %d", username, userID)
-	if userID > 0 {
+	providerLog(logger.LevelDebug, "user %q added/updated from pre-login hook response, id: %d", username, u.ID)
+	if u.ID > 0 {
 		webDAVUsersCache.swap(&user, "")
 	}
 	return user, nil

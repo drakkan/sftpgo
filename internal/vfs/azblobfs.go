@@ -915,8 +915,7 @@ func (fs *AzureBlobFs) downloadPart(ctx context.Context, blockBlob *blockblob.Cl
 		return err
 	}
 
-	_, err = fs.writeAtFull(w, buf, writeOffset, int(count))
-	return err
+	return writeAtFull(w, buf, writeOffset, int(count))
 }
 
 func (fs *AzureBlobFs) handleMultipartDownload(ctx context.Context, blockBlob *blockblob.Client,
@@ -1103,18 +1102,6 @@ func (fs *AzureBlobFs) handleMultipartUpload(ctx context.Context, reader io.Read
 
 	_, err := blockBlob.CommitBlockList(ctx, blocks, &commitOptions)
 	return err
-}
-
-func (*AzureBlobFs) writeAtFull(w io.WriterAt, buf []byte, offset int64, count int) (int, error) {
-	written := 0
-	for written < count {
-		n, err := w.WriteAt(buf[written:count], offset+int64(written))
-		written += n
-		if err != nil {
-			return written, err
-		}
-	}
-	return written, nil
 }
 
 func (fs *AzureBlobFs) getCopyOptions(srcInfo os.FileInfo, updateModTime bool) *blob.StartCopyFromURLOptions {

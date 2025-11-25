@@ -100,6 +100,8 @@
     "public_key_algorithms": [],
     "trusted_user_ca_keys": [],
     "revoked_user_certs_file": "",
+    "opkssh_path": "",
+    "opkssh_checksum": "",
     "login_banner_file": "",
     "enabled_ssh_commands": [
       "md5sum",

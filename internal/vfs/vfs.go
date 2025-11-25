@@ -1282,6 +1282,18 @@ func readFill(r io.Reader, buf []byte) (n int, err error) {
 	return n, err
 }
 
+func writeAtFull(w io.WriterAt, buf []byte, offset int64, count int) error {
+	written := 0
+	for written < count {
+		n, err := w.WriteAt(buf[written:count], offset+int64(written))
+		written += n
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 type bytesReaderWrapper struct {
 	*bytes.Reader
 }

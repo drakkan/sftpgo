@@ -16,6 +16,8 @@ package sftpd
 
 import (
 	"bytes"
+	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -25,6 +27,7 @@ import (
 	"maps"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime/debug"
 	"slices"
@@ -82,9 +85,19 @@ var (
 	revokedCertManager = revokedCertificates{
 		certs: map[string]bool{},
 	}
-
-	sftpAuthError = newAuthenticationError(nil, "", "")
 )
+
+type commandExecutor interface {
+	CombinedOutput(ctx context.Context, name string, args ...string) ([]byte, error)
+}
+
+type defaultExecutor struct{}
+
+func (d defaultExecutor) CombinedOutput(ctx context.Context, name string, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Env = []string{}
+	return cmd.CombinedOutput()
+}
 
 // Binding defines the configuration for a network listener
 type Binding struct {
@@ -150,6 +163,10 @@ type Configuration struct {
 	// Example content:
 	// ["SHA256:bsBRHC/xgiqBJdSuvSTNpJNLTISP/G356jNMCRYC5Es","SHA256:119+8cL/HH+NLMawRsJx6CzPF1I3xC+jpM60bQHXGE8"]
 	RevokedUserCertsFile string `json:"revoked_user_certs_file" mapstructure:"revoked_user_certs_file"`
+	// Absolute path to the opkssh binary used for OpenPubkey SSH integration
+	OPKSSHPath string `json:"opkssh_path" mapstructure:"opkssh_path"`
+	// Expected SHA256 checksum of the opkssh binary. It is verified at application startup
+	OPKSSHChecksum string `json:"opkssh_checksum" mapstructure:"opkssh_checksum"`
 	// LoginBannerFile the contents of the specified file, if any, are sent to
 	// the remote user before authentication is allowed.
 	LoginBannerFile string `json:"login_banner_file" mapstructure:"login_banner_file"`
@@ -185,6 +202,7 @@ type Configuration struct {
 	PasswordAuthentication bool `json:"password_authentication" mapstructure:"password_authentication"`
 	certChecker            *ssh.CertChecker
 	parsedUserCAKeys       []ssh.PublicKey
+	executor               commandExecutor
 }
 
 type authenticationError struct {
@@ -342,6 +360,7 @@ func (c *Configuration) loadFromProvider() error {
 
 // Initialize the SFTP server and add a persistent listener to handle inbound SFTP connections.
 func (c *Configuration) Initialize(configDir string) error {
+	c.executor = defaultExecutor{}
 	if err := c.loadFromProvider(); err != nil {
 		return fmt.Errorf("unable to load configs from provider: %w", err)
 	}
@@ -363,6 +382,9 @@ func (c *Configuration) Initialize(configDir string) error {
 		return err
 	}
 	if err := c.initializeCertChecker(configDir); err != nil {
+		return err
+	}
+	if err := c.initializeOPKSSH(); err != nil {
 		return err
 	}
 	c.configureKeyboardInteractiveAuth(serverConfig)
@@ -1069,6 +1091,49 @@ func (c *Configuration) loadHostCertificates(configDir string) ([]hostCertificat
 	return certs, nil
 }
 
+func (c *Configuration) initializeOPKSSH() error {
+	if c.OPKSSHPath != "" {
+		if len(c.parsedUserCAKeys) > 0 {
+			return errors.New("opkssh and certificate authorities are mutually exclusive")
+		}
+		if !util.IsFileInputValid(c.OPKSSHPath) || !filepath.IsAbs(c.OPKSSHPath) {
+			return fmt.Errorf("opkssh path %q is not valid, it must be an absolute path", c.OPKSSHPath)
+		}
+		if c.OPKSSHChecksum == "" {
+			if _, err := os.Stat(c.OPKSSHPath); err != nil {
+				return fmt.Errorf("error validating opkssh path %q: %w", c.OPKSSHPath, err)
+			}
+		} else {
+			if err := util.VerifyFileChecksum(c.OPKSSHPath, sha256.New(), c.OPKSSHChecksum, 100*1024*1024); err != nil {
+				return fmt.Errorf("error validating opkssh checksum: %w", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (c *Configuration) verifyWithOPKSSH(username string, cert *ssh.Certificate) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	args := []string{"verify", username, util.BytesToString(ssh.MarshalAuthorizedKey(cert)), cert.Type()}
+	out, err := c.executor.CombinedOutput(ctx, c.OPKSSHPath, args...)
+	if err != nil {
+		logger.Debug(logSender, "", "unable to execute opk verifier: %s", string(out))
+		return fmt.Errorf("unable to execute opk verifier: %w", err)
+	}
+	pubKey, _, _, _, err := ssh.ParseAuthorizedKey(out) //nolint:dogsled
+	if err != nil {
+		logger.Debug(logSender, "", "unable to validate the opk verifier output: %s", string(out))
+		return fmt.Errorf("unable to validate the opk verifier output: %w", err)
+	}
+	if !bytes.Equal(pubKey.Marshal(), cert.SignatureKey.Marshal()) {
+		return errors.New("unable to validate opk result")
+	}
+	return nil
+}
+
 func (c *Configuration) initializeCertChecker(configDir string) error {
 	for _, keyPath := range c.TrustedUserCAKeys {
 		keyPath = strings.TrimSpace(keyPath)
@@ -1144,34 +1209,43 @@ func (c *Configuration) validatePublicKeyCredentials(conn ssh.ConnMetadata, pubK
 	var certFingerprint string
 	if ok {
 		certFingerprint = ssh.FingerprintSHA256(cert.Key)
-		if cert.CertType != ssh.UserCert {
-			err := fmt.Errorf("ssh: cert has type %d", cert.CertType)
-			user.Username = conn.User()
-			updateLoginMetrics(&user, ipAddr, method, err)
-			return nil, err
-		}
-		if !c.certChecker.IsUserAuthority(cert.SignatureKey) {
-			err := errors.New("ssh: certificate signed by unrecognized authority")
-			user.Username = conn.User()
-			updateLoginMetrics(&user, ipAddr, method, err)
-			return nil, err
-		}
-		if len(cert.ValidPrincipals) == 0 {
-			err := fmt.Errorf("ssh: certificate %s has no valid principals, user: \"%s\"", certFingerprint, conn.User())
-			user.Username = conn.User()
-			updateLoginMetrics(&user, ipAddr, method, err)
-			return nil, err
-		}
-		if revokedCertManager.isRevoked(certFingerprint) {
-			err := fmt.Errorf("ssh: certificate %s is revoked", certFingerprint)
-			user.Username = conn.User()
-			updateLoginMetrics(&user, ipAddr, method, err)
-			return nil, err
-		}
-		if err := c.certChecker.CheckCert(conn.User(), cert); err != nil {
-			user.Username = conn.User()
-			updateLoginMetrics(&user, ipAddr, method, err)
-			return nil, err
+		if c.OPKSSHPath != "" {
+			if err := c.verifyWithOPKSSH(conn.User(), cert); err != nil {
+				err := fmt.Errorf("ssh: verification with OPK failed: %v", err)
+				user.Username = conn.User()
+				updateLoginMetrics(&user, ipAddr, method, err)
+				return nil, err
+			}
+		} else {
+			if cert.CertType != ssh.UserCert {
+				err := fmt.Errorf("ssh: cert has type %d", cert.CertType)
+				user.Username = conn.User()
+				updateLoginMetrics(&user, ipAddr, method, err)
+				return nil, err
+			}
+			if !c.certChecker.IsUserAuthority(cert.SignatureKey) {
+				err := errors.New("ssh: certificate signed by unrecognized authority")
+				user.Username = conn.User()
+				updateLoginMetrics(&user, ipAddr, method, err)
+				return nil, err
+			}
+			if len(cert.ValidPrincipals) == 0 {
+				err := fmt.Errorf("ssh: certificate %s has no valid principals, user: \"%s\"", certFingerprint, conn.User())
+				user.Username = conn.User()
+				updateLoginMetrics(&user, ipAddr, method, err)
+				return nil, err
+			}
+			if revokedCertManager.isRevoked(certFingerprint) {
+				err := fmt.Errorf("ssh: certificate %s is revoked", certFingerprint)
+				user.Username = conn.User()
+				updateLoginMetrics(&user, ipAddr, method, err)
+				return nil, err
+			}
+			if err := c.certChecker.CheckCert(conn.User(), cert); err != nil {
+				user.Username = conn.User()
+				updateLoginMetrics(&user, ipAddr, method, err)
+				return nil, err
+			}
 		}
 		certPerm = &cert.Permissions
 	}
