@@ -40,7 +40,7 @@ import (
 type TlsState struct {
 	// LoginViaTLS indicates whether the user logged in using TLS certificate authentication
 	LoginViaTLS bool
-	// CiphersuiteName is the name of the TLS ciphersuite used for the connection
+	// CiphersuiteName is the name of the TLS ciphersuite used for the control connection
 	CiphersuiteName string
 }
 
@@ -245,9 +245,8 @@ func (s *Server) VerifyConnection(cc ftpserver.ClientContext, user string, tlsCo
 	cc.SetExtra(&TlsState{})
 	if tlsConn != nil {
 		state := tlsConn.ConnectionState()
-		ciphersuiteName := tls.CipherSuiteName(state.CipherSuite)
 		cc.SetExtra(&TlsState{
-			CiphersuiteName: ciphersuiteName,
+			CiphersuiteName: tls.CipherSuiteName(state.CipherSuite),
 		})
 
 		if len(state.PeerCertificates) > 0 {
@@ -266,7 +265,7 @@ func (s *Server) VerifyConnection(cc ftpserver.ClientContext, user string, tlsCo
 
 				cc.SetExtra(&TlsState{
 					LoginViaTLS:     true,
-					CiphersuiteName: ciphersuiteName,
+					CiphersuiteName: tls.CipherSuiteName(state.CipherSuite),
 				})
 
 				if dbUser.IsLoginMethodAllowed(dataprovider.LoginMethodTLSCertificate, common.ProtocolFTP) {
@@ -432,9 +431,12 @@ func updateLoginMetrics(user *dataprovider.User, ip, loginMethod string, err err
 		if tlsState, ok := c.clientContext.Extra().(*TlsState); ok && tlsState != nil {
 			ciphersuiteName = tlsState.CiphersuiteName
 		}
+		info := ""
+		if ciphersuiteName != "" {
+			info = fmt.Sprintf("ciphersuite used: %s", ciphersuiteName)
+		}
 		logger.LoginLog(user.Username, ip, loginMethod, common.ProtocolFTP, c.ID, c.GetClientVersion(),
-			c.clientContext.HasTLSForControl(),
-			ciphersuiteName)
+			c.clientContext.HasTLSForControl(), info)
 		plugin.Handler.NotifyLogEvent(notifier.LogEventTypeLoginOK, common.ProtocolFTP, user.Username, ip, "", nil)
 		common.DelayLogin(nil)
 	} else if err != common.ErrInternalFailure {
