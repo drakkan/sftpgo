@@ -58,8 +58,9 @@ type SFTPGoFilesystem struct {
 }
 
 type virtualFolder struct {
-	VirtualPath string `json:"virtual_path"`
-	MappedPath  string `json:"mapped_path"`
+	VirtualPath         string `json:"virtual_path"`
+	VirtualSubdirectory string `json:"virtual_subdirectory,omitempty"`
+	MappedPath          string `json:"mapped_path"`
 }
 
 // SFTPGoUser defines an SFTPGo user

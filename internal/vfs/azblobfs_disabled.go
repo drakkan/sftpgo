@@ -27,6 +27,6 @@ func init() {
 }
 
 // NewAzBlobFs returns an error, Azure Blob storage is disabled
-func NewAzBlobFs(_, _, _ string, _ AzBlobFsConfig) (Fs, error) {
+func NewAzBlobFs(_, _, _, _ string, _ AzBlobFsConfig) (Fs, error) {
 	return nil, errors.New("Azure Blob Storage disabled at build time")
 }

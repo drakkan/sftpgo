@@ -241,6 +241,18 @@ ALTER TABLE "{{users_folders_mapping}}" DROP COLUMN "sort_order" CASCADE;
 ALTER TABLE "{{groups_folders_mapping}}" DROP COLUMN "sort_order" CASCADE;
 ALTER TABLE "{{admins_groups_mapping}}" DROP COLUMN "sort_order" CASCADE;
 `
+	pgsqlV34SQL = `ALTER TABLE "{{users_folders_mapping}}" ADD COLUMN "subdirectory" text NOT NULL DEFAULT '';
+ALTER TABLE "{{groups_folders_mapping}}" ADD COLUMN "subdirectory" text NOT NULL DEFAULT '';
+ALTER TABLE "{{users_folders_mapping}}" DROP CONSTRAINT "{{prefix}}unique_user_folder_mapping";
+ALTER TABLE "{{users_folders_mapping}}" ADD CONSTRAINT "{{prefix}}unique_user_folder_mapping" UNIQUE ("user_id", "folder_id", "subdirectory");
+ALTER TABLE "{{groups_folders_mapping}}" DROP CONSTRAINT "{{prefix}}unique_group_folder_mapping";
+ALTER TABLE "{{groups_folders_mapping}}" ADD CONSTRAINT "{{prefix}}unique_group_folder_mapping" UNIQUE ("group_id", "folder_id", "subdirectory");`
+	pgsqlV34DownSQL = `ALTER TABLE "{{users_folders_mapping}}" DROP CONSTRAINT "{{prefix}}unique_user_folder_mapping";
+ALTER TABLE "{{groups_folders_mapping}}" DROP CONSTRAINT "{{prefix}}unique_group_folder_mapping";
+ALTER TABLE "{{users_folders_mapping}}" ADD CONSTRAINT "{{prefix}}unique_user_folder_mapping" UNIQUE ("user_id", "folder_id");
+ALTER TABLE "{{groups_folders_mapping}}" ADD CONSTRAINT "{{prefix}}unique_group_folder_mapping" UNIQUE ("group_id", "folder_id");
+ALTER TABLE "{{users_folders_mapping}}" DROP COLUMN "subdirectory" CASCADE;
+ALTER TABLE "{{groups_folders_mapping}}" DROP COLUMN "subdirectory" CASCADE;`
 )
 
 var (
@@ -895,6 +907,8 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 		return downgradePGSQLDatabaseFromV32(p.dbHandle)
 	case 33:
 		return downgradePGSQLDatabaseFromV33(p.dbHandle)
+	case 34:
+		return downgradePGSQLDatabaseFromV34(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
@@ -955,7 +969,14 @@ func updatePGSQLDatabaseFromV31(dbHandle *sql.DB) error {
 }
 
 func updatePGSQLDatabaseFromV32(dbHandle *sql.DB) error {
-	return updatePGSQLDatabaseFrom32To33(dbHandle)
+	if err := updatePGSQLDatabaseFrom32To33(dbHandle); err != nil {
+		return err
+	}
+	return updatePGSQLDatabaseFromV33(dbHandle)
+}
+
+func updatePGSQLDatabaseFromV33(dbHandle *sql.DB) error {
+	return updatePGSQLDatabaseFrom33To34(dbHandle)
 }
 
 func downgradePGSQLDatabaseFromV30(dbHandle *sql.DB) error {
@@ -981,6 +1002,13 @@ func downgradePGSQLDatabaseFromV33(dbHandle *sql.DB) error {
 		return err
 	}
 	return downgradePGSQLDatabaseFromV32(dbHandle)
+}
+
+func downgradePGSQLDatabaseFromV34(dbHandle *sql.DB) error {
+	if err := downgradePGSQLDatabaseFrom34To33(dbHandle); err != nil {
+		return err
+	}
+	return downgradePGSQLDatabaseFromV33(dbHandle)
 }
 
 func updatePGSQLDatabaseFrom29To30(dbHandle *sql.DB) error {
@@ -1028,6 +1056,26 @@ func updatePGSQLDatabaseFrom32To33(dbHandle *sql.DB) error {
 	sql = strings.ReplaceAll(sql, "{{groups_folders_mapping}}", sqlTableGroupsFoldersMapping)
 	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 33, true)
+}
+
+func updatePGSQLDatabaseFrom33To34(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating PostgreSQL database schema version: 33 -> 34")
+	providerLog(logger.LevelInfo, "updating PostgreSQL database schema version: 33 -> 34")
+
+	sql := strings.ReplaceAll(pgsqlV34SQL, "{{users_folders_mapping}}", sqlTableUsersFoldersMapping)
+	sql = strings.ReplaceAll(sql, "{{groups_folders_mapping}}", sqlTableGroupsFoldersMapping)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 34, true)
+}
+
+func downgradePGSQLDatabaseFrom34To33(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database schema version: 34 -> 33")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 34 -> 33")
+
+	sql := strings.ReplaceAll(pgsqlV34DownSQL, "{{users_folders_mapping}}", sqlTableUsersFoldersMapping)
+	sql = strings.ReplaceAll(sql, "{{groups_folders_mapping}}", sqlTableGroupsFoldersMapping)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 33, false)
 }
 
 func downgradePGSQLDatabaseFrom33To32(dbHandle *sql.DB) error {

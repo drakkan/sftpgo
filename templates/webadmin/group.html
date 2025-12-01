@@ -55,10 +55,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 <div data-repeater-item>
                                     <div data-repeater-item>
                                         <div class="form-group row">
-                                            <div class="col-md-3 mt-3 mt-md-8">
+                                            <div class="col-md-2 mt-3 mt-md-8">
                                                 <input data-i18n="[placeholder]virtual_folders.mount_path" type="text" class="form-control" name="vfolder_path" value="{{$val.VirtualPath}}" />
                                             </div>
-                                            <div class="col-md-3 mt-3 mt-md-8">
+                                            <div class="col-md-2 mt-3 mt-md-8">
                                                 <select name="vfolder_name" data-i18n="[data-placeholder]general.folder_placeholder" class="form-select select-repetear" data-placeholder="Select a folder" data-allow-clear="true">
                                                     <option value=""></option>
                                                     {{- range $.VirtualFolders}}
@@ -66,7 +66,11 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                                     {{- end}}
                                                 </select>
                                             </div>
-                                            <div class="col-md-3 mt-3 mt-md-8">
+                                            <div class="col-md-2 mt-3 mt-md-8">
+                                                <input data-i18n="[placeholder]virtual_folders.subdirectory" type="text" class="form-control" name="vfolder_subdirectory" value="{{$val.VirtualSubdirectory}}" />
+                                                <div class="form-text" data-i18n="virtual_folders.subdirectory_help"></div>
+                                            </div>
+                                            <div class="col-md-2 mt-3 mt-md-8">
                                                 <input type="text" class="form-control" name="vfolder_quota_size" value="{{HumanizeBytes $val.QuotaSize}}" />
                                                 <div class="form-text" data-i18n="virtual_folders.quota_size"></div>
                                             </div>
@@ -74,9 +78,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                                 <input type="number" min="-1" class="form-control" name="vfolder_quota_files" value="{{$val.QuotaFiles}}" />
                                                 <div class="form-text" data-i18n="virtual_folders.quota_files"></div>
                                             </div>
-                                            <div class="col-md-1 mt-3 mt-md-8">
-                                                <a href="#" data-repeater-delete
-                                                    class="btn btn-light-danger ps-5 pe-4">
+                                            <div class="col-md-2 mt-3 mt-md-8">
+                                                <a href="#" data-repeater-delete class="btn btn-light-danger ps-5 pe-4">
                                                     <i class="ki-duotone ki-trash fs-2">
                                                         <span class="path1"></span>
                                                         <span class="path2"></span>
@@ -92,10 +95,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 {{- else}}
                                 <div data-repeater-item>
                                     <div class="form-group row">
-                                        <div class="col-md-3 mt-3 mt-md-8">
+                                        <div class="col-md-2 mt-3 mt-md-8">
                                             <input data-i18n="[placeholder]virtual_folders.mount_path" type="text" class="form-control" name="vfolder_path" value="" />
                                         </div>
-                                        <div class="col-md-3 mt-3 mt-md-8">
+                                        <div class="col-md-2 mt-3 mt-md-8">
                                             <select name="vfolder_name" data-i18n="[data-placeholder]general.folder_placeholder" class="form-select select-repetear" data-placeholder="Select a folder" data-allow-clear="true">
                                                 <option value=""></option>
                                                 {{- range .VirtualFolders}}
@@ -103,7 +106,11 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                                 {{- end}}
                                             </select>
                                         </div>
-                                        <div class="col-md-3 mt-3 mt-md-8">
+                                        <div class="col-md-2 mt-3 mt-md-8">
+                                            <input data-i18n="[placeholder]virtual_folders.subdirectory" type="text" class="form-control" name="vfolder_subdirectory" value="" />
+                                            <div class="form-text" data-i18n="virtual_folders.subdirectory_help"></div>
+                                        </div>
+                                        <div class="col-md-2 mt-3 mt-md-8">
                                             <input type="text" class="form-control" name="vfolder_quota_size" value="" />
                                             <div class="form-text" data-i18n="virtual_folders.quota_size"></div>
                                         </div>
@@ -111,7 +118,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                             <input type="number" min="-1" class="form-control" name="vfolder_quota_files" value="" />
                                             <div class="form-text" data-i18n="virtual_folders.quota_files"></div>
                                         </div>
-                                        <div class="col-md-1 mt-3 mt-md-8">
+                                        <div class="col-md-2 mt-3 mt-md-8">
                                             <a href="#" data-repeater-delete
                                                 class="btn btn-light-danger ps-5 pe-4">
                                                 <i class="ki-duotone ki-trash fs-2">

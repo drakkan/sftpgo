@@ -564,6 +564,8 @@
     "virtual_folders": {
         "view_manage": "View and manage virtual folders",
         "mount_path": "mount path, i.e. /vfolder",
+        "subdirectory": "subdirectory within folder (optional)",
+        "subdirectory_help": "(optional)",
         "quota_size": "Quota size",
         "quota_size_help": "0 means no limit. You can use MB/GB/TB suffix",
         "quota_files": "Quota files",

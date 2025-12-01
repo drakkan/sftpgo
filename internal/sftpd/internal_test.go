@@ -157,7 +157,7 @@ func (fs MockOsFs) Rename(source, target string, _ int) (int, int64, error) {
 
 func newMockOsFs(err, statErr error, atomicUpload bool, connectionID, rootDir string) vfs.Fs {
 	return &MockOsFs{
-		Fs:                      vfs.NewOsFs(connectionID, rootDir, "", nil),
+		Fs:                      vfs.NewOsFs(connectionID, rootDir, "", "", nil),
 		err:                     err,
 		statErr:                 statErr,
 		isAtomicUploadSupported: atomicUpload,
@@ -191,7 +191,7 @@ func TestUploadResumeInvalidOffset(t *testing.T) {
 			Username: "testuser",
 		},
 	}
-	fs := vfs.NewOsFs("", os.TempDir(), "", nil)
+	fs := vfs.NewOsFs("", os.TempDir(), "", "", nil)
 	conn := common.NewBaseConnection("", common.ProtocolSFTP, "", "", user)
 	baseTransfer := common.NewBaseTransfer(file, conn, nil, file.Name(), file.Name(), testfile,
 		common.TransferUpload, 10, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
@@ -222,7 +222,7 @@ func TestReadWriteErrors(t *testing.T) {
 			Username: "testuser",
 		},
 	}
-	fs := vfs.NewOsFs("", os.TempDir(), "", nil)
+	fs := vfs.NewOsFs("", os.TempDir(), "", "", nil)
 	conn := common.NewBaseConnection("", common.ProtocolSFTP, "", "", user)
 	baseTransfer := common.NewBaseTransfer(file, conn, nil, file.Name(), file.Name(), testfile, common.TransferDownload,
 		0, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
@@ -297,7 +297,7 @@ func TestTransferCancelFn(t *testing.T) {
 			Username: "testuser",
 		},
 	}
-	fs := vfs.NewOsFs("", os.TempDir(), "", nil)
+	fs := vfs.NewOsFs("", os.TempDir(), "", "", nil)
 	conn := common.NewBaseConnection("", common.ProtocolSFTP, "", "", user)
 	baseTransfer := common.NewBaseTransfer(file, conn, cancelFn, file.Name(), file.Name(), testfile, common.TransferDownload,
 		0, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
@@ -320,7 +320,7 @@ func TestTransferCancelFn(t *testing.T) {
 
 func TestUploadFiles(t *testing.T) {
 	common.Config.UploadMode = common.UploadModeAtomic
-	fs := vfs.NewOsFs("123", os.TempDir(), "", nil)
+	fs := vfs.NewOsFs("123", os.TempDir(), "", "", nil)
 	u := dataprovider.User{}
 	c := Connection{
 		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", "", u),
@@ -835,7 +835,7 @@ func TestSCPParseUploadMessage(t *testing.T) {
 		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
 		ReadError:    nil,
 	}
-	fs := vfs.NewOsFs("", os.TempDir(), "", nil)
+	fs := vfs.NewOsFs("", os.TempDir(), "", "", nil)
 	connection := &Connection{
 		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", "", dataprovider.User{
 			BaseUser: sdk.BaseUser{
@@ -1103,7 +1103,7 @@ func TestSCPRecursiveDownloadErrors(t *testing.T) {
 		err := client.Close()
 		assert.NoError(t, err)
 	}()
-	fs := vfs.NewOsFs("123", os.TempDir(), "", nil)
+	fs := vfs.NewOsFs("", os.TempDir(), "", "", nil)
 	connection := &Connection{
 		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", "", dataprovider.User{
 			BaseUser: sdk.BaseUser{
@@ -1226,7 +1226,7 @@ func TestSCPDownloadFileData(t *testing.T) {
 		ReadError:    nil,
 		WriteError:   writeErr,
 	}
-	fs := vfs.NewOsFs("", os.TempDir(), "", nil)
+	fs := vfs.NewOsFs("", os.TempDir(), "", "", nil)
 	connection := &Connection{
 		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", "", dataprovider.User{BaseUser: sdk.BaseUser{HomeDir: os.TempDir()}}),
 		channel:        &mockSSHChannelReadErr,
@@ -1278,7 +1278,7 @@ func TestSCPUploadFiledata(t *testing.T) {
 			Username: "testuser",
 		},
 	}
-	fs := vfs.NewOsFs("", os.TempDir(), "", nil)
+	fs := vfs.NewOsFs("", os.TempDir(), "", "", nil)
 	connection := &Connection{
 		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", "", user),
 		channel:        &mockSSHChannel,
@@ -1373,7 +1373,7 @@ func TestUploadError(t *testing.T) {
 			Username: "testuser",
 		},
 	}
-	fs := vfs.NewOsFs("", os.TempDir(), "", nil)
+	fs := vfs.NewOsFs("", os.TempDir(), "", "", nil)
 	connection := &Connection{
 		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", "", user),
 	}

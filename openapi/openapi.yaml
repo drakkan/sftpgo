@@ -5777,6 +5777,9 @@ components:
           properties:
             virtual_path:
               type: string
+            virtual_subdirectory:
+              type: string
+              description: 'Optional subdirectory within the mapped path where files are stored. This allows multiple users to share the same base folder while maintaining isolation in their own subdirectories.'
             quota_size:
               type: integer
               format: int64
