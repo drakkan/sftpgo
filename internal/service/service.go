@@ -89,7 +89,7 @@ func (s *Service) initLogger() {
 }
 
 // Start initializes and starts the service
-func (s *Service) Start() error {
+func (s *Service) Start(disableAWSInstallationCode bool) error {
 	s.initLogger()
 	logger.Info(logSender, "", "starting SFTPGo %s, config dir: %s, config file: %s, log max size: %d log max backups: %d "+
 		"log max age: %d log level: %s, log compress: %t, log utc time: %t, load data from: %q, grace time: %d secs",
@@ -110,7 +110,7 @@ func (s *Service) Start() error {
 		return errors.New(infoString)
 	}
 
-	if err := s.initializeServices(); err != nil {
+	if err := s.initializeServices(disableAWSInstallationCode); err != nil {
 		return err
 	}
 
@@ -120,7 +120,7 @@ func (s *Service) Start() error {
 	return nil
 }
 
-func (s *Service) initializeServices() error {
+func (s *Service) initializeServices(disableAWSInstallationCode bool) error {
 	providerConf := config.GetProviderConf()
 	kmsConfig := config.GetKMSConfig()
 	err := kmsConfig.Initialize()
@@ -178,6 +178,12 @@ func (s *Service) initializeServices() error {
 			logger.ErrorToConsole("error initializing ACME configuration: %v", err)
 			return err
 		}
+	}
+
+	if err := registerAWSContainer(disableAWSInstallationCode); err != nil {
+		logger.Error(logSender, "", "error registering AWS container: %v", err)
+		logger.ErrorToConsole("error registering AWS container: %v", err)
+		return err
 	}
 
 	httpConfig := config.GetHTTPConfig()
