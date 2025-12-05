@@ -9,14 +9,14 @@ permissions:
   contents: write
 
 env:
-  GO_VERSION: 1.25.3
+  GO_VERSION: 1.25.5
 
 jobs:
   prepare-sources-with-deps:
     name: Prepare sources with deps
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
@@ -47,7 +47,7 @@ jobs:
     runs-on: windows-2022
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
@@ -174,7 +174,7 @@ jobs:
     runs-on: macos-13
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
@@ -270,7 +270,7 @@ jobs:
             tar-arch: armv7
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Get versions
         id: get_version
@@ -466,7 +466,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Get versions
         id: get_version
         run: |
