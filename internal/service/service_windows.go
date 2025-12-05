@@ -108,7 +108,7 @@ func (s *WindowsService) Execute(args []string, r <-chan svc.ChangeRequest, chan
 	changes <- svc.Status{State: svc.StartPending}
 
 	go func() {
-		if err := s.Service.Start(); err != nil {
+		if err := s.Service.Start(false); err != nil {
 			logger.Error(logSender, "", "Windows service failed to start, error: %v", err)
 			s.Service.Error = err
 			s.Service.Shutdown <- true
