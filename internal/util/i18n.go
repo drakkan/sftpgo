@@ -114,6 +114,7 @@ const (
 	I18nErrorConnectionForbidden       = "general.connection_forbidden"
 	I18nErrorReservedUsername          = "user.username_reserved"
 	I18nErrorInvalidEmail              = "general.email_invalid"
+	I18nErrorInvalidInput              = "general.invalid_input"
 	I18nErrorInvalidUser               = "user.username_invalid"
 	I18nErrorInvalidName               = "general.name_invalid"
 	I18nErrorHomeRequired              = "user.home_required"

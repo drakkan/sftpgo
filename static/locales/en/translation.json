@@ -109,6 +109,7 @@
     },
     "general": {
         "invalid_auth_request": "The authentication request does not meet security requirements",
+        "invalid_input": "Invalid input. Slashes (/ ), colons (:), control characters, and reserved system names are not allowed",
         "error400": "The received request is not valid",
         "error403": "You do not have the required permissions",
         "error404": "The requested resource does not exist",

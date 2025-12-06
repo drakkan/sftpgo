@@ -163,6 +163,42 @@ func RemoveDuplicates(obj []string, trim bool) []string {
 	return obj[:validIdx]
 }
 
+// IsNameValid validates that a name/username contains only safe characters.
+func IsNameValid(name string) bool {
+	for _, r := range name {
+		if unicode.IsControl(r) {
+			return false
+		}
+
+		switch r {
+		case '/', '\\':
+			return false
+		case ':':
+			return false
+		}
+	}
+
+	if name == "." || name == ".." {
+		return false
+	}
+
+	upperName := strings.ToUpper(name)
+	baseName := strings.Split(upperName, ".")[0]
+
+	switch baseName {
+	case "CON", "PRN", "AUX", "NUL",
+		"COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+		"LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9":
+		return false
+	}
+
+	if strings.HasSuffix(name, " ") || strings.HasSuffix(name, ".") {
+		return false
+	}
+
+	return true
+}
+
 // GetTimeAsMsSinceEpoch returns unix timestamp as milliseconds from a time struct
 func GetTimeAsMsSinceEpoch(t time.Time) int64 {
 	return t.UnixMilli()

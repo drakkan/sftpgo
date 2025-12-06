@@ -15599,7 +15599,7 @@ func TestShareMaxSessions(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "too many open sessions")
 
 	share = dataprovider.Share{
-		Name:  "test share max sessions read/write",
+		Name:  "test share max sessions read&write",
 		Scope: dataprovider.ShareScopeReadWrite,
 		Paths: []string{"/"},
 	}
@@ -25497,78 +25497,6 @@ func TestWebRole(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestNameParamSingleSlash(t *testing.T) {
-	err := dataprovider.Close()
-	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, "")
-	assert.NoError(t, err)
-	providerConf := config.GetProviderConf()
-	providerConf.NamingRules = 5
-	err = dataprovider.Initialize(providerConf, configDir, true)
-	assert.NoError(t, err)
-
-	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
-	assert.NoError(t, err)
-	apiToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
-	assert.NoError(t, err)
-	csrfToken, err := getCSRFTokenFromInternalPageMock(webGroupPath, webToken)
-	assert.NoError(t, err)
-	group := getTestGroup()
-	group.Name = "/"
-	form := make(url.Values)
-	form.Set("name", group.Name)
-	form.Set("description", group.Description)
-	form.Set("max_sessions", "0")
-	form.Set("quota_files", "0")
-	form.Set("quota_size", "0")
-	form.Set("upload_bandwidth", "0")
-	form.Set("download_bandwidth", "0")
-	form.Set("upload_data_transfer", "0")
-	form.Set("download_data_transfer", "0")
-	form.Set("total_data_transfer", "0")
-	form.Set("max_upload_file_size", "0")
-	form.Set("default_shares_expiration", "0")
-	form.Set("max_shares_expiration", "0")
-	form.Set("password_expiration", "0")
-	form.Set("password_strength", "0")
-	form.Set("expires_in", "0")
-	form.Set("external_auth_cache_time", "0")
-	form.Set(csrfFormToken, csrfToken)
-	b, contentType, err := getMultipartFormData(form, "", "")
-	assert.NoError(t, err)
-	req, err := http.NewRequest(http.MethodPost, webGroupPath, &b)
-	assert.NoError(t, err)
-	req.Header.Set("Content-Type", contentType)
-	setJWTCookieForReq(req, webToken)
-	rr := executeRequest(req)
-	checkResponseCode(t, http.StatusSeeOther, rr)
-
-	groupGet, _, err := httpdtest.GetGroupByName(group.Name, http.StatusOK)
-	assert.NoError(t, err)
-	assert.Equal(t, "/", groupGet.Name)
-	// check strip slash
-	req, err = http.NewRequest(http.MethodGet, webGroupsPath+"/", nil)
-	assert.NoError(t, err)
-	setJWTCookieForReq(req, webToken)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr)
-	// cleanup
-	req, err = http.NewRequest(http.MethodDelete, groupPath+"/"+url.PathEscape(group.Name), nil)
-	assert.NoError(t, err)
-	setBearerForReq(req, apiToken)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr)
-
-	err = dataprovider.Close()
-	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, "")
-	assert.NoError(t, err)
-	providerConf = config.GetProviderConf()
-	providerConf.BackupsPath = backupsPath
-	err = dataprovider.Initialize(providerConf, configDir, true)
-	assert.NoError(t, err)
-}
-
 func TestAddWebGroup(t *testing.T) {
 	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
@@ -27314,6 +27242,56 @@ func TestSecondFactorRequirements(t *testing.T) {
 	assert.False(t, user.MustSetSecondFactorForProtocol(common.ProtocolFTP))
 	assert.False(t, user.MustSetSecondFactorForProtocol(common.ProtocolHTTP))
 	assert.False(t, user.MustSetSecondFactorForProtocol(common.ProtocolSSH))
+}
+
+func TestIsNameValid(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected bool
+	}{
+		{"simple name", "user", true},
+		{"alphanumeric", "User123", true},
+		{"unicode allowed", "你好", true},
+		{"emoji allowed", "user😊", true},
+		{"name with dot", "file.txt", true},
+		{"name with multiple dots", "archive.tar.gz", true},
+		{"control char", "abc\u0001", false},
+		{"newline", "abc\n", false},
+		{"tab", "abc\t", false},
+		{"slash", "user/name", false},
+		{"backslash", "user\\name", false},
+		{"colon", "user:name", false},
+		{"single dot", ".", false},
+		{"double dot", "..", false},
+		{"dot with suffix allowed", ".hidden", true},
+		{"name ending with dot", "file.", false},
+		{"name ending with space", "file ", false},
+		{"CON", "CON", false},
+		{"con lowercase", "con", false},
+		{"con with extension", "con.txt", false},
+		{"LPT1", "LPT1", false},
+		{"lpt1 lowercase", "lpt1", false},
+		{"COM5 uppercase", "COM5", false},
+		{"com9 with extension", "com9.log", false},
+		{"NUL", "NUL", false},
+		{"Valid because suffix changes base", "con123", true},
+		{"base name split", "aux.pdf", false},
+		{"valid long name", "auxiliary", true},
+		{"space only", " ", false},
+		{"dot inside", "ab.cd.ef", true},
+		{"unicode that ends with dot", "你好.", false},
+		{"unicode that ends with space", "你好 ", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := util.IsNameValid(tt.input)
+			if result != tt.expected {
+				t.Errorf("IsNameValid(%q) = %v, expected %v", tt.input, result, tt.expected)
+			}
+		})
+	}
 }
 
 func startOIDCMockServer() {

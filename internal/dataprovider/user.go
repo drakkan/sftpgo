@@ -1764,6 +1764,17 @@ func (u *User) hasRole(role string) bool {
 	return role == u.Role
 }
 
+func (u *User) applyNamingRules() {
+	u.Username = config.convertName(u.Username)
+	u.Role = config.convertName(u.Role)
+	for idx := range u.Groups {
+		u.Groups[idx].Name = config.convertName(u.Groups[idx].Name)
+	}
+	for idx := range u.VirtualFolders {
+		u.VirtualFolders[idx].Name = config.convertName(u.VirtualFolders[idx].Name)
+	}
+}
+
 func (u *User) getACopy() User {
 	u.SetEmptySecretsIfNil()
 	pubKeys := make([]string, len(u.PublicKeys))

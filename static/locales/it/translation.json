@@ -109,6 +109,7 @@
     },
     "general": {
         "invalid_auth_request": "La richiesta di autenticazione non soddisfa i requisiti di sicurezza",
+        "invalid_input": "Input non valido. Gli slash (/), i due punti (:), i caratteri di controllo e i nomi di sistema riservati non sono consentiti",
         "error400": "La richiesta ricevuta non è valida",
         "error403": "Non si dispone delle autorizzazioni richieste",
         "error404": "La risorsa richiesta non esiste",

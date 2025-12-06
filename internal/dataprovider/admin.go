@@ -364,11 +364,23 @@ func (a *Admin) validateGroups() error {
 	return nil
 }
 
-func (a *Admin) validate() error {
+func (a *Admin) applyNamingRules() {
+	a.Username = config.convertName(a.Username)
+	a.Role = config.convertName(a.Role)
+	for idx := range a.Groups {
+		a.Groups[idx].Name = config.convertName(a.Groups[idx].Name)
+	}
+}
+
+func (a *Admin) validate() error { //nolint:gocyclo
 	a.SetEmptySecretsIfNil()
+	a.applyNamingRules()
 	a.Password = strings.TrimSpace(a.Password)
 	if a.Username == "" {
 		return util.NewI18nError(util.NewValidationError("username is mandatory"), util.I18nErrorUsernameRequired)
+	}
+	if !util.IsNameValid(a.Username) {
+		return util.NewI18nError(errInvalidInput, util.I18nErrorInvalidInput)
 	}
 	if err := checkReservedUsernames(a.Username); err != nil {
 		return util.NewI18nError(err, util.I18nErrorReservedUsername)

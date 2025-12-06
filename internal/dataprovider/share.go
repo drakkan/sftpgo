@@ -206,12 +206,15 @@ func (s *Share) validatePaths() error {
 	return nil
 }
 
-func (s *Share) validate() error {
+func (s *Share) validate() error { //nolint:gocyclo
 	if s.ShareID == "" {
 		return util.NewValidationError("share_id is mandatory")
 	}
 	if s.Name == "" {
 		return util.NewI18nError(util.NewValidationError("name is mandatory"), util.I18nErrorNameRequired)
+	}
+	if !util.IsNameValid(s.Name) {
+		return util.NewI18nError(errInvalidInput, util.I18nErrorInvalidInput)
 	}
 	if s.Scope < ShareScopeRead || s.Scope > ShareScopeReadWrite {
 		return util.NewI18nError(util.NewValidationError(fmt.Sprintf("invalid scope: %v", s.Scope)), util.I18nErrorShareScope)
