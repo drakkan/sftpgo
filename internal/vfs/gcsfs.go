@@ -45,6 +45,7 @@ import (
 
 const (
 	defaultGCSPageSize = 5000
+	gcsDefaultEndpoint = "storage.googleapis.com"
 )
 
 var (
@@ -67,6 +68,7 @@ func init() {
 	version.AddFeature("+gcs")
 }
 
+
 // NewGCSFs returns an GCSFs object that allows to interact with Google Cloud Storage
 func NewGCSFs(connectionID, localTempDir, mountPath string, config GCSFsConfig) (Fs, error) {
 	if localTempDir == "" {
@@ -86,22 +88,27 @@ func NewGCSFs(connectionID, localTempDir, mountPath string, config GCSFsConfig) 
 		return fs, err
 	}
 	ctx := context.Background()
+
+	clientOpts := []option.ClientOption{
+        storage.WithJSONReads(),
+        option.WithUserAgent(version.GetVersionHash()),
+    }
+    if fs.config.Endpoint == "" {
+        fs.config.Endpoint = gcsDefaultEndpoint
+    }
+    clientOpts  = append(clientOpts, option.WithEndpoint(fs.config.Endpoint))
+
 	if fs.config.AutomaticCredentials > 0 {
-		fs.svc, err = storage.NewClient(ctx,
-			storage.WithJSONReads(),
-			option.WithUserAgent(version.GetVersionHash()),
-		)
+		fs.svc, err = storage.NewClient(ctx, clientOpts...)
 	} else {
 		err = fs.config.Credentials.TryDecrypt()
 		if err != nil {
 			return fs, err
 		}
-		fs.svc, err = storage.NewClient(ctx,
-			storage.WithJSONReads(),
-			option.WithUserAgent(version.GetVersionHash()),
-			option.WithCredentialsJSON([]byte(fs.config.Credentials.GetPayload())),
-		)
+        clientOpts = append(clientOpts, option.WithCredentialsJSON([]byte(fs.config.Credentials.GetPayload())))
+		fs.svc, err = storage.NewClient(ctx, clientOpts...)
 	}
+
 	return fs, err
 }
 
