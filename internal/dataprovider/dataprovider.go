@@ -188,6 +188,7 @@ var (
 	ErrDuplicatedKey = errors.New("duplicated key not allowed")
 	// ErrForeignKeyViolated occurs when there is a foreign key constraint violation
 	ErrForeignKeyViolated   = errors.New("violates foreign key constraint")
+	errInvalidInput         = util.NewValidationError("Invalid input. Slashes (/ ), colons (:), control characters, and reserved system names are not allowed")
 	tz                      = ""
 	isAdminCreated          atomic.Bool
 	validTLSUsernames       = []string{string(sdk.TLSUsernameNone), string(sdk.TLSUsernameCN)}
@@ -3267,6 +3268,9 @@ func validateBaseParams(user *User) error {
 	if user.Username == "" {
 		return util.NewI18nError(util.NewValidationError("username is mandatory"), util.I18nErrorUsernameRequired)
 	}
+	if !util.IsNameValid(user.Username) {
+		return util.NewI18nError(errInvalidInput, util.I18nErrorInvalidInput)
+	}
 	if err := checkReservedUsernames(user.Username); err != nil {
 		return util.NewI18nError(err, util.I18nErrorReservedUsername)
 	}
@@ -3368,6 +3372,9 @@ func ValidateFolder(folder *vfs.BaseVirtualFolder) error {
 	if folder.Name == "" {
 		return util.NewI18nError(util.NewValidationError("folder name is mandatory"), util.I18nErrorNameRequired)
 	}
+	if !util.IsNameValid(folder.Name) {
+		return util.NewI18nError(errInvalidInput, util.I18nErrorInvalidInput)
+	}
 	if config.NamingRules&1 == 0 && !usernameRegex.MatchString(folder.Name) {
 		return util.NewI18nError(
 			util.NewValidationError(fmt.Sprintf("folder name %q is not valid, the following characters are allowed: a-zA-Z0-9-_.~", folder.Name)),
@@ -3397,6 +3404,7 @@ func ValidateUser(user *User) error {
 	user.OIDCCustomFields = nil
 	user.HasPassword = false
 	user.SetEmptySecretsIfNil()
+	user.applyNamingRules()
 	buildUserHomeDir(user)
 	if err := validateBaseParams(user); err != nil {
 		return err

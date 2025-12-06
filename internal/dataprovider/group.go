@@ -132,10 +132,21 @@ func (g *Group) hasRedactedSecret() bool {
 	return g.UserSettings.FsConfig.HasRedactedSecret()
 }
 
+func (g *Group) applyNamingRules() {
+	g.Name = config.convertName(g.Name)
+	for idx := range g.VirtualFolders {
+		g.VirtualFolders[idx].Name = config.convertName(g.VirtualFolders[idx].Name)
+	}
+}
+
 func (g *Group) validate() error {
 	g.SetEmptySecretsIfNil()
+	g.applyNamingRules()
 	if g.Name == "" {
 		return util.NewI18nError(util.NewValidationError("name is mandatory"), util.I18nErrorNameRequired)
+	}
+	if !util.IsNameValid(g.Name) {
+		return util.NewI18nError(errInvalidInput, util.I18nErrorInvalidInput)
 	}
 	if config.NamingRules&1 == 0 && !usernameRegex.MatchString(g.Name) {
 		return util.NewI18nError(

@@ -1253,6 +1253,9 @@ func (a *BaseEventAction) validate() error {
 	if a.Name == "" {
 		return util.NewI18nError(util.NewValidationError("name is mandatory"), util.I18nErrorNameRequired)
 	}
+	if !util.IsNameValid(a.Name) {
+		return util.NewI18nError(errInvalidInput, util.I18nErrorInvalidInput)
+	}
 	if !isActionTypeValid(a.Type) {
 		return util.NewValidationError(fmt.Sprintf("invalid action type: %d", a.Type))
 	}
@@ -1672,9 +1675,12 @@ func (r *EventRule) isStatusValid() bool {
 	return r.Status >= 0 && r.Status <= 1
 }
 
-func (r *EventRule) validate() error {
+func (r *EventRule) validate() error { //nolint:gocyclo
 	if r.Name == "" {
 		return util.NewI18nError(util.NewValidationError("name is mandatory"), util.I18nErrorNameRequired)
+	}
+	if !util.IsNameValid(r.Name) {
+		return util.NewI18nError(errInvalidInput, util.I18nErrorInvalidInput)
 	}
 	if !r.isStatusValid() {
 		return util.NewValidationError(fmt.Sprintf("invalid event rule status: %d", r.Status))

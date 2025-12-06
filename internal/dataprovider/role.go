@@ -57,6 +57,9 @@ func (r *Role) validate() error {
 	if r.Name == "" {
 		return util.NewI18nError(util.NewValidationError("name is mandatory"), util.I18nErrorNameRequired)
 	}
+	if !util.IsNameValid(r.Name) {
+		return util.NewI18nError(errInvalidInput, util.I18nErrorInvalidInput)
+	}
 	if len(r.Name) > 255 {
 		return util.NewValidationError("name is too long, 255 is the maximum length allowed")
 	}

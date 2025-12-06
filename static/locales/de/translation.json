@@ -109,6 +109,7 @@
     },
     "general": {
         "invalid_auth_request": "Die Authentifizierungsanfrage erfüllt die notwendigen Sicherheitsanforderungen nicht!",
+        "invalid_input": "Ungültige Eingabe. Schrägstriche (/), Doppelpunkte (:), Steuerzeichen und reservierte Systemnamen sind nicht erlaubt",
         "error400": "Die empfangene Anfrage ist ungültig!",
         "error403": "Sie besitzen nicht über die erforderlichen Berechtigungen!",
         "error404": "Die angefragte Ressource existiert nicht!",

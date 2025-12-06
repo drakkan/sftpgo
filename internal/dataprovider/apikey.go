@@ -148,6 +148,9 @@ func (k *APIKey) validate() error {
 	if k.Name == "" {
 		return util.NewValidationError("name is mandatory")
 	}
+	if !util.IsNameValid(k.Name) {
+		return util.NewI18nError(errInvalidInput, util.I18nErrorInvalidInput)
+	}
 	if k.Scope != APIKeyScopeAdmin && k.Scope != APIKeyScopeUser {
 		return util.NewValidationError(fmt.Sprintf("invalid scope: %v", k.Scope))
 	}
