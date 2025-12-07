@@ -2146,7 +2146,7 @@ func TestIPListEntriesValidation(t *testing.T) {
 }
 
 func TestBasicActionRulesHandling(t *testing.T) {
-	actionName := "test action"
+	actionName := "test_action"
 	a := dataprovider.BaseEventAction{
 		Name:        actionName,
 		Description: "test description",
@@ -2286,7 +2286,7 @@ func TestBasicActionRulesHandling(t *testing.T) {
 	assert.Equal(t, defaultPassword, dbAction.Options.HTTPConfig.Password.GetPayload())
 
 	r := dataprovider.EventRule{
-		Name:        "test rule name",
+		Name:        "test_rule_name",
 		Status:      1,
 		Description: "",
 		Trigger:     dataprovider.EventTriggerFsEvent,
@@ -2548,7 +2548,7 @@ func TestActionRuleRelations(t *testing.T) {
 }
 
 func TestOnDemandEventRules(t *testing.T) {
-	ruleName := "test on demand rule"
+	ruleName := "test_on_demand_rule"
 	a := dataprovider.BaseEventAction{
 		Name:    "a",
 		Type:    dataprovider.ActionTypeBackup,
@@ -2589,7 +2589,7 @@ func TestOnDemandEventRules(t *testing.T) {
 }
 
 func TestIDPLoginEventRule(t *testing.T) {
-	ruleName := "test IDP login rule"
+	ruleName := "test_IDP_login_rule"
 	a := dataprovider.BaseEventAction{
 		Name: "a",
 		Type: dataprovider.ActionTypeIDPAccountCheck,
@@ -7929,7 +7929,7 @@ func TestProviderErrors(t *testing.T) {
 	backupData = dataprovider.BackupData{
 		EventActions: []dataprovider.BaseEventAction{
 			{
-				Name: "quota reset",
+				Name: "quota_reset",
 				Type: dataprovider.ActionTypeFolderQuotaReset,
 			},
 		},
@@ -7944,7 +7944,7 @@ func TestProviderErrors(t *testing.T) {
 	backupData = dataprovider.BackupData{
 		EventRules: []dataprovider.EventRule{
 			{
-				Name:    "quota reset",
+				Name:    "quota_reset",
 				Trigger: dataprovider.EventTriggerSchedule,
 				Conditions: dataprovider.EventConditions{
 					Schedules: []dataprovider.Schedule{
@@ -8738,7 +8738,7 @@ func TestLoaddata(t *testing.T) {
 	}
 	action := dataprovider.BaseEventAction{
 		ID:   81,
-		Name: "test restore action",
+		Name: "test_restore_action",
 		Type: dataprovider.ActionTypeHTTP,
 		Options: dataprovider.BaseEventActionOptions{
 			HTTPConfig: dataprovider.EventActionHTTPConfig{
@@ -8754,7 +8754,7 @@ func TestLoaddata(t *testing.T) {
 	}
 	rule := dataprovider.EventRule{
 		ID:          100,
-		Name:        "test rule restore",
+		Name:        "test_rule_restore",
 		Description: "",
 		Trigger:     dataprovider.EventTriggerFsEvent,
 		Conditions: dataprovider.EventConditions{
@@ -9119,7 +9119,7 @@ func TestLoaddataMode(t *testing.T) {
 	}
 	action := dataprovider.BaseEventAction{
 		ID:          81,
-		Name:        "test restore action data mode",
+		Name:        "test_restore_action_data_mode",
 		Description: "action desc",
 		Type:        dataprovider.ActionTypeHTTP,
 		Options: dataprovider.BaseEventActionOptions{
@@ -9136,7 +9136,7 @@ func TestLoaddataMode(t *testing.T) {
 	}
 	rule := dataprovider.EventRule{
 		ID:          100,
-		Name:        "test rule restore data mode",
+		Name:        "test_rule_restore_data_mode",
 		Description: "rule desc",
 		Trigger:     dataprovider.EventTriggerFsEvent,
 		Conditions: dataprovider.EventConditions{
@@ -9643,7 +9643,7 @@ func TestEventRuleErrorsMock(t *testing.T) {
 	checkResponseCode(t, http.StatusBadRequest, rr)
 
 	a := dataprovider.BaseEventAction{
-		Name:        "action name",
+		Name:        "action_name",
 		Description: "test description",
 		Type:        dataprovider.ActionTypeBackup,
 		Options:     dataprovider.BaseEventActionOptions{},
@@ -9658,7 +9658,7 @@ func TestEventRuleErrorsMock(t *testing.T) {
 	checkResponseCode(t, http.StatusBadRequest, rr)
 
 	r := dataprovider.EventRule{
-		Name:    "test event rule",
+		Name:    "test_event_rule",
 		Trigger: dataprovider.EventTriggerSchedule,
 		Conditions: dataprovider.EventConditions{
 			Schedules: []dataprovider.Schedule{

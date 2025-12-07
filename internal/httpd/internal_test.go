@@ -1414,7 +1414,7 @@ func TestCreateShareCookieError(t *testing.T) {
 	err := dataprovider.AddUser(user, "", "", "")
 	assert.NoError(t, err)
 	share := &dataprovider.Share{
-		Name:     "test share cookie error",
+		Name:     "test_share_cookie_error",
 		ShareID:  util.GenerateUniqueID(),
 		Scope:    dataprovider.ShareScopeRead,
 		Password: pwd,

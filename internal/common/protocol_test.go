@@ -5775,7 +5775,7 @@ func TestBackupAsAttachment(t *testing.T) {
 	require.NoError(t, err)
 
 	a1 := dataprovider.BaseEventAction{
-		Name: "a1",
+		Name: "a1 with space",
 		Type: dataprovider.ActionTypeBackup,
 	}
 	a2 := dataprovider.BaseEventAction{
