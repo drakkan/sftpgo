@@ -730,12 +730,11 @@ func (*SFTPFs) HasVirtualFolders() bool {
 
 // ResolvePath returns the matching filesystem path for the specified virtual path
 func (fs *SFTPFs) ResolvePath(virtualPath string) (string, error) {
+	virtualPath = strings.ReplaceAll(virtualPath, "\\", "/")
 	if fs.mountPath != "" {
 		virtualPath = strings.TrimPrefix(virtualPath, fs.mountPath)
 	}
-	if !path.IsAbs(virtualPath) {
-		virtualPath = path.Clean("/" + virtualPath)
-	}
+	virtualPath = path.Clean("/" + virtualPath)
 	fsPath := fs.Join(fs.config.Prefix, virtualPath)
 	if fs.config.Prefix != "/" && fsPath != "/" {
 		// we need to check if this path is a symlink outside the given prefix
