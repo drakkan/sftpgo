@@ -637,12 +637,11 @@ func (*HTTPFs) HasVirtualFolders() bool {
 
 // ResolvePath returns the matching filesystem path for the specified virtual path
 func (fs *HTTPFs) ResolvePath(virtualPath string) (string, error) {
+	virtualPath = strings.ReplaceAll(virtualPath, "\\", "/")
 	if fs.mountPath != "" {
 		virtualPath = strings.TrimPrefix(virtualPath, fs.mountPath)
 	}
-	if !path.IsAbs(virtualPath) {
-		virtualPath = path.Clean("/" + virtualPath)
-	}
+	virtualPath = path.Clean("/" + virtualPath)
 	return virtualPath, nil
 }
 
