@@ -500,7 +500,7 @@
     "user": {
         "view_manage": "Visualizza e gestisci utenti",
         "username_reserved": "Il nome utente specificato è riservato",
-        "username_invalid": "Il nome utente specificato non è valido, sono consentiti i seguenti caratteri: a-zA-Z0-9-_.~",
+        "username_invalid": "Il nome specificato non è valido. Sono consentiti i seguenti caratteri: a-z A-Z 0-9 - _ . ~",
         "home_required": "La directory principale è obbligatoria",
         "home_invalid": "La directory principale deve essere un path assoluto",
         "pub_key_invalid": "Chiave pubblica non valida",

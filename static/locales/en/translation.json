@@ -500,7 +500,7 @@
     "user": {
         "view_manage": "View and manage users",
         "username_reserved": "The specified username is reserved",
-        "username_invalid": "The specified username is not valid, the following characters are allowed: a-zA-Z0-9-_.~",
+        "username_invalid": "The specified name is not valid, the following characters are allowed: a-z A-Z 0-9 - _ . ~",
         "home_required": "The home directory is mandatory",
         "home_invalid": "The home directory must be an absolute path",
         "pub_key_invalid": "Invalid public key",

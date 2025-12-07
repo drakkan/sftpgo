@@ -500,7 +500,7 @@
     "user": {
         "view_manage": "Voir et gérer les utilisateurs",
         "username_reserved": "Le nom d'utilisateur spécifié est réservé",
-        "username_invalid": "Le nom d'utilisateur spécifié n'est pas valide, les caractères suivants sont autorisés : a-zA-Z0-9-_.~",
+        "username_invalid": "Le nom indiqué n’est pas valide. Les caractères suivants sont autorisés : a-z A-Z 0-9 - _ . ~",
         "home_required": "Le répertoire de base est obligatoire",
         "home_invalid": "Le répertoire de base doit être un chemin absolu",
         "pub_key_invalid": "Clé publique invalide",

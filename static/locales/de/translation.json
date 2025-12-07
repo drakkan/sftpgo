@@ -500,7 +500,7 @@
     "user": {
         "view_manage": "Benutzer anzeigen und verwalten",
         "username_reserved": "Der angegebene Benutzername ist reserviert",
-        "username_invalid": "Der angegebene Benutzername ist ungültig, die folgenden Zeichen sind erlaubt: a-zA-Z0-9-_.~",
+        "username_invalid": "Der angegebene Name ist ungültig. Die folgenden Zeichen sind zulässig: a-z A-Z 0-9 - _ . ~",
         "home_required": "Das Home-Verzeichnis ist obligatorisch",
         "home_invalid": "Das Home-Verzeichnis muss ein absoluter Pfad sein",
         "pub_key_invalid": "Ungültiger öffentlicher Schlüssel",
