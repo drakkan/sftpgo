@@ -38,8 +38,8 @@ import (
 
 // tlsState tracks TLS connection state for a client
 type tlsState struct {
-	// LoginWithmTLS indicates whether the user logged in using TLS certificate authentication
-	LoginWithmTLS bool
+	// LoginWithMutualTLS indicates whether the user logged in using TLS certificate authentication
+	LoginWithMutualTLS bool
 	// Cipher is the name of the TLS ciphersuite used for the control connection
 	Cipher string
 }
@@ -187,7 +187,7 @@ func (s *Server) ClientDisconnected(cc ftpserver.ClientContext) {
 func (s *Server) AuthUser(cc ftpserver.ClientContext, username, password string) (ftpserver.ClientDriver, error) {
 	loginMethod := dataprovider.LoginMethodPassword
 	tlsState, ok := cc.Extra().(*tlsState)
-	if ok && tlsState != nil && tlsState.LoginWithmTLS {
+	if ok && tlsState != nil && tlsState.LoginWithMutualTLS {
 		loginMethod = dataprovider.LoginMethodTLSCertificateAndPwd
 	}
 	ipAddr := util.GetIPFromRemoteAddress(cc.RemoteAddr().String())
@@ -242,7 +242,6 @@ func (s *Server) VerifyConnection(cc ftpserver.ClientContext, user string, tlsCo
 	if !s.binding.isMutualTLSEnabled() {
 		return nil, nil
 	}
-	cc.SetExtra(&tlsState{})
 	if tlsConn != nil {
 		state := tlsConn.ConnectionState()
 		cc.SetExtra(&tlsState{
@@ -264,8 +263,8 @@ func (s *Server) VerifyConnection(cc ftpserver.ClientContext, user string, tlsCo
 				}
 
 				cc.SetExtra(&tlsState{
-					LoginWithmTLS: true,
-					Cipher:        tls.CipherSuiteName(state.CipherSuite),
+					LoginWithMutualTLS: true,
+					Cipher:             tls.CipherSuiteName(state.CipherSuite),
 				})
 
 				if dbUser.IsLoginMethodAllowed(dataprovider.LoginMethodTLSCertificate, common.ProtocolFTP) {
