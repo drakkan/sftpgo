@@ -1587,6 +1587,7 @@ func getGCSConfig(r *http.Request) (vfs.GCSFsConfig, error) {
 	config.StorageClass = strings.TrimSpace(r.Form.Get("gcs_storage_class"))
 	config.ACL = strings.TrimSpace(r.Form.Get("gcs_acl"))
 	config.KeyPrefix = strings.TrimSpace(strings.TrimPrefix(r.Form.Get("gcs_key_prefix"), "/"))
+	config.Endpoint = strings.TrimSpace(r.Form.Get("gcs_endpoint"))
 	uploadPartSize, err := strconv.ParseInt(r.Form.Get("gcs_upload_part_size"), 10, 64)
 	if err == nil {
 		config.UploadPartSize = uploadPartSize
