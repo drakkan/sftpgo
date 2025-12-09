@@ -36,8 +36,8 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/version"
 )
 
-// TlsState tracks TLS connection state for a client
-type TlsState struct {
+// tlsState tracks TLS connection state for a client
+type tlsState struct {
 	// LoginViaTLS indicates whether the user logged in using TLS certificate authentication
 	LoginViaTLS bool
 	// CiphersuiteName is the name of the TLS ciphersuite used for the control connection
@@ -186,7 +186,7 @@ func (s *Server) ClientDisconnected(cc ftpserver.ClientContext) {
 // AuthUser authenticates the user and selects an handling driver
 func (s *Server) AuthUser(cc ftpserver.ClientContext, username, password string) (ftpserver.ClientDriver, error) {
 	loginMethod := dataprovider.LoginMethodPassword
-	tlsState, ok := cc.Extra().(*TlsState)
+	tlsState, ok := cc.Extra().(*tlsState)
 	if ok && tlsState != nil && tlsState.LoginViaTLS {
 		loginMethod = dataprovider.LoginMethodTLSCertificateAndPwd
 	}
@@ -242,10 +242,10 @@ func (s *Server) VerifyConnection(cc ftpserver.ClientContext, user string, tlsCo
 	if !s.binding.isMutualTLSEnabled() {
 		return nil, nil
 	}
-	cc.SetExtra(&TlsState{})
+	cc.SetExtra(&tlsState{})
 	if tlsConn != nil {
 		state := tlsConn.ConnectionState()
-		cc.SetExtra(&TlsState{
+		cc.SetExtra(&tlsState{
 			CiphersuiteName: tls.CipherSuiteName(state.CipherSuite),
 		})
 
@@ -263,7 +263,7 @@ func (s *Server) VerifyConnection(cc ftpserver.ClientContext, user string, tlsCo
 					return nil, err
 				}
 
-				cc.SetExtra(&TlsState{
+				cc.SetExtra(&tlsState{
 					LoginViaTLS:     true,
 					CiphersuiteName: tls.CipherSuiteName(state.CipherSuite),
 				})
@@ -428,7 +428,7 @@ func updateLoginMetrics(user *dataprovider.User, ip, loginMethod string, err err
 	metric.AddLoginAttempt(loginMethod)
 	if err == nil {
 		ciphersuiteName := ""
-		if tlsState, ok := c.clientContext.Extra().(*TlsState); ok && tlsState != nil {
+		if tlsState, ok := c.clientContext.Extra().(*tlsState); ok && tlsState != nil {
 			ciphersuiteName = tlsState.CiphersuiteName
 		}
 		info := ""
