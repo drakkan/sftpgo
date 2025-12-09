@@ -40,8 +40,8 @@ import (
 type tlsState struct {
 	// LoginWithmTLS indicates whether the user logged in using TLS certificate authentication
 	LoginWithmTLS bool
-	// CiphersuiteName is the name of the TLS ciphersuite used for the control connection
-	CiphersuiteName string
+	// Cipher is the name of the TLS ciphersuite used for the control connection
+	Cipher string
 }
 
 // Server implements the ftpserverlib MainDriver interface
@@ -246,7 +246,7 @@ func (s *Server) VerifyConnection(cc ftpserver.ClientContext, user string, tlsCo
 	if tlsConn != nil {
 		state := tlsConn.ConnectionState()
 		cc.SetExtra(&tlsState{
-			CiphersuiteName: tls.CipherSuiteName(state.CipherSuite),
+			Cipher: tls.CipherSuiteName(state.CipherSuite),
 		})
 
 		if len(state.PeerCertificates) > 0 {
@@ -264,8 +264,8 @@ func (s *Server) VerifyConnection(cc ftpserver.ClientContext, user string, tlsCo
 				}
 
 				cc.SetExtra(&tlsState{
-					LoginWithmTLS:   true,
-					CiphersuiteName: tls.CipherSuiteName(state.CipherSuite),
+					LoginWithmTLS: true,
+					Cipher:        tls.CipherSuiteName(state.CipherSuite),
 				})
 
 				if dbUser.IsLoginMethodAllowed(dataprovider.LoginMethodTLSCertificate, common.ProtocolFTP) {
@@ -429,7 +429,7 @@ func updateLoginMetrics(user *dataprovider.User, ip, loginMethod string, err err
 	if err == nil {
 		ciphersuiteName := ""
 		if tlsState, ok := c.clientContext.Extra().(*tlsState); ok && tlsState != nil {
-			ciphersuiteName = tlsState.CiphersuiteName
+			ciphersuiteName = tlsState.Cipher
 		}
 		info := ""
 		if ciphersuiteName != "" {
