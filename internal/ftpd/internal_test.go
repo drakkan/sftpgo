@@ -688,7 +688,6 @@ func TestDriverMethodsNotImplemented(t *testing.T) {
 	assert.Equal(t, connection.GetID(), connection.Name())
 }
 
-// https://github.com/golang/go/blob/9e0981230803265f3245193e1d61cc3599c9ca54/src/crypto/tls/cipher_suites.go#L688
 func TestExtraData(t *testing.T) {
 	mockCC := mockFTPClientContext{}
 	_, ok := mockCC.Extra().(*tlsState)
