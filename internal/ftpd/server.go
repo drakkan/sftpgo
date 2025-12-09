@@ -38,8 +38,8 @@ import (
 
 // tlsState tracks TLS connection state for a client
 type tlsState struct {
-	// LoginViaTLS indicates whether the user logged in using TLS certificate authentication
-	LoginViaTLS bool
+	// LoginWithmTLS indicates whether the user logged in using TLS certificate authentication
+	LoginWithmTLS bool
 	// CiphersuiteName is the name of the TLS ciphersuite used for the control connection
 	CiphersuiteName string
 }
@@ -187,7 +187,7 @@ func (s *Server) ClientDisconnected(cc ftpserver.ClientContext) {
 func (s *Server) AuthUser(cc ftpserver.ClientContext, username, password string) (ftpserver.ClientDriver, error) {
 	loginMethod := dataprovider.LoginMethodPassword
 	tlsState, ok := cc.Extra().(*tlsState)
-	if ok && tlsState != nil && tlsState.LoginViaTLS {
+	if ok && tlsState != nil && tlsState.LoginWithmTLS {
 		loginMethod = dataprovider.LoginMethodTLSCertificateAndPwd
 	}
 	ipAddr := util.GetIPFromRemoteAddress(cc.RemoteAddr().String())
@@ -264,7 +264,7 @@ func (s *Server) VerifyConnection(cc ftpserver.ClientContext, user string, tlsCo
 				}
 
 				cc.SetExtra(&tlsState{
-					LoginViaTLS:     true,
+					LoginWithmTLS:   true,
 					CiphersuiteName: tls.CipherSuiteName(state.CipherSuite),
 				})
 
