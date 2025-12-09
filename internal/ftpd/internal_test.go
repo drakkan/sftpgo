@@ -269,9 +269,7 @@ ubwF00Drdvk2+kDZfxIM137nBiy7wgCJi2Ksm5ihN3dUF6Q0oNPl
 -----END RSA PRIVATE KEY-----`
 )
 
-var (
-	configDir = filepath.Join(".", "..", "..")
-)
+var configDir = filepath.Join(".", "..", "..")
 
 type mockFTPClientContext struct {
 	lastDataChannel ftpserver.DataChannel
@@ -690,18 +688,27 @@ func TestDriverMethodsNotImplemented(t *testing.T) {
 	assert.Equal(t, connection.GetID(), connection.Name())
 }
 
+// https://github.com/golang/go/blob/9e0981230803265f3245193e1d61cc3599c9ca54/src/crypto/tls/cipher_suites.go#L688
 func TestExtraData(t *testing.T) {
 	mockCC := mockFTPClientContext{}
-	_, ok := mockCC.Extra().(bool)
+	_, ok := mockCC.Extra().(*tlsState)
 	require.False(t, ok)
-	mockCC.SetExtra(false)
-	val, ok := mockCC.Extra().(bool)
+	mockCC.SetExtra(&tlsState{
+		Cipher: tls.CipherSuiteName(0x0005),
+	})
+	state, ok := mockCC.Extra().(*tlsState)
 	require.True(t, ok)
-	require.False(t, val)
+	require.False(t, state.LoginWithMutualTLS)
+	require.Equal(t, "TLS_RSA_WITH_RC4_128_SHA", state.Cipher)
+	mockCC.SetExtra(&tlsState{
+		Cipher:             tls.CipherSuiteName(0x0005),
+		LoginWithMutualTLS: true,
+	})
 	mockCC.SetExtra(true)
-	val, ok = mockCC.Extra().(bool)
+	state, ok = mockCC.Extra().(*tlsState)
 	require.True(t, ok)
-	require.True(t, val)
+	require.True(t, state.LoginWithMutualTLS)
+	require.Equal(t, "TLS_RSA_WITH_RC4_128_SHA", state.Cipher)
 }
 
 func TestResolvePathErrors(t *testing.T) {
