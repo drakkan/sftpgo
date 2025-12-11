@@ -269,9 +269,7 @@ ubwF00Drdvk2+kDZfxIM137nBiy7wgCJi2Ksm5ihN3dUF6Q0oNPl
 -----END RSA PRIVATE KEY-----`
 )
 
-var (
-	configDir = filepath.Join(".", "..", "..")
-)
+var configDir = filepath.Join(".", "..", "..")
 
 type mockFTPClientContext struct {
 	lastDataChannel ftpserver.DataChannel
@@ -692,16 +690,23 @@ func TestDriverMethodsNotImplemented(t *testing.T) {
 
 func TestExtraData(t *testing.T) {
 	mockCC := mockFTPClientContext{}
-	_, ok := mockCC.Extra().(bool)
+	_, ok := mockCC.Extra().(*tlsState)
 	require.False(t, ok)
-	mockCC.SetExtra(false)
-	val, ok := mockCC.Extra().(bool)
+	mockCC.SetExtra(&tlsState{
+		Cipher: tls.CipherSuiteName(0x0005),
+	})
+	state, ok := mockCC.Extra().(*tlsState)
 	require.True(t, ok)
-	require.False(t, val)
-	mockCC.SetExtra(true)
-	val, ok = mockCC.Extra().(bool)
+	require.False(t, state.LoginWithMutualTLS)
+	require.Equal(t, "TLS_RSA_WITH_RC4_128_SHA", state.Cipher)
+	mockCC.SetExtra(&tlsState{
+		Cipher:             tls.CipherSuiteName(0x0005),
+		LoginWithMutualTLS: true,
+	})
+	state, ok = mockCC.Extra().(*tlsState)
 	require.True(t, ok)
-	require.True(t, val)
+	require.True(t, state.LoginWithMutualTLS)
+	require.Equal(t, "TLS_RSA_WITH_RC4_128_SHA", state.Cipher)
 }
 
 func TestResolvePathErrors(t *testing.T) {

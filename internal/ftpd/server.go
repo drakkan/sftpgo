@@ -36,6 +36,14 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/version"
 )
 
+// tlsState tracks TLS connection state for a client
+type tlsState struct {
+	// LoginWithMutualTLS indicates whether the user logged in using TLS certificate authentication
+	LoginWithMutualTLS bool
+	// Cipher is the name of the TLS ciphersuite used for the control connection
+	Cipher string
+}
+
 // Server implements the ftpserverlib MainDriver interface
 type Server struct {
 	ID           int
@@ -178,7 +186,8 @@ func (s *Server) ClientDisconnected(cc ftpserver.ClientContext) {
 // AuthUser authenticates the user and selects an handling driver
 func (s *Server) AuthUser(cc ftpserver.ClientContext, username, password string) (ftpserver.ClientDriver, error) {
 	loginMethod := dataprovider.LoginMethodPassword
-	if verified, ok := cc.Extra().(bool); ok && verified {
+	tlsState, ok := cc.Extra().(*tlsState)
+	if ok && tlsState != nil && tlsState.LoginWithMutualTLS {
 		loginMethod = dataprovider.LoginMethodTLSCertificateAndPwd
 	}
 	ipAddr := util.GetIPFromRemoteAddress(cc.RemoteAddr().String())
@@ -233,9 +242,12 @@ func (s *Server) VerifyConnection(cc ftpserver.ClientContext, user string, tlsCo
 	if !s.binding.isMutualTLSEnabled() {
 		return nil, nil
 	}
-	cc.SetExtra(false)
 	if tlsConn != nil {
 		state := tlsConn.ConnectionState()
+		cc.SetExtra(&tlsState{
+			Cipher: tls.CipherSuiteName(state.CipherSuite),
+		})
+
 		if len(state.PeerCertificates) > 0 {
 			ipAddr := util.GetIPFromRemoteAddress(cc.RemoteAddr().String())
 			dbUser, err := dataprovider.CheckUserBeforeTLSAuth(user, ipAddr, common.ProtocolFTP, state.PeerCertificates[0])
@@ -250,7 +262,10 @@ func (s *Server) VerifyConnection(cc ftpserver.ClientContext, user string, tlsCo
 					return nil, err
 				}
 
-				cc.SetExtra(true)
+				cc.SetExtra(&tlsState{
+					LoginWithMutualTLS: true,
+					Cipher:             tls.CipherSuiteName(state.CipherSuite),
+				})
 
 				if dbUser.IsLoginMethodAllowed(dataprovider.LoginMethodTLSCertificate, common.ProtocolFTP) {
 					connection, err := s.validateUser(dbUser, cc, dataprovider.LoginMethodTLSCertificate)
@@ -411,8 +426,16 @@ func setStartDirectory(startDirectory string, cc ftpserver.ClientContext) {
 func updateLoginMetrics(user *dataprovider.User, ip, loginMethod string, err error, c *Connection) {
 	metric.AddLoginAttempt(loginMethod)
 	if err == nil {
+		ciphersuiteName := ""
+		if tlsState, ok := c.clientContext.Extra().(*tlsState); ok && tlsState != nil {
+			ciphersuiteName = tlsState.Cipher
+		}
+		info := ""
+		if ciphersuiteName != "" {
+			info = fmt.Sprintf("ciphersuite used: %s", ciphersuiteName)
+		}
 		logger.LoginLog(user.Username, ip, loginMethod, common.ProtocolFTP, c.ID, c.GetClientVersion(),
-			c.clientContext.HasTLSForControl(), "")
+			c.clientContext.HasTLSForControl(), info)
 		plugin.Handler.NotifyLogEvent(notifier.LogEventTypeLoginOK, common.ProtocolFTP, user.Username, ip, "", nil)
 		common.DelayLogin(nil)
 	} else if err != common.ErrInternalFailure {
