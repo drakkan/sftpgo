@@ -703,7 +703,6 @@ func TestExtraData(t *testing.T) {
 		Cipher:             tls.CipherSuiteName(0x0005),
 		LoginWithMutualTLS: true,
 	})
-	mockCC.SetExtra(true)
 	state, ok = mockCC.Extra().(*tlsState)
 	require.True(t, ok)
 	require.True(t, state.LoginWithMutualTLS)
