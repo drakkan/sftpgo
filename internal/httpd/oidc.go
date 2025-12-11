@@ -200,6 +200,7 @@ type oidcPendingAuth struct {
 	Nonce    string        `json:"nonce"`
 	Audience tokenAudience `json:"audience"`
 	IssuedAt int64         `json:"issued_at"`
+	Verifier string        `json:"verifier"`
 }
 
 func newOIDCPendingAuth(audience tokenAudience) oidcPendingAuth {
@@ -208,6 +209,7 @@ func newOIDCPendingAuth(audience tokenAudience) oidcPendingAuth {
 		Nonce:    util.GenerateOpaqueString(),
 		Audience: audience,
 		IssuedAt: util.GetTimeAsMsSinceEpoch(time.Now()),
+		Verifier: oauth2.GenerateVerifier(),
 	}
 }
 
@@ -595,7 +597,7 @@ func (s *httpdServer) oidcLoginRedirect(w http.ResponseWriter, r *http.Request, 
 	pendingAuth := newOIDCPendingAuth(audience)
 	oidcMgr.addPendingAuth(pendingAuth)
 	http.Redirect(w, r, s.binding.OIDC.oauth2Config.AuthCodeURL(pendingAuth.State,
-		oidc.Nonce(pendingAuth.Nonce)), http.StatusFound)
+		oidc.Nonce(pendingAuth.Nonce), oauth2.S256ChallengeOption(pendingAuth.Verifier)), http.StatusFound)
 }
 
 func (s *httpdServer) debugTokenClaims(claims map[string]any, rawIDToken string) {
@@ -634,7 +636,8 @@ func (s *httpdServer) handleOIDCRedirect(w http.ResponseWriter, r *http.Request)
 	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 	defer cancel()
 
-	oauth2Token, err := s.binding.OIDC.oauth2Config.Exchange(ctx, r.URL.Query().Get("code"))
+	oauth2Token, err := s.binding.OIDC.oauth2Config.Exchange(ctx, r.URL.Query().Get("code"),
+		oauth2.VerifierOption(authReq.Verifier))
 	if err != nil {
 		logger.Debug(logSender, "", "failed to exchange oidc token: %v", err)
 		setFlashMessage(w, r, newFlashMessage("Failed to exchange OpenID token", util.I18nOIDCErrTokenExchange))

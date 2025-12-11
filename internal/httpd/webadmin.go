@@ -34,6 +34,7 @@ import (
 
 	"github.com/sftpgo/sdk"
 	sdkkms "github.com/sftpgo/sdk/kms"
+	"golang.org/x/oauth2"
 
 	"github.com/drakkan/sftpgo/v2/internal/acme"
 	"github.com/drakkan/sftpgo/v2/internal/common"
@@ -4425,7 +4426,7 @@ func (s *httpdServer) handleOAuth2TokenRedirect(w http.ResponseWriter, r *http.R
 
 	cfg := oauth2Config.GetOAuth2()
 	cfg.RedirectURL = pendingAuth.RedirectURL
-	token, err := cfg.Exchange(ctx, r.URL.Query().Get("code"))
+	token, err := cfg.Exchange(ctx, r.URL.Query().Get("code"), oauth2.VerifierOption(pendingAuth.Verifier))
 	if err != nil {
 		s.renderMessagePage(w, r, util.I18nOAuth2ErrorTitle, http.StatusInternalServerError,
 			util.NewI18nError(err, util.I18nOAuth2ErrTokenExchange), "")

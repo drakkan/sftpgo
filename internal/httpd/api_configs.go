@@ -120,6 +120,6 @@ func (s *httpdServer) handleSMTPOAuth2TokenRequestPost(w http.ResponseWriter, r 
 		sendAPIResponse(w, r, nil, "unable to create state token", http.StatusInternalServerError)
 		return
 	}
-	u := cfg.AuthCodeURL(stateToken, oauth2.AccessTypeOffline)
+	u := cfg.AuthCodeURL(stateToken, oauth2.AccessTypeOffline, oauth2.S256ChallengeOption(pendingAuth.Verifier))
 	sendAPIResponse(w, r, nil, u, http.StatusOK)
 }
