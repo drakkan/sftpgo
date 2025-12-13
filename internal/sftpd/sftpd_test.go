@@ -8492,13 +8492,13 @@ func TestRelativePaths(t *testing.T) {
 			KeyPrefix: keyPrefix,
 		},
 	}
-	s3fs, _ := vfs.NewS3Fs("", user.GetHomeDir(), "", s3config)
+	s3fs, _ := vfs.NewS3Fs("", user.GetHomeDir(), "", s3config, user.Username)
 	gcsConfig := vfs.GCSFsConfig{
 		BaseGCSFsConfig: sdk.BaseGCSFsConfig{
 			KeyPrefix: keyPrefix,
 		},
 	}
-	gcsfs, _ := vfs.NewGCSFs("", user.GetHomeDir(), "", gcsConfig)
+	gcsfs, _ := vfs.NewGCSFs("", user.GetHomeDir(), "", gcsConfig, user.Username)
 	sftpconfig := vfs.SFTPFsConfig{
 		BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
 			Endpoint: sftpServerAddr,
@@ -8561,14 +8561,14 @@ func TestResolvePaths(t *testing.T) {
 	}
 	err = os.MkdirAll(user.GetHomeDir(), os.ModePerm)
 	assert.NoError(t, err)
-	s3fs, err := vfs.NewS3Fs("", user.GetHomeDir(), "", s3config)
+	s3fs, err := vfs.NewS3Fs("", user.GetHomeDir(), "", s3config, user.Username)
 	assert.NoError(t, err)
 	gcsConfig := vfs.GCSFsConfig{
 		BaseGCSFsConfig: sdk.BaseGCSFsConfig{
 			KeyPrefix: keyPrefix,
 		},
 	}
-	gcsfs, _ := vfs.NewGCSFs("", user.GetHomeDir(), "", gcsConfig)
+	gcsfs, _ := vfs.NewGCSFs("", user.GetHomeDir(), "", gcsConfig, user.Username)
 	if runtime.GOOS != osWindows {
 		filesystems = append(filesystems, s3fs, gcsfs)
 	}

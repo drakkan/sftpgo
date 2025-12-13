@@ -267,7 +267,7 @@ func (c *sshCommand) sendExitStatus(err error) {
 	// for scp we notify single uploads/downloads
 	if c.command != scpCmdName {
 		elapsed := time.Since(c.startTime).Nanoseconds() / 1000000
-		metric.SSHCommandCompleted(err)
+		metric.SSHCommandCompleted(err, c.connection.User.Username)
 		if vCmdPath != "" {
 			_, p, errFs := c.connection.GetFsAndResolvedPath(vCmdPath)
 			if errFs == nil {
