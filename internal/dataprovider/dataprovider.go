@@ -2730,7 +2730,7 @@ func validateUserGroups(user *User) error {
 	groupNames := make(map[string]bool)
 
 	for _, g := range user.Groups {
-		if g.Type < sdk.GroupTypePrimary && g.Type > sdk.GroupTypeMembership {
+		if g.Type < sdk.GroupTypePrimary || g.Type > sdk.GroupTypeMembership {
 			return util.NewValidationError(fmt.Sprintf("invalid group type: %v", g.Type))
 		}
 		if g.Type == sdk.GroupTypePrimary {
