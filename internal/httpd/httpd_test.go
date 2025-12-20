@@ -1126,7 +1126,7 @@ func TestSortRelatedGroups(t *testing.T) {
 			Name: name1,
 		},
 	}
-	user, _, err := httpdtest.AddUser(u, http.StatusBadRequest)
+	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 	u.Groups = []sdk.GroupMapping{
 		{
@@ -1142,7 +1142,7 @@ func TestSortRelatedGroups(t *testing.T) {
 			Type: sdk.GroupTypeMembership,
 		},
 	}
-	user, _, err = httpdtest.AddUser(u, http.StatusCreated)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
