@@ -1098,7 +1098,7 @@ func TestMemoryOIDCManager(t *testing.T) {
 	assert.NoError(t, err)
 	oidcMgr.removePendingAuth(authReq.State)
 	require.Len(t, oidcMgr.pendingAuths, 0)
-	authReq.IssuedAt = util.GetTimeAsMsSinceEpoch(time.Now().Add(-61 * time.Second))
+	authReq.IssuedAt = util.GetTimeAsMsSinceEpoch(time.Now().Add(-600 * time.Second))
 	oidcMgr.addPendingAuth(authReq)
 	require.Len(t, oidcMgr.pendingAuths, 1)
 	_, err = oidcMgr.getPendingAuth(authReq.State)
