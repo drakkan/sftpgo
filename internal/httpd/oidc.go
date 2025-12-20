@@ -39,7 +39,7 @@ import (
 const (
 	oidcCookieKey       = "oidc"
 	adminRoleFieldValue = "admin"
-	authStateValidity   = 1 * 60 * 1000   // 1 minute
+	authStateValidity   = 2 * 60 * 1000   // 2 minutes
 	tokenUpdateInterval = 3 * 60 * 1000   // 3 minutes
 	tokenDeleteInterval = 2 * 3600 * 1000 // 2 hours
 )
