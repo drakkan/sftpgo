@@ -239,16 +239,13 @@ func (s *Server) WrapPassiveListener(listener net.Listener) (net.Listener, error
 
 // VerifyConnection checks whether a user should be authenticated using a client certificate without prompting for a password
 func (s *Server) VerifyConnection(cc ftpserver.ClientContext, user string, tlsConn *tls.Conn) (ftpserver.ClientDriver, error) {
-	if !s.binding.isMutualTLSEnabled() {
-		return nil, nil
-	}
 	if tlsConn != nil {
 		state := tlsConn.ConnectionState()
 		cc.SetExtra(&tlsState{
 			Cipher: tls.CipherSuiteName(state.CipherSuite),
 		})
 
-		if len(state.PeerCertificates) > 0 {
+		if s.binding.isMutualTLSEnabled() && len(state.PeerCertificates) > 0 {
 			ipAddr := util.GetIPFromRemoteAddress(cc.RemoteAddr().String())
 			dbUser, err := dataprovider.CheckUserBeforeTLSAuth(user, ipAddr, common.ProtocolFTP, state.PeerCertificates[0])
 			if err != nil {
