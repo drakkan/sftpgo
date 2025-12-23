@@ -527,12 +527,19 @@ func TestServerGetSettings(t *testing.T) {
 		Bindings: []Binding{binding},
 		PassivePortRange: PortRange{
 			Start: 10000,
-			End:   11000,
+			End:   10000,
 		},
 	}
 	assert.False(t, binding.HasProxy())
 	server := NewServer(c, configDir, binding, 0)
 	settings, err := server.GetSettings()
+	assert.NoError(t, err)
+	if ranger, ok := settings.PassiveTransferPortRange.(*ftpserver.PortRange); ok {
+		assert.Equal(t, 10000, ranger.Start)
+		assert.Equal(t, 10000, ranger.End)
+	}
+	c.PassivePortRange.End = 11000
+	settings, err = server.GetSettings()
 	assert.NoError(t, err)
 	if ranger, ok := settings.PassiveTransferPortRange.(*ftpserver.PortRange); ok {
 		assert.Equal(t, 10000, ranger.Start)
