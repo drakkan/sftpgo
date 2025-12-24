@@ -699,16 +699,26 @@ func TestDriverMethodsNotImplemented(t *testing.T) {
 
 func TestExtraData(t *testing.T) {
 	mockCC := mockFTPClientContext{}
-	_, ok := mockCC.Extra().(bool)
+	_, ok := mockCC.Extra().(*tlsState)
 	require.False(t, ok)
-	mockCC.SetExtra(false)
-	val, ok := mockCC.Extra().(bool)
+	mockCC.SetExtra(&tlsState{
+		LoginWithMutualTLS: false,
+		Version:            tls.VersionName(tls.VersionTLS13),
+		Cipher:             tls.CipherSuiteName(tls.TLS_AES_128_GCM_SHA256),
+		KEX:                tls.X25519MLKEM768.String(),
+	})
+	state, ok := mockCC.Extra().(*tlsState)
 	require.True(t, ok)
-	require.False(t, val)
-	mockCC.SetExtra(true)
-	val, ok = mockCC.Extra().(bool)
+	require.False(t, state.LoginWithMutualTLS)
+	require.Equal(t, tls.VersionName(tls.VersionTLS13), state.Version)
+	require.Equal(t, tls.CipherSuiteName(tls.TLS_AES_128_GCM_SHA256), state.Cipher)
+	require.Equal(t, tls.X25519MLKEM768.String(), state.KEX)
+	mockCC.SetExtra(&tlsState{
+		LoginWithMutualTLS: true,
+	})
+	state, ok = mockCC.Extra().(*tlsState)
 	require.True(t, ok)
-	require.True(t, val)
+	require.True(t, state.LoginWithMutualTLS)
 }
 
 func TestResolvePathErrors(t *testing.T) {
