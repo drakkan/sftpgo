@@ -4719,40 +4719,6 @@ func replaceTemplateVars(input string) string {
 	return result.String()
 }
 
-func restoreTemplateVars(input string) string {
-	var result strings.Builder
-	i := 0
-
-	for i < len(input) {
-		if i+3 <= len(input) && input[i:i+3] == "{{." {
-			if i+3 < len(input) {
-				nextChar := input[i+3]
-				if nextChar == ' ' || nextChar == '.' || nextChar == '-' {
-					// Don't change if it's a space, dot, or minus
-					result.WriteString("{{.")
-					i += 3
-					continue
-				}
-			}
-			// Find the closing "}}"
-			closing := strings.Index(input[i:], "}}")
-			if closing != -1 {
-				// Strip the dot and write the rest
-				result.WriteString("{{")
-				result.WriteString(input[i+3 : i+closing])
-				result.WriteString("}}")
-				i += closing + 2
-				continue
-			}
-		}
-
-		result.WriteByte(input[i])
-		i++
-	}
-
-	return result.String()
-}
-
 func updateEventActionPlaceholders(actions []BaseEventAction) ([]BaseEventAction, error) {
 	var result []BaseEventAction
 
