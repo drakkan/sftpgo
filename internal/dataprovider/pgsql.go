@@ -40,11 +40,11 @@ import (
 
 const (
 	pgsqlResetSQL = `DROP TABLE IF EXISTS "{{api_keys}}" CASCADE;
-DROP TABLE IF EXISTS "{{folders_mapping}}" CASCADE;
 DROP TABLE IF EXISTS "{{users_folders_mapping}}" CASCADE;
 DROP TABLE IF EXISTS "{{users_groups_mapping}}" CASCADE;
 DROP TABLE IF EXISTS "{{admins_groups_mapping}}" CASCADE;
 DROP TABLE IF EXISTS "{{groups_folders_mapping}}" CASCADE;
+DROP TABLE IF EXISTS "{{shares_groups_mapping}}" CASCADE;
 DROP TABLE IF EXISTS "{{admins}}" CASCADE;
 DROP TABLE IF EXISTS "{{folders}}" CASCADE;
 DROP TABLE IF EXISTS "{{shares}}" CASCADE;
@@ -85,8 +85,8 @@ CREATE TABLE "{{folders}}" ("id" integer NOT NULL PRIMARY KEY GENERATED ALWAYS A
 "filesystem" text NULL);
 CREATE TABLE "{{groups}}" ("id" integer NOT NULL PRIMARY KEY GENERATED ALWAYS AS IDENTITY, "name" varchar(255) NOT NULL UNIQUE,
 "description" varchar(512) NULL, "created_at" bigint NOT NULL, "updated_at" bigint NOT NULL, "user_settings" text NULL);
-CREATE TABLE "{{shared_sessions}}" ("key" varchar(128) NOT NULL PRIMARY KEY,
-"data" text NOT NULL, "type" integer NOT NULL, "timestamp" bigint NOT NULL);
+CREATE TABLE "{{shared_sessions}}" ("key" varchar(128) NOT NULL, "type" integer NOT NULL,
+"data" text NOT NULL, "timestamp" bigint NOT NULL, PRIMARY KEY ("key", "type"));
 CREATE TABLE "{{users}}" ("id" integer NOT NULL PRIMARY KEY GENERATED ALWAYS AS IDENTITY, "username" varchar(255) NOT NULL UNIQUE, "status" integer NOT NULL,
 "expiration_date" bigint NOT NULL, "description" varchar(512) NULL, "password" text NULL, "public_keys" text NULL,
 "home_dir" text NOT NULL, "uid" bigint NOT NULL, "gid" bigint NOT NULL, "max_sessions" integer NOT NULL,
@@ -98,11 +98,11 @@ CREATE TABLE "{{users}}" ("id" integer NOT NULL PRIMARY KEY GENERATED ALWAYS AS 
 "used_upload_data_transfer" bigint NOT NULL, "used_download_data_transfer" bigint NOT NULL, "deleted_at" bigint NOT NULL,
 "first_download" bigint NOT NULL, "first_upload" bigint NOT NULL, "last_password_change" bigint NOT NULL, "role_id" integer NULL);
 CREATE TABLE "{{groups_folders_mapping}}" ("id" integer NOT NULL PRIMARY KEY GENERATED ALWAYS AS IDENTITY, "group_id" integer NOT NULL,
-"folder_id" integer NOT NULL, "virtual_path" text NOT NULL, "quota_size" bigint NOT NULL, "quota_files" integer NOT NULL);
+"folder_id" integer NOT NULL, "virtual_path" text NOT NULL, "quota_size" bigint NOT NULL, "quota_files" integer NOT NULL, "sort_order" integer NOT NULL);
 CREATE TABLE "{{users_groups_mapping}}" ("id" integer NOT NULL PRIMARY KEY GENERATED ALWAYS AS IDENTITY, "user_id" integer NOT NULL,
-"group_id" integer NOT NULL, "group_type" integer NOT NULL);
+"group_id" integer NOT NULL, "group_type" integer NOT NULL, "sort_order" integer NOT NULL);
 CREATE TABLE "{{users_folders_mapping}}" ("id" integer NOT NULL PRIMARY KEY GENERATED ALWAYS AS IDENTITY, "virtual_path" text NOT NULL,
-"quota_size" bigint NOT NULL, "quota_files" integer NOT NULL, "folder_id" integer NOT NULL, "user_id" integer NOT NULL);
+"quota_size" bigint NOT NULL, "quota_files" integer NOT NULL, "sort_order" integer NOT NULL, "folder_id" integer NOT NULL, "user_id" integer NOT NULL);
 ALTER TABLE "{{users_folders_mapping}}" ADD CONSTRAINT "{{prefix}}unique_user_folder_mapping" UNIQUE ("user_id", "folder_id");
 ALTER TABLE "{{users_folders_mapping}}" ADD CONSTRAINT "{{prefix}}users_folders_mapping_folder_id_fk_folders_id"
 FOREIGN KEY ("folder_id") REFERENCES "{{folders}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE;
@@ -112,7 +112,7 @@ CREATE TABLE "{{shares}}" ("id" integer NOT NULL PRIMARY KEY GENERATED ALWAYS AS
 "share_id" varchar(60) NOT NULL UNIQUE, "name" varchar(255) NOT NULL, "description" varchar(512) NULL,
 "scope" integer NOT NULL, "paths" text NOT NULL, "created_at" bigint NOT NULL, "updated_at" bigint NOT NULL,
 "last_use_at" bigint NOT NULL, "expires_at" bigint NOT NULL, "password" text NULL,
-"max_tokens" integer NOT NULL, "used_tokens" integer NOT NULL, "allow_from" text NULL,
+"max_tokens" integer NOT NULL, "used_tokens" integer NOT NULL, "allow_from" text NULL, "options" text NULL,
 "user_id" integer NOT NULL);
 ALTER TABLE "{{shares}}" ADD CONSTRAINT "{{prefix}}shares_user_id_fk_users_id" FOREIGN KEY ("user_id")
 REFERENCES "{{users}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE;
@@ -132,12 +132,14 @@ FOREIGN KEY ("group_id") REFERENCES "{{groups}}" ("id") MATCH SIMPLE ON UPDATE N
 CREATE INDEX "{{prefix}}users_groups_mapping_user_id_idx" ON "{{users_groups_mapping}}" ("user_id");
 ALTER TABLE "{{users_groups_mapping}}" ADD CONSTRAINT "{{prefix}}users_groups_mapping_user_id_fk_users_id"
 FOREIGN KEY ("user_id") REFERENCES "{{users}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE;
+CREATE INDEX "{{prefix}}users_groups_mapping_sort_order_idx" ON "{{users_groups_mapping}}" ("sort_order");
 CREATE INDEX "{{prefix}}groups_folders_mapping_folder_id_idx" ON "{{groups_folders_mapping}}" ("folder_id");
 ALTER TABLE "{{groups_folders_mapping}}" ADD CONSTRAINT "{{prefix}}groups_folders_mapping_folder_id_fk_folders_id"
 FOREIGN KEY ("folder_id") REFERENCES "{{folders}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE;
 CREATE INDEX "{{prefix}}groups_folders_mapping_group_id_idx" ON "{{groups_folders_mapping}}" ("group_id");
 ALTER TABLE "{{groups_folders_mapping}}" ADD CONSTRAINT "{{prefix}}groups_folders_mapping_group_id_fk_groups_id"
 FOREIGN KEY ("group_id") REFERENCES "{{groups}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE;
+CREATE INDEX "{{prefix}}groups_folders_mapping_sort_order_idx" ON "{{groups_folders_mapping}}" ("sort_order");
 CREATE TABLE "{{events_rules}}" ("id" integer NOT NULL PRIMARY KEY GENERATED ALWAYS AS IDENTITY, "name" varchar(255) NOT NULL UNIQUE,
 "status" integer NOT NULL, "description" varchar(512) NULL, "created_at" bigint NOT NULL, "updated_at" bigint NOT NULL,
 "trigger" integer NOT NULL, "conditions" text NOT NULL, "deleted_at" bigint NOT NULL);
@@ -153,7 +155,7 @@ FOREIGN KEY ("rule_id") REFERENCES "{{events_rules}}" ("id") MATCH SIMPLE ON UPD
 ALTER TABLE "{{rules_actions_mapping}}" ADD CONSTRAINT "{{prefix}}rules_actions_mapping_action_id_fk_events_targets_id"
 FOREIGN KEY ("action_id") REFERENCES "{{events_actions}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION;
 CREATE TABLE "{{admins_groups_mapping}}" ("id" integer NOT NULL PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-"admin_id" integer NOT NULL, "group_id" integer NOT NULL, "options" text NOT NULL);
+"admin_id" integer NOT NULL, "group_id" integer NOT NULL, "options" text NOT NULL, "sort_order" integer NOT NULL);
 ALTER TABLE "{{admins_groups_mapping}}" ADD CONSTRAINT "{{prefix}}unique_admin_group_mapping" UNIQUE ("admin_id", "group_id");
 ALTER TABLE "{{admins_groups_mapping}}" ADD CONSTRAINT "{{prefix}}admins_groups_mapping_admin_id_fk_admins_id"
 FOREIGN KEY ("admin_id") REFERENCES "{{admins}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE;
@@ -176,6 +178,7 @@ CREATE TABLE "{{configs}}" ("id" integer NOT NULL PRIMARY KEY GENERATED ALWAYS A
 INSERT INTO {{configs}} (configs) VALUES ('{}');
 CREATE INDEX "{{prefix}}users_folders_mapping_folder_id_idx" ON "{{users_folders_mapping}}" ("folder_id");
 CREATE INDEX "{{prefix}}users_folders_mapping_user_id_idx" ON "{{users_folders_mapping}}" ("user_id");
+CREATE INDEX "{{prefix}}users_folders_mapping_sort_order_idx" ON "{{users_folders_mapping}}" ("sort_order");
 CREATE INDEX "{{prefix}}api_keys_admin_id_idx" ON "{{api_keys}}" ("admin_id");
 CREATE INDEX "{{prefix}}api_keys_user_id_idx" ON "{{api_keys}}" ("user_id");
 CREATE INDEX "{{prefix}}users_updated_at_idx" ON "{{users}}" ("updated_at");
@@ -198,6 +201,7 @@ CREATE INDEX "{{prefix}}rules_actions_mapping_action_id_idx" ON "{{rules_actions
 CREATE INDEX "{{prefix}}rules_actions_mapping_order_idx" ON "{{rules_actions_mapping}}" ("order");
 CREATE INDEX "{{prefix}}admins_groups_mapping_admin_id_idx" ON "{{admins_groups_mapping}}" ("admin_id");
 CREATE INDEX "{{prefix}}admins_groups_mapping_group_id_idx" ON "{{admins_groups_mapping}}" ("group_id");
+CREATE INDEX "{{prefix}}admins_groups_mapping_sort_order_idx" ON "{{admins_groups_mapping}}" ("sort_order");
 CREATE INDEX "{{prefix}}admins_role_id_idx" ON "{{admins}}" ("role_id");
 CREATE INDEX "{{prefix}}users_role_id_idx" ON "{{users}}" ("role_id");
 CREATE INDEX "{{prefix}}ip_lists_type_idx" ON "{{ip_lists}}" ("type");
@@ -205,42 +209,24 @@ CREATE INDEX "{{prefix}}ip_lists_ipornet_idx" ON "{{ip_lists}}" ("ipornet");
 CREATE INDEX "{{prefix}}ip_lists_updated_at_idx" ON "{{ip_lists}}" ("updated_at");
 CREATE INDEX "{{prefix}}ip_lists_deleted_at_idx" ON "{{ip_lists}}" ("deleted_at");
 CREATE INDEX "{{prefix}}ip_lists_first_last_idx" ON "{{ip_lists}}" ("first", "last");
-INSERT INTO {{schema_version}} (version) VALUES (29);
+INSERT INTO {{schema_version}} (version) VALUES (33);
 `
 	// not supported in CockroachDB
 	ipListsLikeIndex = `CREATE INDEX "{{prefix}}ip_lists_ipornet_like_idx" ON "{{ip_lists}}" ("ipornet" varchar_pattern_ops);`
-	pgsqlV30SQL      = `ALTER TABLE "{{shares}}" ADD COLUMN "options" text NULL;`
-	pgsqlV30DownSQL  = `ALTER TABLE "{{shares}}" DROP COLUMN "options" CASCADE;`
-	pgsqlV31SQL      = `DROP TABLE "{{shared_sessions}}";
-CREATE TABLE "{{shared_sessions}}" ("key" varchar(128) NOT NULL, "type" integer NOT NULL,
-"data" text NOT NULL, "timestamp" bigint NOT NULL, PRIMARY KEY ("key", "type"));
-CREATE INDEX "{{prefix}}shared_sessions_type_idx" ON "{{shared_sessions}}" ("type");
-CREATE INDEX "{{prefix}}shared_sessions_timestamp_idx" ON "{{shared_sessions}}" ("timestamp");
+	pgsqlV34SQL      = `CREATE TABLE "{{shares_groups_mapping}}" (
+"id" integer NOT NULL PRIMARY KEY GENERATED BY DEFAULT AS IDENTITY,
+"share_id" integer NOT NULL,
+"group_id" integer NOT NULL,
+"permissions" integer NOT NULL,
+"sort_order" integer NOT NULL,
+CONSTRAINT "{{prefix}}unique_share_group_mapping" UNIQUE ("share_id", "group_id"),
+CONSTRAINT "{{prefix}}shares_groups_mapping_share_id_fk" FOREIGN KEY ("share_id") REFERENCES "{{shares}}"("id") ON DELETE CASCADE,
+CONSTRAINT "{{prefix}}shares_groups_mapping_group_id_fk" FOREIGN KEY ("group_id") REFERENCES "{{groups}}"("id") ON DELETE CASCADE);
+CREATE INDEX "{{prefix}}shares_groups_mapping_sort_order_idx" ON "{{shares_groups_mapping}}" ("sort_order");
+CREATE INDEX "{{prefix}}shares_groups_mapping_share_id_idx" ON "{{shares_groups_mapping}}" ("share_id");
+CREATE INDEX "{{prefix}}shares_groups_mapping_group_id_idx" ON "{{shares_groups_mapping}}" ("group_id");
 `
-	pgsqlV31DownSQL = `DROP TABLE "{{shared_sessions}}" CASCADE;
-CREATE TABLE "{{shared_sessions}}" ("key" varchar(128) NOT NULL PRIMARY KEY,
-"data" text NOT NULL, "type" integer NOT NULL, "timestamp" bigint NOT NULL);
-CREATE INDEX "{{prefix}}shared_sessions_type_idx" ON "{{shared_sessions}}" ("type");
-CREATE INDEX "{{prefix}}shared_sessions_timestamp_idx" ON "{{shared_sessions}}" ("timestamp");
-`
-	pgsqlV33SQL = `ALTER TABLE "{{admins_groups_mapping}}" ADD COLUMN "sort_order" integer DEFAULT 0 NOT NULL;
-ALTER TABLE "{{admins_groups_mapping}}" ALTER COLUMN "sort_order" DROP DEFAULT;
-ALTER TABLE "{{groups_folders_mapping}}" ADD COLUMN "sort_order" integer DEFAULT 0 NOT NULL;
-ALTER TABLE "{{groups_folders_mapping}}" ALTER COLUMN "sort_order" DROP DEFAULT;
-ALTER TABLE "{{users_folders_mapping}}" ADD COLUMN "sort_order" integer DEFAULT 0 NOT NULL;
-ALTER TABLE "{{users_folders_mapping}}" ALTER COLUMN "sort_order" DROP DEFAULT;
-ALTER TABLE "{{users_groups_mapping}}" ADD COLUMN "sort_order" integer DEFAULT 0 NOT NULL;
-ALTER TABLE "{{users_groups_mapping}}" ALTER COLUMN "sort_order" DROP DEFAULT;
-CREATE INDEX "{{prefix}}admins_groups_mapping_sort_order_idx" ON "{{admins_groups_mapping}}" ("sort_order");
-CREATE INDEX "{{prefix}}groups_folders_mapping_sort_order_idx" ON "{{groups_folders_mapping}}" ("sort_order");
-CREATE INDEX "{{prefix}}users_folders_mapping_sort_order_idx" ON "{{users_folders_mapping}}" ("sort_order");
-CREATE INDEX "{{prefix}}users_groups_mapping_sort_order_idx" ON "{{users_groups_mapping}}" ("sort_order");
-`
-	pgsqlV33DownSQL = `ALTER TABLE "{{users_groups_mapping}}" DROP COLUMN "sort_order" CASCADE;
-ALTER TABLE "{{users_folders_mapping}}" DROP COLUMN "sort_order" CASCADE;
-ALTER TABLE "{{groups_folders_mapping}}" DROP COLUMN "sort_order" CASCADE;
-ALTER TABLE "{{admins_groups_mapping}}" DROP COLUMN "sort_order" CASCADE;
-`
+	pgsqlV34DownSQL = `DROP TABLE IF EXISTS "{{shares_groups_mapping}}";`
 )
 
 var (
@@ -829,8 +815,8 @@ func (p *PGSQLProvider) initializeDatabase() error {
 	if errors.Is(err, sql.ErrNoRows) {
 		return errSchemaVersionEmpty
 	}
-	logger.InfoToConsole("creating initial database schema, version 29")
-	providerLog(logger.LevelInfo, "creating initial database schema, version 29")
+	logger.InfoToConsole("creating initial database schema, version 33")
+	providerLog(logger.LevelInfo, "creating initial database schema, version 33")
 	var initialSQL string
 	if config.Driver == CockroachDataProviderName {
 		initialSQL = sqlReplaceAll(pgsqlInitial)
@@ -839,10 +825,10 @@ func (p *PGSQLProvider) initializeDatabase() error {
 		initialSQL = sqlReplaceAll(pgsqlInitial + ipListsLikeIndex)
 	}
 
-	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{initialSQL}, 29, true)
+	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{initialSQL}, 33, true)
 }
 
-func (p *PGSQLProvider) migrateDatabase() error { //nolint:dupl
+func (p *PGSQLProvider) migrateDatabase() error {
 	dbVersion, err := sqlCommonGetDatabaseVersion(p.dbHandle, true)
 	if err != nil {
 		return err
@@ -852,19 +838,13 @@ func (p *PGSQLProvider) migrateDatabase() error { //nolint:dupl
 	case version == sqlDatabaseVersion:
 		providerLog(logger.LevelDebug, "sql database is up to date, current version: %d", version)
 		return ErrNoInitRequired
-	case version < 29:
+	case version < 33:
 		err = errSchemaVersionTooOld(version)
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
-	case version == 29:
-		return updatePGSQLDatabaseFromV29(p.dbHandle)
-	case version == 30:
-		return updatePGSQLDatabaseFromV30(p.dbHandle)
-	case version == 31:
-		return updatePGSQLDatabaseFromV31(p.dbHandle)
-	case version == 32:
-		return updatePGSQLDatabaseFromV32(p.dbHandle)
+	case version == 33:
+		return updatePGSQLDatabaseFromV33(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -887,14 +867,8 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 	}
 
 	switch dbVersion.Version {
-	case 30:
-		return downgradePGSQLDatabaseFromV30(p.dbHandle)
-	case 31:
-		return downgradePGSQLDatabaseFromV31(p.dbHandle)
-	case 32:
-		return downgradePGSQLDatabaseFromV32(p.dbHandle)
-	case 33:
-		return downgradePGSQLDatabaseFromV33(p.dbHandle)
+	case 34:
+		return downgradePGSQLDatabaseFromV34(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
@@ -933,111 +907,29 @@ func (p *PGSQLProvider) normalizeError(err error, fieldType int) error {
 	return err
 }
 
-func updatePGSQLDatabaseFromV29(dbHandle *sql.DB) error {
-	if err := updatePGSQLDatabaseFrom29To30(dbHandle); err != nil {
-		return err
-	}
-	return updatePGSQLDatabaseFromV30(dbHandle)
+func updatePGSQLDatabaseFromV33(dbHandle *sql.DB) error {
+	return updatePGSQLDatabaseFrom33To34(dbHandle)
 }
 
-func updatePGSQLDatabaseFromV30(dbHandle *sql.DB) error {
-	if err := updatePGSQLDatabaseFrom30To31(dbHandle); err != nil {
-		return err
-	}
-	return updatePGSQLDatabaseFromV31(dbHandle)
+func downgradePGSQLDatabaseFromV34(dbHandle *sql.DB) error {
+	return downgradePGSQLDatabaseFrom34To33(dbHandle)
 }
 
-func updatePGSQLDatabaseFromV31(dbHandle *sql.DB) error {
-	if err := updateSQLDatabaseFrom31To32(dbHandle); err != nil {
-		return err
-	}
-	return updatePGSQLDatabaseFromV32(dbHandle)
+func updatePGSQLDatabaseFrom33To34(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database schema version: 33 -> 34")
+	providerLog(logger.LevelInfo, "updating database schema version: 33 -> 34")
+
+	sql := strings.ReplaceAll(pgsqlV34SQL, "{{prefix}}", config.SQLTablesPrefix)
+	sql = strings.ReplaceAll(sql, "{{shares}}", sqlTableShares)
+	sql = strings.ReplaceAll(sql, "{{shares_groups_mapping}}", sqlTableSharesGroupsMapping)
+	sql = strings.ReplaceAll(sql, "{{groups}}", sqlTableGroups)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 34, true)
 }
 
-func updatePGSQLDatabaseFromV32(dbHandle *sql.DB) error {
-	return updatePGSQLDatabaseFrom32To33(dbHandle)
-}
+func downgradePGSQLDatabaseFrom34To33(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database schema version: 34 -> 33")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 34 -> 33")
 
-func downgradePGSQLDatabaseFromV30(dbHandle *sql.DB) error {
-	return downgradePGSQLDatabaseFrom30To29(dbHandle)
-}
-
-func downgradePGSQLDatabaseFromV31(dbHandle *sql.DB) error {
-	if err := downgradePGSQLDatabaseFrom31To30(dbHandle); err != nil {
-		return err
-	}
-	return downgradePGSQLDatabaseFromV30(dbHandle)
-}
-
-func downgradePGSQLDatabaseFromV32(dbHandle *sql.DB) error {
-	if err := downgradeSQLDatabaseFrom32To31(dbHandle); err != nil {
-		return err
-	}
-	return downgradePGSQLDatabaseFromV31(dbHandle)
-}
-
-func downgradePGSQLDatabaseFromV33(dbHandle *sql.DB) error {
-	if err := downgradePGSQLDatabaseFrom33To32(dbHandle); err != nil {
-		return err
-	}
-	return downgradePGSQLDatabaseFromV32(dbHandle)
-}
-
-func updatePGSQLDatabaseFrom29To30(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database schema version: 29 -> 30")
-	providerLog(logger.LevelInfo, "updating database schema version: 29 -> 30")
-
-	sql := strings.ReplaceAll(pgsqlV30SQL, "{{shares}}", sqlTableShares)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 30, true)
-}
-
-func downgradePGSQLDatabaseFrom30To29(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database schema version: 30 -> 29")
-	providerLog(logger.LevelInfo, "downgrading database schema version: 30 -> 29")
-
-	sql := strings.ReplaceAll(pgsqlV30DownSQL, "{{shares}}", sqlTableShares)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 29, false)
-}
-
-func updatePGSQLDatabaseFrom30To31(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database schema version: 30 -> 31")
-	providerLog(logger.LevelInfo, "updating database schema version: 30 -> 31")
-
-	sql := strings.ReplaceAll(pgsqlV31SQL, "{{shared_sessions}}", sqlTableSharedSessions)
-	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 31, true)
-}
-
-func downgradePGSQLDatabaseFrom31To30(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database schema version: 31 -> 30")
-	providerLog(logger.LevelInfo, "downgrading database schema version: 31 -> 30")
-
-	sql := strings.ReplaceAll(pgsqlV31DownSQL, "{{shared_sessions}}", sqlTableSharedSessions)
-	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 30, false)
-}
-
-func updatePGSQLDatabaseFrom32To33(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database schema version: 32 -> 33")
-	providerLog(logger.LevelInfo, "updating database schema version: 32 -> 33")
-
-	sql := strings.ReplaceAll(pgsqlV33SQL, "{{prefix}}", config.SQLTablesPrefix)
-	sql = strings.ReplaceAll(sql, "{{users_folders_mapping}}", sqlTableUsersFoldersMapping)
-	sql = strings.ReplaceAll(sql, "{{users_groups_mapping}}", sqlTableUsersGroupsMapping)
-	sql = strings.ReplaceAll(sql, "{{admins_groups_mapping}}", sqlTableAdminsGroupsMapping)
-	sql = strings.ReplaceAll(sql, "{{groups_folders_mapping}}", sqlTableGroupsFoldersMapping)
-	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 33, true)
-}
-
-func downgradePGSQLDatabaseFrom33To32(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database schema version: 33 -> 32")
-	providerLog(logger.LevelInfo, "downgrading database schema version: 33 -> 32")
-
-	sql := pgsqlV33DownSQL
-	sql = strings.ReplaceAll(sql, "{{users_folders_mapping}}", sqlTableUsersFoldersMapping)
-	sql = strings.ReplaceAll(sql, "{{users_groups_mapping}}", sqlTableUsersGroupsMapping)
-	sql = strings.ReplaceAll(sql, "{{admins_groups_mapping}}", sqlTableAdminsGroupsMapping)
-	sql = strings.ReplaceAll(sql, "{{groups_folders_mapping}}", sqlTableGroupsFoldersMapping)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 32, false)
+	sql := strings.ReplaceAll(pgsqlV34DownSQL, "{{shares_groups_mapping}}", sqlTableSharesGroupsMapping)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 33, false)
 }

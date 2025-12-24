@@ -27,7 +27,6 @@ import (
 	"crypto/sha512"
 	"crypto/subtle"
 	"crypto/x509"
-	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -212,6 +211,7 @@ var (
 	sqlTableAdmins               string
 	sqlTableAPIKeys              string
 	sqlTableShares               string
+	sqlTableSharesGroupsMapping  string
 	sqlTableDefenderHosts        string
 	sqlTableDefenderEvents       string
 	sqlTableActiveTransfers      string
@@ -246,6 +246,7 @@ func initSQLTables() {
 	sqlTableAdmins = "admins"
 	sqlTableAPIKeys = "api_keys"
 	sqlTableShares = "shares"
+	sqlTableSharesGroupsMapping = "shares_groups_mapping"
 	sqlTableDefenderHosts = "defender_hosts"
 	sqlTableDefenderEvents = "defender_events"
 	sqlTableActiveTransfers = "active_transfers"
@@ -1056,6 +1057,7 @@ func validateSQLTablesPrefix() error {
 		sqlTableAdmins = config.SQLTablesPrefix + sqlTableAdmins
 		sqlTableAPIKeys = config.SQLTablesPrefix + sqlTableAPIKeys
 		sqlTableShares = config.SQLTablesPrefix + sqlTableShares
+		sqlTableSharesGroupsMapping = config.SQLTablesPrefix + sqlTableSharesGroupsMapping
 		sqlTableDefenderEvents = config.SQLTablesPrefix + sqlTableDefenderEvents
 		sqlTableDefenderHosts = config.SQLTablesPrefix + sqlTableDefenderHosts
 		sqlTableActiveTransfers = config.SQLTablesPrefix + sqlTableActiveTransfers
@@ -1077,12 +1079,12 @@ func validateSQLTablesPrefix() error {
 			"api keys %q shares %q defender hosts %q defender events %q transfers %q  groups %q "+
 			"users groups mapping %q admins groups mapping %q groups folders mapping %q shared sessions %q "+
 			"schema version %q events actions %q events rules %q rules actions mapping %q tasks %q nodes %q roles %q"+
-			"ip lists %q configs %q",
+			"ip lists %q share groups mapping %q configs %q",
 			sqlTableUsers, sqlTableFolders, sqlTableUsersFoldersMapping, sqlTableAdmins, sqlTableAPIKeys,
 			sqlTableShares, sqlTableDefenderHosts, sqlTableDefenderEvents, sqlTableActiveTransfers, sqlTableGroups,
 			sqlTableUsersGroupsMapping, sqlTableAdminsGroupsMapping, sqlTableGroupsFoldersMapping, sqlTableSharedSessions,
 			sqlTableSchemaVersion, sqlTableEventsActions, sqlTableEventsRules, sqlTableRulesActionsMapping,
-			sqlTableTasks, sqlTableNodes, sqlTableRoles, sqlTableIPLists, sqlTableConfigs)
+			sqlTableTasks, sqlTableNodes, sqlTableRoles, sqlTableIPLists, sqlTableSharesGroupsMapping, sqlTableConfigs)
 	}
 	return nil
 }
@@ -4770,101 +4772,6 @@ func updateEventActionPlaceholders(actions []BaseEventAction) ([]BaseEventAction
 	}
 
 	return result, nil
-}
-
-func restoreEventActionsPlaceholders(actions []BaseEventAction) ([]BaseEventAction, error) {
-	var result []BaseEventAction
-
-	for _, action := range actions {
-		options, err := json.Marshal(action.Options)
-		if err != nil {
-			return nil, err
-		}
-		convertedOptions := restoreTemplateVars(string(options))
-		var opts BaseEventActionOptions
-		err = json.Unmarshal([]byte(convertedOptions), &opts)
-		if err != nil {
-			return nil, err
-		}
-		action.Options = opts
-		result = append(result, action)
-	}
-
-	return result, nil
-}
-
-func updateEventActions() error {
-	actions, err := provider.dumpEventActions()
-	if err != nil {
-		return err
-	}
-	convertedActions, err := updateEventActionPlaceholders(actions)
-	if err != nil {
-		return err
-	}
-	enabledCommands := slices.Clone(EnabledActionCommands)
-	defer func() {
-		EnabledActionCommands = enabledCommands
-	}()
-
-	for _, action := range convertedActions {
-		providerLog(logger.LevelInfo, "updating placeholders for event action %q", action.Name)
-		if action.Options.CmdConfig.Cmd != "" {
-			// EnabledActionCommands are initialized after the data provider,
-			// so all commands should be allowed here temporarily.
-			if !slices.Contains(EnabledActionCommands, action.Options.CmdConfig.Cmd) {
-				EnabledActionCommands = append(EnabledActionCommands, action.Options.CmdConfig.Cmd)
-			}
-		}
-		if err := provider.updateEventAction(&action); err != nil {
-			return fmt.Errorf("unable to save updated event action %q: %w", action.Name, err)
-		}
-	}
-	return nil
-}
-
-func restoreEventActions() error {
-	actions, err := provider.dumpEventActions()
-	if err != nil {
-		return err
-	}
-	convertedActions, err := restoreEventActionsPlaceholders(actions)
-	if err != nil {
-		return err
-	}
-	for _, action := range convertedActions {
-		providerLog(logger.LevelInfo, "restoring placeholders for event action %q", action.Name)
-		if err := provider.updateEventAction(&action); err != nil {
-			return fmt.Errorf("unable to save updated event action %q: %w", action.Name, err)
-		}
-	}
-	return nil
-}
-
-func updateSQLDatabaseFrom31To32(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database data version: 31 -> 32")
-	providerLog(logger.LevelInfo, "updating database data version: 31 -> 32")
-
-	if err := updateEventActions(); err != nil {
-		return err
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), longSQLQueryTimeout)
-	defer cancel()
-
-	return sqlCommonUpdateDatabaseVersion(ctx, dbHandle, 32)
-}
-
-func downgradeSQLDatabaseFrom32To31(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database data version: 32 -> 31")
-	providerLog(logger.LevelInfo, "downgrading database data version: 32 -> 31")
-
-	if err := restoreEventActions(); err != nil {
-		return err
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), longSQLQueryTimeout)
-	defer cancel()
-
-	return sqlCommonUpdateDatabaseVersion(ctx, dbHandle, 31)
 }
 
 func getConfigPath(name, configDir string) string {

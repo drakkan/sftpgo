@@ -38,11 +38,11 @@ import (
 
 const (
 	mysqlResetSQL = "DROP TABLE IF EXISTS `{{api_keys}}` CASCADE;" +
-		"DROP TABLE IF EXISTS `{{folders_mapping}}` CASCADE;" +
 		"DROP TABLE IF EXISTS `{{users_folders_mapping}}` CASCADE;" +
 		"DROP TABLE IF EXISTS `{{users_groups_mapping}}` CASCADE;" +
 		"DROP TABLE IF EXISTS `{{admins_groups_mapping}}` CASCADE;" +
 		"DROP TABLE IF EXISTS `{{groups_folders_mapping}}` CASCADE;" +
+		"DROP TABLE IF EXISTS `{{shares_groups_mapping}}` CASCADE;" +
 		"DROP TABLE IF EXISTS `{{admins}}` CASCADE;" +
 		"DROP TABLE IF EXISTS `{{folders}}` CASCADE;" +
 		"DROP TABLE IF EXISTS `{{shares}}` CASCADE;" +
@@ -83,8 +83,8 @@ const (
 		"CREATE TABLE `{{groups}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
 		"`name` varchar(255) NOT NULL UNIQUE, `description` varchar(512) NULL, `created_at` bigint NOT NULL, " +
 		"`updated_at` bigint NOT NULL, `user_settings` longtext NULL);" +
-		"CREATE TABLE `{{shared_sessions}}` (`key` varchar(128) NOT NULL PRIMARY KEY, " +
-		"`data` longtext NOT NULL, `type` integer NOT NULL, `timestamp` bigint NOT NULL);" +
+		"CREATE TABLE `{{shared_sessions}}` (`key` varchar(128) NOT NULL, `type` integer NOT NULL, `data` longtext NOT NULL, " +
+		"`timestamp` bigint NOT NULL, PRIMARY KEY (`key`, `type`));" +
 		"CREATE TABLE `{{users}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `username` varchar(255) NOT NULL UNIQUE, " +
 		"`status` integer NOT NULL, `expiration_date` bigint NOT NULL, `description` varchar(512) NULL, `password` longtext NULL, " +
 		"`public_keys` longtext NULL, `home_dir` longtext NOT NULL, `uid` bigint NOT NULL, `gid` bigint NOT NULL, " +
@@ -99,33 +99,36 @@ const (
 		"`first_upload` bigint NOT NULL, `last_password_change` bigint NOT NULL, `role_id` integer NULL);" +
 		"CREATE TABLE `{{groups_folders_mapping}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
 		"`group_id` integer NOT NULL, `folder_id` integer NOT NULL, " +
-		"`virtual_path` longtext NOT NULL, `quota_size` bigint NOT NULL, `quota_files` integer NOT NULL);" +
+		"`virtual_path` longtext NOT NULL, `quota_size` bigint NOT NULL, `quota_files` integer NOT NULL, `sort_order` integer NOT NULL);" +
 		"CREATE TABLE `{{users_groups_mapping}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
-		"`user_id` integer NOT NULL, `group_id` integer NOT NULL, `group_type` integer NOT NULL);" +
+		"`user_id` integer NOT NULL, `group_id` integer NOT NULL, `group_type` integer NOT NULL, `sort_order` integer NOT NULL);" +
 		"CREATE TABLE `{{users_folders_mapping}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `virtual_path` longtext NOT NULL, " +
-		"`quota_size` bigint NOT NULL, `quota_files` integer NOT NULL, `folder_id` integer NOT NULL, `user_id` integer NOT NULL);" +
+		"`quota_size` bigint NOT NULL, `quota_files` integer NOT NULL, `folder_id` integer NOT NULL, `user_id` integer NOT NULL, `sort_order` integer NOT NULL);" +
 		"ALTER TABLE `{{users_folders_mapping}}` ADD CONSTRAINT `{{prefix}}unique_user_folder_mapping` " +
 		"UNIQUE (`user_id`, `folder_id`);" +
 		"ALTER TABLE `{{users_folders_mapping}}` ADD CONSTRAINT `{{prefix}}users_folders_mapping_user_id_fk_users_id` " +
 		"FOREIGN KEY (`user_id`) REFERENCES `{{users}}` (`id`) ON DELETE CASCADE;" +
 		"ALTER TABLE `{{users_folders_mapping}}` ADD CONSTRAINT `{{prefix}}users_folders_mapping_folder_id_fk_folders_id` " +
 		"FOREIGN KEY (`folder_id`) REFERENCES `{{folders}}` (`id`) ON DELETE CASCADE;" +
+		"CREATE INDEX `{{prefix}}users_folders_mapping_sort_order_idx` ON `{{users_folders_mapping}}` (`sort_order`);" +
 		"ALTER TABLE `{{users_groups_mapping}}` ADD CONSTRAINT `{{prefix}}unique_user_group_mapping` UNIQUE (`user_id`, `group_id`);" +
 		"ALTER TABLE `{{groups_folders_mapping}}` ADD CONSTRAINT `{{prefix}}unique_group_folder_mapping` UNIQUE (`group_id`, `folder_id`);" +
 		"ALTER TABLE `{{users_groups_mapping}}` ADD CONSTRAINT `{{prefix}}users_groups_mapping_group_id_fk_groups_id` " +
 		"FOREIGN KEY (`group_id`) REFERENCES `{{groups}}` (`id`) ON DELETE NO ACTION;" +
 		"ALTER TABLE `{{users_groups_mapping}}` ADD CONSTRAINT `{{prefix}}users_groups_mapping_user_id_fk_users_id` " +
 		"FOREIGN KEY (`user_id`) REFERENCES `{{users}}` (`id`) ON DELETE CASCADE; " +
+		"CREATE INDEX `{{prefix}}users_groups_mapping_sort_order_idx` ON `{{users_groups_mapping}}` (`sort_order`);" +
 		"ALTER TABLE `{{groups_folders_mapping}}` ADD CONSTRAINT `{{prefix}}groups_folders_mapping_folder_id_fk_folders_id` " +
 		"FOREIGN KEY (`folder_id`) REFERENCES `{{folders}}` (`id`) ON DELETE CASCADE;" +
 		"ALTER TABLE `{{groups_folders_mapping}}` ADD CONSTRAINT `{{prefix}}groups_folders_mapping_group_id_fk_groups_id` " +
 		"FOREIGN KEY (`group_id`) REFERENCES `{{groups}}` (`id`) ON DELETE CASCADE;" +
+		"CREATE INDEX `{{prefix}}groups_folders_mapping_sort_order_idx` ON `{{groups_folders_mapping}}` (`sort_order`); " +
 		"CREATE TABLE `{{shares}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
 		"`share_id` varchar(60) NOT NULL UNIQUE, `name` varchar(255) NOT NULL, `description` varchar(512) NULL, " +
 		"`scope` integer NOT NULL, `paths` longtext NOT NULL, `created_at` bigint NOT NULL, " +
 		"`updated_at` bigint NOT NULL, `last_use_at` bigint NOT NULL, `expires_at` bigint NOT NULL, " +
 		"`password` longtext NULL, `max_tokens` integer NOT NULL, `used_tokens` integer NOT NULL, " +
-		"`allow_from` longtext NULL, `user_id` integer NOT NULL);" +
+		"`allow_from` longtext NULL, `options` longtext NULL, `user_id` integer NOT NULL);" +
 		"ALTER TABLE `{{shares}}` ADD CONSTRAINT `{{prefix}}shares_user_id_fk_users_id` " +
 		"FOREIGN KEY (`user_id`) REFERENCES `{{users}}` (`id`) ON DELETE CASCADE;" +
 		"CREATE TABLE `{{api_keys}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `name` varchar(255) NOT NULL, `key_id` varchar(50) NOT NULL UNIQUE," +
@@ -149,13 +152,14 @@ const (
 		"ALTER TABLE `{{rules_actions_mapping}}` ADD CONSTRAINT `{{prefix}}rules_actions_mapping_action_id_fk_events_targets_id` " +
 		"FOREIGN KEY (`action_id`) REFERENCES `{{events_actions}}` (`id`) ON DELETE NO ACTION;" +
 		"CREATE TABLE `{{admins_groups_mapping}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
-		" `admin_id` integer NOT NULL, `group_id` integer NOT NULL, `options` longtext NOT NULL);" +
+		" `admin_id` integer NOT NULL, `group_id` integer NOT NULL, `options` longtext NOT NULL, `sort_order` integer NOT NULL);" +
 		"ALTER TABLE `{{admins_groups_mapping}}` ADD CONSTRAINT `{{prefix}}unique_admin_group_mapping` " +
 		"UNIQUE (`admin_id`, `group_id`);" +
 		"ALTER TABLE `{{admins_groups_mapping}}` ADD CONSTRAINT `{{prefix}}admins_groups_mapping_admin_id_fk_admins_id` " +
 		"FOREIGN KEY (`admin_id`) REFERENCES `{{admins}}` (`id`) ON DELETE CASCADE;" +
 		"ALTER TABLE `{{admins_groups_mapping}}` ADD CONSTRAINT `{{prefix}}admins_groups_mapping_group_id_fk_groups_id` " +
 		"FOREIGN KEY (`group_id`) REFERENCES `{{groups}}` (`id`) ON DELETE CASCADE;" +
+		"CREATE INDEX `{{prefix}}admins_groups_mapping_sort_order_idx` ON `{{admins_groups_mapping}}` (`sort_order`); " +
 		"CREATE TABLE `{{nodes}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
 		"`name` varchar(255) NOT NULL UNIQUE, `data` longtext NOT NULL, `created_at` bigint NOT NULL, " +
 		"`updated_at` bigint NOT NULL);" +
@@ -192,35 +196,17 @@ const (
 		"CREATE INDEX `{{prefix}}ip_lists_updated_at_idx` ON `{{ip_lists}}` (`updated_at`);" +
 		"CREATE INDEX `{{prefix}}ip_lists_deleted_at_idx` ON `{{ip_lists}}` (`deleted_at`);" +
 		"CREATE INDEX `{{prefix}}ip_lists_first_last_idx` ON `{{ip_lists}}` (`first`, `last`);" +
-		"INSERT INTO {{schema_version}} (version) VALUES (29);"
-	mysqlV30SQL     = "ALTER TABLE `{{shares}}` ADD COLUMN `options` longtext NULL;"
-	mysqlV30DownSQL = "ALTER TABLE `{{shares}}` DROP COLUMN `options`;"
-	mysqlV31SQL     = "DROP TABLE IF EXISTS `{{shared_sessions}}` CASCADE;" +
-		"CREATE TABLE `{{shared_sessions}}` (`key` varchar(128) NOT NULL, `type` integer NOT NULL, `data` longtext NOT NULL, " +
-		"`timestamp` bigint NOT NULL, PRIMARY KEY (`key`, `type`));" +
-		"CREATE INDEX `{{prefix}}shared_sessions_type_idx` ON `{{shared_sessions}}` (`type`);" +
-		"CREATE INDEX `{{prefix}}shared_sessions_timestamp_idx` ON `{{shared_sessions}}` (`timestamp`);"
-	mysqlV31DownSQL = "DROP TABLE IF EXISTS `{{shared_sessions}}` CASCADE;" +
-		"CREATE TABLE `{{shared_sessions}}` (`key` varchar(128) NOT NULL PRIMARY KEY, " +
-		"`data` longtext NOT NULL, `type` integer NOT NULL, `timestamp` bigint NOT NULL);" +
-		"CREATE INDEX `{{prefix}}shared_sessions_type_idx` ON `{{shared_sessions}}` (`type`);" +
-		"CREATE INDEX `{{prefix}}shared_sessions_timestamp_idx` ON `{{shared_sessions}}` (`timestamp`);"
-	mysqlV33SQL = "ALTER TABLE `{{admins_groups_mapping}}` ADD COLUMN `sort_order` integer DEFAULT 0 NOT NULL; " +
-		"ALTER TABLE `{{admins_groups_mapping}}` ALTER COLUMN `sort_order` DROP DEFAULT; " +
-		"ALTER TABLE `{{groups_folders_mapping}}` ADD COLUMN `sort_order` integer DEFAULT 0 NOT NULL; " +
-		"ALTER TABLE `{{groups_folders_mapping}}` ALTER COLUMN `sort_order` DROP DEFAULT; " +
-		"ALTER TABLE `{{users_folders_mapping}}` ADD COLUMN `sort_order` integer DEFAULT 0 NOT NULL; " +
-		"ALTER TABLE `{{users_folders_mapping}}` ALTER COLUMN `sort_order` DROP DEFAULT; " +
-		"ALTER TABLE `{{users_groups_mapping}}` ADD COLUMN `sort_order` integer DEFAULT 0 NOT NULL; " +
-		"ALTER TABLE `{{users_groups_mapping}}` ALTER COLUMN `sort_order` DROP DEFAULT; " +
-		"CREATE INDEX `{{prefix}}admins_groups_mapping_sort_order_idx` ON `{{admins_groups_mapping}}` (`sort_order`); " +
-		"CREATE INDEX `{{prefix}}groups_folders_mapping_sort_order_idx` ON `{{groups_folders_mapping}}` (`sort_order`); " +
-		"CREATE INDEX `{{prefix}}users_folders_mapping_sort_order_idx` ON `{{users_folders_mapping}}` (`sort_order`);" +
-		"CREATE INDEX `{{prefix}}users_groups_mapping_sort_order_idx` ON `{{users_groups_mapping}}` (`sort_order`);"
-	mysqlV33DownSQL = "ALTER TABLE `{{users_groups_mapping}}` DROP COLUMN `sort_order`; " +
-		"ALTER TABLE `{{users_folders_mapping}}` DROP COLUMN `sort_order`; " +
-		"ALTER TABLE `{{groups_folders_mapping}}` DROP COLUMN `sort_order`; " +
-		"ALTER TABLE `{{admins_groups_mapping}}` DROP COLUMN `sort_order`; "
+		"INSERT INTO {{schema_version}} (version) VALUES (33);"
+	mysqlV34SQL = "CREATE TABLE `{{shares_groups_mapping}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY," +
+		"`share_id` integer NOT NULL, `group_id` integer NOT NULL, `permissions` integer NOT NULL," +
+		"`sort_order` integer NOT NULL," +
+		"CONSTRAINT `{{prefix}}unique_share_group_mapping` UNIQUE (`share_id`, `group_id`)," +
+		"CONSTRAINT `{{prefix}}shares_groups_mapping_share_id_fk` FOREIGN KEY (`share_id`) REFERENCES `{{shares}}` (`id`) ON DELETE CASCADE," +
+		"CONSTRAINT `{{prefix}}shares_groups_mapping_group_id_fk` FOREIGN KEY (`group_id`) REFERENCES `{{groups}}` (`id`) ON DELETE CASCADE); " +
+		"CREATE INDEX `{{prefix}}shares_groups_mapping_sort_order_idx` ON `{{shares_groups_mapping}}` (`sort_order`); " +
+		"CREATE INDEX `{{prefix}}shares_groups_mapping_share_id_idx` ON `{{shares_groups_mapping}}` (`share_id`); " +
+		"CREATE INDEX `{{prefix}}shares_groups_mapping_group_id_idx` ON `{{shares_groups_mapping}}` (`group_id`);"
+	mysqlV34DownSQL = "DROP TABLE IF EXISTS `{{shares_groups_mapping}}`;"
 )
 
 // MySQLProvider defines the auth provider for MySQL/MariaDB database
@@ -807,11 +793,11 @@ func (p *MySQLProvider) initializeDatabase() error {
 	if errors.Is(err, sql.ErrNoRows) {
 		return errSchemaVersionEmpty
 	}
-	logger.InfoToConsole("creating initial database schema, version 29")
-	providerLog(logger.LevelInfo, "creating initial database schema, version 29")
+	logger.InfoToConsole("creating initial database schema, version 33")
+	providerLog(logger.LevelInfo, "creating initial database schema, version 33")
 	initialSQL := sqlReplaceAll(mysqlInitialSQL)
 
-	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, strings.Split(initialSQL, ";"), 29, true)
+	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, strings.Split(initialSQL, ";"), 33, true)
 }
 
 func (p *MySQLProvider) migrateDatabase() error {
@@ -824,19 +810,13 @@ func (p *MySQLProvider) migrateDatabase() error {
 	case version == sqlDatabaseVersion:
 		providerLog(logger.LevelDebug, "sql database is up to date, current version: %d", version)
 		return ErrNoInitRequired
-	case version < 29:
+	case version < 33:
 		err = errSchemaVersionTooOld(version)
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
-	case version == 29:
-		return updateMySQLDatabaseFromV29(p.dbHandle)
-	case version == 30:
-		return updateMySQLDatabaseFromV30(p.dbHandle)
-	case version == 31:
-		return updateMySQLDatabaseFromV31(p.dbHandle)
-	case version == 32:
-		return updateMySQLDatabaseFromV32(p.dbHandle)
+	case version == 33:
+		return updateMySQLDatabaseFromV33(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -859,14 +839,8 @@ func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 	}
 
 	switch dbVersion.Version {
-	case 30:
-		return downgradeMySQLDatabaseFromV30(p.dbHandle)
-	case 31:
-		return downgradeMySQLDatabaseFromV31(p.dbHandle)
-	case 32:
-		return downgradeMySQLDatabaseFromV32(p.dbHandle)
-	case 33:
-		return downgradeMySQLDatabaseFromV33(p.dbHandle)
+	case 34:
+		return downgradeMySQLDatabaseFromV34(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
@@ -905,111 +879,29 @@ func (p *MySQLProvider) normalizeError(err error, fieldType int) error {
 	return err
 }
 
-func updateMySQLDatabaseFromV29(dbHandle *sql.DB) error {
-	if err := updateMySQLDatabaseFrom29To30(dbHandle); err != nil {
-		return err
-	}
-	return updateMySQLDatabaseFromV30(dbHandle)
+func updateMySQLDatabaseFromV33(dbHandle *sql.DB) error {
+	return updateMySQLDatabaseFrom33To34(dbHandle)
 }
 
-func updateMySQLDatabaseFromV30(dbHandle *sql.DB) error {
-	if err := updateMySQLDatabaseFrom30To31(dbHandle); err != nil {
-		return err
-	}
-	return updateMySQLDatabaseFromV31(dbHandle)
+func downgradeMySQLDatabaseFromV34(dbHandle *sql.DB) error {
+	return downgradeMySQLDatabaseFrom34To33(dbHandle)
 }
 
-func updateMySQLDatabaseFromV31(dbHandle *sql.DB) error {
-	if err := updateSQLDatabaseFrom31To32(dbHandle); err != nil {
-		return err
-	}
-	return updateMySQLDatabaseFromV32(dbHandle)
+func updateMySQLDatabaseFrom33To34(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database schema version: 33 -> 34")
+	providerLog(logger.LevelInfo, "updating database schema version: 33 -> 34")
+
+	sql := strings.ReplaceAll(mysqlV34SQL, "{{prefix}}", config.SQLTablesPrefix)
+	sql = strings.ReplaceAll(sql, "{{shares}}", sqlTableShares)
+	sql = strings.ReplaceAll(sql, "{{shares_groups_mapping}}", sqlTableSharesGroupsMapping)
+	sql = strings.ReplaceAll(sql, "{{groups}}", sqlTableGroups)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 34, true)
 }
 
-func updateMySQLDatabaseFromV32(dbHandle *sql.DB) error {
-	return updateMySQLDatabaseFrom32To33(dbHandle)
-}
+func downgradeMySQLDatabaseFrom34To33(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database schema version: 34 -> 33")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 34 -> 33")
 
-func downgradeMySQLDatabaseFromV30(dbHandle *sql.DB) error {
-	return downgradeMySQLDatabaseFrom30To29(dbHandle)
-}
-
-func downgradeMySQLDatabaseFromV31(dbHandle *sql.DB) error {
-	if err := downgradeMySQLDatabaseFrom31To30(dbHandle); err != nil {
-		return err
-	}
-	return downgradeMySQLDatabaseFromV30(dbHandle)
-}
-
-func downgradeMySQLDatabaseFromV32(dbHandle *sql.DB) error {
-	if err := downgradeSQLDatabaseFrom32To31(dbHandle); err != nil {
-		return err
-	}
-	return downgradeMySQLDatabaseFromV31(dbHandle)
-}
-
-func downgradeMySQLDatabaseFromV33(dbHandle *sql.DB) error {
-	if err := downgradeMySQLDatabaseFrom33To32(dbHandle); err != nil {
-		return err
-	}
-	return downgradeMySQLDatabaseFromV32(dbHandle)
-}
-
-func updateMySQLDatabaseFrom29To30(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database schema version: 29 -> 30")
-	providerLog(logger.LevelInfo, "updating database schema version: 29 -> 30")
-
-	sql := strings.ReplaceAll(mysqlV30SQL, "{{shares}}", sqlTableShares)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 30, true)
-}
-
-func downgradeMySQLDatabaseFrom30To29(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database schema version: 30 -> 29")
-	providerLog(logger.LevelInfo, "downgrading database schema version: 30 -> 29")
-
-	sql := strings.ReplaceAll(mysqlV30DownSQL, "{{shares}}", sqlTableShares)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 29, false)
-}
-
-func updateMySQLDatabaseFrom30To31(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database schema version: 30 -> 31")
-	providerLog(logger.LevelInfo, "updating database schema version: 30 -> 31")
-
-	sql := strings.ReplaceAll(mysqlV31SQL, "{{shared_sessions}}", sqlTableSharedSessions)
-	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 31, true)
-}
-
-func downgradeMySQLDatabaseFrom31To30(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database schema version: 31 -> 30")
-	providerLog(logger.LevelInfo, "downgrading database schema version: 31 -> 30")
-
-	sql := strings.ReplaceAll(mysqlV31DownSQL, "{{shared_sessions}}", sqlTableSharedSessions)
-	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 30, false)
-}
-
-func updateMySQLDatabaseFrom32To33(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database schema version: 32 -> 33")
-	providerLog(logger.LevelInfo, "updating database schema version: 32 -> 33")
-
-	sql := strings.ReplaceAll(mysqlV33SQL, "{{prefix}}", config.SQLTablesPrefix)
-	sql = strings.ReplaceAll(sql, "{{users_folders_mapping}}", sqlTableUsersFoldersMapping)
-	sql = strings.ReplaceAll(sql, "{{users_groups_mapping}}", sqlTableUsersGroupsMapping)
-	sql = strings.ReplaceAll(sql, "{{admins_groups_mapping}}", sqlTableAdminsGroupsMapping)
-	sql = strings.ReplaceAll(sql, "{{groups_folders_mapping}}", sqlTableGroupsFoldersMapping)
-	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 33, true)
-}
-
-func downgradeMySQLDatabaseFrom33To32(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database schema version: 33 -> 32")
-	providerLog(logger.LevelInfo, "downgrading database schema version: 33 -> 32")
-
-	sql := mysqlV33DownSQL
-	sql = strings.ReplaceAll(sql, "{{users_folders_mapping}}", sqlTableUsersFoldersMapping)
-	sql = strings.ReplaceAll(sql, "{{users_groups_mapping}}", sqlTableUsersGroupsMapping)
-	sql = strings.ReplaceAll(sql, "{{admins_groups_mapping}}", sqlTableAdminsGroupsMapping)
-	sql = strings.ReplaceAll(sql, "{{groups_folders_mapping}}", sqlTableGroupsFoldersMapping)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 32, false)
+	sql := strings.ReplaceAll(mysqlV34DownSQL, "{{shares_groups_mapping}}", sqlTableSharesGroupsMapping)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 33, false)
 }

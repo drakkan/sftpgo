@@ -36,7 +36,7 @@ import (
 )
 
 const (
-	sqlDatabaseVersion     = 33
+	sqlDatabaseVersion     = 34
 	defaultSQLQueryTimeout = 10 * time.Second
 	longSQLQueryTimeout    = 60 * time.Second
 )
@@ -71,6 +71,7 @@ func sqlReplaceAll(sql string) string {
 	sql = strings.ReplaceAll(sql, "{{groups_folders_mapping}}", sqlTableGroupsFoldersMapping)
 	sql = strings.ReplaceAll(sql, "{{api_keys}}", sqlTableAPIKeys)
 	sql = strings.ReplaceAll(sql, "{{shares}}", sqlTableShares)
+	sql = strings.ReplaceAll(sql, "{{shares_groups_mapping}}", sqlTableSharesGroupsMapping)
 	sql = strings.ReplaceAll(sql, "{{defender_events}}", sqlTableDefenderEvents)
 	sql = strings.ReplaceAll(sql, "{{defender_hosts}}", sqlTableDefenderHosts)
 	sql = strings.ReplaceAll(sql, "{{active_transfers}}", sqlTableActiveTransfers)
