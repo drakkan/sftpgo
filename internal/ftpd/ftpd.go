@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"os"
 	"path/filepath"
@@ -401,9 +402,14 @@ func (c *Configuration) Initialize(configDir string) error {
 		server := NewServer(c, configDir, binding, idx)
 
 		go func(s *Server) {
-			ftpLogger := logger.LeveledLogger{Sender: "ftpserverlib"}
+			ftpLogger := logger.NewSlogAdapter("ftpserverlib", []slog.Attr{
+				{
+					Key:   "server_id",
+					Value: slog.StringValue(fmt.Sprintf("FTP_%d", s.ID)),
+				},
+			})
 			ftpServer := ftpserver.NewFtpServer(s)
-			ftpServer.Logger = ftpLogger.With("server_id", fmt.Sprintf("FTP_%v", s.ID))
+			ftpServer.Logger = slog.New(ftpLogger)
 			logger.Info(logSender, "", "starting FTP serving, binding: %v", s.binding.GetAddress())
 			util.CheckTCP4Port(s.binding.Port)
 			exitChannel <- ftpServer.ListenAndServe()
