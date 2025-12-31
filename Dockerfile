@@ -35,7 +35,7 @@ FROM debian:trixie-slim
 # Set to "true" to install jq
 ARG INSTALL_OPTIONAL_PACKAGES=false
 
-RUN apt-get update && apt-get -y upgrade && apt-get install --no-install-recommends -y ca-certificates media-types && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get -y upgrade && apt-get install --no-install-recommends -y ca-certificates media-types libcap2-bin && rm -rf /var/lib/apt/lists/*
 
 RUN if [ "${INSTALL_OPTIONAL_PACKAGES}" = "true" ]; then apt-get update && apt-get install --no-install-recommends -y jq && rm -rf /var/lib/apt/lists/*; fi
 
@@ -59,7 +59,8 @@ ENV SFTPGO_LOG_FILE_PATH=""
 RUN sed -i 's|"users_base_dir": "",|"users_base_dir": "/srv/sftpgo/data",|' /etc/sftpgo/sftpgo.json && \
     sed -i 's|"backups"|"/srv/sftpgo/backups"|' /etc/sftpgo/sftpgo.json
 
-RUN chown -R sftpgo:sftpgo /etc/sftpgo /srv/sftpgo && chown sftpgo:sftpgo /var/lib/sftpgo && chmod 700 /srv/sftpgo/backups
+RUN chown -R sftpgo:sftpgo /etc/sftpgo /srv/sftpgo && chown sftpgo:sftpgo /var/lib/sftpgo && chmod 700 /srv/sftpgo/backups && \
+    setcap cap_net_bind_service=+ep /usr/local/bin/sftpgo && apt-get -y remove libcap2-bin
 
 WORKDIR /var/lib/sftpgo
 USER 1000:1000
