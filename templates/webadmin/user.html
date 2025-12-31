@@ -832,6 +832,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 <script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/plugins/custom/flatpickr/l10n/it.js"></script>
 <script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/plugins/custom/flatpickr/l10n/de.js"></script>
 <script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/plugins/custom/flatpickr/l10n/fr.js"></script>
+<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/plugins/custom/flatpickr/l10n/zh.js"></script>
 <script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
 
     $(document).on("i18nload", function(){
@@ -874,7 +875,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 },
                 defaultHour: 23,
                 defaultMinute: 59,
-                locale: i18next.resolvedLanguage,
+                locale: flatpickrLocale(),
                 onChange: function(selectedDates, dateStr, instance) {
                     if (selectedDates.length > 0){
                         $('#id_expiration_clear').removeClass("d-none");

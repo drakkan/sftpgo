@@ -190,6 +190,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     lngs.de = { nativeName: 'Deutsch' };
     //{{- else if eq . "fr" }}
     lngs.fr = { nativeName: 'Français' };
+    //{{- else if eq . "zh-CN" }}
+    lngs["zh-CN"] = { nativeName: '简体中文' };
     //{{- end}}
     //{{- end}}
     if (Object.keys(lngs).length == 0){
@@ -214,7 +216,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 debug: false,
                 supportedLngs: Object.keys(lngs),
                 fallbackLng: Object.keys(lngs)[0],
-                load: 'languageOnly',
                 backend: {
                     backends: [
                         i18nextLocalStorageBackend,
@@ -273,6 +274,22 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         el.removeAttr("data-i18n-options");
         el.attr("data-i18n", value);
         el.localize(options);
+    }
+
+    function flatpickrLocale() {
+        const currentLang = i18next.resolvedLanguage;
+        if (currentLang === 'zh-CN') {
+            return 'zh';
+        }
+        return currentLang;
+    }
+
+    function humanizeDurationLocale() {
+        const currentLang = i18next.resolvedLanguage;
+        if (currentLang === 'zh-CN') {
+            return 'zh_CN';
+        }
+        return currentLang;
     }
 
     function handlePasswordInputVisibility(el) {
