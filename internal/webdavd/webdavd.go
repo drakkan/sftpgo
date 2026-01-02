@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
@@ -40,6 +41,7 @@ const (
 
 const (
 	logSender = "webdavd"
+	osWindows = "windows"
 )
 
 var (
@@ -179,9 +181,15 @@ func (b *Binding) GetAddress() string {
 	return fmt.Sprintf("%s:%d", b.Address, b.Port)
 }
 
-// IsValid returns true if the binding port is > 0
+// IsValid returns true if the binding is valid
 func (b *Binding) IsValid() bool {
-	return b.Port > 0
+	if b.Port > 0 {
+		return true
+	}
+	if filepath.IsAbs(b.Address) && runtime.GOOS != osWindows {
+		return true
+	}
+	return false
 }
 
 func (b *Binding) listenerWrapper() func(net.Listener) (net.Listener, error) {
