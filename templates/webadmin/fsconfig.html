@@ -319,7 +319,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <div class="form-group row mt-10 fsconfig-azblob">
             <label for="idAzUploadPartSize" data-i18n="storage.ul_part_size" class="col-md-3 col-form-label">Upload Part Size (MB)</label>
             <div class="col-md-3">
-                <input id="idAzUploadPartSize" type="number" min="0" max="100" class="form-control" name="az_upload_part_size" value="{{.AzBlobConfig.UploadPartSize}}" aria-describedby="idAzUploadPartSizeHelp" />
+                <input id="idAzUploadPartSize" type="number" min="0" max="2000" class="form-control" name="az_upload_part_size" value="{{.AzBlobConfig.UploadPartSize}}" aria-describedby="idAzUploadPartSizeHelp" />
                 <div id="idAzUploadPartSizeHelp" class="form-text" data-i18n="storage.part_size_help"></div>
             </div>
             <div class="col-md-1"></div>
@@ -333,7 +333,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <div class="form-group row mt-10 fsconfig-azblob">
             <label for="idAzDownloadPartSize" data-i18n="storage.dl_part_size" class="col-md-3 col-form-label">Download Part Size (MB)</label>
             <div class="col-md-3">
-                <input id="idAzDownloadPartSize" type="number" min="0" max="100" class="form-control" name="az_download_part_size" value="{{.AzBlobConfig.DownloadPartSize}}" aria-describedby="idAzDownloadPartSizeHelp" />
+                <input id="idAzDownloadPartSize" type="number" min="0" max="2000" class="form-control" name="az_download_part_size" value="{{.AzBlobConfig.DownloadPartSize}}" aria-describedby="idAzDownloadPartSizeHelp" />
                 <div id="idAzDownloadPartSizeHelp" class="form-text" data-i18n="storage.part_size_help"></div>
             </div>
             <div class="col-md-1"></div>
