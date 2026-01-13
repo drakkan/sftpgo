@@ -69,6 +69,7 @@ var (
 	portableGCSCredentialsFile         string
 	portableGCSAutoCredentials         int
 	portableGCSStorageClass            string
+	portableGCSEndpoint                string
 	portableGCSKeyPrefix               string
 	portableFTPDPort                   int
 	portableFTPSCert                   string
@@ -249,6 +250,7 @@ Please take a look at the usage below to customize the serving parameters`,
 								Bucket:               portableGCSBucket,
 								AutomaticCredentials: portableGCSAutoCredentials,
 								StorageClass:         portableGCSStorageClass,
+								Endpoint:             portableGCSEndpoint,
 								KeyPrefix:            portableGCSKeyPrefix,
 							},
 							Credentials: kms.NewPlainSecret(portableGCSCredentials),
@@ -387,6 +389,8 @@ This should be used only for testing.
 	portableCmd.Flags().StringVar(&portableGCSKeyPrefix, "gcs-key-prefix", "", `Allows to restrict access to the
 virtual folder identified by this
 prefix and its contents`)
+    portableCmd.Flags().StringVar(&portableGCSEndpoint, "gcs-endpoint", "", `Leave empty to use the default:
+    "storage.googleapis.com"`)
 	portableCmd.Flags().StringVar(&portableGCSCredentialsFile, "gcs-credentials-file", "", `Google Cloud Storage JSON credentials
 file`)
 	portableCmd.Flags().IntVar(&portableGCSAutoCredentials, "gcs-automatic-credentials", 1, `0 means explicit credentials using
