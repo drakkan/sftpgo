@@ -80,6 +80,7 @@ type S3Fs struct {
 	sseCustomerKey    string
 	sseCustomerKeyMD5 string
 	sseCustomerAlgo   string
+	username          string
 }
 
 func init() {
@@ -88,7 +89,7 @@ func init() {
 
 // NewS3Fs returns an S3Fs object that allows to interact with an s3 compatible
 // object storage
-func NewS3Fs(connectionID, localTempDir, mountPath string, s3Config S3FsConfig) (Fs, error) {
+func NewS3Fs(connectionID, localTempDir, mountPath string, s3Config S3FsConfig, username string) (Fs, error) {
 	if localTempDir == "" {
 		localTempDir = getLocalTempDir()
 	}
@@ -98,6 +99,7 @@ func NewS3Fs(connectionID, localTempDir, mountPath string, s3Config S3FsConfig) 
 		mountPath:    getMountPath(mountPath),
 		config:       &s3Config,
 		ctxTimeout:   30 * time.Second,
+		username:     username,
 	}
 	if err := fs.config.validate(); err != nil {
 		return fs, err
@@ -246,7 +248,7 @@ func (fs *S3Fs) Open(name string, offset int64) (File, PipeReader, func(), error
 		err := fs.handleDownload(ctx, name, offset, w, attrs)
 		w.CloseWithError(err) //nolint:errcheck
 		fsLog(fs, logger.LevelDebug, "download completed, path: %q size: %d, err: %+v", name, w.GetWrittenBytes(), err)
-		metric.S3TransferCompleted(w.GetWrittenBytes(), 1, err)
+		metric.S3TransferCompleted(w.GetWrittenBytes(), 1, err, fs.username)
 	}()
 
 	return nil, p, cancelFn, nil
@@ -286,7 +288,7 @@ func (fs *S3Fs) Create(name string, flag, checks int) (File, PipeWriter, func(),
 		p.Done(err)
 		fsLog(fs, logger.LevelDebug, "upload completed, path: %q, acl: %q, readed bytes: %d, err: %+v",
 			name, fs.config.ACL, r.GetReadedBytes(), err)
-		metric.S3TransferCompleted(r.GetReadedBytes(), 0, err)
+		metric.S3TransferCompleted(r.GetReadedBytes(), 0, err, fs.username)
 	}()
 
 	if checks&CheckResume != 0 {
@@ -354,7 +356,7 @@ func (fs *S3Fs) Remove(name string, isDir bool) error {
 		Bucket: aws.String(fs.config.Bucket),
 		Key:    aws.String(name),
 	})
-	metric.S3DeleteObjectCompleted(err)
+	metric.S3DeleteObjectCompleted(err, fs.username)
 	return err
 }
 
@@ -416,6 +418,7 @@ func (fs *S3Fs) ReadDir(dirname string) (DirLister, error) {
 		timeout:   fs.ctxTimeout,
 		prefix:    prefix,
 		prefixes:  make(map[string]bool),
+		username:  fs.username,
 	}, nil
 }
 
@@ -511,7 +514,7 @@ func (fs *S3Fs) GetDirSize(dirname string) (int, int64, error) {
 
 		page, err := paginator.NextPage(ctx)
 		if err != nil {
-			metric.S3ListObjectsCompleted(err)
+			metric.S3ListObjectsCompleted(err, fs.username)
 			return numFiles, size, err
 		}
 		for _, fileObject := range page.Contents {
@@ -526,7 +529,7 @@ func (fs *S3Fs) GetDirSize(dirname string) (int, int64, error) {
 		fsLog(fs, logger.LevelDebug, "scan in progress for %q, files: %d, size: %d", dirname, numFiles, size)
 	}
 
-	metric.S3ListObjectsCompleted(nil)
+	metric.S3ListObjectsCompleted(nil, fs.username)
 	return numFiles, size, nil
 }
 
@@ -575,7 +578,7 @@ func (fs *S3Fs) Walk(root string, walkFn filepath.WalkFunc) error {
 
 		page, err := paginator.NextPage(ctx)
 		if err != nil {
-			metric.S3ListObjectsCompleted(err)
+			metric.S3ListObjectsCompleted(err, fs.username)
 			walkFn(root, NewFileInfo(root, true, 0, time.Unix(0, 0), false), err) //nolint:errcheck
 			return err
 		}
@@ -593,7 +596,7 @@ func (fs *S3Fs) Walk(root string, walkFn filepath.WalkFunc) error {
 		}
 	}
 
-	metric.S3ListObjectsCompleted(nil)
+	metric.S3ListObjectsCompleted(nil, fs.username)
 	walkFn(root, NewFileInfo(root, true, 0, time.Unix(0, 0), false), nil) //nolint:errcheck
 	return nil
 }
@@ -680,7 +683,7 @@ func (fs *S3Fs) copyFileInternal(source, target string, srcInfo os.FileInfo) err
 		fsLog(fs, logger.LevelDebug, "renaming file %q with size %d using multipart copy",
 			source, srcInfo.Size())
 		err := fs.doMultipartCopy(copySource, target, contentType, srcInfo.Size())
-		metric.S3CopyObjectCompleted(err)
+		metric.S3CopyObjectCompleted(err, fs.username)
 		return err
 	}
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
@@ -703,7 +706,7 @@ func (fs *S3Fs) copyFileInternal(source, target string, srcInfo os.FileInfo) err
 
 	_, err := fs.svc.CopyObject(ctx, copyObject)
 
-	metric.S3CopyObjectCompleted(err)
+	metric.S3CopyObjectCompleted(err, fs.username)
 	return err
 }
 
@@ -773,7 +776,7 @@ func (fs *S3Fs) hasContents(name string) (bool, error) {
 		defer cancelFn()
 
 		page, err := paginator.NextPage(ctx)
-		metric.S3ListObjectsCompleted(err)
+		metric.S3ListObjectsCompleted(err, fs.username)
 		if err != nil {
 			return false, err
 		}
@@ -788,7 +791,7 @@ func (fs *S3Fs) hasContents(name string) (bool, error) {
 		return false, nil
 	}
 
-	metric.S3ListObjectsCompleted(nil)
+	metric.S3ListObjectsCompleted(nil, fs.username)
 	return false, nil
 }
 
@@ -1262,7 +1265,7 @@ func (fs *S3Fs) headObject(name string) (*s3.HeadObjectOutput, error) {
 		SSECustomerAlgorithm: util.NilIfEmpty(fs.sseCustomerAlgo),
 		SSECustomerKeyMD5:    util.NilIfEmpty(fs.sseCustomerKeyMD5),
 	})
-	metric.S3HeadObjectCompleted(err)
+	metric.S3HeadObjectCompleted(err, fs.username)
 	return obj, err
 }
 
@@ -1297,7 +1300,7 @@ func (fs *S3Fs) downloadToWriter(name string, w PipeWriter) (int64, error) {
 	err = fs.handleDownload(ctx, name, 0, w, attrs)
 	fsLog(fs, logger.LevelDebug, "download before resuming upload completed, path %q size: %d, err: %+v",
 		name, w.GetWrittenBytes(), err)
-	metric.S3TransferCompleted(w.GetWrittenBytes(), 1, err)
+	metric.S3TransferCompleted(w.GetWrittenBytes(), 1, err, fs.username)
 	return w.GetWrittenBytes(), err
 }
 
@@ -1308,6 +1311,7 @@ type s3DirLister struct {
 	prefix        string
 	prefixes      map[string]bool
 	metricUpdated bool
+	username      string
 }
 
 func (l *s3DirLister) resolve(name *string) (string, bool) {
@@ -1329,7 +1333,7 @@ func (l *s3DirLister) Next(limit int) ([]os.FileInfo, error) {
 	if !l.paginator.HasMorePages() {
 		if !l.metricUpdated {
 			l.metricUpdated = true
-			metric.S3ListObjectsCompleted(nil)
+			metric.S3ListObjectsCompleted(nil, l.username)
 		}
 		return l.returnFromCache(limit), io.EOF
 	}
@@ -1338,7 +1342,7 @@ func (l *s3DirLister) Next(limit int) ([]os.FileInfo, error) {
 
 	page, err := l.paginator.NextPage(ctx)
 	if err != nil {
-		metric.S3ListObjectsCompleted(err)
+		metric.S3ListObjectsCompleted(err, l.username)
 		return l.cache, err
 	}
 	for _, p := range page.CommonPrefixes {
