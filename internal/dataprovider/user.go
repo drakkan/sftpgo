@@ -22,6 +22,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -1587,7 +1588,7 @@ func (u *User) mergeCryptFsConfig(group *Group) {
 
 func (u *User) mergeWithPrimaryGroup(group *Group, replacer *strings.Replacer) {
 	if group.UserSettings.HomeDir != "" {
-		u.HomeDir = u.replacePlaceholder(group.UserSettings.HomeDir, replacer)
+		u.HomeDir = filepath.Clean(u.replacePlaceholder(group.UserSettings.HomeDir, replacer))
 	}
 	if group.UserSettings.FsConfig.Provider != 0 {
 		u.FsConfig = u.replaceFsConfigPlaceholders(group.UserSettings.FsConfig, replacer)
