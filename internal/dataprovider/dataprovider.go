@@ -2761,6 +2761,7 @@ func validateAssociatedVirtualFolders(vfolders []vfs.VirtualFolder) ([]vfs.Virtu
 	folderNames := make(map[string]bool)
 
 	for _, v := range vfolders {
+		v.Name = config.convertName(v.Name)
 		if v.VirtualPath == "" {
 			return nil, util.NewI18nError(
 				util.NewValidationError("mount/virtual path is mandatory"),
