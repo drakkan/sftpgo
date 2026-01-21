@@ -627,12 +627,11 @@ func TestErrorResolvePath(t *testing.T) {
 func TestConnectionKeepAlive(t *testing.T) {
 	conn := NewBaseConnection("", ProtocolWebDAV, "", "", dataprovider.User{})
 	lastActivity := conn.GetLastActivity()
-	done := make(chan bool)
-	go func() {
-		time.Sleep(200 * time.Millisecond)
-		close(done)
-	}()
-	keepConnectionAlive(conn, done, 50*time.Millisecond)
+
+	stop := keepConnectionAlive(conn, 50*time.Millisecond)
+	defer stop()
+
+	time.Sleep(200 * time.Millisecond)
 	assert.Greater(t, conn.GetLastActivity(), lastActivity)
 }
 
