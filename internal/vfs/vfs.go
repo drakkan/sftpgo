@@ -1071,6 +1071,14 @@ func IsLocalOrSFTPFs(fs Fs) bool {
 	return IsLocalOsFs(fs) || IsSFTPFs(fs)
 }
 
+// IsS3Fs returns true if fs is S3
+func IsS3Fs(fs Fs) bool {
+	if fs == nil {
+		return false
+	}
+	return strings.HasPrefix(fs.Name(), s3fsName)
+}
+
 // HasTruncateSupport returns true if the fs supports truncate files
 func HasTruncateSupport(fs Fs) bool {
 	return IsLocalOsFs(fs) || IsSFTPFs(fs) || IsHTTPFs(fs)

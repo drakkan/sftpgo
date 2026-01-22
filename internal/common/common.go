@@ -463,6 +463,7 @@ type ActiveTransfer interface {
 	GetDownloadedSize() int64
 	GetUploadedSize() int64
 	GetVirtualPath() string
+	GetFsPath() string
 	GetStartTime() time.Time
 	SignalClose(err error)
 	Truncate(fsPath string, size int64) (int64, error)

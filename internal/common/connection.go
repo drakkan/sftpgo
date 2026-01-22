@@ -296,6 +296,29 @@ func (c *BaseConnection) setTimes(fsPath string, atime time.Time, mtime time.Tim
 	return false
 }
 
+// getStatForUploadTransfer checks if there's an active upload transfer for the given path.
+// If found, it returns file info based on the current transfer state.
+// This is useful for S3-backed storage where the file doesn't exist on the backend until the upload completes.
+func (c *BaseConnection) getStatForUploadTransfer(fsPath string) (os.FileInfo, bool) {
+	c.RLock()
+	defer c.RUnlock()
+
+	c.Log(logger.LevelDebug, "checking for active upload transfer, fsPath: %q, active transfers: %d", fsPath, len(c.activeTransfers))
+	for _, t := range c.activeTransfers {
+		c.Log(logger.LevelDebug, "  transfer id: %d, type: %d (upload=%d), fsPath: %q, match: %v",
+			t.GetID(), t.GetType(), TransferUpload, t.GetFsPath(), t.GetFsPath() == fsPath)
+		if t.GetType() == TransferUpload && t.GetFsPath() == fsPath {
+			// Return file info with current upload size
+			// Use 0755 for permissions since S3 doesn't support chmod
+			info := vfs.NewFileInfo(fsPath, false, t.GetUploadedSize(), t.GetStartTime(), true)
+			c.Log(logger.LevelInfo, "SSH_FXP_STAT on active upload: path=%q, size=%d", fsPath, t.GetUploadedSize())
+			return info, true
+		}
+	}
+	c.Log(logger.LevelDebug, "no matching active upload transfer found for path: %q", fsPath)
+	return nil, false
+}
+
 func (c *BaseConnection) truncateOpenHandle(fsPath string, size int64) (int64, error) {
 	c.RLock()
 	defer c.RUnlock()
@@ -954,6 +977,18 @@ func (c *BaseConnection) doStatInternal(virtualPath string, mode int, checkFileP
 		info, err = fs.Stat(c.getRealFsPath(fsPath))
 	}
 	if err != nil {
+		// For S3-backed storage, check if there's an active upload transfer for this path
+		isS3 := vfs.IsS3Fs(fs)
+		isNotExist := fs.IsNotExist(err)
+		c.Log(logger.LevelDebug, "stat failed for %q (fsPath: %q): err=%v, isS3=%v, isNotExist=%v",
+			virtualPath, fsPath, err, isS3, isNotExist)
+		if isNotExist && isS3 {
+			c.Log(logger.LevelDebug, "S3 file not found, checking for active upload transfer")
+			if uploadInfo, found := c.getStatForUploadTransfer(fsPath); found {
+				c.Log(logger.LevelInfo, "SSH_FXP_STAT succeeded via active transfer for: %q", virtualPath)
+				return uploadInfo, nil
+			}
+		}
 		if !fs.IsNotExist(err) {
 			c.Log(logger.LevelWarn, "stat error for path %q: %+v", virtualPath, err)
 		}
