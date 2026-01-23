@@ -229,6 +229,12 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             $('#writeShare').hide();
             $('#readShare').hide();
         } else {
+            let baseURL;
+            //{{- if .BaseURL}}
+            baseURL = '{{.BaseURL}}';
+            //{{- else}}
+            baseURL = getCurrentURI();
+            //{{- end}}
             let shareURL = '{{.BasePublicSharesURL}}' + "/" + encodeURIComponent(shareID);
             if (shareScope == '1') {
                 $('#expiredShare').hide();
@@ -236,20 +242,20 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 $('#readShare').show();
                 $('#readLink').attr("href", shareURL + "/download");
                 $('#readLink').attr("title", shareURL + "/download");
-                $('#readLinkCopy').attr("data-clipboard-text",getCurrentURI()+shareURL + "/download");
+                $('#readLinkCopy').attr("data-clipboard-text",baseURL+shareURL + "/download");
                 $('#readUncompressedLink').attr("href", shareURL + "/download?compress=false");
                 $('#readUncompressedLink').attr("title", shareURL + "/download?compress=false");
-                $('#readUncompressedLinkCopy').attr("data-clipboard-text",getCurrentURI()+shareURL + "/download?compress=false");
+                $('#readUncompressedLinkCopy').attr("data-clipboard-text",baseURL+shareURL + "/download?compress=false");
                 $('#readBrowseLink').attr("href", shareURL + "/browse");
                 $('#readBrowseLink').attr("title", shareURL + "/browse");
-                $('#readBrowseLinkCopy').attr("data-clipboard-text",getCurrentURI()+shareURL + "/browse");
+                $('#readBrowseLinkCopy').attr("data-clipboard-text",baseURL+shareURL + "/browse");
             } else {
                 $('#expiredShare').hide();
                 $('#writeShare').show();
                 $('#readShare').hide();
                 $('#writePageLink').attr("href", shareURL + "/upload");
                 $('#writePageLink').attr("title", shareURL + "/upload");
-                $('#writePageLinkCopy').attr("data-clipboard-text",getCurrentURI()+shareURL + "/upload");
+                $('#writePageLinkCopy').attr("data-clipboard-text",baseURL+shareURL + "/upload");
             }
         }
         $('#link_modal').modal('show');

@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -627,6 +628,10 @@ type Binding struct {
 	HideLoginURL int `json:"hide_login_url" mapstructure:"hide_login_url"`
 	// Enable the built-in OpenAPI renderer
 	RenderOpenAPI bool `json:"render_openapi" mapstructure:"render_openapi"`
+	// BaseURL defines the external base URL for generating public links
+	// (currently share access link), bypassing the default browser-based
+	// detection.
+	BaseURL string `json:"base_url" mapstructure:"base_url"`
 	// Languages defines the list of enabled translations for the WebAdmin and WebClient UI.
 	Languages []string `json:"languages" mapstructure:"languages"`
 	// Defining an OIDC configuration the web admin and web client UI will use OpenID to authenticate users.
@@ -667,6 +672,24 @@ func (b *Binding) languages() []string {
 	return b.Languages
 }
 
+func (b *Binding) validateBaseURL() error {
+	if b.BaseURL == "" {
+		return nil
+	}
+	u, err := url.ParseRequestURI(b.BaseURL)
+	if err != nil {
+		return err
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("invalid base URL schema %s", b.BaseURL)
+	}
+	if u.Host == "" {
+		return fmt.Errorf("invalid base URL host %s", b.BaseURL)
+	}
+	b.BaseURL = strings.TrimRight(u.String(), "/")
+	return nil
+}
+
 func (b *Binding) parseAllowedProxy() error {
 	if filepath.IsAbs(b.Address) && len(b.ProxyAllowed) > 0 {
 		// unix domain socket
@@ -698,6 +721,18 @@ func (b *Binding) IsValid() bool {
 		return true
 	}
 	return false
+}
+
+func (b *Binding) check() error {
+	if err := b.parseAllowedProxy(); err != nil {
+		return err
+	}
+	if err := b.validateBaseURL(); err != nil {
+		return err
+	}
+	b.checkBranding()
+	b.Security.updateProxyHeaders()
+	return nil
 }
 
 func (b *Binding) isWebAdminOIDCLoginDisabled() bool {
@@ -1135,11 +1170,9 @@ func (c *Conf) Initialize(configDir string, isShared int) error {
 		if !binding.IsValid() {
 			continue
 		}
-		if err := binding.parseAllowedProxy(); err != nil {
+		if err := binding.check(); err != nil {
 			return err
 		}
-		binding.checkBranding()
-		binding.Security.updateProxyHeaders()
 
 		go func(b Binding) {
 			if err := b.OIDC.initialize(); err != nil {

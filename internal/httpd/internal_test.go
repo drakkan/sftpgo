@@ -4247,6 +4247,80 @@ func TestConvertEnabledLoginMethods(t *testing.T) {
 	assert.Equal(t, 0, b.DisabledLoginMethods)
 }
 
+func TestValidateBaseURL(t *testing.T) {
+	tests := []struct {
+		name        string
+		inputURL    string
+		expectedURL string
+		expectErr   bool
+	}{
+		{
+			name:        "Valid HTTPS URL",
+			inputURL:    "https://sftp.example.com",
+			expectedURL: "https://sftp.example.com",
+			expectErr:   false,
+		},
+		{
+			name:        "Remove trailing slash",
+			inputURL:    "https://sftp.example.com/",
+			expectedURL: "https://sftp.example.com",
+			expectErr:   false,
+		},
+		{
+			name:        "Remove multiple trailing slashes",
+			inputURL:    "http://192.168.1.100:8080///",
+			expectedURL: "http://192.168.1.100:8080",
+			expectErr:   false,
+		},
+		{
+			name:        "Empty BaseURL (optional case)",
+			inputURL:    "",
+			expectedURL: "",
+			expectErr:   false,
+		},
+		{
+			name:      "Unsupported scheme (FTP)",
+			inputURL:  "ftp://files.example.com",
+			expectErr: true,
+		},
+		{
+			name:      "Malformed URL string",
+			inputURL:  "not-a-url",
+			expectErr: true,
+		},
+		{
+			name:      "Missing Host",
+			inputURL:  "https://",
+			expectErr: true,
+		},
+		{
+			name:        "Preserve path without trailing slash",
+			inputURL:    "https://example.com/sftp/",
+			expectedURL: "https://example.com/sftp",
+			expectErr:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := &Binding{
+				BaseURL: tt.inputURL,
+			}
+
+			err := b.validateBaseURL()
+
+			if (err != nil) != tt.expectErr {
+				t.Errorf("validateBaseURL() error = %v, expectErr %v", err, tt.expectErr)
+				return
+			}
+
+			if !tt.expectErr && b.BaseURL != tt.expectedURL {
+				t.Errorf("validateBaseURL() got = %v, want %v", b.BaseURL, tt.expectedURL)
+			}
+		})
+	}
+}
+
 func getCSRFTokenFromBody(body io.Reader) (string, error) {
 	doc, err := html.Parse(body)
 	if err != nil {

@@ -120,6 +120,7 @@ var (
 		ClientIPHeaderDepth:  0,
 		HideLoginURL:         0,
 		RenderOpenAPI:        true,
+		BaseURL:              "",
 		Languages:            []string{"en"},
 		OIDC: httpd.OIDC{
 			ClientID:                   "",
@@ -1883,6 +1884,12 @@ func getHTTPDBindingFromEnv(idx int) { //nolint:gocyclo
 	renderOpenAPI, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__RENDER_OPENAPI", idx))
 	if ok {
 		binding.RenderOpenAPI = renderOpenAPI
+		isSet = true
+	}
+
+	baseURL, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%d__BASE_URL", idx))
+	if ok {
+		binding.BaseURL = baseURL
 		isSet = true
 	}
 

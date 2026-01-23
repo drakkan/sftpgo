@@ -179,7 +179,7 @@ func isTLS(r *http.Request) bool {
 		return true
 	}
 	if proto, ok := r.Context().Value(forwardedProtoKey).(string); ok {
-		return proto == "https"
+		return proto == "https" //nolint:goconst
 	}
 	return false
 }

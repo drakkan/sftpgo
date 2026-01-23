@@ -212,6 +212,7 @@ type clientMFAPage struct {
 type clientSharesPage struct {
 	baseClientPage
 	BasePublicSharesURL string
+	BaseURL             string
 }
 
 type clientSharePage struct {
@@ -1609,6 +1610,7 @@ func (s *httpdServer) handleClientGetShares(w http.ResponseWriter, r *http.Reque
 	data := clientSharesPage{
 		baseClientPage:      s.getBaseClientPageData(util.I18nSharesTitle, webClientSharesPath, w, r),
 		BasePublicSharesURL: webClientPubSharesPath,
+		BaseURL:             s.binding.BaseURL,
 	}
 	renderClientTemplate(w, templateClientShares, data)
 }

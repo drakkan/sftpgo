@@ -580,6 +580,12 @@ func TestInitialization(t *testing.T) {
 		assert.Contains(t, err.Error(), "oidc")
 	}
 	httpdConf.Bindings[0].OIDC = httpd.OIDC{}
+	httpdConf.Bindings[0].BaseURL = "ftp://127.0.0.1"
+	err = httpdConf.Initialize(configDir, isShared)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "URL schema")
+	}
+	httpdConf.Bindings[0].BaseURL = ""
 	httpdConf.Bindings[0].EnableWebClient = true
 	httpdConf.Bindings[0].EnableWebAdmin = true
 	httpdConf.Bindings[0].EnableRESTAPI = true
