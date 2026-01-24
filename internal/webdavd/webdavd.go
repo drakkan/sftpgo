@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
@@ -176,12 +177,21 @@ func (b *Binding) isMutualTLSEnabled() bool {
 
 // GetAddress returns the binding address
 func (b *Binding) GetAddress() string {
-	return fmt.Sprintf("%s:%d", b.Address, b.Port)
+	if b.Port > 0 {
+		return fmt.Sprintf("%s:%d", b.Address, b.Port)
+	}
+	return b.Address
 }
 
-// IsValid returns true if the binding port is > 0
+// IsValid returns true if the binding is valid
 func (b *Binding) IsValid() bool {
-	return b.Port > 0
+	if b.Port > 0 {
+		return true
+	}
+	if filepath.IsAbs(b.Address) && runtime.GOOS != "windows" {
+		return true
+	}
+	return false
 }
 
 func (b *Binding) listenerWrapper() func(net.Listener) (net.Listener, error) {

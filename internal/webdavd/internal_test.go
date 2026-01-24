@@ -270,6 +270,7 @@ Ap157PUHTriSnxyMF2Sb3EhX/rQkmbnbCqqygHC14iBy8MrKzLG00X6BelZV5n0D
 RKjnkiEZeG4+G91Xu7+HmcBLwV86k5I+tXK9O1Okomr6Zry8oqVcxU5TB6VRS+rA
 ubwF00Drdvk2+kDZfxIM137nBiy7wgCJi2Ksm5ihN3dUF6Q0oNPl
 -----END RSA PRIVATE KEY-----`
+	osWindows = "windows"
 )
 
 // MockOsFs mockable OsFs
@@ -523,7 +524,7 @@ func TestResolvePathErrors(t *testing.T) {
 		assert.EqualError(t, err, common.ErrGenericFailure.Error())
 	}
 
-	if runtime.GOOS != "windows" {
+	if runtime.GOOS != osWindows {
 		user.HomeDir = filepath.Clean(os.TempDir())
 		connection.User = user
 		fs := vfs.NewOsFs("connID", connection.User.HomeDir, "", nil)
@@ -1739,4 +1740,69 @@ func TestGetCacheExpirationTime(t *testing.T) {
 	assert.True(t, c.getExpirationTime().IsZero())
 	c.ExpirationTime = 1
 	assert.False(t, c.getExpirationTime().IsZero())
+}
+
+func TestBindingGetAddress(t *testing.T) {
+	tests := []struct {
+		name    string
+		binding Binding
+		want    string
+	}{
+		{
+			name:    "IP address with port",
+			binding: Binding{Address: "127.0.0.1", Port: 8080},
+			want:    "127.0.0.1:8080",
+		},
+		{
+			name:    "Unix socket path (no port)",
+			binding: Binding{Address: "/tmp/app.sock", Port: 0},
+			want:    "/tmp/app.sock",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.binding.GetAddress(); got != tt.want {
+				t.Errorf("GetAddress() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBindingIsValid(t *testing.T) {
+	tests := []struct {
+		name    string
+		binding Binding
+		want    bool
+	}{
+		{
+			name:    "Valid: Positive port",
+			binding: Binding{Address: "127.0.0.1", Port: 10080},
+			want:    true,
+		},
+		{
+			name:    "Valid: Absolute path on Unix (non-Windows)",
+			binding: Binding{Address: "/var/run/app.sock", Port: 0},
+			// This test outcome is dynamic based on the OS
+			want: runtime.GOOS != osWindows,
+		},
+		{
+			name:    "Invalid: Port 0 and relative path",
+			binding: Binding{Address: "relative/path", Port: 0},
+			want:    false,
+		},
+		{
+			name:    "Invalid: Empty address and port 0",
+			binding: Binding{Address: "", Port: 0},
+			want:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.binding.IsValid(); got != tt.want {
+				t.Errorf("IsValid() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
