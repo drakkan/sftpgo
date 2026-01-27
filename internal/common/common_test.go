@@ -828,11 +828,7 @@ func TestIdleConnections(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, Connections.GetActiveSessions(username), 2)
 
-	cFTP := NewBaseConnection("id2", ProtocolFTP, "", "", dataprovider.User{
-		BaseUser: sdk.BaseUser{
-			Status: 1,
-		},
-	})
+	cFTP := NewBaseConnection("id2", ProtocolFTP, "", "", dataprovider.User{})
 	cFTP.lastActivity.Store(time.Now().UnixNano())
 	fakeConn = &fakeConnection{
 		BaseConnection: cFTP,
