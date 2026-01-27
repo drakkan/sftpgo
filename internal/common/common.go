@@ -1161,7 +1161,7 @@ func (conns *ActiveConnections) checkIdles() {
 				logger.Debug(conn.GetProtocol(), conn.GetID(), "close idle connection, idle time: %s, username: %q close err: %v",
 					time.Since(conn.GetLastActivity()), conn.GetUsername(), err)
 			}(c)
-		} else if !c.isAccessAllowed() {
+		} else if !isUnauthenticatedFTPUser && !c.isAccessAllowed() {
 			defer func(conn ActiveConnection) {
 				err := conn.Disconnect()
 				logger.Info(conn.GetProtocol(), conn.GetID(), "access conditions not met for user: %q close connection err: %v",
