@@ -996,7 +996,9 @@ func (conns *ActiveConnections) Add(c ActiveConnection) error {
 	}
 	conns.mapping[c.GetID()] = len(conns.connections)
 	conns.connections = append(conns.connections, c)
-	metric.UpdateActiveConnectionsSize(len(conns.connections))
+	if username := c.GetUsername(); username != "" {
+		metric.UpdateActiveConnectionsSize(conns.perUserConns[username], username)
+	}
 	logger.Debug(c.GetProtocol(), c.GetID(), "connection added, local address %q, remote address %q, num open connections: %d",
 		c.GetLocalAddress(), c.GetRemoteAddress(), len(conns.connections))
 	return nil
@@ -1049,7 +1051,9 @@ func (conns *ActiveConnections) Remove(connectionID string) {
 			conns.mapping[conns.connections[idx].GetID()] = idx
 		}
 		conns.removeUserConnection(conn.GetUsername())
-		metric.UpdateActiveConnectionsSize(lastIdx)
+		if username := conn.GetUsername(); username != "" {
+			metric.UpdateActiveConnectionsSize(conns.perUserConns[username], username)
+		}
 		logger.Debug(conn.GetProtocol(), conn.GetID(), "connection removed, local address %q, remote address %q close fs error: %v, num open connections: %d",
 			conn.GetLocalAddress(), conn.GetRemoteAddress(), err, lastIdx)
 		if conn.GetProtocol() == ProtocolFTP && conn.GetUsername() == "" && !slices.Contains(ftpLoginCommands, conn.GetCommand()) {
