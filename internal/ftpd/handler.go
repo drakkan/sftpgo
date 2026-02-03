@@ -22,9 +22,11 @@ import (
 	"path"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	ftpserver "github.com/fclairamb/ftpserverlib"
 	"github.com/spf13/afero"
+	"golang.org/x/text/encoding/charmap"
 
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
@@ -98,7 +100,12 @@ func (c *Connection) Create(_ string) (afero.File, error) {
 func (c *Connection) Mkdir(name string, _ os.FileMode) error {
 	c.UpdateLastActivity()
 
-	return c.CreateDir(name, true)
+	normalizedName, err := c.normalizeFTPPath(name)
+	if err != nil {
+		return err
+	}
+
+	return c.CreateDir(normalizedName, true)
 }
 
 // MkdirAll is not implemented, we don't need it
@@ -121,7 +128,12 @@ func (c *Connection) OpenFile(_ string, _ int, _ os.FileMode) (afero.File, error
 func (c *Connection) Remove(name string) error {
 	c.UpdateLastActivity()
 
-	fs, p, err := c.GetFsAndResolvedPath(name)
+	normalizedName, err := c.normalizeFTPPath(name)
+	if err != nil {
+		return err
+	}
+
+	fs, p, err := c.GetFsAndResolvedPath(normalizedName)
 	if err != nil {
 		return err
 	}
@@ -136,7 +148,7 @@ func (c *Connection) Remove(name string) error {
 		c.Log(logger.LevelError, "cannot remove %q is not a file/symlink", p)
 		return c.GetGenericError(nil)
 	}
-	return c.RemoveFile(fs, p, name, fi)
+	return c.RemoveFile(fs, p, normalizedName, fi)
 }
 
 // RemoveAll is not implemented, we don't need it
@@ -148,7 +160,16 @@ func (c *Connection) RemoveAll(_ string) error {
 func (c *Connection) Rename(oldname, newname string) error {
 	c.UpdateLastActivity()
 
-	return c.BaseConnection.Rename(oldname, newname)
+	normalizedOldname, err := c.normalizeFTPPath(oldname)
+	if err != nil {
+		return err
+	}
+	normalizedNewname, err := c.normalizeFTPPath(newname)
+	if err != nil {
+		return err
+	}
+
+	return c.BaseConnection.Rename(normalizedOldname, normalizedNewname)
 }
 
 // Stat returns a FileInfo describing the named file/directory, or an error,
@@ -157,15 +178,20 @@ func (c *Connection) Stat(name string) (os.FileInfo, error) {
 	c.UpdateLastActivity()
 	c.doWildcardListDir = false
 
-	if !c.User.HasPerm(dataprovider.PermListItems, path.Dir(name)) {
+	normalizedName, err := c.normalizeFTPPath(name)
+	if err != nil {
+		return nil, err
+	}
+
+	if !c.User.HasPerm(dataprovider.PermListItems, path.Dir(normalizedName)) {
 		return nil, c.GetPermissionDeniedError()
 	}
 
-	fi, err := c.DoStat(name, 0, true)
+	fi, err := c.DoStat(normalizedName, 0, true)
 	if err != nil {
-		if c.isListDirWithWildcards(path.Base(name)) {
+		if c.isListDirWithWildcards(path.Base(normalizedName)) {
 			c.doWildcardListDir = true
-			return vfs.NewFileInfo(name, true, 0, time.Unix(0, 0), false), nil
+			return vfs.NewFileInfo(normalizedName, true, 0, time.Unix(0, 0), false), nil
 		}
 		return nil, err
 	}
@@ -199,30 +225,45 @@ func (c *Connection) Chown(_ string, _, _ int) error {
 func (c *Connection) Chmod(name string, mode os.FileMode) error {
 	c.UpdateLastActivity()
 
+	normalizedName, err := c.normalizeFTPPath(name)
+	if err != nil {
+		return err
+	}
+
 	attrs := common.StatAttributes{
 		Flags: common.StatAttrPerms,
 		Mode:  mode,
 	}
-	return c.SetStat(name, &attrs)
+	return c.SetStat(normalizedName, &attrs)
 }
 
 // Chtimes changes the access and modification times of the named file
 func (c *Connection) Chtimes(name string, atime time.Time, mtime time.Time) error {
 	c.UpdateLastActivity()
 
+	normalizedName, err := c.normalizeFTPPath(name)
+	if err != nil {
+		return err
+	}
+
 	attrs := common.StatAttributes{
 		Flags: common.StatAttrTimes,
 		Atime: atime,
 		Mtime: mtime,
 	}
-	return c.SetStat(name, &attrs)
+	return c.SetStat(normalizedName, &attrs)
 }
 
 // GetAvailableSpace implements ClientDriverExtensionAvailableSpace interface
 func (c *Connection) GetAvailableSpace(dirName string) (int64, error) {
 	c.UpdateLastActivity()
 
-	diskQuota, transferQuota := c.HasSpace(false, false, path.Join(dirName, "fakefile.txt"))
+	normalizedDirName, err := c.normalizeFTPPath(dirName)
+	if err != nil {
+		return 0, err
+	}
+
+	diskQuota, transferQuota := c.HasSpace(false, false, path.Join(normalizedDirName, "fakefile.txt"))
 	if !diskQuota.HasSpace || !transferQuota.HasUploadSpace() {
 		return 0, nil
 	}
@@ -233,7 +274,7 @@ func (c *Connection) GetAvailableSpace(dirName string) (int64, error) {
 			return c.User.Filters.MaxUploadFileSize, nil
 		}
 
-		fs, p, err := c.GetFsAndResolvedPath(dirName)
+		fs, p, err := c.GetFsAndResolvedPath(normalizedDirName)
 		if err != nil {
 			return 0, err
 		}
@@ -280,29 +321,48 @@ func (c *Connection) AllocateSpace(_ int) error {
 func (c *Connection) RemoveDir(name string) error {
 	c.UpdateLastActivity()
 
-	return c.BaseConnection.RemoveDir(name)
+	normalizedName, err := c.normalizeFTPPath(name)
+	if err != nil {
+		return err
+	}
+
+	return c.BaseConnection.RemoveDir(normalizedName)
 }
 
 // Symlink implements ClientDriverExtensionSymlink
 func (c *Connection) Symlink(oldname, newname string) error {
 	c.UpdateLastActivity()
 
-	return c.CreateSymlink(oldname, newname)
+	normalizedOldname, err := c.normalizeFTPPath(oldname)
+	if err != nil {
+		return err
+	}
+	normalizedNewname, err := c.normalizeFTPPath(newname)
+	if err != nil {
+		return err
+	}
+
+	return c.CreateSymlink(normalizedOldname, normalizedNewname)
 }
 
 // ReadDir implements ClientDriverExtensionFilelist
 func (c *Connection) ReadDir(name string) ([]os.FileInfo, error) {
 	c.UpdateLastActivity()
 
+	normalizedName, err := c.normalizeFTPPath(name)
+	if err != nil {
+		return nil, err
+	}
+
 	if c.doWildcardListDir {
 		c.doWildcardListDir = false
-		baseName := path.Base(name)
+		baseName := path.Base(normalizedName)
 		// we only support wildcards for the last path level, for example:
 		// - *.xml is supported
 		// - dir*/*.xml is not supported
-		name = path.Dir(name)
-		c.clientContext.SetListPath(name)
-		lister, err := c.ListDir(name)
+		normalizedName = path.Dir(normalizedName)
+		c.clientContext.SetListPath(normalizedName)
+		lister, err := c.ListDir(normalizedName)
 		if err != nil {
 			return nil, err
 		}
@@ -310,13 +370,13 @@ func (c *Connection) ReadDir(name string) ([]os.FileInfo, error) {
 			DirLister:      lister,
 			pattern:        baseName,
 			lastCommand:    c.clientContext.GetLastCommand(),
-			dirName:        name,
+			dirName:        normalizedName,
 			connectionPath: c.clientContext.Path(),
 		}
 		return consumeDirLister(patternLister)
 	}
 
-	lister, err := c.ListDir(name)
+	lister, err := c.ListDir(normalizedName)
 	if err != nil {
 		return nil, err
 	}
@@ -327,7 +387,12 @@ func (c *Connection) ReadDir(name string) ([]os.FileInfo, error) {
 func (c *Connection) GetHandle(name string, flags int, offset int64) (ftpserver.FileTransfer, error) {
 	c.UpdateLastActivity()
 
-	fs, p, err := c.GetFsAndResolvedPath(name)
+	normalizedName, err := c.normalizeFTPPath(name)
+	if err != nil {
+		return nil, err
+	}
+
+	fs, p, err := c.GetFsAndResolvedPath(normalizedName)
 	if err != nil {
 		return nil, err
 	}
@@ -342,9 +407,9 @@ func (c *Connection) GetHandle(name string, flags int, offset int64) (ftpserver.
 	}
 
 	if flags&os.O_WRONLY != 0 {
-		return c.uploadFile(fs, p, name, flags)
+		return c.uploadFile(fs, p, normalizedName, flags)
 	}
-	return c.downloadFile(fs, p, name, offset)
+	return c.downloadFile(fs, p, normalizedName, offset)
 }
 
 func (c *Connection) downloadFile(fs vfs.Fs, fsPath, ftpPath string, offset int64) (ftpserver.FileTransfer, error) {
@@ -529,6 +594,19 @@ func (c *Connection) isListDirWithWildcards(name string) bool {
 		return lastCommand == "LIST" || lastCommand == "NLST"
 	}
 	return false
+}
+
+func (c *Connection) normalizeFTPPath(name string) (string, error) {
+	if name == "" || utf8.ValidString(name) {
+		return name, nil
+	}
+
+	decoded, err := charmap.ISO8859_1.NewDecoder().String(name)
+	if err != nil {
+		c.Log(logger.LevelError, "error decoding FTP path %q: %v", name, err)
+		return "", ftpserver.ErrFileNameNotAllowed
+	}
+	return decoded, nil
 }
 
 func getPathRelativeTo(base, target string) string {
