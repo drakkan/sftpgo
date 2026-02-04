@@ -21,7 +21,6 @@ require (
 	github.com/drakkan/webdav v0.0.0-20241026165615-b8b8f74ae71b
 	github.com/eikenb/pipeat v0.0.0-20251030185646-385cd3c3e07b
 	github.com/fclairamb/ftpserverlib v0.28.0
-	github.com/fclairamb/go-log v0.6.0
 	github.com/go-acme/lego/v4 v4.30.1
 	github.com/go-chi/chi/v5 v5.2.3
 	github.com/go-chi/render v1.0.3

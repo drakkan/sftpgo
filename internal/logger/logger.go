@@ -30,7 +30,6 @@ import (
 	"path/filepath"
 	"time"
 
-	ftpserverlog "github.com/fclairamb/go-log"
 	"github.com/rs/zerolog"
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 )
@@ -380,12 +379,4 @@ func (l *LeveledLogger) Warn(msg string, keysAndValues ...any) {
 // Panic logs the panic at error level for the specified sender
 func (l *LeveledLogger) Panic(msg string, keysAndValues ...any) {
 	l.Error(msg, keysAndValues...)
-}
-
-// With returns a LeveledLogger with additional context specific keyvals
-func (l *LeveledLogger) With(keysAndValues ...any) ftpserverlog.Logger {
-	return &LeveledLogger{
-		Sender:            l.Sender,
-		additionalKeyVals: append(l.additionalKeyVals, keysAndValues...),
-	}
 }
