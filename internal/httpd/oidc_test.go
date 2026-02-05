@@ -1782,3 +1782,191 @@ func getPreLoginScriptContent(user dataprovider.User, nonJSONResponse bool) []by
 	}
 	return content
 }
+
+func TestOIDCReloadSecret(t *testing.T) {
+	// Save original httpServers safely
+	httpServersMutex.Lock()
+	originalServers := make([]*httpdServer, len(httpServers))
+	copy(originalServers, httpServers)
+	httpServersMutex.Unlock()
+
+	defer func() {
+		httpServersMutex.Lock()
+		httpServers = originalServers
+		httpServersMutex.Unlock()
+	}()
+
+	originalSecret := "oldSecret123456789"
+	newSecret := "newSecret987654321"
+
+	// Create temporary file for the secret
+	secretFile := filepath.Join(os.TempDir(), util.GenerateUniqueID())
+	defer os.Remove(secretFile)
+
+	err := os.WriteFile(secretFile, []byte(originalSecret), 0600)
+	assert.NoError(t, err)
+
+	// Test OIDC config
+	config := OIDC{
+		ClientID:         "test-client",
+		ClientSecretFile: secretFile,
+		ConfigURL:        fmt.Sprintf("http://%v/auth/realms/sftpgo", oidcMockAddr),
+		RedirectBaseURL:  "http://127.0.0.1:8081/",
+		UsernameField:    "preferred_username",
+		Scopes:           []string{oidc.ScopeOpenID},
+	}
+
+	// Initial initialization
+	err = config.initialize()
+	assert.NoError(t, err)
+	assert.Equal(t, originalSecret, config.ClientSecret)
+
+	// Update the secret file
+	err = os.WriteFile(secretFile, []byte(newSecret), 0600)
+	assert.NoError(t, err)
+
+	// Test reloadSecret method
+	err = config.ReloadSecret()
+	assert.NoError(t, err)
+	assert.Equal(t, newSecret, config.ClientSecret)
+
+	// Verify oauth2Config was updated
+	if config.oauth2Config != nil {
+		oauth2Cfg := config.oauth2Config.(*oauth2.Config)
+		assert.Equal(t, newSecret, oauth2Cfg.ClientSecret)
+	}
+
+	// Test with missing file
+	os.Remove(secretFile)
+	err = config.ReloadSecret()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to reload OIDC client secret from file")
+
+	// Test with empty secret file
+	emptySecretFile := filepath.Join(os.TempDir(), util.GenerateUniqueID())
+	defer os.Remove(emptySecretFile)
+	err = os.WriteFile(emptySecretFile, []byte(""), 0600)
+	assert.NoError(t, err)
+
+	config.ClientSecretFile = emptySecretFile
+	err = config.ReloadSecret()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "is empty")
+
+	// Test with whitespace-only secret
+	err = os.WriteFile(emptySecretFile, []byte("   \n\t  "), 0600)
+	assert.NoError(t, err)
+
+	err = config.ReloadSecret()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "is empty")
+
+	// Test with no ConfigURL (OIDC not configured)
+	config.ConfigURL = ""
+	err = config.ReloadSecret()
+	assert.NoError(t, err) // Should return nil without error
+
+	// Test with no ClientSecretFile configured
+	config.ConfigURL = fmt.Sprintf("http://%v/auth/realms/sftpgo", oidcMockAddr)
+	config.ClientSecretFile = ""
+	err = config.ReloadSecret()
+	assert.NoError(t, err) // Should return nil without error
+
+	// Test ReloadOIDC function with valid config
+	validSecretFile := filepath.Join(os.TempDir(), util.GenerateUniqueID())
+	defer os.Remove(validSecretFile)
+	err = os.WriteFile(validSecretFile, []byte(originalSecret), 0600)
+	assert.NoError(t, err)
+
+	binding := Binding{
+		Address: "127.0.0.1:8080",
+		OIDC: OIDC{
+			ClientID:         "test-client",
+			ClientSecretFile: validSecretFile,
+			ConfigURL:        fmt.Sprintf("http://%v/auth/realms/sftpgo", oidcMockAddr),
+			RedirectBaseURL:  "http://127.0.0.1:8081/",
+			UsernameField:    "preferred_username",
+			Scopes:           []string{oidc.ScopeOpenID},
+		},
+	}
+
+	err = binding.OIDC.initialize()
+	assert.NoError(t, err)
+	assert.Equal(t, originalSecret, binding.OIDC.ClientSecret)
+
+	// Create and add mock server safely
+	server := &httpdServer{binding: binding}
+	httpServersMutex.Lock()
+	httpServers = []*httpdServer{server}
+	httpServersMutex.Unlock()
+
+	// Update the secret file
+	err = os.WriteFile(validSecretFile, []byte(newSecret), 0600)
+	assert.NoError(t, err)
+
+	// Test ReloadOIDC function
+	err = ReloadOIDC()
+	assert.NoError(t, err)
+
+	// Verify the secret was reloaded via ReloadOIDC safely
+	httpServersMutex.RLock()
+	assert.Equal(t, newSecret, httpServers[0].binding.OIDC.ClientSecret)
+	httpServersMutex.RUnlock()
+}
+
+func TestOIDCReloadEdgeCases(t *testing.T) {
+	// Save original httpServers
+	originalServers := httpServers
+	defer func() {
+		httpServers = originalServers
+	}()
+
+	// Test 1: Invalid config file
+	binding := Binding{
+		Address: "127.0.0.1:8080",
+		OIDC: OIDC{
+			ClientID:         "test-client",
+			ClientSecretFile: "/non/existent/file",
+			ConfigURL:        fmt.Sprintf("http://%v/auth/realms/sftpgo", oidcMockAddr),
+		},
+	}
+	server := &httpdServer{binding: binding}
+	httpServers = []*httpdServer{server}
+
+	err := ReloadOIDC()
+	assert.Error(t, err)
+
+	// Test 2: No servers
+	httpServers = nil
+	err = ReloadOIDC()
+	assert.NoError(t, err)
+
+	// Test 3: Nil oauth2Config
+	secretFile := filepath.Join(os.TempDir(), util.GenerateUniqueID())
+	defer os.Remove(secretFile)
+
+	secret := "testSecret123456789"
+	err = os.WriteFile(secretFile, []byte(secret), 0600)
+	assert.NoError(t, err)
+
+	config := OIDC{
+		ClientID:         "test-client",
+		ClientSecretFile: secretFile,
+		ConfigURL:        fmt.Sprintf("http://%v/auth/realms/sftpgo", oidcMockAddr),
+		oauth2Config:     nil,
+	}
+
+	err = config.ReloadSecret()
+	assert.NoError(t, err)
+	assert.Equal(t, secret, config.ClientSecret)
+
+	// Test 4: Wrong oauth2Config type
+	mockConfig := &mockOAuth2Config{}
+	config.oauth2Config = mockConfig
+	config.ClientSecret = "oldSecret"
+
+	err = config.ReloadSecret()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "oauth2Config has unexpected type")
+	assert.Equal(t, "oldSecret", config.ClientSecret) // rollback verification
+}

@@ -185,6 +185,42 @@ func (o *OIDC) initialize() error {
 	return nil
 }
 
+// ReloadSecret reloads the OIDC client secret from the configured ClientSecretFile.
+func (o *OIDC) ReloadSecret() error {
+	if o.ConfigURL == "" {
+		return nil // OIDC not configured
+	}
+
+	if o.ClientSecretFile == "" {
+		return nil
+	}
+
+	oldSecret := o.ClientSecret
+
+	secret, err := util.ReadConfigFromFile(o.ClientSecretFile, configurationDir)
+	if err != nil {
+		return fmt.Errorf("failed to reload OIDC client secret from file %q: %w", o.ClientSecretFile, err)
+	}
+
+	if strings.TrimSpace(secret) == "" {
+		return fmt.Errorf("OIDC client secret from file %q is empty", o.ClientSecretFile)
+	}
+
+	o.ClientSecret = secret
+
+	if o.oauth2Config != nil {
+		if config, ok := o.oauth2Config.(*oauth2.Config); ok {
+			config.ClientSecret = o.ClientSecret
+			logger.Debug(logSender, "", "OIDC client secret reloaded successfully from file %q", o.ClientSecretFile)
+		} else {
+			o.ClientSecret = oldSecret
+			return fmt.Errorf("OIDC oauth2Config has unexpected type, secret reload aborted")
+		}
+	}
+
+	return nil
+}
+
 func (o *OIDC) getVerifier(ctx context.Context) OIDCTokenVerifier {
 	if o.verifier != nil {
 		return o.verifier

@@ -195,6 +195,8 @@ var (
 	cleanupTicker                  *time.Ticker
 	cleanupDone                    chan bool
 	invalidatedJWTTokens           tokenManager
+	httpServers                    []*httpdServer // Track HTTP servers for OIDC reload
+	httpServersMutex               sync.RWMutex   // Protect httpServers access
 	webRootPath                    string
 	webBasePath                    string
 	webBaseAdminPath               string
@@ -1125,6 +1127,11 @@ func (c *Conf) Initialize(configDir string, isShared int) error {
 	}
 	logger.Info(logSender, "", "initializing HTTP server with config %+v", c.getRedacted())
 	configurationDir = configDir
+
+	httpServersMutex.Lock()
+	httpServers = nil
+	httpServersMutex.Unlock()
+
 	invalidatedJWTTokens = newTokenManager(isShared)
 	resetCodesMgr = newResetCodeManager(isShared)
 	oidcMgr = newOIDCManager(isShared)
@@ -1186,6 +1193,10 @@ func (c *Conf) Initialize(configDir string, isShared int) error {
 			server := newHttpdServer(b, staticFilesPath, c.SigningPassphrase, c.Cors, openAPIPath)
 			server.setShared(isShared)
 
+			httpServersMutex.Lock()
+			httpServers = append(httpServers, server)
+			httpServersMutex.Unlock()
+
 			exitChannel <- server.listenAndServe()
 		}(binding)
 	}
@@ -1211,6 +1222,24 @@ func isWebClientRequest(r *http.Request) bool {
 func ReloadCertificateMgr() error {
 	if certMgr != nil {
 		return certMgr.Reload()
+	}
+	return nil
+}
+
+// ReloadOIDC reloads OIDC client secrets for all running HTTP servers with OIDC configured
+func ReloadOIDC() error {
+	httpServersMutex.RLock()
+	defer httpServersMutex.RUnlock()
+
+	for _, server := range httpServers {
+		if server.binding.OIDC.ConfigURL != "" {
+			if err := server.binding.OIDC.ReloadSecret(); err != nil {
+				logger.Warn(logSender, "", "error reloading OIDC config for binding %s: %v",
+					server.binding.Address, err)
+				return err
+			}
+			logger.Debug(logSender, "", "OIDC configuration reloaded for binding %s", server.binding.Address)
+		}
 	}
 	return nil
 }
