@@ -77,6 +77,8 @@ type OIDC struct {
 	// "web_root" if configured
 	RedirectBaseURL string `json:"redirect_base_url" mapstructure:"redirect_base_url"`
 	// ID token claims field to map to the SFTPGo username
+	DisplayName string `json:"display_name" mapstructure:"display_name"`
+	// sets the label to display for the OIDC provider
 	UsernameField string `json:"username_field" mapstructure:"username_field"`
 	// Optional ID token claims field to map to a SFTPGo role.
 	// If the defined ID token claims field is set to "admin" the authenticated user
