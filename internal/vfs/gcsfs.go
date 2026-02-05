@@ -99,7 +99,7 @@ func NewGCSFs(connectionID, localTempDir, mountPath string, config GCSFsConfig) 
 		fs.svc, err = storage.NewClient(ctx,
 			storage.WithJSONReads(),
 			option.WithUserAgent(version.GetVersionHash()),
-			option.WithCredentialsJSON([]byte(fs.config.Credentials.GetPayload())),
+			option.WithAuthCredentialsJSON(option.ServiceAccount, []byte(fs.config.Credentials.GetPayload())),
 		)
 	}
 	return fs, err
