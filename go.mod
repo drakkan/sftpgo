@@ -14,7 +14,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.32.7
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.7
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.17
-	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.21.1
+	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.22.0
 	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.35.6
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.96.0
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.41.1
@@ -26,7 +26,7 @@ require (
 	github.com/eikenb/pipeat v0.0.0-20251030185646-385cd3c3e07b
 	github.com/fclairamb/ftpserverlib v0.30.0
 	github.com/go-acme/lego/v4 v4.31.0
-	github.com/go-chi/chi/v5 v5.2.4
+	github.com/go-chi/chi/v5 v5.2.5
 	github.com/go-chi/render v1.0.3
 	github.com/go-jose/go-jose/v4 v4.1.3
 	github.com/go-sql-driver/mysql v1.9.3
@@ -43,7 +43,7 @@ require (
 	github.com/mhale/smtpd v0.8.3
 	github.com/minio/sio v0.4.3
 	github.com/otiai10/copy v1.14.1
-	github.com/pires/go-proxyproto v0.9.2
+	github.com/pires/go-proxyproto v0.10.0
 	github.com/pkg/sftp v1.13.10
 	github.com/pquerna/otp v1.5.0
 	github.com/prometheus/client_golang v1.23.2
