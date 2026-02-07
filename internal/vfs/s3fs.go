@@ -841,7 +841,7 @@ func (fs *S3Fs) initiateMultipartUpload(ctx context.Context, name, contentType s
 func (fs *S3Fs) uploadPart(ctx context.Context, name, uploadID string, partNumber int32, data []byte) (*string, error) {
 	timeout := time.Duration(fs.config.UploadPartSize/(1024*1024)) * time.Minute
 	if fs.config.UploadPartMaxTime > 0 {
-		timeout = time.Duration(fs.config.UploadPartMaxTime)
+		timeout = time.Duration(fs.config.UploadPartMaxTime) * time.Second
 	}
 	ctx, cancelFn := context.WithDeadline(ctx, time.Now().Add(timeout))
 	defer cancelFn()
@@ -890,6 +890,13 @@ func (fs *S3Fs) abortMultipartUpload(name, uploadID string) error {
 }
 
 func (fs *S3Fs) singlePartUpload(ctx context.Context, name, contentType string, data []byte) error {
+	timeout := time.Duration(fs.config.UploadPartSize/(1024*1024)) * time.Minute
+	if fs.config.UploadPartMaxTime > 0 {
+		timeout = time.Duration(fs.config.UploadPartMaxTime) * time.Second
+	}
+	ctx, cancelFn := context.WithDeadline(ctx, time.Now().Add(timeout))
+	defer cancelFn()
+
 	contentLength := int64(len(data))
 	_, err := fs.svc.PutObject(ctx, &s3.PutObjectInput{
 		Bucket:               aws.String(fs.config.Bucket),
@@ -989,7 +996,7 @@ func (fs *S3Fs) handleUpload(ctx context.Context, reader io.Reader, name, conten
 			errOnce.Do(func() {
 				finalizeFailedUpload(err)
 			})
-			return err
+			break
 		}
 		guard <- struct{}{}
 		if hasError.Load() {

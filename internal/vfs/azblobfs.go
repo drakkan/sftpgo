@@ -1026,6 +1026,13 @@ func (fs *AzureBlobFs) handleMultipartUpload(ctx context.Context, reader io.Read
 	poolCtx, poolCancel := context.WithCancel(ctx)
 	defer poolCancel()
 
+	finalizeFailedUpload := func(err error) {
+		fsLog(fs, logger.LevelDebug, "multipart upload error: %+v", err)
+		hasError.Store(true)
+		poolError = fmt.Errorf("multipart upload error: %w", err)
+		poolCancel()
+	}
+
 	for part := 0; !finished; part++ {
 		buf := pool.getBuffer()
 
@@ -1039,7 +1046,10 @@ func (fs *AzureBlobFs) handleMultipartUpload(ctx context.Context, reader io.Read
 			finished = true
 		} else if err != nil {
 			pool.releaseBuffer(buf)
-			return err
+			errOnce.Do(func() {
+				finalizeFailedUpload(err)
+			})
+			break
 		}
 
 		// Block IDs are unique values to avoid issue if 2+ clients are uploading blocks
@@ -1047,7 +1057,10 @@ func (fs *AzureBlobFs) handleMultipartUpload(ctx context.Context, reader io.Read
 		generatedUUID, err := uuid.NewRandom()
 		if err != nil {
 			pool.releaseBuffer(buf)
-			return fmt.Errorf("unable to generate block ID: %w", err)
+			errOnce.Do(func() {
+				finalizeFailedUpload(err)
+			})
+			break
 		}
 		blockID := base64.StdEncoding.EncodeToString([]byte(generatedUUID.String()))
 		blocks = append(blocks, blockID)
@@ -1077,9 +1090,7 @@ func (fs *AzureBlobFs) handleMultipartUpload(ctx context.Context, reader io.Read
 			if err != nil {
 				errOnce.Do(func() {
 					fsLog(fs, logger.LevelDebug, "multipart upload error: %+v", err)
-					hasError.Store(true)
-					poolError = fmt.Errorf("multipart upload error: %w", err)
-					poolCancel()
+					finalizeFailedUpload(err)
 				})
 			}
 		}(blockID, buf, n)
