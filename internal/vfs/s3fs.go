@@ -86,6 +86,28 @@ func init() {
 	version.AddFeature("+s3")
 }
 
+func getLocalTimeFromPointer(t *time.Time) time.Time {
+  if t == nil {
+    return time.Time{}
+  }
+
+  originalTime := *t
+
+  // 1. UTC.
+  utcTime := originalTime.In(time.UTC)
+
+  // 2. Local.
+  loc, err := time.LoadLocation("Local")
+  if err != nil {
+    return utcTime
+  }
+
+  // 3. Convert
+  localTime := utcTime.In(loc)
+
+  return localTime
+}
+
 // NewS3Fs returns an S3Fs object that allows to interact with an s3 compatible
 // object storage
 func NewS3Fs(connectionID, localTempDir, mountPath string, s3Config S3FsConfig) (Fs, error) {
@@ -1364,7 +1386,7 @@ func (l *s3DirLister) Next(limit int) ([]os.FileInfo, error) {
 		l.prefixes[name] = true
 	}
 	for _, fileObject := range page.Contents {
-		objectModTime := util.GetTimeFromPointer(fileObject.LastModified)
+		objectModTime := getLocalTimeFromPointer(fileObject.LastModified)
 		objectSize := util.GetIntFromPointer(fileObject.Size)
 		name, isDir := l.resolve(fileObject.Key)
 		if name == "" || name == "/" {
