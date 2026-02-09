@@ -306,6 +306,10 @@ func (t *throttledReader) GetVirtualPath() string {
 	return "**reading request body**"
 }
 
+func (t *throttledReader) GetFsPath() string {
+	return ""
+}
+
 func (t *throttledReader) GetStartTime() time.Time {
 	return t.start
 }
