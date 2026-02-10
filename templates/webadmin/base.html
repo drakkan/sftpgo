@@ -17,13 +17,13 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 {{- block "additionalnavitems" .}}{{- end}}
 {{- template "theme-switcher"}}
 <div class="d-flex align-items-center ms-2 ms-lg-3">
-    <div class="btn btn-icon btn-active-light-primary w-35px h-35px w-md-40px h-md-40px" data-kt-menu-trigger="{default:'click', lg: 'hover'}" data-kt-menu-attach="parent" data-kt-menu-placement="bottom-end">
+    <button aria-haspopup="menu" aria-label="User menu" data-i18n="[aria-label]title.profile" class="btn btn-icon btn-active-light-primary w-35px h-35px w-md-40px h-md-40px" data-kt-menu-trigger="{default:'click', lg: 'click'}" data-kt-menu-attach="parent" data-kt-menu-placement="bottom-end">
         <i class="ki-duotone ki-user fs-2">
             <i class="path1"></i>
             <i class="path2"></i>
         </i>
-    </div>
-    <div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-title-gray-700 menu-icon-gray-500 menu-active-bg menu-state-color fw-semibold py-4 w-250px" data-kt-menu="true">
+    </button>
+    <div role="menu" class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-title-gray-700 menu-icon-gray-500 menu-active-bg menu-state-color fw-semibold py-4 w-250px" data-kt-menu="true">
         <div class="menu-item px-3 my-0">
             <div class="menu-content d-flex align-items-center px-3 py-2">
                 <div class="me-5">
@@ -60,9 +60,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         {{- end}}
         {{- end}}
         <div class="menu-item px-3 my-0">
-            <a id="id_logout_link" href="#" class="menu-link px-3 py-2">
+            <button id="id_logout_link" class="menu-link px-3 py-2">
                 <span data-i18n="login.signout" class="menu-title">Sign out</span>
-            </a>
+            </button>
         </div>
     </div>
 </div>
@@ -128,7 +128,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 {{- end}}
 {{ if .LoggedUser.HasPermission "*"}}
 <div data-kt-menu-trigger="click" class="menu-item menu-accordion {{- if .IsEventManagerPage}} here show{{- end}}">
-    <span class="menu-link">
+    <button aria-controls="menu-sub-accordion-1" class="menu-link">
         <span class="menu-icon">
             <i class="ki-duotone ki-calendar fs-1">
                 <span class="path1"></span>
@@ -137,8 +137,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         </span>
         <span data-i18n="title.event_manager" class="menu-title">Event Manager</span>
         <span class="menu-arrow"></span>
-    </span>
-    <div class="menu-sub menu-sub-accordion">
+    </button>
+    <nav id="menu-sub-accordion-1" class="menu-sub menu-sub-accordion">
         <div class="menu-item">
             <a class="menu-link {{- if eq .CurrentURL .EventRulesURL}} active{{- end}}" href="{{.EventRulesURL}}">
                 <span class="menu-bullet">
@@ -155,19 +155,19 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 <span data-i18n="title.event_actions" class="menu-title fs-5 fw-semibold">Actions</span>
             </a>
         </div>
-    </div>
+    </nav>
 </div>
 {{- end}}
 {{- if or (.LoggedUser.HasPermission "*") (and .HasDefender (.LoggedUser.HasPermission "view_defender"))}}
 <div data-kt-menu-trigger="click" class="menu-item menu-accordion {{- if .IsIPManagerPage}} here show{{- end}}">
-    <span class="menu-link">
+    <button class="menu-link" aria-controls="menu-sub-accordion-2" aria-expanded="true">
         <span class="menu-icon">
             <i class="ki-solid ki-shield fs-1"></i>
         </span>
         <span data-i18n="title.ip_manager" class="menu-title">IP Manager</span>
         <span class="menu-arrow"></span>
-    </span>
-    <div class="menu-sub menu-sub-accordion">
+    </button>
+    <nav id="menu-sub-accordion-2" class="menu-sub menu-sub-accordion">
         {{- if .LoggedUser.HasPermission "*"}}
         <div class="menu-item">
             <a class="menu-link {{- if eq .CurrentURL .IPListsURL}} active{{- end}}" href="{{.IPListsURL}}">
@@ -188,12 +188,12 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </a>
         </div>
         {{- end}}
-    </div>
+    </nav>
 </div>
 {{- end}}
 {{- if or (.LoggedUser.HasPermission "*") (.LoggedUser.HasPermission "view_status") (and .HasSearcher (.LoggedUser.HasPermission "view_events"))}}
 <div data-kt-menu-trigger="click" class="menu-item menu-accordion {{- if .IsServerManagerPage}} here show{{- end}}">
-    <span class="menu-link">
+    <button aria-controls="menu-sub-accordion-3" class="menu-link">
         <span class="menu-icon">
             <i class="ki-duotone ki-setting-3 fs-1">
                 <span class="path1"></span>
@@ -205,8 +205,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         </span>
         <span data-i18n="title.server_manager" class="menu-title">Server Manager</span>
         <span class="menu-arrow"></span>
-    </span>
-    <div class="menu-sub menu-sub-accordion">
+    </button>
+    <nav id="menu-sub-accordion-3" class="menu-sub menu-sub-accordion">
         {{- if .LoggedUser.HasPermission "*"}}
         <div class="menu-item">
             <a class="menu-link {{- if eq .CurrentURL .ConfigsURL}} active{{- end}}" href="{{.ConfigsURL}}">
@@ -247,7 +247,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </a>
         </div>
         {{- end}}
-    </div>
+    </nav>
 </div>
 {{- end}}
 {{- if .LoggedUser.HasPermission "*"}}
