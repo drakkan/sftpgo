@@ -144,16 +144,15 @@ func (s *Service) configurePortableUser() string {
 		printablePassword = "[redacted]"
 	}
 	if len(s.PortableUser.PublicKeys) == 0 && s.PortableUser.Password == "" {
-		var b strings.Builder
-		for i := 0; i < 16; i++ {
-			b.WriteRune(chars[rand.Intn(len(chars))])
-		}
-		s.PortableUser.Password = b.String()
+		s.PortableUser.Password = util.GenerateUniqueID()
 		printablePassword = s.PortableUser.Password
 	}
 	s.PortableUser.Filters.WebClient = []string{sdk.WebClientSharesDisabled, sdk.WebClientInfoChangeDisabled,
 		sdk.WebClientPubKeyChangeDisabled, sdk.WebClientPasswordChangeDisabled, sdk.WebClientAPIKeyAuthChangeDisabled,
-		sdk.WebClientMFADisabled,
+		sdk.WebClientMFADisabled, sdk.WebClientPasswordResetDisabled, sdk.WebClientTLSCertChangeDisabled,
+	}
+	if !s.PortableUser.HasAnyPerm([]string{dataprovider.PermUpload, dataprovider.PermOverwrite}, "/") {
+		s.PortableUser.Filters.WebClient = append(s.PortableUser.Filters.WebClient, sdk.WebClientWriteDisabled)
 	}
 	s.configurePortableSecrets()
 	return printablePassword

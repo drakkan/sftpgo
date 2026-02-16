@@ -39,7 +39,6 @@ const (
 )
 
 var (
-	chars     = []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789")
 	graceTime int
 )
 
