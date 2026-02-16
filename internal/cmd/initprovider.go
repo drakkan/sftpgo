@@ -21,6 +21,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/config"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
@@ -98,6 +99,10 @@ Please take a look at the usage below to customize the options.`,
 				os.Exit(1)
 			}
 			if providerConf.Driver != dataprovider.MemoryDataProviderName && loadDataFrom != "" {
+				if err := common.Initialize(config.GetCommonConfig(), providerConf.GetShared()); err != nil {
+					logger.ErrorToConsole("%v", err)
+					os.Exit(1)
+				}
 				service := service.Service{
 					LoadDataFrom:      loadDataFrom,
 					LoadDataMode:      loadDataMode,
