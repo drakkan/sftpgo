@@ -377,8 +377,9 @@ func TestWithInvalidHome(t *testing.T) {
 	c := Connection{
 		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", "", u),
 	}
-	_, err = fs.ResolvePath("../upper_path")
-	assert.Error(t, err, "tested path is not a home subdir")
+	resolved, err := fs.ResolvePath("../upper_path")
+	assert.NoError(t, err)
+	assert.Equal(t, filepath.Join(u.HomeDir, "upper_path"), resolved)
 	_, err = c.StatVFS(&sftp.Request{
 		Method:   "StatVFS",
 		Filepath: "../unresolvable-path",
