@@ -357,12 +357,16 @@ func (fs *OsFs) GetRelativePath(name string) string {
 	}
 	rel, err := filepath.Rel(fs.rootDir, filepath.Clean(name))
 	if err != nil {
-		return ""
+		return virtualPath
 	}
-	if rel == "." || strings.HasPrefix(rel, "..") {
+	rel = filepath.ToSlash(rel)
+	if rel == ".." || strings.HasPrefix(rel, "../") {
+		return virtualPath
+	}
+	if rel == "." {
 		rel = ""
 	}
-	return path.Join(virtualPath, filepath.ToSlash(rel))
+	return path.Join(virtualPath, rel)
 }
 
 // Walk walks the file tree rooted at root, calling walkFn for each file or
@@ -378,13 +382,15 @@ func (*OsFs) Join(elem ...string) string {
 
 // ResolvePath returns the matching filesystem path for the specified sftp path
 func (fs *OsFs) ResolvePath(virtualPath string) (string, error) {
-	virtualPath = strings.ReplaceAll(virtualPath, "\\", "/")
 	if !filepath.IsAbs(fs.rootDir) {
 		return "", fmt.Errorf("invalid root path %q", fs.rootDir)
 	}
 	if fs.mountPath != "" {
-		virtualPath = strings.TrimPrefix(virtualPath, fs.mountPath)
+		if after, found := strings.CutPrefix(virtualPath, fs.mountPath); found {
+			virtualPath = after
+		}
 	}
+	virtualPath = path.Clean("/" + virtualPath)
 	r := filepath.Clean(filepath.Join(fs.rootDir, virtualPath))
 	p, err := filepath.EvalSymlinks(r)
 	if isInvalidNameError(err) {

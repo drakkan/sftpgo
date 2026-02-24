@@ -1189,3 +1189,348 @@ func TestListerAt(t *testing.T) {
 	err = lister.Close()
 	require.NoError(t, err)
 }
+
+func TestGetFsAndResolvedPath(t *testing.T) {
+	homeDir := filepath.Join(os.TempDir(), "home_test")
+	localVdir := filepath.Join(os.TempDir(), "local_mount_test")
+
+	err := os.MkdirAll(homeDir, 0777)
+	require.NoError(t, err)
+	err = os.MkdirAll(localVdir, 0777)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		os.RemoveAll(homeDir)
+		os.RemoveAll(localVdir)
+	})
+
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username: xid.New().String(),
+			Status:   1,
+			HomeDir:  homeDir,
+		},
+		VirtualFolders: []vfs.VirtualFolder{
+			{
+				BaseVirtualFolder: vfs.BaseVirtualFolder{
+					Name:       "s3",
+					MappedPath: "",
+					FsConfig: vfs.Filesystem{
+						Provider: sdk.S3FilesystemProvider,
+						S3Config: vfs.S3FsConfig{
+							BaseS3FsConfig: sdk.BaseS3FsConfig{
+								Bucket: "my-test-bucket",
+								Region: "us-east-1",
+							},
+						},
+					},
+				},
+				VirtualPath: "/s3",
+			},
+			{
+				BaseVirtualFolder: vfs.BaseVirtualFolder{
+					Name:       "local",
+					MappedPath: localVdir,
+					FsConfig: vfs.Filesystem{
+						Provider: sdk.LocalFilesystemProvider,
+					},
+				},
+				VirtualPath: "/local",
+			},
+		},
+	}
+
+	conn := NewBaseConnection(xid.New().String(), ProtocolSFTP, "", "", user)
+
+	tests := []struct {
+		name                 string
+		inputVirtualPath     string
+		expectedFsType       string
+		expectedPhyPath      string // The resolved path on the target FS
+		expectedRelativePath string
+	}{
+		{
+			name:                 "Root File",
+			inputVirtualPath:     "/file.txt",
+			expectedFsType:       "osfs",
+			expectedPhyPath:      filepath.Join(homeDir, "file.txt"),
+			expectedRelativePath: "/file.txt",
+		},
+		{
+			name:                 "Standard S3 File",
+			inputVirtualPath:     "/s3/image.png",
+			expectedFsType:       "S3Fs",
+			expectedPhyPath:      "image.png",
+			expectedRelativePath: "/s3/image.png",
+		},
+		{
+			name:                 "Standard Local Mount File",
+			inputVirtualPath:     "/local/config.json",
+			expectedFsType:       "osfs",
+			expectedPhyPath:      filepath.Join(localVdir, "config.json"),
+			expectedRelativePath: "/local/config.json",
+		},
+
+		{
+			name:                 "Backslash Separator -> Should hit S3",
+			inputVirtualPath:     "\\s3\\doc.txt",
+			expectedFsType:       "S3Fs",
+			expectedPhyPath:      "doc.txt",
+			expectedRelativePath: "/s3/doc.txt",
+		},
+		{
+			name:                 "Mixed Separators -> Should hit Local Mount",
+			inputVirtualPath:     "/local\\subdir/test.txt",
+			expectedFsType:       "osfs",
+			expectedPhyPath:      filepath.Join(localVdir, "subdir", "test.txt"),
+			expectedRelativePath: "/local/subdir/test.txt",
+		},
+		{
+			name:                 "Double Slash -> Should normalize and hit S3",
+			inputVirtualPath:     "//s3//dir @1/data.csv",
+			expectedFsType:       "S3Fs",
+			expectedPhyPath:      "dir @1/data.csv",
+			expectedRelativePath: "/s3/dir @1/data.csv",
+		},
+
+		{
+			name:                 "Local Mount Traversal (Attempt to escape)",
+			inputVirtualPath:     "/local/../../etc/passwd",
+			expectedFsType:       "osfs",
+			expectedPhyPath:      filepath.Join(homeDir, "/etc/passwd"),
+			expectedRelativePath: "/etc/passwd",
+		},
+		{
+			name:                 "Traversal Out of S3 (Valid)",
+			inputVirtualPath:     "/s3/../../secret.txt",
+			expectedFsType:       "osfs",
+			expectedPhyPath:      filepath.Join(homeDir, "secret.txt"),
+			expectedRelativePath: "/secret.txt",
+		},
+		{
+			name:                 "Traversal Inside S3",
+			inputVirtualPath:     "/s3/subdir/../image.png",
+			expectedFsType:       "S3Fs",
+			expectedPhyPath:      "image.png",
+			expectedRelativePath: "/s3/image.png",
+		},
+		{
+			name:                 "Mount Point Bypass -> Target Local Mount",
+			inputVirtualPath:     "/s3\\..\\local\\secret.txt",
+			expectedFsType:       "osfs",
+			expectedPhyPath:      filepath.Join(localVdir, "secret.txt"),
+			expectedRelativePath: "/local/secret.txt",
+		},
+		{
+			name:                 "Dirty Relative Path (Your Case)",
+			inputVirtualPath:     "test\\..\\..\\oops/file.txt",
+			expectedFsType:       "osfs",
+			expectedPhyPath:      filepath.Join(homeDir, "oops", "file.txt"),
+			expectedRelativePath: "/oops/file.txt",
+		},
+		{
+			name:                 "Relative Path targeting S3 (No leading slash)",
+			inputVirtualPath:     "s3//sub/../image.png",
+			expectedFsType:       "S3Fs",
+			expectedPhyPath:      "image.png",
+			expectedRelativePath: "/s3/image.png",
+		},
+		{
+			name:                 "Windows Path starting with Backslash",
+			inputVirtualPath:     "\\s3\\doc/dir\\doc.txt",
+			expectedFsType:       "S3Fs",
+			expectedPhyPath:      "doc/dir/doc.txt",
+			expectedRelativePath: "/s3/doc/dir/doc.txt",
+		},
+		{
+			name:                 "Filesystem Juggling (Relative)",
+			inputVirtualPath:     "local/../s3/file.txt",
+			expectedFsType:       "S3Fs",
+			expectedPhyPath:      "file.txt",
+			expectedRelativePath: "/s3/file.txt",
+		},
+		{
+			name:                 "Triple Dot Filename (Valid Name)",
+			inputVirtualPath:     "/...hidden/secret",
+			expectedFsType:       "osfs",
+			expectedPhyPath:      filepath.Join(homeDir, "...hidden", "secret"),
+			expectedRelativePath: "/...hidden/secret",
+		},
+		{
+			name:                 "Dot Slash Prefix",
+			inputVirtualPath:     "./local/file.txt",
+			expectedFsType:       "osfs",
+			expectedPhyPath:      filepath.Join(localVdir, "file.txt"),
+			expectedRelativePath: "/local/file.txt",
+		},
+		{
+			name:                 "Root of Local Mount Exactly",
+			inputVirtualPath:     "/local/",
+			expectedFsType:       "osfs",
+			expectedPhyPath:      localVdir,
+			expectedRelativePath: "/local",
+		},
+		{
+			name:                 "Root of S3 Mount Exactly",
+			inputVirtualPath:     "/s3/",
+			expectedFsType:       "S3Fs",
+			expectedPhyPath:      "",
+			expectedRelativePath: "/s3",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// The input path is sanitized by the protocol handler
+			// implementations before reaching GetFsAndResolvedPath.
+			cleanInput := util.CleanPath(tc.inputVirtualPath)
+			fs, resolvedPath, err := conn.GetFsAndResolvedPath(cleanInput)
+			if assert.NoError(t, err, "did not expect error for path: %q, got: %v", tc.inputVirtualPath, err) {
+				assert.Contains(t, fs.Name(), tc.expectedFsType,
+					"routing error: input %q but expected fs %q, got %q", tc.inputVirtualPath, tc.expectedFsType, fs.Name())
+				assert.Equal(t, tc.expectedPhyPath, resolvedPath,
+					"resolution error: input %q resolved to %q expected %q", tc.inputVirtualPath, resolvedPath, tc.expectedPhyPath)
+				relativePath := fs.GetRelativePath(resolvedPath)
+				assert.Equal(t, tc.expectedRelativePath, relativePath,
+					"relative path error, input %q, got %q, expected %q", tc.inputVirtualPath, tc.expectedRelativePath, relativePath)
+			}
+		})
+	}
+}
+
+func TestOsFsGetRelativePath(t *testing.T) {
+	homeDir := filepath.Join(os.TempDir(), "home_test")
+	localVdir := filepath.Join(os.TempDir(), "local_mount_test")
+
+	err := os.MkdirAll(homeDir, 0777)
+	require.NoError(t, err)
+	err = os.MkdirAll(localVdir, 0777)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		os.RemoveAll(homeDir)
+		os.RemoveAll(localVdir)
+	})
+
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username: xid.New().String(),
+			Status:   1,
+			HomeDir:  homeDir,
+		},
+		VirtualFolders: []vfs.VirtualFolder{
+			{
+				BaseVirtualFolder: vfs.BaseVirtualFolder{
+					Name:       "local",
+					MappedPath: localVdir,
+					FsConfig: vfs.Filesystem{
+						Provider: sdk.LocalFilesystemProvider,
+					},
+				},
+				VirtualPath: "/local",
+			},
+		},
+	}
+
+	connID := xid.New().String()
+	rootFs, err := user.GetFilesystemForPath("/", connID)
+	require.NoError(t, err)
+
+	localFs, err := user.GetFilesystemForPath("/local", connID)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name        string
+		fs          vfs.Fs
+		inputPath   string // The physical path to reverse-map
+		expectedRel string // The expected virtual path
+	}{
+		{
+			name:        "Root FS - Inside root",
+			fs:          rootFs,
+			inputPath:   filepath.Join(homeDir, "docs", "file.txt"),
+			expectedRel: "/docs/file.txt",
+		},
+		{
+			name:        "Root FS - Exact root directory",
+			fs:          rootFs,
+			inputPath:   homeDir,
+			expectedRel: "/",
+		},
+		{
+			name:        "Root FS - External absolute path (Jail to /)",
+			fs:          rootFs,
+			inputPath:   "/etc/passwd",
+			expectedRel: "/",
+		},
+		{
+			name:        "Root FS - Traversal escape (Jail to /)",
+			fs:          rootFs,
+			inputPath:   filepath.Join(homeDir, "..", "escaped.txt"),
+			expectedRel: "/",
+		},
+		{
+			name:        "Root FS - Valid file named with triple dots",
+			fs:          rootFs,
+			inputPath:   filepath.Join(homeDir, "..."),
+			expectedRel: "/...",
+		},
+		{
+			name:        "Local FS - Up path in dir",
+			fs:          rootFs,
+			inputPath:   homeDir + "/../" + filepath.Base(homeDir) + "/dir/test.txt",
+			expectedRel: "/dir/test.txt",
+		},
+
+		{
+			name:        "Local FS - Inside mount",
+			fs:          localFs,
+			inputPath:   filepath.Join(localVdir, "data", "config.json"),
+			expectedRel: "/local/data/config.json",
+		},
+		{
+			name:        "Local FS - Exact mount directory",
+			fs:          localFs,
+			inputPath:   localVdir,
+			expectedRel: "/local",
+		},
+		{
+			name:        "Local FS - External absolute path (Jail to /local)",
+			fs:          localFs,
+			inputPath:   "/var/log/syslog",
+			expectedRel: "/local",
+		},
+		{
+			name:        "Local FS - Traversal escape (Jail to /local)",
+			fs:          localFs,
+			inputPath:   filepath.Join(localVdir, "..", "..", "etc", "passwd"),
+			expectedRel: "/local",
+		},
+		{
+			name:        "Local FS - Partial prefix (Jail to /local)",
+			fs:          localFs,
+			inputPath:   localVdir + "_backup",
+			expectedRel: "/local",
+		},
+		{
+			name:        "Local FS - Relative traversal matching virual dir",
+			fs:          localFs,
+			inputPath:   localVdir + "/../" + filepath.Base(localVdir) + "/dir/test.txt",
+			expectedRel: "/local/dir/test.txt",
+		},
+		{
+			name:        "Local FS - Valid file starting with two dots",
+			fs:          localFs,
+			inputPath:   filepath.Join(localVdir, "..hidden_file.txt"),
+			expectedRel: "/local/..hidden_file.txt",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			actualRel := tc.fs.GetRelativePath(tc.inputPath)
+			assert.Equal(t, tc.expectedRel, actualRel,
+				"Failed mapping physical path %q on FS %q", tc.inputPath, tc.fs.Name())
+		})
+	}
+}

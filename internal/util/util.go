@@ -165,6 +165,12 @@ func RemoveDuplicates(obj []string, trim bool) []string {
 
 // IsNameValid validates that a name/username contains only safe characters.
 func IsNameValid(name string) bool {
+	if name == "" {
+		return false
+	}
+	if len(name) > 255 {
+		return false
+	}
 	for _, r := range name {
 		if unicode.IsControl(r) {
 			return false
@@ -173,7 +179,7 @@ func IsNameValid(name string) bool {
 		switch r {
 		case '/', '\\':
 			return false
-		case ':':
+		case ':', '*', '?', '"', '<', '>', '|':
 			return false
 		}
 	}
@@ -542,7 +548,7 @@ func CleanPath(p string) string {
 // CleanPathWithBase returns a clean POSIX (/) absolute path to work with.
 // The specified base will be used if the provided path is not absolute
 func CleanPathWithBase(base, p string) string {
-	p = filepath.ToSlash(p)
+	p = strings.ReplaceAll(p, "\\", "/")
 	if !path.IsAbs(p) {
 		p = path.Join(base, p)
 	}

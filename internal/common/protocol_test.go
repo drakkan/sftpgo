@@ -7017,7 +7017,7 @@ func TestEventRuleRenameEvent(t *testing.T) {
 	assert.NoError(t, err)
 
 	u := getTestUser()
-	u.Username = "test <html > chars"
+	u.Username = "test & chars"
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	conn, client, err := getSftpClient(user)
@@ -7042,7 +7042,7 @@ func TestEventRuleRenameEvent(t *testing.T) {
 		assert.Contains(t, email.Data, fmt.Sprintf(`Subject: "rename" from "%s"`, user.Username))
 		assert.Contains(t, email.Data, "Content-Type: text/html")
 		assert.Contains(t, email.Data, fmt.Sprintf("Target path %q", path.Join("/subdir", testFileName)))
-		assert.Contains(t, email.Data, "Name: test &lt;html &gt; chars,")
+		assert.Contains(t, email.Data, "Name: test &amp; chars,")
 	}
 
 	_, err = httpdtest.RemoveEventRule(rule1, http.StatusOK)
@@ -7070,7 +7070,7 @@ func TestEventRuleIDPLogin(t *testing.T) {
 	require.NoError(t, err)
 	lastReceivedEmail.reset()
 
-	username := `test_"idp_"login`
+	username := `test_'idp_'login`
 	custom1 := `cust"oa"1`
 	u := map[string]any{
 		"username": "{{.Name}}",

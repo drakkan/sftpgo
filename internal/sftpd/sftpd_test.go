@@ -8584,18 +8584,12 @@ func TestResolvePaths(t *testing.T) {
 		assert.Equal(t, fs.Join(user.GetHomeDir(), "/test/sub"), resolved)
 		path = "../test/sub"
 		resolved, err = fs.ResolvePath(filepath.ToSlash(path))
-		if vfs.IsLocalOsFs(fs) {
-			assert.Error(t, err, "Unexpected resolved path: %v for: %v, fs: %v", resolved, path, fs.Name())
-		} else {
-			assert.Equal(t, fs.Join(user.GetHomeDir(), "/test/sub"), resolved)
-		}
+		assert.NoError(t, err)
+		assert.Equal(t, fs.Join(user.GetHomeDir(), "/test/sub"), resolved)
 		path = "../../../test/../sub"
 		resolved, err = fs.ResolvePath(filepath.ToSlash(path))
-		if vfs.IsLocalOsFs(fs) {
-			assert.Error(t, err, "Unexpected resolved path: %v for: %v, fs: %v", resolved, path, fs.Name())
-		} else {
-			assert.Equal(t, fs.Join(user.GetHomeDir(), "/sub"), resolved)
-		}
+		assert.NoError(t, err)
+		assert.Equal(t, fs.Join(user.GetHomeDir(), "/sub"), resolved)
 	}
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
