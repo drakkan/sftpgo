@@ -243,7 +243,7 @@ func (fs *S3Fs) Open(name string, offset int64) (File, PipeReader, func(), error
 	}
 
 	ctx, cancelFn := context.WithCancel(context.Background())
-	downloader := manager.NewDownloader(fs.svc, func(d *manager.Downloader) {
+	downloader := manager.NewDownloader(fs.svc, func(d *manager.Downloader) { //nolint:staticcheck
 		d.Concurrency = fs.config.DownloadConcurrency
 		d.PartSize = fs.config.DownloadPartSize
 		if offset == 0 && fs.config.DownloadPartMaxTime > 0 {
@@ -262,7 +262,7 @@ func (fs *S3Fs) Open(name string, offset int64) (File, PipeReader, func(), error
 	go func() {
 		defer cancelFn()
 
-		n, err := downloader.Download(ctx, w, &s3.GetObjectInput{
+		n, err := downloader.Download(ctx, w, &s3.GetObjectInput{ //nolint:staticcheck
 			Bucket:               aws.String(fs.config.Bucket),
 			Key:                  aws.String(name),
 			Range:                streamRange,
@@ -1218,7 +1218,7 @@ func (fs *S3Fs) downloadToWriter(name string, w PipeWriter) (int64, error) {
 	ctx, cancelFn := context.WithTimeout(context.Background(), preResumeTimeout)
 	defer cancelFn()
 
-	downloader := manager.NewDownloader(fs.svc, func(d *manager.Downloader) {
+	downloader := manager.NewDownloader(fs.svc, func(d *manager.Downloader) { //nolint:staticcheck
 		d.Concurrency = fs.config.DownloadConcurrency
 		d.PartSize = fs.config.DownloadPartSize
 		if fs.config.DownloadPartMaxTime > 0 {
@@ -1229,7 +1229,7 @@ func (fs *S3Fs) downloadToWriter(name string, w PipeWriter) (int64, error) {
 		}
 	})
 
-	n, err := downloader.Download(ctx, w, &s3.GetObjectInput{
+	n, err := downloader.Download(ctx, w, &s3.GetObjectInput{ //nolint:staticcheck
 		Bucket:               aws.String(fs.config.Bucket),
 		Key:                  aws.String(name),
 		SSECustomerKey:       util.NilIfEmpty(fs.sseCustomerKey),
