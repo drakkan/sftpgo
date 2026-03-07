@@ -112,7 +112,7 @@ func (n *NodeData) getNodeName() string {
 	h := sha256.New()
 	var b bytes.Buffer
 
-	b.WriteString(fmt.Sprintf("%s:%d", n.Host, n.Port))
+	fmt.Fprintf(&b, "%s:%d", n.Host, n.Port)
 	h.Write(b.Bytes())
 	return hex.EncodeToString(h.Sum(nil))
 }

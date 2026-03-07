@@ -95,24 +95,24 @@ func (s *Service) StartPortableMode(sftpdPort, ftpPort, webdavPort, httpPort int
 func (s *Service) getServiceOptionalInfoString() string {
 	var info strings.Builder
 	if config.GetSFTPDConfig().Bindings[0].IsValid() {
-		info.WriteString(fmt.Sprintf("SFTP port: %v ", config.GetSFTPDConfig().Bindings[0].Port))
+		fmt.Fprintf(&info, "SFTP port: %d ", config.GetSFTPDConfig().Bindings[0].Port)
 	}
 	if config.GetFTPDConfig().Bindings[0].IsValid() {
-		info.WriteString(fmt.Sprintf("FTP port: %v ", config.GetFTPDConfig().Bindings[0].Port))
+		fmt.Fprintf(&info, "FTP port: %d ", config.GetFTPDConfig().Bindings[0].Port)
 	}
 	if config.GetWebDAVDConfig().Bindings[0].IsValid() {
 		scheme := "http"
 		if config.GetWebDAVDConfig().CertificateFile != "" && config.GetWebDAVDConfig().CertificateKeyFile != "" {
 			scheme = "https"
 		}
-		info.WriteString(fmt.Sprintf("WebDAV URL: %v://<your IP>:%v/ ", scheme, config.GetWebDAVDConfig().Bindings[0].Port))
+		fmt.Fprintf(&info, "WebDAV URL: %v://<your IP>:%v/ ", scheme, config.GetWebDAVDConfig().Bindings[0].Port)
 	}
 	if config.GetHTTPDConfig().Bindings[0].IsValid() {
 		scheme := "http"
 		if config.GetHTTPDConfig().CertificateFile != "" && config.GetHTTPDConfig().CertificateKeyFile != "" {
 			scheme = "https"
 		}
-		info.WriteString(fmt.Sprintf("WebClient URL: %v://<your IP>:%v/ ", scheme, config.GetHTTPDConfig().Bindings[0].Port))
+		fmt.Fprintf(&info, "WebClient URL: %s://<your IP>:%d/ ", scheme, config.GetHTTPDConfig().Bindings[0].Port)
 	}
 	return info.String()
 }
