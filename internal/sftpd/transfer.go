@@ -123,7 +123,9 @@ func (t *transfer) ReadAt(p []byte, off int64) (n int, err error) {
 // It handles upload bandwidth throttling too
 func (t *transfer) WriteAt(p []byte, off int64) (n int, err error) {
 	t.Connection.UpdateLastActivity()
-	if off < t.MinWriteOffset {
+	if off == 0 && t.MinWriteOffset > 0 {
+		off = t.MinWriteOffset
+	} else if off < t.MinWriteOffset {
 		err := fmt.Errorf("invalid write offset: %v minimum valid value: %v", off, t.MinWriteOffset)
 		t.TransferError(err)
 		return 0, err

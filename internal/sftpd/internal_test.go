@@ -193,17 +193,31 @@ func TestUploadResumeInvalidOffset(t *testing.T) {
 	}
 	fs := vfs.NewOsFs("", os.TempDir(), "", nil)
 	conn := common.NewBaseConnection("", common.ProtocolSFTP, "", "", user)
+
+	// When offset is 0 and MinWriteOffset > 0, the offset should be adjusted automatically
 	baseTransfer := common.NewBaseTransfer(file, conn, nil, file.Name(), file.Name(), testfile,
 		common.TransferUpload, 10, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
 	transfer := newTransfer(baseTransfer, nil, nil, nil)
 	_, err = transfer.WriteAt([]byte("test"), 0)
-	assert.Error(t, err, "upload with invalid offset must fail")
-	if assert.Error(t, transfer.ErrTransfer) {
-		assert.EqualError(t, err, transfer.ErrTransfer.Error())
-		assert.Contains(t, transfer.ErrTransfer.Error(), "invalid write offset")
-	}
+	assert.NoError(t, err, "upload with offset 0 and MinWriteOffset > 0 should auto-correct the offset")
 
 	err = transfer.Close()
+	assert.NoError(t, err)
+
+	// A non-zero offset below MinWriteOffset must still fail
+	file2, err := os.Create(testfile)
+	assert.NoError(t, err)
+	baseTransfer2 := common.NewBaseTransfer(file2, conn, nil, file2.Name(), file2.Name(), testfile,
+		common.TransferUpload, 10, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
+	transfer2 := newTransfer(baseTransfer2, nil, nil, nil)
+	_, err = transfer2.WriteAt([]byte("test"), 5)
+	assert.Error(t, err, "upload with non-zero offset below MinWriteOffset must fail")
+	if assert.Error(t, transfer2.ErrTransfer) {
+		assert.EqualError(t, err, transfer2.ErrTransfer.Error())
+		assert.Contains(t, transfer2.ErrTransfer.Error(), "invalid write offset")
+	}
+
+	err = transfer2.Close()
 	if assert.Error(t, err) {
 		assert.ErrorIs(t, err, sftp.ErrSSHFxFailure)
 	}
