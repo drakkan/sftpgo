@@ -65,7 +65,7 @@ const (
 
 var (
 	s3DirMimeTypes    = []string{s3DirMimeType, "httpd/unix-directory"}
-	s3DefaultPageSize = int32(5000)
+	s3DefaultPageSize = int32(1000)
 )
 
 // S3Fs is a Fs implementation for AWS S3 compatible object storages
