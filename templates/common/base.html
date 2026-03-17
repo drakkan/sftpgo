@@ -14,7 +14,7 @@ therefore cannot be used in derivative works/products without an
 explicit grant from the SFTPGo Team (support@sftpgo.com).
 -->
 {{- define "errmsg"}}
-<div id="errorMsg" class="{{if not . }}d-none {{end}}rounded border-warning border border-dashed bg-light-warning d-flex align-items-center p-5 mb-10">
+<div id="errorMsg" role="alert" class="{{if not . }}d-none {{end}}rounded border-warning border border-dashed bg-light-warning d-flex align-items-center p-5 mb-10">
     <i class="ki-duotone ki-information-5 fs-3x text-warning me-5">
         <span class="path1"></span>
         <span class="path2"></span>
@@ -757,10 +757,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     }
 </style>
 {{- end}}
-
 {{- define "theme-switcher"}}
 <div class="d-flex align-items-center ms-2 ms-lg-3">
-    <a href="#" class="btn btn-icon btn-active-light-primary w-35px h-35px w-md-40px h-md-40px" data-kt-menu-trigger="{default:'click', lg: 'hover'}" data-kt-menu-attach="parent" data-kt-menu-placement="bottom-end">
+    <button data-i18n="[aria-label]theme.switcher" aria-label="Theme switcher" aria-haspopup="menu" class="btn btn-icon btn-active-light-primary w-35px h-35px w-md-40px h-md-40px" data-kt-menu-trigger="{default:'click', lg: 'click'}" data-kt-menu-attach="parent" data-kt-menu-placement="bottom-end">
         <i class="ki-duotone ki-night-day theme-light-show fs-2">
             <span class="path1"></span>
             <span class="path2"></span>
@@ -777,10 +776,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             <span class="path1"></span>
             <span class="path2"></span>
         </i>
-    </a>
-    <div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-title-gray-700 menu-icon-gray-500 menu-active-bg menu-state-color fw-semibold py-4 fs-base w-150px" data-kt-menu="true" data-kt-element="theme-mode-menu">
+    </button>
+    <div role="menu" class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-title-gray-700 menu-icon-gray-500 menu-active-bg menu-state-color fw-semibold py-4 fs-base w-150px" data-kt-menu="true" data-kt-element="theme-mode-menu">
         <div class="menu-item px-3 my-0">
-            <a href="#" class="menu-link px-3 py-2" data-kt-element="mode" data-kt-value="light">
+            <button class="menu-link px-3 py-2" data-kt-element="mode" data-kt-value="light">
                 <span class="menu-icon" data-kt-element="icon">
                     <i class="ki-duotone ki-night-day fs-2">
                         <span class="path1"></span>
@@ -796,10 +795,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     </i>
                 </span>
                 <span data-i18n="theme.light" class="menu-title">Light</span>
-            </a>
+            </button>
         </div>
         <div class="menu-item px-3 my-0">
-            <a href="#" class="menu-link px-3 py-2" data-kt-element="mode" data-kt-value="dark">
+            <button class="menu-link px-3 py-2" data-kt-element="mode" data-kt-value="dark">
                 <span class="menu-icon" data-kt-element="icon">
                     <i class="ki-duotone ki-moon fs-2">
                         <span class="path1"></span>
@@ -807,10 +806,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     </i>
                 </span>
                 <span data-i18n="theme.dark" class="menu-title">Dark</span>
-            </a>
+            </button>
         </div>
         <div class="menu-item px-3 my-0">
-            <a href="#" class="menu-link px-3 py-2" data-kt-element="mode" data-kt-value="system">
+            <button class="menu-link px-3 py-2" data-kt-element="mode" data-kt-value="system">
                 <span class="menu-icon" data-kt-element="icon">
                     <i class="ki-duotone ki-screen fs-2">
                         <span class="path1"></span>
@@ -820,7 +819,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     </i>
                 </span>
                 <span data-i18n="theme.system" class="menu-title">System</span>
-            </a>
+            </button>
         </div>
     </div>
 </div>
@@ -876,15 +875,15 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <div class="d-flex flex-column flex-root app-root d-none" id="app_root">
             <div class="app-page  flex-column flex-column-fluid " id="kt_app_page">
                 {{- if .LoggedUser.Username}}
-                <div id="kt_app_header" class="app-header" data-kt-sticky="true" data-kt-sticky-activate="{default: true, lg: true}" data-kt-sticky-name="app-header-minimize" data-kt-sticky-offset="{default: '200px', lg: '300px'}" data-kt-sticky-animation="false">
+                <aside id="kt_app_header" class="app-header" data-kt-sticky="true" data-kt-sticky-activate="{default: true, lg: true}" data-kt-sticky-name="app-header-minimize" data-kt-sticky-offset="{default: '200px', lg: '300px'}" data-kt-sticky-animation="false">
                     <div class="app-container  container-fluid d-flex align-items-stretch flex-stack " id="kt_app_header_container">
                         <div class="d-flex align-items-center d-block d-lg-none ms-n3" title="Show sidebar menu">
-                            <div class="btn btn-icon btn-color-gray-800 btn-active-color-primary w-35px h-35px me-1" id="kt_app_sidebar_mobile_toggle">
+                            <button class="btn btn-icon btn-color-gray-800 btn-active-color-primary w-35px h-35px me-1" id="kt_app_sidebar_mobile_toggle">
                                 <i class="ki-duotone ki-abstract-14 fs-2">
                                     <span class="path1"></span>
                                     <span class="path2"></span>
                                 </i>
-                            </div>
+                            </button>
                             <span>
                                 <img alt="Logo" src="{{.StaticURL}}{{.Branding.LogoPath}}" class="h-30px" />
                             </span>
@@ -899,7 +898,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 							</div>
                         </div>
                     </div>
-                </div>
+                </aside>
                 {{- else if .IsLoggedToShare}}
                 <div class="app-container container-fluid d-flex mt-5">
                     <div class="d-flex align-items-center d-block ms-3">
@@ -919,25 +918,25 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
                         </div>
                     </div> -->
-                    <div id="kt_app_sidebar" class="app-sidebar flex-column" data-kt-drawer="true" data-kt-drawer-name="app-sidebar" data-kt-drawer-activate="{default: true, lg: false}" data-kt-drawer-overlay="true" data-kt-drawer-width="300px" data-kt-drawer-direction="start" data-kt-drawer-toggle="#kt_app_sidebar_mobile_toggle">
-                        <div class="app-sidebar-header flex-column mx-10 pt-8" id="kt_app_sidebar_header">
+                    <aside id="kt_app_sidebar" class="app-sidebar flex-column" data-kt-drawer="true" data-kt-drawer-name="app-sidebar" data-kt-drawer-activate="{default: true, lg: false}" data-kt-drawer-overlay="true" data-kt-drawer-width="300px" data-kt-drawer-direction="start" data-kt-drawer-toggle="#kt_app_sidebar_mobile_toggle">
+                        <header class="app-sidebar-header flex-column mx-10 pt-8" id="kt_app_sidebar_header">
                             <div class="d-flex flex-stack d-none d-lg-flex mb-13">
                                 <div class="app-sidebar-logo">
 									<img alt="Logo" src="{{.StaticURL}}{{.Branding.LogoPath}}" class="h-40px app-sidebar-logo-default" />
 									<span class="text-sidebar fs-4 fw-semibold ps-5">{{.Branding.ShortName}}</span>
 								</div>
                             </div>
-                        </div>
+                        </header>
                         <div class="app-sidebar-navs flex-column-fluid pb-6" id="kt_app_sidebar_navs">
                             <div id="kt_app_sidebar_navs_wrappers" class="hover-scroll-y my-2 mx-4" data-kt-scroll="true" data-kt-scroll-activate="true" data-kt-scroll-height="auto" data-kt-scroll-dependencies="#kt_app_sidebar_header" data-kt-scroll-wrappers="#kt_app_sidebar_navs" data-kt-scroll-offset="5px">
-                                <div id="#kt_app_sidebar_menu" data-kt-menu="true" data-kt-menu-expand="false" class="menu menu-column menu-rounded menu-sub-indention menu-active-bg mb-7">
+                                <nav id="#kt_app_sidebar_menu" data-kt-menu="true" data-kt-menu-expand="false" class="menu menu-column menu-rounded menu-sub-indention menu-active-bg mb-7">
                                     {{- template "sidebaritems" .}}
-                                </div>
+                                </nav>
                             </div>
                         </div>
-                    </div>
+                    </aside>
                     {{- end}}
-                    <div class="app-main flex-column flex-row-fluid " id="kt_app_main">
+                    <main class="app-main flex-column flex-row-fluid " id="kt_app_main">
                         <div class="d-flex flex-column flex-column-fluid">
                             <div id="kt_app_content" class="app-content flex-column-fluid">
                                 <div id="kt_app_content_container" class="app-container container-fluid">
@@ -954,7 +953,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                             </div>
                         </div>
                         {{- end}}
-                    </div>
+                    </main>
                 </div>
             </div>
         </div>
