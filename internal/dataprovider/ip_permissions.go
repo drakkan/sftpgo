@@ -3,6 +3,8 @@ package dataprovider
 import (
 	"os"
 	"strings"
+
+	"github.com/drakkan/sftpgo/v2/internal/common"
 )
 
 const (
@@ -81,9 +83,12 @@ func isPermissionAllowedForIP(permission, remoteIP, protocol string) bool {
 	if remoteIP == "" {
 		return true
 	}
+	if !common.Config.IsAllowListEnabled() {
+		return true
+	}
 	entry, ok, err := GetIPListEntryForIP(remoteIP, normalizeIPListProtocol(protocol), IPListTypeAllowList)
 	if err != nil {
-		return true
+		return false
 	}
 	if !ok {
 		return getIPFilterMode() != ipFilterModeDenyUnmatched
