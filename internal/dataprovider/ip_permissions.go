@@ -3,13 +3,12 @@ package dataprovider
 import (
 	"os"
 	"strings"
-
-	"github.com/drakkan/sftpgo/v2/internal/common"
 )
 
 const (
-	envIPFilterMode  = "SFTPGO_IP_FILTER_MODE"
-	envIPFilterScope = "SFTPGO_IP_FILTER_SCOPE"
+	envIPFilterMode    = "SFTPGO_IP_FILTER_MODE"
+	envIPFilterScope   = "SFTPGO_IP_FILTER_SCOPE"
+	envAllowListStatus = "SFTPGO_COMMON__ALLOWLIST_STATUS"
 
 	ipFilterModeAllowUnmatched = "allow_unmatched"
 	ipFilterModeDenyUnmatched  = "deny_unmatched"
@@ -76,6 +75,11 @@ func normalizeIPListProtocol(protocol string) string {
 	}
 }
 
+func isGlobalAllowListEnabled() bool {
+	val := strings.TrimSpace(os.Getenv(envAllowListStatus))
+	return val != "" && val != "0"
+}
+
 func isPermissionAllowedForIP(permission, remoteIP, protocol string) bool {
 	if getIPFilterScope() != ipFilterScopeDataOnly && getIPFilterScope() != ipFilterScopeAllRequests {
 		return true
@@ -83,7 +87,7 @@ func isPermissionAllowedForIP(permission, remoteIP, protocol string) bool {
 	if remoteIP == "" {
 		return true
 	}
-	if !common.Config.IsAllowListEnabled() {
+	if !isGlobalAllowListEnabled() {
 		return true
 	}
 	entry, ok, err := GetIPListEntryForIP(remoteIP, normalizeIPListProtocol(protocol), IPListTypeAllowList)
