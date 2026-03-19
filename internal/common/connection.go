@@ -66,7 +66,9 @@ func NewBaseConnection(id, protocol, localAddr, remoteAddr string, user dataprov
 	if slices.Contains(supportedProtocols, protocol) {
 		connID = fmt.Sprintf("%s_%s", protocol, id)
 	}
-	user.UploadBandwidth, user.DownloadBandwidth = user.GetBandwidthForIP(util.GetIPFromRemoteAddress(remoteAddr), connID)
+	user.SessionRemoteIP = util.GetIPFromRemoteAddress(remoteAddr)
+	user.SessionProtocol = protocol
+	user.UploadBandwidth, user.DownloadBandwidth = user.GetBandwidthForIP(user.SessionRemoteIP, connID)
 	c := &BaseConnection{
 		ID:         connID,
 		User:       user,

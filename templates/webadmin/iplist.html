@@ -43,13 +43,19 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </div>
             </div>
 
-            {{- if eq .Entry.Type 2}}
+            {{- if or (eq .Entry.Type 1) (eq .Entry.Type 2)}}
             <div class="form-group row mt-10">
                 <label for="idMode" data-i18n="general.mode" class="col-md-3 col-form-label">Mode</label>
                 <div class="col-md-9">
                     <select id="idMode" name="mode" class="form-select" data-control="i18n-select2" data-hide-search="true">
+                        {{- if eq .Entry.Type 2}}
                         <option value="2" data-i18n="ip_list.deny" {{if eq .Entry.Mode 2 }}selected{{end}}>Deny</option>
                         <option value="1" data-i18n="ip_list.allow" {{if eq .Entry.Mode 1 }}selected{{end}}>Allow</option>
+                        {{- else}}
+                        <option value="1" data-i18n="ip_list.allow_upload_download" {{if or (eq .Entry.Mode 0) (eq .Entry.Mode 1) }}selected{{end}}>Allow upload and download</option>
+                        <option value="3" data-i18n="ip_list.allow_upload_only" {{if eq .Entry.Mode 3 }}selected{{end}}>Allow upload only</option>
+                        <option value="4" data-i18n="ip_list.allow_download_only" {{if eq .Entry.Mode 4 }}selected{{end}}>Allow download only</option>
+                        {{- end}}
                     </select>
                 </div>
             </div>

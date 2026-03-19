@@ -7351,7 +7351,10 @@ components:
         type:
           $ref: '#/components/schemas/IPListType'
         mode:
-          $ref: '#/components/schemas/IPListMode'
+          allOf:
+            - $ref: '#/components/schemas/IPListMode'
+          description: |
+            Mode for the entry. For defender entries: `1` allow, `2` deny. For allow list entries: `1` allow upload and download, `3` allow upload only, `4` allow download only.
         protocols:
           type: integer
           description: Defines the protocol the entry applies to. `0` means all the supported protocols, 1 SSH, 2 FTP, 4 WebDAV, 8 HTTP. Protocols can be combined, for example 3 means SSH and FTP

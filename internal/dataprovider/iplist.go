@@ -71,8 +71,12 @@ const (
 
 // Supported IP list modes
 const (
+	// for defender entries
 	ListModeAllow = iota + 1
 	ListModeDeny
+	// for allow list entries only
+	ListModeAllowUploadOnly
+	ListModeAllowDownloadOnly
 )
 
 const (
@@ -127,7 +131,7 @@ func (e *IPListEntry) PrepareForRendering() {
 
 // HasProtocol returns true if the specified protocol is defined
 func (e *IPListEntry) HasProtocol(proto string) bool {
-	switch proto {
+	switch normalizeIPListProtocol(proto) {
 	case protocolSSH:
 		return e.Protocols&1 != 0
 	case protocolFTP:
@@ -186,6 +190,62 @@ func (e *IPListEntry) getLast() netip.Addr {
 	return netip.AddrFrom16(a16)
 }
 
+func (e *IPListEntry) GetAccessMode() int {
+	if e.Type != IPListTypeAllowList {
+		return ListModeAllow
+	}
+	switch e.Mode {
+	case ListModeAllowUploadOnly, ListModeAllowDownloadOnly:
+		return e.Mode
+	default:
+		return ListModeAllow
+	}
+}
+
+func (e *IPListEntry) AllowsUpload() bool {
+	return e.GetAccessMode() != ListModeAllowDownloadOnly
+}
+
+func (e *IPListEntry) AllowsDownload() bool {
+	return e.GetAccessMode() != ListModeAllowUploadOnly
+}
+
+func getMaskBits(ipOrNet string) int {
+	if strings.Contains(ipOrNet, "/") {
+		_, n, err := net.ParseCIDR(ipOrNet)
+		if err == nil {
+			ones, _ := n.Mask.Size()
+			return ones
+		}
+	}
+	if parsed := net.ParseIP(ipOrNet); parsed != nil {
+		if parsed.To4() != nil {
+			return 32
+		}
+		return 128
+	}
+	return -1
+}
+
+func selectMostSpecificIPListEntry(entries []IPListEntry, protocol string) (IPListEntry, bool) {
+	bestBits := -1
+	var best IPListEntry
+	for _, e := range entries {
+		if e.Protocols != 0 && !e.HasProtocol(protocol) {
+			continue
+		}
+		bits := getMaskBits(e.IPOrNet)
+		if bits > bestBits {
+			bestBits = bits
+			best = e
+		}
+	}
+	if bestBits < 0 {
+		return IPListEntry{}, false
+	}
+	return best, true
+}
+
 func (e *IPListEntry) checkProtocols() {
 	for _, proto := range ValidProtocols {
 		if !e.HasProtocol(proto) {
@@ -204,6 +264,10 @@ func (e *IPListEntry) validate() error {
 	case IPListTypeDefender:
 		if e.Mode < ListModeAllow || e.Mode > ListModeDeny {
 			return util.NewValidationError(fmt.Sprintf("invalid list mode: %d", e.Mode))
+		}
+	case IPListTypeAllowList:
+		if e.Mode != ListModeAllow && e.Mode != ListModeAllowUploadOnly && e.Mode != ListModeAllowDownloadOnly {
+			return util.NewValidationError("invalid list mode")
 		}
 	default:
 		if e.Mode != ListModeAllow {
@@ -431,13 +495,15 @@ func (l *IPList) IsListed(ip, protocol string) (bool, int, error) {
 		if err != nil {
 			return false, 0, fmt.Errorf("unable to find containing networks for ip %q: %w", ip, err)
 		}
+		matches := make([]IPListEntry, 0, len(entries))
 		for _, e := range entries {
 			entry, ok := e.(*rangerEntry)
 			if ok {
-				if entry.entry.Protocols == 0 || entry.entry.HasProtocol(protocol) {
-					return true, entry.entry.Mode, nil
-				}
+				matches = append(matches, *entry.entry)
 			}
+		}
+		if match, ok := selectMostSpecificIPListEntry(matches, protocol); ok {
+			return true, match.Mode, nil
 		}
 
 		return false, 0, nil
@@ -447,13 +513,24 @@ func (l *IPList) IsListed(ip, protocol string) (bool, int, error) {
 	if err != nil {
 		return false, 0, err
 	}
-	for _, e := range entries {
-		if e.Protocols == 0 || e.HasProtocol(protocol) {
-			return true, e.Mode, nil
-		}
+	if match, ok := selectMostSpecificIPListEntry(entries, protocol); ok {
+		return true, match.Mode, nil
 	}
 
 	return false, 0, nil
+}
+
+// GetIPListEntryForIP returns the most specific matching entry for the given IP/protocol.
+func GetIPListEntryForIP(ip, protocol string, listType IPListType) (IPListEntry, bool, error) {
+	entries, err := provider.getListEntriesForIP(ip, listType)
+	if err != nil {
+		return IPListEntry{}, false, err
+	}
+	entry, ok := selectMostSpecificIPListEntry(entries, protocol)
+	if !ok {
+		return IPListEntry{}, false, nil
+	}
+	return entry, true, nil
 }
 
 // NewIPList returns a new IP list for the specified type

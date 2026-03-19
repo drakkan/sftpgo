@@ -2726,7 +2726,7 @@ func getIPListEntryFromPostFields(r *http.Request, listType dataprovider.IPListT
 		return dataprovider.IPListEntry{}, util.NewI18nError(err, util.I18nErrorInvalidForm)
 	}
 	var mode int
-	if listType == dataprovider.IPListTypeDefender {
+	if listType == dataprovider.IPListTypeDefender || listType == dataprovider.IPListTypeAllowList {
 		mode, err = strconv.Atoi(r.Form.Get("mode"))
 		if err != nil {
 			return dataprovider.IPListEntry{}, fmt.Errorf("invalid mode: %w", err)
