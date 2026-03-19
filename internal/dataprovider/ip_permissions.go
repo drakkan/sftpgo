@@ -6,9 +6,9 @@ import (
 )
 
 const (
+	envIPFilterEnabled = "SFTPGO_IP_FILTER_ENABLED"
 	envIPFilterMode    = "SFTPGO_IP_FILTER_MODE"
 	envIPFilterScope   = "SFTPGO_IP_FILTER_SCOPE"
-	envAllowListStatus = "SFTPGO_COMMON__ALLOWLIST_STATUS"
 
 	ipFilterModeAllowUnmatched = "allow_unmatched"
 	ipFilterModeDenyUnmatched  = "deny_unmatched"
@@ -75,19 +75,24 @@ func normalizeIPListProtocol(protocol string) string {
 	}
 }
 
-func isGlobalAllowListEnabled() bool {
-	val := strings.TrimSpace(os.Getenv(envAllowListStatus))
-	return val != "" && val != "0"
+func isIPFilterEnabled() bool {
+	val := strings.TrimSpace(os.Getenv(envIPFilterEnabled))
+	switch strings.ToLower(val) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
 }
 
 func isPermissionAllowedForIP(permission, remoteIP, protocol string) bool {
+	if !isIPFilterEnabled() {
+		return true
+	}
 	if getIPFilterScope() != ipFilterScopeDataOnly && getIPFilterScope() != ipFilterScopeAllRequests {
 		return true
 	}
 	if remoteIP == "" {
-		return true
-	}
-	if !isGlobalAllowListEnabled() {
 		return true
 	}
 	entry, ok, err := GetIPListEntryForIP(remoteIP, normalizeIPListProtocol(protocol), IPListTypeAllowList)
