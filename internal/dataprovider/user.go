@@ -138,6 +138,12 @@ type UserFilters struct {
 // User defines a SFTPGo user
 type User struct {
 	sdk.BaseUser
+	// SessionRemoteIP is the remote IP associated with the current live connection.
+	// It is not persisted and is used for connection-scoped permission enforcement.
+	SessionRemoteIP string `json:"-"`
+	// SessionProtocol is the protocol associated with the current live connection.
+	// It is not persisted and is used for connection-scoped permission enforcement.
+	SessionProtocol string `json:"-"`
 	// Additional restrictions
 	Filters UserFilters `json:"filters"`
 	// Mapping between virtual paths and virtual folders
@@ -857,6 +863,13 @@ func (u *User) HasPermissionsInside(virtualPath string) bool {
 // HasPerm returns true if the user has the given permission or any permission
 func (u *User) HasPerm(permission, path string) bool {
 	perms := u.GetPermissionsForPath(path)
+	return u.hasPermissionInList(permission, perms)
+}
+
+func (u *User) hasPermissionInList(permission string, perms []string) bool {
+	if !isPermissionAllowedForIP(permission, u.SessionRemoteIP, u.SessionProtocol) {
+		return false
+	}
 	if slices.Contains(perms, PermAny) {
 		return true
 	}
@@ -866,11 +879,8 @@ func (u *User) HasPerm(permission, path string) bool {
 // HasAnyPerm returns true if the user has at least one of the given permissions
 func (u *User) HasAnyPerm(permissions []string, path string) bool {
 	perms := u.GetPermissionsForPath(path)
-	if slices.Contains(perms, PermAny) {
-		return true
-	}
 	for _, permission := range permissions {
-		if slices.Contains(perms, permission) {
+		if u.hasPermissionInList(permission, perms) {
 			return true
 		}
 	}
@@ -880,11 +890,8 @@ func (u *User) HasAnyPerm(permissions []string, path string) bool {
 // HasPerms returns true if the user has all the given permissions
 func (u *User) HasPerms(permissions []string, path string) bool {
 	perms := u.GetPermissionsForPath(path)
-	if slices.Contains(perms, PermAny) {
-		return true
-	}
 	for _, permission := range permissions {
-		if !slices.Contains(perms, permission) {
+		if !u.hasPermissionInList(permission, perms) {
 			return false
 		}
 	}
@@ -895,40 +902,20 @@ func (u *User) HasPerms(permissions []string, path string) bool {
 // for the given path
 func (u *User) HasPermsDeleteAll(path string) bool {
 	perms := u.GetPermissionsForPath(path)
-	canDeleteFiles := false
-	canDeleteDirs := false
-	for _, permission := range perms {
-		if permission == PermAny || permission == PermDelete {
-			return true
-		}
-		if permission == PermDeleteFiles {
-			canDeleteFiles = true
-		}
-		if permission == PermDeleteDirs {
-			canDeleteDirs = true
-		}
+	if u.hasPermissionInList(PermDelete, perms) {
+		return true
 	}
-	return canDeleteFiles && canDeleteDirs
+	return u.hasPermissionInList(PermDeleteFiles, perms) && u.hasPermissionInList(PermDeleteDirs, perms)
 }
 
 // HasPermsRenameAll returns true if the user can rename both files and directories
 // for the given path
 func (u *User) HasPermsRenameAll(path string) bool {
 	perms := u.GetPermissionsForPath(path)
-	canRenameFiles := false
-	canRenameDirs := false
-	for _, permission := range perms {
-		if permission == PermAny || permission == PermRename {
-			return true
-		}
-		if permission == PermRenameFiles {
-			canRenameFiles = true
-		}
-		if permission == PermRenameDirs {
-			canRenameDirs = true
-		}
+	if u.hasPermissionInList(PermRename, perms) {
+		return true
 	}
-	return canRenameFiles && canRenameDirs
+	return u.hasPermissionInList(PermRenameFiles, perms) && u.hasPermissionInList(PermRenameDirs, perms)
 }
 
 // HasNoQuotaRestrictions returns true if no quota restrictions need to be applyed

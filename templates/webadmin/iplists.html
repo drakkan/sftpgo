@@ -179,11 +179,22 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     }
 
     function checkSelectedListType(val) {
-        switch (val){
+        switch (String(val)) {
             case "1":
-                //{{- if not .IsAllowListEnabled}}
-                showToast(0, 'ip_list.allow_list_disabled');
-                //{{- end}}
+                //{{- if .IsAllowListEnabled }}
+                //{{- if not .IPFilterEnabled }}
+                showToast(0, 'ip_list.allow_list_enabled_filter_disabled');
+                //{{- end }}
+                //{{- else }}
+                //{{- if .IPFilterEnabled }}
+                showToast(2, 'ip_list.allow_list_disabled_filter_enabled', {
+                    mode: '{{.IPFilterMode}}',
+                    scope: '{{.IPFilterScope}}'
+                });
+                //{{- else }}
+                showToast(0, 'ip_list.allow_list_disabled_filter_disabled');
+                //{{- end }}
+                //{{- end }}
                 break;
             case "2":
                 //{{- if not .HasDefender}}
@@ -319,6 +330,15 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         data: "mode",
                         render: function(data, type, row) {
                             if (type === 'display') {
+                                if (row.type == 1){
+                                    if (data == 3){
+                                        return $.t('ip_list.allow_upload_only');
+                                    }
+                                    if (data == 4){
+                                        return $.t('ip_list.allow_download_only');
+                                    }
+                                    return $.t('ip_list.allow_upload_download');
+                                }
                                 if (data == 1){
                                     return $.t('ip_list.allow');
                                 }
@@ -401,6 +421,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
         function handleColumnVisibility(val) {
             switch (val){
+                case '1':
                 case '2':
                 dt.column(2).visible(true);
                 break;
