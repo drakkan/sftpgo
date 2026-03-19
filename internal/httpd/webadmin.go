@@ -244,6 +244,9 @@ type ipListsPage struct {
 	RateLimitersStatus    bool
 	RateLimitersProtocols string
 	IsAllowListEnabled    bool
+	IPFilterEnabled       bool
+	IPFilterMode          string
+	IPFilterScope         string
 }
 
 type ipListPage struct {
@@ -4194,6 +4197,32 @@ func (s *httpdServer) handleWebGetEvents(w http.ResponseWriter, r *http.Request)
 	renderAdminTemplate(w, templateEvents, data)
 }
 
+func isIPFilterEnabled() bool {
+	val := strings.TrimSpace(os.Getenv("SFTPGO_IP_FILTER_ENABLED"))
+	switch strings.ToLower(val) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
+
+func getIPFilterMode() string {
+	val := strings.TrimSpace(os.Getenv("SFTPGO_IP_FILTER_MODE"))
+	if val == "" {
+		return "allow_unmatched"
+	}
+	return val
+}
+
+func getIPFilterScope() string {
+	val := strings.TrimSpace(os.Getenv("SFTPGO_IP_FILTER_SCOPE"))
+	if val == "" {
+		return "data_only"
+	}
+	return val
+}
+
 func (s *httpdServer) handleWebIPListsPage(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	rtlStatus, rtlProtocols := common.Config.GetRateLimitersStatus()
@@ -4202,6 +4231,9 @@ func (s *httpdServer) handleWebIPListsPage(w http.ResponseWriter, r *http.Reques
 		RateLimitersStatus:    rtlStatus,
 		RateLimitersProtocols: strings.Join(rtlProtocols, ", "),
 		IsAllowListEnabled:    common.Config.IsAllowListEnabled(),
+		IPFilterEnabled:       isIPFilterEnabled(),
+		IPFilterMode:          getIPFilterMode(),
+		IPFilterScope:         getIPFilterScope(),
 	}
 
 	renderAdminTemplate(w, templateIPLists, data)

@@ -796,7 +796,8 @@
         "search": "IP/网络或初始部分",
         "defender_disabled": "在您的配置中禁用了守护程序",
         "allow_list_disabled": "允许列表在您的配置中被禁用",
-        "ratelimiters_disabled": "在您的配置中禁用速率限制"
+        "ratelimiters_disabled": "在您的配置中禁用速率限制",
+        "transfer_filter_enabled": "Connection allow list is disabled, but transfer IP filtering is enabled. Mode: {{mode}}, scope: {{scope}}"
     },
     "defender": {
         "view_manage": "查看和管理自动阻止列表",

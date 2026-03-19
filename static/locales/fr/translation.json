@@ -796,7 +796,8 @@
         "search": "IP/Réseau ou partie initiale",
         "defender_disabled": "Défenseur désactivé dans votre configuration",
         "allow_list_disabled": "Liste blanche désactivée dans votre configuration",
-        "ratelimiters_disabled": "Limiteurs de débit désactivés dans votre configuration"
+        "ratelimiters_disabled": "Limiteurs de débit désactivés dans votre configuration",
+        "transfer_filter_enabled": "Connection allow list is disabled, but transfer IP filtering is enabled. Mode: {{mode}}, scope: {{scope}}"
     },
     "defender": {
         "view_manage": "Voir et gérer la liste noire automatique",

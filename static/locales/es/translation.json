@@ -796,7 +796,8 @@
         "search": "IP/Red o parte inicial",
         "defender_disabled": "Defensor deshabilitado en tu configuración",
         "allow_list_disabled": "Lista permitida deshabilitada en tu configuración",
-        "ratelimiters_disabled": "Limitadores de tasa deshabilitados en tu configuración"
+        "ratelimiters_disabled": "Limitadores de tasa deshabilitados en tu configuración",
+        "transfer_filter_enabled": "Connection allow list is disabled, but transfer IP filtering is enabled. Mode: {{mode}}, scope: {{scope}}"
     },
     "defender": {
         "view_manage": "Ver y gestionar lista de bloqueo automático",
