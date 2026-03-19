@@ -179,17 +179,22 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     }
 
     function checkSelectedListType(val) {
-        switch (val){
+        switch (String(val)) {
             case "1":
-                //{{- if not .IsAllowListEnabled}}
-                showToast(0, 'ip_list.allow_list_disabled');
-                //{{- end}}
-                //{{- if and (not .IsAllowListEnabled) .IPFilterEnabled}}
-                showToast(2, 'ip_list.transfer_filter_enabled', {
+                //{{- if .IsAllowListEnabled }}
+                //{{- if not .IPFilterEnabled }}
+                showToast(0, 'ip_list.allow_list_enabled_filter_disabled');
+                //{{- end }}
+                //{{- else }}
+                //{{- if .IPFilterEnabled }}
+                showToast(2, 'ip_list.allow_list_disabled_filter_enabled', {
                     mode: '{{.IPFilterMode}}',
                     scope: '{{.IPFilterScope}}'
                 });
-                //{{- end}}
+                //{{- else }}
+                showToast(0, 'ip_list.allow_list_disabled_filter_disabled');
+                //{{- end }}
+                //{{- end }}
                 break;
             case "2":
                 //{{- if not .HasDefender}}

@@ -800,7 +800,9 @@
         "defender_disabled": "Defender disabled in your configuration",
         "allow_list_disabled": "Allow list disabled in your configuration",
         "ratelimiters_disabled": "Rate limiters disabled in your configuration",
-        "transfer_filter_enabled": "Connection allow list is disabled, but transfer IP filtering is enabled. Mode: {{mode}}, scope: {{scope}}"
+        "allow_list_enabled_filter_disabled": "Connection allow list is enabled, but transfer IP filtering is disabled.",
+        "allow_list_disabled_filter_enabled": "Connection allow list is disabled, but transfer IP filtering is enabled for file operations. Mode: {{mode}}, scope: {{scope}}",
+        "allow_list_disabled_filter_disabled": "Connection allow list and transfer IP filtering are both disabled."
     },
     "defender": {
         "view_manage": "View and manage auto blocklist",
