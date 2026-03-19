@@ -184,7 +184,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 //{{- if not .IsAllowListEnabled}}
                 showToast(0, 'ip_list.allow_list_disabled');
                 //{{- end}}
-                //{{- if .IPFilterEnabled}}
                 //{{- if and (not .IsAllowListEnabled) .IPFilterEnabled}}
                 showToast(2, 'ip_list.transfer_filter_enabled', '{{.IPFilterMode}}', '{{.IPFilterScope}}');
                 //{{- end}}
