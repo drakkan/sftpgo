@@ -93,7 +93,7 @@ func isPermissionAllowedForIP(permission, remoteIP, protocol string) bool {
 		return true
 	}
 	if remoteIP == "" {
-		return true
+		return false
 	}
 	entry, ok, err := GetIPListEntryForIP(remoteIP, normalizeIPListProtocol(protocol), IPListTypeAllowList)
 	if err != nil {

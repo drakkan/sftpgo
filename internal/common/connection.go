@@ -134,6 +134,7 @@ func (c *BaseConnection) GetRemoteIP() string {
 // SetProtocol sets the protocol for this connection
 func (c *BaseConnection) SetProtocol(protocol string) {
 	c.protocol = protocol
+	c.User.SessionProtocol = protocol
 	if slices.Contains(supportedProtocols, c.protocol) {
 		c.ID = fmt.Sprintf("%v_%v", c.protocol, c.ID)
 	}
