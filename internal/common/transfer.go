@@ -281,7 +281,7 @@ func (t *BaseTransfer) Truncate(fsPath string, size int64) (int64, error) {
 					sizeDiff := initialSize - size
 					t.MaxWriteSize += sizeDiff
 					metric.TransferCompleted(t.BytesSent.Load(), t.BytesReceived.Load(),
-						t.transferType, t.ErrTransfer, vfs.IsSFTPFs(t.Fs))
+						t.transferType, t.ErrTransfer, vfs.IsSFTPFs(t.Fs), t.Connection.User.Username)
 					if t.transferQuota.HasSizeLimits() {
 						go func(ulSize, dlSize int64, user dataprovider.User) {
 							dataprovider.UpdateUserTransferQuota(&user, ulSize, dlSize, false) //nolint:errcheck
@@ -393,7 +393,7 @@ func (t *BaseTransfer) Close() error {
 	var err error
 	numFiles := t.getUploadedFiles()
 	metric.TransferCompleted(t.BytesSent.Load(), t.BytesReceived.Load(),
-		t.transferType, t.ErrTransfer, vfs.IsSFTPFs(t.Fs))
+		t.transferType, t.ErrTransfer, vfs.IsSFTPFs(t.Fs), t.Connection.User.Username)
 	if t.transferQuota.HasSizeLimits() {
 		dataprovider.UpdateUserTransferQuota(&t.Connection.User, t.BytesReceived.Load(), //nolint:errcheck
 			t.BytesSent.Load(), false)

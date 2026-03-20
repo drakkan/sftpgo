@@ -27,6 +27,7 @@ import (
 )
 
 const (
+	unknownUsername                 = "unknown"
 	loginMethodPublicKey            = "publickey"
 	loginMethodKeyboardInteractive  = "keyboard-interactive"
 	loginMethodKeyAndPassword       = "publickey+password"
@@ -48,64 +49,64 @@ var (
 	})
 
 	// activeConnections is the metric that reports the total number of active connections
-	activeConnections = promauto.NewGauge(prometheus.GaugeOpts{
+	activeConnections = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "sftpgo_active_connections",
 		Help: "Total number of logged in users",
-	})
+	}, []string{"username"})
 
 	// totalUploads is the metric that reports the total number of successful uploads
-	totalUploads = promauto.NewCounter(prometheus.CounterOpts{
+	totalUploads = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_uploads_total",
 		Help: "The total number of successful uploads",
-	})
+	}, []string{"username"})
 
 	// totalDownloads is the metric that reports the total number of successful downloads
-	totalDownloads = promauto.NewCounter(prometheus.CounterOpts{
+	totalDownloads = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_downloads_total",
 		Help: "The total number of successful downloads",
-	})
+	}, []string{"username"})
 
 	// totalUploadErrors is the metric that reports the total number of upload errors
-	totalUploadErrors = promauto.NewCounter(prometheus.CounterOpts{
+	totalUploadErrors = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_upload_errors_total",
 		Help: "The total number of upload errors",
-	})
+	}, []string{"username"})
 
 	// totalDownloadErrors is the metric that reports the total number of download errors
-	totalDownloadErrors = promauto.NewCounter(prometheus.CounterOpts{
+	totalDownloadErrors = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_download_errors_total",
 		Help: "The total number of download errors",
-	})
+	}, []string{"username"})
 
 	// totalUploadSize is the metric that reports the total uploads size as bytes
-	totalUploadSize = promauto.NewCounter(prometheus.CounterOpts{
+	totalUploadSize = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_upload_size",
 		Help: "The total upload size as bytes, partial uploads are included",
-	})
+	}, []string{"username"})
 
 	// totalDownloadSize is the metric that reports the total downloads size as bytes
-	totalDownloadSize = promauto.NewCounter(prometheus.CounterOpts{
+	totalDownloadSize = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_download_size",
 		Help: "The total download size as bytes, partial downloads are included",
-	})
+	}, []string{"username"})
 
 	// totalSSHCommands is the metric that reports the total number of executed SSH commands
-	totalSSHCommands = promauto.NewCounter(prometheus.CounterOpts{
+	totalSSHCommands = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_ssh_commands_total",
 		Help: "The total number of executed SSH commands",
-	})
+	}, []string{"username"})
 
 	// totalSSHCommandErrors is the metric that reports the total number of SSH command errors
-	totalSSHCommandErrors = promauto.NewCounter(prometheus.CounterOpts{
+	totalSSHCommandErrors = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_ssh_command_errors_total",
 		Help: "The total number of SSH command errors",
-	})
+	}, []string{"username"})
 
 	// totalLoginAttempts is the metric that reports the total number of login attempts
-	totalLoginAttempts = promauto.NewCounter(prometheus.CounterOpts{
+	totalLoginAttempts = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_login_attempts_total",
 		Help: "The total number of login attempts",
-	})
+	}, []string{"username"})
 
 	// totalNoAuthTried is te metric that reports the total number of clients disconnected
 	// for inactivity before trying to login
@@ -115,184 +116,184 @@ var (
 	})
 
 	// totalLoginOK is the metric that reports the total number of successful logins
-	totalLoginOK = promauto.NewCounter(prometheus.CounterOpts{
+	totalLoginOK = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_login_ok_total",
 		Help: "The total number of successful logins",
-	})
+	}, []string{"username"})
 
 	// totalLoginFailed is the metric that reports the total number of failed logins
-	totalLoginFailed = promauto.NewCounter(prometheus.CounterOpts{
+	totalLoginFailed = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_login_ko_total",
 		Help: "The total number of failed logins",
-	})
+	}, []string{"username"})
 
 	// totalPasswordLoginAttempts is the metric that reports the total number of login attempts
 	// using a password
-	totalPasswordLoginAttempts = promauto.NewCounter(prometheus.CounterOpts{
+	totalPasswordLoginAttempts = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_password_login_attempts_total",
 		Help: "The total number of login attempts using a password",
-	})
+	}, []string{"username"})
 
 	// totalPasswordLoginOK is the metric that reports the total number of successful logins
 	// using a password
-	totalPasswordLoginOK = promauto.NewCounter(prometheus.CounterOpts{
+	totalPasswordLoginOK = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_password_login_ok_total",
 		Help: "The total number of successful logins using a password",
-	})
+	}, []string{"username"})
 
 	// totalPasswordLoginFailed is the metric that reports the total number of failed logins
 	// using a password
-	totalPasswordLoginFailed = promauto.NewCounter(prometheus.CounterOpts{
+	totalPasswordLoginFailed = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_password_login_ko_total",
 		Help: "The total number of failed logins using a password",
-	})
+	}, []string{"username"})
 
 	// totalKeyLoginAttempts is the metric that reports the total number of login attempts
 	// using a public key
-	totalKeyLoginAttempts = promauto.NewCounter(prometheus.CounterOpts{
+	totalKeyLoginAttempts = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_public_key_login_attempts_total",
 		Help: "The total number of login attempts using a public key",
-	})
+	}, []string{"username"})
 
 	// totalKeyLoginOK is the metric that reports the total number of successful logins
 	// using a public key
-	totalKeyLoginOK = promauto.NewCounter(prometheus.CounterOpts{
+	totalKeyLoginOK = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_public_key_login_ok_total",
 		Help: "The total number of successful logins using a public key",
-	})
+	}, []string{"username"})
 
 	// totalKeyLoginFailed is the metric that reports the total number of failed logins
 	// using a public key
-	totalKeyLoginFailed = promauto.NewCounter(prometheus.CounterOpts{
+	totalKeyLoginFailed = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_public_key_login_ko_total",
 		Help: "The total number of failed logins using a public key",
-	})
+	}, []string{"username"})
 
 	// totalTLSCertLoginAttempts is the metric that reports the total number of login attempts
 	// using a TLS certificate
-	totalTLSCertLoginAttempts = promauto.NewCounter(prometheus.CounterOpts{
+	totalTLSCertLoginAttempts = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_tls_cert_login_attempts_total",
 		Help: "The total number of login attempts using a TLS certificate",
-	})
+	}, []string{"username"})
 
 	// totalTLSCertLoginOK is the metric that reports the total number of successful logins
 	// using a TLS certificate
-	totalTLSCertLoginOK = promauto.NewCounter(prometheus.CounterOpts{
+	totalTLSCertLoginOK = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_tls_cert_login_ok_total",
 		Help: "The total number of successful logins using a TLS certificate",
-	})
+	}, []string{"username"})
 
 	// totalTLSCertLoginFailed is the metric that reports the total number of failed logins
 	// using a TLS certificate
-	totalTLSCertLoginFailed = promauto.NewCounter(prometheus.CounterOpts{
+	totalTLSCertLoginFailed = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_tls_cert_login_ko_total",
 		Help: "The total number of failed logins using a TLS certificate",
-	})
+	}, []string{"username"})
 
 	// totalTLSCertAndPwdLoginAttempts is the metric that reports the total number of login attempts
 	// using a TLS certificate+password
-	totalTLSCertAndPwdLoginAttempts = promauto.NewCounter(prometheus.CounterOpts{
+	totalTLSCertAndPwdLoginAttempts = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_tls_cert_and_pwd_login_attempts_total",
 		Help: "The total number of login attempts using a TLS certificate+password",
-	})
+	}, []string{"username"})
 
 	// totalTLSCertLoginOK is the metric that reports the total number of successful logins
 	// using a TLS certificate+password
-	totalTLSCertAndPwdLoginOK = promauto.NewCounter(prometheus.CounterOpts{
+	totalTLSCertAndPwdLoginOK = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_tls_cert_and_pwd_login_ok_total",
 		Help: "The total number of successful logins using a TLS certificate+password",
-	})
+	}, []string{"username"})
 
 	// totalTLSCertAndPwdLoginFailed is the metric that reports the total number of failed logins
 	// using a TLS certificate+password
-	totalTLSCertAndPwdLoginFailed = promauto.NewCounter(prometheus.CounterOpts{
+	totalTLSCertAndPwdLoginFailed = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_tls_cert_and_pwd_login_ko_total",
 		Help: "The total number of failed logins using a TLS certificate+password",
-	})
+	}, []string{"username"})
 
 	// totalInteractiveLoginAttempts is the metric that reports the total number of login attempts
 	// using keyboard interactive authentication
-	totalInteractiveLoginAttempts = promauto.NewCounter(prometheus.CounterOpts{
+	totalInteractiveLoginAttempts = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_keyboard_interactive_login_attempts_total",
 		Help: "The total number of login attempts using keyboard interactive authentication",
-	})
+	}, []string{"username"})
 
 	// totalInteractiveLoginOK is the metric that reports the total number of successful logins
 	// using keyboard interactive authentication
-	totalInteractiveLoginOK = promauto.NewCounter(prometheus.CounterOpts{
+	totalInteractiveLoginOK = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_keyboard_interactive_login_ok_total",
 		Help: "The total number of successful logins using keyboard interactive authentication",
-	})
+	}, []string{"username"})
 
 	// totalInteractiveLoginFailed is the metric that reports the total number of failed logins
 	// using keyboard interactive authentication
-	totalInteractiveLoginFailed = promauto.NewCounter(prometheus.CounterOpts{
+	totalInteractiveLoginFailed = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_keyboard_interactive_login_ko_total",
 		Help: "The total number of failed logins using keyboard interactive authentication",
-	})
+	}, []string{"username"})
 
 	// totalKeyAndPasswordLoginAttempts is the metric that reports the total number of
 	// login attempts using public key + password multi steps auth
-	totalKeyAndPasswordLoginAttempts = promauto.NewCounter(prometheus.CounterOpts{
+	totalKeyAndPasswordLoginAttempts = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_key_and_password_login_attempts_total",
 		Help: "The total number of login attempts using public key + password",
-	})
+	}, []string{"username"})
 
 	// totalKeyAndPasswordLoginOK is the metric that reports the total number of
 	// successful logins using public key + password multi steps auth
-	totalKeyAndPasswordLoginOK = promauto.NewCounter(prometheus.CounterOpts{
+	totalKeyAndPasswordLoginOK = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_key_and_password_login_ok_total",
 		Help: "The total number of successful logins using public key + password",
-	})
+	}, []string{"username"})
 
 	// totalKeyAndPasswordLoginFailed is the metric that reports the total number of
 	// failed logins using public key + password multi steps auth
-	totalKeyAndPasswordLoginFailed = promauto.NewCounter(prometheus.CounterOpts{
+	totalKeyAndPasswordLoginFailed = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_key_and_password_login_ko_total",
 		Help: "The total number of failed logins using  public key + password",
-	})
+	}, []string{"username"})
 
 	// totalKeyAndKeyIntLoginAttempts is the metric that reports the total number of
 	// login attempts using public key + keyboard interactive multi steps auth
-	totalKeyAndKeyIntLoginAttempts = promauto.NewCounter(prometheus.CounterOpts{
+	totalKeyAndKeyIntLoginAttempts = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_key_and_keyboard_int_login_attempts_total",
 		Help: "The total number of login attempts using public key + keyboard interactive",
-	})
+	}, []string{"username"})
 
 	// totalKeyAndKeyIntLoginOK is the metric that reports the total number of
 	// successful logins using public key + keyboard interactive multi steps auth
-	totalKeyAndKeyIntLoginOK = promauto.NewCounter(prometheus.CounterOpts{
+	totalKeyAndKeyIntLoginOK = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_key_and_keyboard_int_login_ok_total",
 		Help: "The total number of successful logins using public key + keyboard interactive",
-	})
+	}, []string{"username"})
 
 	// totalKeyAndKeyIntLoginFailed is the metric that reports the total number of
 	// failed logins using public key + keyboard interactive multi steps auth
-	totalKeyAndKeyIntLoginFailed = promauto.NewCounter(prometheus.CounterOpts{
+	totalKeyAndKeyIntLoginFailed = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_key_and_keyboard_int_login_ko_total",
 		Help: "The total number of failed logins using  public key + keyboard interactive",
-	})
+	}, []string{"username"})
 
 	// totalIDPLoginAttempts is the metric that reports the total number of
 	// login attempts using identity providers
-	totalIDPLoginAttempts = promauto.NewCounter(prometheus.CounterOpts{
+	totalIDPLoginAttempts = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_idp_login_attempts_total",
 		Help: "The total number of login attempts using Identity Providers",
-	})
+	}, []string{"username"})
 
 	// totalIDPLoginOK is the metric that reports the total number of
 	// successful logins using identity providers
-	totalIDPLoginOK = promauto.NewCounter(prometheus.CounterOpts{
+	totalIDPLoginOK = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_idp_login_ok_total",
 		Help: "The total number of successful logins using Identity Providers",
-	})
+	}, []string{"username"})
 
 	// totalIDPLoginFailed is the metric that reports the total number of
 	// failed logins using identity providers
-	totalIDPLoginFailed = promauto.NewCounter(prometheus.CounterOpts{
+	totalIDPLoginFailed = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_idp_login_ko_total",
 		Help: "The total number of failed logins using  Identity Providers",
-	})
+	}, []string{"username"})
 
 	totalHTTPRequests = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "sftpgo_http_req_total",
@@ -315,328 +316,328 @@ var (
 	})
 
 	// totalS3Uploads is the metric that reports the total number of successful S3 uploads
-	totalS3Uploads = promauto.NewCounter(prometheus.CounterOpts{
+	totalS3Uploads = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_s3_uploads_total",
 		Help: "The total number of successful S3 uploads",
-	})
+	}, []string{"username"})
 
 	// totalS3Downloads is the metric that reports the total number of successful S3 downloads
-	totalS3Downloads = promauto.NewCounter(prometheus.CounterOpts{
+	totalS3Downloads = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_s3_downloads_total",
 		Help: "The total number of successful S3 downloads",
-	})
+	}, []string{"username"})
 
 	// totalS3UploadErrors is the metric that reports the total number of S3 upload errors
-	totalS3UploadErrors = promauto.NewCounter(prometheus.CounterOpts{
+	totalS3UploadErrors = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_s3_upload_errors_total",
 		Help: "The total number of S3 upload errors",
-	})
+	}, []string{"username"})
 
 	// totalS3DownloadErrors is the metric that reports the total number of S3 download errors
-	totalS3DownloadErrors = promauto.NewCounter(prometheus.CounterOpts{
+	totalS3DownloadErrors = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_s3_download_errors_total",
 		Help: "The total number of S3 download errors",
-	})
+	}, []string{"username"})
 
 	// totalS3UploadSize is the metric that reports the total S3 uploads size as bytes
-	totalS3UploadSize = promauto.NewCounter(prometheus.CounterOpts{
+	totalS3UploadSize = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_s3_upload_size",
 		Help: "The total S3 upload size as bytes, partial uploads are included",
-	})
+	}, []string{"username"})
 
 	// totalS3DownloadSize is the metric that reports the total S3 downloads size as bytes
-	totalS3DownloadSize = promauto.NewCounter(prometheus.CounterOpts{
+	totalS3DownloadSize = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_s3_download_size",
 		Help: "The total S3 download size as bytes, partial downloads are included",
-	})
+	}, []string{"username"})
 
 	// totalS3ListObjects is the metric that reports the total successful S3 list objects requests
-	totalS3ListObjects = promauto.NewCounter(prometheus.CounterOpts{
+	totalS3ListObjects = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_s3_list_objects",
 		Help: "The total number of successful S3 list objects requests",
-	})
+	}, []string{"username"})
 
 	// totalS3CopyObject is the metric that reports the total successful S3 copy object requests
-	totalS3CopyObject = promauto.NewCounter(prometheus.CounterOpts{
+	totalS3CopyObject = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_s3_copy_object",
 		Help: "The total number of successful S3 copy object requests",
-	})
+	}, []string{"username"})
 
 	// totalS3DeleteObject is the metric that reports the total successful S3 delete object requests
-	totalS3DeleteObject = promauto.NewCounter(prometheus.CounterOpts{
+	totalS3DeleteObject = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_s3_delete_object",
 		Help: "The total number of successful S3 delete object requests",
-	})
+	}, []string{"username"})
 
 	// totalS3ListObjectsError is the metric that reports the total S3 list objects errors
-	totalS3ListObjectsErrors = promauto.NewCounter(prometheus.CounterOpts{
+	totalS3ListObjectsErrors = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_s3_list_objects_errors",
 		Help: "The total number of S3 list objects errors",
-	})
+	}, []string{"username"})
 
 	// totalS3CopyObjectErrors is the metric that reports the total S3 copy object errors
-	totalS3CopyObjectErrors = promauto.NewCounter(prometheus.CounterOpts{
+	totalS3CopyObjectErrors = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_s3_copy_object_errors",
 		Help: "The total number of S3 copy object errors",
-	})
+	}, []string{"username"})
 
 	// totalS3DeleteObjectErrors is the metric that reports the total S3 delete object errors
-	totalS3DeleteObjectErrors = promauto.NewCounter(prometheus.CounterOpts{
+	totalS3DeleteObjectErrors = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_s3_delete_object_errors",
 		Help: "The total number of S3 delete object errors",
-	})
+	}, []string{"username"})
 
 	// totalS3HeadObject is the metric that reports the total successful S3 head object requests
-	totalS3HeadObject = promauto.NewCounter(prometheus.CounterOpts{
+	totalS3HeadObject = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_s3_head_object",
 		Help: "The total number of successful S3 head object requests",
-	})
+	}, []string{"username"})
 
 	// totalS3HeadObjectErrors is the metric that reports the total S3 head object errors
-	totalS3HeadObjectErrors = promauto.NewCounter(prometheus.CounterOpts{
+	totalS3HeadObjectErrors = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_s3_head_object_errors",
 		Help: "The total number of S3 head object errors",
-	})
+	}, []string{"username"})
 
 	// totalGCSUploads is the metric that reports the total number of successful GCS uploads
-	totalGCSUploads = promauto.NewCounter(prometheus.CounterOpts{
+	totalGCSUploads = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_gcs_uploads_total",
 		Help: "The total number of successful GCS uploads",
-	})
+	}, []string{"username"})
 
 	// totalGCSDownloads is the metric that reports the total number of successful GCS downloads
-	totalGCSDownloads = promauto.NewCounter(prometheus.CounterOpts{
+	totalGCSDownloads = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_gcs_downloads_total",
 		Help: "The total number of successful GCS downloads",
-	})
+	}, []string{"username"})
 
 	// totalGCSUploadErrors is the metric that reports the total number of GCS upload errors
-	totalGCSUploadErrors = promauto.NewCounter(prometheus.CounterOpts{
+	totalGCSUploadErrors = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_gcs_upload_errors_total",
 		Help: "The total number of GCS upload errors",
-	})
+	}, []string{"username"})
 
 	// totalGCSDownloadErrors is the metric that reports the total number of GCS download errors
-	totalGCSDownloadErrors = promauto.NewCounter(prometheus.CounterOpts{
+	totalGCSDownloadErrors = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_gcs_download_errors_total",
 		Help: "The total number of GCS download errors",
-	})
+	}, []string{"username"})
 
 	// totalGCSUploadSize is the metric that reports the total GCS uploads size as bytes
-	totalGCSUploadSize = promauto.NewCounter(prometheus.CounterOpts{
+	totalGCSUploadSize = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_gcs_upload_size",
 		Help: "The total GCS upload size as bytes, partial uploads are included",
-	})
+	}, []string{"username"})
 
 	// totalGCSDownloadSize is the metric that reports the total GCS downloads size as bytes
-	totalGCSDownloadSize = promauto.NewCounter(prometheus.CounterOpts{
+	totalGCSDownloadSize = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_gcs_download_size",
 		Help: "The total GCS download size as bytes, partial downloads are included",
-	})
+	}, []string{"username"})
 
 	// totalGCSListObjects is the metric that reports the total successful GCS list objects requests
-	totalGCSListObjects = promauto.NewCounter(prometheus.CounterOpts{
+	totalGCSListObjects = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_gcs_list_objects",
 		Help: "The total number of successful GCS list objects requests",
-	})
+	}, []string{"username"})
 
 	// totalGCSCopyObject is the metric that reports the total successful GCS copy object requests
-	totalGCSCopyObject = promauto.NewCounter(prometheus.CounterOpts{
+	totalGCSCopyObject = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_gcs_copy_object",
 		Help: "The total number of successful GCS copy object requests",
-	})
+	}, []string{"username"})
 
 	// totalGCSDeleteObject is the metric that reports the total successful GCS delete object requests
-	totalGCSDeleteObject = promauto.NewCounter(prometheus.CounterOpts{
+	totalGCSDeleteObject = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_gcs_delete_object",
 		Help: "The total number of successful GCS delete object requests",
-	})
+	}, []string{"username"})
 
 	// totalGCSListObjectsError is the metric that reports the total GCS list objects errors
-	totalGCSListObjectsErrors = promauto.NewCounter(prometheus.CounterOpts{
+	totalGCSListObjectsErrors = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_gcs_list_objects_errors",
 		Help: "The total number of GCS list objects errors",
-	})
+	}, []string{"username"})
 
 	// totalGCSCopyObjectErrors is the metric that reports the total GCS copy object errors
-	totalGCSCopyObjectErrors = promauto.NewCounter(prometheus.CounterOpts{
+	totalGCSCopyObjectErrors = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_gcs_copy_object_errors",
 		Help: "The total number of GCS copy object errors",
-	})
+	}, []string{"username"})
 
 	// totalGCSDeleteObjectErrors is the metric that reports the total GCS delete object errors
-	totalGCSDeleteObjectErrors = promauto.NewCounter(prometheus.CounterOpts{
+	totalGCSDeleteObjectErrors = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_gcs_delete_object_errors",
 		Help: "The total number of GCS delete object errors",
-	})
+	}, []string{"username"})
 
 	// totalGCSHeadObject is the metric that reports the total successful GCS head object requests
-	totalGCSHeadObject = promauto.NewCounter(prometheus.CounterOpts{
+	totalGCSHeadObject = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_gcs_head_object",
 		Help: "The total number of successful GCS head object requests",
-	})
+	}, []string{"username"})
 
 	// totalGCSHeadObjectErrors is the metric that reports the total GCS head object errors
-	totalGCSHeadObjectErrors = promauto.NewCounter(prometheus.CounterOpts{
+	totalGCSHeadObjectErrors = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_gcs_head_object_errors",
 		Help: "The total number of GCS head object errors",
-	})
+	}, []string{"username"})
 
 	// totalAZUploads is the metric that reports the total number of successful Azure uploads
-	totalAZUploads = promauto.NewCounter(prometheus.CounterOpts{
+	totalAZUploads = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_az_uploads_total",
 		Help: "The total number of successful Azure uploads",
-	})
+	}, []string{"username"})
 
 	// totalAZDownloads is the metric that reports the total number of successful Azure downloads
-	totalAZDownloads = promauto.NewCounter(prometheus.CounterOpts{
+	totalAZDownloads = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_az_downloads_total",
 		Help: "The total number of successful Azure downloads",
-	})
+	}, []string{"username"})
 
 	// totalAZUploadErrors is the metric that reports the total number of Azure upload errors
-	totalAZUploadErrors = promauto.NewCounter(prometheus.CounterOpts{
+	totalAZUploadErrors = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_az_upload_errors_total",
 		Help: "The total number of Azure upload errors",
-	})
+	}, []string{"username"})
 
 	// totalAZDownloadErrors is the metric that reports the total number of Azure download errors
-	totalAZDownloadErrors = promauto.NewCounter(prometheus.CounterOpts{
+	totalAZDownloadErrors = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_az_download_errors_total",
 		Help: "The total number of Azure download errors",
-	})
+	}, []string{"username"})
 
 	// totalAZUploadSize is the metric that reports the total Azure uploads size as bytes
-	totalAZUploadSize = promauto.NewCounter(prometheus.CounterOpts{
+	totalAZUploadSize = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_az_upload_size",
 		Help: "The total Azure upload size as bytes, partial uploads are included",
-	})
+	}, []string{"username"})
 
 	// totalAZDownloadSize is the metric that reports the total Azure downloads size as bytes
-	totalAZDownloadSize = promauto.NewCounter(prometheus.CounterOpts{
+	totalAZDownloadSize = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_az_download_size",
 		Help: "The total Azure download size as bytes, partial downloads are included",
-	})
+	}, []string{"username"})
 
 	// totalAZListObjects is the metric that reports the total successful Azure list objects requests
-	totalAZListObjects = promauto.NewCounter(prometheus.CounterOpts{
+	totalAZListObjects = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_az_list_objects",
 		Help: "The total number of successful Azure list objects requests",
-	})
+	}, []string{"username"})
 
 	// totalAZCopyObject is the metric that reports the total successful Azure copy object requests
-	totalAZCopyObject = promauto.NewCounter(prometheus.CounterOpts{
+	totalAZCopyObject = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_az_copy_object",
 		Help: "The total number of successful Azure copy object requests",
-	})
+	}, []string{"username"})
 
 	// totalAZDeleteObject is the metric that reports the total successful Azure delete object requests
-	totalAZDeleteObject = promauto.NewCounter(prometheus.CounterOpts{
+	totalAZDeleteObject = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_az_delete_object",
 		Help: "The total number of successful Azure delete object requests",
-	})
+	}, []string{"username"})
 
 	// totalAZListObjectsError is the metric that reports the total Azure list objects errors
-	totalAZListObjectsErrors = promauto.NewCounter(prometheus.CounterOpts{
+	totalAZListObjectsErrors = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_az_list_objects_errors",
 		Help: "The total number of Azure list objects errors",
-	})
+	}, []string{"username"})
 
 	// totalAZCopyObjectErrors is the metric that reports the total Azure copy object errors
-	totalAZCopyObjectErrors = promauto.NewCounter(prometheus.CounterOpts{
+	totalAZCopyObjectErrors = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_az_copy_object_errors",
 		Help: "The total number of Azure copy object errors",
-	})
+	}, []string{"username"})
 
 	// totalAZDeleteObjectErrors is the metric that reports the total Azure delete object errors
-	totalAZDeleteObjectErrors = promauto.NewCounter(prometheus.CounterOpts{
+	totalAZDeleteObjectErrors = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_az_delete_object_errors",
 		Help: "The total number of Azure delete object errors",
-	})
+	}, []string{"username"})
 
 	// totalAZHeadObject is the metric that reports the total successful Azure head object requests
-	totalAZHeadObject = promauto.NewCounter(prometheus.CounterOpts{
+	totalAZHeadObject = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_az_head_object",
 		Help: "The total number of successful Azure head object requests",
-	})
+	}, []string{"username"})
 
 	// totalAZHeadObjectErrors is the metric that reports the total Azure head object errors
-	totalAZHeadObjectErrors = promauto.NewCounter(prometheus.CounterOpts{
+	totalAZHeadObjectErrors = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_az_head_object_errors",
 		Help: "The total number of Azure head object errors",
-	})
+	}, []string{"username"})
 
 	// totalSFTPFsUploads is the metric that reports the total number of successful SFTPFs uploads
-	totalSFTPFsUploads = promauto.NewCounter(prometheus.CounterOpts{
+	totalSFTPFsUploads = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_sftpfs_uploads_total",
 		Help: "The total number of successful SFTPFs uploads",
-	})
+	}, []string{"username"})
 
 	// totalSFTPFsDownloads is the metric that reports the total number of successful SFTPFs downloads
-	totalSFTPFsDownloads = promauto.NewCounter(prometheus.CounterOpts{
+	totalSFTPFsDownloads = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_sftpfs_downloads_total",
 		Help: "The total number of successful SFTPFs downloads",
-	})
+	}, []string{"username"})
 
 	// totalSFTPFsUploadErrors is the metric that reports the total number of SFTPFs upload errors
-	totalSFTPFsUploadErrors = promauto.NewCounter(prometheus.CounterOpts{
+	totalSFTPFsUploadErrors = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_sftpfs_upload_errors_total",
 		Help: "The total number of SFTPFs upload errors",
-	})
+	}, []string{"username"})
 
 	// totalSFTPFsDownloadErrors is the metric that reports the total number of SFTPFs download errors
-	totalSFTPFsDownloadErrors = promauto.NewCounter(prometheus.CounterOpts{
+	totalSFTPFsDownloadErrors = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_sftpfs_download_errors_total",
 		Help: "The total number of SFTPFs download errors",
-	})
+	}, []string{"username"})
 
 	// totalSFTPFsUploadSize is the metric that reports the total SFTPFs uploads size as bytes
-	totalSFTPFsUploadSize = promauto.NewCounter(prometheus.CounterOpts{
+	totalSFTPFsUploadSize = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_sftpfs_upload_size",
 		Help: "The total SFTPFs upload size as bytes, partial uploads are included",
-	})
+	}, []string{"username"})
 
 	// totalSFTPFsDownloadSize is the metric that reports the total SFTPFs downloads size as bytes
-	totalSFTPFsDownloadSize = promauto.NewCounter(prometheus.CounterOpts{
+	totalSFTPFsDownloadSize = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_sftpfs_download_size",
 		Help: "The total SFTPFs download size as bytes, partial downloads are included",
-	})
+	}, []string{"username"})
 
 	// totalHTTPFsUploads is the metric that reports the total number of successful HTTPFs uploads
-	totalHTTPFsUploads = promauto.NewCounter(prometheus.CounterOpts{
+	totalHTTPFsUploads = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_httpfs_uploads_total",
 		Help: "The total number of successful HTTPFs uploads",
-	})
+	}, []string{"username"})
 
 	// totalHTTPFsDownloads is the metric that reports the total number of successful HTTPFs downloads
-	totalHTTPFsDownloads = promauto.NewCounter(prometheus.CounterOpts{
+	totalHTTPFsDownloads = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_httpfs_downloads_total",
 		Help: "The total number of successful HTTPFs downloads",
-	})
+	}, []string{"username"})
 
 	// totalHTTPFsUploadErrors is the metric that reports the total number of HTTPFs upload errors
-	totalHTTPFsUploadErrors = promauto.NewCounter(prometheus.CounterOpts{
+	totalHTTPFsUploadErrors = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_httpfs_upload_errors_total",
 		Help: "The total number of HTTPFs upload errors",
-	})
+	}, []string{"username"})
 
 	// totalHTTPFsDownloadErrors is the metric that reports the total number of HTTPFs download errors
-	totalHTTPFsDownloadErrors = promauto.NewCounter(prometheus.CounterOpts{
+	totalHTTPFsDownloadErrors = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_httpfs_download_errors_total",
 		Help: "The total number of HTTPFs download errors",
-	})
+	}, []string{"username"})
 
 	// totalHTTPFsUploadSize is the metric that reports the total HTTPFs uploads size as bytes
-	totalHTTPFsUploadSize = promauto.NewCounter(prometheus.CounterOpts{
+	totalHTTPFsUploadSize = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_httpfs_upload_size",
 		Help: "The total HTTPFs upload size as bytes, partial uploads are included",
-	})
+	}, []string{"username"})
 
 	// totalHTTPFsDownloadSize is the metric that reports the total HTTPFs downloads size as bytes
-	totalHTTPFsDownloadSize = promauto.NewCounter(prometheus.CounterOpts{
+	totalHTTPFsDownloadSize = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "sftpgo_httpfs_download_size",
 		Help: "The total HTTPFs download size as bytes, partial downloads are included",
-	})
+	}, []string{"username"})
 )
 
 // AddMetricsEndpoint publishes metrics to the specified endpoint
@@ -645,256 +646,313 @@ func AddMetricsEndpoint(metricsPath string, handler chi.Router) {
 }
 
 // TransferCompleted updates metrics after an upload or a download
-func TransferCompleted(bytesSent, bytesReceived int64, transferKind int, err error, isSFTPFs bool) {
+func TransferCompleted(bytesSent, bytesReceived int64, transferKind int, err error, isSFTPFs bool, username string) {
+	if username == "" {
+		username = unknownUsername
+	}
 	if transferKind == 0 {
 		// upload
 		if err == nil {
-			totalUploads.Inc()
+			totalUploads.WithLabelValues(username).Inc()
 		} else {
-			totalUploadErrors.Inc()
+			totalUploadErrors.WithLabelValues(username).Inc()
 		}
 	} else {
 		// download
 		if err == nil {
-			totalDownloads.Inc()
+			totalDownloads.WithLabelValues(username).Inc()
 		} else {
-			totalDownloadErrors.Inc()
+			totalDownloadErrors.WithLabelValues(username).Inc()
 		}
 	}
 	if bytesReceived > 0 {
-		totalUploadSize.Add(float64(bytesReceived))
+		totalUploadSize.WithLabelValues(username).Add(float64(bytesReceived))
 	}
 	if bytesSent > 0 {
-		totalDownloadSize.Add(float64(bytesSent))
+		totalDownloadSize.WithLabelValues(username).Add(float64(bytesSent))
 	}
 	if isSFTPFs {
-		sftpFsTransferCompleted(bytesSent, bytesReceived, transferKind, err)
+		sftpFsTransferCompleted(bytesSent, bytesReceived, transferKind, err, username)
 	}
 }
 
 // S3TransferCompleted updates metrics after an S3 upload or a download
-func S3TransferCompleted(bytes int64, transferKind int, err error) {
+func S3TransferCompleted(bytes int64, transferKind int, err error, username string) {
+	if username == "" {
+		username = unknownUsername
+	}
 	if transferKind == 0 {
 		// upload
 		if err == nil {
-			totalS3Uploads.Inc()
+			totalS3Uploads.WithLabelValues(username).Inc()
 		} else {
-			totalS3UploadErrors.Inc()
+			totalS3UploadErrors.WithLabelValues(username).Inc()
 		}
-		totalS3UploadSize.Add(float64(bytes))
+		totalS3UploadSize.WithLabelValues(username).Add(float64(bytes))
 	} else {
 		// download
 		if err == nil {
-			totalS3Downloads.Inc()
+			totalS3Downloads.WithLabelValues(username).Inc()
 		} else {
-			totalS3DownloadErrors.Inc()
+			totalS3DownloadErrors.WithLabelValues(username).Inc()
 		}
-		totalS3DownloadSize.Add(float64(bytes))
+		totalS3DownloadSize.WithLabelValues(username).Add(float64(bytes))
 	}
 }
 
 // S3ListObjectsCompleted updates metrics after an S3 list objects request terminates
-func S3ListObjectsCompleted(err error) {
+func S3ListObjectsCompleted(err error, username string) {
+	if username == "" {
+		username = unknownUsername
+	}
 	if err == nil {
-		totalS3ListObjects.Inc()
+		totalS3ListObjects.WithLabelValues(username).Inc()
 	} else {
-		totalS3ListObjectsErrors.Inc()
+		totalS3ListObjectsErrors.WithLabelValues(username).Inc()
 	}
 }
 
 // S3CopyObjectCompleted updates metrics after an S3 copy object request terminates
-func S3CopyObjectCompleted(err error) {
+func S3CopyObjectCompleted(err error, username string) {
+	if username == "" {
+		username = unknownUsername
+	}
 	if err == nil {
-		totalS3CopyObject.Inc()
+		totalS3CopyObject.WithLabelValues(username).Inc()
 	} else {
-		totalS3CopyObjectErrors.Inc()
+		totalS3CopyObjectErrors.WithLabelValues(username).Inc()
 	}
 }
 
 // S3DeleteObjectCompleted updates metrics after an S3 delete object request terminates
-func S3DeleteObjectCompleted(err error) {
+func S3DeleteObjectCompleted(err error, username string) {
+	if username == "" {
+		username = unknownUsername
+	}
 	if err == nil {
-		totalS3DeleteObject.Inc()
+		totalS3DeleteObject.WithLabelValues(username).Inc()
 	} else {
-		totalS3DeleteObjectErrors.Inc()
+		totalS3DeleteObjectErrors.WithLabelValues(username).Inc()
 	}
 }
 
 // S3HeadObjectCompleted updates metrics after a S3 head object request terminates
-func S3HeadObjectCompleted(err error) {
+func S3HeadObjectCompleted(err error, username string) {
+	if username == "" {
+		username = unknownUsername
+	}
 	if err == nil {
-		totalS3HeadObject.Inc()
+		totalS3HeadObject.WithLabelValues(username).Inc()
 	} else {
-		totalS3HeadObjectErrors.Inc()
+		totalS3HeadObjectErrors.WithLabelValues(username).Inc()
 	}
 }
 
 // GCSTransferCompleted updates metrics after a GCS upload or a download
-func GCSTransferCompleted(bytes int64, transferKind int, err error) {
+func GCSTransferCompleted(bytes int64, transferKind int, err error, username string) {
+	if username == "" {
+		username = unknownUsername
+	}
 	if transferKind == 0 {
 		// upload
 		if err == nil {
-			totalGCSUploads.Inc()
+			totalGCSUploads.WithLabelValues(username).Inc()
 		} else {
-			totalGCSUploadErrors.Inc()
+			totalGCSUploadErrors.WithLabelValues(username).Inc()
 		}
-		totalGCSUploadSize.Add(float64(bytes))
+		totalGCSUploadSize.WithLabelValues(username).Add(float64(bytes))
 	} else {
 		// download
 		if err == nil {
-			totalGCSDownloads.Inc()
+			totalGCSDownloads.WithLabelValues(username).Inc()
 		} else {
-			totalGCSDownloadErrors.Inc()
+			totalGCSDownloadErrors.WithLabelValues(username).Inc()
 		}
-		totalGCSDownloadSize.Add(float64(bytes))
+		totalGCSDownloadSize.WithLabelValues(username).Add(float64(bytes))
 	}
 }
 
 // GCSListObjectsCompleted updates metrics after a GCS list objects request terminates
-func GCSListObjectsCompleted(err error) {
+func GCSListObjectsCompleted(err error, username string) {
+	if username == "" {
+		username = unknownUsername
+	}
 	if err == nil {
-		totalGCSListObjects.Inc()
+		totalGCSListObjects.WithLabelValues(username).Inc()
 	} else {
-		totalGCSListObjectsErrors.Inc()
+		totalGCSListObjectsErrors.WithLabelValues(username).Inc()
 	}
 }
 
 // GCSCopyObjectCompleted updates metrics after a GCS copy object request terminates
-func GCSCopyObjectCompleted(err error) {
+func GCSCopyObjectCompleted(err error, username string) {
+	if username == "" {
+		username = unknownUsername
+	}
 	if err == nil {
-		totalGCSCopyObject.Inc()
+		totalGCSCopyObject.WithLabelValues(username).Inc()
 	} else {
-		totalGCSCopyObjectErrors.Inc()
+		totalGCSCopyObjectErrors.WithLabelValues(username).Inc()
 	}
 }
 
 // GCSDeleteObjectCompleted updates metrics after a GCS delete object request terminates
-func GCSDeleteObjectCompleted(err error) {
+func GCSDeleteObjectCompleted(err error, username string) {
+	if username == "" {
+		username = unknownUsername
+	}
 	if err == nil {
-		totalGCSDeleteObject.Inc()
+		totalGCSDeleteObject.WithLabelValues(username).Inc()
 	} else {
-		totalGCSDeleteObjectErrors.Inc()
+		totalGCSDeleteObjectErrors.WithLabelValues(username).Inc()
 	}
 }
 
 // GCSHeadObjectCompleted updates metrics after a GCS head object request terminates
-func GCSHeadObjectCompleted(err error) {
+func GCSHeadObjectCompleted(err error, username string) {
+	if username == "" {
+		username = unknownUsername
+	}
 	if err == nil {
-		totalGCSHeadObject.Inc()
+		totalGCSHeadObject.WithLabelValues(username).Inc()
 	} else {
-		totalGCSHeadObjectErrors.Inc()
+		totalGCSHeadObjectErrors.WithLabelValues(username).Inc()
 	}
 }
 
 // AZTransferCompleted updates metrics after a Azure upload or a download
-func AZTransferCompleted(bytes int64, transferKind int, err error) {
+func AZTransferCompleted(bytes int64, transferKind int, err error, username string) {
+	if username == "" {
+		username = unknownUsername
+	}
 	if transferKind == 0 {
 		// upload
 		if err == nil {
-			totalAZUploads.Inc()
+			totalAZUploads.WithLabelValues(username).Inc()
 		} else {
-			totalAZUploadErrors.Inc()
+			totalAZUploadErrors.WithLabelValues(username).Inc()
 		}
-		totalAZUploadSize.Add(float64(bytes))
+		totalAZUploadSize.WithLabelValues(username).Add(float64(bytes))
 	} else {
 		// download
 		if err == nil {
-			totalAZDownloads.Inc()
+			totalAZDownloads.WithLabelValues(username).Inc()
 		} else {
-			totalAZDownloadErrors.Inc()
+			totalAZDownloadErrors.WithLabelValues(username).Inc()
 		}
-		totalAZDownloadSize.Add(float64(bytes))
+		totalAZDownloadSize.WithLabelValues(username).Add(float64(bytes))
 	}
 }
 
 // AZListObjectsCompleted updates metrics after a Azure list objects request terminates
-func AZListObjectsCompleted(err error) {
+func AZListObjectsCompleted(err error, username string) {
+	if username == "" {
+		username = unknownUsername
+	}
 	if err == nil {
-		totalAZListObjects.Inc()
+		totalAZListObjects.WithLabelValues(username).Inc()
 	} else {
-		totalAZListObjectsErrors.Inc()
+		totalAZListObjectsErrors.WithLabelValues(username).Inc()
 	}
 }
 
 // AZCopyObjectCompleted updates metrics after a Azure copy object request terminates
-func AZCopyObjectCompleted(err error) {
+func AZCopyObjectCompleted(err error, username string) {
+	if username == "" {
+		username = unknownUsername
+	}
 	if err == nil {
-		totalAZCopyObject.Inc()
+		totalAZCopyObject.WithLabelValues(username).Inc()
 	} else {
-		totalAZCopyObjectErrors.Inc()
+		totalAZCopyObjectErrors.WithLabelValues(username).Inc()
 	}
 }
 
 // AZDeleteObjectCompleted updates metrics after a Azure delete object request terminates
-func AZDeleteObjectCompleted(err error) {
+func AZDeleteObjectCompleted(err error, username string) {
+	if username == "" {
+		username = unknownUsername
+	}
 	if err == nil {
-		totalAZDeleteObject.Inc()
+		totalAZDeleteObject.WithLabelValues(username).Inc()
 	} else {
-		totalAZDeleteObjectErrors.Inc()
+		totalAZDeleteObjectErrors.WithLabelValues(username).Inc()
 	}
 }
 
 // AZHeadObjectCompleted updates metrics after a Azure head object request terminates
-func AZHeadObjectCompleted(err error) {
+func AZHeadObjectCompleted(err error, username string) {
+	if username == "" {
+		username = unknownUsername
+	}
 	if err == nil {
-		totalAZHeadObject.Inc()
+		totalAZHeadObject.WithLabelValues(username).Inc()
 	} else {
-		totalAZHeadObjectErrors.Inc()
+		totalAZHeadObjectErrors.WithLabelValues(username).Inc()
 	}
 }
 
 // sftpFsTransferCompleted updates metrics after an SFTPFs upload or a download
-func sftpFsTransferCompleted(bytesSent, bytesReceived int64, transferKind int, err error) {
+func sftpFsTransferCompleted(bytesSent, bytesReceived int64, transferKind int, err error, username string) {
+	if username == "" {
+		username = unknownUsername
+	}
 	if transferKind == 0 {
 		// upload
 		if err == nil {
-			totalSFTPFsUploads.Inc()
+			totalSFTPFsUploads.WithLabelValues(username).Inc()
 		} else {
-			totalSFTPFsUploadErrors.Inc()
+			totalSFTPFsUploadErrors.WithLabelValues(username).Inc()
 		}
 	} else {
 		// download
 		if err == nil {
-			totalSFTPFsDownloads.Inc()
+			totalSFTPFsDownloads.WithLabelValues(username).Inc()
 		} else {
-			totalSFTPFsDownloadErrors.Inc()
+			totalSFTPFsDownloadErrors.WithLabelValues(username).Inc()
 		}
 	}
 	if bytesReceived > 0 {
-		totalSFTPFsUploadSize.Add(float64(bytesReceived))
+		totalSFTPFsUploadSize.WithLabelValues(username).Add(float64(bytesReceived))
 	}
 	if bytesSent > 0 {
-		totalSFTPFsDownloadSize.Add(float64(bytesSent))
+		totalSFTPFsDownloadSize.WithLabelValues(username).Add(float64(bytesSent))
 	}
 }
 
 // HTTPFsTransferCompleted updates metrics after an HTTPFs upload or a download
-func HTTPFsTransferCompleted(bytes int64, transferKind int, err error) {
+func HTTPFsTransferCompleted(bytes int64, transferKind int, err error, username string) {
+	if username == "" {
+		username = unknownUsername
+	}
 	if transferKind == 0 {
 		// upload
 		if err == nil {
-			totalHTTPFsUploads.Inc()
+			totalHTTPFsUploads.WithLabelValues(username).Inc()
 		} else {
-			totalHTTPFsUploadErrors.Inc()
+			totalHTTPFsUploadErrors.WithLabelValues(username).Inc()
 		}
-		totalHTTPFsUploadSize.Add(float64(bytes))
+		totalHTTPFsUploadSize.WithLabelValues(username).Add(float64(bytes))
 	} else {
 		// download
 		if err == nil {
-			totalHTTPFsDownloads.Inc()
+			totalHTTPFsDownloads.WithLabelValues(username).Inc()
 		} else {
-			totalHTTPFsDownloadErrors.Inc()
+			totalHTTPFsDownloadErrors.WithLabelValues(username).Inc()
 		}
-		totalHTTPFsDownloadSize.Add(float64(bytes))
+		totalHTTPFsDownloadSize.WithLabelValues(username).Add(float64(bytes))
 	}
 }
 
 // SSHCommandCompleted update metrics after an SSH command terminates
-func SSHCommandCompleted(err error) {
+func SSHCommandCompleted(err error, username string) {
+	if username == "" {
+		username = unknownUsername
+	}
 	if err == nil {
-		totalSSHCommands.Inc()
+		totalSSHCommands.WithLabelValues(username).Inc()
 	} else {
-		totalSSHCommandErrors.Inc()
+		totalSSHCommandErrors.WithLabelValues(username).Inc()
 	}
 }
 
@@ -908,78 +966,87 @@ func UpdateDataProviderAvailability(err error) {
 }
 
 // AddLoginAttempt increments the metrics for login attempts
-func AddLoginAttempt(authMethod string) {
-	totalLoginAttempts.Inc()
+func AddLoginAttempt(authMethod string, username string) {
+	if username == "" {
+		username = unknownUsername
+	}
+	totalLoginAttempts.WithLabelValues(username).Inc()
 	switch authMethod {
 	case loginMethodPublicKey:
-		totalKeyLoginAttempts.Inc()
+		totalKeyLoginAttempts.WithLabelValues(username).Inc()
 	case loginMethodKeyboardInteractive:
-		totalInteractiveLoginAttempts.Inc()
+		totalInteractiveLoginAttempts.WithLabelValues(username).Inc()
 	case loginMethodKeyAndPassword:
-		totalKeyAndPasswordLoginAttempts.Inc()
+		totalKeyAndPasswordLoginAttempts.WithLabelValues(username).Inc()
 	case loginMethodKeyAndKeyboardInt:
-		totalKeyAndKeyIntLoginAttempts.Inc()
+		totalKeyAndKeyIntLoginAttempts.WithLabelValues(username).Inc()
 	case loginMethodTLSCertificate:
-		totalTLSCertLoginAttempts.Inc()
+		totalTLSCertLoginAttempts.WithLabelValues(username).Inc()
 	case loginMethodTLSCertificateAndPwd:
-		totalTLSCertAndPwdLoginAttempts.Inc()
+		totalTLSCertAndPwdLoginAttempts.WithLabelValues(username).Inc()
 	case loginMethodIDP:
-		totalIDPLoginAttempts.Inc()
+		totalIDPLoginAttempts.WithLabelValues(username).Inc()
 	default:
-		totalPasswordLoginAttempts.Inc()
+		totalPasswordLoginAttempts.WithLabelValues(username).Inc()
 	}
 }
 
-func incLoginOK(authMethod string) {
-	totalLoginOK.Inc()
+func incLoginOK(authMethod string, username string) {
+	if username == "" {
+		username = unknownUsername
+	}
+	totalLoginOK.WithLabelValues(username).Inc()
 	switch authMethod {
 	case loginMethodPublicKey:
-		totalKeyLoginOK.Inc()
+		totalKeyLoginOK.WithLabelValues(username).Inc()
 	case loginMethodKeyboardInteractive:
-		totalInteractiveLoginOK.Inc()
+		totalInteractiveLoginOK.WithLabelValues(username).Inc()
 	case loginMethodKeyAndPassword:
-		totalKeyAndPasswordLoginOK.Inc()
+		totalKeyAndPasswordLoginOK.WithLabelValues(username).Inc()
 	case loginMethodKeyAndKeyboardInt:
-		totalKeyAndKeyIntLoginOK.Inc()
+		totalKeyAndKeyIntLoginOK.WithLabelValues(username).Inc()
 	case loginMethodTLSCertificate:
-		totalTLSCertLoginOK.Inc()
+		totalTLSCertLoginOK.WithLabelValues(username).Inc()
 	case loginMethodTLSCertificateAndPwd:
-		totalTLSCertAndPwdLoginOK.Inc()
+		totalTLSCertAndPwdLoginOK.WithLabelValues(username).Inc()
 	case loginMethodIDP:
-		totalIDPLoginOK.Inc()
+		totalIDPLoginOK.WithLabelValues(username).Inc()
 	default:
-		totalPasswordLoginOK.Inc()
+		totalPasswordLoginOK.WithLabelValues(username).Inc()
 	}
 }
 
-func incLoginFailed(authMethod string) {
-	totalLoginFailed.Inc()
+func incLoginFailed(authMethod string, username string) {
+	if username == "" {
+		username = unknownUsername
+	}
+	totalLoginFailed.WithLabelValues(username).Inc()
 	switch authMethod {
 	case loginMethodPublicKey:
-		totalKeyLoginFailed.Inc()
+		totalKeyLoginFailed.WithLabelValues(username).Inc()
 	case loginMethodKeyboardInteractive:
-		totalInteractiveLoginFailed.Inc()
+		totalInteractiveLoginFailed.WithLabelValues(username).Inc()
 	case loginMethodKeyAndPassword:
-		totalKeyAndPasswordLoginFailed.Inc()
+		totalKeyAndPasswordLoginFailed.WithLabelValues(username).Inc()
 	case loginMethodKeyAndKeyboardInt:
-		totalKeyAndKeyIntLoginFailed.Inc()
+		totalKeyAndKeyIntLoginFailed.WithLabelValues(username).Inc()
 	case loginMethodTLSCertificate:
-		totalTLSCertLoginFailed.Inc()
+		totalTLSCertLoginFailed.WithLabelValues(username).Inc()
 	case loginMethodTLSCertificateAndPwd:
-		totalTLSCertAndPwdLoginFailed.Inc()
+		totalTLSCertAndPwdLoginFailed.WithLabelValues(username).Inc()
 	case loginMethodIDP:
-		totalIDPLoginFailed.Inc()
+		totalIDPLoginFailed.WithLabelValues(username).Inc()
 	default:
-		totalPasswordLoginFailed.Inc()
+		totalPasswordLoginFailed.WithLabelValues(username).Inc()
 	}
 }
 
 // AddLoginResult increments the metrics for login results
-func AddLoginResult(authMethod string, err error) {
+func AddLoginResult(authMethod string, err error, username string) {
 	if err == nil {
-		incLoginOK(authMethod)
+		incLoginOK(authMethod, username)
 	} else {
-		incLoginFailed(authMethod)
+		incLoginFailed(authMethod, username)
 	}
 }
 
@@ -1002,6 +1069,9 @@ func HTTPRequestServed(status int) {
 }
 
 // UpdateActiveConnectionsSize sets the metric for active connections
-func UpdateActiveConnectionsSize(size int) {
-	activeConnections.Set(float64(size))
+func UpdateActiveConnectionsSize(size int, username string) {
+	if username == "" {
+		username = unknownUsername
+	}
+	activeConnections.WithLabelValues(username).Set(float64(size))
 }

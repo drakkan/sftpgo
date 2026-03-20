@@ -202,10 +202,11 @@ type HTTPFs struct {
 	config     *HTTPFsConfig
 	client     *http.Client
 	ctxTimeout time.Duration
+	username   string
 }
 
 // NewHTTPFs returns an HTTPFs object that allows to interact with SFTPGo HTTP filesystem backends
-func NewHTTPFs(connectionID, localTempDir, mountPath string, config HTTPFsConfig) (Fs, error) {
+func NewHTTPFs(connectionID, localTempDir, mountPath string, config HTTPFsConfig, username string) (Fs, error) {
 	if localTempDir == "" {
 		localTempDir = getLocalTempDir()
 	}
@@ -226,6 +227,7 @@ func NewHTTPFs(connectionID, localTempDir, mountPath string, config HTTPFsConfig
 		mountPath:    mountPath,
 		config:       &config,
 		ctxTimeout:   30 * time.Second,
+		username:     username,
 	}
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.MaxResponseHeaderBytes = 1 << 16
@@ -335,14 +337,14 @@ func (fs *HTTPFs) Open(name string, offset int64) (File, PipeReader, func(), err
 		if err != nil {
 			fsLog(fs, logger.LevelError, "download error, path %q, err: %v", name, err)
 			w.CloseWithError(err) //nolint:errcheck
-			metric.HTTPFsTransferCompleted(0, 1, err)
+			metric.HTTPFsTransferCompleted(0, 1, err, fs.username)
 			return
 		}
 		defer resp.Body.Close()
 		n, err := io.Copy(w, resp.Body)
 		w.CloseWithError(err) //nolint:errcheck
 		fsLog(fs, logger.LevelDebug, "download completed, path %q size: %v, err: %+v", name, n, err)
-		metric.HTTPFsTransferCompleted(n, 1, err)
+		metric.HTTPFsTransferCompleted(n, 1, err, fs.username)
 	}()
 
 	return nil, p, cancelFn, nil
@@ -368,7 +370,7 @@ func (fs *HTTPFs) Create(name string, flag, checks int) (File, PipeWriter, func(
 			fsLog(fs, logger.LevelError, "upload error, path %q, err: %v", name, err)
 			r.CloseWithError(err) //nolint:errcheck
 			p.Done(err)
-			metric.HTTPFsTransferCompleted(0, 0, err)
+			metric.HTTPFsTransferCompleted(0, 0, err, fs.username)
 			return
 		}
 		defer resp.Body.Close()
@@ -376,7 +378,7 @@ func (fs *HTTPFs) Create(name string, flag, checks int) (File, PipeWriter, func(
 		r.CloseWithError(err) //nolint:errcheck
 		p.Done(err)
 		fsLog(fs, logger.LevelDebug, "upload completed, path: %q, readed bytes: %d", name, r.GetReadedBytes())
-		metric.HTTPFsTransferCompleted(r.GetReadedBytes(), 0, err)
+		metric.HTTPFsTransferCompleted(r.GetReadedBytes(), 0, err, fs.username)
 	}()
 
 	return nil, p, cancelFn, nil
