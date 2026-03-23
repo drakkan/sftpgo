@@ -607,7 +607,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                     info+=`. ${elapsed}`;
                                 }
                                 if (row.ssh_cmd){
-                                    info+=". "+$.t('events.ssh_cmd')+` "${row.ssh_cmd}"`;
+                                    info+=". "+$.t('events.ssh_cmd')+` "${escapeHTML(row.ssh_cmd)}"`;
                                 }
                                 return info;
                             }
