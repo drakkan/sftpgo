@@ -629,8 +629,11 @@ func (s *httpdServer) getBasePageData(title, currentURL string, w http.ResponseW
 	if currentURL != "" {
 		csrfToken = createCSRFToken(w, r, s.csrfTokenAuth, "", webBaseAdminPath)
 	}
+	branding := s.binding.webAdminBranding()
+	base := getCommonBasePage(r)
+	base.HideVersion = branding.HideVersion
 	return basePage{
-		commonBasePage:      getCommonBasePage(r),
+		commonBasePage:      base,
 		Title:               title,
 		CurrentURL:          currentURL,
 		UsersURL:            webUsersPath,
@@ -672,10 +675,11 @@ func (s *httpdServer) getBasePageData(title, currentURL string, w http.ResponseW
 		HasSearcher:         plugin.Handler.HasSearcher(),
 		HasExternalLogin:    isLoggedInWithOIDC(r),
 		CSRFToken:           csrfToken,
-		Branding:            s.binding.webAdminBranding(),
+		Branding:            branding,
 		Languages:           s.binding.languages(),
 	}
 }
+
 
 func renderAdminTemplate(w http.ResponseWriter, tmplName string, data any) {
 	err := adminTemplates[tmplName].ExecuteTemplate(w, tmplName, data)
