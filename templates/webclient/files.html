@@ -208,18 +208,12 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
 {{- define "extra_css"}}
 <link href="{{.StaticURL}}/assets/plugins/custom/datatables/datatables.bundle.css" rel="stylesheet" type="text/css"/>
-<link href="{{.StaticURL}}/vendor/glightbox/glightbox.min.css" rel="stylesheet" type="text/css"/>
-<style {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
-    .gslide-description-bg {
-		background: var(--bs-app-bg-color) !important;
-        opacity: 0.9;
-	}
-</style>
+<link href="{{.StaticURL}}/vendor/imageviewer/imageviewer.css" rel="stylesheet" type="text/css"/>
 {{- end}}
 
 {{- define "extra_js"}}
 <script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/plugins/custom/datatables/datatables.bundle.js"></script>
-<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/glightbox/glightbox.min.js"></script>
+<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/imageviewer/imageviewer.js"></script>
 <script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/pdfobject/pdfobject.min.js"></script>
 <script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
     //{{- $move_copy_msg := ""}}
@@ -558,7 +552,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     var KTDatatablesServerSide = function () {
         // Shared variables
         var dt;
-        var lightbox;
 
 
         // Private functions
@@ -694,18 +687,15 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                         case "webp":
                                         case "bmp":
                                         case "svg":
-                                            let desc = escapeHTML(filename);
-                                            let descHtml = `<span class="fs-5 fw-bold">${desc}</span>`;
-                                            let descId = `desc-${row.id}`;
+                                            let desc = filename.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
                                             previewDiv = `<div class="ms-2" data-kt-filemanger-table="view_item">
-                                                    <a href="${row['url']}" data-gallery="gallery" data-description=".${descId}" class="btn btn-sm btn-icon btn-light btn-active-light-primary glightbox">
+                                                    <a href="${row['url']}" data-iv-name="${desc}" class="btn btn-sm btn-icon btn-light btn-active-light-primary iv-gallery-item">
                                                         <i class="ki-duotone ki-eye fs-6 m-0">
                                                             <span class="path1"></span>
                                                             <span class="path2"></span>
                                                             <span class="path3"></span>
                                                         </i>
                                                     </a>
-                                                    <div class="glightbox-desc ${descId} d-none">${descHtml}</div>
                                                 </div>`;
                                             break;
                                         case "mp4":
@@ -867,7 +857,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 $('#upload_files_empty_container').addClass("d-none");
                 $('#file_manager_list_container').removeClass("d-none");
                 //{{- end}}
-                lightbox.reload();
                 KTMenu.createInstances();
 
                 let targets = document.querySelectorAll('#file_manager_list_body tr');
@@ -1009,24 +998,24 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         }
 
         var initLightbox = function() {
-            lightbox = GLightbox({
-                    slideHTML: `<div class="gslide">
-                                    <div class="gslide-inner-content">
-                                        <div class="ginner-container">
-                                            <div class="gslide-media">
-                                            </div>
-                                            <div class="gslide-description gslide-description-bg">
-                                                <div class="gdesc-inner">
-                                                    <h4 class="gslide-title"></h4>
-                                                    <div class="gslide-desc"></div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>`,
-                    preload: false,
-                    closeOnOutsideClick: false
+            document.getElementById('file_manager_list_body').addEventListener('click', function(e) {
+                var link = e.target.closest('a.iv-gallery-item');
+                if (!link) return;
+                e.preventDefault();
+
+                var links = document.querySelectorAll('#file_manager_list_body a.iv-gallery-item');
+                var items = [];
+                var clickedIndex = 0;
+                links.forEach(function(el, i) {
+                    items.push({
+                        src: el.getAttribute('href'),
+                        name: el.dataset.ivName || ''
+                    });
+                    if (el === link) clickedIndex = i;
                 });
+
+                ImageViewer.open(items, clickedIndex);
+            });
         }
 
         var handleSearchDatatable = function () {
