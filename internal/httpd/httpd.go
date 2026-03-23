@@ -491,9 +491,11 @@ type UIBranding struct {
 	// the default CSS files
 	DefaultCSS []string `json:"default_css" mapstructure:"default_css"`
 	// Additional CSS file paths, relative to "static_files_path", to include
-	ExtraCSS           []string `json:"extra_css" mapstructure:"extra_css"`
-	DefaultLogoPath    string   `json:"-" mapstructure:"-"`
-	DefaultFaviconPath string   `json:"-" mapstructure:"-"`
+	ExtraCSS []string `json:"extra_css" mapstructure:"extra_css"`
+	// HideVersion, if true, hides the application version in the footer
+	HideVersion        bool   `json:"hide_version" mapstructure:"hide_version"`
+	DefaultLogoPath    string `json:"-" mapstructure:"-"`
+	DefaultFaviconPath string `json:"-" mapstructure:"-"`
 }
 
 func (b *UIBranding) check() {
