@@ -888,7 +888,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 </i>
                             </div>
                             <span>
-                                <img alt="Logo" src="{{.StaticURL}}{{.Branding.LogoPath}}" class="h-30px" />
+                                <img alt="Logo" src="{{.StaticURL}}{{.Branding.LogoPath}}" class="h-30px theme-light-show" />
+                                <img alt="Logo" src="{{.StaticURL}}{{.Branding.DarkLogoPath}}" class="h-30px theme-dark-show" />
                             </span>
                         </div>
                         <div class="app-navbar flex-lg-grow-1" id="kt_app_header_navbar">
@@ -905,7 +906,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 {{- else if .IsLoggedToShare}}
                 <div class="app-container container-fluid d-flex mt-5">
                     <div class="d-flex align-items-center d-block ms-3">
-                        <img alt="Logo" src="{{.StaticURL}}{{.Branding.LogoPath}}" class="h-50px" />
+                        <img alt="Logo" src="{{.StaticURL}}{{.Branding.LogoPath}}" class="h-50px theme-light-show" />
+                        <img alt="Logo" src="{{.StaticURL}}{{.Branding.DarkLogoPath}}" class="h-50px theme-dark-show" />
                     </div>
                     <div class="flex-grow-1">
                         <div class="d-flex justify-content-end">
@@ -925,7 +927,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         <div class="app-sidebar-header flex-column mx-10 pt-8" id="kt_app_sidebar_header">
                             <div class="d-flex flex-stack d-none d-lg-flex mb-13">
                                 <div class="app-sidebar-logo">
-									<img alt="Logo" src="{{.StaticURL}}{{.Branding.LogoPath}}" class="h-40px app-sidebar-logo-default" />
+									<img alt="Logo" src="{{.StaticURL}}{{.Branding.LogoPath}}" class="h-40px app-sidebar-logo-default theme-light-show" />
+									<img alt="Logo" src="{{.StaticURL}}{{.Branding.DarkLogoPath}}" class="h-40px app-sidebar-logo-default theme-dark-show" />
 									<span class="text-sidebar fs-4 fw-semibold ps-5">{{.Branding.ShortName}}</span>
 								</div>
                             </div>

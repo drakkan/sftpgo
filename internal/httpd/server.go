@@ -1574,6 +1574,11 @@ func (s *httpdServer) setupWebClientRoutes() {
 				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 				renderPNGImage(w, r, dbBrandingConfig.getWebClientLogo())
 			})
+		s.router.With(cleanCacheControlMiddleware).Get(path.Join(webStaticFilesPath, "branding/webclient/dark-logo.png"),
+			func(w http.ResponseWriter, r *http.Request) {
+				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+				renderPNGImage(w, r, dbBrandingConfig.getWebClientDarkLogo())
+			})
 		s.router.With(cleanCacheControlMiddleware).Get(path.Join(webStaticFilesPath, "branding/webclient/favicon.png"),
 			func(w http.ResponseWriter, r *http.Request) {
 				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
@@ -1706,6 +1711,11 @@ func (s *httpdServer) setupWebAdminRoutes() {
 			func(w http.ResponseWriter, r *http.Request) {
 				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 				renderPNGImage(w, r, dbBrandingConfig.getWebAdminLogo())
+			})
+		s.router.With(cleanCacheControlMiddleware).Get(path.Join(webStaticFilesPath, "branding/webadmin/dark-logo.png"),
+			func(w http.ResponseWriter, r *http.Request) {
+				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+				renderPNGImage(w, r, dbBrandingConfig.getWebAdminDarkLogo())
 			})
 		s.router.With(cleanCacheControlMiddleware).Get(path.Join(webStaticFilesPath, "branding/webadmin/favicon.png"),
 			func(w http.ResponseWriter, r *http.Request) {

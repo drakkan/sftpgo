@@ -894,6 +894,8 @@
         "short_name": "简称",
         "logo": "徽标",
         "logo_help": "PNG 图像，最大接受尺寸为 512x512，默认徽标尺寸为 256x256。",
+        "dark_logo": "深色模式徽标",
+        "dark_logo_help": "深色模式的 PNG 徽标。如果未设置，则两种模式均使用主徽标。最大尺寸 512x512。",
         "favicon": "收藏夹图标",
         "disclaimer_name": "免责标题",
         "disclaimer_url": "免责声明 URL",

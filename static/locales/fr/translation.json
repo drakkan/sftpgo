@@ -894,6 +894,8 @@
         "short_name": "Nom abrégé",
         "logo": "Logo",
         "logo_help": "Image PNG, taille maximale acceptée 512x512, taille par défaut 256x256",
+        "dark_logo": "Logo mode sombre",
+        "dark_logo_help": "Logo PNG pour le mode sombre. S'il n'est pas défini, le logo principal sera utilisé pour les deux modes. Taille max. 512x512.",
         "favicon": "Favicon",
         "disclaimer_name": "Titre de l'avertissement",
         "disclaimer_url": "URL de l'avertissement",
