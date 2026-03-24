@@ -772,6 +772,10 @@ func (s *httpdServer) loginUser(
 	}
 	updateLoginMetrics(user, dataprovider.LoginMethodPassword, ipAddr, err, r)
 	dataprovider.UpdateLastLogin(user)
+	if user.MustChangePassword() {
+		http.Redirect(w, r, webChangeClientPwdPath, http.StatusFound)
+		return
+	}
 	if next := r.URL.Query().Get("next"); strings.HasPrefix(next, webClientFilesPath) {
 		http.Redirect(w, r, next, http.StatusFound)
 		return
@@ -816,6 +820,10 @@ func (s *httpdServer) loginAdmin(
 	}
 	dataprovider.UpdateAdminLastLogin(admin)
 	common.DelayLogin(nil)
+	if admin.Filters.RequirePasswordChange {
+		http.Redirect(w, r, webChangeAdminPwdPath, http.StatusFound)
+		return
+	}
 	redirectURL := webUsersPath
 	if errorFunc == nil {
 		redirectURL = webAdminMFAPath
