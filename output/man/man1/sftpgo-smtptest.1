@@ -1,0 +1,56 @@
+.nh
+.TH "SFTPGO-SMTPTEST" "1" "Mar 2026" "SFTPGo 2.7.99-dev" "SFTPGo Manual"
+
+.SH NAME
+sftpgo-smtptest - Test the SMTP configuration
+
+
+.SH SYNOPSIS
+\fBsftpgo smtptest [flags]\fP
+
+
+.SH DESCRIPTION
+SFTPGo will try to send a test email to the specified recipient.
+If the SMTP configuration is correct you should receive this email.
+
+
+.SH OPTIONS
+\fB-c\fP, \fB--config-dir\fP="."
+	Location of the config dir. This directory
+is used as the base for files with a relative
+path, e.g. the private keys for the SFTP
+server or the database file if you use a
+file-based data provider.
+The configuration file, if not explicitly set,
+is looked for in this dir. We support reading
+from JSON, TOML, YAML, HCL, envfile and Java
+properties config files. The default config
+file name is "sftpgo" and therefore
+"sftpgo.json", "sftpgo.yaml" and so on are
+searched.
+This flag can be set using SFTPGO_CONFIG_DIR
+env var too.
+
+.PP
+\fB--config-file\fP=""
+	Path to SFTPGo configuration file.
+This flag explicitly defines the path, name
+and extension of the config file. If must be
+an absolute path or a path relative to the
+configuration directory. The specified file
+name must have a supported extension (JSON,
+YAML, TOML, HCL or Java properties).
+This flag can be set using SFTPGO_CONFIG_FILE
+env var too.
+
+.PP
+\fB-h\fP, \fB--help\fP[=false]
+	help for smtptest
+
+.PP
+\fB--recipient\fP=""
+	email address to send the test e-mail to
+
+
+.SH SEE ALSO
+\fBsftpgo(1)\fP
