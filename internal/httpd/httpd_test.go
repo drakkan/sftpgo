@@ -14231,6 +14231,7 @@ func TestWebConfigsMock(t *testing.T) {
 	assert.False(t, configs.ACME.HasProtocol(common.ProtocolWebDAV))
 	assert.True(t, configs.ACME.HasProtocol(common.ProtocolHTTP))
 
+	assert.NoError(t, err)
 	err = os.Remove(crtPath)
 	assert.NoError(t, err)
 	err = os.Remove(keyPath)
@@ -14247,8 +14248,10 @@ func TestBrandingConfigMock(t *testing.T) {
 	webClientFaviconPath := "/static/branding/webclient/favicon.png"
 	webAdminLogoPath := "/static/branding/webadmin/logo.png"
 	webAdminFaviconPath := "/static/branding/webadmin/favicon.png"
-	// no custom log or favicon was set
-	for _, p := range []string{webClientLogoPath, webClientFaviconPath, webAdminLogoPath, webAdminFaviconPath} {
+	webClientDarkLogoPath := "/static/branding/webclient/dark-logo.png"
+	webAdminDarkLogoPath := "/static/branding/webadmin/dark-logo.png"
+	// no custom logo, favicon or dark logo was set
+	for _, p := range []string{webClientLogoPath, webClientFaviconPath, webAdminLogoPath, webAdminFaviconPath, webClientDarkLogoPath, webAdminDarkLogoPath} {
 		req, err := http.NewRequest(http.MethodGet, p, nil)
 		assert.NoError(t, err)
 		rr := executeRequest(req)
@@ -14373,6 +14376,113 @@ func TestBrandingConfigMock(t *testing.T) {
 		rr := executeRequest(req)
 		checkResponseCode(t, http.StatusOK, rr)
 	}
+
+	// --- dark logo tests ---
+	// before upload, dark logo endpoints must return 404
+	for _, p := range []string{webClientDarkLogoPath, webAdminDarkLogoPath} {
+		req, err := http.NewRequest(http.MethodGet, p, nil)
+		assert.NoError(t, err)
+		rr := executeRequest(req)
+		checkResponseCode(t, http.StatusNotFound, rr)
+	}
+	// upload WebAdmin dark logo
+	err = createTestPNG(tmpFile, 256, 256, color.RGBA{30, 30, 50, 0xff})
+	assert.NoError(t, err)
+	b, contentType, err = getMultipartFormData(form, "branding_webadmin_dark_logo", tmpFile)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, webConfigsPath, &b)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), util.I18nConfigsOK)
+	configs, err = dataprovider.GetConfigs()
+	assert.NoError(t, err)
+	assert.Greater(t, len(configs.Branding.WebAdmin.DarkLogo), 0)
+	assert.Len(t, configs.Branding.WebClient.DarkLogo, 0)
+	// WebAdmin dark logo endpoint must now return 200
+	req, err = http.NewRequest(http.MethodGet, webAdminDarkLogoPath, nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// WebClient dark logo endpoint must still return 404
+	req, err = http.NewRequest(http.MethodGet, webClientDarkLogoPath, nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+	// upload WebClient dark logo
+	err = createTestPNG(tmpFile, 256, 256, color.RGBA{20, 20, 40, 0xff})
+	assert.NoError(t, err)
+	b, contentType, err = getMultipartFormData(form, "branding_webclient_dark_logo", tmpFile)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, webConfigsPath, &b)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), util.I18nConfigsOK)
+	configs, err = dataprovider.GetConfigs()
+	assert.NoError(t, err)
+	assert.Greater(t, len(configs.Branding.WebClient.DarkLogo), 0)
+	// both dark logo endpoints must return 200
+	for _, p := range []string{webClientDarkLogoPath, webAdminDarkLogoPath} {
+		req, err := http.NewRequest(http.MethodGet, p, nil)
+		assert.NoError(t, err)
+		rr = executeRequest(req)
+		checkResponseCode(t, http.StatusOK, rr)
+	}
+	// dark logo image too large
+	err = createTestPNG(tmpFile, 768, 512, color.RGBA{10, 10, 20, 0xff})
+	assert.NoError(t, err)
+	b, contentType, err = getMultipartFormData(form, "branding_webadmin_dark_logo", tmpFile)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, webConfigsPath, &b)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidPNGSize)
+	// dark logo not a PNG
+	err = createTestFile(tmpFile, 128)
+	assert.NoError(t, err)
+	b, contentType, err = getMultipartFormData(form, "branding_webclient_dark_logo", tmpFile)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, webConfigsPath, &b)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidPNG)
+	// remove dark logos
+	form.Set("branding_webadmin_dark_logo_remove", "1")
+	form.Set("branding_webclient_dark_logo_remove", "1")
+	b, contentType, err = getMultipartFormData(form, "", "")
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, webConfigsPath, &b)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), util.I18nConfigsOK)
+	configs, err = dataprovider.GetConfigs()
+	assert.NoError(t, err)
+	assert.Len(t, configs.Branding.WebAdmin.DarkLogo, 0)
+	assert.Len(t, configs.Branding.WebClient.DarkLogo, 0)
+	for _, p := range []string{webClientDarkLogoPath, webAdminDarkLogoPath} {
+		req, err := http.NewRequest(http.MethodGet, p, nil)
+		assert.NoError(t, err)
+		rr = executeRequest(req)
+		checkResponseCode(t, http.StatusNotFound, rr)
+	}
+	form.Del("branding_webadmin_dark_logo_remove")
+	form.Del("branding_webclient_dark_logo_remove")
+	// --- end dark logo tests ---
+
 	// remove images
 	form.Set("branding_webadmin_logo_remove", "1")
 	form.Set("branding_webclient_logo_remove", "1")

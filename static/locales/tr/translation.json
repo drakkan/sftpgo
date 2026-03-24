@@ -894,6 +894,8 @@
         "short_name": "Kısa ad",
         "logo": "Logo",
         "logo_help": "PNG resim, maksimum kabul edilen boyut 512x512, varsayılan logo boyutu 256x256'dır",
+        "dark_logo": "Karanlık Mod Logosu",
+        "dark_logo_help": "Karanlık mod için PNG logo. Ayarlanmazsa, her iki modda da ana logo kullanılır. Maksimum boyut 512x512.",
         "favicon": "Favicon",
         "disclaimer_name": "Sorumluluk reddi başlığı",
         "disclaimer_url": "Sorumluluk reddi URL'si",
