@@ -3372,6 +3372,25 @@ func TestResetCodesCleanup(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestResetCodeExpiredGet(t *testing.T) {
+	mgr := &memoryResetCodeManager{}
+	rc := newResetCode(util.GenerateUniqueID(), false)
+	err := mgr.Add(rc)
+	assert.NoError(t, err)
+	// valid code is returned
+	result, err := mgr.Get(rc.Code)
+	assert.NoError(t, err)
+	assert.Equal(t, rc.Code, result.Code)
+	// expire the code
+	rc.ExpiresAt = time.Now().Add(-1 * time.Minute).UTC()
+	// expired code must not be returned
+	_, err = mgr.Get(rc.Code)
+	assert.Error(t, err)
+	// the expired code must be eagerly removed from the store
+	_, loaded := mgr.resetCodes.Load(rc.Code)
+	assert.False(t, loaded)
+}
+
 func TestUserCanResetPassword(t *testing.T) {
 	req, err := http.NewRequest(http.MethodGet, webClientLoginPath, nil)
 	assert.NoError(t, err)
