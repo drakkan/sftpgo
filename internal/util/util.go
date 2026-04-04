@@ -47,6 +47,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 	"unsafe"
@@ -806,8 +807,103 @@ func GetHTTPLocalAddress(r *http.Request) string {
 	return ""
 }
 
+// hostnameChecker resolves a hostname to its IP addresses with TTL-based caching.
+// This allows proxy_allowed to work with dynamic hostnames such as Docker Swarm
+// service names (e.g. "tasks.traefik") where IPs change on container restarts.
+type hostnameChecker struct {
+	hostname   string
+	mu         sync.RWMutex
+	cachedIPs  []net.IP
+	lastUpdate time.Time
+	ttl        time.Duration
+}
+
+// hostnameCheckerTTL is the duration between DNS re-resolutions.
+// It can be overridden in tests.
+var hostnameCheckerTTL = 30 * time.Second
+
+// hostnameRegex matches valid DNS hostnames (RFC 1123 + underscore for Docker Swarm).
+// Labels must contain only letters, digits, hyphens, or underscores and be
+// separated by dots. Strings containing spaces or other special characters are
+// rejected so that obviously invalid values are caught at configuration load time.
+var hostnameRegex = regexp.MustCompile(`(?i)^[a-z0-9_]([a-z0-9\-_]*[a-z0-9_])?(\.[a-z0-9_]([a-z0-9\-_]*[a-z0-9_])?)*\.?` + "$")
+
+func newHostnameChecker(hostname string) *hostnameChecker {
+	h := &hostnameChecker{
+		hostname: hostname,
+		ttl:      hostnameCheckerTTL,
+	}
+	// Perform an initial resolution so the checker is ready on first use.
+	h.resolve()
+	return h
+}
+
+// resolve performs a DNS lookup and updates the cached IP list.
+func (h *hostnameChecker) resolve() {
+	addrs, err := net.LookupHost(h.hostname)
+	if err != nil {
+		logger.Warn(logSender, "", "proxy_allowed: failed to resolve hostname %q: %v", h.hostname, err)
+		// Keep stale cache on error to avoid dropping existing connections.
+		h.mu.Lock()
+		h.lastUpdate = time.Now()
+		h.mu.Unlock()
+		return
+	}
+	ips := make([]net.IP, 0, len(addrs))
+	for _, addr := range addrs {
+		if ip := net.ParseIP(addr); ip != nil {
+			ips = append(ips, ip)
+		}
+	}
+	h.mu.Lock()
+	h.cachedIPs = ips
+	h.lastUpdate = time.Now()
+	h.mu.Unlock()
+}
+
+// contains returns true if the given IP matches any of the resolved addresses.
+// It triggers a new DNS resolution when the TTL has expired.
+func (h *hostnameChecker) contains(ip net.IP) bool {
+	h.mu.RLock()
+	expired := time.Since(h.lastUpdate) > h.ttl
+	h.mu.RUnlock()
+
+	if expired {
+		h.resolve()
+	}
+
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	for _, cached := range h.cachedIPs {
+		if cached.Equal(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+// isHostname returns true if s is a valid DNS hostname rather than an IP address
+// or a CIDR range. It validates that the string contains only characters that are
+// legal in hostname labels so that obviously invalid strings (e.g. ones with
+// spaces) are rejected early.
+func isHostname(s string) bool {
+	if strings.Contains(s, "/") {
+		return false
+	}
+	if net.ParseIP(s) != nil {
+		return false
+	}
+	return hostnameRegex.MatchString(s)
+}
+
 // ParseAllowedIPAndRanges returns a list of functions that allow to find if an
-// IP is equal or is contained within the allowed list
+// IP is equal or is contained within the allowed list.
+// Each entry can be:
+//   - a plain IP address (e.g. "192.168.1.1")
+//   - a CIDR range       (e.g. "10.0.0.0/8")
+//   - a hostname         (e.g. "tasks.traefik") resolved via DNS with a 30-second
+//     TTL cache, which is useful in Docker Swarm or Kubernetes where proxy
+//     container IPs are dynamic.
 func ParseAllowedIPAndRanges(allowed []string) ([]func(net.IP) bool, error) {
 	res := make([]func(net.IP) bool, len(allowed))
 	for i, allowFrom := range allowed {
@@ -818,13 +914,16 @@ func ParseAllowedIPAndRanges(allowed []string) ([]func(net.IP) bool, error) {
 			}
 
 			res[i] = ipRange.Contains
+		} else if isHostname(allowFrom) {
+			checker := newHostnameChecker(allowFrom)
+			res[i] = checker.contains
 		} else {
-			allowed := net.ParseIP(allowFrom)
-			if allowed == nil {
-				return nil, fmt.Errorf("given string %q is not a valid IP address", allowFrom)
+			ip := net.ParseIP(allowFrom)
+			if ip == nil {
+				return nil, fmt.Errorf("given string %q is not a valid IP address or hostname", allowFrom)
 			}
 
-			res[i] = allowed.Equal
+			res[i] = ip.Equal
 		}
 	}
 

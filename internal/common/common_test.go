@@ -249,14 +249,17 @@ func TestInitializationProxyErrors(t *testing.T) {
 
 	c := Configuration{
 		ProxyProtocol: 1,
-		ProxyAllowed:  []string{"1.1.1.1111"},
+		// "not valid ip" contains spaces so it is rejected as neither a valid IP,
+		// CIDR, nor hostname.
+		ProxyAllowed: []string{"not valid ip"},
 	}
 	err := Initialize(c, 0)
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "invalid proxy allowed")
 	}
 	c.ProxyAllowed = nil
-	c.ProxySkipped = []string{"invalid"}
+	// "not valid" contains a space so it is rejected as neither a valid IP nor a valid hostname.
+	c.ProxySkipped = []string{"not valid"}
 	err = Initialize(c, 0)
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "invalid proxy skipped")
@@ -1359,16 +1362,38 @@ func TestCachedFs(t *testing.T) {
 }
 
 func TestParseAllowedIPAndRanges(t *testing.T) {
+	// Invalid: string with spaces is neither a valid IP nor a valid hostname.
 	_, err := util.ParseAllowedIPAndRanges([]string{"1.1.1.1", "not an ip"})
 	assert.Error(t, err)
+	// Invalid CIDR.
 	_, err = util.ParseAllowedIPAndRanges([]string{"1.1.1.5", "192.168.1.0/240"})
 	assert.Error(t, err)
+	// Valid plain IPs and CIDR ranges.
 	allow, err := util.ParseAllowedIPAndRanges([]string{"192.168.1.2", "172.16.0.0/24"})
 	assert.NoError(t, err)
 	assert.True(t, allow[0](net.ParseIP("192.168.1.2")))
 	assert.False(t, allow[0](net.ParseIP("192.168.2.2")))
 	assert.True(t, allow[1](net.ParseIP("172.16.0.1")))
 	assert.False(t, allow[1](net.ParseIP("172.16.1.1")))
+	// Valid hostname: "localhost" should resolve to 127.0.0.1 or ::1 on any system.
+	allow, err = util.ParseAllowedIPAndRanges([]string{"localhost"})
+	assert.NoError(t, err)
+	assert.Len(t, allow, 1)
+	localhostIPv4 := net.ParseIP("127.0.0.1")
+	localhostIPv6 := net.ParseIP("::1")
+	matchesLocalhost := allow[0](localhostIPv4) || allow[0](localhostIPv6)
+	assert.True(t, matchesLocalhost, "localhost should match 127.0.0.1 or ::1")
+	assert.False(t, allow[0](net.ParseIP("192.168.1.1")), "localhost should not match 192.168.1.1")
+	// Valid Docker-Swarm-style hostname (underscore label).
+	allow, err = util.ParseAllowedIPAndRanges([]string{"tasks.traefik"})
+	assert.NoError(t, err)
+	assert.Len(t, allow, 1)
+	// Mixed list: IPs, CIDR, and a hostname together.
+	allow, err = util.ParseAllowedIPAndRanges([]string{"10.0.0.1", "172.16.0.0/24", "localhost"})
+	assert.NoError(t, err)
+	assert.Len(t, allow, 3)
+	assert.True(t, allow[0](net.ParseIP("10.0.0.1")))
+	assert.True(t, allow[1](net.ParseIP("172.16.0.5")))
 }
 
 func TestHideConfidentialData(_ *testing.T) {
