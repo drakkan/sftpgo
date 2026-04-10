@@ -385,7 +385,7 @@
         }
     },
     "datatable": {
-        "info": "Showing _START_ to _END_ of _TOTAL_ records",
+        "info": "显示第 _START_ 到 _END_ 条，共 _TOTAL_ 条记录",
         "info_empty": "无记录显示",
         "info_filtered": "(从 _MAX_ 条总记录中筛选)",
         "processing": "处理中...",
