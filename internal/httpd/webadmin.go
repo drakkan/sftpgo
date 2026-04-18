@@ -212,7 +212,8 @@ type profilePage struct {
 
 type changePasswordPage struct {
 	basePage
-	Error *util.I18nError
+	Error          *util.I18nError
+	RequiredAction *util.I18nError
 }
 
 type mfaPage struct {
@@ -224,6 +225,7 @@ type mfaPage struct {
 	SaveTOTPURL      string
 	RecCodesURL      string
 	RequireTwoFactor bool
+	RequiredAction   *util.I18nError
 }
 
 type maintenancePage struct {
@@ -794,6 +796,12 @@ func (s *httpdServer) renderMFAPage(w http.ResponseWriter, r *http.Request) {
 	}
 	data.TOTPConfig = admin.Filters.TOTPConfig
 	data.RequireTwoFactor = admin.Filters.RequireTwoFactor
+	if claims, claimsErr := jwt.FromContext(r.Context()); claimsErr == nil && claims.MustSetTwoFactorAuth {
+		data.RequiredAction = util.NewI18nError(
+			util.NewGenericError("Two-factor authentication setup required"),
+			util.I18nError2FARequiredGeneric,
+		)
+	}
 	renderAdminTemplate(w, templateMFA, data)
 }
 
@@ -819,7 +827,12 @@ func (s *httpdServer) renderChangePasswordPage(w http.ResponseWriter, r *http.Re
 		basePage: s.getBasePageData(util.I18nChangePwdTitle, webChangeAdminPwdPath, w, r),
 		Error:    err,
 	}
-
+	if claims, claimsErr := jwt.FromContext(r.Context()); claimsErr == nil && claims.MustChangePassword {
+		data.RequiredAction = util.NewI18nError(
+			util.NewGenericError("Password change required"),
+			util.I18nErrorChangePwdRequired,
+		)
+	}
 	renderAdminTemplate(w, templateChangePwd, data)
 }
 

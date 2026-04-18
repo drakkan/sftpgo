@@ -194,7 +194,8 @@ type clientProfilePage struct {
 
 type changeClientPasswordPage struct {
 	baseClientPage
-	Error *util.I18nError
+	Error          *util.I18nError
+	RequiredAction *util.I18nError
 }
 
 type clientMFAPage struct {
@@ -207,6 +208,7 @@ type clientMFAPage struct {
 	RecCodesURL       string
 	Protocols         []string
 	RequiredProtocols []string
+	RequiredAction    *util.I18nError
 }
 
 type clientSharesPage struct {
@@ -692,6 +694,23 @@ func (s *httpdServer) renderClientMFAPage(w http.ResponseWriter, r *http.Request
 	}
 	data.TOTPConfig = user.Filters.TOTPConfig
 	data.RequiredProtocols = user.Filters.TwoFactorAuthProtocols
+	if claims, claimsErr := jwt.FromContext(r.Context()); claimsErr == nil && claims.MustSetTwoFactorAuth {
+		if len(claims.RequiredTwoFactorProtocols) > 0 {
+			protocols := strings.Join(claims.RequiredTwoFactorProtocols, ", ")
+			data.RequiredAction = util.NewI18nError(
+				util.NewGenericError("Two-factor authentication setup required"),
+				util.I18nError2FARequired,
+				util.I18nErrorArgs(map[string]any{
+					"val": protocols,
+				}),
+			)
+		} else {
+			data.RequiredAction = util.NewI18nError(
+				util.NewGenericError("Two-factor authentication setup required"),
+				util.I18nError2FARequiredGeneric,
+			)
+		}
+	}
 	renderClientTemplate(w, templateClientMFA, data)
 }
 
@@ -875,7 +894,12 @@ func (s *httpdServer) renderClientChangePasswordPage(w http.ResponseWriter, r *h
 		baseClientPage: s.getBaseClientPageData(util.I18nChangePwdTitle, webChangeClientPwdPath, w, r),
 		Error:          err,
 	}
-
+	if claims, claimsErr := jwt.FromContext(r.Context()); claimsErr == nil && claims.MustChangePassword {
+		data.RequiredAction = util.NewI18nError(
+			util.NewGenericError("Password change required"),
+			util.I18nErrorChangePwdRequired,
+		)
+	}
 	renderClientTemplate(w, templateChangePwd, data)
 }
 

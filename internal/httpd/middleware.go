@@ -235,38 +235,48 @@ func (s *httpdServer) checkAuthRequirements(next http.Handler) http.Handler {
 			return
 		}
 		if claims.MustSetTwoFactorAuth || claims.MustChangePassword {
-			var err error
-			if claims.MustSetTwoFactorAuth {
-				if len(claims.RequiredTwoFactorProtocols) > 0 {
-					protocols := strings.Join(claims.RequiredTwoFactorProtocols, ", ")
-					err = util.NewI18nError(
-						util.NewGenericError(
-							fmt.Sprintf("Two-factor authentication requirements not met, please configure two-factor authentication for the following protocols: %v",
-								protocols)),
-						util.I18nError2FARequired,
-						util.I18nErrorArgs(map[string]any{
-							"val": protocols,
-						}),
-					)
-				} else {
-					err = util.NewI18nError(
-						util.NewGenericError("Two-factor authentication requirements not met, please configure two-factor authentication"),
-						util.I18nError2FARequiredGeneric,
-					)
-				}
-			} else {
-				err = util.NewI18nError(
-					util.NewGenericError("Password change required. Please set a new password to continue to use your account"),
-					util.I18nErrorChangePwdRequired,
-				)
-			}
 			if isWebRequest(r) {
+				var redirectURL string
 				if isWebClientRequest(r) {
-					s.renderClientForbiddenPage(w, r, err)
+					if claims.MustSetTwoFactorAuth {
+						redirectURL = webClientMFAPath
+					} else {
+						redirectURL = webChangeClientPwdPath
+					}
 				} else {
-					s.renderForbiddenPage(w, r, err)
+					if claims.MustSetTwoFactorAuth {
+						redirectURL = webAdminMFAPath
+					} else {
+						redirectURL = webChangeAdminPwdPath
+					}
 				}
+				http.Redirect(w, r, redirectURL, http.StatusFound)
 			} else {
+				var err error
+				if claims.MustSetTwoFactorAuth {
+					if len(claims.RequiredTwoFactorProtocols) > 0 {
+						protocols := strings.Join(claims.RequiredTwoFactorProtocols, ", ")
+						err = util.NewI18nError(
+							util.NewGenericError(
+								fmt.Sprintf("Two-factor authentication requirements not met, please configure two-factor authentication for the following protocols: %v",
+									protocols)),
+							util.I18nError2FARequired,
+							util.I18nErrorArgs(map[string]any{
+								"val": protocols,
+							}),
+						)
+					} else {
+						err = util.NewI18nError(
+							util.NewGenericError("Two-factor authentication requirements not met, please configure two-factor authentication"),
+							util.I18nError2FARequiredGeneric,
+						)
+					}
+				} else {
+					err = util.NewI18nError(
+						util.NewGenericError("Password change required. Please set a new password to continue to use your account"),
+						util.I18nErrorChangePwdRequired,
+					)
+				}
 				sendAPIResponse(w, r, err, "", http.StatusForbidden)
 			}
 			return

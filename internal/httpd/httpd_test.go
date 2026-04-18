@@ -3737,7 +3737,14 @@ func TestMustChangePasswordRequirement(t *testing.T) {
 	req.RequestURI = webClientFilesPath
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusForbidden, rr)
+	checkResponseCode(t, http.StatusFound, rr)
+	assert.Equal(t, webChangeClientPwdPath, rr.Header().Get("Location"))
+	req, err = http.NewRequest(http.MethodGet, webChangeClientPwdPath, nil)
+	assert.NoError(t, err)
+	req.RequestURI = webChangeClientPwdPath
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
 	assert.Contains(t, rr.Body.String(), util.I18nErrorChangePwdRequired)
 	// change pwd
 	pwd := make(map[string]string)
@@ -3782,7 +3789,15 @@ func TestMustChangePasswordRequirement(t *testing.T) {
 	req.RequestURI = webClientFilesPath
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusForbidden, rr)
+	checkResponseCode(t, http.StatusFound, rr)
+	assert.Equal(t, webChangeClientPwdPath, rr.Header().Get("Location"))
+	req, err = http.NewRequest(http.MethodGet, webChangeClientPwdPath, nil)
+	assert.NoError(t, err)
+	req.RequestURI = webChangeClientPwdPath
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorChangePwdRequired)
 
 	csrfToken, err := getCSRFTokenFromInternalPageMock(webChangeClientPwdPath, webToken)
 	assert.NoError(t, err)
@@ -3845,7 +3860,14 @@ func TestTwoFactorRequirements(t *testing.T) {
 	req.RequestURI = webClientFilesPath
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusForbidden, rr)
+	checkResponseCode(t, http.StatusFound, rr)
+	assert.Equal(t, webClientMFAPath, rr.Header().Get("Location"))
+	req, err = http.NewRequest(http.MethodGet, webClientMFAPath, nil)
+	assert.NoError(t, err)
+	req.RequestURI = webClientMFAPath
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
 	assert.Contains(t, rr.Body.String(), util.I18nError2FARequired)
 
 	configName, key, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
@@ -3931,7 +3953,14 @@ func TestTwoFactorRequirementsGroupLevel(t *testing.T) {
 	req.RequestURI = webClientFilesPath
 	setJWTCookieForReq(req, webToken)
 	rr := executeRequest(req)
-	checkResponseCode(t, http.StatusForbidden, rr)
+	checkResponseCode(t, http.StatusFound, rr)
+	assert.Equal(t, webClientMFAPath, rr.Header().Get("Location"))
+	req, err = http.NewRequest(http.MethodGet, webClientMFAPath, nil)
+	assert.NoError(t, err)
+	req.RequestURI = webClientMFAPath
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
 	assert.Contains(t, rr.Body.String(), util.I18nError2FARequired)
 
 	req, err = http.NewRequest(http.MethodGet, userDirsPath, nil)
@@ -4068,7 +4097,15 @@ func TestAdminMustChangePasswordRequirement(t *testing.T) {
 	req.RequestURI = webUsersPath
 	setJWTCookieForReq(req, webToken)
 	rr := executeRequest(req)
-	checkResponseCode(t, http.StatusForbidden, rr)
+	checkResponseCode(t, http.StatusFound, rr)
+	assert.Equal(t, webChangeAdminPwdPath, rr.Header().Get("Location"))
+	req, err = http.NewRequest(http.MethodGet, webChangeAdminPwdPath, nil)
+	assert.NoError(t, err)
+	req.RequestURI = webChangeAdminPwdPath
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorChangePwdRequired)
 	// The change password page should be accessible, we get the CSRF from it.
 	csrfToken, err := getCSRFTokenFromInternalPageMock(webChangeAdminPwdPath, webToken)
 	assert.NoError(t, err)
@@ -4128,7 +4165,14 @@ func TestAdminTwoFactorRequirements(t *testing.T) {
 	req.RequestURI = webFoldersPath
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusForbidden, rr)
+	checkResponseCode(t, http.StatusFound, rr)
+	assert.Equal(t, webAdminMFAPath, rr.Header().Get("Location"))
+	req, err = http.NewRequest(http.MethodGet, webAdminMFAPath, nil)
+	assert.NoError(t, err)
+	req.RequestURI = webAdminMFAPath
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
 	assert.Contains(t, rr.Body.String(), util.I18nError2FARequiredGeneric)
 	// add TOTP config
 	configName, key, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], altAdminUsername)
@@ -11999,7 +12043,14 @@ func TestPermGroupOverride(t *testing.T) {
 	req.RequestURI = webClientFilesPath
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusForbidden, rr)
+	checkResponseCode(t, http.StatusFound, rr)
+	assert.Equal(t, webClientMFAPath, rr.Header().Get("Location"))
+	req, err = http.NewRequest(http.MethodGet, webClientMFAPath, nil)
+	assert.NoError(t, err)
+	req.RequestURI = webClientMFAPath
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
 	assert.Contains(t, rr.Body.String(), util.I18nError2FARequired)
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)

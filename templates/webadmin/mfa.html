@@ -16,6 +16,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 {{template "base" .}}
 
 {{- define "page_body"}}
+{{- template "warnmsg" .RequiredAction}}
 {{- if .TOTPConfig.Enabled}}
 <div class="notice d-flex bg-light-primary rounded border-primary border border-dashed p-6 mb-5">
     <i class="ki-duotone ki-shield-tick fs-2tx text-primary me-4">
