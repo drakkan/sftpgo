@@ -48,7 +48,7 @@ jobs:
         run: go test -v -tags nopgxregisterdefaulttypes,disable_grpc_modules -p 1 -timeout 15m ./... -coverprofile=coverage.txt -covermode=atomic
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           files: ./coverage.txt
           fail_ci_if_error: false
