@@ -960,6 +960,18 @@ func ReadConfigFromFile(name, configDir string) (string, error) {
 	return strings.TrimSpace(BytesToString(val)), nil
 }
 
+// ResolveConfigValue returns the content of the file at filePath if filePath
+// is non-empty, otherwise it returns value unchanged. This is typically used
+// to allow sensitive configuration values (passwords, secrets) to be loaded
+// from a file (e.g. a Docker/Kubernetes secret mount) instead of being
+// provided inline.
+func ResolveConfigValue(value, filePath, configDir string) (string, error) {
+	if filePath == "" {
+		return value, nil
+	}
+	return ReadConfigFromFile(filePath, configDir)
+}
+
 // SlicesEqual checks if the provided slices contain the same elements,
 // also in different order.
 func SlicesEqual(s1, s2 []string) bool {

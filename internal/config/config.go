@@ -341,6 +341,7 @@ func Init() {
 			Port:               0,
 			Username:           "",
 			Password:           "",
+			PasswordFile:       "",
 			ConnectionString:   "",
 			SQLTablesPrefix:    "",
 			SSLMode:            0,
@@ -2148,6 +2149,7 @@ func setViperDefaults() {
 	viper.SetDefault("data_provider.port", globalConf.ProviderConf.Port)
 	viper.SetDefault("data_provider.username", globalConf.ProviderConf.Username)
 	viper.SetDefault("data_provider.password", globalConf.ProviderConf.Password)
+	viper.SetDefault("data_provider.password_file", globalConf.ProviderConf.PasswordFile)
 	viper.SetDefault("data_provider.sslmode", globalConf.ProviderConf.SSLMode)
 	viper.SetDefault("data_provider.disable_sni", globalConf.ProviderConf.DisableSNI)
 	viper.SetDefault("data_provider.target_session_attrs", globalConf.ProviderConf.TargetSessionAttrs)

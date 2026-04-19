@@ -373,6 +373,10 @@ type Config struct {
 	Username string `json:"username" mapstructure:"username"`
 	// Database password
 	Password string `json:"password" mapstructure:"password"`
+	// Path to a file containing the database password. If set, the password is
+	// read from this file at startup, overriding the Password field. The path
+	// can be absolute or relative to the configuration directory.
+	PasswordFile string `json:"password_file" mapstructure:"password_file"`
 	// Used for drivers mysql and postgresql.
 	// 0 disable SSL/TLS connections.
 	// 1 require ssl.
@@ -919,6 +923,11 @@ func Initialize(cnf Config, basePath string, checkAdmins bool) error {
 	if err := validateHooks(); err != nil {
 		return err
 	}
+	password, err := util.ResolveConfigValue(cnf.Password, cnf.PasswordFile, basePath)
+	if err != nil {
+		return fmt.Errorf("unable to read password from file %q: %w", cnf.PasswordFile, err)
+	}
+	config.Password = password
 	if err := createProvider(basePath); err != nil {
 		return err
 	}

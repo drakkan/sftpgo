@@ -205,6 +205,7 @@
     "port": 0,
     "username": "",
     "password": "",
+    "password_file": "",
     "sslmode": 0,
     "disable_sni": false,
     "target_session_attrs": "",

@@ -106,15 +106,11 @@ func NewPlainSecret(payload string) *Secret {
 
 // Initialize configures the KMS support
 func (c *Configuration) Initialize() error {
-	if c.Secrets.MasterKeyPath != "" {
-		mKey, err := util.ReadConfigFromFile(c.Secrets.MasterKeyPath, "")
-		if err != nil {
-			return err
-		}
-		c.Secrets.masterKey = mKey
-	} else if c.Secrets.MasterKeyString != "" {
-		c.Secrets.masterKey = c.Secrets.MasterKeyString
+	masterKey, err := util.ResolveConfigValue(c.Secrets.MasterKeyString, c.Secrets.MasterKeyPath, "")
+	if err != nil {
+		return err
 	}
+	c.Secrets.masterKey = masterKey
 	config = *c
 	if config.Secrets.URL == "" {
 		config.Secrets.URL = sdkkms.SchemeLocal + "://"

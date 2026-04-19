@@ -147,13 +147,11 @@ func (o *OIDC) initialize() error {
 	if !slices.Contains(o.Scopes, oidc.ScopeOpenID) {
 		return fmt.Errorf("oidc: required scope %q is not set", oidc.ScopeOpenID)
 	}
-	if o.ClientSecretFile != "" {
-		secret, err := util.ReadConfigFromFile(o.ClientSecretFile, configurationDir)
-		if err != nil {
-			return err
-		}
-		o.ClientSecret = secret
+	secret, err := util.ResolveConfigValue(o.ClientSecret, o.ClientSecretFile, configurationDir)
+	if err != nil {
+		return err
 	}
+	o.ClientSecret = secret
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 

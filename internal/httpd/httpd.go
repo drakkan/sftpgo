@@ -1154,13 +1154,11 @@ func (c *Conf) Initialize(configDir string, isShared int) error {
 		certMgr = mgr
 	}
 
-	if c.SigningPassphraseFile != "" {
-		passphrase, err := util.ReadConfigFromFile(c.SigningPassphraseFile, configDir)
-		if err != nil {
-			return err
-		}
-		c.SigningPassphrase = passphrase
+	passphrase, err := util.ResolveConfigValue(c.SigningPassphrase, c.SigningPassphraseFile, configDir)
+	if err != nil {
+		return err
 	}
+	c.SigningPassphrase = passphrase
 
 	hideSupportLink = c.HideSupportLink
 
