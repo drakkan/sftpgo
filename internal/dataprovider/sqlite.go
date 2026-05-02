@@ -220,7 +220,9 @@ func initializeSQLiteProvider(basePath string) error {
 		if !filepath.IsAbs(dbPath) {
 			dbPath = filepath.Join(basePath, dbPath)
 		}
-		connectionString = fmt.Sprintf("file:%s?cache=shared&_foreign_keys=1", dbPath)
+		connectionString = fmt.Sprintf(
+			"file:%s?_foreign_keys=1&_journal_mode=WAL&_busy_timeout=5000",
+			dbPath)
 	} else {
 		connectionString = config.ConnectionString
 	}
