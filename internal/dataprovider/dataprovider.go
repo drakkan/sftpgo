@@ -203,7 +203,7 @@ var (
 	unixPwdPrefixes         = []string{md5cryptPwdPrefix, md5cryptApr1PwdPrefix, sha256cryptPwdPrefix, sha512cryptPwdPrefix,
 		yescryptPwdPrefix}
 	digestPwdPrefixes            = []string{md5DigestPwdPrefix, sha256DigestPwdPrefix, sha512DigestPwdPrefix}
-	sharedProviders              = []string{PGSQLDataProviderName, MySQLDataProviderName, CockroachDataProviderName}
+	sharedProviders              = []string{PGSQLDataProviderName, MySQLDataProviderName, CockroachDataProviderName, SQLiteDataProviderName}
 	logSender                    = "dataprovider"
 	sqlTableUsers                string
 	sqlTableFolders              string
