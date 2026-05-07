@@ -677,6 +677,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                             if (type === 'display') {
                                 let previewDiv = "";
                                 if (row["type"] == "2") {
+                                    //{{- if .CanDownload}}
                                     let filename = escapeHTML(row["name"]);
                                     let extension = filename.slice((filename.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase();
                                     switch (extension) {
@@ -745,6 +746,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                             }
                                             //{{- end}}
                                     }
+                                    //{{- end}}
                                 }
                                 let more = `{{- if not .ShareUploadBaseURL}}
                                             {{- if or .CanRename .CanAddFiles .CanShare .CanDelete }}
