@@ -116,7 +116,7 @@ func (k *APIKey) hashKey() error {
 		if config.PasswordHashing.Algo == HashingAlgoBcrypt {
 			hashed, err := bcrypt.GenerateFromPassword([]byte(k.Key), config.PasswordHashing.BcryptOptions.Cost)
 			if err != nil {
-				return err
+				return wrapBcryptError(err)
 			}
 			k.Key = util.BytesToString(hashed)
 		} else {

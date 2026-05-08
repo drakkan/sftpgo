@@ -158,7 +158,7 @@ func (s *Share) hashPassword() error {
 		if config.PasswordHashing.Algo == HashingAlgoBcrypt {
 			hashed, err := bcrypt.GenerateFromPassword([]byte(s.Password), config.PasswordHashing.BcryptOptions.Cost)
 			if err != nil {
-				return err
+				return wrapBcryptError(err)
 			}
 			s.Password = util.BytesToString(hashed)
 		} else {

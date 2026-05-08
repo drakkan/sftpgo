@@ -9775,6 +9775,24 @@ func TestAddAdminNoPasswordMock(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "please set a password")
 }
 
+// TestAddAdminPasswordTooLongMock is a regression test for drakkan/sftpgo#2171.
+// Submitting a password longer than bcrypt's 72-byte limit must surface as a
+// 400 with a clear "too long" message, not the generic 500.
+func TestAddAdminPasswordTooLongMock(t *testing.T) {
+	token, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	admin := getTestAdmin()
+	admin.Username = "admin_too_long_pwd"
+	admin.Password = strings.Repeat("a", 73)
+	asJSON, err := json.Marshal(admin)
+	assert.NoError(t, err)
+	req, _ := http.NewRequest(http.MethodPost, adminPath, bytes.NewBuffer(asJSON))
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "too long")
+}
+
 func TestAdminTwoFactorLogin(t *testing.T) {
 	admin := getTestAdmin()
 	admin.Username = altAdminUsername

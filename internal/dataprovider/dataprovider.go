@@ -3332,10 +3332,26 @@ func validateBaseParams(user *User) error {
 	return nil
 }
 
+// wrapBcryptError translates bcrypt.ErrPasswordTooLong into a typed
+// validation error with an i18n key so callers map it to a localized
+// 400 response instead of a generic 500. Other errors are returned as-is.
+func wrapBcryptError(err error) error {
+	if errors.Is(err, bcrypt.ErrPasswordTooLong) {
+		return util.NewI18nError(
+			util.NewValidationError("the provided password is too long, the maximum is 72 bytes"),
+			util.I18nErrorPasswordTooLong,
+		)
+	}
+	return err
+}
+
 func hashPlainPassword(plainPwd string) (string, error) {
 	if config.PasswordHashing.Algo == HashingAlgoBcrypt {
 		pwd, err := bcrypt.GenerateFromPassword([]byte(plainPwd), config.PasswordHashing.BcryptOptions.Cost)
 		if err != nil {
+			if errors.Is(err, bcrypt.ErrPasswordTooLong) {
+				return "", wrapBcryptError(err)
+			}
 			return "", fmt.Errorf("bcrypt hashing error: %w", err)
 		}
 		return util.BytesToString(pwd), nil
