@@ -44,7 +44,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -978,10 +977,15 @@ func SlicesEqual(s1, s2 []string) bool {
 	if len(s1) != len(s2) {
 		return false
 	}
+	counts := make(map[string]int, len(s1))
 	for _, v := range s1 {
-		if !slices.Contains(s2, v) {
+		counts[v]++
+	}
+	for _, v := range s2 {
+		if counts[v] == 0 {
 			return false
 		}
+		counts[v]--
 	}
 
 	return true
