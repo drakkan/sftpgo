@@ -4317,3 +4317,57 @@ func isSharedProviderSupported() bool {
 		return false
 	}
 }
+
+func TestSlicesEqual(t *testing.T) {
+	tests := []struct {
+		name string
+		s1   []string
+		s2   []string
+		want bool
+	}{
+		{
+			name: "same order",
+			s1:   []string{"read", "write"},
+			s2:   []string{"read", "write"},
+			want: true,
+		},
+		{
+			name: "different order",
+			s1:   []string{"read", "write"},
+			s2:   []string{"write", "read"},
+			want: true,
+		},
+		{
+			name: "different lengths",
+			s1:   []string{"read"},
+			s2:   []string{"read", "write"},
+			want: false,
+		},
+		{
+			name: "same length different values",
+			s1:   []string{"read", "write"},
+			s2:   []string{"read", "delete"},
+			want: false,
+		},
+		{
+			name: "same length different multiplicity",
+			s1:   []string{"read", "write"},
+			s2:   []string{"read", "read"},
+			want: false,
+		},
+		{
+			name: "same multiplicity",
+			s1:   []string{"read", "read", "write"},
+			s2:   []string{"write", "read", "read"},
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := util.SlicesEqual(tt.s1, tt.s2); got != tt.want {
+				t.Fatalf("SlicesEqual(%v, %v) = %v, want %v", tt.s1, tt.s2, got, tt.want)
+			}
+		})
+	}
+}
