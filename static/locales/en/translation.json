@@ -789,6 +789,9 @@
         "any": "Any",
         "allow": "Allow",
         "deny": "Deny",
+        "allow_upload_download": "Allow upload and download",
+        "allow_upload_only": "Allow upload only",
+        "allow_download_only": "Allow download only",
         "ip_net_help": "IP address or network in CIDR format, example: \"192.168.1.1 or 10.8.0.100/32 or 2001:db8:1234::/48\"",
         "ip_invalid": "Invalid IP address",
         "net_invalid": "Invalid network",
@@ -796,7 +799,10 @@
         "search": "IP/Network or initial part",
         "defender_disabled": "Defender disabled in your configuration",
         "allow_list_disabled": "Allow list disabled in your configuration",
-        "ratelimiters_disabled": "Rate limiters disabled in your configuration"
+        "ratelimiters_disabled": "Rate limiters disabled in your configuration",
+        "allow_list_enabled_filter_disabled": "Connection allow list is enabled, but transfer IP filtering is disabled.",
+        "allow_list_disabled_filter_enabled": "Connection allow list is disabled, but transfer IP filtering is enabled for file operations. Mode: {{mode}}, scope: {{scope}}",
+        "allow_list_disabled_filter_disabled": "Connection allow list and transfer IP filtering are both disabled."
     },
     "defender": {
         "view_manage": "View and manage auto blocklist",
