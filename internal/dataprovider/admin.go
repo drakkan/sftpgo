@@ -281,7 +281,7 @@ func (a *Admin) hashPassword() error {
 		if config.PasswordHashing.Algo == HashingAlgoBcrypt {
 			pwd, err := bcrypt.GenerateFromPassword([]byte(a.Password), config.PasswordHashing.BcryptOptions.Cost)
 			if err != nil {
-				return err
+				return wrapBcryptError(err)
 			}
 			a.Password = util.BytesToString(pwd)
 		} else {

@@ -138,6 +138,7 @@ const (
 	I18nErrorFolderQuotaFileInvalid    = "user.folder_quota_file_invalid"
 	I18nErrorFolderQuotaInvalid        = "user.folder_quota_invalid"
 	I18nErrorPasswordComplexity        = "general.err_password_complexity"
+	I18nErrorPasswordTooLong           = "general.err_password_too_long"
 	I18nErrorIPFiltersInvalid          = "user.ip_filters_invalid"
 	I18nErrorSourceBWLimitInvalid      = "user.src_bw_limits_invalid"
 	I18nErrorShareExpirationInvalid    = "user.share_expiration_invalid"
