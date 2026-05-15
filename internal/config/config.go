@@ -123,6 +123,7 @@ var (
 		BaseURL:              "",
 		Languages:            []string{"en"},
 		OIDC: httpd.OIDC{
+			DisplayName:                "OpenID",
 			ClientID:                   "",
 			ClientSecret:               "",
 			ClientSecretFile:           "",
@@ -1630,6 +1631,12 @@ func getHTTPDOIDCFromEnv(idx int) (httpd.OIDC, bool) {
 	configURL, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__CONFIG_URL", idx))
 	if ok {
 		result.ConfigURL = configURL
+		isSet = true
+	}
+
+	displayName, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__DISPLAY_NAME", idx))
+	if ok {
+		result.DisplayName = displayName
 		isSet = true
 	}
 

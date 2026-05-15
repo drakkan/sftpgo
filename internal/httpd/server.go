@@ -193,6 +193,7 @@ func (s *httpdServer) renderClientLoginPage(w http.ResponseWriter, r *http.Reque
 		data.ForgotPwdURL = webClientForgotPwdPath
 	}
 	if s.binding.OIDC.isEnabled() && !s.binding.isWebClientOIDCLoginDisabled() {
+		data.OpenIDDisplayName = s.binding.OIDC.DisplayName
 		data.OpenIDLoginURL = webClientOIDCLoginPath
 	}
 	renderClientTemplate(w, templateCommonLogin, data)
@@ -609,6 +610,7 @@ func (s *httpdServer) renderAdminLoginPage(w http.ResponseWriter, r *http.Reques
 		data.ForgotPwdURL = webAdminForgotPwdPath
 	}
 	if s.binding.OIDC.hasRoles() && !s.binding.isWebAdminOIDCLoginDisabled() {
+		data.OpenIDDisplayName = s.binding.OIDC.DisplayName
 		data.OpenIDLoginURL = webAdminOIDCLoginPath
 	}
 	renderAdminTemplate(w, templateCommonLogin, data)
