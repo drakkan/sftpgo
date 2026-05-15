@@ -894,6 +894,8 @@
         "short_name": "Nome breve",
         "logo": "Logo",
         "logo_help": "Immagine PNG, dimensione massima accettata 512x512, la dimensione predefinita del logo è 256x256",
+        "dark_logo": "Logo modalità scura",
+        "dark_logo_help": "Logo PNG per la modalità scura. Se non impostato, il logo principale verrà utilizzato per entrambe le modalità. Dimensione max. 512x512.",
         "favicon": "Favicon",
         "disclaimer_name": "Titolo Disclaimer",
         "disclaimer_url": "URL Disclaimer",

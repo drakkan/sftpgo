@@ -894,6 +894,8 @@
         "short_name": "Short name",
         "logo": "Logo",
         "logo_help": "PNG image, max accepted size 512x512, default logo size is 256x256",
+        "dark_logo": "Dark Mode Logo",
+        "dark_logo_help": "PNG logo for dark mode. If not set, the main logo will be used for both modes. Max size 512x512.",
         "favicon": "Favicon",
         "disclaimer_name": "Disclaimer title",
         "disclaimer_url": "Disclaimer URL",

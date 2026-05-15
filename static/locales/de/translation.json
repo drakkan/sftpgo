@@ -894,6 +894,8 @@
         "short_name": "Kurzname",
         "logo": "Logo",
         "logo_help": "PNG-Bild (transparenter Hintergrund empfohlen), max. 512x512 Pixel. Ideal: 256x256 Pixel",
+        "dark_logo": "Logo für Dunkelmodus",
+        "dark_logo_help": "PNG-Logo für den Dunkelmodus. Falls nicht gesetzt, wird das Hauptlogo für beide Modi verwendet. Max. 512x512 Pixel.",
         "favicon": "Favicon",
         "disclaimer_name": "Titel des Haftungsausschlusses",
         "disclaimer_url": "Haftungsausschluss-URL",

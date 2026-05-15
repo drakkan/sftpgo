@@ -894,6 +894,8 @@
         "short_name": "Nombre corto",
         "logo": "Logotipo",
         "logo_help": "Imagen PNG, tamaño máximo aceptado 512x512, el tamaño predeterminado del logotipo es 256x256",
+        "dark_logo": "Logotipo modo oscuro",
+        "dark_logo_help": "Logotipo PNG para modo oscuro. Si no se establece, se utilizará el logotipo principal para ambos modos. Tamaño máx. 512x512.",
         "favicon": "Favicon",
         "disclaimer_name": "Título del descargo de responsabilidad",
         "disclaimer_url": "URL del descargo de responsabilidad",

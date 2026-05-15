@@ -194,6 +194,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     lngs.es = { nativeName: 'Español' };
     //{{- else if eq . "zh-CN" }}
     lngs["zh-CN"] = { nativeName: '简体中文' };
+    //{{- else if eq . "tr" }}
+    lngs.tr = { nativeName: 'Türkçe' };
     //{{- end}}
     //{{- end}}
     if (Object.keys(lngs).length == 0){
@@ -901,7 +903,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 </i>
                             </div>
                             <span>
-                                <img alt="Logo" src="{{.StaticURL}}{{.Branding.LogoPath}}" class="h-30px" />
+                                <img alt="Logo" src="{{.StaticURL}}{{.Branding.LogoPath}}" class="h-30px theme-light-show" />
+                                <img alt="Logo" src="{{.StaticURL}}{{.Branding.DarkLogoPath}}" class="h-30px theme-dark-show" />
                             </span>
                         </div>
                         <div class="app-navbar flex-lg-grow-1" id="kt_app_header_navbar">
@@ -918,7 +921,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 {{- else if .IsLoggedToShare}}
                 <div class="app-container container-fluid d-flex mt-5">
                     <div class="d-flex align-items-center d-block ms-3">
-                        <img alt="Logo" src="{{.StaticURL}}{{.Branding.LogoPath}}" class="h-50px" />
+                        <img alt="Logo" src="{{.StaticURL}}{{.Branding.LogoPath}}" class="h-50px theme-light-show" />
+                        <img alt="Logo" src="{{.StaticURL}}{{.Branding.DarkLogoPath}}" class="h-50px theme-dark-show" />
                     </div>
                     <div class="flex-grow-1">
                         <div class="d-flex justify-content-end">
@@ -960,7 +964,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 </div>
                             </div>
                         </div>
-                        {{- if .LoggedUser.Username}}
+                        {{- if and .LoggedUser.Username (not .HideVersion)}}
                         <div id="kt_app_footer" class="app-footer">
                             <div class="app-container  container-fluid d-flex flex-column flex-md-row flex-center flex-md-stack py-3 align-items-center justify-content-center">
                                 <div class="text-gray-900 order-2 order-md-1">

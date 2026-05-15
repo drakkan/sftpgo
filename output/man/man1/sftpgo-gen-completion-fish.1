@@ -1,0 +1,37 @@
+.nh
+.TH "SFTPGO-GEN-COMPLETION-FISH" "1" "Mar 2026" "SFTPGo 2.7.99-dev" "SFTPGo Manual"
+
+.SH NAME
+sftpgo-gen-completion-fish - Generate the autocompletion script for fish
+
+
+.SH SYNOPSIS
+\fBsftpgo gen completion fish\fP
+
+
+.SH DESCRIPTION
+Generate the autocompletion script for the fish shell.
+
+.PP
+To load completions in your current shell session:
+
+.PP
+$ sftpgo gen completion fish | source
+
+.PP
+To load completions for every new session, execute once:
+
+.PP
+$ sftpgo gen completion fish > ~/.config/fish/completions/sftpgo.fish
+
+.PP
+You will need to start a new shell for this setup to take effect.
+
+
+.SH OPTIONS
+\fB-h\fP, \fB--help\fP[=false]
+	help for fish
+
+
+.SH SEE ALSO
+\fBsftpgo-gen-completion(1)\fP

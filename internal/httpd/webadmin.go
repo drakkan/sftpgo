@@ -631,8 +631,11 @@ func (s *httpdServer) getBasePageData(title, currentURL string, w http.ResponseW
 	if currentURL != "" {
 		csrfToken = createCSRFToken(w, r, s.csrfTokenAuth, "", webBaseAdminPath)
 	}
+	branding := s.binding.webAdminBranding()
+	base := getCommonBasePage(r)
+	base.HideVersion = branding.HideVersion
 	return basePage{
-		commonBasePage:      getCommonBasePage(r),
+		commonBasePage:      base,
 		Title:               title,
 		CurrentURL:          currentURL,
 		UsersURL:            webUsersPath,
@@ -674,10 +677,11 @@ func (s *httpdServer) getBasePageData(title, currentURL string, w http.ResponseW
 		HasSearcher:         plugin.Handler.HasSearcher(),
 		HasExternalLogin:    isLoggedInWithOIDC(r),
 		CSRFToken:           csrfToken,
-		Branding:            s.binding.webAdminBranding(),
+		Branding:            branding,
 		Languages:           s.binding.languages(),
 	}
 }
+
 
 func renderAdminTemplate(w http.ResponseWriter, tmplName string, data any) {
 	err := adminTemplates[tmplName].ExecuteTemplate(w, tmplName, data)
@@ -2867,6 +2871,10 @@ func getBrandingConfigFromPostFields(r *http.Request, config *dataprovider.Brand
 	if err != nil {
 		return nil, util.NewI18nError(err, util.I18nErrorInvalidForm)
 	}
+	adminDarkLogo, err := getImageInputBytes(r, "branding_webadmin_dark_logo", "branding_webadmin_dark_logo_remove", config.WebAdmin.DarkLogo)
+	if err != nil {
+		return nil, util.NewI18nError(err, util.I18nErrorInvalidForm)
+	}
 	adminFavicon, err := getImageInputBytes(r, "branding_webadmin_favicon", "branding_webadmin_favicon_remove",
 		config.WebAdmin.Favicon)
 	if err != nil {
@@ -2874,6 +2882,10 @@ func getBrandingConfigFromPostFields(r *http.Request, config *dataprovider.Brand
 	}
 	clientLogo, err := getImageInputBytes(r, "branding_webclient_logo", "branding_webclient_logo_remove",
 		config.WebClient.Logo)
+	if err != nil {
+		return nil, util.NewI18nError(err, util.I18nErrorInvalidForm)
+	}
+	clientDarkLogo, err := getImageInputBytes(r, "branding_webclient_dark_logo", "branding_webclient_dark_logo_remove", config.WebClient.DarkLogo)
 	if err != nil {
 		return nil, util.NewI18nError(err, util.I18nErrorInvalidForm)
 	}
@@ -2888,6 +2900,7 @@ func getBrandingConfigFromPostFields(r *http.Request, config *dataprovider.Brand
 			Name:           strings.TrimSpace(r.Form.Get("branding_webadmin_name")),
 			ShortName:      strings.TrimSpace(r.Form.Get("branding_webadmin_short_name")),
 			Logo:           adminLogo,
+			DarkLogo:       adminDarkLogo,
 			Favicon:        adminFavicon,
 			DisclaimerName: strings.TrimSpace(r.Form.Get("branding_webadmin_disclaimer_name")),
 			DisclaimerURL:  strings.TrimSpace(r.Form.Get("branding_webadmin_disclaimer_url")),
@@ -2896,6 +2909,7 @@ func getBrandingConfigFromPostFields(r *http.Request, config *dataprovider.Brand
 			Name:           strings.TrimSpace(r.Form.Get("branding_webclient_name")),
 			ShortName:      strings.TrimSpace(r.Form.Get("branding_webclient_short_name")),
 			Logo:           clientLogo,
+			DarkLogo:       clientDarkLogo,
 			Favicon:        clientFavicon,
 			DisclaimerName: strings.TrimSpace(r.Form.Get("branding_webclient_disclaimer_name")),
 			DisclaimerURL:  strings.TrimSpace(r.Form.Get("branding_webclient_disclaimer_url")),

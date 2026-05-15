@@ -1,0 +1,43 @@
+.nh
+.TH "SFTPGO-GEN-COMPLETION-ZSH" "1" "Mar 2026" "SFTPGo 2.7.99-dev" "SFTPGo Manual"
+
+.SH NAME
+sftpgo-gen-completion-zsh - Generate the autocompletion script for zsh
+
+
+.SH SYNOPSIS
+\fBsftpgo gen completion zsh\fP
+
+
+.SH DESCRIPTION
+Generate the autocompletion script for the zsh shell.
+
+.PP
+If shell completion is not already enabled in your environment you will need
+to enable it.  You can execute the following once:
+
+.PP
+$ echo "autoload -U compinit; compinit" >> ~/.zshrc
+
+.PP
+To load completions for every new session, execute once:
+
+.PP
+Linux:
+  $ sftpgo gen completion zsh > > "${fpath[1]}/_sftpgo"
+
+.PP
+macOS:
+  $ sudo sftpgo gen completion zsh > /usr/local/share/zsh/site-functions/_sftpgo
+
+.PP
+You will need to start a new shell for this setup to take effect.
+
+
+.SH OPTIONS
+\fB-h\fP, \fB--help\fP[=false]
+	help for zsh
+
+
+.SH SEE ALSO
+\fBsftpgo-gen-completion(1)\fP
