@@ -16748,6 +16748,61 @@ func TestBrowseShares(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestBrowsableSharePartialDownloadPrefixOverlap(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+
+	shareDir := filepath.Join(user.GetHomeDir(), "share")
+	siblingDir := filepath.Join(user.GetHomeDir(), "share2")
+	assert.NoError(t, os.MkdirAll(shareDir, os.ModePerm))
+	assert.NoError(t, os.MkdirAll(siblingDir, os.ModePerm))
+	secretContents := []byte("prefix-overlap-secret\n")
+	assert.NoError(t, os.WriteFile(filepath.Join(shareDir, "inside.txt"), []byte("inside\n"), os.ModePerm))
+	assert.NoError(t, os.WriteFile(filepath.Join(siblingDir, "secret.txt"), secretContents, os.ModePerm))
+
+	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	share := dataprovider.Share{
+		Name:      "prefix overlap share",
+		Scope:     dataprovider.ShareScopeRead,
+		Paths:     []string{"share"},
+		MaxTokens: 0,
+	}
+	asJSON, err := json.Marshal(share)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	objectID := rr.Header().Get("X-Object-ID")
+	assert.NotEmpty(t, objectID)
+
+	defer func() {
+		rcv := recover()
+		assert.Equal(t, http.ErrAbortHandler, rcv)
+
+		s, err := dataprovider.ShareExists(objectID, user.Username)
+		assert.NoError(t, err)
+		assert.Equal(t, 0, s.UsedTokens)
+
+		_, err = httpdtest.RemoveUser(user, http.StatusOK)
+		assert.NoError(t, err)
+		err = os.RemoveAll(user.GetHomeDir())
+		assert.NoError(t, err)
+	}()
+
+	form := make(url.Values)
+	form.Set("files", `["../share2/secret.txt"]`)
+	req, err = http.NewRequest(http.MethodPost, path.Join(webClientPubSharesPath, objectID, "partial?path=%2F"),
+		bytes.NewBufferString(form.Encode()))
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	executeRequest(req)
+}
+
 func TestUserAPIShareErrors(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
