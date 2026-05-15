@@ -144,17 +144,17 @@ func TestSetStatMode(t *testing.T) {
 	user.Permissions["/"] = []string{dataprovider.PermAny}
 	fs := newMockOsFs(true, "", user.GetHomeDir(), "", nil)
 	conn := NewBaseConnection("", ProtocolWebDAV, "", "", user)
-	err := conn.handleChmod(fs, fakePath, fakePath, nil)
+	err := conn.handleChmod(fs, fakePath, fakePath, fakePath, nil)
 	assert.NoError(t, err)
-	err = conn.handleChown(fs, fakePath, fakePath, nil)
+	err = conn.handleChown(fs, fakePath, fakePath, fakePath, nil)
 	assert.NoError(t, err)
-	err = conn.handleChtimes(fs, fakePath, fakePath, nil)
+	err = conn.handleChtimes(fs, fakePath, fakePath, fakePath, nil)
 	assert.NoError(t, err)
 
 	Config.SetstatMode = 2
-	err = conn.handleChmod(fs, fakePath, fakePath, nil)
+	err = conn.handleChmod(fs, fakePath, fakePath, fakePath, nil)
 	assert.NoError(t, err)
-	err = conn.handleChtimes(fs, fakePath, fakePath, &StatAttributes{
+	err = conn.handleChtimes(fs, fakePath, fakePath, fakePath, &StatAttributes{
 		Atime: time.Now(),
 		Mtime: time.Now(),
 	})

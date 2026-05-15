@@ -3799,13 +3799,13 @@ func TestEventsCSV(t *testing.T) {
 		Status: 1,
 	}
 	data := e.getCSVData()
-	assert.Equal(t, "OK", data[5])
+	assert.Equal(t, "OK", data[6])
 	e.Status = 2
 	data = e.getCSVData()
-	assert.Equal(t, "KO", data[5])
+	assert.Equal(t, "KO", data[6])
 	e.Status = 3
 	data = e.getCSVData()
-	assert.Equal(t, "Quota exceeded", data[5])
+	assert.Equal(t, "Quota exceeded", data[6])
 }
 
 func TestConfigsFromProvider(t *testing.T) {

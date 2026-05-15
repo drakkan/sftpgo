@@ -200,7 +200,7 @@ func ErrorToConsole(format string, v ...any) {
 }
 
 // TransferLog logs uploads or downloads
-func TransferLog(operation, path string, elapsed int64, size int64, user, connectionID, protocol, localAddr,
+func TransferLog(operation, path, virtualPath string, elapsed int64, size int64, user, connectionID, protocol, localAddr,
 	remoteAddr, ftpMode string, err error,
 ) {
 	var ev *zerolog.Event
@@ -218,6 +218,7 @@ func TransferLog(operation, path string, elapsed int64, size int64, user, connec
 		Int64("size_bytes", size).
 		Str("username", user).
 		Str("file_path", path).
+		Str("virtual_path", virtualPath).
 		Str("connection_id", connectionID).
 		Str("protocol", protocol)
 	if ftpMode != "" {
@@ -227,8 +228,9 @@ func TransferLog(operation, path string, elapsed int64, size int64, user, connec
 }
 
 // CommandLog logs an SFTP/SCP/SSH command
-func CommandLog(command, path, target, user, fileMode, connectionID, protocol string, uid, gid int, atime, mtime,
-	sshCommand string, size int64, localAddr, remoteAddr string, elapsed int64) {
+func CommandLog(command, path, target, virtualPath, virtualTarget, user, fileMode, connectionID, protocol string,
+	uid, gid int, atime, mtime, sshCommand string, size int64, localAddr, remoteAddr string, elapsed int64,
+) {
 	logger.Info().
 		Timestamp().
 		Str("sender", command).
@@ -237,6 +239,8 @@ func CommandLog(command, path, target, user, fileMode, connectionID, protocol st
 		Str("username", user).
 		Str("file_path", path).
 		Str("target_path", target).
+		Str("virtual_path", virtualPath).
+		Str("virtual_target_path", virtualTarget).
 		Str("filemode", fileMode).
 		Int("uid", uid).
 		Int("gid", gid).
