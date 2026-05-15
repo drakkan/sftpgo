@@ -923,8 +923,9 @@ func closeWriterAndUpdateQuota(w io.WriteCloser, conn *BaseConnection, virtualSo
 				errTransfer = errWrite
 			}
 			if operation == operationCopy {
-				logger.CommandLog(copyLogSender, fsSrcPath, fsDstPath, conn.User.Username, "", conn.ID, conn.protocol, -1, -1,
-					"", "", "", info.Size(), conn.localAddr, conn.remoteAddr, elapsed)
+				logger.CommandLog(copyLogSender, fsSrcPath, fsDstPath, virtualSourcePath, virtualTargetPath,
+					conn.User.Username, "", conn.ID, conn.protocol, -1, -1, "", "", "", info.Size(),
+					conn.localAddr, conn.remoteAddr, elapsed)
 			}
 			ExecuteActionNotification(conn, operation, fsSrcPath, virtualSourcePath, fsDstPath, virtualTargetPath, "", info.Size(), errTransfer, elapsed, nil) //nolint:errcheck
 		}

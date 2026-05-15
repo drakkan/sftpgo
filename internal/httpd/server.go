@@ -1429,7 +1429,7 @@ func (s *httpdServer) setupRESTAPIRoutes() {
 					updateUserQuotaUsage)
 				router.With(s.checkPerms(dataprovider.PermAdminChangeUsers)).Put(quotasBasePath+"/users/{username}/transfer-usage",
 					updateUserTransferQuotaUsage)
-				router.With(s.checkPerms(dataprovider.PermAdminChangeUsers)).Put(quotasBasePath+"/folders/{name}/usage",
+				router.With(s.checkPerms(dataprovider.PermAdminManageFolders)).Put(quotasBasePath+"/folders/{name}/usage",
 					updateFolderQuotaUsage)
 				router.With(s.checkPerms(dataprovider.PermAdminViewDefender)).Get(defenderHosts, getDefenderHosts)
 				router.With(s.checkPerms(dataprovider.PermAdminViewDefender)).Get(defenderHosts+"/{id}", getDefenderHostByID)
