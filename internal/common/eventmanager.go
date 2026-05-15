@@ -1117,7 +1117,7 @@ func addFileToZip(wr *zipWriterWrapper, conn *BaseConnection, entryPath, entryNa
 }
 
 func getZipEntryName(entryPath, baseDir string) (string, error) {
-	if !strings.HasPrefix(entryPath, baseDir) {
+	if entryPath != baseDir && !strings.HasPrefix(entryPath, strings.TrimSuffix(baseDir, "/")+"/") {
 		return "", fmt.Errorf("entry path %q is outside base dir %q", entryPath, baseDir)
 	}
 	entryPath = strings.TrimPrefix(entryPath, baseDir)
