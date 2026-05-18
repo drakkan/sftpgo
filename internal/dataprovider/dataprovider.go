@@ -187,7 +187,10 @@ var (
 	// ErrDuplicatedKey occurs when there is a unique key constraint violation
 	ErrDuplicatedKey = errors.New("duplicated key not allowed")
 	// ErrForeignKeyViolated occurs when there is a foreign key constraint violation
-	ErrForeignKeyViolated   = errors.New("violates foreign key constraint")
+	ErrForeignKeyViolated = errors.New("violates foreign key constraint")
+	// ErrShareUsageExceeded is returned when reserving share usage tokens would exceed the share max_tokens limit
+	ErrShareUsageExceeded = util.NewI18nError(
+		util.NewRecordNotFoundError("max share usage exceeded"), util.I18nErrorShareUsage)
 	errInvalidInput         = util.NewValidationError("Invalid input. Slashes (/ ), colons (:), control characters, and reserved system names are not allowed")
 	tz                      = ""
 	isAdminCreated          atomic.Bool
@@ -1462,7 +1465,11 @@ func CleanupDefender(from int64) error {
 	return provider.cleanupDefender(from)
 }
 
-// UpdateShareLastUse updates the LastUseAt and UsedTokens for the given share
+// UpdateShareLastUse updates the LastUseAt and UsedTokens for the given share.
+// When numTokens is positive the usage is reserved atomically: if max_tokens is
+// set and the reservation would exceed it the share is left unchanged and
+// ErrShareUsageExceeded is returned. A non-positive numTokens refunds previously
+// reserved tokens and is always applied.
 func UpdateShareLastUse(share *Share, numTokens int) error {
 	return provider.updateShareLastUse(share.ShareID, numTokens)
 }

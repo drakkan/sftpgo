@@ -15170,6 +15170,143 @@ func TestSharePasswordPolicy(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestShareMaxTokensConcurrent(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+
+	testFileName := xid.New().String() + ".dat"
+	testFilePath := filepath.Join(user.GetHomeDir(), testFileName)
+	err = createTestFile(testFilePath, 65536)
+	assert.NoError(t, err)
+
+	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	share := dataprovider.Share{
+		Name:      "test_share_concurrent",
+		Scope:     dataprovider.ShareScopeRead,
+		Paths:     []string{"/" + testFileName},
+		MaxTokens: 1,
+	}
+	asJSON, err := json.Marshal(share)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	objectID := rr.Header().Get("X-Object-ID")
+	assert.NotEmpty(t, objectID)
+
+	oldMaxPerHost := common.Config.MaxPerHostConnections
+	common.Config.MaxPerHostConnections = 0
+	defer func() { common.Config.MaxPerHostConnections = oldMaxPerHost }()
+
+	const numRequests = 25
+	results := make(chan int, numRequests)
+	var wg sync.WaitGroup
+	wg.Add(numRequests)
+	for i := 0; i < numRequests; i++ {
+		go func() {
+			defer wg.Done()
+			r, errReq := http.NewRequest(http.MethodGet, sharesPath+"/"+objectID+"?compress=false", nil)
+			if errReq != nil {
+				results <- 0
+				return
+			}
+			results <- executeRequest(r).Code
+		}()
+	}
+	wg.Wait()
+	close(results)
+
+	okCount, exhaustedCount := 0, 0
+	for code := range results {
+		switch code {
+		case http.StatusOK:
+			okCount++
+		case http.StatusNotFound:
+			exhaustedCount++
+		default:
+			t.Errorf("unexpected status code %d", code)
+		}
+	}
+	assert.Equal(t, 1, okCount, "exactly one concurrent request must consume the single token")
+	assert.Equal(t, numRequests-1, exhaustedCount, "every other request must be rejected as usage exceeded")
+
+	shareGet, err := dataprovider.ShareExists(objectID, user.Username)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, shareGet.UsedTokens, "used tokens must not exceed max_tokens under concurrency")
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestShareUploadFilesPartialFailureRefund(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+
+	// a real directory whose name collides with the second uploaded file: the
+	// second file write fails deterministically (either at getFileWriter or at
+	// the atomic-rename in Close), so doUploadFiles returns 1 of 2.
+	collide := "collide_dir"
+	err = os.MkdirAll(filepath.Join(user.GetHomeDir(), collide), os.ModePerm)
+	assert.NoError(t, err)
+
+	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	share := dataprovider.Share{
+		Name:      "partial_refund",
+		Scope:     dataprovider.ShareScopeWrite,
+		Paths:     []string{"/"},
+		Password:  defaultPassword,
+		MaxTokens: 5,
+	}
+	asJSON, err := json.Marshal(share)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	objectID := rr.Header().Get("X-Object-ID")
+	assert.NotEmpty(t, objectID)
+
+	body := new(bytes.Buffer)
+	writer := multipart.NewWriter(body)
+	part1, err := writer.CreateFormFile("filenames", "good.txt")
+	assert.NoError(t, err)
+	_, err = part1.Write([]byte("good content"))
+	assert.NoError(t, err)
+	part2, err := writer.CreateFormFile("filenames", collide)
+	assert.NoError(t, err)
+	_, err = part2.Write([]byte("this write targets a directory and must fail"))
+	assert.NoError(t, err)
+	err = writer.Close()
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodPost, sharesPath+"/"+objectID, bytes.NewReader(body.Bytes()))
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	assert.NotEqual(t, http.StatusCreated, rr.Code, "partial upload must not report success")
+
+	// reserved 2, exactly 1 file uploaded -> the deferred refund must give back
+	// exactly one token, leaving net usage at 1 (not 2, not 0).
+	shareGet, err := dataprovider.ShareExists(objectID, user.Username)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, shareGet.UsedTokens, "failed file must be refunded, succeeded file must be charged")
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestShareMaxExpiration(t *testing.T) {
 	u := getTestUser()
 	u.Filters.MaxSharesExpiration = 5

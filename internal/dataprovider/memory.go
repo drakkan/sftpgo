@@ -2031,6 +2031,9 @@ func (p *MemoryProvider) updateShareLastUse(shareID string, numTokens int) error
 	if err != nil {
 		return err
 	}
+	if numTokens > 0 && share.MaxTokens > 0 && share.UsedTokens+numTokens > share.MaxTokens {
+		return ErrShareUsageExceeded
+	}
 	share.LastUseAt = util.GetTimeAsMsSinceEpoch(time.Now())
 	share.UsedTokens += numTokens
 	p.dbHandle.shares[share.ShareID] = share
