@@ -129,6 +129,9 @@ func init() {
 	Connections.transfers = clientsMap{
 		clients: make(map[string]int),
 	}
+	Connections.transfersPerIP = clientsMap{
+		clients: make(map[string]int),
+	}
 	Connections.perUserConns = make(map[string]int)
 	Connections.mapping = make(map[string]int)
 	Connections.sshMapping = make(map[string]int)
@@ -938,7 +941,9 @@ type ActiveConnections struct {
 	// for authentication
 	clients clientsMap
 	// transfers contains active transfers, total and per-user
-	transfers            clientsMap
+	transfers clientsMap
+	// transfersPerIP contains active transfers per client IP, used to enforce MaxPerHostConnections
+	transfersPerIP       clientsMap
 	transfersCheckStatus atomic.Bool
 	sync.RWMutex
 	connections    []ActiveConnection
@@ -988,9 +993,6 @@ func (conns *ActiveConnections) Add(c ActiveConnection) error {
 		if maxSessions := c.GetMaxSessions(); maxSessions > 0 {
 			if val := conns.perUserConns[username]; val >= maxSessions {
 				return fmt.Errorf("too many open sessions: %d/%d", val, maxSessions)
-			}
-			if val := conns.transfers.getTotalFrom(username); val >= maxSessions {
-				return fmt.Errorf("too many open transfers: %d/%d", val, maxSessions)
 			}
 		}
 		conns.addUserConnection(username)
@@ -1258,23 +1260,33 @@ func (conns *ActiveConnections) GetTotalTransfers() int32 {
 }
 
 // IsNewTransferAllowed returns an error if the maximum number of concurrent allowed
-// transfers is exceeded
-func (conns *ActiveConnections) IsNewTransferAllowed(username string) error {
+// transfers is exceeded for the client connection, its IP address or the user
+func (conns *ActiveConnections) IsNewTransferAllowed(c *BaseConnection) error {
 	if isShuttingDown.Load() {
 		return ErrShuttingDown
 	}
-	if Config.MaxTotalConnections == 0 && Config.MaxPerHostConnections == 0 {
+	username := c.GetUsername()
+	maxSessions := c.GetMaxSessions()
+	if Config.MaxTotalConnections == 0 && Config.MaxPerHostConnections == 0 && (maxSessions == 0 || username == "") {
 		return nil
 	}
-	if Config.MaxPerHostConnections > 0 {
-		if transfers := conns.transfers.getTotalFrom(username); transfers >= Config.MaxPerHostConnections {
-			logger.Info(logSender, "", "active transfers from user %q: %d/%d", username, transfers, Config.MaxPerHostConnections)
+	if maxSessions > 0 && username != "" {
+		if transfers := conns.transfers.getTotalFrom(username); transfers >= maxSessions {
+			logger.Info(logSender, "", "denying new transfer, active transfers from user %q: %d/%d", username, transfers, maxSessions)
 			return ErrConnectionDenied
+		}
+	}
+	if Config.MaxPerHostConnections > 0 {
+		if ipAddr := c.GetRemoteIP(); ipAddr != "" {
+			if transfers := conns.transfersPerIP.getTotalFrom(ipAddr); transfers >= Config.MaxPerHostConnections {
+				logger.Info(logSender, "", "denying new transfer, active transfers from IP %q: %d/%d", ipAddr, transfers, Config.MaxPerHostConnections)
+				return ErrConnectionDenied
+			}
 		}
 	}
 	if Config.MaxTotalConnections > 0 {
 		if transfers := conns.transfers.getTotal(); transfers >= int32(Config.MaxTotalConnections) {
-			logger.Info(logSender, "", "active transfers %d/%d", transfers, Config.MaxTotalConnections)
+			logger.Info(logSender, "", "denying new transfer, active transfers %d/%d", transfers, Config.MaxTotalConnections)
 			return ErrConnectionDenied
 		}
 	}

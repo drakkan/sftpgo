@@ -652,16 +652,17 @@ func TestMaxConnections(t *testing.T) {
 	Config.MaxPerHostConnections = 0
 
 	ipAddr := "192.168.7.8"
+	tConn := NewBaseConnection("id", ProtocolSFTP, "", ipAddr, dataprovider.User{})
 	assert.NoError(t, Connections.IsNewConnectionAllowed(ipAddr, ProtocolFTP))
-	assert.NoError(t, Connections.IsNewTransferAllowed(userTestUsername))
+	assert.NoError(t, Connections.IsNewTransferAllowed(tConn))
 
 	Config.MaxTotalConnections = 1
 	Config.MaxPerHostConnections = perHost
 
 	assert.NoError(t, Connections.IsNewConnectionAllowed(ipAddr, ProtocolHTTP))
-	assert.NoError(t, Connections.IsNewTransferAllowed(userTestUsername))
+	assert.NoError(t, Connections.IsNewTransferAllowed(tConn))
 	isShuttingDown.Store(true)
-	assert.ErrorIs(t, Connections.IsNewTransferAllowed(userTestUsername), ErrShuttingDown)
+	assert.ErrorIs(t, Connections.IsNewTransferAllowed(tConn), ErrShuttingDown)
 	isShuttingDown.Store(false)
 
 	c := NewBaseConnection("id", ProtocolSFTP, "", "", dataprovider.User{})
@@ -673,7 +674,7 @@ func TestMaxConnections(t *testing.T) {
 	assert.Len(t, Connections.GetStats(""), 1)
 	assert.Error(t, Connections.IsNewConnectionAllowed(ipAddr, ProtocolSSH))
 	Connections.transfers.add(userTestUsername)
-	assert.Error(t, Connections.IsNewTransferAllowed(userTestUsername))
+	assert.Error(t, Connections.IsNewTransferAllowed(tConn))
 	Connections.transfers.remove(userTestUsername)
 	assert.Equal(t, int32(0), Connections.GetTotalTransfers())
 
@@ -693,6 +694,100 @@ func TestMaxConnections(t *testing.T) {
 	Connections.RemoveClientConnection(ipAddr)
 
 	Config.MaxTotalConnections = oldValue
+}
+
+func TestIsNewTransferAllowedPerHost(t *testing.T) {
+	oldMaxTotal := Config.MaxTotalConnections
+	oldMaxPerHost := Config.MaxPerHostConnections
+	t.Cleanup(func() {
+		Config.MaxTotalConnections = oldMaxTotal
+		Config.MaxPerHostConnections = oldMaxPerHost
+		isShuttingDown.Store(false)
+	})
+
+	newConn := func(connID, username, ipAddr string, maxSessions int) *BaseConnection {
+		return NewBaseConnection(connID, ProtocolSFTP, "", ipAddr, dataprovider.User{
+			BaseUser: sdk.BaseUser{
+				Username:    username,
+				MaxSessions: maxSessions,
+			},
+		})
+	}
+
+	// all limits disabled: never denied, even with active transfers tracked
+	Config.MaxTotalConnections = 0
+	Config.MaxPerHostConnections = 0
+	Connections.transfers.add("u-disabled")
+	Connections.transfersPerIP.add("10.0.0.1")
+	assert.NoError(t, Connections.IsNewTransferAllowed(newConn("c0", "u-disabled", "10.0.0.1", 0)))
+	Connections.transfers.remove("u-disabled")
+	Connections.transfersPerIP.remove("10.0.0.1")
+
+	// per-IP cap: keyed by client IP, not username, consistent with MaxPerHostConnections
+	Config.MaxPerHostConnections = 1
+	ip1 := "192.0.2.10"
+	ip2 := "192.0.2.11"
+	Connections.transfersPerIP.add(ip1)
+	// the per-username counter being saturated must NOT affect the per-IP decision
+	Connections.transfers.add("other-user")
+	assert.Error(t, Connections.IsNewTransferAllowed(newConn("ci", "user-a", ip1, 0)))
+	assert.NoError(t, Connections.IsNewTransferAllowed(newConn("ci", "user-a", ip2, 0)))
+	assert.NoError(t, Connections.IsNewTransferAllowed(newConn("ci", "user-a", "", 0)))
+	Connections.transfers.remove("other-user")
+	Connections.transfersPerIP.remove(ip1)
+	assert.NoError(t, Connections.IsNewTransferAllowed(newConn("ci", "user-a", ip1, 0)))
+	Config.MaxPerHostConnections = 0
+
+	// per-user cap: keyed by username via User.MaxSessions, independent of the config
+	// limits. With both config limits disabled the guard must NOT short-circuit when
+	// maxSessions > 0: this closes the SFTP multiplexing hole (many concurrent
+	// transfers on a single connection).
+	Config.MaxTotalConnections = 0
+	Config.MaxPerHostConnections = 0
+	userM := "user-m"
+	Connections.transfers.add(userM)
+	Connections.transfers.add(userM)
+	// same username, two active transfers, MaxSessions=2: a new transfer is denied
+	assert.Error(t, Connections.IsNewTransferAllowed(newConn("cm", userM, "198.51.100.30", 2)))
+	// a different user on the same IP is unaffected: the cap is per-username
+	assert.NoError(t, Connections.IsNewTransferAllowed(newConn("cm", "user-n", "198.51.100.30", 2)))
+	// the same user below its own limit is allowed
+	Connections.transfers.remove(userM)
+	assert.NoError(t, Connections.IsNewTransferAllowed(newConn("cm", userM, "198.51.100.30", 2)))
+	// MaxSessions=0 disables the per-user cap even with transfers tracked
+	assert.NoError(t, Connections.IsNewTransferAllowed(newConn("cm", userM, "198.51.100.30", 0)))
+	// an empty username is never subject to the per-user cap
+	assert.NoError(t, Connections.IsNewTransferAllowed(newConn("cm", "", "198.51.100.30", 2)))
+	Connections.transfers.remove(userM)
+	assert.Equal(t, int32(0), Connections.GetTotalTransfers())
+
+	// global cap: active transfers count toward MaxTotalConnections
+	Config.MaxTotalConnections = 1
+	Connections.transfers.add("user-a")
+	assert.Error(t, Connections.IsNewTransferAllowed(newConn("cg", "user-a", "203.0.113.5", 0)))
+	Connections.transfers.remove("user-a")
+	assert.NoError(t, Connections.IsNewTransferAllowed(newConn("cg", "user-a", "203.0.113.5", 0)))
+	assert.Equal(t, int32(0), Connections.GetTotalTransfers())
+	Config.MaxTotalConnections = 0
+
+	// shutdown takes precedence
+	isShuttingDown.Store(true)
+	assert.ErrorIs(t, Connections.IsNewTransferAllowed(newConn("cs", "user-a", "198.51.100.7", 0)), ErrShuttingDown)
+	isShuttingDown.Store(false)
+
+	// Add() enforces only the session count, not active transfers
+	userC := "user-c"
+	Connections.transfers.add(userC)
+	conn1 := &fakeConnection{BaseConnection: newConn("uc1", userC, "198.51.100.20", 1)}
+	assert.NoError(t, Connections.Add(conn1))
+	conn2 := &fakeConnection{BaseConnection: newConn("uc2", userC, "198.51.100.20", 1)}
+	err := Connections.Add(conn2)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "too many open sessions")
+	}
+	Connections.Remove(conn1.GetID())
+	Connections.transfers.remove(userC)
+	assert.Equal(t, int32(0), Connections.GetTotalTransfers())
 }
 
 func TestConnectionRoles(t *testing.T) {

@@ -78,7 +78,7 @@ func (c *Connection) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 	if !c.User.HasPerm(dataprovider.PermDownload, path.Dir(request.Filepath)) {
 		return nil, sftp.ErrSSHFxPermissionDenied
 	}
-	if err := common.Connections.IsNewTransferAllowed(c.User.Username); err != nil {
+	if err := common.Connections.IsNewTransferAllowed(c.BaseConnection); err != nil {
 		c.Log(logger.LevelInfo, "denying file read due to transfer count limits")
 		return nil, c.GetPermissionDeniedError()
 	}
@@ -130,7 +130,7 @@ func (c *Connection) handleFilewrite(request *sftp.Request) (sftp.WriterAtReader
 	c.UpdateLastActivity()
 	updateRequestPaths(request)
 
-	if err := common.Connections.IsNewTransferAllowed(c.User.Username); err != nil {
+	if err := common.Connections.IsNewTransferAllowed(c.BaseConnection); err != nil {
 		c.Log(logger.LevelInfo, "denying file write due to transfer count limits")
 		return nil, c.GetPermissionDeniedError()
 	}

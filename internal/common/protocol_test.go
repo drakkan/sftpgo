@@ -8613,29 +8613,34 @@ func TestMaxSessionsSameConnection(t *testing.T) {
 		defer conn.Close()
 		defer client.Close()
 
+		// keep this connection busy with a slow transfer; an active transfer
+		// must still count as a single session.
 		var wg sync.WaitGroup
-		numErrors := 0
-		for i := 0; i <= 2; i++ {
-			wg.Add(1)
-			go func(counter int) {
-				defer wg.Done()
+		var writeErr error
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
 
-				var err error
-				if counter < 2 {
-					err = writeSFTPFile(fmt.Sprintf("%s_%d", testFileName, counter), 64*1024, client)
-				} else {
-					// wait for the transfers to start
-					time.Sleep(50 * time.Millisecond)
-					_, _, err = getSftpClient(user)
-				}
-				if err != nil {
-					numErrors++
-				}
-			}(i)
+			writeErr = writeSFTPFile(testFileName, 64*1024, client)
+		}()
+		// wait for the transfer to start
+		time.Sleep(100 * time.Millisecond)
+
+		// a second connection is allowed: two concurrent sessions == MaxSessions
+		conn1, client1, err := getSftpClient(user)
+		assert.NoError(t, err)
+		// a third connection exceeds MaxSessions and is rejected
+		_, _, err = getSftpClient(user)
+		assert.Error(t, err)
+
+		if client1 != nil {
+			client1.Close()
 		}
-
+		if conn1 != nil {
+			conn1.Close()
+		}
 		wg.Wait()
-		assert.Equal(t, 1, numErrors)
+		assert.NoError(t, writeErr)
 	}
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)

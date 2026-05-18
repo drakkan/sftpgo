@@ -160,6 +160,9 @@ func (c *BaseConnection) CloseFS() error {
 // AddTransfer associates a new transfer to this connection
 func (c *BaseConnection) AddTransfer(t ActiveTransfer) {
 	Connections.transfers.add(c.User.Username)
+	if ipAddr := c.GetRemoteIP(); ipAddr != "" {
+		Connections.transfersPerIP.add(ipAddr)
+	}
 
 	c.Lock()
 	defer c.Unlock()
@@ -193,6 +196,9 @@ func (c *BaseConnection) AddTransfer(t ActiveTransfer) {
 // RemoveTransfer removes the specified transfer from the active ones
 func (c *BaseConnection) RemoveTransfer(t ActiveTransfer) {
 	Connections.transfers.remove(c.User.Username)
+	if ipAddr := c.GetRemoteIP(); ipAddr != "" {
+		Connections.transfersPerIP.remove(ipAddr)
+	}
 
 	c.Lock()
 	defer c.Unlock()

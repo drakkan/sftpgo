@@ -111,7 +111,7 @@ func (c *Connection) ReadDir(name string) (vfs.DirLister, error) {
 func (c *Connection) getFileReader(name string, offset int64, method string) (io.ReadCloser, error) {
 	c.UpdateLastActivity()
 
-	if err := common.Connections.IsNewTransferAllowed(c.User.Username); err != nil {
+	if err := common.Connections.IsNewTransferAllowed(c.BaseConnection); err != nil {
 		c.Log(logger.LevelInfo, "denying file read due to transfer count limits")
 		return nil, util.NewI18nError(c.GetPermissionDeniedError(), util.I18nError403Message)
 	}
@@ -207,7 +207,7 @@ func (c *Connection) getFileWriter(name string) (io.WriteCloser, error) {
 }
 
 func (c *Connection) handleUploadFile(fs vfs.Fs, resolvedPath, filePath, requestPath string, isNewFile bool, fileSize int64) (io.WriteCloser, error) {
-	if err := common.Connections.IsNewTransferAllowed(c.User.Username); err != nil {
+	if err := common.Connections.IsNewTransferAllowed(c.BaseConnection); err != nil {
 		c.Log(logger.LevelInfo, "denying file write due to transfer count limits")
 		return nil, util.NewI18nError(c.GetPermissionDeniedError(), util.I18nError403Message)
 	}
@@ -268,6 +268,14 @@ func newThrottledReader(r io.ReadCloser, limit int64, conn *Connection) *throttl
 	t.abortTransfer.Store(false)
 	conn.AddTransfer(t)
 	return t
+}
+
+func parseUploadMultipartForm(connection *Connection, r *http.Request) error {
+	t := newThrottledReader(r.Body, connection.User.UploadBandwidth, connection)
+	defer connection.RemoveTransfer(t)
+
+	r.Body = t
+	return r.ParseMultipartForm(maxMultipartMem)
 }
 
 type throttledReader struct {

@@ -5853,7 +5853,7 @@ components:
         max_sessions:
           type: integer
           format: int32
-          description: Limit the sessions that a user can open. 0 means unlimited
+          description: Maximum number of concurrent sessions and file transfers for the user. 0 means unlimited
         quota_size:
           type: integer
           format: int64
@@ -6570,6 +6570,7 @@ components:
         max_sessions:
           type: integer
           format: int32
+          description: Maximum number of concurrent sessions and file transfers allowed. 0 means unlimited
         quota_size:
           type: integer
           format: int64

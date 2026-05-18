@@ -380,7 +380,7 @@ func (s *httpdServer) uploadFilesToShare(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		return
 	}
-	if err := common.Connections.IsNewTransferAllowed(connection.User.Username); err != nil {
+	if err := common.Connections.IsNewTransferAllowed(connection.BaseConnection); err != nil {
 		connection.Log(logger.LevelInfo, "denying file write due to number of transfer limits")
 		sendAPIResponse(w, r, err, "Denying file write due to transfer count limits",
 			http.StatusConflict)
@@ -401,15 +401,10 @@ func (s *httpdServer) uploadFilesToShare(w http.ResponseWriter, r *http.Request)
 	}
 	defer common.Connections.Remove(connection.GetID())
 
-	t := newThrottledReader(r.Body, connection.User.UploadBandwidth, connection)
-	r.Body = t
-	err = r.ParseMultipartForm(maxMultipartMem)
-	if err != nil {
-		connection.RemoveTransfer(t)
+	if err = parseUploadMultipartForm(connection, r); err != nil {
 		sendAPIResponse(w, r, err, "Unable to parse multipart form", http.StatusBadRequest)
 		return
 	}
-	connection.RemoveTransfer(t)
 	defer r.MultipartForm.RemoveAll() //nolint:errcheck
 
 	files := r.MultipartForm.File["filenames"]

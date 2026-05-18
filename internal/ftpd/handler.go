@@ -350,7 +350,7 @@ func (c *Connection) GetHandle(name string, flags int, offset int64) (ftpserver.
 		return nil, errCOMBNotSupported
 	}
 
-	if err := common.Connections.IsNewTransferAllowed(c.User.Username); err != nil {
+	if err := common.Connections.IsNewTransferAllowed(c.BaseConnection); err != nil {
 		c.Log(logger.LevelInfo, "denying transfer due to count limits")
 		return nil, c.GetPermissionDeniedError()
 	}

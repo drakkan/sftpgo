@@ -13929,7 +13929,7 @@ func TestMaxTransfers(t *testing.T) {
 
 	webToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
-	webAPIToken, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	webAPIToken, err := getJWTAPIUserTokenFromTestServerWithAddr(defaultUsername, defaultPassword, defaultRemoteAddr)
 	assert.NoError(t, err)
 
 	share := dataprovider.Share{
@@ -13942,6 +13942,7 @@ func TestMaxTransfers(t *testing.T) {
 	assert.NoError(t, err)
 	req, err := http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	setBearerForReq(req, webAPIToken)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusCreated, rr)
@@ -13951,6 +13952,7 @@ func TestMaxTransfers(t *testing.T) {
 	fileName := "testfile.txt"
 	req, err = http.NewRequest(http.MethodPost, userUploadFilePath+"?path="+fileName, bytes.NewBuffer([]byte(" ")))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusCreated, rr)
@@ -13982,6 +13984,7 @@ func TestMaxTransfers(t *testing.T) {
 	assert.NoError(t, err)
 	req, err = http.NewRequest(http.MethodPost, userFilesPath, reader)
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
@@ -13989,6 +13992,7 @@ func TestMaxTransfers(t *testing.T) {
 
 	req, err = http.NewRequest(http.MethodGet, webClientFilesPath+"?path="+fileName, nil)
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -13996,6 +14000,7 @@ func TestMaxTransfers(t *testing.T) {
 
 	req, err = http.NewRequest(http.MethodPost, userUploadFilePath+"?path="+fileName, bytes.NewBuffer([]byte(" ")))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
@@ -14015,6 +14020,7 @@ func TestMaxTransfers(t *testing.T) {
 	reader = bytes.NewReader(body.Bytes())
 	req, err = http.NewRequest(http.MethodPost, sharesPath+"/"+objectID, reader)
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	req.SetBasicAuth(defaultUsername, defaultPassword)
 	rr = executeRequest(req)
@@ -27582,6 +27588,22 @@ func getJWTAPITokenFromTestServerWithPasscode(username, password, passcode strin
 
 func getJWTAPIUserTokenFromTestServer(username, password string) (string, error) {
 	req, _ := http.NewRequest(http.MethodGet, userTokenPath, nil)
+	req.SetBasicAuth(username, password)
+	rr := executeRequest(req)
+	if rr.Code != http.StatusOK {
+		return "", fmt.Errorf("unexpected status code %v", rr.Code)
+	}
+	responseHolder := make(map[string]any)
+	err := render.DecodeJSON(rr.Body, &responseHolder)
+	if err != nil {
+		return "", err
+	}
+	return responseHolder["access_token"].(string), nil
+}
+
+func getJWTAPIUserTokenFromTestServerWithAddr(username, password, remoteAddr string) (string, error) {
+	req, _ := http.NewRequest(http.MethodGet, userTokenPath, nil)
+	req.RemoteAddr = remoteAddr
 	req.SetBasicAuth(username, password)
 	rr := executeRequest(req)
 	if rr.Code != http.StatusOK {

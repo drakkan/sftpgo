@@ -228,7 +228,7 @@ func (c *scpCommand) getUploadFileData(sizeToRead int64, transfer *transfer) err
 }
 
 func (c *scpCommand) handleUploadFile(fs vfs.Fs, resolvedPath, filePath string, sizeToRead int64, isNewFile bool, fileSize int64, requestPath string) error {
-	if err := common.Connections.IsNewTransferAllowed(c.connection.User.Username); err != nil {
+	if err := common.Connections.IsNewTransferAllowed(c.connection.BaseConnection); err != nil {
 		err := fmt.Errorf("denying file write due to transfer count limits")
 		c.connection.Log(logger.LevelInfo, "denying file write due to transfer count limits")
 		c.sendErrorMessage(nil, err)
@@ -509,7 +509,7 @@ func (c *scpCommand) sendDownloadFileData(fs vfs.Fs, filePath string, stat os.Fi
 func (c *scpCommand) handleDownload(filePath string) error {
 	c.connection.UpdateLastActivity()
 
-	if err := common.Connections.IsNewTransferAllowed(c.connection.User.Username); err != nil {
+	if err := common.Connections.IsNewTransferAllowed(c.connection.BaseConnection); err != nil {
 		err := fmt.Errorf("denying file read due to transfer count limits")
 		c.connection.Log(logger.LevelInfo, "denying file read due to transfer count limits")
 		c.sendErrorMessage(nil, err)
