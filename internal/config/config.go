@@ -387,7 +387,7 @@ func Init() {
 			UpdateMode:         0,
 			DelayedQuotaUpdate: 0,
 			CreateDefaultAdmin: false,
-			NamingRules:        1,
+			NamingRules:        5,
 			IsShared:           0,
 			Node: dataprovider.NodeConfig{
 				Host:  "",
