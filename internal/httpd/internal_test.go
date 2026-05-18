@@ -4371,3 +4371,65 @@ func TestSlicesEqual(t *testing.T) {
 		})
 	}
 }
+
+func TestEventsCSVFormulaInjection(t *testing.T) {
+	const payload = `=HYPERLINK("http://attacker.example","open")`
+	const safe = "regular-name"
+
+	hasNeutralizedFormula := func(row []string) bool {
+		for _, c := range row {
+			if strings.HasPrefix(c, "'=") {
+				return true
+			}
+		}
+		return false
+	}
+	assertNoRawFormula := func(row []string) {
+		for _, c := range row {
+			if c == "" {
+				continue
+			}
+			switch c[0] {
+			case '=', '+', '-', '@', '\t', '\r':
+				t.Errorf("raw formula-triggering cell in exported row: %q", c)
+			}
+		}
+	}
+
+	fsRow := (&fsEvent{
+		Timestamp: time.Now().UnixNano(), Action: "upload",
+		Username: payload, VirtualPath: "/" + payload, FsPath: "/srv/" + payload,
+		SSHCmd: payload, Protocol: "SFTP", IP: "127.0.0.1", Role: payload,
+	}).getCSVData()
+	assert.True(t, hasNeutralizedFormula(fsRow), "fsEvent: %v", fsRow)
+	assertNoRawFormula(fsRow)
+
+	peRow := (&providerEvent{
+		Timestamp: time.Now().UnixNano(), Action: "add", ObjectType: "user",
+		ObjectName: payload, Username: payload, IP: "127.0.0.1", Role: payload,
+	}).getCSVData()
+	assert.True(t, hasNeutralizedFormula(peRow), "providerEvent: %v", peRow)
+	assertNoRawFormula(peRow)
+
+	leRow := (&logEvent{
+		Timestamp: time.Now().UnixNano(), Event: 1, Protocol: "SFTP",
+		Username: payload, IP: "127.0.0.1", Message: payload, Role: payload,
+	}).getCSVData()
+	assert.True(t, hasNeutralizedFormula(leRow), "logEvent: %v", leRow)
+	assertNoRawFormula(leRow)
+
+	// benign values and server-controlled columns must be left untouched
+	benign := (&providerEvent{
+		Timestamp: time.Now().UnixNano(), Action: "add", ObjectType: "user",
+		ObjectName: safe, Username: safe, IP: "127.0.0.1", Role: safe,
+	}).getCSVData()
+	for _, c := range benign {
+		assert.False(t, strings.HasPrefix(c, "'"), "benign cell must not be modified: %q", c)
+	}
+
+	assert.Equal(t, safe, sanitizeCSVField(safe))
+	assert.Equal(t, "", sanitizeCSVField(""))
+	for _, p := range []string{"=x", "+x", "-x", "@x", "\tx", "\rx"} {
+		assert.Equal(t, "'"+p, sanitizeCSVField(p), "prefix %q must be neutralized", p)
+	}
+}

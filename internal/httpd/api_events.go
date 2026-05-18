@@ -384,6 +384,24 @@ type fsEvent struct {
 	Role              string `json:"role,omitempty"`
 }
 
+func sanitizeCSVField(s string) string {
+	if s == "" {
+		return s
+	}
+	switch s[0] {
+	case '=', '+', '-', '@', '\t', '\r':
+		return "'" + s
+	}
+	return s
+}
+
+func sanitizeCSVRow(row []string) []string {
+	for i := range row {
+		row[i] = sanitizeCSVField(row[i])
+	}
+	return row
+}
+
 func (e *fsEvent) getCSVHeader() []string {
 	return []string{"Time", "Action", "Path", "Fs Path", "Size", "Elapsed", "Status", "User", "Protocol",
 		"IP", "SSH command", "Role"}
@@ -420,8 +438,8 @@ func (e *fsEvent) getCSVData() []string {
 	if e.Elapsed > 0 {
 		elapsed = (time.Duration(e.Elapsed) * time.Millisecond).String()
 	}
-	return []string{timestamp.Format(time.RFC3339Nano), e.Action, pathInfo.String(), fsPathInfo.String(),
-		fileSize, elapsed, status, e.Username, e.Protocol, e.IP, e.SSHCmd, e.Role}
+	return sanitizeCSVRow([]string{timestamp.Format(time.RFC3339Nano), e.Action, pathInfo.String(), fsPathInfo.String(),
+		fileSize, elapsed, status, e.Username, e.Protocol, e.IP, e.SSHCmd, e.Role})
 }
 
 type providerEvent struct {
@@ -442,8 +460,8 @@ func (e *providerEvent) getCSVHeader() []string {
 
 func (e *providerEvent) getCSVData() []string {
 	timestamp := time.Unix(0, e.Timestamp).UTC()
-	return []string{timestamp.Format(time.RFC3339Nano), e.Action, e.ObjectType, e.ObjectName,
-		e.Username, e.IP, e.Role}
+	return sanitizeCSVRow([]string{timestamp.Format(time.RFC3339Nano), e.Action, e.ObjectType, e.ObjectName,
+		e.Username, e.IP, e.Role})
 }
 
 type logEvent struct {
@@ -463,8 +481,8 @@ func (e *logEvent) getCSVHeader() []string {
 
 func (e *logEvent) getCSVData() []string {
 	timestamp := time.Unix(0, e.Timestamp).UTC()
-	return []string{timestamp.Format(time.RFC3339Nano), getLogEventString(notifier.LogEventType(e.Event)),
-		e.Protocol, e.Username, e.IP, e.Message, e.Role}
+	return sanitizeCSVRow([]string{timestamp.Format(time.RFC3339Nano), getLogEventString(notifier.LogEventType(e.Event)),
+		e.Protocol, e.Username, e.IP, e.Message, e.Role})
 }
 
 func getLogEventString(event notifier.LogEventType) string {
