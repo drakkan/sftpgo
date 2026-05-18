@@ -303,6 +303,7 @@
         "err_429": "过多的并发请求",
         "err_generic": "无法访问请求的资源",
         "err_validation": "文件系统配置无效",
+        "err_secret_entropy": "加密密钥必须是由安全随机数生成器生成的高熵随机密钥材料",
         "err_exists": "目标已经存在",
         "dir_list": {
             "err_generic": "获取目录列表失败",

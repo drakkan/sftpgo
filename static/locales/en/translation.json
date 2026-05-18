@@ -303,6 +303,7 @@
         "err_429": "Too many concurrent requests",
         "err_generic": "Unable to access the requested resource",
         "err_validation": "Invalid filesystem configuration",
+        "err_secret_entropy": "The encryption secret must be high-entropy random key material produced by a secure random generator",
         "err_exists": "The destination already exists",
         "dir_list": {
             "err_generic": "Failed to get directory listing",

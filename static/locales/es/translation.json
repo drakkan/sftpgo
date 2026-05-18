@@ -303,6 +303,7 @@
         "err_429": "Demasiadas solicitudes simultáneas",
         "err_generic": "No se puede acceder al recurso solicitado",
         "err_validation": "Configuración del sistema de archivos inválida",
+        "err_secret_entropy": "El secreto de cifrado debe ser material de clave aleatorio de alta entropía generado por un generador aleatorio seguro",
         "err_exists": "El destino ya existe",
         "dir_list": {
             "err_generic": "Error al obtener el listado del directorio",

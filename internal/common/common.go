@@ -252,6 +252,7 @@ func Initialize(c Configuration, isShared int) error {
 	vfs.SetRenameMode(c.RenameMode)
 	vfs.SetReadMetadataMode(c.Metadata.Read)
 	vfs.SetResumeMaxSize(c.ResumeMaxSize)
+	vfs.SetSecretMinEntropy(c.SecretMinEntropy)
 	vfs.SetUploadMode(c.UploadMode)
 	dataprovider.SetAllowSelfConnections(c.AllowSelfConnections)
 	dataprovider.EnabledActionCommands = c.EventManager.EnabledCommands
@@ -588,6 +589,12 @@ type Configuration struct {
 	// the renaming for atomic uploads will become a copy and therefore may take a long time.
 	// The temporary files are not namespaced. The default is generally fine. Leave empty for the default.
 	TempPath string `json:"temp_path" mapstructure:"temp_path"`
+	// SecretMinEntropy defines the minimum entropy required for plain-text
+	// data-encryption secrets: the CryptFs passphrase and the S3 SSE-C key. These
+	// secrets must be random key material rather than a memorable password. The
+	// check runs when the secret is submitted in plain text. Set to 0 to disable.
+	// Default: 80.
+	SecretMinEntropy float64 `json:"secret_min_entropy" mapstructure:"secret_min_entropy"`
 	// Support for HAProxy PROXY protocol.
 	// If you are running SFTPGo behind a proxy server such as HAProxy, AWS ELB or NGNIX, you can enable
 	// the proxy protocol. It provides a convenient way to safely transport connection information

@@ -17,6 +17,7 @@ package httpd_test
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -339,6 +340,7 @@ func TestMain(m *testing.M) { //nolint:gocyclo
 	os.Setenv("SFTPGO_DEFAULT_ADMIN_USERNAME", "admin")
 	os.Setenv("SFTPGO_DEFAULT_ADMIN_PASSWORD", "password")
 	os.Setenv("SFTPGO_HTTPD__MAX_UPLOAD_FILE_SIZE", "1048576000")
+	os.Setenv("SFTPGO_COMMON__SECRET_MIN_ENTROPY", "0")
 	err := config.LoadConfig(configDir, "")
 	if err != nil {
 		logger.WarnToConsole("error loading configuration: %v", err)
@@ -27547,6 +27549,126 @@ func getTestRole() dataprovider.Role {
 		Name:        "test_role",
 		Description: "test role description",
 	}
+}
+
+func TestUserSecretMinEntropy(t *testing.T) {
+	vfs.SetSecretMinEntropy(80)
+	defer vfs.SetSecretMinEntropy(0)
+
+	strongBytes := make([]byte, 32)
+	_, err := rand.Read(strongBytes)
+	assert.NoError(t, err)
+	strong := base64.RawStdEncoding.EncodeToString(strongBytes)
+
+	// REST API: a weak CryptFs passphrase is rejected
+	u := getTestUser()
+	u.Username = "user_entropy_crypt"
+	u.FsConfig.Provider = sdk.CryptedFilesystemProvider
+	u.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret("weak")
+	_, resp, err := httpdtest.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "encryption secret")
+
+	// REST API: a weak S3 SSE-C key is rejected
+	u2 := getTestUser()
+	u2.Username = "user_entropy_ssec"
+	u2.FsConfig.Provider = sdk.S3FilesystemProvider
+	u2.FsConfig.S3Config = vfs.S3FsConfig{
+		BaseS3FsConfig: sdk.BaseS3FsConfig{
+			Bucket: "bucket",
+			Region: "us-east-1",
+		},
+		SSECustomerKey: kms.NewPlainSecret("weak"),
+	}
+	_, resp, err = httpdtest.AddUser(u2, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "encryption secret")
+
+	// REST API: a strong CryptFs passphrase is accepted
+	u3 := getTestUser()
+	u3.Username = "user_entropy_ok"
+	u3.FsConfig.Provider = sdk.CryptedFilesystemProvider
+	u3.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret(strong)
+	user3, _, err := httpdtest.AddUser(u3, http.StatusCreated)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user3, http.StatusOK)
+	assert.NoError(t, err)
+
+	// WebAdmin form: create a base user, then submit the user form switching to
+	// an encrypted filesystem
+	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	apiToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webUserPath, webToken)
+	assert.NoError(t, err)
+
+	user := getTestUser()
+	user.Username = "user_entropy_web"
+	userAsJSON := getUserAsJSON(t, user)
+	req, _ := http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
+	setBearerForReq(req, apiToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	err = render.DecodeJSON(rr.Body, &user)
+	assert.NoError(t, err)
+
+	buildForm := func(passphrase string) url.Values {
+		form := make(url.Values)
+		form.Set(csrfFormToken, csrfToken)
+		form.Set("username", user.Username)
+		form.Set("password", redactedSecret)
+		form.Set("home_dir", user.HomeDir)
+		form.Set("uid", "0")
+		form.Set("gid", "0")
+		form.Set("max_sessions", "0")
+		form.Set("quota_size", "0")
+		form.Set("quota_files", "0")
+		form.Set("upload_bandwidth", "0")
+		form.Set("download_bandwidth", "0")
+		form.Set("upload_data_transfer", "0")
+		form.Set("download_data_transfer", "0")
+		form.Set("total_data_transfer", "0")
+		form.Set("pre_login_cache_time", "0")
+		form.Set("external_auth_cache_time", "0")
+		form.Set("permissions", "*")
+		form.Set("status", "1")
+		form.Set("expiration_date", "")
+		form.Set("allowed_ip", "")
+		form.Set("denied_ip", "")
+		form.Set("max_upload_file_size", "0")
+		form.Set("default_shares_expiration", "0")
+		form.Set("max_shares_expiration", "0")
+		form.Set("password_expiration", "0")
+		form.Set("password_strength", "0")
+		form.Set("fs_provider", "4")
+		form.Set("crypt_passphrase", passphrase)
+		form.Set("cryptfs_read_buffer_size", "0")
+		form.Set("cryptfs_write_buffer_size", "0")
+		return form
+	}
+
+	// a weak passphrase re-renders the page with the entropy error
+	form := buildForm("weak")
+	b, contentType, _ := getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorSecretEntropy)
+
+	// a strong passphrase is accepted
+	form = buildForm(strong)
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
 }
 
 func getTestUser() dataprovider.User {

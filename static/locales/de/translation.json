@@ -303,6 +303,7 @@
         "err_429": "Zu viele gleichzeitige Anfragen!",
         "err_generic": "Zugriff auf die angeforderte Ressource nicht möglich!",
         "err_validation": "Ungültige Dateisystem-Konfiguration!",
+        "err_secret_entropy": "Das Verschlüsselungsgeheimnis muss zufälliges Schlüsselmaterial mit hoher Entropie sein, das von einem sicheren Zufallsgenerator erzeugt wurde",
         "err_exists": "Das Ziel existiert bereits!",
         "dir_list": {
             "err_generic": "Fehler beim Abrufen des Verzeichnisbaumes!",
