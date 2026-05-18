@@ -163,6 +163,11 @@ func RemoveDuplicates(obj []string, trim bool) []string {
 }
 
 // IsNameValid validates that a name/username contains only safe characters.
+// Since names can be used within filesystem paths, only a restricted character
+// set is permitted. Unicode control (Cc), format (Cf) and line/paragraph
+// separator (Zl/Zp) characters, including zero-width, bidirectional and
+// newline-like codepoints, are rejected to prevent invisible, visually
+// confusable names and log injection.
 func IsNameValid(name string) bool {
 	if name == "" {
 		return false
@@ -171,7 +176,7 @@ func IsNameValid(name string) bool {
 		return false
 	}
 	for _, r := range name {
-		if unicode.IsControl(r) {
+		if unicode.IsControl(r) || unicode.In(r, unicode.Cf, unicode.Zl, unicode.Zp) {
 			return false
 		}
 
