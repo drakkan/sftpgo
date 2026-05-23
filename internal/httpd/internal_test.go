@@ -4426,10 +4426,4 @@ func TestEventsCSVFormulaInjection(t *testing.T) {
 	for _, c := range benign {
 		assert.False(t, strings.HasPrefix(c, "'"), "benign cell must not be modified: %q", c)
 	}
-
-	assert.Equal(t, safe, sanitizeCSVField(safe))
-	assert.Equal(t, "", sanitizeCSVField(""))
-	for _, p := range []string{"=x", "+x", "-x", "@x", "\tx", "\rx"} {
-		assert.Equal(t, "'"+p, sanitizeCSVField(p), "prefix %q must be neutralized", p)
-	}
 }

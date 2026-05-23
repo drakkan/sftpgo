@@ -879,9 +879,9 @@ func getCSVRetentionReport(results []folderRetentionCheckResult) ([]byte, error)
 	}
 
 	for _, result := range results {
-		err = csvWriter.Write([]string{result.Path, strconv.Itoa(result.Retention), strconv.Itoa(result.DeletedFiles),
-			strconv.FormatInt(result.DeletedSize, 10), strconv.FormatInt(result.Elapsed.Milliseconds(), 10),
-			result.Info, result.Error})
+		err = csvWriter.Write(util.SanitizeCSVRow([]string{result.Path, strconv.Itoa(result.Retention),
+			strconv.Itoa(result.DeletedFiles), strconv.FormatInt(result.DeletedSize, 10),
+			strconv.FormatInt(result.Elapsed.Milliseconds(), 10), result.Info, result.Error}))
 		if err != nil {
 			return nil, err
 		}

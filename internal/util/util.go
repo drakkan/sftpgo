@@ -131,6 +131,29 @@ var bytesSizeTable = map[string]uint64{
 	"e":  eByte,
 }
 
+// sanitizeCSVField neutralizes leading characters that spreadsheet
+// applications interpret as the start of a formula, mitigating CSV
+// formula injection when exporting user-controlled data.
+func sanitizeCSVField(s string) string {
+	if s == "" {
+		return s
+	}
+	switch s[0] {
+	case '=', '+', '-', '@', '\t', '\r':
+		return "'" + s
+	}
+	return s
+}
+
+// SanitizeCSVRow neutralizes spreadsheet formula triggers in each value of
+// row, in place, and returns it for convenience.
+func SanitizeCSVRow(row []string) []string {
+	for i := range row {
+		row[i] = sanitizeCSVField(row[i])
+	}
+	return row
+}
+
 // IsStringPrefixInSlice searches a string prefix in a slice and returns true
 // if a matching prefix is found
 func IsStringPrefixInSlice(obj string, list []string) bool {
