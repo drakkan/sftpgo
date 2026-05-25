@@ -1439,7 +1439,7 @@ func (s *httpdServer) setupRESTAPIRoutes() {
 				router.With(s.checkPerms(dataprovider.PermAdminAny)).Get(adminPath+"/{username}", getAdminByUsername)
 				router.With(s.checkPerms(dataprovider.PermAdminAny)).Put(adminPath+"/{username}", updateAdmin)
 				router.With(s.checkPerms(dataprovider.PermAdminAny)).Delete(adminPath+"/{username}", deleteAdmin)
-				router.With(s.checkPerms(dataprovider.PermAdminDisableMFA)).Put(adminPath+"/{username}/2fa/disable", disableAdmin2FA)
+				router.With(s.checkPerms(dataprovider.PermAdminAny)).Put(adminPath+"/{username}/2fa/disable", disableAdmin2FA)
 				router.With(s.checkPerms(dataprovider.PermAdminAny)).Get(retentionChecksPath, getRetentionChecks)
 				router.With(s.checkPerms(dataprovider.PermAdminViewEvents), compressor.Handler).
 					Get(fsEventsPath, searchFsEvents)
@@ -1812,7 +1812,7 @@ func (s *httpdServer) setupWebAdminRoutes() {
 					s.handleWebUpdateAdminPost)
 				router.With(s.checkPerms(dataprovider.PermAdminAny), s.verifyCSRFHeader).
 					Delete(webAdminPath+"/{username}", deleteAdmin)
-				router.With(s.checkPerms(dataprovider.PermAdminDisableMFA), s.verifyCSRFHeader).
+				router.With(s.checkPerms(dataprovider.PermAdminAny), s.verifyCSRFHeader).
 					Put(webAdminPath+"/{username}/2fa/disable", disableAdmin2FA)
 				router.With(s.checkPerms(dataprovider.PermAdminCloseConnections), s.verifyCSRFHeader).
 					Delete(webConnectionsPath+"/{connectionID}", handleCloseConnection)

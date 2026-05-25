@@ -4904,7 +4904,7 @@ components:
           * `manage_defender` - remove ip from the dynamic blocklist is allowed
           * `view_defender` - list the dynamic blocklist is allowed
           * `view_events` - view and search filesystem and provider events is allowed
-          * `disable_mfa` - allow to disable two-factor authentication for users and admins
+          * `disable_mfa` - allow to disable two-factor authentication for users
     FsProviders:
       type: integer
       enum:

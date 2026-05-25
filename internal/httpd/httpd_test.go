@@ -935,6 +935,57 @@ func TestRoleRelations(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestDisableAdmin2FARequiresWildcard(t *testing.T) {
+	target := getTestAdmin()
+	target.Username = altAdminUsername + "_target"
+	target.Password = altAdminPassword
+	target, _, err := httpdtest.AddAdmin(target, http.StatusCreated)
+	assert.NoError(t, err)
+
+	// caller without `*` but with disable_mfa: blocked from touching another admin's 2FA
+	caller := getTestAdmin()
+	caller.Username = altAdminUsername + "_caller"
+	caller.Password = altAdminPassword
+	caller.Permissions = []string{dataprovider.PermAdminViewUsers, dataprovider.PermAdminDisableMFA}
+	caller, _, err = httpdtest.AddAdmin(caller, http.StatusCreated)
+	assert.NoError(t, err)
+	callerToken, err := getJWTAPITokenFromTestServer(caller.Username, altAdminPassword)
+	assert.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPut, adminPath+"/"+target.Username+"/2fa/disable", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, callerToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+
+	// role admin with disable_mfa: same denial
+	role, _, err := httpdtest.AddRole(getTestRole(), http.StatusCreated)
+	assert.NoError(t, err)
+	roleAdmin := getTestAdmin()
+	roleAdmin.Username = altAdminUsername + "_role_caller"
+	roleAdmin.Password = altAdminPassword
+	roleAdmin.Permissions = []string{dataprovider.PermAdminViewUsers, dataprovider.PermAdminDisableMFA}
+	roleAdmin.Role = role.Name
+	roleAdmin, _, err = httpdtest.AddAdmin(roleAdmin, http.StatusCreated)
+	assert.NoError(t, err)
+	roleAdminToken, err := getJWTAPITokenFromTestServer(roleAdmin.Username, altAdminPassword)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPut, adminPath+"/"+target.Username+"/2fa/disable", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, roleAdminToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+
+	_, err = httpdtest.RemoveAdmin(roleAdmin, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveRole(role, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveAdmin(caller, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveAdmin(target, http.StatusOK)
+	assert.NoError(t, err)
+}
+
 func TestRSAKeyInvalidSize(t *testing.T) {
 	u := getTestUser()
 	u.PublicKeys = append(u.PublicKeys, rsa1024PubKey)
