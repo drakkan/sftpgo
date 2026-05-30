@@ -3,6 +3,10 @@
  * Usage: ImageViewer.open(items, index)
  *   items: [{src: 'url', name: 'filename'}, ...]
  *   index: starting index
+ *
+ * While open, exposes --iv-scrollbar-width on <html>. Fixed elements that
+ * would otherwise jump when the page scrollbar is hidden can compensate via:
+ *   .my-fixed { padding-right: var(--iv-scrollbar-width, 0px); }
  */
 (function() {
     'use strict';
@@ -32,6 +36,23 @@
 
     // Scrollbar compensation
     var scrollbarWidth = 0;
+
+    // Open state
+    var isOpen = false;
+    var savedBodyOverflow = '';
+    var savedBodyPaddingRight = '';
+    var savedScrollbarVar = '';
+    var scrollbarVarSet = false;
+    var lastTouchEnd = 0;
+    var suppressClickUntil = 0;
+
+    // Tap detection
+    var lastTapTime = 0;
+    var lastTapX = 0;
+    var lastTapY = 0;
+    var touchStartClientX = 0;
+    var touchStartClientY = 0;
+    var doubleTapZoom = 2.5;
 
     function createElement(tag, className, parent) {
         var el = document.createElement(tag);
@@ -83,6 +104,7 @@
         captionEl = createElement('div', 'iv-caption', overlay);
 
         overlay.addEventListener('click', function(e) {
+            if (Date.now() < suppressClickUntil) return;
             if (e.target === overlay || e.target === container) {
                 close();
             }
@@ -95,6 +117,10 @@
         // Touch support
         var lastTouchDist = 0;
         var touchStartScale = 1;
+        var pinchStartMidX = 0;
+        var pinchStartMidY = 0;
+        var pinchStartTX = 0;
+        var pinchStartTY = 0;
 
         container.addEventListener('touchstart', function(e) {
             isSwiping = false;
@@ -103,7 +129,14 @@
             if (e.touches.length === 2) {
                 lastTouchDist = getTouchDist(e);
                 touchStartScale = scale;
+                var startMid = getTouchMid(e);
+                pinchStartMidX = startMid.x;
+                pinchStartMidY = startMid.y;
+                pinchStartTX = translateX;
+                pinchStartTY = translateY;
             } else if (e.touches.length === 1) {
+                touchStartClientX = e.touches[0].clientX;
+                touchStartClientY = e.touches[0].clientY;
                 if (scale > minScale) {
                     onTouchDragStart(e.touches[0]);
                 } else {
@@ -118,10 +151,23 @@
         container.addEventListener('touchmove', function(e) {
             if (e.touches.length === 2) {
                 e.preventDefault();
-                var dist = getTouchDist(e);
-                var newScale = touchStartScale * (dist / lastTouchDist);
-                setScale(clamp(newScale, minScale, maxScale));
-                applyTransform();
+                if (lastTouchDist > 0) {
+                    var dist = getTouchDist(e);
+                    var newScale = clamp(touchStartScale * (dist / lastTouchDist), minScale, maxScale);
+                    var mid = getTouchMid(e);
+                    var factor = newScale / touchStartScale;
+                    translateX = mid.x - factor * (pinchStartMidX - pinchStartTX);
+                    translateY = mid.y - factor * (pinchStartMidY - pinchStartTY);
+                    scale = newScale;
+                    if (scale <= minScale) {
+                        translateX = 0;
+                        translateY = 0;
+                    } else {
+                        clampTranslate();
+                    }
+                    applyTransform();
+                    updateZoomButtons();
+                }
             } else if (e.touches.length === 1) {
                 if (isTouchDrag) {
                     translateX = dragStartTX + (e.touches[0].clientX - dragStartX);
@@ -148,11 +194,21 @@
 
         container.addEventListener('touchend', function(e) {
             if (e.touches.length === 0) {
+                lastTouchEnd = Date.now();
+                var changed = e.changedTouches && e.changedTouches[0];
+                var moved = changed ?
+                    (Math.abs(changed.clientX - touchStartClientX) > 10 ||
+                     Math.abs(changed.clientY - touchStartClientY) > 10) : false;
+                if (moved || isTouchDrag || swipeActive) {
+                    suppressClickUntil = Date.now() + 500;
+                }
+
                 if (swipeActive && Math.abs(swipeDeltaX) > swipeThreshold && items.length > 1) {
                     navigate(swipeDeltaX > 0 ? -1 : 1);
                     isSwiping = false;
                     swipeActive = false;
                     isTouchDrag = false;
+                    lastTapTime = 0;
                     return;
                 }
                 if (swipeActive) {
@@ -161,6 +217,22 @@
                     applyTransform();
                     imgEl.style.opacity = '1';
                 }
+
+                if (changed && !moved && !swipeActive) {
+                    var now = Date.now();
+                    if (now - lastTapTime < 300 &&
+                        Math.abs(changed.clientX - lastTapX) < 30 &&
+                        Math.abs(changed.clientY - lastTapY) < 30) {
+                        handleDoubleTap(changed.clientX, changed.clientY);
+                        lastTapTime = 0;
+                        suppressClickUntil = Date.now() + 500;
+                    } else {
+                        lastTapTime = now;
+                        lastTapX = changed.clientX;
+                        lastTapY = changed.clientY;
+                    }
+                }
+
                 isSwiping = false;
                 swipeActive = false;
                 isTouchDrag = false;
@@ -174,6 +246,13 @@
         var dx = e.touches[0].clientX - e.touches[1].clientX;
         var dy = e.touches[0].clientY - e.touches[1].clientY;
         return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    function getTouchMid(e) {
+        var rect = container.getBoundingClientRect();
+        var mx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+        var my = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        return { x: mx - (rect.left + rect.width / 2), y: my - (rect.top + rect.height / 2) };
     }
 
     function clamp(val, min, max) {
@@ -268,8 +347,27 @@
         }
     }
 
-    function onDoubleClick() {
-        resetTransform();
+    function onDoubleClick(e) {
+        if (Date.now() - lastTouchEnd < 500) return;
+        handleDoubleTap(e.clientX, e.clientY);
+    }
+
+    function handleDoubleTap(clientX, clientY) {
+        if (scale > minScale) {
+            resetTransform();
+            return;
+        }
+        var rect = container.getBoundingClientRect();
+        var cx = clientX - (rect.left + rect.width / 2);
+        var cy = clientY - (rect.top + rect.height / 2);
+        var newScale = clamp(doubleTapZoom, minScale, maxScale);
+        var factor = newScale / scale;
+        translateX = cx - factor * (cx - translateX);
+        translateY = cy - factor * (cy - translateY);
+        scale = newScale;
+        clampTranslate();
+        applyTransform();
+        updateZoomButtons();
     }
 
     // Mouse drag — only used on non-touch devices
@@ -330,6 +428,10 @@
             spinnerEl.style.display = 'none';
         };
         imgEl.src = item.src;
+        if (imgEl.complete && imgEl.naturalWidth > 0) {
+            imgEl.style.opacity = '1';
+            spinnerEl.style.display = 'none';
+        }
 
         captionEl.textContent = item.name || '';
         counterEl.textContent = items.length > 1 ? (index + 1) + ' / ' + items.length : '';
@@ -339,6 +441,7 @@
     }
 
     function navigate(dir) {
+        if (!items.length) return;
         var newIndex = currentIndex + dir;
         if (newIndex < 0) newIndex = items.length - 1;
         if (newIndex >= items.length) newIndex = 0;
@@ -362,18 +465,27 @@
         items = itemList || [];
         if (!items.length) return;
 
-        scrollbarWidth = getScrollbarWidth();
-        document.body.style.overflow = 'hidden';
-        if (scrollbarWidth > 0) {
-            document.body.style.paddingRight = scrollbarWidth + 'px';
+        if (!isOpen) {
+            savedBodyOverflow = document.body.style.overflow;
+            savedBodyPaddingRight = document.body.style.paddingRight;
+            scrollbarWidth = getScrollbarWidth();
+            document.body.style.overflow = 'hidden';
+            if (scrollbarWidth > 0) {
+                var currentPad = parseFloat(window.getComputedStyle(document.body).paddingRight) || 0;
+                document.body.style.paddingRight = (currentPad + scrollbarWidth) + 'px';
+                savedScrollbarVar = document.documentElement.style.getPropertyValue('--iv-scrollbar-width');
+                document.documentElement.style.setProperty('--iv-scrollbar-width', scrollbarWidth + 'px');
+                scrollbarVarSet = true;
+            }
+            document.addEventListener('keydown', onKeyDown);
+            isOpen = true;
         }
         overlay.classList.add('iv-visible');
-        document.addEventListener('keydown', onKeyDown);
         showItem(clamp(startIndex || 0, 0, items.length - 1));
     }
 
     function close() {
-        if (!overlay) return;
+        if (!overlay || !isOpen) return;
         if (isDragging) {
             onMouseDragEnd();
         }
@@ -381,13 +493,24 @@
         swipeActive = false;
         isTouchDrag = false;
         overlay.classList.remove('iv-visible');
-        document.body.style.overflow = '';
-        document.body.style.paddingRight = '';
+        document.body.style.overflow = savedBodyOverflow;
+        document.body.style.paddingRight = savedBodyPaddingRight;
+        if (scrollbarVarSet) {
+            if (savedScrollbarVar) {
+                document.documentElement.style.setProperty('--iv-scrollbar-width', savedScrollbarVar);
+            } else {
+                document.documentElement.style.removeProperty('--iv-scrollbar-width');
+            }
+            scrollbarVarSet = false;
+        }
         document.removeEventListener('keydown', onKeyDown);
         imgEl.onload = null;
         imgEl.onerror = null;
-        imgEl.src = '';
+        imgEl.removeAttribute('src');
         spinnerEl.style.display = 'none';
+        lastTapTime = 0;
+        suppressClickUntil = 0;
+        isOpen = false;
     }
 
     window.ImageViewer = {
