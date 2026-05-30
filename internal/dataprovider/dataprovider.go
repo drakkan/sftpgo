@@ -4062,6 +4062,9 @@ func executeKeyboardInteractiveProgram(user *User, authHook string, client ssh.K
 			}
 		}()
 	}
+	if err := scanner.Err(); err != nil {
+		once.Do(func() { terminateInteractiveAuthProgram(cmd, false) })
+	}
 	stdin.Close()
 	once.Do(func() { terminateInteractiveAuthProgram(cmd, true) })
 	go func() {
