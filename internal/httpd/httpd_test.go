@@ -28194,3 +28194,69 @@ func BenchmarkSecretDecryption(b *testing.B) {
 		require.NoError(b, err)
 	}
 }
+
+func TestInlineDownloadDisabled(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+
+	err = os.MkdirAll(user.GetHomeDir(), os.ModePerm)
+	assert.NoError(t, err)
+	evilHTML := []byte("<html><body><script>alert(document.domain)</script></body></html>")
+	// a polyglot whose first bytes make http.DetectContentType report a PDF
+	// while the body is HTML; it is padded so ensurePDF can read its header
+	polyHTML := append([]byte("%PDF-1.4\n"), evilHTML...)
+	polyHTML = append(polyHTML, bytes.Repeat([]byte("\n%padding-comment"), 16)...)
+	err = os.WriteFile(filepath.Join(user.GetHomeDir(), "evil.html"), evilHTML, 0o644)
+	assert.NoError(t, err)
+	err = os.WriteFile(filepath.Join(user.GetHomeDir(), "poly.html"), polyHTML, 0o644)
+	assert.NoError(t, err)
+
+	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	share := dataprovider.Share{
+		Name:  "test_inline_disabled",
+		Scope: dataprovider.ShareScopeRead,
+		Paths: []string{"/"},
+	}
+	asJSON, err := json.Marshal(share)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	objectID := rr.Header().Get("X-Object-ID")
+	assert.NotEmpty(t, objectID)
+
+	// browsable share REST download: the inline query parameter is inert,
+	// the response is always served as an attachment
+	req, err = http.NewRequest(http.MethodGet, sharesPath+"/"+objectID+"/files?path=evil.html&inline=1", nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Header().Get("Content-Disposition"), "attachment")
+
+	// authenticated user file download: same, inline is inert
+	req, err = http.NewRequest(http.MethodGet, userFilesPath+"?path=evil.html&inline=1", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Header().Get("Content-Disposition"), "attachment")
+
+	// PDF inline path: a PDF-magic/HTML polyglot is served as application/pdf
+	// with MIME sniffing disabled, so it cannot execute as HTML in our origin
+	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "getpdf?path=poly.html"), nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Equal(t, "application/pdf", rr.Header().Get("Content-Type"))
+	assert.Equal(t, "nosniff", rr.Header().Get("X-Content-Type-Options"))
+	assert.NotContains(t, rr.Header().Get("Content-Disposition"), "attachment")
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}

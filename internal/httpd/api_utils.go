@@ -556,8 +556,15 @@ func downloadFile(w http.ResponseWriter, r *http.Request, connection *Connection
 		w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", offset, offset+size-1, info.Size()))
 	}
 	w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
-	w.Header().Set("Content-Type", ctype)
-	if !inline {
+	if inline {
+		// The inline path serves only PDFs already validated by ensurePDF.
+		// Force the content type and disable MIME sniffing so a file that
+		// merely begins with the PDF magic bytes cannot be interpreted as
+		// HTML and executed in our origin.
+		w.Header().Set("Content-Type", "application/pdf")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+	} else {
+		w.Header().Set("Content-Type", ctype)
 		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", path.Base(name)))
 	}
 	w.Header().Set("Accept-Ranges", "bytes")

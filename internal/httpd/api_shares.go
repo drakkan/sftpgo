@@ -256,12 +256,11 @@ func (s *httpdServer) downloadBrowsableSharedFile(w http.ResponseWriter, r *http
 		return
 	}
 
-	inline := r.URL.Query().Get("inline") != ""
 	if err := dataprovider.UpdateShareLastUse(&share, 1); err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	if status, err := downloadFile(w, r, connection, name, info, inline, &share); err != nil {
+	if status, err := downloadFile(w, r, connection, name, info, false, &share); err != nil {
 		dataprovider.UpdateShareLastUse(&share, -1) //nolint:errcheck
 		resp := apiResponse{
 			Error:   err.Error(),
