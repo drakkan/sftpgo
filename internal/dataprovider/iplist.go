@@ -415,7 +415,7 @@ func (l *IPList) DisableMemoryMode() {
 // If multiple entries match, the most specific one (longest network prefix) wins.
 // Two distinct CIDRs containing the same IP have different prefix lengths, so the
 // winner is unambiguous.
-func (l *IPList) IsListed(ip, protocol string) (bool, int, error) {
+func (l *IPList) IsListed(ip, protocol string) (bool, int, error) { //nolint:gocyclo
 	if l.isInMemory.Load() {
 		l.mu.RLock()
 		defer l.mu.RUnlock()
