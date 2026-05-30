@@ -1184,7 +1184,7 @@ func TestOIDCEvMgrIntegration(t *testing.T) {
 	err = dataprovider.Initialize(newProviderConf, configDir, true)
 	assert.NoError(t, err)
 	// add a special chars to check json replacer
-	username := `test_"oidc_eventmanager`
+	username := `test_'oidc_eventmanager`
 	u := map[string]any{
 		"username": "{{.Name}}",
 		"status":   1,
