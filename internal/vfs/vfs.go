@@ -34,6 +34,7 @@ import (
 	"github.com/eikenb/pipeat"
 	"github.com/pkg/sftp"
 	"github.com/sftpgo/sdk"
+	passwordvalidator "github.com/wagslane/go-password-validator"
 
 	"github.com/drakkan/sftpgo/v2/internal/kms"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
@@ -71,6 +72,7 @@ var (
 	renameMode               int
 	readMetadata             int
 	resumeMaxSize            int64
+	secretMinEntropy         float64
 	uploadMode               int
 )
 
@@ -114,6 +116,28 @@ func SetReadMetadataMode(val int) {
 // with immutable objects
 func SetResumeMaxSize(val int64) {
 	resumeMaxSize = val
+}
+
+// SetSecretMinEntropy sets the minimum entropy, in bits, required for plain-text
+// data-encryption secrets (CryptFs passphrase, S3 SSE-C key). A value <= 0
+// disables the check. The check runs only when the secret is submitted in plain
+// text, so already stored secrets keep working when the threshold is raised.
+func SetSecretMinEntropy(val float64) {
+	secretMinEntropy = val
+}
+
+func validateSecretEntropy(secret string) error {
+	if secretMinEntropy <= 0 {
+		return nil
+	}
+	if err := passwordvalidator.Validate(secret, secretMinEntropy); err != nil {
+		return util.NewI18nError(
+			util.NewValidationError("the configured encryption secret is too weak: use high-entropy "+
+				"random key material produced by a secure random generator"),
+			util.I18nErrorSecretEntropy,
+		)
+	}
+	return nil
 }
 
 // SetUploadMode sets the upload mode
@@ -431,6 +455,9 @@ func (c *S3FsConfig) ValidateAndEncryptCredentials(additionalData string) error 
 		}
 	}
 	if c.SSECustomerKey.IsPlain() {
+		if err := validateSecretEntropy(c.SSECustomerKey.GetPayload()); err != nil {
+			return err
+		}
 		c.SSECustomerKey.SetAdditionalData(additionalData)
 		err := c.SSECustomerKey.Encrypt()
 		if err != nil {
@@ -867,6 +894,9 @@ func (c *CryptFsConfig) ValidateAndEncryptCredentials(additionalData string) err
 		return util.NewI18nError(errValidation, util.I18nErrorFsValidation)
 	}
 	if c.Passphrase.IsPlain() {
+		if err := validateSecretEntropy(c.Passphrase.GetPayload()); err != nil {
+			return err
+		}
 		c.Passphrase.SetAdditionalData(additionalData)
 		if err := c.Passphrase.Encrypt(); err != nil {
 			return util.NewI18nError(

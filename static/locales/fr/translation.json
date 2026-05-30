@@ -303,6 +303,7 @@
         "err_429": "Trop de requêtes simultanées",
         "err_generic": "Impossible d'accéder à la ressource demandée",
         "err_validation": "Configuration du système de fichiers invalide",
+        "err_secret_entropy": "Le secret de chiffrement doit être un matériel de clé aléatoire à haute entropie produit par un générateur aléatoire sécurisé",
         "err_exists": "La destination existe déjà",
         "dir_list": {
             "err_generic": "Échec de l'obtention de la liste du répertoire",

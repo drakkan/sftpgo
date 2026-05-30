@@ -303,6 +303,7 @@
         "err_429": "Troppe richieste contemporanee",
         "err_generic": "Impossibile accedere alla risorsa richiesta",
         "err_validation": "Configurazione del filesystem non valida",
+        "err_secret_entropy": "Il segreto di cifratura deve essere materiale di chiave casuale ad alta entropia prodotto da un generatore casuale sicuro",
         "err_exists": "La destinazione esiste già",
         "dir_list": {
             "err_generic": "Non è possibile visualizzare i contenuti della cartella",
