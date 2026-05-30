@@ -42,6 +42,9 @@ func printResponse(status int, toVerify string) {
 		Status:   status,
 		ToVerify: toVerify,
 	}
+	if r.ToVerify != "" {
+		r.ToVerify = "[redacted]"
+	}
 	resp, _ := json.Marshal(r)
 	fmt.Printf("%v\n", string(resp))
 	if status > 0 {
