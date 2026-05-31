@@ -1,0 +1,371 @@
+.nh
+.TH "SFTPGO-PORTABLE" "1" "Mar 2026" "SFTPGo 2.7.99-dev" "SFTPGo Manual"
+
+.SH NAME
+sftpgo-portable - Serve a single directory/account
+
+
+.SH SYNOPSIS
+\fBsftpgo portable [flags]\fP
+
+
+.SH DESCRIPTION
+To serve the current working directory with auto generated credentials simply
+use:
+
+.PP
+$ sftpgo portable
+
+.PP
+Please take a look at the usage below to customize the serving parameters
+
+
+.SH OPTIONS
+\fB--allowed-patterns\fP=[]
+	Allowed file patterns case insensitive.
+The format is:
+/dir::pattern1,pattern2.
+For example: "/somedir::*.jpg,a*b?.png"
+
+.PP
+\fB--az-access-tier\fP=""
+	Leave empty to use the default
+container setting
+
+.PP
+\fB--az-account-key\fP=""
+
+.PP
+\fB--az-account-name\fP=""
+
+.PP
+\fB--az-container\fP=""
+
+.PP
+\fB--az-download-concurrency\fP=5
+	How many parts are downloaded in
+parallel
+
+.PP
+\fB--az-download-part-size\fP=5
+	The buffer size for multipart downloads
+(MB)
+
+.PP
+\fB--az-endpoint\fP=""
+	Leave empty to use the default:
+"blob.core.windows.net"
+
+.PP
+\fB--az-key-prefix\fP=""
+	Allows to restrict access to the
+virtual folder identified by this
+prefix and its contents
+
+.PP
+\fB--az-sas-url\fP=""
+	Shared access signature URL
+
+.PP
+\fB--az-upload-concurrency\fP=5
+	How many parts are uploaded in
+parallel
+
+.PP
+\fB--az-upload-part-size\fP=5
+	The buffer size for multipart uploads
+(MB)
+
+.PP
+\fB--az-use-emulator\fP[=false]
+
+.PP
+\fB-c\fP, \fB--config-dir\fP="."
+	Location of the config dir. This directory
+is used as the base for files with a relative
+path, e.g. the private keys for the SFTP
+server or the database file if you use a
+file-based data provider.
+The configuration file, if not explicitly set,
+is looked for in this dir. We support reading
+from JSON, TOML, YAML, HCL, envfile and Java
+properties config files. The default config
+file name is "sftpgo" and therefore
+"sftpgo.json", "sftpgo.yaml" and so on are
+searched.
+This flag can be set using SFTPGO_CONFIG_DIR
+env var too.
+
+.PP
+\fB--config-file\fP=""
+	Path to SFTPGo configuration file.
+This flag explicitly defines the path, name
+and extension of the config file. If must be
+an absolute path or a path relative to the
+configuration directory. The specified file
+name must have a supported extension (JSON,
+YAML, TOML, HCL or Java properties).
+This flag can be set using SFTPGO_CONFIG_FILE
+env var too.
+
+.PP
+\fB--crypto-passphrase\fP=""
+	Passphrase for encryption/decryption
+
+.PP
+\fB--denied-patterns\fP=[]
+	Denied file patterns case insensitive.
+The format is:
+/dir::pattern1,pattern2.
+For example: "/somedir::*.jpg,a*b?.png"
+
+.PP
+\fB-d\fP, \fB--directory\fP="."
+	Path to the directory to serve.
+This can be an absolute path or a path
+relative to the current directory
+
+.PP
+\fB-f\fP, \fB--fs-provider\fP="osfs"
+	osfs => local filesystem (legacy value: 0)
+s3fs => AWS S3 compatible (legacy: 1)
+gcsfs => Google Cloud Storage (legacy: 2)
+azblobfs => Azure Blob Storage (legacy: 3)
+cryptfs => Encrypted local filesystem (legacy: 4)
+sftpfs => SFTP (legacy: 5)
+
+.PP
+\fB--ftpd-cert\fP=""
+	Path to the certificate file for FTPS
+
+.PP
+\fB--ftpd-key\fP=""
+	Path to the key file for FTPS
+
+.PP
+\fB--ftpd-port\fP=-1
+	0 means a random unprivileged port,
+< 0 disabled
+
+.PP
+\fB--gcs-automatic-credentials\fP=1
+	0 means explicit credentials using
+a JSON credentials file, 1 automatic
+
+.PP
+\fB--gcs-bucket\fP=""
+
+.PP
+\fB--gcs-credentials-file\fP=""
+	Google Cloud Storage JSON credentials
+file
+
+.PP
+\fB--gcs-key-prefix\fP=""
+	Allows to restrict access to the
+virtual folder identified by this
+prefix and its contents
+
+.PP
+\fB--gcs-storage-class\fP=""
+
+.PP
+\fB--grace-time\fP=0
+	This grace time defines the number of
+seconds allowed for existing transfers
+to get completed before shutting down.
+A graceful shutdown is triggered by an
+interrupt signal.
+
+.PP
+\fB-h\fP, \fB--help\fP[=false]
+	help for portable
+
+.PP
+\fB--httpd-cert\fP=""
+	Path to the certificate file for WebClient
+over HTTPS
+
+.PP
+\fB--httpd-key\fP=""
+	Path to the key file for WebClient over
+HTTPS
+
+.PP
+\fB--httpd-port\fP=-1
+	0 means a random unprivileged port,
+< 0 disabled
+
+.PP
+\fB-l\fP, \fB--log-file-path\fP=""
+	Leave empty to disable logging
+
+.PP
+\fB--log-level\fP="debug"
+	Set the log level.
+Supported values:
+
+.PP
+debug, info, warn, error.
+
+.PP
+\fB--log-utc-time\fP[=false]
+	Use UTC time for logging
+
+.PP
+\fB-p\fP, \fB--password\fP=""
+	Leave empty to use an auto generated
+value
+
+.PP
+\fB--password-file\fP=""
+	Read the password from the specified
+file path. Leave empty to use an auto
+generated value
+
+.PP
+\fB-g\fP, \fB--permissions\fP=[list,download]
+	User's permissions. "*" means any
+permission
+
+.PP
+\fB-k\fP, \fB--public-key\fP=[]
+
+.PP
+\fB--s3-access-key\fP=""
+
+.PP
+\fB--s3-access-secret\fP=""
+
+.PP
+\fB--s3-acl\fP=""
+
+.PP
+\fB--s3-bucket\fP=""
+
+.PP
+\fB--s3-endpoint\fP=""
+
+.PP
+\fB--s3-force-path-style\fP[=false]
+	Force path style bucket URL
+
+.PP
+\fB--s3-key-prefix\fP=""
+	Allows to restrict access to the
+virtual folder identified by this
+prefix and its contents
+
+.PP
+\fB--s3-region\fP=""
+
+.PP
+\fB--s3-role-arn\fP=""
+
+.PP
+\fB--s3-skip-tls-verify\fP[=false]
+	If enabled the S3 client accepts any TLS
+certificate presented by the server and
+any host name in that certificate.
+In this mode, TLS is susceptible to
+man-in-the-middle attacks.
+This should be used only for testing.
+
+.PP
+\fB--s3-storage-class\fP=""
+
+.PP
+\fB--s3-upload-concurrency\fP=2
+	How many parts are uploaded in
+parallel
+
+.PP
+\fB--s3-upload-part-size\fP=5
+	The buffer size for multipart uploads
+(MB)
+
+.PP
+\fB--sftp-buffer-size\fP=0
+	The size of the buffer (in MB) to use
+for transfers. By enabling buffering,
+the reads and writes, from/to the
+remote SFTP server, are split in
+multiple concurrent requests and this
+allows data to be transferred at a
+faster rate, over high latency networks,
+by overlapping round-trip times
+
+.PP
+\fB--sftp-disable-concurrent-reads\fP[=false]
+	Concurrent reads are safe to use and
+disabling them will degrade performance.
+Disable for read once servers
+
+.PP
+\fB--sftp-endpoint\fP=""
+	SFTP endpoint as host:port for SFTP
+provider
+
+.PP
+\fB--sftp-fingerprints\fP=[]
+	SFTP fingerprints to verify remote host
+key for SFTP provider
+
+.PP
+\fB--sftp-key-path\fP=""
+	SFTP private key path for SFTP provider
+
+.PP
+\fB--sftp-password\fP=""
+	SFTP password for SFTP provider
+
+.PP
+\fB--sftp-prefix\fP=""
+	SFTP prefix allows restrict all
+operations to a given path within the
+remote SFTP server
+
+.PP
+\fB--sftp-username\fP=""
+	SFTP user for SFTP provider
+
+.PP
+\fB-s\fP, \fB--sftpd-port\fP=0
+	0 means a random unprivileged port,
+< 0 disabled
+
+.PP
+\fB--ssh-commands\fP=[md5sum,sha1sum,sha256sum,cd,pwd,scp]
+	SSH commands to enable.
+"*" means any supported SSH command
+including scp
+
+.PP
+\fB--start-directory\fP="/"
+	Alternate start directory.
+This is a virtual path not a filesystem
+path
+
+.PP
+\fB-u\fP, \fB--username\fP=""
+	Leave empty to use an auto generated
+value
+
+.PP
+\fB--webdav-cert\fP=""
+	Path to the certificate file for WebDAV
+over HTTPS
+
+.PP
+\fB--webdav-key\fP=""
+	Path to the key file for WebDAV over
+HTTPS
+
+.PP
+\fB--webdav-port\fP=-1
+	0 means a random unprivileged port,
+< 0 disabled
+
+
+.SH SEE ALSO
+\fBsftpgo(1)\fP

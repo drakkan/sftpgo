@@ -329,6 +329,20 @@ func (b *brandingCache) getWebClientLogo() []byte {
 	return b.configs.WebClient.Logo
 }
 
+func (b *brandingCache) getWebAdminDarkLogo() []byte {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	return b.configs.WebAdmin.DarkLogo
+}
+
+func (b *brandingCache) getWebClientDarkLogo() []byte {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	return b.configs.WebClient.DarkLogo
+}
+
 func (b *brandingCache) getWebClientFavicon() []byte {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
@@ -363,6 +377,9 @@ func (b *brandingCache) mergeBrandingConfig(branding UIBranding, isWebClient boo
 	}
 	if len(cfg.Logo) > 0 {
 		branding.LogoPath = path.Join("/", "branding", urlPrefix, "logo.png")
+	}
+	if len(cfg.DarkLogo) > 0 {
+		branding.DarkLogoPath = path.Join("/", "branding", urlPrefix, "dark-logo.png")
 	}
 	if len(cfg.Favicon) > 0 {
 		branding.FaviconPath = path.Join("/", "branding", urlPrefix, "favicon.png")
@@ -480,6 +497,9 @@ type UIBranding struct {
 	// For example, if you create a directory named "branding" inside the static dir and
 	// put the "mylogo.png" file in it, you must set "/branding/mylogo.png" as logo path.
 	LogoPath string `json:"logo_path" mapstructure:"logo_path"`
+	// Path to your dark mode logo relative to "static_files_path".
+	// If not set, the logo_path will be used for both light and dark modes.
+	DarkLogoPath string `json:"dark_logo_path" mapstructure:"dark_logo_path"`
 	// Path to your favicon relative to "static_files_path"
 	FaviconPath string `json:"favicon_path" mapstructure:"favicon_path"`
 	// DisclaimerName defines the name for the link to your optional disclaimer
@@ -491,9 +511,11 @@ type UIBranding struct {
 	// the default CSS files
 	DefaultCSS []string `json:"default_css" mapstructure:"default_css"`
 	// Additional CSS file paths, relative to "static_files_path", to include
-	ExtraCSS           []string `json:"extra_css" mapstructure:"extra_css"`
-	DefaultLogoPath    string   `json:"-" mapstructure:"-"`
-	DefaultFaviconPath string   `json:"-" mapstructure:"-"`
+	ExtraCSS []string `json:"extra_css" mapstructure:"extra_css"`
+	// HideVersion, if true, hides the application version in the footer
+	HideVersion        bool   `json:"hide_version" mapstructure:"hide_version"`
+	DefaultLogoPath    string `json:"-" mapstructure:"-"`
+	DefaultFaviconPath string `json:"-" mapstructure:"-"`
 }
 
 func (b *UIBranding) check() {
@@ -503,6 +525,11 @@ func (b *UIBranding) check() {
 		b.LogoPath = util.CleanPath(b.LogoPath)
 	} else {
 		b.LogoPath = b.DefaultLogoPath
+	}
+	if b.DarkLogoPath != "" {
+		b.DarkLogoPath = util.CleanPath(b.DarkLogoPath)
+	} else {
+		b.DarkLogoPath = b.LogoPath
 	}
 	if b.FaviconPath != "" {
 		b.FaviconPath = util.CleanPath(b.FaviconPath)

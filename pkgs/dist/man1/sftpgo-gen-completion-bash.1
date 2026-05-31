@@ -1,0 +1,47 @@
+.nh
+.TH "SFTPGO-GEN-COMPLETION-BASH" "1" "Mar 2026" "SFTPGo 2.7.99-dev" "SFTPGo Manual"
+
+.SH NAME
+sftpgo-gen-completion-bash - Generate the autocompletion script for bash
+
+
+.SH SYNOPSIS
+\fBsftpgo gen completion bash\fP
+
+
+.SH DESCRIPTION
+Generate the autocompletion script for the bash shell.
+
+.PP
+This script depends on the 'bash-completion' package.
+If it is not installed already, you can install it via your OS's package
+manager.
+
+.PP
+To load completions in your current shell session:
+
+.PP
+$ source <(sftpgo gen completion bash)
+
+.PP
+To load completions for every new session, execute once:
+
+.PP
+Linux:
+  $ sudo sftpgo gen completion bash > /usr/share/bash-completion/completions/sftpgo
+
+.PP
+MacOS:
+  $ sudo sftpgo gen completion bash > /usr/local/etc/bash_completion.d/sftpgo
+
+.PP
+You will need to start a new shell for this setup to take effect.
+
+
+.SH OPTIONS
+\fB-h\fP, \fB--help\fP[=false]
+	help for bash
+
+
+.SH SEE ALSO
+\fBsftpgo-gen-completion(1)\fP

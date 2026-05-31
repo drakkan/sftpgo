@@ -1,0 +1,157 @@
+.nh
+.TH "SFTPGO-SERVE" "1" "Mar 2026" "SFTPGo 2.7.99-dev" "SFTPGo Manual"
+
+.SH NAME
+sftpgo-serve - Start the SFTPGo service
+
+
+.SH SYNOPSIS
+\fBsftpgo serve [flags]\fP
+
+
+.SH DESCRIPTION
+To start the SFTPGo with the default values for the command line flags simply
+use:
+
+.PP
+$ sftpgo serve
+
+.PP
+Please take a look at the usage below to customize the startup options
+
+
+.SH OPTIONS
+\fB-c\fP, \fB--config-dir\fP="."
+	Location of the config dir. This directory
+is used as the base for files with a relative
+path, e.g. the private keys for the SFTP
+server or the database file if you use a
+file-based data provider.
+The configuration file, if not explicitly set,
+is looked for in this dir. We support reading
+from JSON, TOML, YAML, HCL, envfile and Java
+properties config files. The default config
+file name is "sftpgo" and therefore
+"sftpgo.json", "sftpgo.yaml" and so on are
+searched.
+This flag can be set using SFTPGO_CONFIG_DIR
+env var too.
+
+.PP
+\fB--config-file\fP=""
+	Path to SFTPGo configuration file.
+This flag explicitly defines the path, name
+and extension of the config file. If must be
+an absolute path or a path relative to the
+configuration directory. The specified file
+name must have a supported extension (JSON,
+YAML, TOML, HCL or Java properties).
+This flag can be set using SFTPGO_CONFIG_FILE
+env var too.
+
+.PP
+\fB--grace-time\fP=0
+	Graceful shutdown is an option to initiate a
+shutdown without abrupt cancellation of the
+currently ongoing client-initiated transfer
+sessions.
+This grace time defines the number of seconds
+allowed for existing transfers to get
+completed before shutting down.
+A graceful shutdown is triggered by an
+interrupt signal.
+This flag can be set using SFTPGO_GRACE_TIME env
+var too. 0 means disabled. (default 0)
+
+.PP
+\fB-h\fP, \fB--help\fP[=false]
+	help for serve
+
+.PP
+\fB--loaddata-clean\fP[=false]
+	Determine if the loaddata-from file should
+be removed after a successful load. This flag
+can be set using SFTPGO_LOADDATA_CLEAN env var
+too. (default "false")
+
+.PP
+\fB--loaddata-from\fP=""
+	Load users and folders from this file.
+The file must be specified as absolute path
+and it must contain a backup obtained using
+the "dumpdata" REST API or compatible content.
+This flag can be set using SFTPGO_LOADDATA_FROM
+env var too.
+
+.PP
+\fB--loaddata-mode\fP=1
+	Restore mode for data to load:
+  0 - new users are added, existing users are
+      updated
+  1 - New users are added, existing users are
+	  not modified
+This flag can be set using SFTPGO_LOADDATA_MODE
+env var too.
+
+.PP
+\fB--loaddata-scan\fP=0
+	Quota scan mode after data load:
+  0 - no quota scan
+  1 - scan quota
+  2 - scan quota if the user has quota restrictions
+This flag can be set using SFTPGO_LOADDATA_QUOTA_SCAN
+env var too.
+(default 0)
+
+.PP
+\fB-z\fP, \fB--log-compress\fP[=false]
+	Determine if the rotated log files
+should be compressed using gzip. This flag can
+be set using SFTPGO_LOG_COMPRESS env var too.
+It is unused if log-file-path is empty.
+
+.PP
+\fB-l\fP, \fB--log-file-path\fP="sftpgo.log"
+	Location for the log file. Leave empty to write
+logs to the standard output. This flag can be
+set using SFTPGO_LOG_FILE_PATH env var too.
+
+.PP
+\fB--log-level\fP="debug"
+	Set the log level. Supported values:
+
+.PP
+debug, info, warn, error.
+
+.PP
+This flag can be set
+using SFTPGO_LOG_LEVEL env var too.
+
+.PP
+\fB-a\fP, \fB--log-max-age\fP=28
+	Maximum number of days to retain old log files.
+This flag can be set using SFTPGO_LOG_MAX_AGE env
+var too. It is unused if log-file-path is empty.
+
+.PP
+\fB-b\fP, \fB--log-max-backups\fP=5
+	Maximum number of old log files to retain.
+This flag can be set using SFTPGO_LOG_MAX_BACKUPS
+env var too. It is unused if log-file-path is
+empty.
+
+.PP
+\fB-s\fP, \fB--log-max-size\fP=10
+	Maximum size in megabytes of the log file
+before it gets rotated. This flag can be set
+using SFTPGO_LOG_MAX_SIZE env var too. It is
+unused if log-file-path is empty.
+
+.PP
+\fB--log-utc-time\fP[=false]
+	Use UTC time for logging. This flag can be set
+using SFTPGO_LOG_UTC_TIME env var too.
+
+
+.SH SEE ALSO
+\fBsftpgo(1)\fP

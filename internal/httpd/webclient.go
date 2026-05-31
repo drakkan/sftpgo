@@ -543,8 +543,12 @@ func (s *httpdServer) getBaseClientPageData(title, currentURL string, w http.Res
 		csrfToken = createCSRFToken(w, r, s.csrfTokenAuth, "", webBaseClientPath)
 	}
 
+	branding := s.binding.webClientBranding()
+	base := getCommonBasePage(r)
+	base.HideVersion = branding.HideVersion
+
 	data := baseClientPage{
-		commonBasePage:  getCommonBasePage(r),
+		commonBasePage:  base,
 		Title:           title,
 		CurrentURL:      currentURL,
 		FilesURL:        webClientFilesPath,
@@ -559,7 +563,7 @@ func (s *httpdServer) getBaseClientPageData(title, currentURL string, w http.Res
 		CSRFToken:       csrfToken,
 		LoggedUser:      getUserFromToken(r),
 		IsLoggedToShare: false,
-		Branding:        s.binding.webClientBranding(),
+		Branding:        branding,
 		Languages:       s.binding.languages(),
 	}
 	if !strings.HasPrefix(r.RequestURI, webClientPubSharesPath) {
@@ -567,6 +571,7 @@ func (s *httpdServer) getBaseClientPageData(title, currentURL string, w http.Res
 	}
 	return data
 }
+
 
 func (s *httpdServer) renderClientForgotPwdPage(w http.ResponseWriter, r *http.Request, err *util.I18nError) {
 	data := forgotPwdPage{
