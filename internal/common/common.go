@@ -1190,17 +1190,19 @@ func (conns *ActiveConnections) checkTransfers() {
 
 	conns.RLock()
 
-	if len(conns.connections) < 2 {
+	if !dataprovider.IsSharedMode() && len(conns.connections) < 2 {
 		conns.RUnlock()
 		return
 	}
 	var wg sync.WaitGroup
+	hasSizeLimitedTransfer := false
 	logger.Debug(logSender, "", "start concurrent transfers check")
 
 	// update the current size for transfers to monitors
 	for _, c := range conns.connections {
 		for _, t := range c.GetTransfers() {
 			if t.HasSizeLimit {
+				hasSizeLimitedTransfer = true
 				wg.Add(1)
 
 				go func(transfer ConnectionTransfer, connID string) {
@@ -1212,6 +1214,11 @@ func (conns *ActiveConnections) checkTransfers() {
 	}
 
 	conns.RUnlock()
+
+	if !hasSizeLimitedTransfer {
+		return
+	}
+
 	logger.Debug(logSender, "", "waiting for the update of the transfers current size")
 	wg.Wait()
 
