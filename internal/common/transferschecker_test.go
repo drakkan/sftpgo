@@ -755,6 +755,89 @@ func TestDBTransferChecker(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestTransfersCheckerSharedSingleTransfer(t *testing.T) {
+	if !isDbTransferCheckerSupported() {
+		t.Skip("this test is not supported with the current database provider")
+	}
+	providerConf := dataprovider.GetProviderConfig()
+	err := dataprovider.Close()
+	assert.NoError(t, err)
+	providerConf.IsShared = 1
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+
+	oldChecker := transfersChecker
+	transfersChecker = getTransfersChecker(1)
+	defer func() {
+		transfersChecker = oldChecker
+		err := dataprovider.Close()
+		assert.NoError(t, err)
+		providerConf.IsShared = 0
+		err = dataprovider.Initialize(providerConf, configDir, true)
+		assert.NoError(t, err)
+	}()
+
+	username := "user_shared_check"
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username:  username,
+			HomeDir:   filepath.Join(os.TempDir(), username),
+			Status:    1,
+			QuotaSize: 100,
+			Permissions: map[string][]string{
+				"/": {dataprovider.PermAny},
+			},
+		},
+	}
+	err = dataprovider.AddUser(&user, "", "", "")
+	assert.NoError(t, err)
+	user, err = dataprovider.GetUserWithGroupSettings(username, "")
+	assert.NoError(t, err)
+
+	// simulate an in-flight upload on another cluster node, already close to the quota
+	remoteTransfer := dataprovider.ActiveTransfer{
+		ID:            1,
+		Type:          TransferUpload,
+		ConnID:        xid.New().String(),
+		Username:      username,
+		IP:            "127.0.0.1",
+		CurrentULSize: 80,
+	}
+	dataprovider.AddActiveTransfer(remoteTransfer)
+
+	// a single local connection/transfer on this node
+	connID := xid.New().String()
+	fsUser, err := user.GetFilesystemForPath("/file1", connID)
+	assert.NoError(t, err)
+	conn := NewBaseConnection(connID, ProtocolSFTP, "", "", user)
+	fakeConn := &fakeConnection{BaseConnection: conn}
+	transfer := NewBaseTransfer(nil, conn, nil, filepath.Join(user.HomeDir, "file1"),
+		filepath.Join(user.HomeDir, "file1"), "/file1", TransferUpload, 0, 0, 1000, 0, true,
+		fsUser, dataprovider.TransferQuota{})
+	transfer.BytesReceived.Store(80)
+	err = Connections.Add(fakeConn)
+	assert.NoError(t, err)
+
+	// wait for the async DB insert of the local transfer
+	assert.Eventually(t, func() bool {
+		transfers, err := dataprovider.GetActiveTransfers(time.Now().Add(-periodicTimeoutCheckInterval * 2))
+		return err == nil && len(transfers) == 2
+	}, 2*time.Second, 50*time.Millisecond)
+
+	Connections.checkTransfers()
+	assert.True(t, conn.IsQuotaExceededError(transfer.GetAbortError()))
+
+	err = transfer.Close()
+	assert.NoError(t, err)
+	Connections.Remove(fakeConn.GetID())
+	dataprovider.RemoveActiveTransfer(remoteTransfer.ID, remoteTransfer.ConnID)
+
+	err = dataprovider.DeleteUser(username, "", "", "")
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func isDbTransferCheckerSupported() bool {
 	// SQLite shares the implementation with other SQL-based provider but it makes no sense
 	// to use it outside test cases
