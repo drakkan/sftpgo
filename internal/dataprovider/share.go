@@ -160,7 +160,7 @@ func (s *Share) hashPassword() error {
 			if err != nil {
 				return err
 			}
-			s.Password = util.BytesToString(hashed)
+			s.Password = string(hashed)
 		} else {
 			hashed, err := argon2id.CreateHash(s.Password, argon2Params)
 			if err != nil {

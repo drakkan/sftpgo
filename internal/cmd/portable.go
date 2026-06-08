@@ -195,7 +195,7 @@ Please take a look at the usage below to customize the serving parameters`,
 					fmt.Printf("Unable to read password file %q: %v", portablePasswordFile, err)
 					os.Exit(1)
 				}
-				pwd = strings.TrimSpace(util.BytesToString(content))
+				pwd = strings.TrimSpace(string(content))
 			}
 			service.SetGraceTime(graceTime)
 			service := service.Service{
@@ -522,7 +522,7 @@ func getFileContents(name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return util.BytesToString(contents), nil
+	return string(contents), nil
 }
 
 func convertFsProvider() string {

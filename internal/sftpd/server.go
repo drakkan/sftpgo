@@ -569,7 +569,7 @@ func (c *Configuration) configureLoginBanner(serverConfig *ssh.ServerConfig, con
 		}
 		bannerContent, err := os.ReadFile(bannerFilePath)
 		if err == nil {
-			banner := util.BytesToString(bannerContent)
+			banner := string(bannerContent)
 			serverConfig.BannerCallback = func(_ ssh.ConnMetadata) string {
 				return banner
 			}
@@ -654,7 +654,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 	}
 
 	logger.LoginLog(user.Username, ipAddr, loginType, common.ProtocolSSH, connectionID,
-		util.BytesToString(sconn.ClientVersion()), true,
+		string(sconn.ClientVersion()), true,
 		fmt.Sprintf("negotiated algorithms: %+v", sconn.Conn.(ssh.AlgorithmsConnMetadata).Algorithms()))
 
 	dataprovider.UpdateLastLogin(&user)
@@ -697,7 +697,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 						connection := &Connection{
 							BaseConnection: common.NewBaseConnection(connID, common.ProtocolSFTP, conn.LocalAddr().String(),
 								conn.RemoteAddr().String(), user),
-							ClientVersion: util.BytesToString(sconn.ClientVersion()),
+							ClientVersion: string(sconn.ClientVersion()),
 							RemoteAddr:    conn.RemoteAddr(),
 							LocalAddr:     conn.LocalAddr(),
 							channel:       channel,
@@ -709,7 +709,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 					connection := Connection{
 						BaseConnection: common.NewBaseConnection(connID, "sshd_exec", conn.LocalAddr().String(),
 							conn.RemoteAddr().String(), user),
-						ClientVersion: util.BytesToString(sconn.ClientVersion()),
+						ClientVersion: string(sconn.ClientVersion()),
 						RemoteAddr:    conn.RemoteAddr(),
 						LocalAddr:     conn.LocalAddr(),
 						channel:       channel,
@@ -1117,7 +1117,7 @@ func (c *Configuration) verifyWithOPKSSH(username string, cert *ssh.Certificate)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	args := []string{"verify", username, util.BytesToString(ssh.MarshalAuthorizedKey(cert)), cert.Type()}
+	args := []string{"verify", username, string(ssh.MarshalAuthorizedKey(cert)), cert.Type()}
 	out, err := c.executor.CombinedOutput(ctx, c.OPKSSHPath, args...)
 	if err != nil {
 		logger.Debug(logSender, "", "unable to execute opk verifier: %s", string(out))
@@ -1277,7 +1277,7 @@ func (c *Configuration) validatePasswordCredentials(conn ssh.ConnMetadata, pass 
 	var sshPerm *ssh.Permissions
 
 	ipAddr := util.GetIPFromRemoteAddress(conn.RemoteAddr().String())
-	if user, err = dataprovider.CheckUserAndPass(conn.User(), util.BytesToString(pass), ipAddr, common.ProtocolSSH); err == nil {
+	if user, err = dataprovider.CheckUserAndPass(conn.User(), string(pass), ipAddr, common.ProtocolSSH); err == nil {
 		sshPerm, err = loginUser(&user, method, "", conn)
 	}
 	user.Username = conn.User()

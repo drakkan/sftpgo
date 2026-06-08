@@ -118,7 +118,7 @@ func (k *APIKey) hashKey() error {
 			if err != nil {
 				return err
 			}
-			k.Key = util.BytesToString(hashed)
+			k.Key = string(hashed)
 		} else {
 			hashed, err := argon2id.CreateHash(k.Key, argon2Params)
 			if err != nil {

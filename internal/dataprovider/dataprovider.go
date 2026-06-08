@@ -3350,7 +3350,7 @@ func hashPlainPassword(plainPwd string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("bcrypt hashing error: %w", err)
 		}
-		return util.BytesToString(pwd), nil
+		return string(pwd), nil
 	}
 	pwd, err := argon2id.CreateHash(plainPwd, argon2Params)
 	if err != nil {

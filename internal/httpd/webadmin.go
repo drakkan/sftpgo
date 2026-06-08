@@ -1630,7 +1630,7 @@ func getGCSConfig(r *http.Request) (vfs.GCSFsConfig, error) {
 		}
 		return config, err
 	}
-	config.Credentials = kms.NewPlainSecret(util.BytesToString(fileBytes))
+	config.Credentials = kms.NewPlainSecret(string(fileBytes))
 	config.AutomaticCredentials = 0
 	return config, err
 }

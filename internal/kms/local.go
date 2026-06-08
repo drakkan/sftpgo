@@ -24,8 +24,6 @@ import (
 	sdkkms "github.com/sftpgo/sdk/kms"
 	"gocloud.dev/secrets/localsecrets"
 	"golang.org/x/crypto/hkdf"
-
-	"github.com/drakkan/sftpgo/v2/internal/util"
 )
 
 func init() {
@@ -106,7 +104,7 @@ func (s *localSecret) Decrypt() error {
 		return err
 	}
 	s.Status = sdkkms.SecretStatusPlain
-	s.Payload = util.BytesToString(plaintext)
+	s.Payload = string(plaintext)
 	s.Key = ""
 	s.AdditionalData = ""
 	s.Mode = 0

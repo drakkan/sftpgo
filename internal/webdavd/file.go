@@ -32,7 +32,6 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/util"
 	"github.com/drakkan/sftpgo/v2/internal/vfs"
 )
 
@@ -449,7 +448,7 @@ func (f *webDavFile) Patch(patches []webdav.Proppatch) ([]webdav.Propstat, error
 		for _, p := range patch.Props {
 			if status == http.StatusForbidden && !hasError {
 				if !patch.Remove && slices.Contains(lastModifiedProps, p.XMLName.Local) {
-					parsed, err := parseTime(util.BytesToString(p.InnerXML))
+					parsed, err := parseTime(string(p.InnerXML))
 					if err != nil {
 						f.Connection.Log(logger.LevelWarn, "unsupported last modification time: %q, err: %v",
 							p.InnerXML, err)

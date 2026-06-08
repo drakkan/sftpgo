@@ -746,7 +746,7 @@ func EncodeTLSCertToPem(tlsCert *x509.Certificate) (string, error) {
 		Type:  "CERTIFICATE",
 		Bytes: tlsCert.Raw,
 	}
-	return BytesToString(pem.EncodeToMemory(&publicKeyBlock)), nil
+	return string(pem.EncodeToMemory(&publicKeyBlock)), nil
 }
 
 // CheckTCP4Port quits the app if bind on the given IPv4 port fails.
@@ -790,7 +790,7 @@ func GetSSHPublicKeyAsString(pubKey []byte) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return BytesToString(ssh.MarshalAuthorizedKey(k)), nil
+	return string(ssh.MarshalAuthorizedKey(k)), nil
 }
 
 // GetRealIP returns the ip address as result of parsing the specified
@@ -963,7 +963,7 @@ func JSONEscape(val string) string {
 	if err != nil {
 		return ""
 	}
-	return BytesToString(b[1 : len(b)-1])
+	return string(b[1 : len(b)-1])
 }
 
 // ReadConfigFromFile reads a configuration parameter from the specified file
@@ -984,7 +984,7 @@ func ReadConfigFromFile(name, configDir string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return strings.TrimSpace(BytesToString(val)), nil
+	return strings.TrimSpace(string(val)), nil
 }
 
 // ResolveConfigValue returns the content of the file at filePath if filePath
