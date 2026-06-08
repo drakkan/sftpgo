@@ -5312,11 +5312,11 @@ components:
         upload_bandwidth:
           type: integer
           format: int32
-          description: 'Maximum upload bandwidth as KB/s, 0 means unlimited'
+          description: 'Maximum upload bandwidth in KB/s per upload, 0 means unlimited'
         download_bandwidth:
           type: integer
           format: int32
-          description: 'Maximum download bandwidth as KB/s, 0 means unlimited'
+          description: 'Maximum download bandwidth in KB/s per upload, 0 means unlimited'
     TimePeriod:
       type: object
       properties:
@@ -5845,7 +5845,7 @@ components:
         max_sessions:
           type: integer
           format: int32
-          description: Maximum number of concurrent sessions and file transfers for the user. 0 means unlimited
+          description: Maximum number of concurrent sessions and file transfers for the user. Under bursts of near-simultaneous connections, the count can briefly exceed the configured limit. 0 means unlimited
         quota_size:
           type: integer
           format: int64
@@ -5881,10 +5881,10 @@ components:
           description: Last quota update as unix timestamp in milliseconds
         upload_bandwidth:
           type: integer
-          description: 'Maximum upload bandwidth as KB/s, 0 means unlimited'
+          description: 'Maximum upload bandwidth in KB/s per upload, 0 means unlimited'
         download_bandwidth:
           type: integer
-          description: 'Maximum download bandwidth as KB/s, 0 means unlimited'
+          description: 'Maximum download bandwidth in KB/s per upload, 0 means unlimited'
         upload_data_transfer:
           type: integer
           description: 'Maximum data transfer allowed for uploads as MB. 0 means no limit'
@@ -6562,7 +6562,7 @@ components:
         max_sessions:
           type: integer
           format: int32
-          description: Maximum number of concurrent sessions and file transfers allowed. 0 means unlimited
+          description: Maximum number of concurrent sessions and file transfers for the user. Under bursts of near-simultaneous connections, the count can briefly exceed the configured limit. 0 means unlimited
         quota_size:
           type: integer
           format: int64
@@ -6586,10 +6586,10 @@ components:
               - download
         upload_bandwidth:
           type: integer
-          description: 'Maximum upload bandwidth as KB/s'
+          description: 'Maximum upload bandwidth in KB/s per upload, 0 means unlimited'
         download_bandwidth:
           type: integer
-          description: 'Maximum download bandwidth as KB/s'
+          description: 'Maximum download bandwidth in KB/s per upload, 0 means unlimited'
         upload_data_transfer:
           type: integer
           description: 'Maximum data transfer allowed for uploads as MB'
