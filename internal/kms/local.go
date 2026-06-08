@@ -16,14 +16,13 @@ package kms
 
 import (
 	"context"
+	"crypto/hkdf"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"io"
 
 	sdkkms "github.com/sftpgo/sdk/kms"
 	"gocloud.dev/secrets/localsecrets"
-	"golang.org/x/crypto/hkdf"
 )
 
 func init() {
@@ -126,14 +125,11 @@ func (s *localSecret) deriveKey(key []byte, isForDecryption bool) ([32]byte, err
 		masterKey = []byte(s.masterKey)
 	}
 	var derivedKey [32]byte
-	var info []byte
-	if s.AdditionalData != "" {
-		info = []byte(s.AdditionalData)
-	}
-	kdf := hkdf.New(sha256.New, masterKey, key, info)
-	if _, err := io.ReadFull(kdf, derivedKey[:]); err != nil {
+	keyMaterial, err := hkdf.Key(sha256.New, masterKey, key, s.AdditionalData, len(derivedKey))
+	if err != nil {
 		return derivedKey, err
 	}
+	copy(derivedKey[:], keyMaterial)
 	return derivedKey, nil
 }
 

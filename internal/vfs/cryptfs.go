@@ -17,6 +17,7 @@ package vfs
 import (
 	"bufio"
 	"bytes"
+	"crypto/hkdf"
 	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
@@ -25,7 +26,6 @@ import (
 	"os"
 
 	"github.com/minio/sio"
-	"golang.org/x/crypto/hkdf"
 
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 )
@@ -168,12 +168,12 @@ func (fs *CryptFs) Create(name string, _, _ int) (File, PipeWriter, func(), erro
 		return nil, nil, nil, err
 	}
 	var key [32]byte
-	kdf := hkdf.New(sha256.New, fs.masterKey, header.nonce, nil)
-	_, err = io.ReadFull(kdf, key[:])
+	keyMaterial, err := hkdf.Key(sha256.New, fs.masterKey, header.nonce, "", len(key))
 	if err != nil {
 		f.Close()
 		return nil, nil, nil, err
 	}
+	copy(key[:], keyMaterial)
 	r, w, err := createPipeFn(fs.localTempDir, 0)
 	if err != nil {
 		f.Close()
@@ -298,12 +298,12 @@ func (fs *CryptFs) getFileAndEncryptionKey(name string) (*os.File, [32]byte, err
 		f.Close()
 		return nil, key, err
 	}
-	kdf := hkdf.New(sha256.New, fs.masterKey, header.nonce, nil)
-	_, err = io.ReadFull(kdf, key[:])
+	keyMaterial, err := hkdf.Key(sha256.New, fs.masterKey, header.nonce, "", len(key))
 	if err != nil {
 		f.Close()
 		return nil, key, err
 	}
+	copy(key[:], keyMaterial)
 	return f, key, err
 }
 
