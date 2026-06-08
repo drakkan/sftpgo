@@ -1106,7 +1106,7 @@
         "status_filters": "Statusfilter",
         "object_filters": "Objektfilter",
         "name_filters": "Namensfilter",
-        "name_filters_help": "Shell-ähnliche Musterfilter für Benutzernamen und Ordnernamen. Beispielsweise findet \"user*\" Namen, die mit \"user\" beginnen. Bei Provider-Ereignissen wird dieser Filter auf den Benutzernamen des Administrators angewendet, der das Ereignis ausführt",
+        "name_filters_help": "Shell-ähnliche Musterfilter für Benutzernamen. Bei geplanten Aktionen zum Zurücksetzen des Ordner-Kontingents werden Ordnernamen abgeglichen. Bei Provider-Ereignissen wird der Benutzername des Administrators abgeglichen, der das Ereignis ausführt. Beispielsweise findet \"user*\" Namen, die mit \"user\" beginnen",
         "inverse_match": "Umgekehrte Übereinstimmung",
         "group_name_filters": "Gruppennamenfilter",
         "group_name_filters_help": "Shell-ähnliche Musterfilter für Gruppennamen. Beispielsweise findet \"gruppe*\" Gruppennamen, die mit \"gruppe\" beginnen",
