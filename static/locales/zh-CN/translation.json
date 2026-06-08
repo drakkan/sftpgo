@@ -1106,7 +1106,7 @@
         "status_filters": "状态筛选器",
         "object_filters": "对象过滤器",
         "name_filters": "名称过滤器",
-        "name_filters_help": "类似于 Shell 的模式过滤器，用于用户名、文件夹名称。例如，\"user*\" 将匹配以 \"user\" 开头的名称。对于提供者事件，此过滤器应用于执行事件的管理员的用户名。",
+        "name_filters_help": "类似于 Shell 的模式过滤器，用于用户名。对于计划的文件夹配额重置操作，将匹配文件夹名称。对于提供者事件，将匹配执行事件的管理员的用户名。例如，\"user*\" 将匹配以 \"user\" 开头的名称。",
         "inverse_match": "反向匹配",
         "group_name_filters": "组名过滤器",
         "group_name_filters_help": "用于组名的类 shell 模式过滤器。例如，\"group*\" 将匹配以 \"group\" 开头的组名。",

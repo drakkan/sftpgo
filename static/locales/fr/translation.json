@@ -1106,7 +1106,7 @@
         "status_filters": "Filtres de status",
         "object_filters": "Filtres d'objet",
         "name_filters": "Filtres de nom",
-        "name_filters_help": "Filtres de modèle de type shell pour les noms d'utilisateur, les noms de dossier. Par exemple, \"user*\" correspondra aux noms commençant par \"user\". Pour les événements du fournisseur, ce filtre est appliqué au nom d'utilisateur de l'administrateur exécutant l'événement",
+        "name_filters_help": "Filtres de modèle de type shell pour les noms d'utilisateur. Pour les actions planifiées de réinitialisation du quota des dossiers, ils correspondent aux noms de dossier. Pour les événements du fournisseur, ils correspondent au nom d'utilisateur de l'administrateur exécutant l'événement. Par exemple, \"user*\" correspondra aux noms commençant par \"user\"",
         "inverse_match": "Correspondance inverse",
         "group_name_filters": "Filtres de nom de groupe",
         "group_name_filters_help": "Filtres de modèle de type shell pour les noms de groupe. Par exemple, \"group*\" correspondra aux noms de groupe commençant par \"group\"",
