@@ -82,6 +82,8 @@ const (
 	templateUser         = "user.html"
 	templateAdmins       = "admins.html"
 	templateAdmin        = "admin.html"
+	templateAPIKeys      = "apikeys.html"
+	templateAPIKey       = "apikey.html"
 	templateConnections  = "connections.html"
 	templateGroups       = "groups.html"
 	templateGroup        = "group.html"
@@ -120,6 +122,8 @@ type basePage struct {
 	UserTemplateURL     string
 	AdminsURL           string
 	AdminURL            string
+	APIKeysURL          string
+	APIKeyURL           string
 	QuotaScanURL        string
 	ConnectionsURL      string
 	GroupsURL           string
@@ -200,6 +204,15 @@ type adminPage struct {
 	Roles  []dataprovider.Role
 	Error  *util.I18nError
 	IsAdd  bool
+}
+
+type apiKeyPage struct {
+	basePage
+	APIKey         *dataprovider.APIKey
+	GeneratedKey   string
+	ExpirationDate string
+	Error          *util.I18nError
+	IsAdd          bool
 }
 
 type profilePage struct {
@@ -379,6 +392,16 @@ func loadAdminTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateAdmin),
 	}
+	apiKeysPaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
+		filepath.Join(templatesPath, templateAdminDir, templateBase),
+		filepath.Join(templatesPath, templateAdminDir, templateAPIKeys),
+	}
+	apiKeyPaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
+		filepath.Join(templatesPath, templateAdminDir, templateBase),
+		filepath.Join(templatesPath, templateAdminDir, templateAPIKey),
+	}
 	profilePaths := []string{
 		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
@@ -529,6 +552,8 @@ func loadAdminTemplates(templatesPath string) {
 	userTmpl := util.LoadTemplate(fsBaseTpl, userPaths...)
 	adminsTmpl := util.LoadTemplate(nil, adminsPaths...)
 	adminTmpl := util.LoadTemplate(nil, adminPaths...)
+	apiKeysTmpl := util.LoadTemplate(nil, apiKeysPaths...)
+	apiKeyTmpl := util.LoadTemplate(nil, apiKeyPaths...)
 	connectionsTmpl := util.LoadTemplate(nil, connectionsPaths...)
 	messageTmpl := util.LoadTemplate(nil, messagePaths...)
 	groupsTmpl := util.LoadTemplate(nil, groupsPaths...)
@@ -562,6 +587,8 @@ func loadAdminTemplates(templatesPath string) {
 	adminTemplates[templateUser] = userTmpl
 	adminTemplates[templateAdmins] = adminsTmpl
 	adminTemplates[templateAdmin] = adminTmpl
+	adminTemplates[templateAPIKeys] = apiKeysTmpl
+	adminTemplates[templateAPIKey] = apiKeyTmpl
 	adminTemplates[templateConnections] = connectionsTmpl
 	adminTemplates[templateMessage] = messageTmpl
 	adminTemplates[templateGroups] = groupsTmpl
@@ -640,6 +667,8 @@ func (s *httpdServer) getBasePageData(title, currentURL string, w http.ResponseW
 		UserTemplateURL:     webTemplateUser,
 		AdminsURL:           webAdminsPath,
 		AdminURL:            webAdminPath,
+		APIKeysURL:          webAPIKeysPath,
+		APIKeyURL:           webAPIKeyPath,
 		GroupsURL:           webGroupsPath,
 		GroupURL:            webGroupPath,
 		FoldersURL:          webFoldersPath,
@@ -917,6 +946,29 @@ func (s *httpdServer) renderAddUpdateAdminPage(w http.ResponseWriter, r *http.Re
 	}
 
 	renderAdminTemplate(w, templateAdmin, data)
+}
+
+func (s *httpdServer) renderAddUpdateAPIKeyPage(w http.ResponseWriter, r *http.Request, apiKey *dataprovider.APIKey,
+	generatedKey string, err error, isAdd bool) {
+	currentURL := webAPIKeyPath
+	title := util.I18nAddAPIKeyTitle
+	if !isAdd {
+		currentURL = fmt.Sprintf("%v/%v", webAPIKeyPath, url.PathEscape(apiKey.KeyID))
+		title = util.I18nUpdateAPIKeyTitle
+	}
+	expirationDate := ""
+	if apiKey.ExpiresAt > 0 {
+		expirationDate = time.UnixMilli(apiKey.ExpiresAt).UTC().Format(webDateTimeFormat)
+	}
+	data := apiKeyPage{
+		basePage:       s.getBasePageData(title, currentURL, w, r),
+		APIKey:         apiKey,
+		GeneratedKey:   generatedKey,
+		ExpirationDate: expirationDate,
+		Error:          getI18nError(err),
+		IsAdd:          isAdd,
+	}
+	renderAdminTemplate(w, templateAPIKey, data)
 }
 
 func (s *httpdServer) getUserPageTitleAndURL(mode userPageMode, username string) (string, string) {
@@ -1834,6 +1886,38 @@ func getAdminFromPostFields(r *http.Request) (dataprovider.Admin, error) {
 		}
 	}
 	return admin, nil
+}
+
+func getAPIKeyFromPostFields(r *http.Request) (dataprovider.APIKey, error) {
+	var apiKey dataprovider.APIKey
+	err := r.ParseForm()
+	if err != nil {
+		return apiKey, util.NewI18nError(err, util.I18nErrorInvalidForm)
+	}
+	// The scope is immutable after creation. On the update form the scope select
+	// is disabled and therefore not submitted by the browser, so an empty value
+	// is valid here: the update handler restores the scope from the stored key.
+	scope := 0
+	if val := strings.TrimSpace(r.Form.Get("scope")); val != "" {
+		scope, err = strconv.Atoi(val)
+		if err != nil {
+			return apiKey, fmt.Errorf("invalid scope: %w", err)
+		}
+	}
+	apiKey.Name = strings.TrimSpace(r.Form.Get("name"))
+	apiKey.Scope = dataprovider.APIKeyScope(scope)
+	apiKey.Description = r.Form.Get("description")
+	apiKey.User = strings.TrimSpace(r.Form.Get("user"))
+	apiKey.Admin = strings.TrimSpace(r.Form.Get("admin"))
+	expirationDateString := strings.TrimSpace(r.Form.Get("expires_at"))
+	if expirationDateString != "" {
+		expirationDate, err := time.Parse(webDateTimeFormat, expirationDateString)
+		if err != nil {
+			return apiKey, err
+		}
+		apiKey.ExpiresAt = util.GetTimeAsMsSinceEpoch(expirationDate)
+	}
+	return apiKey, nil
 }
 
 func replacePlaceholders(field string, replacements map[string]string) string {
@@ -3215,6 +3299,117 @@ func (s *httpdServer) handleWebUpdateAdminPost(w http.ResponseWriter, r *http.Re
 		return
 	}
 	http.Redirect(w, r, webAdminsPath, http.StatusSeeOther)
+}
+
+func (s *httpdServer) handleGetWebAPIKeys(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+
+	data := s.getBasePageData(util.I18nAPIKeysTitle, webAPIKeysPath, w, r)
+	renderAdminTemplate(w, templateAPIKeys, data)
+}
+
+func getAllAPIKeys(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := jwt.FromContext(r.Context())
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, nil, util.I18nErrorInvalidToken, http.StatusForbidden)
+		return
+	}
+
+	dataGetter := func(limit, offset int) ([]byte, int, error) {
+		results, err := dataprovider.GetAPIKeys(limit, offset, dataprovider.OrderASC)
+		if err != nil {
+			return nil, 0, err
+		}
+		data, err := json.Marshal(results)
+		return data, len(results), err
+	}
+
+	streamJSONArray(w, defaultQueryLimit, dataGetter)
+}
+
+func (s *httpdServer) handleWebAddAPIKeyGet(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	apiKey := &dataprovider.APIKey{
+		Scope: dataprovider.APIKeyScopeUser,
+	}
+	s.renderAddUpdateAPIKeyPage(w, r, apiKey, "", nil, true)
+}
+
+func (s *httpdServer) handleWebUpdateAPIKeyGet(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	keyID := getURLParam(r, "id")
+	apiKey, err := dataprovider.APIKeyExists(keyID)
+	if err == nil {
+		apiKey.HideConfidentialData()
+		s.renderAddUpdateAPIKeyPage(w, r, &apiKey, "", nil, false)
+	} else if errors.Is(err, util.ErrNotFound) {
+		s.renderNotFoundPage(w, r, err)
+	} else {
+		s.renderInternalServerErrorPage(w, r, err)
+	}
+}
+
+func (s *httpdServer) handleWebAddAPIKeyPost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := jwt.FromContext(r.Context())
+	if err != nil || claims.Username == "" {
+		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
+		return
+	}
+	apiKey, err := getAPIKeyFromPostFields(r)
+	if err != nil {
+		s.renderAddUpdateAPIKeyPage(w, r, &apiKey, "", err, true)
+		return
+	}
+	if err := verifyCSRFToken(r, s.csrfTokenAuth); err != nil {
+		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
+		return
+	}
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	err = dataprovider.AddAPIKey(&apiKey, claims.Username, ipAddr, claims.Role)
+	if err != nil {
+		s.renderAddUpdateAPIKeyPage(w, r, &apiKey, "", err, true)
+		return
+	}
+	s.renderAddUpdateAPIKeyPage(w, r, &apiKey, apiKey.DisplayKey(), nil, false)
+}
+
+func (s *httpdServer) handleWebUpdateAPIKeyPost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	keyID := getURLParam(r, "id")
+	apiKey, err := dataprovider.APIKeyExists(keyID)
+	if errors.Is(err, util.ErrNotFound) {
+		s.renderNotFoundPage(w, r, err)
+		return
+	} else if err != nil {
+		s.renderInternalServerErrorPage(w, r, err)
+		return
+	}
+	claims, err := jwt.FromContext(r.Context())
+	if err != nil || claims.Username == "" {
+		s.renderForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
+		return
+	}
+	updatedAPIKey, err := getAPIKeyFromPostFields(r)
+	if err != nil {
+		s.renderAddUpdateAPIKeyPage(w, r, &updatedAPIKey, "", err, false)
+		return
+	}
+	if err := verifyCSRFToken(r, s.csrfTokenAuth); err != nil {
+		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
+		return
+	}
+	updatedAPIKey.KeyID = apiKey.KeyID
+	updatedAPIKey.Key = apiKey.Key
+	updatedAPIKey.Scope = apiKey.Scope
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	err = dataprovider.UpdateAPIKey(&updatedAPIKey, claims.Username, ipAddr, claims.Role)
+	if err != nil {
+		s.renderAddUpdateAPIKeyPage(w, r, &updatedAPIKey, "", err, false)
+		return
+	}
+	http.Redirect(w, r, webAPIKeysPath, http.StatusSeeOther)
 }
 
 func (s *httpdServer) handleWebDefenderPage(w http.ResponseWriter, r *http.Request) {

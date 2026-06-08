@@ -1812,6 +1812,19 @@ func (s *httpdServer) setupWebAdminRoutes() {
 					s.handleWebUpdateAdminPost)
 				router.With(s.checkPerms(dataprovider.PermAdminAny), s.verifyCSRFHeader).
 					Delete(webAdminPath+"/{username}", deleteAdmin)
+				router.With(s.checkPerms(dataprovider.PermAdminAny), s.refreshCookie).
+					Get(webAPIKeysPath, s.handleGetWebAPIKeys)
+				router.With(s.checkPerms(dataprovider.PermAdminAny), compressor.Handler, s.refreshCookie).
+					Get(webAPIKeysPath+jsonAPISuffix, getAllAPIKeys)
+				router.With(s.checkPerms(dataprovider.PermAdminAny), s.refreshCookie).
+					Get(webAPIKeyPath, s.handleWebAddAPIKeyGet)
+				router.With(s.checkPerms(dataprovider.PermAdminAny), s.refreshCookie).
+					Get(webAPIKeyPath+"/{id}", s.handleWebUpdateAPIKeyGet)
+				router.With(s.checkPerms(dataprovider.PermAdminAny)).Post(webAPIKeyPath, s.handleWebAddAPIKeyPost)
+				router.With(s.checkPerms(dataprovider.PermAdminAny)).Post(webAPIKeyPath+"/{id}",
+					s.handleWebUpdateAPIKeyPost)
+				router.With(s.checkPerms(dataprovider.PermAdminAny), s.verifyCSRFHeader).
+					Delete(webAPIKeyPath+"/{id}", deleteAPIKey)
 				router.With(s.checkPerms(dataprovider.PermAdminAny), s.verifyCSRFHeader).
 					Put(webAdminPath+"/{username}/2fa/disable", disableAdmin2FA)
 				router.With(s.checkPerms(dataprovider.PermAdminCloseConnections), s.verifyCSRFHeader).

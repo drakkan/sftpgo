@@ -39,6 +39,9 @@
         "ip_lists": "IP Lists",
         "defender": "Auto Block List",
         "admins": "Admins",
+        "api_keys": "API Keys",
+        "add_api_key": "Add API key",
+        "update_api_key": "Update API key",
         "roles": "Roles",
         "server_manager": "Server Manager",
         "configs": "Configurations",
@@ -276,7 +279,9 @@
         "friday": "Friday",
         "saturday": "Saturday",
         "sunday": "Sunday",
-        "expired_session": "Your session has expired. Please log in again"
+        "expired_session": "Your session has expired. Please log in again",
+        "created_at": "Created at",
+        "copy": "Copy"
     },
     "fs": {
         "view_file": "View file \"{{- path}}\"",
@@ -761,6 +766,23 @@
         "default_users_expiration": "Default users expiration",
         "default_users_expiration_help": "Default expiration for new users as number of days",
         "require_pwd_change_help": "A password change is required at the next login"
+    },
+    "apikey": {
+        "view_manage": "View and manage API keys",
+        "scope": "Scope",
+        "scope_admin": "Admin",
+        "scope_user": "User",
+        "bound_to": "Bound to",
+        "user": "User",
+        "user_help": "Username this key is restricted to. Leave empty to allow any user.",
+        "admin": "Admin",
+        "admin_help": "Admin this key is restricted to. Leave empty to allow any admin.",
+        "expires": "Expires",
+        "expires_help": "Leave empty for no expiration. Format: YYYY-MM-DD HH:MM:SS (UTC).",
+        "last_use": "Last use",
+        "never": "Never",
+        "any": "Any",
+        "generated_help": "This is the only time the API key is visible, please save it now."
     },
     "connections": {
         "view_manage": "View and manage connections",

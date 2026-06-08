@@ -151,6 +151,8 @@ const (
 	webStatusPath                  = "/web/admin/status"
 	webAdminsPath                  = "/web/admin/managers"
 	webAdminPath                   = "/web/admin/manager"
+	webAPIKeysPath                 = "/web/admin/api-keys"
+	webAPIKeyPath                  = "/web/admin/api-key"
 	webMaintenancePath             = "/web/admin/maintenance"
 	webRestorePath                 = "/web/admin/restore"
 	webChangeAdminPwdPath          = "/web/admin/changepwd"
@@ -21849,6 +21851,114 @@ func TestWebAdminBasicMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
 	assert.Contains(t, rr.Body.String(), "Invalid token")
+}
+
+func TestWebAdminAPIKeysMock(t *testing.T) {
+	token, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+
+	// list page renders
+	req, err := http.NewRequest(http.MethodGet, webAPIKeysPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	// json endpoint renders
+	req, err = http.NewRequest(http.MethodGet, webAPIKeysPath+"/json", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	// add form renders
+	req, err = http.NewRequest(http.MethodGet, webAPIKeyPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webAPIKeyPath, token)
+	assert.NoError(t, err)
+
+	keyName := "test_web_apikey"
+	form := make(url.Values)
+	form.Set("name", keyName)
+	form.Set("scope", "2")
+	form.Set("description", "created from web")
+
+	// missing CSRF -> forbidden
+	req, err = http.NewRequest(http.MethodPost, webAPIKeyPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCSRF)
+
+	// create -> reveal page (200) showing the one-time key
+	form.Set(csrfFormToken, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, webAPIKeyPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "apikey.generated_help")
+
+	// find the created key id via REST helper
+	apiKeys, _, err := httpdtest.GetAPIKeys(500, 0, http.StatusOK)
+	assert.NoError(t, err)
+	var keyID string
+	for _, k := range apiKeys {
+		if k.Name == keyName {
+			keyID = k.KeyID
+			break
+		}
+	}
+	assert.NotEmpty(t, keyID)
+
+	// edit form renders for the created key
+	req, err = http.NewRequest(http.MethodGet, webAPIKeyPath+"/"+keyID, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	// update -> redirect, description changed.
+	// Note: "scope" is intentionally NOT set here: on the edit form the scope
+	// select is disabled and so is not submitted by a real browser. The update
+	// handler must keep the stored scope and not reject the missing value.
+	form = make(url.Values)
+	form.Set(csrfFormToken, csrfToken)
+	form.Set("name", keyName)
+	form.Set("description", "updated from web")
+	req, err = http.NewRequest(http.MethodPost, webAPIKeyPath+"/"+keyID, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+
+	updated, _, err := httpdtest.GetAPIKeyByID(keyID, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, "updated from web", updated.Description)
+	// scope is immutable and must be preserved across the update
+	assert.Equal(t, dataprovider.APIKeyScopeUser, updated.Scope)
+
+	// delete -> 200, key gone
+	req, err = http.NewRequest(http.MethodDelete, webAPIKeyPath+"/"+keyID, nil)
+	assert.NoError(t, err)
+	req.Header.Set("X-CSRF-TOKEN", csrfToken)
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	_, _, err = httpdtest.GetAPIKeyByID(keyID, http.StatusNotFound)
+	assert.NoError(t, err)
 }
 
 func TestWebAdminGroupsMock(t *testing.T) {
