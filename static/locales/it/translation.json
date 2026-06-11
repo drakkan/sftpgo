@@ -650,7 +650,7 @@
         "fs_error": "Errore configurazione filesystem",
         "bucket_required": "$t(storage.fs_error): il bucket è obbligatorio",
         "region_required": "$t(storage.fs_error): la regione è obbligatoria",
-        "key_prefix_invalid": "$t(storage.fs_error): prefisso chiave non valido, non può iniziare con \"/\"",
+        "key_prefix_invalid": "$t(storage.fs_error): prefisso chiave non valido, non può puntare alla radice dello storage",
         "ul_part_size_invalid": "$t(storage.fs_error): dimensione parte per upload non valida",
         "ul_concurrency_invalid": "$t(storage.fs_error): concorrenza upload non valida",
         "dl_part_size_invalid": "$t(storage.fs_error): dimensione parte per download non valida",

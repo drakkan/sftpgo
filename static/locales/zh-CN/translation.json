@@ -650,7 +650,7 @@
         "fs_error": "文件系统配置错误",
         "bucket_required": "$t(storage.fs_error)：需要存储桶",
         "region_required": "$t(storage.fs_error): 需要区域",
-        "key_prefix_invalid": "$t(storage.fs_error): 无效的密钥前缀，不能以 “/” 开头",
+        "key_prefix_invalid": "$t(storage.fs_error): 无效的密钥前缀，不能指向存储根目录",
         "ul_part_size_invalid": "$t(storage.fs_error): 无效的上传部分尺寸",
         "ul_concurrency_invalid": "$t(storage.fs_error): 并行上传无效",
         "dl_part_size_invalid": "$t(storage.fs_error): 无效下载部分大小",

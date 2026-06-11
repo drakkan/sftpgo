@@ -5208,7 +5208,7 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	u.FsConfig.S3Config.AccessSecret = kms.NewSecret(sdkkms.SecretStatusRedacted, "access-secret", "", "")
 	u.FsConfig.S3Config.Endpoint = "http://127.0.0.1:9000/path?a=b"
 	u.FsConfig.S3Config.StorageClass = "Standard" //nolint:goconst
-	u.FsConfig.S3Config.KeyPrefix = "/adir/subdir/"
+	u.FsConfig.S3Config.KeyPrefix = ".."          // resolves to the storage root: rejected
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 	u.FsConfig.S3Config.AccessSecret.SetStatus(sdkkms.SecretStatusPlain)
@@ -5261,7 +5261,7 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	assert.NoError(t, err)
 	u.FsConfig.GCSConfig.Bucket = "abucket"
 	u.FsConfig.GCSConfig.StorageClass = "Standard"
-	u.FsConfig.GCSConfig.KeyPrefix = "/somedir/subdir/"
+	u.FsConfig.GCSConfig.KeyPrefix = ".."                                                         // resolves to the storage root: rejected
 	u.FsConfig.GCSConfig.Credentials = kms.NewSecret(sdkkms.SecretStatusRedacted, "test", "", "") //nolint:goconst
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
@@ -5371,6 +5371,64 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	if assert.NoError(t, err) {
 		assert.Contains(t, string(resp), "invalid unix domain socket path")
 	}
+}
+
+func TestCloudKeyPrefixNormalizationAPI(t *testing.T) {
+	u := getTestUser()
+	u.Username = "key_prefix_norm_user"
+	u.FsConfig.Provider = sdk.GCSFilesystemProvider
+	u.FsConfig.GCSConfig.Bucket = "abucket"
+	u.FsConfig.GCSConfig.AutomaticCredentials = 1
+	u.FsConfig.GCSConfig.KeyPrefix = "/users/test"
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	require.NoError(t, err)
+	assert.Equal(t, "users/test/", user.FsConfig.GCSConfig.KeyPrefix)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+
+	// a backslash is a legal object-key character, not a path separator: it is
+	// preserved verbatim so re-saving an existing config never moves its root
+	u = getTestUser()
+	u.Username = "key_prefix_backslash_user"
+	u.FsConfig.Provider = sdk.GCSFilesystemProvider
+	u.FsConfig.GCSConfig.Bucket = "abucket"
+	u.FsConfig.GCSConfig.AutomaticCredentials = 1
+	u.FsConfig.GCSConfig.KeyPrefix = `dir\sub`
+	user, _, err = httpdtest.AddUser(u, http.StatusCreated)
+	require.NoError(t, err)
+	assert.Equal(t, `dir\sub/`, user.FsConfig.GCSConfig.KeyPrefix)
+	// re-saving the normalized value is stable (idempotent)
+	user.FsConfig.GCSConfig.KeyPrefix = `dir\sub/`
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	require.NoError(t, err)
+	assert.Equal(t, `dir\sub/`, user.FsConfig.GCSConfig.KeyPrefix)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+
+	// a non-empty prefix that resolves to the storage root is rejected
+	u = getTestUser()
+	u.Username = "key_prefix_root_user"
+	u.FsConfig.Provider = sdk.GCSFilesystemProvider
+	u.FsConfig.GCSConfig.Bucket = "abucket"
+	u.FsConfig.GCSConfig.AutomaticCredentials = 1
+	u.FsConfig.GCSConfig.KeyPrefix = ".."
+	_, resp, err := httpdtest.AddUser(u, http.StatusBadRequest)
+	if assert.NoError(t, err) {
+		assert.Contains(t, string(resp), "key_prefix")
+	}
+
+	// an empty prefix is valid: the whole bucket is available
+	u = getTestUser()
+	u.Username = "key_prefix_empty_user"
+	u.FsConfig.Provider = sdk.GCSFilesystemProvider
+	u.FsConfig.GCSConfig.Bucket = "abucket"
+	u.FsConfig.GCSConfig.AutomaticCredentials = 1
+	u.FsConfig.GCSConfig.KeyPrefix = ""
+	user, _, err = httpdtest.AddUser(u, http.StatusCreated)
+	require.NoError(t, err)
+	assert.Empty(t, user.FsConfig.GCSConfig.KeyPrefix)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
 }
 
 func TestUserRedactedPassword(t *testing.T) {

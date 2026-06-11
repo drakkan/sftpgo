@@ -508,6 +508,20 @@ func (c *S3FsConfig) isSameResource(other S3FsConfig) bool {
 	return c.Region == other.Region
 }
 
+func normalizeKeyPrefix(keyPrefix string) (string, error) {
+	if keyPrefix == "" {
+		return "", nil
+	}
+	cleaned := strings.TrimPrefix(path.Clean("/"+keyPrefix), "/")
+	if cleaned == "" {
+		return "", util.NewI18nError(
+			errors.New("invalid key_prefix, it cannot point to the storage root"),
+			util.I18nErrorKeyPrefixInvalid,
+		)
+	}
+	return cleaned + "/", nil
+}
+
 // validate returns an error if the configuration is not valid
 func (c *S3FsConfig) validate() error {
 	if c.AccessSecret == nil {
@@ -527,15 +541,11 @@ func (c *S3FsConfig) validate() error {
 	if err := c.checkCredentials(); err != nil {
 		return err
 	}
-	if c.KeyPrefix != "" {
-		if strings.HasPrefix(c.KeyPrefix, "/") {
-			return util.NewI18nError(errors.New("key_prefix cannot start with /"), util.I18nErrorKeyPrefixInvalid)
-		}
-		c.KeyPrefix = path.Clean(c.KeyPrefix)
-		if !strings.HasSuffix(c.KeyPrefix, "/") {
-			c.KeyPrefix += "/"
-		}
+	keyPrefix, err := normalizeKeyPrefix(c.KeyPrefix)
+	if err != nil {
+		return err
 	}
+	c.KeyPrefix = keyPrefix
 	c.StorageClass = strings.TrimSpace(c.StorageClass)
 	c.ACL = strings.TrimSpace(c.ACL)
 	return c.checkPartSizeAndConcurrency()
@@ -620,15 +630,11 @@ func (c *GCSFsConfig) validate() error { //nolint:gocyclo
 	if c.Bucket == "" {
 		return util.NewI18nError(errors.New("bucket cannot be empty"), util.I18nErrorBucketRequired)
 	}
-	if c.KeyPrefix != "" {
-		if strings.HasPrefix(c.KeyPrefix, "/") {
-			return util.NewI18nError(errors.New("key_prefix cannot start with /"), util.I18nErrorKeyPrefixInvalid)
-		}
-		c.KeyPrefix = path.Clean(c.KeyPrefix)
-		if !strings.HasSuffix(c.KeyPrefix, "/") {
-			c.KeyPrefix += "/"
-		}
+	keyPrefix, err := normalizeKeyPrefix(c.KeyPrefix)
+	if err != nil {
+		return err
 	}
+	c.KeyPrefix = keyPrefix
 	if c.Credentials.IsEncrypted() && !c.Credentials.IsValid() {
 		return errors.New("invalid encrypted credentials")
 	}
@@ -842,15 +848,11 @@ func (c *AzBlobFsConfig) validate() error {
 	if err := c.checkCredentials(); err != nil {
 		return err
 	}
-	if c.KeyPrefix != "" {
-		if strings.HasPrefix(c.KeyPrefix, "/") {
-			return util.NewI18nError(errors.New("key_prefix cannot start with /"), util.I18nErrorKeyPrefixInvalid)
-		}
-		c.KeyPrefix = path.Clean(c.KeyPrefix)
-		if !strings.HasSuffix(c.KeyPrefix, "/") {
-			c.KeyPrefix += "/"
-		}
+	keyPrefix, err := normalizeKeyPrefix(c.KeyPrefix)
+	if err != nil {
+		return err
 	}
+	c.KeyPrefix = keyPrefix
 	if err := c.checkPartSizeAndConcurrency(); err != nil {
 		return err
 	}

@@ -650,7 +650,7 @@
         "fs_error": "Filesystem configuration error",
         "bucket_required": "$t(storage.fs_error): bucket is required",
         "region_required": "$t(storage.fs_error): region is required",
-        "key_prefix_invalid": "$t(storage.fs_error): invalid key prefix, cannot start with \"/\"",
+        "key_prefix_invalid": "$t(storage.fs_error): invalid key prefix, it cannot point to the storage root",
         "ul_part_size_invalid": "$t(storage.fs_error): invalid upload part size",
         "ul_concurrency_invalid": "$t(storage.fs_error): invalid upload concurrency",
         "dl_part_size_invalid": "$t(storage.fs_error): invalid download part size",

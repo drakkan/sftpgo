@@ -650,7 +650,7 @@
         "fs_error": "Fehler bei der Dateisystemkonfiguration",
         "bucket_required": "$t(storage.fs_error): Bucket ist erforderlich",
         "region_required": "$t(storage.fs_error): Region ist erforderlich",
-        "key_prefix_invalid": "$t(storage.fs_error): ungültiges Schlüsselpräfix, darf nicht mit \"/\" beginnen",
+        "key_prefix_invalid": "$t(storage.fs_error): ungültiges Schlüsselpräfix, es darf nicht auf das Storage-Stammverzeichnis verweisen",
         "ul_part_size_invalid": "$t(storage.fs_error): ungültige Upload-Teilgröße",
         "ul_concurrency_invalid": "$t(storage.fs_error): ungültige Upload-Parallelität",
         "dl_part_size_invalid": "$t(storage.fs_error): ungültige Downloadteilgröße",

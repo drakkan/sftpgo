@@ -5536,7 +5536,7 @@ components:
           description: 'Set this to "true" to force the request to use path-style addressing, i.e., "http://s3.amazonaws.com/BUCKET/KEY". By default, the S3 client will use virtual hosted bucket addressing when possible ("http://BUCKET.s3.amazonaws.com/KEY")'
         key_prefix:
           type: string
-          description: 'key_prefix is similar to a chroot directory for a local filesystem. If specified the user will only see contents that starts with this prefix and so you can restrict access to a specific virtual folder. The prefix, if not empty, must not start with "/" and must end with "/". If empty the whole bucket contents will be available'
+          description: 'key_prefix is similar to a chroot directory for a local filesystem. If specified the user will only see contents that starts with this prefix and so you can restrict access to a specific virtual folder. The prefix is normalized on save: a leading "/" is removed and a trailing "/" is added; a non-empty value that resolves to the storage root is rejected. If empty the whole bucket contents will be available'
           example: folder/subfolder/
       description: S3 Compatible Object Storage configuration details
     GCSConfig:
@@ -5563,7 +5563,7 @@ components:
           description: 'The ACL to apply to uploaded objects. Leave empty to use the default ACL. For more information and available ACLs, refer to the JSON API here: https://cloud.google.com/storage/docs/access-control/lists#predefined-acl'
         key_prefix:
           type: string
-          description: 'key_prefix is similar to a chroot directory for a local filesystem. If specified the user will only see contents that starts with this prefix and so you can restrict access to a specific virtual folder. The prefix, if not empty, must not start with "/" and must end with "/". If empty the whole bucket contents will be available'
+          description: 'key_prefix is similar to a chroot directory for a local filesystem. If specified the user will only see contents that starts with this prefix and so you can restrict access to a specific virtual folder. The prefix is normalized on save: a leading "/" is removed and a trailing "/" is added; a non-empty value that resolves to the storage root is rejected. If empty the whole bucket contents will be available'
           example: folder/subfolder/
         upload_part_size:
           type: integer
@@ -5608,7 +5608,7 @@ components:
             - Cool
         key_prefix:
           type: string
-          description: 'key_prefix is similar to a chroot directory for a local filesystem. If specified the user will only see contents that starts with this prefix and so you can restrict access to a specific virtual folder. The prefix, if not empty, must not start with "/" and must end with "/". If empty the whole container contents will be available'
+          description: 'key_prefix is similar to a chroot directory for a local filesystem. If specified the user will only see contents that starts with this prefix and so you can restrict access to a specific virtual folder. The prefix is normalized on save: a leading "/" is removed and a trailing "/" is added; a non-empty value that resolves to the storage root is rejected. If empty the whole container contents will be available'
           example: folder/subfolder/
         use_emulator:
           type: boolean

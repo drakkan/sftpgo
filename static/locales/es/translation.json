@@ -650,7 +650,7 @@
         "fs_error": "Error de configuración del sistema de archivos",
         "bucket_required": "$t(storage.fs_error): se requiere bucket",
         "region_required": "$t(storage.fs_error): se requiere región",
-        "key_prefix_invalid": "$t(storage.fs_error): prefijo de clave inválido, no puede empezar con \"/\"",
+        "key_prefix_invalid": "$t(storage.fs_error): prefijo de clave inválido, no puede apuntar a la raíz del almacenamiento",
         "ul_part_size_invalid": "$t(storage.fs_error): tamaño de parte de subida inválido",
         "ul_concurrency_invalid": "$t(storage.fs_error): concurrencia de subida inválida",
         "dl_part_size_invalid": "$t(storage.fs_error): tamaño de parte de descarga inválido",

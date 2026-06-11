@@ -2220,8 +2220,9 @@ func compareS3Config(expected *vfs.Filesystem, actual *vfs.Filesystem) error { /
 	if expected.S3Config.UploadPartMaxTime != actual.S3Config.UploadPartMaxTime {
 		return errors.New("fs S3 upload part max time mismatch")
 	}
-	if expected.S3Config.KeyPrefix != actual.S3Config.KeyPrefix &&
-		expected.S3Config.KeyPrefix+"/" != actual.S3Config.KeyPrefix {
+	expectedS3KeyPrefix := strings.TrimPrefix(expected.S3Config.KeyPrefix, "/")
+	if expectedS3KeyPrefix != actual.S3Config.KeyPrefix &&
+		expectedS3KeyPrefix+"/" != actual.S3Config.KeyPrefix {
 		return errors.New("fs S3 key prefix mismatch")
 	}
 	return nil
@@ -2237,8 +2238,9 @@ func compareGCSConfig(expected *vfs.Filesystem, actual *vfs.Filesystem) error {
 	if expected.GCSConfig.ACL != actual.GCSConfig.ACL {
 		return errors.New("GCS ACL mismatch")
 	}
-	if expected.GCSConfig.KeyPrefix != actual.GCSConfig.KeyPrefix &&
-		expected.GCSConfig.KeyPrefix+"/" != actual.GCSConfig.KeyPrefix {
+	expectedGCSKeyPrefix := strings.TrimPrefix(expected.GCSConfig.KeyPrefix, "/")
+	if expectedGCSKeyPrefix != actual.GCSConfig.KeyPrefix &&
+		expectedGCSKeyPrefix+"/" != actual.GCSConfig.KeyPrefix {
 		return errors.New("GCS key prefix mismatch")
 	}
 	if expected.GCSConfig.AutomaticCredentials != actual.GCSConfig.AutomaticCredentials {
@@ -2344,8 +2346,9 @@ func compareAzBlobConfig(expected *vfs.Filesystem, actual *vfs.Filesystem) error
 	if expected.AzBlobConfig.DownloadConcurrency != actual.AzBlobConfig.DownloadConcurrency {
 		return errors.New("azure Blob download concurrency mismatch")
 	}
-	if expected.AzBlobConfig.KeyPrefix != actual.AzBlobConfig.KeyPrefix &&
-		expected.AzBlobConfig.KeyPrefix+"/" != actual.AzBlobConfig.KeyPrefix {
+	expectedAzKeyPrefix := strings.TrimPrefix(expected.AzBlobConfig.KeyPrefix, "/")
+	if expectedAzKeyPrefix != actual.AzBlobConfig.KeyPrefix &&
+		expectedAzKeyPrefix+"/" != actual.AzBlobConfig.KeyPrefix {
 		return errors.New("azure Blob key prefix mismatch")
 	}
 	if expected.AzBlobConfig.UseEmulator != actual.AzBlobConfig.UseEmulator {
