@@ -188,6 +188,7 @@
         "ip_forbidden": "Login not allowed from this IP address",
         "email_invalid": "The email address is invalid",
         "err_password_complexity": "The password provided does not meet the complexity requirements",
+        "err_password_too_long": "The provided password is too long. The maximum length is 72 bytes.",
         "no_oidc_feature": "This feature is not available if you are logged in with OpenID",
         "connection_forbidden": "You are not allowed to connect",
         "no_permissions": "You are not allowed to change anything",
