@@ -772,6 +772,10 @@ func (s *httpdServer) loginUser(
 	}
 	updateLoginMetrics(user, dataprovider.LoginMethodPassword, ipAddr, err, r)
 	dataprovider.UpdateLastLogin(user)
+	if user.MustChangePassword() {
+		http.Redirect(w, r, webChangeClientPwdPath, http.StatusFound)
+		return
+	}
 	if next := r.URL.Query().Get("next"); strings.HasPrefix(next, webClientFilesPath) {
 		http.Redirect(w, r, next, http.StatusFound)
 		return
@@ -816,6 +820,10 @@ func (s *httpdServer) loginAdmin(
 	}
 	dataprovider.UpdateAdminLastLogin(admin)
 	common.DelayLogin(nil)
+	if admin.Filters.RequirePasswordChange {
+		http.Redirect(w, r, webChangeAdminPwdPath, http.StatusFound)
+		return
+	}
 	redirectURL := webUsersPath
 	if errorFunc == nil {
 		redirectURL = webAdminMFAPath
@@ -1566,6 +1574,11 @@ func (s *httpdServer) setupWebClientRoutes() {
 				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 				renderPNGImage(w, r, dbBrandingConfig.getWebClientLogo())
 			})
+		s.router.With(cleanCacheControlMiddleware).Get(path.Join(webStaticFilesPath, "branding/webclient/dark-logo.png"),
+			func(w http.ResponseWriter, r *http.Request) {
+				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+				renderPNGImage(w, r, dbBrandingConfig.getWebClientDarkLogo())
+			})
 		s.router.With(cleanCacheControlMiddleware).Get(path.Join(webStaticFilesPath, "branding/webclient/favicon.png"),
 			func(w http.ResponseWriter, r *http.Request) {
 				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
@@ -1698,6 +1711,11 @@ func (s *httpdServer) setupWebAdminRoutes() {
 			func(w http.ResponseWriter, r *http.Request) {
 				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 				renderPNGImage(w, r, dbBrandingConfig.getWebAdminLogo())
+			})
+		s.router.With(cleanCacheControlMiddleware).Get(path.Join(webStaticFilesPath, "branding/webadmin/dark-logo.png"),
+			func(w http.ResponseWriter, r *http.Request) {
+				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+				renderPNGImage(w, r, dbBrandingConfig.getWebAdminDarkLogo())
 			})
 		s.router.With(cleanCacheControlMiddleware).Get(path.Join(webStaticFilesPath, "branding/webadmin/favicon.png"),
 			func(w http.ResponseWriter, r *http.Request) {

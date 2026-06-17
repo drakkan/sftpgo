@@ -420,6 +420,7 @@ type BrandingConfig struct {
 	Name           string `json:"name"`
 	ShortName      string `json:"short_name"`
 	Logo           []byte `json:"logo"`
+	DarkLogo       []byte `json:"dark_logo"`
 	Favicon        []byte `json:"favicon"`
 	DisclaimerName string `json:"disclaimer_name"`
 	DisclaimerURL  string `json:"disclaimer_url"`
@@ -433,6 +434,9 @@ func (c *BrandingConfig) isEmpty() bool {
 		return false
 	}
 	if len(c.Logo) > 0 {
+		return false
+	}
+	if len(c.DarkLogo) > 0 {
 		return false
 	}
 	if len(c.Favicon) > 0 {
@@ -495,12 +499,17 @@ func (c *BrandingConfig) validate() error {
 	if err := c.validatePNG(c.Logo, 512, 512); err != nil {
 		return err
 	}
+	if err := c.validatePNG(c.DarkLogo, 512, 512); err != nil {
+		return err
+	}
 	return c.validatePNG(c.Favicon, 256, 256)
 }
 
 func (c *BrandingConfig) getACopy() BrandingConfig {
 	logo := make([]byte, len(c.Logo))
 	copy(logo, c.Logo)
+	darkLogo := make([]byte, len(c.DarkLogo))
+	copy(darkLogo, c.DarkLogo)
 	favicon := make([]byte, len(c.Favicon))
 	copy(favicon, c.Favicon)
 
@@ -508,6 +517,7 @@ func (c *BrandingConfig) getACopy() BrandingConfig {
 		Name:           c.Name,
 		ShortName:      c.ShortName,
 		Logo:           logo,
+		DarkLogo:       darkLogo,
 		Favicon:        favicon,
 		DisclaimerName: c.DisclaimerName,
 		DisclaimerURL:  c.DisclaimerURL,

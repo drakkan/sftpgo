@@ -1,0 +1,83 @@
+name: "sftpgo"
+arch: "amd64"
+platform: "linux"
+version: 2.6.5-custom
+release: 1
+section: "net"
+priority: "optional"
+maintainer: "Nicola Murino <nicola.murino@gmail.com>"
+description: |
+  Full-featured and highly configurable SFTP server
+  SFTPGo has optional HTTP, FTP/S and WebDAV support.
+  It can serve local filesystem, S3 (Compatible) Object Storage,
+  Google Cloud Storage, Azure Blob Storage, SFTP.
+vendor: "SFTPGo"
+homepage: "https://github.com/drakkan/sftpgo"
+license: "AGPL-3.0"
+provides:
+  - sftpgo
+contents:
+  - src: "../../sftpgo"
+    dst: "/usr/bin/sftpgo"
+
+  - src: "./sftpgo-completion.bash"
+    dst: "/usr/share/bash-completion/completions/sftpgo"
+
+  - src: "./man1/*"
+    dst: "/usr/share/man/man1/"
+
+  - src: "../../init/sftpgo.service"
+    dst: "/lib/systemd/system/sftpgo.service"
+
+  - src: "../../templates/*"
+    dst: "/usr/share/sftpgo/templates"
+
+  - src: "../../static/*"
+    dst: "/usr/share/sftpgo/static"
+
+  - src: "../../openapi/*"
+    dst: "/usr/share/sftpgo/openapi"
+
+  - src: "../../LICENSE"
+    dst: "/usr/share/licenses/sftpgo/LICENSE"
+
+  - src: "../../NOTICE"
+    dst: "/usr/share/licenses/sftpgo/NOTICE"
+
+  - src: "./sftpgo.json"
+    dst: "/etc/sftpgo/sftpgo.json"
+    type: "config|noreplace"
+
+  - dst: "/srv/sftpgo"
+    type: dir
+
+  - dst: "/var/lib/sftpgo"
+    type: dir
+
+  - dst: "/etc/sftpgo/env.d"
+    type: dir
+
+overrides:
+  deb:
+    recommends:
+      - bash-completion
+      - mime-support
+    scripts:
+      postinstall: ../scripts/deb/postinstall.sh
+      preremove: ../scripts/deb/preremove.sh
+      postremove: ../scripts/deb/postremove.sh
+  rpm:
+    recommends:
+      - bash-completion
+      - mailcap
+    scripts:
+      postinstall: ../scripts/rpm/postinstall
+      preremove: ../scripts/rpm/preremove
+      postremove: ../scripts/rpm/postremove
+
+rpm:
+  compression: xz
+
+deb:
+  compression: xz
+

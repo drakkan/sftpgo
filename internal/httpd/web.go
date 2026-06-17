@@ -48,9 +48,10 @@ var (
 )
 
 type commonBasePage struct {
-	CSPNonce  string
-	StaticURL string
-	Version   string
+	CSPNonce    string
+	StaticURL   string
+	Version     string
+	HideVersion bool
 }
 
 type loginPage struct {
