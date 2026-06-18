@@ -134,6 +134,11 @@ func (fs *OsFs) Open(name string, offset int64) (File, PipeReader, func(), error
 
 // Create creates or opens the named file for writing
 func (fs *OsFs) Create(name string, flag, _ int) (File, PipeWriter, func(), error) {
+	if !fs.isAtomicUploadTempPath(name) {
+		if err := fs.validateWriteTarget(name); err != nil {
+			return nil, nil, nil, err
+		}
+	}
 	if !fs.useWriteBuffering(flag) {
 		var err error
 		var f *os.File
@@ -178,6 +183,9 @@ func (fs *OsFs) Create(name string, flag, _ int) (File, PipeWriter, func(), erro
 func (fs *OsFs) Rename(source, target string, checks int) (int, int64, error) {
 	if source == target {
 		return -1, -1, nil
+	}
+	if err := fs.validateWriteTarget(target); err != nil {
+		return -1, -1, err
 	}
 	err := os.Rename(source, target)
 	if err != nil && isCrossDeviceError(err) {
@@ -346,6 +354,14 @@ func (*OsFs) GetAtomicUploadPath(name string) string {
 	}
 	guid := xid.New().String()
 	return filepath.Join(dir, ".sftpgo-upload."+guid+"."+filepath.Base(name))
+}
+
+func (*OsFs) isAtomicUploadTempPath(name string) bool {
+	if tempPath == "" {
+		return false
+	}
+	return filepath.Clean(filepath.Dir(name)) == filepath.Clean(tempPath) &&
+		strings.HasPrefix(filepath.Base(name), ".sftpgo-upload.")
 }
 
 // GetRelativePath returns the path for a file relative to the user's home dir.
@@ -532,6 +548,67 @@ func (fs *OsFs) findFirstExistingDir(path string) (string, error) {
 	}
 	err = fs.isSubDir(p)
 	return p, err
+}
+
+func (fs *OsFs) validateWriteTarget(name string) error {
+	cleanPath := filepath.Clean(name)
+	if err := fs.validateWritePath(filepath.Dir(cleanPath), 0); err != nil {
+		return err
+	}
+	info, err := os.Lstat(cleanPath)
+	if err == nil && info.Mode()&os.ModeSymlink != 0 {
+		return fs.validateLinkTarget(cleanPath, 0)
+	}
+	if err != nil && !fs.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
+func (fs *OsFs) validateLinkTarget(name string, depth int) error {
+	target, err := os.Readlink(name)
+	if err != nil {
+		return err
+	}
+	if !filepath.IsAbs(target) {
+		target = filepath.Join(filepath.Dir(name), target)
+	}
+	return fs.validateWritePath(target, depth+1)
+}
+
+func (fs *OsFs) validateWritePath(name string, depth int) error {
+	if depth > 40 {
+		return fmt.Errorf("too many symlinks resolving %q", name)
+	}
+	cleanPath := filepath.Clean(name)
+	if p, err := filepath.EvalSymlinks(cleanPath); err == nil {
+		return fs.isSubDir(p)
+	} else if !fs.IsNotExist(err) {
+		return err
+	}
+
+	current := cleanPath
+	for {
+		info, err := os.Lstat(current)
+		if err == nil {
+			if info.Mode()&os.ModeSymlink != 0 {
+				return fs.validateLinkTarget(current, depth)
+			}
+			p, err := filepath.EvalSymlinks(current)
+			if err != nil {
+				return err
+			}
+			return fs.isSubDir(p)
+		}
+		if !fs.IsNotExist(err) {
+			return err
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			return err
+		}
+		current = parent
+	}
 }
 
 func (fs *OsFs) isSubDir(sub string) error {
