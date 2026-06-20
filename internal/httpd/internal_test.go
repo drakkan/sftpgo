@@ -4161,6 +4161,39 @@ func TestUserQuotaUsage(t *testing.T) {
 	assert.True(t, usage.IsTransferQuotaLow())
 }
 
+func TestSafeRedirectTarget(t *testing.T) {
+	base := webClientFilesPath
+	testCases := []struct {
+		name   string
+		next   string
+		want   string
+		wantOK bool
+	}{
+		{"files root", webClientFilesPath, webClientFilesPath, true},
+		{"subpath with query", webClientFilesPath + "/sub?path=/x", webClientFilesPath + "/sub?path=/x", true},
+		{"trailing slash normalized", webClientFilesPath + "/", webClientFilesPath, true},
+		{"dot segments normalized", "/.//web/client/files", webClientFilesPath, true},
+		{"literal traversal", webClientFilesPath + "/../web/admin", "", false},
+		{"encoded traversal", webClientFilesPath + "/%2e%2e/web/admin", "", false},
+		{"encoded slash traversal", webClientFilesPath + "%2f..%2f..%2fweb/admin", "", false},
+		{"off-origin host", "//evil.com" + webClientFilesPath, "", false},
+		{"absolute url", "http://evil.com" + webClientFilesPath, "", false},
+		{"scheme without authority", "https:" + webClientFilesPath, "", false},
+		{"backslash traversal", webClientFilesPath + `\..\..\evil`, "", false},
+		{"leading-space authority", " //evil.com", "", false},
+		{"control character", "\t//evil.com", "", false},
+		{"different prefix", webAdminLoginPath, "", false},
+		{"too long", webClientFilesPath + "/" + strings.Repeat("a", maxWebClientNextLength), "", false},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, ok := safeRedirectTarget(tc.next, base)
+			assert.Equal(t, tc.wantOK, ok)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
 func TestShareRedirectURL(t *testing.T) {
 	shareID := util.GenerateUniqueID()
 	base := path.Join(webClientPubSharesPath, shareID)
