@@ -8113,6 +8113,44 @@ func TestPermSymlink(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestSymlinkPerDirPerms(t *testing.T) {
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	u.Permissions["/"] = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload,
+		dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks}
+	// a subdirectory where the user cannot create symbolic links
+	u.Permissions["/restricted"] = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFileSize := int64(8192)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		err = client.Mkdir("restricted")
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, "restricted/secret", testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, "allowed_file", testFileSize, client)
+		assert.NoError(t, err)
+		err = client.Symlink("/restricted/secret", "/link_to_restricted")
+		assert.Error(t, err, "linking into a dir without create_symlinks should fail")
+		err = client.Symlink("/allowed_file", "/restricted/link")
+		assert.Error(t, err, "creating a link in a dir without create_symlinks should fail")
+		err = client.Symlink("/allowed_file", "/allowed_link")
+		assert.NoError(t, err)
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+	}
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestPermChmod(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
