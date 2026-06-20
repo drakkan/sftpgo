@@ -194,6 +194,9 @@ func (s *httpdServer) renderClientLoginPage(w http.ResponseWriter, r *http.Reque
 	}
 	if s.binding.OIDC.isEnabled() && !s.binding.isWebClientOIDCLoginDisabled() {
 		data.OpenIDLoginURL = webClientOIDCLoginPath
+		if next := r.URL.Query().Get("next"); isSafeWebClientNext(next) {
+			data.OpenIDLoginURL += "?next=" + url.QueryEscape(next)
+		}
 	}
 	renderClientTemplate(w, templateCommonLogin, data)
 }

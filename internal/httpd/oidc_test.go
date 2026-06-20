@@ -27,6 +27,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 	"unsafe"
@@ -557,6 +558,155 @@ func TestOIDCLoginLogout(t *testing.T) {
 	assert.NoError(t, err)
 
 	tokenValidationMode = 0
+}
+
+func TestOIDCLoginNextRedirect(t *testing.T) {
+	oidcMgr, ok := oidcMgr.(*memoryOIDCManager)
+	require.True(t, ok)
+	server := getTestOIDCServer()
+	err := server.binding.OIDC.initialize()
+	assert.NoError(t, err)
+	err = server.initializeRouter()
+	require.NoError(t, err)
+
+	safeNext := webClientFilesPath + "?path=%2Ffoo"
+
+	// the OIDC login redirect stores a safe next bound to the auth state
+	rr := httptest.NewRecorder()
+	r, err := http.NewRequest(http.MethodGet, webClientOIDCLoginPath+"?next="+url.QueryEscape(safeNext), nil)
+	assert.NoError(t, err)
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	require.Len(t, oidcMgr.pendingAuths, 1)
+	for k := range oidcMgr.pendingAuths {
+		assert.Equal(t, safeNext, oidcMgr.pendingAuths[k].Next)
+		oidcMgr.removePendingAuth(k)
+	}
+
+	// an unsafe next (external URL) is dropped
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodGet, webClientOIDCLoginPath+"?next="+url.QueryEscape("https://evil.example.com"), nil)
+	assert.NoError(t, err)
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	require.Len(t, oidcMgr.pendingAuths, 1)
+	for k := range oidcMgr.pendingAuths {
+		assert.Empty(t, oidcMgr.pendingAuths[k].Next)
+		oidcMgr.removePendingAuth(k)
+	}
+
+	// an over-long next is dropped to bound the memory held in the pending auth
+	longNext := webClientFilesPath + "?path=" + strings.Repeat("a", maxWebClientNextLength)
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodGet, webClientOIDCLoginPath+"?next="+url.QueryEscape(longNext), nil)
+	assert.NoError(t, err)
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	require.Len(t, oidcMgr.pendingAuths, 1)
+	for k := range oidcMgr.pendingAuths {
+		assert.Empty(t, oidcMgr.pendingAuths[k].Next)
+		oidcMgr.removePendingAuth(k)
+	}
+
+	// the web admin login flow ignores next
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodGet, webAdminOIDCLoginPath+"?next="+url.QueryEscape(safeNext), nil)
+	assert.NoError(t, err)
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	require.Len(t, oidcMgr.pendingAuths, 1)
+	for k := range oidcMgr.pendingAuths {
+		assert.Empty(t, oidcMgr.pendingAuths[k].Next)
+		oidcMgr.removePendingAuth(k)
+	}
+
+	// the login page builds the OIDC button URL preserving a safe next
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodGet, webClientLoginPath+"?next="+url.QueryEscape(safeNext), nil)
+	assert.NoError(t, err)
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), webClientOIDCLoginPath+"?next="+url.QueryEscape(safeNext))
+
+	// set up a working token exchange so the callback can log the user in
+	username := "test_oidc_next_user"
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username: username,
+			Password: "pwd",
+			HomeDir:  filepath.Join(os.TempDir(), username),
+			Status:   1,
+			Permissions: map[string][]string{
+				"/": {dataprovider.PermAny},
+			},
+		},
+	}
+	err = dataprovider.AddUser(&user, "", "", "")
+	assert.NoError(t, err)
+
+	token := &oauth2.Token{
+		AccessToken: "456",
+		Expiry:      time.Now().Add(5 * time.Minute),
+	}
+	token = token.WithExtra(map[string]any{
+		"id_token": "id_token_val",
+	})
+	server.binding.OIDC.oauth2Config = &mockOAuth2Config{
+		tokenSource: &mockTokenSource{},
+		authCodeURL: webOIDCRedirectPath,
+		token:       token,
+		err:         nil,
+	}
+
+	// the callback redirects to the stored safe next
+	authReq := newOIDCPendingAuth(tokenAudienceWebClient)
+	authReq.Next = safeNext
+	oidcMgr.addPendingAuth(authReq)
+	idToken := &oidc.IDToken{
+		Nonce:  authReq.Nonce,
+		Expiry: time.Now().Add(5 * time.Minute),
+	}
+	setIDTokenClaims(idToken, []byte(`{"preferred_username":"test_oidc_next_user"}`))
+	server.binding.OIDC.verifier = &mockOIDCVerifier{
+		err:   nil,
+		token: idToken,
+	}
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodGet, webOIDCRedirectPath+"?state="+authReq.State, nil)
+	assert.NoError(t, err)
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusFound, rr.Code, rr.Body.String())
+	assert.Equal(t, safeNext, rr.Header().Get("Location"))
+	for k := range oidcMgr.tokens {
+		oidcMgr.removeToken(k)
+	}
+
+	// with no stored next the callback falls back to the files page
+	authReq = newOIDCPendingAuth(tokenAudienceWebClient)
+	oidcMgr.addPendingAuth(authReq)
+	idToken = &oidc.IDToken{
+		Nonce:  authReq.Nonce,
+		Expiry: time.Now().Add(5 * time.Minute),
+	}
+	setIDTokenClaims(idToken, []byte(`{"preferred_username":"test_oidc_next_user"}`))
+	server.binding.OIDC.verifier = &mockOIDCVerifier{
+		err:   nil,
+		token: idToken,
+	}
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodGet, webOIDCRedirectPath+"?state="+authReq.State, nil)
+	assert.NoError(t, err)
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusFound, rr.Code, rr.Body.String())
+	assert.Equal(t, webClientFilesPath, rr.Header().Get("Location"))
+	for k := range oidcMgr.tokens {
+		oidcMgr.removeToken(k)
+	}
+
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = dataprovider.DeleteUser(username, "", "", "")
+	assert.NoError(t, err)
 }
 
 func TestOIDCRefreshToken(t *testing.T) {
