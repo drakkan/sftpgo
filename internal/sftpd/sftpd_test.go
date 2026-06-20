@@ -193,6 +193,7 @@ func TestMain(m *testing.M) {
 	os.Setenv("SFTPGO_COMMON__UPLOAD_MODE", "2")
 	os.Setenv("SFTPGO_DATA_PROVIDER__CREATE_DEFAULT_ADMIN", "1")
 	os.Setenv("SFTPGO_COMMON__ALLOW_SELF_CONNECTIONS", "1")
+	os.Setenv("SFTPGO_COMMON__SYMLINK_MODE", "3")
 	os.Setenv("SFTPGO_DEFAULT_ADMIN_USERNAME", "admin")
 	os.Setenv("SFTPGO_DEFAULT_ADMIN_PASSWORD", "password")
 	os.Setenv("SFTPGO_COMMON__SECRET_MIN_ENTROPY", "0")
@@ -228,8 +229,6 @@ func TestMain(m *testing.M) {
 		logger.ErrorToConsole("error resetting configs: %v", err)
 		os.Exit(1)
 	}
-
-	commonConf.SymlinkMode = common.SymlinkModeAllowLocal | common.SymlinkModeAllowSFTP
 
 	err = common.Initialize(commonConf, 0)
 	if err != nil {
