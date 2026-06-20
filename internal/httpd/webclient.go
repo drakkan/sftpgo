@@ -655,7 +655,7 @@ func (s *httpdServer) renderClientTwoFactorPage(w http.ResponseWriter, r *http.R
 		Branding:       s.binding.webClientBranding(),
 		Languages:      s.binding.languages(),
 	}
-	if next := r.URL.Query().Get("next"); strings.HasPrefix(next, webClientFilesPath) {
+	if next := r.URL.Query().Get("next"); isSafeWebClientNext(next) {
 		data.CurrentURL += "?next=" + url.QueryEscape(next)
 	}
 	renderClientTemplate(w, templateTwoFactor, data)

@@ -182,7 +182,7 @@ func (s *httpdServer) renderClientLoginPage(w http.ResponseWriter, r *http.Reque
 		FormDisabled:   s.binding.isWebClientLoginFormDisabled(),
 		CheckRedirect:  true,
 	}
-	if next := r.URL.Query().Get("next"); strings.HasPrefix(next, webClientFilesPath) {
+	if next := r.URL.Query().Get("next"); isSafeWebClientNext(next) {
 		data.CurrentURL += "?next=" + url.QueryEscape(next)
 	}
 	if s.binding.showAdminLoginURL() {
@@ -768,7 +768,7 @@ func (s *httpdServer) loginUser(
 	invalidateToken(r)
 	if audience == tokenAudienceWebClientPartial {
 		redirectPath := webClientTwoFactorPath
-		if next := r.URL.Query().Get("next"); strings.HasPrefix(next, webClientFilesPath) {
+		if next := r.URL.Query().Get("next"); isSafeWebClientNext(next) {
 			redirectPath += "?next=" + url.QueryEscape(next)
 		}
 		http.Redirect(w, r, redirectPath, http.StatusFound)
@@ -776,8 +776,8 @@ func (s *httpdServer) loginUser(
 	}
 	updateLoginMetrics(user, dataprovider.LoginMethodPassword, ipAddr, err, r)
 	dataprovider.UpdateLastLogin(user)
-	if next := r.URL.Query().Get("next"); strings.HasPrefix(next, webClientFilesPath) {
-		http.Redirect(w, r, next, http.StatusFound)
+	if next := r.URL.Query().Get("next"); isSafeWebClientNext(next) {
+		http.Redirect(w, r, path.Clean(next), http.StatusFound)
 		return
 	}
 	http.Redirect(w, r, webClientFilesPath, http.StatusFound)
