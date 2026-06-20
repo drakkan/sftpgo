@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"path"
 	"slices"
 	"strings"
 	"time"
@@ -594,7 +595,7 @@ func (s *httpdServer) handleWebClientOIDCLogin(w http.ResponseWriter, r *http.Re
 }
 
 func isSafeWebClientNext(next string) bool {
-	return len(next) <= maxWebClientNextLength && strings.HasPrefix(next, webClientFilesPath)
+	return len(next) <= maxWebClientNextLength && strings.HasPrefix(path.Clean(next), webClientFilesPath)
 }
 
 func (s *httpdServer) oidcLoginRedirect(w http.ResponseWriter, r *http.Request, audience tokenAudience) {
@@ -762,7 +763,7 @@ func loginOIDCUser(w http.ResponseWriter, r *http.Request, token oidcToken, next
 		return
 	}
 	if isSafeWebClientNext(next) {
-		http.Redirect(w, r, next, http.StatusFound)
+		http.Redirect(w, r, path.Clean(next), http.StatusFound)
 		return
 	}
 	http.Redirect(w, r, webClientFilesPath, http.StatusFound)
