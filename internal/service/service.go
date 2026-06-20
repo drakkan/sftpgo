@@ -28,6 +28,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/config"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/httpd"
+	"github.com/drakkan/sftpgo/v2/internal/kms"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/plugin"
 	"github.com/drakkan/sftpgo/v2/internal/util"
@@ -133,6 +134,11 @@ func (s *Service) initializeServices() error {
 	if err := plugin.Initialize(config.GetPluginsConfig(), s.LogLevel); err != nil {
 		logger.Error(logSender, "", "unable to initialize plugin system: %v", err)
 		logger.ErrorToConsole("unable to initialize plugin system: %v", err)
+		return err
+	}
+	if err := kms.CheckProviderAvailable(); err != nil {
+		logger.Error(logSender, "", "unable to initialize KMS: %v", err)
+		logger.ErrorToConsole("unable to initialize KMS: %v", err)
 		return err
 	}
 	mfaConfig := config.GetMFAConfig()
