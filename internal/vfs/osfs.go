@@ -220,8 +220,14 @@ func (*OsFs) Mkdir(name string) error {
 	return os.Mkdir(name, os.ModePerm)
 }
 
-// Symlink creates source as a symbolic link to target.
-func (*OsFs) Symlink(source, target string) error {
+func (fs *OsFs) Symlink(source, target string) error {
+	resolved := source
+	if !filepath.IsAbs(source) {
+		resolved = filepath.Join(filepath.Dir(target), source)
+	}
+	if err := fs.isSubDir(filepath.Clean(resolved)); err != nil {
+		return err
+	}
 	return os.Symlink(source, target)
 }
 
@@ -400,6 +406,11 @@ func (fs *OsFs) ResolvePath(virtualPath string) (string, error) {
 	if err != nil && !isNotExist {
 		return "", err
 	} else if isNotExist {
+		if linkErr := fs.checkDanglingSymlinks(r); linkErr != nil {
+			fsLog(fs, logger.LevelError, "Invalid path resolution, original path %q resolved %q err: %v",
+				virtualPath, r, linkErr)
+			return r, linkErr
+		}
 		// The requested path doesn't exist, so at this point we need to iterate up the
 		// path chain until we hit a directory that _does_ exist and can be validated.
 		_, err = fs.findFirstExistingDir(r)
@@ -417,36 +428,49 @@ func (fs *OsFs) ResolvePath(virtualPath string) (string, error) {
 	return r, err
 }
 
-// RealPath implements the FsRealPather interface
+const maxResolvedSymlinks = 10
+
+// RealPath implements the FsRealPather interface. SSH_FXP_REALPATH does not
+// mandate link resolution, and avoiding it keeps the result well-defined for
+// not-yet-existing paths.
 func (fs *OsFs) RealPath(p string) (string, error) {
-	linksWalked := 0
-	for {
-		info, err := os.Lstat(p)
-		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				return fs.GetRelativePath(p), nil
-			}
-			return "", err
-		}
-		if info.Mode()&os.ModeSymlink == 0 {
-			return fs.GetRelativePath(p), nil
-		}
-		resolvedLink, err := os.Readlink(p)
-		if err != nil {
-			return "", err
-		}
-		resolvedLink = filepath.Clean(resolvedLink)
-		if filepath.IsAbs(resolvedLink) {
-			p = resolvedLink
-		} else {
-			p = filepath.Join(filepath.Dir(p), resolvedLink)
-		}
-		linksWalked++
-		if linksWalked > 10 {
-			fsLog(fs, logger.LevelError, "unable to get real path, too many links: %d", linksWalked)
-			return "", &pathResolutionError{err: "too many links"}
-		}
+	return fs.GetRelativePath(p), nil
+}
+
+func (fs *OsFs) canonicalize(name string, linksWalked *int) (string, error) {
+	parent := filepath.Dir(name)
+	if parent == name {
+		// filesystem root
+		return name, nil
 	}
+	resolvedParent, err := fs.canonicalize(parent, linksWalked)
+	if err != nil {
+		return "", err
+	}
+	candidate := filepath.Join(resolvedParent, filepath.Base(name))
+	info, err := os.Lstat(candidate)
+	if err != nil {
+		if fs.IsNotExist(err) {
+			return candidate, nil
+		}
+		return "", err
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		return candidate, nil
+	}
+	*linksWalked++
+	if *linksWalked > maxResolvedSymlinks {
+		fsLog(fs, logger.LevelError, "unable to get real path, too many links: %d", *linksWalked)
+		return "", &pathResolutionError{err: "too many symbolic links"}
+	}
+	target, err := os.Readlink(candidate)
+	if err != nil {
+		return "", err
+	}
+	if !filepath.IsAbs(target) {
+		target = filepath.Join(resolvedParent, target)
+	}
+	return fs.canonicalize(filepath.Clean(target), linksWalked)
 }
 
 // GetDirSize returns the number of files and the size for a folder
@@ -532,6 +556,32 @@ func (fs *OsFs) findFirstExistingDir(path string) (string, error) {
 	}
 	err = fs.isSubDir(p)
 	return p, err
+}
+
+func (fs *OsFs) checkDanglingSymlinks(name string) error {
+	current := filepath.Clean(name)
+	for {
+		info, err := os.Lstat(current)
+		if err == nil {
+			if info.Mode()&os.ModeSymlink == 0 {
+				return nil
+			}
+			linksWalked := 0
+			resolved, err := fs.canonicalize(current, &linksWalked)
+			if err != nil {
+				return err
+			}
+			return fs.isSubDir(resolved)
+		}
+		if !fs.IsNotExist(err) {
+			return err
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			return nil
+		}
+		current = parent
+	}
 }
 
 func (fs *OsFs) isSubDir(sub string) error {
