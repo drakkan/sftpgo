@@ -921,7 +921,8 @@ func (c *BaseConnection) CreateSymlink(virtualSourcePath, virtualTargetPath stri
 		c.Log(logger.LevelError, "symlinking to root dir is not allowed")
 		return c.GetPermissionDeniedError()
 	}
-	if !c.User.HasPerm(dataprovider.PermCreateSymlinks, path.Dir(virtualTargetPath)) {
+	if !c.User.HasPerm(dataprovider.PermCreateSymlinks, path.Dir(virtualTargetPath)) ||
+		!c.User.HasPerm(dataprovider.PermCreateSymlinks, path.Dir(virtualSourcePath)) {
 		return c.GetPermissionDeniedError()
 	}
 	ok, policy := c.User.IsFileAllowed(virtualSourcePath)
