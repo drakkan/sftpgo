@@ -396,7 +396,9 @@ func TestMain(m *testing.M) { //nolint:gocyclo
 		os.Exit(1)
 	}
 
-	err = common.Initialize(config.GetCommonConfig(), 0)
+	commonConf := config.GetCommonConfig()
+	commonConf.SymlinkMode = common.SymlinkModeAllowLocal | common.SymlinkModeAllowSFTP
+	err = common.Initialize(commonConf, 0)
 	if err != nil {
 		logger.WarnToConsole("error initializing common: %v", err)
 		os.Exit(1)

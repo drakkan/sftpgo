@@ -9,6 +9,7 @@
     },
     "setstat_mode": 0,
     "rename_mode": 0,
+    "symlink_mode": 0,
     "resume_max_size": 0,
     "secret_min_entropy": 80,
     "temp_path": "",

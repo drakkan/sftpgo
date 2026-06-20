@@ -210,6 +210,7 @@ func Init() {
 			},
 			SetstatMode:           0,
 			RenameMode:            0,
+			SymlinkMode:           0,
 			ResumeMaxSize:         0,
 			SecretMinEntropy:      80,
 			TempPath:              "",
@@ -831,6 +832,12 @@ func resetInvalidConfigs() {
 	if globalConf.Common.RenameMode < 0 || globalConf.Common.RenameMode > 1 {
 		warn := fmt.Sprintf("invalid rename mode %d, reset to 0", globalConf.Common.RenameMode)
 		globalConf.Common.RenameMode = 0
+		logger.Warn(logSender, "", "Non-fatal configuration error: %v", warn)
+		logger.WarnToConsole("Non-fatal configuration error: %v", warn)
+	}
+	if globalConf.Common.SymlinkMode < 0 || globalConf.Common.SymlinkMode > 3 {
+		warn := fmt.Sprintf("invalid symlink mode %d, reset to 0", globalConf.Common.SymlinkMode)
+		globalConf.Common.SymlinkMode = 0
 		logger.Warn(logSender, "", "Non-fatal configuration error: %v", warn)
 		logger.WarnToConsole("Non-fatal configuration error: %v", warn)
 	}
@@ -2048,6 +2055,7 @@ func setViperDefaults() {
 	viper.SetDefault("common.actions.hook", globalConf.Common.Actions.Hook)
 	viper.SetDefault("common.setstat_mode", globalConf.Common.SetstatMode)
 	viper.SetDefault("common.rename_mode", globalConf.Common.RenameMode)
+	viper.SetDefault("common.symlink_mode", globalConf.Common.SymlinkMode)
 	viper.SetDefault("common.resume_max_size", globalConf.Common.ResumeMaxSize)
 	viper.SetDefault("common.secret_min_entropy", globalConf.Common.SecretMinEntropy)
 	viper.SetDefault("common.temp_path", globalConf.Common.TempPath)
