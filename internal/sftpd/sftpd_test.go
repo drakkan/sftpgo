@@ -229,6 +229,8 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
+	commonConf.SymlinkMode = common.SymlinkModeAllowLocal | common.SymlinkModeAllowSFTP
+
 	err = common.Initialize(commonConf, 0)
 	if err != nil {
 		logger.WarnToConsole("error initializing common: %v", err)
@@ -793,6 +795,69 @@ func TestSFTPFsEscapeHomeDir(t *testing.T) {
 	_, err = httpdtest.RemoveUser(baseUser, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(baseUser.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestSymlinkModeEnforcement(t *testing.T) {
+	oldMode := common.Config.SymlinkMode
+	defer func() { common.Config.SymlinkMode = oldMode }()
+
+	usePubKey := true
+	// the local user is also the backend target of the SFTP user below
+	localUser, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
+	require.NoError(t, err)
+	sftpUser, _, err := httpdtest.AddUser(getTestSFTPUser(usePubKey), http.StatusCreated)
+	require.NoError(t, err)
+
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	require.NoError(t, createTestFile(testFilePath, 4096))
+
+	t.Run("local", func(t *testing.T) {
+		conn, client, err := getSftpClient(localUser, usePubKey)
+		require.NoError(t, err)
+		defer conn.Close()
+		defer client.Close()
+		require.NoError(t, sftpUploadFile(testFilePath, testFileName, 4096, client))
+
+		common.Config.SymlinkMode = 0
+		assert.Error(t, client.Symlink(testFileName, testFileName+".l0"))
+
+		common.Config.SymlinkMode = common.SymlinkModeAllowSFTP
+		assert.Error(t, client.Symlink(testFileName, testFileName+".l1"))
+
+		common.Config.SymlinkMode = common.SymlinkModeAllowLocal
+		assert.NoError(t, client.Symlink(testFileName, testFileName+".l2"))
+
+		common.Config.SymlinkMode = common.SymlinkModeAllowLocal | common.SymlinkModeAllowSFTP
+		assert.NoError(t, client.Symlink(testFileName, testFileName+".l3"))
+	})
+
+	t.Run("sftp", func(t *testing.T) {
+		conn, client, err := getSftpClient(sftpUser, usePubKey)
+		require.NoError(t, err)
+		defer conn.Close()
+		defer client.Close()
+		require.NoError(t, sftpUploadFile(testFilePath, testFileName, 4096, client))
+
+		common.Config.SymlinkMode = 0
+		assert.Error(t, client.Symlink(testFileName, testFileName+".s0"))
+
+		common.Config.SymlinkMode = common.SymlinkModeAllowLocal
+		assert.Error(t, client.Symlink(testFileName, testFileName+".s1"))
+
+		common.Config.SymlinkMode = common.SymlinkModeAllowLocal | common.SymlinkModeAllowSFTP
+		assert.NoError(t, client.Symlink(testFileName, testFileName+".s2"))
+	})
+
+	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(localUser.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(sftpUser.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.Remove(testFilePath)
 	assert.NoError(t, err)
 }
 

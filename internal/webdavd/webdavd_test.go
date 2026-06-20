@@ -287,6 +287,7 @@ func TestMain(m *testing.M) {
 	logger.InfoToConsole("Starting WebDAVD tests, provider: %v", providerConf.Driver)
 	commonConf := config.GetCommonConfig()
 	commonConf.UploadMode = 2
+	commonConf.SymlinkMode = common.SymlinkModeAllowLocal | common.SymlinkModeAllowSFTP
 	homeBasePath = os.TempDir()
 	if runtime.GOOS != osWindows {
 		commonConf.Actions.ExecuteOn = []string{"download", "upload", "rename", "delete"}

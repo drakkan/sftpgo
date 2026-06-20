@@ -294,6 +294,7 @@ func TestMain(m *testing.M) { //nolint:gocyclo
 	logger.InfoToConsole("Starting FTPD tests, provider: %v", providerConf.Driver)
 
 	commonConf := config.GetCommonConfig()
+	commonConf.SymlinkMode = common.SymlinkModeAllowLocal | common.SymlinkModeAllowSFTP
 	homeBasePath = os.TempDir()
 	if runtime.GOOS != osWindows {
 		commonConf.Actions.ExecuteOn = []string{"download", "upload", "rename", "delete"}

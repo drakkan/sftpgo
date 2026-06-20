@@ -163,6 +163,39 @@ func TestSetStatMode(t *testing.T) {
 	Config.SetstatMode = oldSetStatMode
 }
 
+func TestSymlinkCreationMode(t *testing.T) {
+	oldSymlinkMode := Config.SymlinkMode
+	defer func() { Config.SymlinkMode = oldSymlinkMode }()
+
+	localFs := vfs.NewOsFs("", filepath.Clean(os.TempDir()), "", nil)
+
+	// the zero value disables creation on every backend
+	Config.SymlinkMode = 0
+	assert.False(t, Config.IsSymlinkCreationAllowed(localFs))
+
+	// the local bit enables creation on the local filesystem only
+	Config.SymlinkMode = SymlinkModeAllowLocal
+	assert.True(t, Config.IsSymlinkCreationAllowed(localFs))
+
+	// the SFTP bit alone does not enable the local backend
+	Config.SymlinkMode = SymlinkModeAllowSFTP
+	assert.False(t, Config.IsSymlinkCreationAllowed(localFs))
+
+	// with creation disabled the local backend rejects it at the handler
+	Config.SymlinkMode = 0
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			HomeDir: filepath.Clean(os.TempDir()),
+		},
+	}
+	user.Permissions = map[string][]string{
+		"/": {dataprovider.PermAny},
+	}
+	conn := NewBaseConnection("", ProtocolWebDAV, "", "", user)
+	err := conn.CreateSymlink("/target.txt", "/link.txt")
+	assert.ErrorIs(t, err, ErrOpUnsupported)
+}
+
 func TestRecursiveRenameWalkError(t *testing.T) {
 	fs := vfs.NewOsFs("", filepath.Clean(os.TempDir()), "", nil)
 	conn := NewBaseConnection("", ProtocolWebDAV, "", "", dataprovider.User{
