@@ -336,6 +336,7 @@ func TestMain(m *testing.M) { //nolint:gocyclo
 	os.Setenv("SFTPGO_COMMON__UPLOAD_MODE", "2")
 	os.Setenv("SFTPGO_DATA_PROVIDER__CREATE_DEFAULT_ADMIN", "1")
 	os.Setenv("SFTPGO_COMMON__ALLOW_SELF_CONNECTIONS", "1")
+	os.Setenv("SFTPGO_COMMON__SYMLINK_MODE", "3")
 	os.Setenv("SFTPGO_DATA_PROVIDER__NAMING_RULES", "0")
 	os.Setenv("SFTPGO_DEFAULT_ADMIN_USERNAME", "admin")
 	os.Setenv("SFTPGO_DEFAULT_ADMIN_PASSWORD", "password")
@@ -396,9 +397,7 @@ func TestMain(m *testing.M) { //nolint:gocyclo
 		os.Exit(1)
 	}
 
-	commonConf := config.GetCommonConfig()
-	commonConf.SymlinkMode = common.SymlinkModeAllowLocal | common.SymlinkModeAllowSFTP
-	err = common.Initialize(commonConf, 0)
+	err = common.Initialize(config.GetCommonConfig(), 0)
 	if err != nil {
 		logger.WarnToConsole("error initializing common: %v", err)
 		os.Exit(1)
