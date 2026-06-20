@@ -655,8 +655,8 @@ func (s *httpdServer) renderClientTwoFactorPage(w http.ResponseWriter, r *http.R
 		Branding:       s.binding.webClientBranding(),
 		Languages:      s.binding.languages(),
 	}
-	if next := r.URL.Query().Get("next"); isSafeWebClientNext(next) {
-		data.CurrentURL += "?next=" + url.QueryEscape(next)
+	if target, ok := safeRedirectTarget(r.URL.Query().Get("next"), webClientFilesPath); ok {
+		data.CurrentURL += "?next=" + url.QueryEscape(target)
 	}
 	renderClientTemplate(w, templateTwoFactor, data)
 }
@@ -2071,25 +2071,14 @@ func doCheckExist(w http.ResponseWriter, r *http.Request, connection *Connection
 }
 
 func checkShareRedirectURL(next, base string) (bool, string) {
-	if !strings.HasPrefix(next, base) {
+	u := safeRedirectURL(next, base)
+	if u == nil {
 		return false, ""
 	}
-	if next == base {
-		return true, path.Join(next, "download")
+	if u.Path == base {
+		u.Path = path.Join(base, "download")
 	}
-	baseURL, err := url.Parse(base)
-	if err != nil {
-		return false, ""
-	}
-	nextURL, err := url.Parse(next)
-	if err != nil {
-		return false, ""
-	}
-	if nextURL.Path == baseURL.Path {
-		redirectURL := nextURL.JoinPath("download")
-		return true, redirectURL.String()
-	}
-	return true, next
+	return true, u.String()
 }
 
 func getWebTask(w http.ResponseWriter, r *http.Request) {

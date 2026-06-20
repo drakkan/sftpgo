@@ -182,8 +182,8 @@ func (s *httpdServer) renderClientLoginPage(w http.ResponseWriter, r *http.Reque
 		FormDisabled:   s.binding.isWebClientLoginFormDisabled(),
 		CheckRedirect:  true,
 	}
-	if next := r.URL.Query().Get("next"); isSafeWebClientNext(next) {
-		data.CurrentURL += "?next=" + url.QueryEscape(next)
+	if target, ok := safeRedirectTarget(r.URL.Query().Get("next"), webClientFilesPath); ok {
+		data.CurrentURL += "?next=" + url.QueryEscape(target)
 	}
 	if s.binding.showAdminLoginURL() {
 		data.AltLoginURL = webAdminLoginPath
@@ -194,8 +194,8 @@ func (s *httpdServer) renderClientLoginPage(w http.ResponseWriter, r *http.Reque
 	}
 	if s.binding.OIDC.isEnabled() && !s.binding.isWebClientOIDCLoginDisabled() {
 		data.OpenIDLoginURL = webClientOIDCLoginPath
-		if next := r.URL.Query().Get("next"); isSafeWebClientNext(next) {
-			data.OpenIDLoginURL += "?next=" + url.QueryEscape(next)
+		if target, ok := safeRedirectTarget(r.URL.Query().Get("next"), webClientFilesPath); ok {
+			data.OpenIDLoginURL += "?next=" + url.QueryEscape(target)
 		}
 	}
 	renderClientTemplate(w, templateCommonLogin, data)
@@ -768,16 +768,16 @@ func (s *httpdServer) loginUser(
 	invalidateToken(r)
 	if audience == tokenAudienceWebClientPartial {
 		redirectPath := webClientTwoFactorPath
-		if next := r.URL.Query().Get("next"); isSafeWebClientNext(next) {
-			redirectPath += "?next=" + url.QueryEscape(next)
+		if target, ok := safeRedirectTarget(r.URL.Query().Get("next"), webClientFilesPath); ok {
+			redirectPath += "?next=" + url.QueryEscape(target)
 		}
 		http.Redirect(w, r, redirectPath, http.StatusFound)
 		return
 	}
 	updateLoginMetrics(user, dataprovider.LoginMethodPassword, ipAddr, err, r)
 	dataprovider.UpdateLastLogin(user)
-	if next := r.URL.Query().Get("next"); isSafeWebClientNext(next) {
-		http.Redirect(w, r, path.Clean(next), http.StatusFound)
+	if target, ok := safeRedirectTarget(r.URL.Query().Get("next"), webClientFilesPath); ok {
+		http.Redirect(w, r, target, http.StatusFound)
 		return
 	}
 	http.Redirect(w, r, webClientFilesPath, http.StatusFound)

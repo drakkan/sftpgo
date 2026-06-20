@@ -594,15 +594,37 @@ func (s *httpdServer) handleWebClientOIDCLogin(w http.ResponseWriter, r *http.Re
 	s.oidcLoginRedirect(w, r, tokenAudienceWebClient)
 }
 
-func isSafeWebClientNext(next string) bool {
-	return len(next) <= maxWebClientNextLength && strings.HasPrefix(path.Clean(next), webClientFilesPath)
+// safeRedirectURL returns the normalized same-origin URL whose cleaned path
+// resolves under base, or nil when next is not a safe redirect target.
+func safeRedirectURL(next, base string) *url.URL {
+	if next == "" || len(next) > maxWebClientNextLength {
+		return nil
+	}
+	u, err := url.Parse(next)
+	if err != nil || u.Scheme != "" || u.Host != "" || strings.Contains(u.Path, "\\") {
+		return nil
+	}
+	if u.Path = path.Clean(u.Path); !strings.HasPrefix(u.Path, base) {
+		return nil
+	}
+	u.RawPath = ""
+	return u
+}
+
+// safeRedirectTarget returns the normalized redirect target for next, or
+// ("", false) when next is not a safe same-origin target under base.
+func safeRedirectTarget(next, base string) (string, bool) {
+	if u := safeRedirectURL(next, base); u != nil {
+		return u.String(), true
+	}
+	return "", false
 }
 
 func (s *httpdServer) oidcLoginRedirect(w http.ResponseWriter, r *http.Request, audience tokenAudience) {
 	pendingAuth := newOIDCPendingAuth(audience)
 	if audience == tokenAudienceWebClient {
-		if next := r.URL.Query().Get("next"); isSafeWebClientNext(next) {
-			pendingAuth.Next = next
+		if target, ok := safeRedirectTarget(r.URL.Query().Get("next"), webClientFilesPath); ok {
+			pendingAuth.Next = target
 		}
 	}
 	oidcMgr.addPendingAuth(pendingAuth)
@@ -761,8 +783,8 @@ func loginOIDCUser(w http.ResponseWriter, r *http.Request, token oidcToken, next
 		http.Redirect(w, r, webUsersPath, http.StatusFound)
 		return
 	}
-	if isSafeWebClientNext(next) {
-		http.Redirect(w, r, path.Clean(next), http.StatusFound)
+	if target, ok := safeRedirectTarget(next, webClientFilesPath); ok {
+		http.Redirect(w, r, target, http.StatusFound)
 		return
 	}
 	http.Redirect(w, r, webClientFilesPath, http.StatusFound)
