@@ -89,6 +89,46 @@ they are triaged as normal hardening work rather than security advisories. The
 available hardening controls, and how to configure them, are described in the
 documentation.
 
+## Filesystem and Storage Trust Model
+
+SFTPGo confines each user to a single storage root — the home directory for the
+local backend, the configured prefix for the SFTP backend, the key prefix for
+the cloud backends. It enforces this in its own path handling: request paths are
+normalized and symbolic links are resolved so that a link pointing outside the
+root is rejected rather than followed. This is a userspace check layered on the
+storage, not an operating-system chroot.
+
+A **deterministic** failure of it — a request path or a persistent symbolic link
+that escapes the root and is not rejected — is a path-traversal flaw in SFTPGo
+and is in scope; please report it. The timing window inherent to any userspace
+resolve-then-operate model is, by contrast, a known limitation rather than a
+separate vulnerability: symbolic-link creation is disabled by default, so a
+client cannot introduce a link to exploit it, and the service account's own
+operating-system permissions remain the underlying boundary.
+
+What SFTPGo cannot enforce is the layout of the storage beneath the user's root,
+which it assumes is trusted. Per-directory permissions and file pattern filters
+are operation controls evaluated against the **virtual path the client
+requests**, not re-evaluated against the physical location that path resolves
+to, and a redirection introduced underneath SFTPGo by the operating system or
+the operator is followed transparently. The following are therefore **out of
+scope** as security advisories:
+
+- **Aliases placed on the storage outside SFTPGo.** Symbolic links, hard links,
+  bind mounts, or Windows junctions created directly on the filesystem (or by
+  another tool) are followed by the operating system, and SFTPGo cannot always
+  detect them: a hard link is indistinguishable from an ordinary file, and a
+  bind mount or junction can redirect a path that is within the root to a
+  location outside it. This is out of scope **even when the redirect leads
+  outside the user's root**, because placing one requires access to the storage
+  beyond the SFTPGo boundary — which already grants the access in question.
+- **Permission laundering through a symbolic link.** Any link present on the
+  storage is followed under the requesting path's permissions, not the target's,
+  so a more restricted directory can be reached through a more permissive path.
+  Whether the link was placed externally on the storage (see above) or created
+  through SFTPGo by an authorized user, reaching a restricted directory this way
+  is an operator-owned or external-storage outcome, not a code flaw.
+
 ## AI-Assisted and Automated Reports
 
 Automated tools, including scanners and AI assistants, are a legitimate aid and
