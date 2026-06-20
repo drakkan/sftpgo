@@ -260,6 +260,7 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}},
 			dataprovider.LoginMethodPassword, ipAddr, err, r)
 		s.renderClientLoginPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
+		return
 	}
 
 	if err := common.Config.ExecutePostConnectHook(ipAddr, protocol); err != nil {
