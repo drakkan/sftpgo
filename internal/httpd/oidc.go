@@ -37,11 +37,12 @@ import (
 )
 
 const (
-	oidcCookieKey       = "oidc"
-	adminRoleFieldValue = "admin"
-	authStateValidity   = 1 * 60 * 1000   // 1 minute
-	tokenUpdateInterval = 3 * 60 * 1000   // 3 minutes
-	tokenDeleteInterval = 2 * 3600 * 1000 // 2 hours
+	oidcCookieKey          = "oidc"
+	adminRoleFieldValue    = "admin"
+	authStateValidity      = 1 * 60 * 1000 // 1 minute
+	maxWebClientNextLength = 4096
+	tokenUpdateInterval    = 3 * 60 * 1000   // 3 minutes
+	tokenDeleteInterval    = 2 * 3600 * 1000 // 2 hours
 )
 
 var (
@@ -200,6 +201,7 @@ type oidcPendingAuth struct {
 	Nonce    string        `json:"nonce"`
 	Audience tokenAudience `json:"audience"`
 	IssuedAt int64         `json:"issued_at"`
+	Next     string        `json:"next,omitempty"`
 }
 
 func newOIDCPendingAuth(audience tokenAudience) oidcPendingAuth {
@@ -591,8 +593,17 @@ func (s *httpdServer) handleWebClientOIDCLogin(w http.ResponseWriter, r *http.Re
 	s.oidcLoginRedirect(w, r, tokenAudienceWebClient)
 }
 
+func isSafeWebClientNext(next string) bool {
+	return len(next) <= maxWebClientNextLength && strings.HasPrefix(next, webClientFilesPath)
+}
+
 func (s *httpdServer) oidcLoginRedirect(w http.ResponseWriter, r *http.Request, audience tokenAudience) {
 	pendingAuth := newOIDCPendingAuth(audience)
+	if audience == tokenAudienceWebClient {
+		if next := r.URL.Query().Get("next"); isSafeWebClientNext(next) {
+			pendingAuth.Next = next
+		}
+	}
 	oidcMgr.addPendingAuth(pendingAuth)
 	http.Redirect(w, r, s.binding.OIDC.oauth2Config.AuthCodeURL(pendingAuth.State,
 		oidc.Nonce(pendingAuth.Nonce)), http.StatusFound)
@@ -727,10 +738,10 @@ func (s *httpdServer) handleOIDCRedirect(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	loginOIDCUser(w, r, token)
+	loginOIDCUser(w, r, token, authReq.Next)
 }
 
-func loginOIDCUser(w http.ResponseWriter, r *http.Request, token oidcToken) {
+func loginOIDCUser(w http.ResponseWriter, r *http.Request, token oidcToken, next string) {
 	oidcMgr.addToken(token)
 
 	cookie := http.Cookie{
@@ -747,6 +758,10 @@ func loginOIDCUser(w http.ResponseWriter, r *http.Request, token oidcToken) {
 	w.Header().Add("Cache-Control", `no-cache="Set-Cookie"`)
 	if token.isAdmin() {
 		http.Redirect(w, r, webUsersPath, http.StatusFound)
+		return
+	}
+	if isSafeWebClientNext(next) {
+		http.Redirect(w, r, next, http.StatusFound)
 		return
 	}
 	http.Redirect(w, r, webClientFilesPath, http.StatusFound)
