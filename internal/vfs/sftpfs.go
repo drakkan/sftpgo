@@ -793,7 +793,7 @@ func (fs *SFTPFs) RealPath(p string) (string, error) {
 	return fs.GetRelativePath(resolved), nil
 }
 
-func (fs *SFTPFs) canonicalRealPath(name string) (string, error) {
+func (fs *SFTPFs) canonicalRealPath(name string) (string, error) { //nolint:gocyclo
 	client, err := fs.conn.getClient()
 	if err != nil {
 		return "", err
