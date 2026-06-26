@@ -546,6 +546,12 @@ func TestServerGetSettings(t *testing.T) {
 		assert.Equal(t, 11000, ranger.End)
 	}
 
+	assert.False(t, settings.PassiveTransferPortMultiplexing)
+	c.PassivePortMultiplexing = true
+	settings, err = server.GetSettings()
+	assert.NoError(t, err)
+	assert.True(t, settings.PassiveTransferPortMultiplexing)
+
 	common.Config.ProxyProtocol = 1
 	_, err = server.GetSettings()
 	assert.Error(t, err)
