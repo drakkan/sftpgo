@@ -37,8 +37,6 @@ Your sponsorship helps cover maintenance, security updates and ongoing developme
 
 #### Bronze sponsors
 
-[<img src="./img/7digital.png" alt="7digital logo" width="178" height="56">](https://www.7digital.com/)
-</br></br>
 [<img src="./img/servinga.png" alt="servinga logo" width="258" height="56">](https://servinga.com/)
 </br></br>
 [<img src="./img/reui.png" alt="ReUI logo" width="151" height="56">](https://www.reui.io/)
