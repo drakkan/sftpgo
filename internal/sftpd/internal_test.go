@@ -1887,6 +1887,9 @@ func TestVerifyWithOPKSSH(t *testing.T) {
 }
 
 func TestOsFsRootEscapeMatrix(t *testing.T) { //nolint:gocyclo
+	if runtime.GOOS == osWindows {
+		t.Skip(`This test is POSIX-specific`)
+	}
 	base := t.TempDir()
 	realhome := filepath.Join(base, "realhome")
 	if err := os.MkdirAll(filepath.Join(base, "outside", "exdir"), 0o755); err != nil {
@@ -1977,6 +1980,9 @@ func TestOsFsRootEscapeMatrix(t *testing.T) { //nolint:gocyclo
 }
 
 func TestOsFsResolvePathDotDotThroughSymlink(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip(`This test is POSIX-specific`)
+	}
 	base := t.TempDir()
 	home := filepath.Join(base, "home")
 	if err := os.MkdirAll(filepath.Join(home, "sub"), 0o755); err != nil {
