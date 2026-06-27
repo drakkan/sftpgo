@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -1883,4 +1884,206 @@ func TestVerifyWithOPKSSH(t *testing.T) {
 	}
 	err = c.verifyWithOPKSSH("", cert)
 	assert.NoError(t, err)
+}
+
+func TestOsFsRootEscapeMatrix(t *testing.T) { //nolint:gocyclo
+	base := t.TempDir()
+	realhome := filepath.Join(base, "realhome")
+	if err := os.MkdirAll(filepath.Join(base, "outside", "exdir"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(base, "realhome_evil"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(realhome, "a"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// rootDir is a symlink to the real home
+	if err := os.Symlink(realhome, filepath.Join(base, "homelink")); err != nil {
+		t.Fatal(err)
+	}
+
+	links := map[string]string{
+		"a/sub":         "..",                                // in-home: a/sub -> realhome
+		"dirlink_out":   "../outside",                        // existing dir symlink -> outside
+		"dirlink_in":    "a",                                 // existing dir symlink -> in-home
+		"danglingdir":   "../outside/nope",                   // dangling intermediate -> outside
+		"evil_rel":      "../outside/x",                      // dangling leaf, relative, escaping
+		"evil_abs":      filepath.Join(base, "outside", "x"), // dangling leaf, absolute, escaping
+		"evil_existing": "../outside",                        // existing leaf -> outside dir
+		"evil_sibling":  "../realhome_evil",                  // existing leaf -> prefix-sibling
+		"chain1":        "chain2",                            // in-home chain
+		"chain2":        "a",
+		"ok_leaf":       "a/missingfile", // in-home dangling
+	}
+	for link, target := range links {
+		if err := os.Symlink(target, filepath.Join(realhome, link)); err != nil {
+			t.Fatalf("symlink %s -> %s: %v", link, target, err)
+		}
+	}
+
+	fs := vfs.NewOsFs("conn", filepath.Join(base, "homelink"), "", nil).(*vfs.OsFs)
+
+	// sanity: confirm the negative cases genuinely escape.
+	if tgt, _ := filepath.EvalSymlinks(filepath.Join(realhome, "evil_existing")); tgt == "" || strings.HasPrefix(tgt, realhome+string(os.PathSeparator)) {
+		t.Fatalf("test setup error: evil_existing does not escape the home, resolved %q", tgt)
+	}
+
+	mustReject := []string{
+		"/evil_rel",                  // dangling leaf rel
+		"/evil_abs",                  // dangling leaf abs
+		"/evil_existing",             // existing leaf -> outside
+		"/evil_existing/sub",         // through existing escaping leaf
+		"/evil_sibling/file",         // prefix-sibling boundary
+		"/dirlink_out/exdir/newfile", // existing dir reached via escaping symlink
+		"/dirlink_out/newfile",       // escaping intermediate symlink (existing)
+		"/danglingdir/newfile",       // dangling intermediate
+		"/a/sub/evil_rel",            // nested in-home symlink + escaping dangling leaf
+		"/a/sub/evil_existing",       // nested in-home symlink + escaping existing leaf
+	}
+	for _, p := range mustReject {
+		if r, err := fs.ResolvePath(p); err == nil {
+			t.Errorf("ESCAPE: %q must be rejected, got nil error (resolved=%q)", p, r)
+		}
+	}
+
+	mustAllow := []string{
+		"/ok_leaf",            // in-home dangling leaf
+		"/dirlink_in/newfile", // in-home dir symlink
+		"/dirlink_in",         // the in-home symlink itself
+		"/chain1/newfile",     // in-home chain
+		"/a/newfile",          // new file in existing dir
+		"/newfile",            // new file in home root
+		"/a/sub/newfile",      // new file reached via in-home symlink
+		"/a/b/c/deepnew",      // several new nested dirs
+	}
+	for _, p := range mustAllow {
+		if _, err := fs.ResolvePath(p); err != nil {
+			t.Errorf("false denial: in-home path %q must be allowed, got %v", p, err)
+		}
+	}
+
+	// end-to-end proof: drive the real create flow for an escaping dangling leaf and
+	// confirm nothing is written outside the home
+	probe := filepath.Join(base, "outside", "x")
+	if rp, err := fs.ResolvePath("/evil_rel"); err == nil {
+		if f, oerr := os.OpenFile(rp, os.O_CREATE|os.O_WRONLY, 0o644); oerr == nil {
+			f.Close()
+		}
+	}
+	if _, err := os.Stat(probe); !os.IsNotExist(err) {
+		t.Errorf("ESCAPE: a file was created outside the home at %q", probe)
+	}
+}
+
+func TestOsFsResolvePathDotDotThroughSymlink(t *testing.T) {
+	base := t.TempDir()
+	home := filepath.Join(base, "home")
+	if err := os.MkdirAll(filepath.Join(home, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(home, filepath.Join(home, "sub", "q")); err != nil {
+		t.Fatal(err)
+	}
+	pTarget := filepath.Join(home, "sub", "q") + string(os.PathSeparator) + ".." + string(os.PathSeparator) + "escape"
+	if err := os.Symlink(pTarget, filepath.Join(home, "p")); err != nil {
+		t.Fatal(err)
+	}
+
+	fs := vfs.NewOsFs("conn", home, "", nil).(*vfs.OsFs)
+	r, err := fs.ResolvePath("/p")
+	if err == nil {
+		if f, oerr := os.OpenFile(r, os.O_CREATE|os.O_WRONLY, 0o644); oerr == nil {
+			f.Close()
+		}
+		t.Errorf("ESCAPE: /p resolves outside the home but was allowed (resolved=%q)", r)
+	}
+	if _, serr := os.Stat(filepath.Join(base, "escape")); !os.IsNotExist(serr) {
+		t.Errorf("ESCAPE: a file was created outside the home")
+	}
+}
+
+func TestOsFsReadlinkSymlinkedHome(t *testing.T) {
+	base := t.TempDir()
+	realhome := filepath.Join(base, "realhome")
+	if err := os.MkdirAll(filepath.Join(realhome, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(realhome, filepath.Join(base, "homelink")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("sub/target", filepath.Join(realhome, "link")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("../escape", filepath.Join(realhome, "esc")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("..", filepath.Join(realhome, "sub", "q")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("sub/q/../escape", filepath.Join(realhome, "esc2")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(realhome, "sub", "target"), filepath.Join(realhome, "abs_in")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(base, "outside"), filepath.Join(realhome, "abs_out")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("b", filepath.Join(realhome, "a")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("c", filepath.Join(realhome, "b")); err != nil {
+		t.Fatal(err)
+	}
+	fs := vfs.NewOsFs("c", filepath.Join(base, "homelink"), "", nil).(*vfs.OsFs)
+
+	cases := map[string]string{
+		"link":    "/sub/target",
+		"esc":     "/",
+		"esc2":    "/", // embedded ".." escaping must be clamped
+		"abs_in":  "/sub/target",
+		"abs_out": "/",
+		"a":       "/b", // one-level (not /c)
+	}
+	for link, want := range cases {
+		if got, err := fs.Readlink(filepath.Join(base, "homelink", link)); err != nil || got != want {
+			t.Errorf("Readlink(%s) = %q, %v; want %q", link, got, err, want)
+		}
+	}
+}
+
+func TestOsFsRelativeToRootUNCNoLoop(t *testing.T) {
+	fs := vfs.NewOsFs("c", `\\host\share`, "", nil).(*vfs.OsFs)
+	if got := fs.GetRelativePath(`\\host\share\`); got != "/" {
+		t.Errorf("GetRelativePath(UNC root) = %q, want /", got)
+	}
+}
+
+func TestOsFsResolvePathSymlinkLoops(t *testing.T) {
+	base := t.TempDir()
+	home := filepath.Join(base, "home")
+	if err := os.MkdirAll(home, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	fs := vfs.NewOsFs("conn", home, "", nil).(*vfs.OsFs)
+
+	mustSymlink := func(target, link string) {
+		t.Helper()
+		if err := os.Symlink(target, filepath.Join(home, link)); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	mustSymlink("loop_b", "loop_a") // mutual loop, caught by EvalSymlinks (ELOOP)
+	mustSymlink("loop_a", "loop_b")
+	mustSymlink("self", "self") // self loop, caught by EvalSymlinks
+	// self-reference through a missing component: the resolver detects the
+	// nonexistent component and returns instead of looping
+	mustSymlink("missing/../dangling_self", "dangling_self")
+
+	for _, p := range []string{"/loop_a", "/loop_b", "/self", "/dangling_self"} {
+		_, err := fs.ResolvePath(p)
+		t.Logf("loop case %q terminated, err=%v", p, err)
+	}
 }

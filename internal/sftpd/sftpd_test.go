@@ -2160,6 +2160,11 @@ func TestSymlinkWriteConfinementSFTPFs(t *testing.T) {
 	// intermediate dir symlink inside the prefix resolving to the account home
 	// root, outside the prefix: the escape is a path component, not the leaf
 	require.NoError(t, os.Symlink("..", filepath.Join(baseUser.GetHomeDir(), sftpPrefix, "oob_dir")))
+	dotdotTarget := filepath.Join(baseUser.GetHomeDir(), "escape_probe_dotdot.txt")
+	_ = os.Remove(dotdotTarget)
+	require.NoError(t, os.MkdirAll(filepath.Join(baseUser.GetHomeDir(), sftpPrefix, "sub"), os.ModePerm))
+	require.NoError(t, os.Symlink("..", filepath.Join(baseUser.GetHomeDir(), sftpPrefix, "sub", "q")))
+	require.NoError(t, os.Symlink("sub/q/..", filepath.Join(baseUser.GetHomeDir(), sftpPrefix, "dotdot_dir")))
 
 	testFilePath := filepath.Join(homeBasePath, testFileName)
 	testFileSize := int64(4096)
@@ -2183,6 +2188,11 @@ func TestSymlinkWriteConfinementSFTPFs(t *testing.T) {
 		assert.Error(t, err)
 		_, statErr = os.Stat(intermediateTarget)
 		assert.ErrorIs(t, statErr, os.ErrNotExist)
+
+		err = sftpUploadFile(testFilePath, "dotdot_dir/escape_probe_dotdot.txt", 0, client)
+		assert.Error(t, err)
+		_, statErr = os.Stat(dotdotTarget)
+		assert.ErrorIs(t, statErr, os.ErrNotExist)
 	}
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
@@ -2192,6 +2202,51 @@ func TestSymlinkWriteConfinementSFTPFs(t *testing.T) {
 	err = os.RemoveAll(baseUser.GetHomeDir())
 	assert.NoError(t, err)
 	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+}
+
+func TestSFTPFsReadlinkConfinement(t *testing.T) {
+	usePubKey := true
+	baseUser, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
+	require.NoError(t, err)
+	u := getTestSFTPUser(usePubKey)
+	sftpPrefix := "/prefix"
+	u.FsConfig.SFTPConfig.Prefix = sftpPrefix
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	require.NoError(t, err)
+
+	bh := baseUser.GetHomeDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(bh, sftpPrefix, "sub"), os.ModePerm))
+	// in-prefix one-level link
+	require.NoError(t, os.Symlink("sub/target", filepath.Join(bh, sftpPrefix, "inlink")))
+	// dangling leaf escaping the prefix
+	require.NoError(t, os.Symlink("../escape", filepath.Join(bh, sftpPrefix, "escleaf")))
+	// embedded "symlink/.." escaping the prefix
+	require.NoError(t, os.Symlink("..", filepath.Join(bh, sftpPrefix, "sub", "q")))
+	require.NoError(t, os.Symlink("sub/q/../escape", filepath.Join(bh, sftpPrefix, "esc")))
+
+	conn, client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		// an in-prefix link resolves one-level
+		p, rerr := client.ReadLink("inlink")
+		assert.NoError(t, rerr)
+		assert.Equal(t, "/sub/target", p)
+		// a link whose target escapes the prefix is rejected at resolution time
+		// (ResolvePath follows the leaf and confines it before readlink replies)
+		for _, link := range []string{"escleaf", "esc"} {
+			_, rerr = client.ReadLink(link)
+			assert.Error(t, rerr, link)
+		}
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(baseUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(bh)
 	assert.NoError(t, err)
 }
 
