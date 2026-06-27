@@ -2088,13 +2088,17 @@ func TestSymlinkWriteConfinementLocalFs(t *testing.T) {
 		defer conn.Close()
 		defer client.Close()
 
-		// creating a relative symlink that escapes the root is denied
+		// creating a relative symlink that escapes the root is allowed: link
+		// creation grants no access, the confinement is enforced at access time
 		err = client.Symlink("../escape_probe_local.txt", "evil_link")
+		assert.NoError(t, err)
+		// writing through that escaping dangling link is blocked by ResolvePath
+		err = sftpUploadFile(testFilePath, "evil_link", 0, client)
 		assert.Error(t, err)
-		_, statErr := os.Lstat(filepath.Join(user.GetHomeDir(), "evil_link"))
+		_, statErr := os.Stat(escapeTarget)
 		assert.ErrorIs(t, statErr, os.ErrNotExist)
 
-		// an out-of-band dangling symlink escaping the root cannot be written through
+		// the same holds for a link planted out-of-band on the storage
 		oob := filepath.Join(user.GetHomeDir(), "oob_link")
 		require.NoError(t, os.Symlink("../escape_probe_local.txt", oob))
 		err = sftpUploadFile(testFilePath, "oob_link", 0, client)
