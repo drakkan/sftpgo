@@ -224,20 +224,32 @@ func (*OsFs) Symlink(source, target string) error {
 	return os.Symlink(source, target)
 }
 
-// Readlink returns the destination of the named symbolic link
-// as absolute virtual path
 func (fs *OsFs) Readlink(name string) (string, error) {
-	// we don't have to follow multiple links:
-	// https://github.com/openssh/openssh-portable/blob/7bf2eb958fbb551e7d61e75c176bb3200383285d/sftp-server.c#L1329
-	resolved, err := os.Readlink(name)
+	target, err := os.Readlink(name)
 	if err != nil {
 		return "", err
 	}
-	resolved = filepath.Clean(resolved)
-	if !filepath.IsAbs(resolved) {
-		resolved = filepath.Join(filepath.Dir(name), resolved)
+	linksWalked := 0
+	// resolve the directory the target points through component by component
+	//  but do not follow the final component, keeping one-level readlink semantics
+	startDir := filepath.VolumeName(target) + string(os.PathSeparator)
+	if !filepath.IsAbs(target) {
+		if startDir, err = fs.resolveForConfinement(filepath.Dir(name), &linksWalked); err != nil {
+			return "", err
+		}
 	}
-	return fs.GetRelativePath(resolved), nil
+	// strip the volume name (e.g. "C:" on Windows) before splitting: it belongs to
+	// startDir, not to the components, otherwise it would be treated as a path entry
+	comps := splitPathComponents(target[len(filepath.VolumeName(target)):])
+	if len(comps) == 0 {
+		return fs.relativeToRoot(fs.normalize(fs.rootDir), fs.normalize(startDir)), nil
+	}
+	resolvedDir, err := fs.walkResolve(startDir, comps[:len(comps)-1], &linksWalked)
+	if err != nil {
+		return "", err
+	}
+	resolved := filepath.Join(resolvedDir, comps[len(comps)-1])
+	return fs.relativeToRoot(fs.normalize(fs.rootDir), resolved), nil
 }
 
 // Chown changes the numeric uid and gid of the named file.
@@ -350,11 +362,19 @@ func (*OsFs) GetAtomicUploadPath(name string) string {
 // GetRelativePath returns the path for a file relative to the user's home dir.
 // This is the path as seen by SFTPGo users
 func (fs *OsFs) GetRelativePath(name string) string {
+	return fs.relativeToRoot(fs.rootDir, name)
+}
+
+func (fs *OsFs) relativeToRoot(root, name string) string {
 	virtualPath := "/"
 	if fs.mountPath != "" {
 		virtualPath = fs.mountPath
 	}
-	rel, err := filepath.Rel(fs.rootDir, filepath.Clean(name))
+	cleanName := filepath.Clean(name)
+	if strings.TrimRight(cleanName, `\/`) == strings.TrimRight(root, `\/`) {
+		return virtualPath
+	}
+	rel, err := filepath.Rel(root, cleanName)
 	if err != nil {
 		return virtualPath
 	}
@@ -431,41 +451,72 @@ func (fs *OsFs) RealPath(p string) (string, error) {
 }
 
 func (fs *OsFs) resolveForConfinement(name string, linksWalked *int) (string, error) {
-	name = filepath.Clean(name)
-	if resolved, err := filepath.EvalSymlinks(name); err == nil {
-		return resolved, nil
-	} else if !fs.IsNotExist(err) {
-		return "", err
-	}
-	parent := filepath.Dir(name)
-	if parent == name {
-		// filesystem root, nothing left to resolve
-		return name, nil
-	}
-	if info, err := os.Lstat(name); err == nil && info.Mode()&os.ModeSymlink != 0 {
+	vol := filepath.VolumeName(name)
+	return fs.walkResolve(vol+string(os.PathSeparator), splitPathComponents(name[len(vol):]), linksWalked)
+}
+
+func (fs *OsFs) walkResolve(resolved string, rest []string, linksWalked *int) (string, error) {
+	for len(rest) > 0 {
+		comp := rest[0]
+		rest = rest[1:]
+		switch comp {
+		case "", ".":
+			continue
+		case "..":
+			resolved = filepath.Dir(resolved)
+			continue
+		}
+		candidate := filepath.Join(resolved, comp)
+		info, err := os.Lstat(candidate)
+		if err != nil {
+			if !fs.IsNotExist(err) {
+				return "", err
+			}
+			// the tail does not exist, so it holds no symlinks: resolve it lexically
+			// against the normalized existing prefix
+			parts := append([]string{fs.normalize(resolved), comp}, rest...)
+			return filepath.Clean(filepath.Join(parts...)), nil
+		}
+		if info.Mode()&os.ModeSymlink == 0 {
+			resolved = candidate
+			continue
+		}
 		*linksWalked++
 		if *linksWalked > maxResolvedSymlinks {
 			fsLog(fs, logger.LevelError, "unable to resolve path, too many links: %d", *linksWalked)
 			return "", &pathResolutionError{err: "too many symbolic links"}
 		}
-		target, err := os.Readlink(name)
+		target, err := os.Readlink(candidate)
 		if err != nil {
 			return "", err
 		}
-		if !filepath.IsAbs(target) {
-			resolvedParent, err := fs.resolveForConfinement(parent, linksWalked)
-			if err != nil {
-				return "", err
-			}
-			target = filepath.Join(resolvedParent, target)
+		if filepath.IsAbs(target) {
+			// an absolute target restarts from the volume root; a relative one is
+			// resolved against the link's directory, which is the current resolved
+			resolved = filepath.VolumeName(target) + string(os.PathSeparator)
 		}
-		return fs.resolveForConfinement(target, linksWalked)
+		rest = append(splitPathComponents(target[len(filepath.VolumeName(target)):]), rest...)
 	}
-	resolvedParent, err := fs.resolveForConfinement(parent, linksWalked)
-	if err != nil {
-		return "", err
+	return fs.normalize(resolved), nil
+}
+
+// normalize returns p with symbolic links and platform aliases resolved
+// (filepath.EvalSymlinks), or p unchanged if it cannot be resolved.
+func (fs *OsFs) normalize(p string) string {
+	if resolved, err := filepath.EvalSymlinks(p); err == nil {
+		return resolved
 	}
-	return filepath.Join(resolvedParent, filepath.Base(name)), nil
+	return p
+}
+
+// splitPathComponents splits p into its slash- or separator-delimited components,
+// dropping leading and trailing empties.
+func splitPathComponents(p string) []string {
+	p = strings.Trim(filepath.ToSlash(p), "/")
+	if p == "" {
+		return nil
+	}
+	return strings.Split(p, "/")
 }
 
 // GetDirSize returns the number of files and the size for a folder

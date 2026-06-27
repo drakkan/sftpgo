@@ -530,7 +530,10 @@ func (fs *SFTPFs) Symlink(source, target string) error {
 	return client.Symlink(source, target)
 }
 
-// Readlink returns the destination of the named symbolic link
+// Readlink returns the destination of the named symbolic link. A link whose
+// target escapes the prefix is rejected earlier by ResolvePath (which follows the
+// leaf), so this is reached only for in-prefix links and reports the immediate
+// target, one level, as a virtual path.
 func (fs *SFTPFs) Readlink(name string) (string, error) {
 	client, err := fs.conn.getClient()
 	if err != nil {
@@ -835,7 +838,10 @@ func (fs *SFTPFs) canonicalRealPath(name string) (string, error) { //nolint:gocy
 		if err != nil {
 			return "", fmt.Errorf("unable to resolve link to %q: %w", candidate, err)
 		}
-		target = path.Clean(strings.ReplaceAll(target, "\\", "/"))
+		// do not path.Clean the target: collapsing ".." lexically here would drop a
+		// preceding symlink component ("symlink/..") and let it escape the prefix;
+		// "." and ".." below are resolved by the walker against the resolved path
+		target = strings.ReplaceAll(target, "\\", "/")
 		if path.IsAbs(target) {
 			resolved = "/"
 		}
