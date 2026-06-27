@@ -220,14 +220,7 @@ func (*OsFs) Mkdir(name string) error {
 	return os.Mkdir(name, os.ModePerm)
 }
 
-func (fs *OsFs) Symlink(source, target string) error {
-	resolved := source
-	if !filepath.IsAbs(source) {
-		resolved = filepath.Join(filepath.Dir(target), source)
-	}
-	if err := fs.isSubDir(filepath.Clean(resolved)); err != nil {
-		return err
-	}
+func (*OsFs) Symlink(source, target string) error {
 	return os.Symlink(source, target)
 }
 
@@ -437,40 +430,42 @@ func (fs *OsFs) RealPath(p string) (string, error) {
 	return fs.GetRelativePath(p), nil
 }
 
-func (fs *OsFs) canonicalize(name string, linksWalked *int) (string, error) {
+func (fs *OsFs) resolveForConfinement(name string, linksWalked *int) (string, error) {
+	name = filepath.Clean(name)
+	if resolved, err := filepath.EvalSymlinks(name); err == nil {
+		return resolved, nil
+	} else if !fs.IsNotExist(err) {
+		return "", err
+	}
 	parent := filepath.Dir(name)
 	if parent == name {
-		// filesystem root
+		// filesystem root, nothing left to resolve
 		return name, nil
 	}
-	resolvedParent, err := fs.canonicalize(parent, linksWalked)
-	if err != nil {
-		return "", err
-	}
-	candidate := filepath.Join(resolvedParent, filepath.Base(name))
-	info, err := os.Lstat(candidate)
-	if err != nil {
-		if fs.IsNotExist(err) {
-			return candidate, nil
+	if info, err := os.Lstat(name); err == nil && info.Mode()&os.ModeSymlink != 0 {
+		*linksWalked++
+		if *linksWalked > maxResolvedSymlinks {
+			fsLog(fs, logger.LevelError, "unable to resolve path, too many links: %d", *linksWalked)
+			return "", &pathResolutionError{err: "too many symbolic links"}
 		}
-		return "", err
+		target, err := os.Readlink(name)
+		if err != nil {
+			return "", err
+		}
+		if !filepath.IsAbs(target) {
+			resolvedParent, err := fs.resolveForConfinement(parent, linksWalked)
+			if err != nil {
+				return "", err
+			}
+			target = filepath.Join(resolvedParent, target)
+		}
+		return fs.resolveForConfinement(target, linksWalked)
 	}
-	if info.Mode()&os.ModeSymlink == 0 {
-		return candidate, nil
-	}
-	*linksWalked++
-	if *linksWalked > maxResolvedSymlinks {
-		fsLog(fs, logger.LevelError, "unable to get real path, too many links: %d", *linksWalked)
-		return "", &pathResolutionError{err: "too many symbolic links"}
-	}
-	target, err := os.Readlink(candidate)
+	resolvedParent, err := fs.resolveForConfinement(parent, linksWalked)
 	if err != nil {
 		return "", err
 	}
-	if !filepath.IsAbs(target) {
-		target = filepath.Join(resolvedParent, target)
-	}
-	return fs.canonicalize(filepath.Clean(target), linksWalked)
+	return filepath.Join(resolvedParent, filepath.Base(name)), nil
 }
 
 // GetDirSize returns the number of files and the size for a folder
@@ -567,7 +562,7 @@ func (fs *OsFs) checkDanglingSymlinks(name string) error {
 				return nil
 			}
 			linksWalked := 0
-			resolved, err := fs.canonicalize(current, &linksWalked)
+			resolved, err := fs.resolveForConfinement(current, &linksWalked)
 			if err != nil {
 				return err
 			}

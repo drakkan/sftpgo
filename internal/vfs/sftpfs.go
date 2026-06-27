@@ -522,17 +522,7 @@ func (fs *SFTPFs) Mkdir(name string) error {
 	return client.Mkdir(name)
 }
 
-// Symlink creates source as a symbolic link to target.
 func (fs *SFTPFs) Symlink(source, target string) error {
-	if fs.config.Prefix != "/" {
-		resolved := source
-		if !path.IsAbs(source) {
-			resolved = path.Join(path.Dir(target), source)
-		}
-		if err := fs.isSubDir(path.Clean(resolved)); err != nil {
-			return err
-		}
-	}
 	client, err := fs.conn.getClient()
 	if err != nil {
 		return err
