@@ -2168,6 +2168,49 @@ func TestRenderInvalidTemplate(t *testing.T) {
 	}
 }
 
+// TestFilesPageHidesViewerWithoutDownloadPermission is a regression test for
+// drakkan/sftpgo#2149. Users that lack PermDownload must not see the
+// eye/preview button in the WebClient file listing, since the underlying
+// editfile/preview endpoint can only return a permission error for them.
+func TestFilesPageHidesViewerWithoutDownloadPermission(t *testing.T) {
+	loadClientTemplates(filepath.Join("..", "..", "templates"))
+	tmpl, ok := clientTemplates[templateClientFiles]
+	require.True(t, ok, "files template must be loaded")
+	require.NotNil(t, tmpl)
+
+	render := func(canDownload bool) string {
+		data := filesPage{
+			baseClientPage: baseClientPage{
+				commonBasePage: commonBasePage{StaticURL: "/static"},
+				LoggedUser:     &dataprovider.User{},
+			},
+			CanDownload: canDownload,
+			QuotaUsage:  newUserQuotaUsage(&dataprovider.User{}),
+		}
+		var buf bytes.Buffer
+		require.NoError(t, tmpl.ExecuteTemplate(&buf, templateClientFiles, data))
+		return buf.String()
+	}
+
+	const (
+		// markers that only appear inside the preview-button switch block
+		imagePreviewMarker  = "data-iv-name="
+		editorPreviewMarker = "supportedEditExtensions.includes(extension)"
+	)
+
+	body := render(true)
+	assert.Contains(t, body, imagePreviewMarker,
+		"image preview button must render when user has download permission")
+	assert.Contains(t, body, editorPreviewMarker,
+		"text editor preview check must render when user has download permission")
+
+	body = render(false)
+	assert.NotContains(t, body, imagePreviewMarker,
+		"image preview button must be omitted when user lacks download permission")
+	assert.NotContains(t, body, editorPreviewMarker,
+		"text editor preview check must be omitted when user lacks download permission")
+}
+
 func TestQuotaScanInvalidFs(t *testing.T) {
 	user := &dataprovider.User{
 		BaseUser: sdk.BaseUser{
