@@ -821,6 +821,9 @@ func (c *AzBlobFsConfig) isSameResource(other AzBlobFsConfig) bool {
 	if c.AccountName != other.AccountName {
 		return false
 	}
+	if c.Container != other.Container {
+		return false
+	}
 	if c.Endpoint != other.Endpoint {
 		return false
 	}
