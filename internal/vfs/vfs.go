@@ -818,6 +818,9 @@ func (c *AzBlobFsConfig) tryDecrypt() error {
 }
 
 func (c *AzBlobFsConfig) isSameResource(other AzBlobFsConfig) bool {
+	if c.Container != other.Container {
+		return false
+	}
 	if c.AccountName != other.AccountName {
 		return false
 	}

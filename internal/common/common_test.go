@@ -1655,6 +1655,29 @@ func TestVfsSameResource(t *testing.T) {
 	res = fs.IsSameResource(other)
 	assert.False(t, res)
 	fs = vfs.Filesystem{
+		Provider: sdk.AzureBlobFilesystemProvider,
+		AzBlobConfig: vfs.AzBlobFsConfig{
+			BaseAzBlobFsConfig: sdk.BaseAzBlobFsConfig{
+				AccountName: "a",
+				Container:   "c1",
+			},
+		},
+	}
+	other = vfs.Filesystem{
+		Provider: sdk.AzureBlobFilesystemProvider,
+		AzBlobConfig: vfs.AzBlobFsConfig{
+			BaseAzBlobFsConfig: sdk.BaseAzBlobFsConfig{
+				AccountName: "a",
+				Container:   "c1",
+			},
+		},
+	}
+	res = fs.IsSameResource(other)
+	assert.True(t, res)
+	other.AzBlobConfig.Container = "c2"
+	res = fs.IsSameResource(other)
+	assert.False(t, res)
+	fs = vfs.Filesystem{
 		Provider: sdk.HTTPFilesystemProvider,
 		HTTPConfig: vfs.HTTPFsConfig{
 			BaseHTTPFsConfig: sdk.BaseHTTPFsConfig{
