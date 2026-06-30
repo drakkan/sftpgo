@@ -290,7 +290,12 @@ type Configuration struct {
 	CombineSupport int `json:"combine_support" mapstructure:"combine_support"`
 	// Port Range for data connections. Random if not specified
 	PassivePortRange PortRange `json:"passive_port_range" mapstructure:"passive_port_range"`
-	acmeDomain       string
+	// Set to true to allow clients with different IP addresses to share the same passive port.
+	// This increases the number of concurrent passive transfers that can be served using a limited
+	// passive port range. Clients behind the same NAT or public IP are treated as a single client
+	// for multiplexing purposes.
+	PassivePortMultiplexing bool `json:"passive_port_multiplexing" mapstructure:"passive_port_multiplexing"`
+	acmeDomain              string
 }
 
 // ShouldBind returns true if there is at least a valid binding
