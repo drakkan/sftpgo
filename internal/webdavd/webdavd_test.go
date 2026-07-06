@@ -1076,6 +1076,14 @@ func TestPropPatch(t *testing.T) {
 		assert.NoError(t, err)
 		_, err = httpdtest.RemoveUser(user, http.StatusOK)
 		assert.NoError(t, err)
+		// close the cached SFTP connection to the local user too, it keeps
+		// the shared home dir root open and on Windows an open root prevents
+		// the home dir removal
+		for _, stat := range common.Connections.GetStats("") {
+			common.Connections.Close(stat.ConnectionID, "")
+		}
+		assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
+			2*time.Second, 100*time.Millisecond)
 		err = os.RemoveAll(user.GetHomeDir())
 		assert.NoError(t, err)
 	}
@@ -2447,6 +2455,14 @@ func TestBytesRangeRequests(t *testing.T) {
 		assert.NoError(t, err)
 		_, err = httpdtest.RemoveUser(user, http.StatusOK)
 		assert.NoError(t, err)
+		// close the cached SFTP connection to the local user too, it keeps
+		// the shared home dir root open and on Windows an open root prevents
+		// the home dir removal
+		for _, stat := range common.Connections.GetStats("") {
+			common.Connections.Close(stat.ConnectionID, "")
+		}
+		assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
+			2*time.Second, 100*time.Millisecond)
 		err = os.RemoveAll(user.GetHomeDir())
 		assert.NoError(t, err)
 	}

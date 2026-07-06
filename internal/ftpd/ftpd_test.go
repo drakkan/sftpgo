@@ -1823,6 +1823,13 @@ func TestMaxTransfers(t *testing.T) {
 	assert.NoError(t, err)
 	err = f2.Close()
 	assert.NoError(t, err)
+	// close the SFTP connection before removing the home dir, the open
+	// fs root would prevent the removal on Windows
+	err = sftpClient.Close()
+	assert.NoError(t, err)
+	err = conn.Close()
+	assert.NoError(t, err)
+	waitNoConnections()
 
 	err = dataprovider.DeleteUser(user.Username, "", "", "")
 	assert.NoError(t, err)
@@ -2670,9 +2677,12 @@ func TestRename(t *testing.T) {
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 		if user.Username == defaultUsername {
-			err = os.RemoveAll(user.GetHomeDir())
-			assert.NoError(t, err)
+			// remove the user before the home dir so the connection holding
+			// the fs root is closed
 			_, err = httpdtest.RemoveUser(user, http.StatusOK)
+			assert.NoError(t, err)
+			waitNoConnections()
+			err = os.RemoveAll(user.GetHomeDir())
 			assert.NoError(t, err)
 			user.Permissions = make(map[string][]string)
 			user.Permissions["/"] = allPerms
@@ -2687,6 +2697,7 @@ func TestRename(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
+	waitNoConnections()
 	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
 }
@@ -2735,9 +2746,12 @@ func TestSymlink(t *testing.T) {
 			err = client.Quit()
 			assert.NoError(t, err)
 			if user.Username == defaultUsername {
-				err = os.RemoveAll(user.GetHomeDir())
-				assert.NoError(t, err)
+				// remove the user before the home dir so the connection
+				// holding the fs root is closed
 				_, err = httpdtest.RemoveUser(user, http.StatusOK)
+				assert.NoError(t, err)
+				waitNoConnections()
+				err = os.RemoveAll(user.GetHomeDir())
 				assert.NoError(t, err)
 				user.Password = defaultPassword
 				user.ID = 0
@@ -2753,6 +2767,7 @@ func TestSymlink(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
+	waitNoConnections()
 	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
 }
@@ -2792,9 +2807,12 @@ func TestStat(t *testing.T) {
 			err = os.Remove(testFilePath)
 			assert.NoError(t, err)
 			if user.Username == defaultUsername {
-				err = os.RemoveAll(user.GetHomeDir())
-				assert.NoError(t, err)
+				// remove the user before the home dir so the connection
+				// holding the fs root is closed
 				_, err = httpdtest.RemoveUser(user, http.StatusOK)
+				assert.NoError(t, err)
+				waitNoConnections()
+				err = os.RemoveAll(user.GetHomeDir())
 				assert.NoError(t, err)
 				user.Password = defaultPassword
 				user.ID = 0
@@ -3169,9 +3187,12 @@ func TestChtimes(t *testing.T) {
 			err = os.Remove(testFilePath)
 			assert.NoError(t, err)
 			if user.Username == defaultUsername {
-				err = os.RemoveAll(user.GetHomeDir())
-				assert.NoError(t, err)
+				// remove the user before the home dir so the connection
+				// holding the fs root is closed
 				_, err = httpdtest.RemoveUser(user, http.StatusOK)
+				assert.NoError(t, err)
+				waitNoConnections()
+				err = os.RemoveAll(user.GetHomeDir())
 				assert.NoError(t, err)
 				user.Password = defaultPassword
 				user.ID = 0
@@ -3323,9 +3344,12 @@ func TestChmod(t *testing.T) {
 			err = os.Remove(testFilePath)
 			assert.NoError(t, err)
 			if user.Username == defaultUsername {
-				err = os.RemoveAll(user.GetHomeDir())
-				assert.NoError(t, err)
+				// remove the user before the home dir so the connection
+				// holding the fs root is closed
 				_, err = httpdtest.RemoveUser(user, http.StatusOK)
+				assert.NoError(t, err)
+				waitNoConnections()
+				err = os.RemoveAll(user.GetHomeDir())
 				assert.NoError(t, err)
 				user.Password = defaultPassword
 				user.ID = 0
@@ -3487,9 +3511,12 @@ func TestHASH(t *testing.T) {
 			err = os.Remove(testFilePath)
 			assert.NoError(t, err)
 			if user.Username == defaultUsername {
-				err = os.RemoveAll(user.GetHomeDir())
-				assert.NoError(t, err)
+				// remove the user before the home dir so the connection
+				// holding the fs root is closed
 				_, err = httpdtest.RemoveUser(user, http.StatusOK)
+				assert.NoError(t, err)
+				waitNoConnections()
+				err = os.RemoveAll(user.GetHomeDir())
 				assert.NoError(t, err)
 				user.Password = defaultPassword
 				user.ID = 0
@@ -3548,9 +3575,12 @@ func TestCombine(t *testing.T) {
 			err = os.Remove(testFilePath)
 			assert.NoError(t, err)
 			if user.Username == defaultUsername {
-				err = os.RemoveAll(user.GetHomeDir())
-				assert.NoError(t, err)
+				// remove the user before the home dir so the connection
+				// holding the fs root is closed
 				_, err = httpdtest.RemoveUser(user, http.StatusOK)
+				assert.NoError(t, err)
+				waitNoConnections()
+				err = os.RemoveAll(user.GetHomeDir())
 				assert.NoError(t, err)
 				user.Password = defaultPassword
 				user.ID = 0

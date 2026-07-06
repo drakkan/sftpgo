@@ -1636,6 +1636,8 @@ func TestGetFileContent(t *testing.T) {
 	user.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret("pwd")
 	err = dataprovider.UpdateUser(&user, "", "", "")
 	assert.NoError(t, err)
+	err = conn.CloseFS()
+	assert.NoError(t, err)
 	conn = NewBaseConnection(xid.New().String(), protocolEventAction, "", "", user)
 	// the file is not encrypted so reading the encryption header will fail
 	files, err = getMailAttachments(conn, []string{"/file.txt"}, replacer)
@@ -1646,6 +1648,8 @@ func TestGetFileContent(t *testing.T) {
 		assert.Error(t, err)
 	}
 
+	err = conn.CloseFS()
+	assert.NoError(t, err)
 	err = dataprovider.DeleteUser(username, "", "", "")
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
@@ -2201,6 +2205,8 @@ func TestEstimateZipSizeErrors(t *testing.T) {
 		err = os.Chmod(filepath.Join(u.HomeDir, "d1", "d2"), os.ModePerm)
 		assert.NoError(t, err)
 	}
+	err = conn.CloseFS()
+	assert.NoError(t, err)
 	err = dataprovider.DeleteUser(u.Username, "", "", "")
 	assert.NoError(t, err)
 	err = os.RemoveAll(u.GetHomeDir())

@@ -349,6 +349,10 @@ func TestGetMimeTypeCryptFs(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, "text/plain; charset=utf-8", mime)
 	}
+	// close the filesystem before removing the home dir: on Windows the
+	// open root prevents the directory from being deleted
+	err = user.CloseFs()
+	assert.NoError(t, err)
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)

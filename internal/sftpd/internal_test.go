@@ -2060,6 +2060,8 @@ func TestOsFsReadlinkSymlinkedHome(t *testing.T) { //nolint:gocyclo
 		t.Fatal(err)
 	}
 	fs := vfs.NewOsFs("c", filepath.Join(base, "homelink"), "", nil).(*vfs.OsFs)
+	// close the root so the TempDir cleanup works on Windows too
+	defer fs.Close() //nolint:errcheck
 
 	inRoot := map[string]string{
 		"link": "/sub/target",
@@ -2095,6 +2097,8 @@ func TestOsFsResolvePathSymlinkLoops(t *testing.T) {
 		t.Fatal(err)
 	}
 	fs := vfs.NewOsFs("conn", home, "", nil).(*vfs.OsFs)
+	// close the root so the TempDir cleanup works on Windows too
+	defer fs.Close() //nolint:errcheck
 
 	mustSymlink := func(target, link string) {
 		t.Helper()

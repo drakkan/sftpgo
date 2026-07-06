@@ -28,6 +28,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/render"
 	"github.com/sftpgo/sdk"
@@ -214,7 +215,33 @@ func RemoveUser(user dataprovider.User, expectedStatusCode int) ([]byte, error) 
 	}
 	defer resp.Body.Close()
 	body, _ = getResponseBody(resp)
-	return body, checkResponse(resp.StatusCode, expectedStatusCode)
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if err == nil && expectedStatusCode == http.StatusOK {
+		waitNoUserConnections(user.Username)
+	}
+	return body, err
+}
+
+// waitNoUserConnections waits, within a timeout, for the active connections
+// of the given user to be removed. Deleting a user disconnects it after the
+// API response is sent and a connection releases its filesystems only when
+// it is removed from the active ones. Tests generally remove the user's home
+// directory right after deleting the user: on Windows an open filesystem
+// root prevents the removal, so wait here instead of in every test.
+func waitNoUserConnections(username string) {
+	for i := 0; i < 100; i++ {
+		hasConns := false
+		for _, stat := range common.Connections.GetStats("") {
+			if stat.Username == username {
+				hasConns = true
+				break
+			}
+		}
+		if !hasConns {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
 }
 
 // GetUserByUsername gets a user by username and checks the received HTTP Status code against expectedStatusCode.

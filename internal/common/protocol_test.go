@@ -505,7 +505,14 @@ func TestCheckFsAfterUpdate(t *testing.T) {
 		defer client.Close()
 		err = checkBasicSFTP(client)
 		assert.NoError(t, err)
+		err = client.Close()
+		assert.NoError(t, err)
+		err = conn.Close()
+		assert.NoError(t, err)
 	}
+	// the user still exists, so wait for the connection holding the fs root
+	// to go away before removing the home dir
+	waitNoActiveConnections(t)
 	// remove the home dir, it will not be re-created
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -531,6 +538,7 @@ func TestCheckFsAfterUpdate(t *testing.T) {
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
+	waitNoActiveConnections(t)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
@@ -742,9 +750,10 @@ func TestChtimesOpenHandle(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
-	err = os.RemoveAll(localUser.GetHomeDir())
-	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(cryptFsUser, http.StatusOK)
+	assert.NoError(t, err)
+	waitNoActiveConnections(t)
+	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
 	err = os.RemoveAll(cryptFsUser.GetHomeDir())
 	assert.NoError(t, err)
@@ -855,9 +864,12 @@ func TestCheckParentDirs(t *testing.T) {
 		assert.NoError(t, err)
 		err = c.CheckParentDirs(testDir)
 		assert.NoError(t, err)
+		err = c.CloseFS()
+		assert.NoError(t, err)
 	}
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
+	waitNoActiveConnections(t)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 
@@ -873,10 +885,13 @@ func TestCheckParentDirs(t *testing.T) {
 		c := common.NewBaseConnection(xid.New().String(), common.ProtocolSFTP, "", "", user)
 		err = c.CheckParentDirs(testDir)
 		assert.ErrorIs(t, err, sftp.ErrSSHFxPermissionDenied)
+		err = c.CloseFS()
+		assert.NoError(t, err)
 	}
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
+	waitNoActiveConnections(t)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
@@ -931,6 +946,7 @@ func TestPermissionErrors(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
+	waitNoActiveConnections(t)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
@@ -1039,6 +1055,7 @@ func TestHiddenPatternFilter(t *testing.T) {
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
+	waitNoActiveConnections(t)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
@@ -1107,6 +1124,7 @@ func TestHiddenRoot(t *testing.T) {
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
+	waitNoActiveConnections(t)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
@@ -1139,6 +1157,7 @@ func TestFileNotAllowedErrors(t *testing.T) {
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
+	waitNoActiveConnections(t)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
@@ -1244,6 +1263,7 @@ func TestRootDirVirtualFolder(t *testing.T) {
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
+	waitNoActiveConnections(t)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folder1.Name}, http.StatusOK)
@@ -1476,12 +1496,16 @@ func TestTruncateQuotaLimits(t *testing.T) {
 					assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
 				}
 
-				// cleanup
-				err = os.RemoveAll(user.GetHomeDir())
-				assert.NoError(t, err)
+				// cleanup, remove the user before the home dir so the
+				// connection holding the fs root is closed
 				if user.Username == defaultUsername {
 					_, err = httpdtest.RemoveUser(user, http.StatusOK)
 					assert.NoError(t, err)
+				}
+				waitNoActiveConnections(t)
+				err = os.RemoveAll(user.GetHomeDir())
+				assert.NoError(t, err)
+				if user.Username == defaultUsername {
 					user.Password = defaultPassword
 					user.QuotaSize = 0
 					user.ID = 0
@@ -1496,6 +1520,7 @@ func TestTruncateQuotaLimits(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
+	waitNoActiveConnections(t)
 	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveFolder(folder1, http.StatusOK)
@@ -3080,9 +3105,10 @@ func TestCrossFolderRename(t *testing.T) {
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(baseUser, http.StatusOK)
+	assert.NoError(t, err)
+	waitNoActiveConnections(t)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 	err = os.RemoveAll(baseUser.GetHomeDir())
 	assert.NoError(t, err)
@@ -3460,6 +3486,8 @@ func TestResolvePathError(t *testing.T) {
 	err = conn.CreateSymlink(testFileName, testFileName+".link")
 	assert.Error(t, err)
 
+	err = conn.CloseFS()
+	assert.NoError(t, err)
 	err = os.RemoveAll(u.GetHomeDir())
 	assert.NoError(t, err)
 	err = os.Remove(outHomePath)
@@ -5297,6 +5325,13 @@ func TestEventRulePreDelete(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Equal(t, 1, folder.UsedQuotaFiles)
 				assert.Equal(t, int64(100), folder.UsedQuotaSize)
+				// close the connection before removing the home dir, the open
+				// fs root would prevent the removal on Windows
+				err = client.Close()
+				assert.NoError(t, err)
+				err = conn.Close()
+				assert.NoError(t, err)
+				waitNoActiveConnections(t)
 				err = os.RemoveAll(user.GetHomeDir())
 				assert.NoError(t, err)
 			}
@@ -5311,6 +5346,7 @@ func TestEventRulePreDelete(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
+	waitNoActiveConnections(t)
 	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: movePath}, http.StatusOK)
@@ -6190,6 +6226,18 @@ func TestEventActionCompress(t *testing.T) {
 				assert.Equal(t, expectedQuotaSize+archiveSize, user.UsedQuotaSize,
 					"quota size after overwrite does no match for user %q", user.Username)
 			}
+			// the users share the same home dir, close the connection before
+			// the next iteration removes it: the open fs root would prevent
+			// the removal on Windows. The cached SFTP connection to the local
+			// user must be closed too, it keeps the home dir root open
+			err = client.Close()
+			assert.NoError(t, err)
+			err = conn.Close()
+			assert.NoError(t, err)
+			for _, stat := range common.Connections.GetStats("") {
+				common.Connections.Close(stat.ConnectionID, "")
+			}
+			waitNoActiveConnections(t)
 		}
 		if user.Username == localUser.Username {
 			err = os.RemoveAll(user.GetHomeDir())
@@ -6714,9 +6762,10 @@ func TestEventActionEmailAttachments(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
-	err = os.RemoveAll(localUser.GetHomeDir())
-	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(cryptFsUser, http.StatusOK)
+	assert.NoError(t, err)
+	waitNoActiveConnections(t)
+	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
 	err = os.RemoveAll(cryptFsUser.GetHomeDir())
 	assert.NoError(t, err)
@@ -9949,6 +9998,21 @@ func getWebDavClient(user dataprovider.User) *gowebdav.Client {
 	client := gowebdav.NewClient(rootPath, user.Username, pwd)
 	client.SetTimeout(10 * time.Second)
 	return client
+}
+
+// waitNoActiveConnections waits for the active connections to be removed.
+// The filesystems of a connection are closed when the connection is removed
+// from the active ones, this happens after the client disconnects or the
+// user is deleted. On Windows an open filesystem root prevents the removal
+// of the home directory, so tests must wait before cleaning up.
+func waitNoActiveConnections(t *testing.T) {
+	t.Helper()
+	if !assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
+		2*time.Second, 100*time.Millisecond) {
+		for _, st := range common.Connections.GetStats("") {
+			t.Logf("leftover connection: user %q proto %q id %q", st.Username, st.Protocol, st.ConnectionID)
+		}
+	}
 }
 
 func getTestUser() dataprovider.User {

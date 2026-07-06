@@ -406,6 +406,8 @@ func TestUpdateQuotaAfterRename(t *testing.T) {
 	err = c.updateQuotaAfterRename(fs, request.Filepath, request.Target, filepath.Join(mappedPath, "file"), 12, 1, 100)
 	assert.NoError(t, err)
 
+	err = user.CloseFs()
+	assert.NoError(t, err)
 	err = os.RemoveAll(mappedPath)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
@@ -653,6 +655,8 @@ func TestErrorResolvePath(t *testing.T) {
 	assert.Error(t, err)
 	err = conn.checkCopy(vfs.NewFileInfo("source", false, 0, time.Unix(0, 0), false), vfs.NewFileInfo("target", true, 0, time.Unix(0, 0), false), "/f/source", "/f/target")
 	assert.Error(t, err)
+	err = conn.CloseFS()
+	assert.NoError(t, err)
 	err = os.RemoveAll(filepath.Dir(sourceFile))
 	assert.NoError(t, err)
 }
@@ -1220,6 +1224,9 @@ func TestListerAt(t *testing.T) {
 	assert.Contains(t, vfolders, "p2")
 	assert.Contains(t, vfolders, "p3")
 	err = lister.Close()
+	require.NoError(t, err)
+	// on Windows the open root would prevent the TempDir cleanup
+	err = conn.CloseFS()
 	require.NoError(t, err)
 }
 

@@ -1443,6 +1443,12 @@ func TestCachedFs(t *testing.T) {
 	_, p, err = conn.GetFsAndResolvedPath("/")
 	assert.NoError(t, err)
 	assert.Equal(t, filepath.Clean(os.TempDir()), p)
+	// close the filesystems before removing the home dir: on Windows the
+	// open root prevents the directory from being deleted
+	err = user.CloseFs()
+	assert.NoError(t, err)
+	err = conn.CloseFS()
+	assert.NoError(t, err)
 	user = dataprovider.User{}
 	user.HomeDir = filepath.Join(os.TempDir(), "temp")
 	user.FsConfig.Provider = sdk.S3FilesystemProvider
