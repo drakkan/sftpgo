@@ -556,6 +556,8 @@ func (*HTTPFs) IsNotSupported(err error) bool {
 func (fs *HTTPFs) CheckRootPath(username string, uid int, gid int) bool {
 	// we need a local directory for temporary files
 	osFs := NewOsFs(fs.ConnectionID(), fs.localTempDir, "", nil)
+	defer osFs.Close() //nolint:errcheck
+
 	return osFs.CheckRootPath(username, uid, gid)
 }
 

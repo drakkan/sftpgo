@@ -26,6 +26,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/rs/xid"
@@ -146,12 +147,27 @@ type User struct {
 	FsConfig vfs.Filesystem `json:"filesystem"`
 	// groups associated with this user
 	Groups []sdk.GroupMapping `json:"groups,omitempty"`
-	// we store the filesystem here using the base path as key.
-	fsCache map[string]vfs.Fs `json:"-"`
+	// per-connection filesystem cache, see fsCache. Never share it between
+	// concurrently running connections: it is owned and closed by a single one.
+	fsCache *fsCache `json:"-"`
 	// true if group settings are already applied for this user
 	groupSettingsApplied bool `json:"-"`
 	// in multi node setups we mark the user as deleted to be able to update the webdav cache
 	DeletedAt int64 `json:"-"`
+}
+
+// fsCache holds the per-virtual-path Fs instances used by a connection. In SFTP
+// handling we copy a single User into several concurrent connections: each
+// channel calls ResetFsCache to get its own cache.
+type fsCache struct {
+	sync.Mutex
+	entries map[string]vfs.Fs
+}
+
+// ResetFsCache gives the user a new, empty and independent filesystem cache,
+// detaching it from any cache shared with the User it was value-copied from.
+func (u *User) ResetFsCache() {
+	u.fsCache = &fsCache{entries: make(map[string]vfs.Fs)}
 }
 
 // GetFilesystem returns the base filesystem for this user
@@ -225,6 +241,7 @@ func (u *User) checkLocalHomeDir(connectionID string) {
 		return
 	default:
 		osFs := vfs.NewOsFs(connectionID, u.GetHomeDir(), "", nil)
+		defer osFs.Close() //nolint:errcheck
 		osFs.CheckRootPath(u.Username, u.GetUID(), u.GetGID())
 	}
 }
@@ -491,16 +508,19 @@ func (u *User) hasRedactedSecret() bool {
 
 // CloseFs closes the underlying filesystems
 func (u *User) CloseFs() error {
-	if u.fsCache == nil {
+	cache := u.fsCache
+	if cache == nil {
 		return nil
 	}
+	cache.Lock()
+	defer cache.Unlock()
 
 	var err error
-	for _, fs := range u.fsCache {
-		errClose := fs.Close()
-		if err == nil {
+	for key, fs := range cache.entries {
+		if errClose := fs.Close(); errClose != nil && err == nil {
 			err = errClose
 		}
+		delete(cache.entries, key)
 	}
 	return err
 }
@@ -606,41 +626,61 @@ func (u *User) GetFsConfigForPath(virtualPath string) vfs.Filesystem {
 
 // GetFilesystemForPath returns the filesystem for the given path
 func (u *User) GetFilesystemForPath(virtualPath, connectionID string) (vfs.Fs, error) {
+	// Lazily create the cache for callers that did not call ResetFsCache: those
+	// accesses are from a single goroutine so creating it here cannot race.
 	if u.fsCache == nil {
-		u.fsCache = make(map[string]vfs.Fs)
+		u.ResetFsCache()
 	}
-	// allow to override the `/` path with a virtual folder
+	cache := u.fsCache
+
+	// resolve the virtual folder and the cache key without touching the cache
+	var folder vfs.VirtualFolder
+	hasFolder := false
 	if len(u.VirtualFolders) > 0 {
-		folder, err := u.GetVirtualFolderForPath(virtualPath)
-		if err == nil {
-			if fs, ok := u.fsCache[folder.VirtualPath]; ok {
-				return fs, nil
-			}
-			forbiddenSelfUsers := []string{u.Username}
-			if folder.FsConfig.Provider == sdk.SFTPFilesystemProvider {
-				forbiddens, err := u.getForbiddenSFTPSelfUsers(folder.FsConfig.SFTPConfig.Username)
-				if err != nil {
-					return nil, err
-				}
-				forbiddenSelfUsers = append(forbiddenSelfUsers, forbiddens...)
-			}
-			fs, err := folder.GetFilesystem(connectionID, forbiddenSelfUsers)
-			if err == nil {
-				u.fsCache[folder.VirtualPath] = fs
-			}
-			return fs, err
+		if f, err := u.GetVirtualFolderForPath(virtualPath); err == nil {
+			folder = f
+			hasFolder = true
 		}
 	}
-
-	if val, ok := u.fsCache["/"]; ok {
-		return val, nil
+	cacheKey := "/"
+	if hasFolder {
+		cacheKey = folder.VirtualPath
 	}
-	fs, err := u.getRootFs(connectionID)
+
+	cache.Lock()
+	fs, ok := cache.entries[cacheKey]
+	cache.Unlock()
+	if ok {
+		return fs, nil
+	}
+
+	var err error
+	if hasFolder {
+		forbiddenSelfUsers := []string{u.Username}
+		if folder.FsConfig.Provider == sdk.SFTPFilesystemProvider {
+			forbiddens, errSelf := u.getForbiddenSFTPSelfUsers(folder.FsConfig.SFTPConfig.Username)
+			if errSelf != nil {
+				return nil, errSelf
+			}
+			forbiddenSelfUsers = append(forbiddenSelfUsers, forbiddens...)
+		}
+		fs, err = folder.GetFilesystem(connectionID, forbiddenSelfUsers)
+	} else {
+		fs, err = u.getRootFs(connectionID)
+	}
 	if err != nil {
 		return fs, err
 	}
-	u.fsCache["/"] = fs
-	return fs, err
+
+	cache.Lock()
+	defer cache.Unlock()
+
+	if existing, ok := cache.entries[cacheKey]; ok {
+		fs.Close() //nolint:errcheck
+		return existing, nil
+	}
+	cache.entries[cacheKey] = fs
+	return fs, nil
 }
 
 // GetVirtualFolderForPath returns the virtual folder containing the specified virtual path.

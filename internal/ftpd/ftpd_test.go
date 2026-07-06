@@ -669,6 +669,46 @@ func TestBasicFTPHandling(t *testing.T) {
 	assert.Equal(t, int32(0), common.Connections.GetTotalTransfers())
 }
 
+func TestFTPSessionCloseDoesNotAffectOthers(t *testing.T) {
+	u := getTestUser()
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	testFileSize := int64(65535)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+	client1, err := getFTPClient(user, false, nil)
+	if assert.NoError(t, err) {
+		err = ftpUploadFile(testFilePath, testFileName, testFileSize, client1, 0)
+		assert.NoError(t, err)
+		client2, err := getFTPClient(user, false, nil)
+		if assert.NoError(t, err) {
+			err = checkBasicFTP(client2)
+			assert.NoError(t, err)
+			err = client1.Quit()
+			assert.NoError(t, err)
+			assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 1 },
+				2*time.Second, 100*time.Millisecond)
+			// the second connection must still be able to open files
+			localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
+			err = ftpDownloadFile(testFileName, localDownloadPath, testFileSize, client2, 0)
+			assert.NoError(t, err)
+			err = client2.Quit()
+			assert.NoError(t, err)
+			err = os.Remove(localDownloadPath)
+			assert.NoError(t, err)
+		}
+	}
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
+		2*time.Second, 100*time.Millisecond)
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestHTTPFs(t *testing.T) {
 	u := getTestUserWithHTTPFs()
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)

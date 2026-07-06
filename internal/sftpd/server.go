@@ -652,6 +652,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 		go discardAllChannels(chans, "invalid root fs", connectionID)
 		return
 	}
+	user.CloseFs() //nolint:errcheck
 
 	logger.LoginLog(user.Username, ipAddr, loginType, common.ProtocolSSH, connectionID,
 		string(sconn.ClientVersion()), true,
@@ -702,6 +703,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 							LocalAddr:     conn.LocalAddr(),
 							channel:       channel,
 						}
+						connection.User.ResetFsCache()
 						go c.handleSftpConnection(channel, connection)
 					}
 				case "exec":
@@ -714,6 +716,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 						LocalAddr:     conn.LocalAddr(),
 						channel:       channel,
 					}
+					connection.User.ResetFsCache()
 					ok = processSSHCommand(req.Payload, &connection, c.EnabledSSHCommands)
 					if ok {
 						sshConnection.UpdateLastActivity()

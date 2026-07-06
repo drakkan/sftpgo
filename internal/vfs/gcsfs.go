@@ -467,6 +467,8 @@ func (*GCSFs) IsNotSupported(err error) bool {
 func (fs *GCSFs) CheckRootPath(username string, uid int, gid int) bool {
 	// we need a local directory for temporary files
 	osFs := NewOsFs(fs.ConnectionID(), fs.localTempDir, "", nil)
+	defer osFs.Close() //nolint:errcheck
+
 	return osFs.CheckRootPath(username, uid, gid)
 }
 
@@ -846,6 +848,10 @@ func (fs *GCSFs) renameInternal(source, target string, srcInfo os.FileInfo, recu
 	err := fs.Remove(source, srcInfo.IsDir())
 	if fs.IsNotExist(err) {
 		err = nil
+	}
+	if err != nil && !srcInfo.IsDir() {
+		numFiles--
+		filesSize -= srcInfo.Size()
 	}
 	return numFiles, filesSize, err
 }

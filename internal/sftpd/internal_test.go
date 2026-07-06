@@ -1380,8 +1380,8 @@ func TestUploadError(t *testing.T) {
 		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", "", user),
 	}
 
-	testfile := "testfile"
-	fileTempName := "temptestfile"
+	testfile := filepath.Join(os.TempDir(), "testfile")
+	fileTempName := filepath.Join(os.TempDir(), "temptestfile")
 	file, err := os.Create(fileTempName)
 	assert.NoError(t, err)
 	baseTransfer := common.NewBaseTransfer(file, connection.BaseConnection, nil, testfile, file.Name(),
@@ -1932,6 +1932,8 @@ func TestOsFsRootEscapeMatrix(t *testing.T) { //nolint:gocyclo
 		t.Fatalf("test setup error: evil_existing does not escape the home, resolved %q", tgt)
 	}
 
+	// ResolvePath is lexical so each escaping path resolves without error but
+	// every operation on it must be blocked, while in-home paths stay usable.
 	mustReject := []string{
 		"/evil_rel",                  // dangling leaf rel
 		"/evil_abs",                  // dangling leaf abs
@@ -1945,8 +1947,13 @@ func TestOsFsRootEscapeMatrix(t *testing.T) { //nolint:gocyclo
 		"/a/sub/evil_existing",       // nested in-home symlink + escaping existing leaf
 	}
 	for _, p := range mustReject {
-		if r, err := fs.ResolvePath(p); err == nil {
-			t.Errorf("ESCAPE: %q must be rejected, got nil error (resolved=%q)", p, r)
+		r, err := fs.ResolvePath(p)
+		if err != nil {
+			t.Errorf("ResolvePath(%q) returned %v, want nil (confinement is enforced at operation time)", p, err)
+			continue
+		}
+		if _, statErr := fs.Stat(r); !fs.IsPermission(statErr) {
+			t.Errorf("ESCAPE: %q must be blocked at operation time, got %v", p, statErr)
 		}
 	}
 
@@ -1961,8 +1968,14 @@ func TestOsFsRootEscapeMatrix(t *testing.T) { //nolint:gocyclo
 		"/a/b/c/deepnew",      // several new nested dirs
 	}
 	for _, p := range mustAllow {
-		if _, err := fs.ResolvePath(p); err != nil {
-			t.Errorf("false denial: in-home path %q must be allowed, got %v", p, err)
+		r, err := fs.ResolvePath(p)
+		if err != nil {
+			t.Errorf("false denial: in-home path %q ResolvePath error: %v", p, err)
+			continue
+		}
+		// an in-home path is never a confinement error: it either exists or not
+		if _, statErr := fs.Stat(r); fs.IsPermission(statErr) {
+			t.Errorf("false denial: in-home path %q blocked: %v", p, statErr)
 		}
 	}
 
@@ -1970,7 +1983,7 @@ func TestOsFsRootEscapeMatrix(t *testing.T) { //nolint:gocyclo
 	// confirm nothing is written outside the home
 	probe := filepath.Join(base, "outside", "x")
 	if rp, err := fs.ResolvePath("/evil_rel"); err == nil {
-		if f, oerr := os.OpenFile(rp, os.O_CREATE|os.O_WRONLY, 0o644); oerr == nil {
+		if f, _, _, oerr := fs.Create(rp, 0, 0); oerr == nil {
 			f.Close()
 		}
 	}
@@ -1997,19 +2010,23 @@ func TestOsFsResolvePathDotDotThroughSymlink(t *testing.T) {
 	}
 
 	fs := vfs.NewOsFs("conn", home, "", nil).(*vfs.OsFs)
+	// ResolvePath is lexical; the escape is blocked when the path is used.
 	r, err := fs.ResolvePath("/p")
-	if err == nil {
-		if f, oerr := os.OpenFile(r, os.O_CREATE|os.O_WRONLY, 0o644); oerr == nil {
+	if err != nil {
+		t.Fatalf("ResolvePath(/p) returned %v, want nil", err)
+	}
+	if f, _, _, oerr := fs.Create(r, 0, 0); oerr == nil {
+		if f != nil {
 			f.Close()
 		}
-		t.Errorf("ESCAPE: /p resolves outside the home but was allowed (resolved=%q)", r)
+		t.Errorf("ESCAPE: /p resolves outside the home but the create was allowed (resolved=%q)", r)
 	}
 	if _, serr := os.Stat(filepath.Join(base, "escape")); !os.IsNotExist(serr) {
 		t.Errorf("ESCAPE: a file was created outside the home")
 	}
 }
 
-func TestOsFsReadlinkSymlinkedHome(t *testing.T) {
+func TestOsFsReadlinkSymlinkedHome(t *testing.T) { //nolint:gocyclo
 	base := t.TempDir()
 	realhome := filepath.Join(base, "realhome")
 	if err := os.MkdirAll(filepath.Join(realhome, "sub"), 0o755); err != nil {
@@ -2044,17 +2061,22 @@ func TestOsFsReadlinkSymlinkedHome(t *testing.T) {
 	}
 	fs := vfs.NewOsFs("c", filepath.Join(base, "homelink"), "", nil).(*vfs.OsFs)
 
-	cases := map[string]string{
-		"link":    "/sub/target",
-		"esc":     "/",
-		"esc2":    "/", // embedded ".." escaping must be clamped
-		"abs_in":  "/sub/target",
-		"abs_out": "/",
-		"a":       "/b", // one-level (not /c)
+	inRoot := map[string]string{
+		"link": "/sub/target",
+		"a":    "/b", // one-level (not /c)
 	}
-	for link, want := range cases {
+	for link, want := range inRoot {
 		if got, err := fs.Readlink(filepath.Join(base, "homelink", link)); err != nil || got != want {
 			t.Errorf("Readlink(%s) = %q, %v; want %q", link, got, err, want)
+		}
+	}
+	// targets that escape the root are rejected, matching what an access through
+	// the link would do: "esc2" escapes through an intermediate symlink and must
+	// not be collapsed away lexically, an absolute target is reinterpreted by
+	// os.Root and rejected too
+	for _, link := range []string{"esc", "esc2", "abs_in", "abs_out"} {
+		if _, err := fs.Readlink(filepath.Join(base, "homelink", link)); err == nil {
+			t.Errorf("Readlink(%s) did not reject an escaping target", link)
 		}
 	}
 }

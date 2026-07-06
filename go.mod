@@ -38,7 +38,6 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.47
 	github.com/mhale/smtpd v0.8.3
 	github.com/minio/sio v0.5.1
-	github.com/otiai10/copy v1.14.1
 	github.com/pires/go-proxyproto v0.12.0
 	github.com/pkg/sftp v1.13.10
 	github.com/pquerna/otp v1.5.0
@@ -136,7 +135,6 @@ require (
 	github.com/miekg/dns v1.1.72 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/oklog/run v1.2.0 // indirect
-	github.com/otiai10/mint v1.6.3 // indirect
 	github.com/pelletier/go-toml/v2 v2.4.2 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect

@@ -583,7 +583,9 @@ func TestFileAccessErrors(t *testing.T) {
 	p := filepath.Join(user.HomeDir, "adir", missingPath)
 	_, err = connection.handleUploadToNewFile(fs, p, p, path.Join("adir", missingPath))
 	assert.ErrorIs(t, err, os.ErrNotExist)
-	_, err = connection.handleUploadToExistingFile(fs, p, "_"+p, 0, path.Join("adir", missingPath))
+	// the atomic upload temp path lives in the same directory as the target
+	pTemp := filepath.Join(filepath.Dir(p), "_"+filepath.Base(p))
+	_, err = connection.handleUploadToExistingFile(fs, p, pTemp, 0, path.Join("adir", missingPath))
 	if assert.Error(t, err) {
 		assert.ErrorIs(t, err, os.ErrNotExist)
 	}

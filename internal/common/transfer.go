@@ -362,32 +362,12 @@ func (t *BaseTransfer) getUploadFileSize() (int64, int, error) {
 	return fileSize, deletedFiles, err
 }
 
-// return 1 if the file is outside the user home dir
-func (t *BaseTransfer) checkUploadOutsideHomeDir(err error) int {
-	if err == nil {
-		return 0
-	}
-	if t.ErrTransfer == nil {
-		t.ErrTransfer = err
-	}
-	if Config.TempPath == "" {
-		return 0
-	}
-	err = t.Fs.Remove(t.effectiveFsPath, false)
-	t.Connection.Log(logger.LevelWarn, "upload in temp path cannot be renamed, delete temporary file: %q, deletion error: %v",
-		t.effectiveFsPath, err)
-	// the file is outside the home dir so don't update the quota
-	t.BytesReceived.Store(0)
-	t.MinWriteOffset = 0
-	return 1
-}
-
 // Close it is called when the transfer is completed.
 // It logs the transfer info, updates the user quota (for uploads)
 // and executes any defined action.
 // If there is an error no action will be executed and, in atomic mode,
 // we try to delete the temporary file
-func (t *BaseTransfer) Close() error {
+func (t *BaseTransfer) Close() error { //nolint:gocyclo
 	defer t.Connection.RemoveTransfer(t)
 
 	var err error
@@ -412,8 +392,9 @@ func (t *BaseTransfer) Close() error {
 			_, _, err = t.Fs.Rename(t.effectiveFsPath, t.fsPath, 0)
 			t.Connection.Log(logger.LevelDebug, "atomic upload completed, rename: %q -> %q, error: %v",
 				t.effectiveFsPath, t.fsPath, err)
-			// the file must be removed if it is uploaded to a path outside the home dir and cannot be renamed
-			t.checkUploadOutsideHomeDir(err)
+			if err != nil && t.ErrTransfer == nil {
+				t.ErrTransfer = err
+			}
 		} else {
 			err = t.Fs.Remove(t.effectiveFsPath, false)
 			t.Connection.Log(logger.LevelWarn, "atomic upload completed with error: \"%v\", delete temporary file: %q, deletion error: %v",

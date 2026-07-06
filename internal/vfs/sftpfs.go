@@ -644,6 +644,8 @@ func (*SFTPFs) IsNotSupported(err error) bool {
 func (fs *SFTPFs) CheckRootPath(username string, uid int, gid int) bool {
 	// local directory for temporary files in buffer mode
 	osFs := NewOsFs(fs.ConnectionID(), fs.localTempDir, "", nil)
+	defer osFs.Close() //nolint:errcheck
+
 	osFs.CheckRootPath(username, uid, gid)
 	if fs.config.Prefix == "/" {
 		return true

@@ -16327,7 +16327,7 @@ func TestBrowseShares(t *testing.T) {
 	assert.NoError(t, err)
 	err = createTestFile(filepath.Join(user.GetHomeDir(), shareDir, subDir, testFileName), testFileSize)
 	assert.NoError(t, err)
-	err = os.Symlink(testFilePath, testLinkPath)
+	err = os.Symlink(testFileName, testLinkPath)
 	assert.NoError(t, err)
 
 	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
@@ -16532,8 +16532,9 @@ func TestBrowseShares(t *testing.T) {
 	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "getpdf?path=link.pdf"), nil)
 	assert.NoError(t, err)
 	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr)
-	// downloading a symlink will fail, usage should not change
+	// link.pdf is an absolute symlink; os.Root refuses to traverse it, so the
+	// download is blocked and the share usage does not change
+	checkResponseCode(t, http.StatusForbidden, rr)
 	s, err = dataprovider.ShareExists(objectID, defaultUsername)
 	assert.NoError(t, err)
 	assert.Equal(t, usedTokens, s.UsedTokens)
@@ -18639,7 +18640,8 @@ func TestWebFilesAPI(t *testing.T) {
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
-	// make a symlink outside the home dir and then try to delete it
+	// make a symlink pointing outside the home dir and delete it: removing the link
+	// does not follow it, so the in-home link is removed and the target is untouched
 	extPath := filepath.Join(os.TempDir(), "file")
 	err = os.WriteFile(extPath, []byte("contents"), os.ModePerm)
 	assert.NoError(t, err)
@@ -18649,7 +18651,8 @@ func TestWebFilesAPI(t *testing.T) {
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusForbidden, rr)
+	checkResponseCode(t, http.StatusOK, rr)
+	// the symlink target outside the home must still exist
 	err = os.Remove(extPath)
 	assert.NoError(t, err)
 	// remove delete and overwrite permissions
@@ -19401,17 +19404,6 @@ func TestWebUploadErrors(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusCreated, rr)
 
-	vfs.SetTempPath(filepath.Join(os.TempDir(), "missingpath"))
-
-	_, err = reader.Seek(0, io.SeekStart)
-	assert.NoError(t, err)
-	req, err = http.NewRequest(http.MethodPost, userFilesPath, reader)
-	assert.NoError(t, err)
-	req.Header.Add("Content-Type", writer.FormDataContentType())
-	setBearerForReq(req, webAPIToken)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusNotFound, rr)
-
 	if runtime.GOOS != osWindows {
 		req, err = http.NewRequest(http.MethodDelete, userFilesPath+"?path=file.zip", nil)
 		assert.NoError(t, err)
@@ -19419,7 +19411,6 @@ func TestWebUploadErrors(t *testing.T) {
 		rr = executeRequest(req)
 		checkResponseCode(t, http.StatusOK, rr)
 
-		vfs.SetTempPath(filepath.Clean(os.TempDir()))
 		err = os.Chmod(user.GetHomeDir(), 0555)
 		assert.NoError(t, err)
 
@@ -19431,20 +19422,18 @@ func TestWebUploadErrors(t *testing.T) {
 		setBearerForReq(req, webAPIToken)
 		rr = executeRequest(req)
 		checkResponseCode(t, http.StatusForbidden, rr)
-		assert.Contains(t, rr.Body.String(), "Error closing file")
+		assert.Contains(t, rr.Body.String(), "Unable to write file")
 
 		req, err = http.NewRequest(http.MethodPost, userUploadFilePath+"?path=file.zip", bytes.NewBuffer(nil))
 		assert.NoError(t, err)
 		setBearerForReq(req, webAPIToken)
 		rr = executeRequest(req)
 		checkResponseCode(t, http.StatusForbidden, rr)
-		assert.Contains(t, rr.Body.String(), "Error closing file")
+		assert.Contains(t, rr.Body.String(), "Unable to write file")
 
 		err = os.Chmod(user.GetHomeDir(), os.ModePerm)
 		assert.NoError(t, err)
 	}
-
-	vfs.SetTempPath("")
 
 	// upload a multipart form with no files
 	body = new(bytes.Buffer)

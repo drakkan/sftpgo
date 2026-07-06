@@ -64,9 +64,11 @@ var (
 	// ErrStorageSizeUnavailable is returned if the storage backend does not support getting the size
 	ErrStorageSizeUnavailable = errors.New("unable to get available size for this storage backend")
 	// ErrVfsUnsupported defines the error for an unsupported VFS operation
-	ErrVfsUnsupported        = errors.New("not supported")
+	ErrVfsUnsupported = errors.New("not supported")
+	// ErrCrossRename is returned by a backend when a rename cannot be performed as a
+	// single operation because source and target live in different confinement roots.
+	ErrCrossRename           = errors.New("cross-root rename")
 	errInvalidDirListerLimit = errors.New("dir lister: invalid limit, must be > 0")
-	tempPath                 string
 	sftpFingerprints         []string
 	allowSelfConnections     int
 	renameMode               int
@@ -85,16 +87,6 @@ var (
 // SetAllowSelfConnections sets the desired behaviour for self connections
 func SetAllowSelfConnections(value int) {
 	allowSelfConnections = value
-}
-
-// SetTempPath sets the path for temporary files
-func SetTempPath(fsPath string) {
-	tempPath = fsPath
-}
-
-// GetTempPath returns the path for temporary files
-func GetTempPath() string {
-	return tempPath
 }
 
 // SetSFTPFingerprints sets the SFTP host key fingerprints
@@ -1162,7 +1154,7 @@ func SetPathPermissions(fs Fs, path string, uid int, gid int) {
 	if uid == -1 && gid == -1 {
 		return
 	}
-	if IsLocalOsFs(fs) {
+	if IsLocalOrCryptoFs(fs) {
 		if runtime.GOOS == "windows" {
 			return
 		}
@@ -1257,10 +1249,14 @@ func getMountPath(mountPath string) string {
 }
 
 func getLocalTempDir() string {
-	if tempPath != "" {
-		return tempPath
-	}
 	return filepath.Clean(os.TempDir())
+}
+
+// isRootEscapeError reports whether err is the os.Root boundary violation
+// ("path escapes from parent"). The os package does not export the sentinel
+// (errPathEscapes), so it is matched by message.
+func isRootEscapeError(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "path escapes from parent")
 }
 
 func doRecursiveRename(fs Fs, source, target string,
@@ -1305,6 +1301,152 @@ func doRecursiveRename(fs Fs, source, target string,
 			return numFiles, filesSize, nil
 		}
 	}
+}
+
+// RenameAcrossRoots moves source on fsSrc to target on fsDst. It is the
+// fallback for ErrCrossRename. Each regular file is moved by copying it to the
+// destination and then removing it from the source, mirroring the cloud rename;
+// the move is not atomic. Symbolic links and other non-regular files are not
+// recreated at the destination, they are dropped from the source.
+func RenameAcrossRoots(fsSrc, fsDst Fs, source, target string, srcInfo os.FileInfo, checks, uid, gid int) (int, int64, error) {
+	return moveAcrossRoots(fsSrc, fsDst, source, target, srcInfo, checks, uid, gid, 0)
+}
+
+func moveAcrossRoots(fsSrc, fsDst Fs, source, target string, info os.FileInfo, checks, uid, gid, recursion int) (int, int64, error) { //nolint:gocyclo
+	var numFiles int
+	var filesSize int64
+	if info.IsDir() {
+		if recursion > util.MaxRecursion {
+			return numFiles, filesSize, util.ErrRecursionTooDeep
+		}
+		recursion++
+		if err := fsDst.Mkdir(target); err != nil && !errors.Is(err, os.ErrExist) {
+			return numFiles, filesSize, err
+		}
+		SetPathPermissions(fsDst, target, uid, gid)
+		lister, err := fsSrc.ReadDir(source)
+		if err != nil {
+			return numFiles, filesSize, err
+		}
+		defer lister.Close()
+		for {
+			entries, err := lister.Next(ListerBatchSize)
+			finished := errors.Is(err, io.EOF)
+			if err != nil && !finished {
+				return numFiles, filesSize, err
+			}
+			for _, entry := range entries {
+				files, size, err := moveAcrossRoots(fsSrc, fsDst, fsSrc.Join(source, entry.Name()),
+					fsDst.Join(target, entry.Name()), entry, checks, uid, gid, recursion)
+				numFiles += files
+				filesSize += size
+				if err != nil {
+					return numFiles, filesSize, err
+				}
+			}
+			if finished {
+				// the contents are moved, remove the now-empty source directory
+				lister.Close()
+				return numFiles, filesSize, fsSrc.Remove(source, info.IsDir())
+			}
+		}
+	}
+	if !info.Mode().IsRegular() {
+		// a symbolic link (or other non-regular entry) is not recreated at the
+		// destination on a cross-root move, it is dropped from the source. Recreating an
+		// attacker-controlled link under a different root could reintroduce a confinement
+		// escape, so it is intentionally not preserved; losing a link is not data loss.
+		fsLog(fsSrc, logger.LevelWarn, "non-regular file %q (mode %s) is not preserved on a cross-root move",
+			source, info.Mode().String())
+		return numFiles, filesSize, fsSrc.Remove(source, info.IsDir())
+	}
+	if err := copyFileAcrossRoots(fsSrc, fsDst, source, target); err != nil {
+		return numFiles, filesSize, err
+	}
+	SetPathPermissions(fsDst, target, uid, gid)
+	if checks&CheckUpdateModTime == 0 {
+		// Best effort: a metadata failure must not fail the whole move
+		// (directory mtimes are intentionally not restored, they are rarely
+		// relied upon and would need to be set after their contents to survive
+		// the child writes).
+		if mtime := info.ModTime(); !mtime.IsZero() {
+			fsDst.Chtimes(target, mtime, mtime, false) //nolint:errcheck
+		}
+	}
+	// account the on-disk size actually written under the destination root, not
+	// info.Size(): quota is tracked as the stored size (uploads use fs.Stat, quota
+	// scans use GetDirSize) but info may carry a converted size. In particular
+	// CryptFs.ReadDir reports the decrypted size.
+	size := info.Size()
+	if fi, statErr := fsDst.Stat(target); statErr == nil {
+		size = fi.Size()
+	}
+	if err := fsSrc.Remove(source, info.IsDir()); err != nil {
+		return numFiles, filesSize, err
+	}
+	return numFiles + 1, filesSize + size, nil
+}
+
+func copyFileAcrossRoots(fsSrc, fsDst Fs, source, target string) error {
+	f, r, cancelR, err := fsSrc.Open(source, 0)
+	if err != nil {
+		return err
+	}
+	var reader io.Reader
+	var readCloser io.Closer
+	if r != nil {
+		reader, readCloser = r, r
+	} else {
+		reader, readCloser = f, f
+	}
+	if fi, err := fsDst.Lstat(target); err == nil && fi.Mode()&os.ModeSymlink != 0 {
+		// If the target is a symlink remove it, otherwise Create will replace
+		// the linked file.
+		fsDst.Remove(target, false) //nolint:errcheck
+	}
+	wf, w, cancelW, err := fsDst.Create(target, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0)
+	if err != nil {
+		readCloser.Close()
+		if cancelR != nil {
+			cancelR()
+		}
+		return err
+	}
+	var writer io.Writer
+	var writeCloser io.Closer
+	if w != nil {
+		writer, writeCloser = w, w
+	} else {
+		writer, writeCloser = wf, wf
+	}
+	_, copyErr := doCopy(writer, reader, nil)
+	if copyErr != nil {
+		if cancelR != nil {
+			cancelR()
+		}
+		if cancelW != nil {
+			cancelW()
+		}
+		readCloser.Close()
+		writeCloser.Close() //nolint:errcheck
+		// Best effort removal of a partial copy.
+		fsDst.Remove(target, false) //nolint:errcheck
+		return copyErr
+	}
+	closeErr := writeCloser.Close()
+	readCloser.Close()
+	if cancelR != nil {
+		cancelR()
+	}
+	if cancelW != nil {
+		cancelW()
+	}
+	if closeErr != nil {
+		// Best effort removal of a partial copy.
+		fsDst.Remove(target, false) //nolint:errcheck
+		return copyErr
+	}
+	return nil
 }
 
 // copied from rclone

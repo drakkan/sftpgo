@@ -41,8 +41,7 @@ const (
 // CryptFs is a Fs implementation that allows to encrypts/decrypts local files
 type CryptFs struct {
 	*OsFs
-	localTempDir string
-	masterKey    []byte
+	masterKey []byte
 }
 
 // NewCryptFs returns a CryptFs object
@@ -64,11 +63,7 @@ func NewCryptFs(connectionID, rootDir, mountPath string, config CryptFsConfig) (
 		},
 		masterKey: []byte(config.Passphrase.GetPayload()),
 	}
-	if tempPath == "" {
-		fs.localTempDir = rootDir
-	} else {
-		fs.localTempDir = tempPath
-	}
+	fs.openRoot() //nolint:errcheck
 	return fs, nil
 }
 
@@ -88,7 +83,7 @@ func (fs *CryptFs) Open(name string, offset int64) (File, PipeReader, func(), er
 		f.Close()
 		return nil, nil, nil, err
 	}
-	r, w, err := createPipeFn(fs.localTempDir, 0)
+	r, w, err := createPipeFn(fs.rootDir, 0)
 	if err != nil {
 		f.Close()
 		return nil, nil, nil, err
@@ -154,7 +149,11 @@ func (fs *CryptFs) Open(name string, offset int64) (File, PipeReader, func(), er
 
 // Create creates or opens the named file for writing
 func (fs *CryptFs) Create(name string, _, _ int) (File, PipeWriter, func(), error) {
-	f, err := os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	root, rel, err := fs.toRootRelative(name)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	f, err := root.OpenFile(rel, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -174,7 +173,7 @@ func (fs *CryptFs) Create(name string, _, _ int) (File, PipeWriter, func(), erro
 		return nil, nil, nil, err
 	}
 	copy(key[:], keyMaterial)
-	r, w, err := createPipeFn(fs.localTempDir, 0)
+	r, w, err := createPipeFn(fs.rootDir, 0)
 	if err != nil {
 		f.Close()
 		return nil, nil, nil, err
@@ -221,7 +220,11 @@ func (*CryptFs) Truncate(_ string, _ int64) error {
 // ReadDir reads the directory named by dirname and returns
 // a list of directory entries.
 func (fs *CryptFs) ReadDir(dirname string) (DirLister, error) {
-	f, err := os.Open(dirname)
+	root, rel, err := fs.toRootRelative(dirname)
+	if err != nil {
+		return nil, err
+	}
+	f, err := root.Open(rel)
 	if err != nil {
 		if isInvalidNameError(err) {
 			err = os.ErrNotExist
@@ -288,7 +291,11 @@ func (fs *CryptFs) ConvertFileInfo(info os.FileInfo) os.FileInfo {
 
 func (fs *CryptFs) getFileAndEncryptionKey(name string) (*os.File, [32]byte, error) {
 	var key [32]byte
-	f, err := os.Open(name)
+	root, rel, err := fs.toRootRelative(name)
+	if err != nil {
+		return nil, key, err
+	}
+	f, err := root.Open(rel)
 	if err != nil {
 		return nil, key, err
 	}

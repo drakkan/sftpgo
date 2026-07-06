@@ -445,33 +445,28 @@ func TestTransferQuota(t *testing.T) {
 	assert.Equal(t, int32(0), Connections.GetTotalTransfers())
 }
 
-func TestUploadOutsideHomeRenameError(t *testing.T) {
-	oldTempPath := Config.TempPath
+func TestUploadAtomicRenameError(t *testing.T) {
+	homeDir := filepath.Join(os.TempDir(), "home")
+	require.NoError(t, os.MkdirAll(homeDir, os.ModePerm))
+	defer os.RemoveAll(homeDir) //nolint:errcheck
 
 	conn := NewBaseConnection("", ProtocolSFTP, "", "", dataprovider.User{})
-	transfer := BaseTransfer{
-		Connection:   conn,
-		transferType: TransferUpload,
-		Fs:           vfs.NewOsFs("", filepath.Join(os.TempDir(), "home"), "", nil),
-	}
+	fs := vfs.NewOsFs("", homeDir, "", nil)
+	// the atomic upload temp file lives inside the home dir but does not exist, so the
+	// rename performed on Close fails and must be recorded as the transfer error
+	fsPath := filepath.Join(homeDir, "file.txt")
+	effectiveFsPath := filepath.Join(homeDir, ".sftpgo-upload.missing")
+	transfer := NewBaseTransfer(nil, conn, nil, fsPath, effectiveFsPath, "/file.txt", TransferUpload,
+		0, 0, 0, 0, true, fs, dataprovider.TransferQuota{})
+	require.True(t, transfer.isAtomicUpload())
 	transfer.BytesReceived.Store(123)
 
-	fileName := filepath.Join(os.TempDir(), "_temp")
-	err := os.WriteFile(fileName, []byte(`data`), 0644)
-	assert.NoError(t, err)
-
-	transfer.effectiveFsPath = fileName
-	res := transfer.checkUploadOutsideHomeDir(os.ErrPermission)
-	assert.Equal(t, 0, res)
-
-	Config.TempPath = filepath.Clean(os.TempDir())
-	res = transfer.checkUploadOutsideHomeDir(nil)
-	assert.Equal(t, 0, res)
+	err := transfer.Close()
+	assert.Error(t, err)
+	// the failed atomic rename is recorded as the transfer error
+	assert.Equal(t, transfer.ErrTransfer, err)
+	assert.True(t, fs.IsNotExist(transfer.ErrTransfer))
+	// the temp file is always inside the home dir now, so the quota counters stay
 	assert.Greater(t, transfer.BytesReceived.Load(), int64(0))
-	res = transfer.checkUploadOutsideHomeDir(os.ErrPermission)
-	assert.Equal(t, 1, res)
-	assert.Equal(t, int64(0), transfer.BytesReceived.Load())
-	assert.NoFileExists(t, fileName)
-
-	Config.TempPath = oldTempPath
+	assert.Len(t, conn.GetTransfers(), 0)
 }

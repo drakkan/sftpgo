@@ -17,13 +17,15 @@
 package vfs
 
 import (
+	"os"
+
 	"github.com/pkg/sftp"
 	"golang.org/x/sys/unix"
 )
 
-func getStatFS(path string) (*sftp.StatVFS, error) {
+func getStatFS(f *os.File, _ string) (*sftp.StatVFS, error) {
 	stat := unix.Statfs_t{}
-	err := unix.Statfs(path, &stat)
+	err := unix.Fstatfs(int(f.Fd()), &stat)
 	if err != nil {
 		return nil, err
 	}

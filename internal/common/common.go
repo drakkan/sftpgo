@@ -254,8 +254,6 @@ func Initialize(c Configuration, isShared int) error {
 	if err := c.EventManager.validate(); err != nil {
 		return err
 	}
-	vfs.SetTempPath(c.TempPath)
-	dataprovider.SetTempPath(c.TempPath)
 	vfs.SetAllowSelfConnections(c.AllowSelfConnections)
 	vfs.SetRenameMode(c.RenameMode)
 	vfs.SetReadMetadataMode(c.Metadata.Read)
@@ -596,12 +594,6 @@ type Configuration struct {
 	// Set to a value greater than 0 to allow resuming uploads of files smaller than or equal to the
 	// defined size.
 	ResumeMaxSize int64 `json:"resume_max_size" mapstructure:"resume_max_size"`
-	// TempPath defines the path for temporary files such as those used for atomic uploads or file pipes.
-	// If you set this option you must make sure that the defined path exists, is accessible for writing
-	// by the user running SFTPGo, and is on the same filesystem as the users home directories otherwise
-	// the renaming for atomic uploads will become a copy and therefore may take a long time.
-	// The temporary files are not namespaced. The default is generally fine. Leave empty for the default.
-	TempPath string `json:"temp_path" mapstructure:"temp_path"`
 	// SecretMinEntropy defines the minimum entropy required for plain-text
 	// data-encryption secrets: the CryptFs passphrase and the S3 SSE-C key. These
 	// secrets must be random key material rather than a memorable password. The

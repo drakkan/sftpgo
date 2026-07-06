@@ -214,7 +214,6 @@ func Init() {
 			SymlinkMode:           0,
 			ResumeMaxSize:         0,
 			SecretMinEntropy:      80,
-			TempPath:              "",
 			ProxyProtocol:         0,
 			ProxyAllowed:          []string{},
 			ProxySkipped:          []string{},
@@ -2066,7 +2065,6 @@ func setViperDefaults() {
 	viper.SetDefault("common.symlink_mode", globalConf.Common.SymlinkMode)
 	viper.SetDefault("common.resume_max_size", globalConf.Common.ResumeMaxSize)
 	viper.SetDefault("common.secret_min_entropy", globalConf.Common.SecretMinEntropy)
-	viper.SetDefault("common.temp_path", globalConf.Common.TempPath)
 	viper.SetDefault("common.proxy_protocol", globalConf.Common.ProxyProtocol)
 	viper.SetDefault("common.proxy_allowed", globalConf.Common.ProxyAllowed)
 	viper.SetDefault("common.proxy_skipped", globalConf.Common.ProxySkipped)

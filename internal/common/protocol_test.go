@@ -3094,6 +3094,135 @@ func TestCrossFolderRename(t *testing.T) {
 	}
 }
 
+func TestCryptFsCrossDomainRenameQuota(t *testing.T) {
+	mappedPath := filepath.Join(os.TempDir(), "vdir_crypt_quota")
+	folderName := filepath.Base(mappedPath)
+	vdirPath := "/vdir_crypt_quota"
+	f := vfs.BaseVirtualFolder{
+		Name:       folderName,
+		MappedPath: mappedPath,
+	}
+	f.FsConfig.Provider = sdk.CryptedFilesystemProvider
+	f.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret(defaultPassword)
+	_, _, err := httpdtest.AddFolder(f, http.StatusCreated)
+	assert.NoError(t, err)
+
+	u := getCryptFsUser()
+	// the user must have quota restrictions so home uploads are tracked (per-user
+	// quota tracking skips unrestricted users)
+	u.QuotaFiles = 100
+	u.QuotaSize = 1 << 20
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name: folderName,
+		},
+		VirtualPath: vdirPath,
+		// separate quota domain (not included in the user quota) with room to spare
+		QuotaFiles: 100,
+		QuotaSize:  1 << 20,
+	})
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	testFileSize := int64(len(testFileContent))
+	encryptedSize, err := getEncryptedFileSize(testFileSize)
+	assert.NoError(t, err)
+
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		subDir := "cryptdir"
+		err = client.Mkdir(subDir)
+		assert.NoError(t, err)
+		err = writeSFTPFile(path.Join(subDir, testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		// the encrypted size is charged to the user quota domain
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, user.UsedQuotaFiles)
+		assert.Equal(t, encryptedSize, user.UsedQuotaSize)
+
+		// cross-root rename of the directory into the CryptFs virtual folder domain
+		err = client.Rename(subDir, path.Join(vdirPath, subDir))
+		assert.NoError(t, err)
+
+		// the whole encrypted size must move to the folder, leaving the user empty
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 0, user.UsedQuotaFiles)
+		assert.Equal(t, int64(0), user.UsedQuotaSize)
+		folder, _, err := httpdtest.GetFolderByName(folderName, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, folder.UsedQuotaFiles)
+		assert.Equal(t, encryptedSize, folder.UsedQuotaSize)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName}, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath)
+	assert.NoError(t, err)
+}
+
+func TestCrossRootRenamePreservesFileModTime(t *testing.T) {
+	u := getTestUser()
+	mappedPath := filepath.Join(os.TempDir(), "vdir_mtime")
+	folderName := filepath.Base(mappedPath)
+	vdirPath := "/vdir_mtime"
+	f := vfs.BaseVirtualFolder{
+		Name:       folderName,
+		MappedPath: mappedPath,
+	}
+	_, _, err := httpdtest.AddFolder(f, http.StatusCreated)
+	assert.NoError(t, err)
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name: folderName,
+		},
+		VirtualPath: vdirPath,
+		QuotaFiles:  -1,
+		QuotaSize:   -1,
+	})
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		err = writeSFTPFile(testFileName, 32, client)
+		assert.NoError(t, err)
+		// stamp a known modification time in the past
+		mtime := time.Now().Add(-72 * time.Hour).Truncate(time.Second)
+		err = client.Chtimes(testFileName, mtime, mtime)
+		assert.NoError(t, err)
+		// cross-root rename into the virtual folder (home and folder are different
+		// os.Root confinements, so this goes through the copy+delete fallback)
+		err = client.Rename(testFileName, path.Join(vdirPath, testFileName))
+		assert.NoError(t, err)
+		fi, err := client.Stat(path.Join(vdirPath, testFileName))
+		if assert.NoError(t, err) {
+			assert.WithinDuration(t, mtime, fi.ModTime(), time.Second,
+				"the cross-root rename must preserve the file modification time")
+		}
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName}, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath)
+	assert.NoError(t, err)
+}
+
 func TestDirs(t *testing.T) {
 	u := getTestUser()
 	mappedPath := filepath.Join(os.TempDir(), "vdir")
@@ -3231,16 +3360,13 @@ func TestFsPermissionErrors(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestRenameErrorOutsideHomeDir(t *testing.T) {
+func TestAtomicUploadErrorReadOnlyHomeDir(t *testing.T) {
 	if runtime.GOOS == osWindows {
 		t.Skip("this test is not available on Windows")
 	}
 	oldUploadMode := common.Config.UploadMode
-	oldTempPath := common.Config.TempPath
 
 	common.Config.UploadMode = common.UploadModeAtomicWithResume
-	common.Config.TempPath = filepath.Clean(os.TempDir())
-	vfs.SetTempPath(common.Config.TempPath)
 
 	u := getTestUser()
 	u.QuotaFiles = 1000
@@ -3254,14 +3380,19 @@ func TestRenameErrorOutsideHomeDir(t *testing.T) {
 
 		err = os.Chmod(user.GetHomeDir(), 0555)
 		assert.NoError(t, err)
+		defer os.Chmod(user.GetHomeDir(), os.ModePerm) //nolint:errcheck
 
 		err = checkBasicSFTP(client)
 		assert.NoError(t, err)
+		// the atomic temp file lives in the home directory: with the home
+		// read-only the upload fails (create or close) and the quota is not
+		// updated
 		f, err := client.Create(testFileName)
-		assert.NoError(t, err)
-		_, err = f.Write(testFileContent)
-		assert.NoError(t, err)
-		err = f.Close()
+		if err == nil {
+			if _, err = f.Write(testFileContent); err == nil {
+				err = f.Close()
+			}
+		}
 		assert.ErrorIs(t, err, os.ErrPermission)
 
 		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
@@ -3269,7 +3400,7 @@ func TestRenameErrorOutsideHomeDir(t *testing.T) {
 		assert.Equal(t, 0, user.UsedQuotaFiles)
 		assert.Equal(t, int64(0), user.UsedQuotaSize)
 
-		err = os.Chmod(user.GetHomeDir(), os.ModeDir)
+		err = os.Chmod(user.GetHomeDir(), os.ModePerm)
 		assert.NoError(t, err)
 	}
 
@@ -3279,8 +3410,6 @@ func TestRenameErrorOutsideHomeDir(t *testing.T) {
 	assert.NoError(t, err)
 
 	common.Config.UploadMode = oldUploadMode
-	common.Config.TempPath = oldTempPath
-	vfs.SetTempPath(oldTempPath)
 }
 
 func TestResolvePathError(t *testing.T) {

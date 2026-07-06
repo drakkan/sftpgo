@@ -603,6 +603,159 @@ func TestBasicSFTPHandling(t *testing.T) {
 	assert.NotEmpty(t, status.GetPublicKeysAlgosAsString())
 }
 
+func TestMultipleSftpSessionsSameSSHConnection(t *testing.T) {
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	testFileSize := int64(65535)
+
+	conn, client1, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+
+		err = writeSFTPFile(testFileName, testFileSize, client1)
+		assert.NoError(t, err)
+		client2, err := sftp.NewClient(conn)
+		if assert.NoError(t, err) {
+			defer client2.Close()
+
+			matches, err := client2.Glob(testFileName)
+			assert.NoError(t, err)
+			assert.Len(t, matches, 1)
+			_, err = client2.Lstat(testFileName)
+			assert.NoError(t, err)
+			err = client1.Close()
+			assert.NoError(t, err)
+			assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 1 },
+				2*time.Second, 100*time.Millisecond)
+			f, err := client2.OpenFile(testFileName, os.O_RDONLY)
+			if assert.NoError(t, err) {
+				contents := make([]byte, testFileSize)
+				_, err = io.ReadFull(f, contents)
+				assert.NoError(t, err)
+				err = f.Close()
+				assert.NoError(t, err)
+			}
+		}
+		err = conn.Close()
+		assert.NoError(t, err)
+	}
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
+		2*time.Second, 100*time.Millisecond)
+
+	// update the user so the filesystem root checks run again on the next
+	// login: a recent login would skip them via the fast path
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+
+	// a new session opened on the same SSH connection after closing the
+	// previous one must work too
+	conn, client1, err = getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+
+		matches, err := client1.Glob(testFileName)
+		assert.NoError(t, err)
+		assert.Len(t, matches, 1)
+		_, err = client1.Lstat(testFileName)
+		assert.NoError(t, err)
+		err = client1.Close()
+		assert.NoError(t, err)
+		assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
+			2*time.Second, 100*time.Millisecond)
+		client2, err := sftp.NewClient(conn)
+		if assert.NoError(t, err) {
+			defer client2.Close()
+
+			f, err := client2.OpenFile(testFileName, os.O_RDONLY)
+			if assert.NoError(t, err) {
+				contents := make([]byte, testFileSize)
+				_, err = io.ReadFull(f, contents)
+				assert.NoError(t, err)
+				err = f.Close()
+				assert.NoError(t, err)
+			}
+		}
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestConcurrentSftpChannelsSameSSHConnection(t *testing.T) {
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	testFileSize := int64(65535)
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+
+	conn, client0, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+
+		const numChannels = 8
+		const iterations = 30
+		clients := []*sftp.Client{client0}
+		for range numChannels - 1 {
+			client, err := sftp.NewClient(conn)
+			require.NoError(t, err)
+			clients = append(clients, client)
+		}
+
+		var wg sync.WaitGroup
+		for idx, client := range clients {
+			wg.Add(1)
+			go func(channelIdx int, client *sftp.Client) {
+				defer wg.Done()
+
+				remoteName := fmt.Sprintf("file_%d.dat", channelIdx)
+				for range iterations {
+					if err := sftpUploadFile(testFilePath, remoteName, testFileSize, client); err != nil {
+						t.Errorf("channel %d upload: %v", channelIdx, err)
+						return
+					}
+					localDownloadPath := filepath.Join(homeBasePath, fmt.Sprintf("%s_%d", testDLFileName, channelIdx))
+					if err := sftpDownloadFile(remoteName, localDownloadPath, testFileSize, client); err != nil {
+						t.Errorf("channel %d download: %v", channelIdx, err)
+						return
+					}
+					if _, err := client.ReadDir("/"); err != nil {
+						t.Errorf("channel %d readdir: %v", channelIdx, err)
+						return
+					}
+				}
+			}(idx, client)
+		}
+		wg.Wait()
+
+		for i := range numChannels {
+			err = os.Remove(filepath.Join(homeBasePath, fmt.Sprintf("%s_%d", testDLFileName, i)))
+			assert.NoError(t, err)
+		}
+		for _, client := range clients {
+			err = client.Close()
+			assert.NoError(t, err)
+		}
+		err = conn.Close()
+		assert.NoError(t, err)
+	}
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
+		2*time.Second, 100*time.Millisecond)
+
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestBasicSFTPFsHandling(t *testing.T) {
 	usePubKey := true
 	baseUser, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
@@ -1348,11 +1501,16 @@ func TestRealPath(t *testing.T) {
 			p, err = client.RealPath(path.Join(subdir, linkName))
 			assert.NoError(t, err)
 			assert.Equal(t, path.Join("/", subdir, linkName), p)
-			// now a link outside the home dir
+			// now a link outside the home dir: realpath is lexical and advisory, so it
+			// returns the in-home virtual path without resolving the symlink; access
+			// through it is still blocked at operation time
 			err = os.Symlink(filepath.Clean(os.TempDir()), filepath.Join(localUser.GetHomeDir(), subdir, "temp"))
 			assert.NoError(t, err)
-			_, err = client.RealPath(path.Join(subdir, "temp"))
-			assert.ErrorIs(t, err, os.ErrPermission)
+			p, err = client.RealPath(path.Join(subdir, "temp"))
+			assert.NoError(t, err)
+			assert.Equal(t, path.Join("/", subdir, "temp"), p)
+			_, err = client.Stat(p)
+			assert.Error(t, err)
 
 			conn.Close()
 			client.Close()
@@ -1954,6 +2112,13 @@ func TestChtimes(t *testing.T) {
 
 // basic tests to verify virtual chroot, should be improved to cover more cases ...
 func TestEscapeHomeDir(t *testing.T) {
+	// use direct (non-atomic) uploads so writes go through os.Root and an escaping
+	// symlink is blocked; with atomic uploads the temp file would replace the
+	// symlink in-home instead.
+	oldUploadMode := common.Config.UploadMode
+	common.Config.UploadMode = common.UploadModeStandard
+	defer func() { common.Config.UploadMode = oldUploadMode }()
+
 	usePubKey := true
 	user, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
@@ -2068,6 +2233,14 @@ func TestEscapeSFTPFsPrefix(t *testing.T) {
 }
 
 func TestSymlinkWriteConfinementLocalFs(t *testing.T) {
+	// use direct (non-atomic) uploads: with atomic uploads the temp file is renamed
+	// onto the symlink, replacing it in-home instead of writing through it. Direct
+	// writes go through os.Root, which blocks an escaping symlink, so this confirms
+	// that writing to an escaping symlink fails.
+	oldUploadMode := common.Config.UploadMode
+	common.Config.UploadMode = common.UploadModeStandard
+	defer func() { common.Config.UploadMode = oldUploadMode }()
+
 	usePubKey := true
 	user, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
@@ -4876,6 +5049,14 @@ func TestMaxSessions(t *testing.T) {
 			c.Close()
 			s.Close()
 		}
+		c2, err := sftp.NewClient(conn)
+		if !assert.Error(t, err, "max sessions exceeded, new session on the same SSH connection should not succeed") {
+			c2.Close()
+		}
+		// The initial connection still works.
+		assert.NoError(t, checkBasicSFTP(client))
+		err = writeSFTPFile(testFileName, 4096, client)
+		assert.NoError(t, err)
 	}
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -7909,6 +8090,13 @@ func TestOpenError(t *testing.T) {
 	if runtime.GOOS == osWindows {
 		t.Skip("this test is not available on Windows")
 	}
+	// use direct (non-atomic) uploads: with atomic uploads, overwriting an existing
+	// permission-denied file renames it to the temp path before opening the temp,
+	// which fails and leaves the source moved; direct writes keep the source in place.
+	oldUploadMode := common.Config.UploadMode
+	common.Config.UploadMode = common.UploadModeStandard
+	defer func() { common.Config.UploadMode = oldUploadMode }()
+
 	usePubKey := false
 	u := getTestUser(usePubKey)
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)

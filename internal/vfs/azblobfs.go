@@ -527,6 +527,8 @@ func (*AzureBlobFs) isBadRequestError(err error) bool {
 func (fs *AzureBlobFs) CheckRootPath(username string, uid int, gid int) bool {
 	// we need a local directory for temporary files
 	osFs := NewOsFs(fs.ConnectionID(), fs.localTempDir, "", nil)
+	defer osFs.Close() //nolint:errcheck
+
 	return osFs.CheckRootPath(username, uid, gid)
 }
 
@@ -847,6 +849,10 @@ func (fs *AzureBlobFs) renameInternal(source, target string, srcInfo os.FileInfo
 		filesSize += srcInfo.Size()
 	}
 	err := fs.skipNotExistErr(fs.Remove(source, srcInfo.IsDir()))
+	if err != nil && !srcInfo.IsDir() {
+		numFiles--
+		filesSize -= srcInfo.Size()
+	}
 	return numFiles, filesSize, err
 }
 

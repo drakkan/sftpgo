@@ -365,7 +365,7 @@ func TestUpdateQuotaAfterRename(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.MkdirAll(mappedPath, os.ModePerm)
 	assert.NoError(t, err)
-	fs, err := user.GetFilesystem("id")
+	fs, err := user.GetFilesystemForPath("/vdir/file", "id")
 	assert.NoError(t, err)
 	c := NewBaseConnection("", ProtocolSFTP, "", "", user)
 	request := sftp.NewRequest("Rename", "/testfile")
@@ -1565,5 +1565,26 @@ func TestOsFsGetRelativePath(t *testing.T) {
 			assert.Equal(t, tc.expectedRel, actualRel,
 				"Failed mapping physical path %q on FS %q", tc.inputPath, tc.fs.Name())
 		})
+	}
+}
+
+func TestOsFsLinkTargetEscapes(t *testing.T) {
+	linkTargetEscapes := func(target string) bool {
+		return filepath.IsAbs(target) || filepath.VolumeName(target) != "" ||
+			(len(target) > 0 && os.IsPathSeparator(target[0]))
+	}
+
+	assert.True(t, linkTargetEscapes("/etc/passwd"))
+	assert.False(t, linkTargetEscapes("target"))
+	assert.False(t, linkTargetEscapes("sub/target"))
+	assert.False(t, linkTargetEscapes("../sibling/target"))
+	assert.False(t, linkTargetEscapes(""))
+	if runtime.GOOS == osWindows {
+		for _, target := range []string{`\foo`, `/foo`, `C:foo`, `C:\foo`, `\\server\share\foo`} {
+			assert.True(t, linkTargetEscapes(target), "target %q must be treated as an escape", target)
+		}
+		for _, target := range []string{`sub\target`, `..\sibling\target`, "target"} {
+			assert.False(t, linkTargetEscapes(target), "relative target %q must not be treated as an escape", target)
+		}
 	}
 }
