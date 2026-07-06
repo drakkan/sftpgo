@@ -11320,9 +11320,9 @@ func TestSCPPermsSubDirs(t *testing.T) {
 	}
 	err = os.Remove(localPath)
 	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 
@@ -11354,9 +11354,9 @@ func TestSCPPermCreateDirs(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(testBaseDirPath)
 	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 
@@ -11378,9 +11378,9 @@ func TestSCPPermUpload(t *testing.T) {
 	assert.Error(t, err, "scp upload must fail, the user cannot upload")
 	err = os.Remove(testFilePath)
 	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 
@@ -11405,9 +11405,9 @@ func TestSCPPermOverwrite(t *testing.T) {
 
 	err = os.Remove(testFilePath)
 	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 
@@ -11434,9 +11434,9 @@ func TestSCPPermDownload(t *testing.T) {
 
 	err = os.Remove(testFilePath)
 	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 
@@ -11490,9 +11490,9 @@ func TestSCPQuotaSize(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.Remove(testFilePath2)
 	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 
@@ -11526,9 +11526,9 @@ func TestSCPEscapeHomeDir(t *testing.T) {
 
 	err = os.Remove(testFilePath)
 	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 
@@ -11585,9 +11585,9 @@ func TestSCPOverwriteDirWithFile(t *testing.T) {
 	err = scpUpload(testFilePath, remoteUpPath, false, false)
 	assert.Error(t, err, "copying a file over an existing dir must fail")
 
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 
@@ -11616,13 +11616,13 @@ func TestSCPRemoteToRemote(t *testing.T) {
 	assert.NoError(t, err)
 	err = scpUpload(remoteUpPath, remote1UpPath, false, true)
 	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	err = os.RemoveAll(user1.GetHomeDir())
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user1, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user1.GetHomeDir())
 	assert.NoError(t, err)
 }
 
@@ -11675,9 +11675,9 @@ func TestSCPErrors(t *testing.T) {
 	err = os.Remove(testFilePath)
 	assert.NoError(t, err)
 	os.Remove(localPath)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 

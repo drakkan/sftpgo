@@ -622,9 +622,9 @@ func TestBasicHandling(t *testing.T) {
 		err = os.Remove(localDownloadPath)
 		assert.NoError(t, err)
 		if user.Username == defaultUsername {
-			err = os.RemoveAll(user.GetHomeDir())
-			assert.NoError(t, err)
 			_, err = httpdtest.RemoveUser(user, http.StatusOK)
+			assert.NoError(t, err)
+			err = os.RemoveAll(user.GetHomeDir())
 			assert.NoError(t, err)
 			user.Password = defaultPassword
 			user.ID = 0
@@ -2062,9 +2062,9 @@ func TestQuotaLimits(t *testing.T) {
 		err = os.Remove(testFilePath2)
 		assert.NoError(t, err)
 		if user.Username == defaultUsername {
-			err = os.RemoveAll(user.GetHomeDir())
-			assert.NoError(t, err)
 			_, err = httpdtest.RemoveUser(user, http.StatusOK)
+			assert.NoError(t, err)
+			err = os.RemoveAll(user.GetHomeDir())
 			assert.NoError(t, err)
 			user.Password = defaultPassword
 			user.ID = 0
@@ -2164,9 +2164,9 @@ func TestUploadMaxSize(t *testing.T) {
 		err = os.Remove(testFilePath1)
 		assert.NoError(t, err)
 		if user.Username == defaultUsername {
-			err = os.RemoveAll(user.GetHomeDir())
-			assert.NoError(t, err)
 			_, err = httpdtest.RemoveUser(user, http.StatusOK)
+			assert.NoError(t, err)
+			err = os.RemoveAll(user.GetHomeDir())
 			assert.NoError(t, err)
 			user.Filters.MaxUploadFileSize = 65536000
 			user.Password = defaultPassword
@@ -2836,9 +2836,9 @@ func TestMiscCommands(t *testing.T) {
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 		if user.Username == defaultUsername {
-			err = os.RemoveAll(user.GetHomeDir())
-			assert.NoError(t, err)
 			_, err = httpdtest.RemoveUser(user, http.StatusOK)
+			assert.NoError(t, err)
+			err = os.RemoveAll(user.GetHomeDir())
 			assert.NoError(t, err)
 			user.Password = defaultPassword
 			user.ID = 0

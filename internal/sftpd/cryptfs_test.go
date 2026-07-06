@@ -495,9 +495,9 @@ func TestSCPRecursiveCryptFs(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(testBaseDirDownPath)
 	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 
