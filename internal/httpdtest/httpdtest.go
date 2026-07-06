@@ -217,7 +217,7 @@ func RemoveUser(user dataprovider.User, expectedStatusCode int) ([]byte, error) 
 	body, _ = getResponseBody(resp)
 	err = checkResponse(resp.StatusCode, expectedStatusCode)
 	if err == nil && expectedStatusCode == http.StatusOK {
-		waitNoUserConnections(user.Username)
+		waitNoUserConnections(dataprovider.ConvertName(user.Username))
 	}
 	return body, err
 }
