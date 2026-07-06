@@ -198,6 +198,8 @@ func (s *httpdServer) readBrowsableShareContents(w http.ResponseWriter, r *http.
 	if err != nil {
 		return
 	}
+	defer connection.CloseFS() //nolint:errcheck
+
 	if err := validateBrowsableShare(share, connection); err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -229,6 +231,8 @@ func (s *httpdServer) downloadBrowsableSharedFile(w http.ResponseWriter, r *http
 	if err != nil {
 		return
 	}
+	defer connection.CloseFS() //nolint:errcheck
+
 	if err := validateBrowsableShare(share, connection); err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -281,6 +285,7 @@ func (s *httpdServer) downloadFromShare(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		return
 	}
+	defer connection.CloseFS() //nolint:errcheck
 
 	if err = common.Connections.Add(connection); err != nil {
 		sendAPIResponse(w, r, err, "Unable to add connection", http.StatusTooManyRequests)
@@ -347,6 +352,8 @@ func (s *httpdServer) uploadFileToShare(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		return
 	}
+	defer connection.CloseFS() //nolint:errcheck
+
 	filePath := util.CleanPath(path.Join(share.Paths[0], name))
 	expectedPrefix := share.Paths[0]
 	if !strings.HasSuffix(expectedPrefix, "/") {
@@ -388,6 +395,8 @@ func (s *httpdServer) uploadFilesToShare(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		return
 	}
+	defer connection.CloseFS() //nolint:errcheck
+
 	if err := common.Connections.IsNewTransferAllowed(connection.BaseConnection); err != nil {
 		connection.Log(logger.LevelInfo, "denying file write due to number of transfer limits")
 		sendAPIResponse(w, r, err, "Denying file write due to transfer count limits",
@@ -577,7 +586,6 @@ func validateBrowsableShare(share dataprovider.Share, connection *Connection) er
 	basePath := share.Paths[0]
 	info, err := connection.Stat(basePath, 0)
 	if err != nil {
-		connection.CloseFS() //nolint:errcheck
 		return util.NewI18nError(
 			fmt.Errorf("unable to check the share directory: %w", err),
 			util.I18nErrorShareInvalidPath,
