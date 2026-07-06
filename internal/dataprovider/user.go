@@ -545,10 +545,12 @@ func (u *User) IsTLSVerificationEnabled() bool {
 func (u *User) SetEmptySecrets() {
 	u.FsConfig.SetEmptySecrets()
 	for idx := range u.VirtualFolders {
-		folder := &u.VirtualFolders[idx]
-		folder.FsConfig.SetEmptySecrets()
+		u.VirtualFolders[idx].FsConfig.SetEmptySecrets()
 	}
 	u.Filters.TOTPConfig.Secret = kms.NewEmptySecret()
+	for idx := range u.Filters.RecoveryCodes {
+		u.Filters.RecoveryCodes[idx].Secret = kms.NewEmptySecret()
+	}
 }
 
 // GetPermissionsForPath returns the permissions for the given path.
