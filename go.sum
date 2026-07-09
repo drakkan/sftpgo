@@ -124,8 +124,8 @@ github.com/drakkan/cron/v3 v3.0.0-20230222140221-217a1e4d96c0 h1:EW9gIJRmt9lzk66
 github.com/drakkan/cron/v3 v3.0.0-20230222140221-217a1e4d96c0/go.mod h1:eQICP3HwyT7UooqI/z+Ov+PtYAWygg1TEWWzGIFLtro=
 github.com/drakkan/ftp v0.0.0-20240430173938-7ba8270c8e7f h1:S9JUlrOzjK58UKoLqqb40YLyVlt0bcIFtYrvnanV3zc=
 github.com/drakkan/ftp v0.0.0-20240430173938-7ba8270c8e7f/go.mod h1:4p8lUl4vQ80L598CygL+3IFtm+3nggvvW/palOlViwE=
-github.com/drakkan/webdav v0.0.0-20260506070921-6982cd451202 h1:i5z3d/M9UMZFeNqq4zThbCYAzTkubfwqYWzjKs+TFco=
-github.com/drakkan/webdav v0.0.0-20260506070921-6982cd451202/go.mod h1:zOVb1QDhwwqWn2L2qZ0U3swMSO4GTSNyIwXCGO/UGWE=
+github.com/drakkan/webdav v0.0.0-20260709145212-0af7fe6f3bb2 h1:McnQpczddjoCZKoyb7l1RMAq4a8RyQ7Hfupe15/hfFw=
+github.com/drakkan/webdav v0.0.0-20260709145212-0af7fe6f3bb2/go.mod h1:zOVb1QDhwwqWn2L2qZ0U3swMSO4GTSNyIwXCGO/UGWE=
 github.com/eikenb/pipeat v0.0.0-20251030185646-385cd3c3e07b h1:G2Mm3YhlyjkFrNnvu5E6LtNcPJtggXL1i5ekDV4hDD4=
 github.com/eikenb/pipeat v0.0.0-20251030185646-385cd3c3e07b/go.mod h1:XccPiThW83W5pzeOCsJAylEUtWeH+3zQVwiO402FXXc=
 github.com/envoyproxy/go-control-plane v0.14.0 h1:hbG2kr4RuFj222B6+7T83thSPqLjwBIfQawTkC++2HA=

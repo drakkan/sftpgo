@@ -142,3 +142,9 @@ func (f *httpdFile) setFinished() error {
 	f.isFinished = true
 	return nil
 }
+
+func markTransferError(writer io.WriteCloser, err error) {
+	if te, ok := writer.(interface{ TransferError(err error) }); ok {
+		te.TransferError(err)
+	}
+}

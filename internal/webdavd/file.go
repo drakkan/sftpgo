@@ -40,6 +40,8 @@ var (
 	lastModifiedProps  = []string{"Win32LastModifiedTime", "getlastmodified"}
 )
 
+var _ webdav.TransferErrorHandler = (*webDavFile)(nil)
+
 type webDavFile struct {
 	*common.BaseTransfer
 	writer      io.WriteCloser

@@ -18340,6 +18340,54 @@ func TestWebDirsAPI(t *testing.T) {
 	checkResponseCode(t, http.StatusNotFound, rr)
 }
 
+func TestUploadAbortAtomicAPI(t *testing.T) {
+	oldUploadMode := common.Config.UploadMode
+	common.Config.UploadMode = 1
+	defer func() {
+		common.Config.UploadMode = oldUploadMode
+	}()
+
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	webAPIToken, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	body := &abortingReader{data: make([]byte, 32*1024)}
+	req, err := http.NewRequest(http.MethodPost, userUploadFilePath+"?path=file.bin", body)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr := executeRequest(req)
+	assert.NotEqual(t, http.StatusCreated, rr.Code)
+
+	// the truncated upload must not be finalized
+	_, err = os.Stat(filepath.Join(user.GetHomeDir(), "file.bin"))
+	assert.ErrorIs(t, err, os.ErrNotExist)
+	// no orphan atomic temp file must be left behind
+	entries, err := os.ReadDir(user.GetHomeDir())
+	assert.NoError(t, err)
+	for _, entry := range entries {
+		assert.NotContains(t, entry.Name(), ".sftpgo-upload.")
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+type abortingReader struct {
+	data []byte
+	sent bool
+}
+
+func (r *abortingReader) Read(p []byte) (int, error) {
+	if !r.sent {
+		r.sent = true
+		return copy(p, r.data), nil
+	}
+	return 0, errors.New("simulated client abort")
+}
+
 func TestWebUploadSingleFile(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)

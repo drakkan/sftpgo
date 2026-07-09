@@ -1936,6 +1936,61 @@ func TestUploadErrors(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestUploadAbortAtomic(t *testing.T) {
+	oldUploadMode := common.Config.UploadMode
+	common.Config.UploadMode = 1
+	defer func() {
+		common.Config.UploadMode = oldUploadMode
+	}()
+
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+
+	body := &abortingReader{data: make([]byte, 32*1024)}
+	req, err := http.NewRequest(http.MethodPut, fmt.Sprintf("http://%v/%v", webDavServerAddr, testFileName), body)
+	assert.NoError(t, err)
+	req.SetBasicAuth(user.Username, defaultPassword)
+	// declare more bytes than the body will deliver so the server sees a truncated body
+	req.ContentLength = 1024 * 1024
+	httpClient := &http.Client{Timeout: 10 * time.Second}
+	defer httpClient.CloseIdleConnections()
+	resp, err := httpClient.Do(req)
+	if err == nil {
+		assert.NotEqual(t, http.StatusCreated, resp.StatusCode)
+		resp.Body.Close()
+	}
+
+	// the truncated upload must not be finalized
+	client := getWebDavClient(user, false, nil)
+	_, err = client.Stat(testFileName)
+	assert.Error(t, err)
+	// no orphan atomic temp file must be left behind
+	entries, err := os.ReadDir(user.GetHomeDir())
+	assert.NoError(t, err)
+	for _, entry := range entries {
+		assert.NotContains(t, entry.Name(), ".sftpgo-upload.")
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+type abortingReader struct {
+	data []byte
+	sent bool
+}
+
+func (r *abortingReader) Read(p []byte) (int, error) {
+	if !r.sent {
+		r.sent = true
+		n := copy(p, r.data)
+		return n, nil
+	}
+	return 0, errors.New("simulated client abort")
+}
+
 func TestDeniedLoginMethod(t *testing.T) {
 	u := getTestUser()
 	u.Filters.DeniedLoginMethods = []string{dataprovider.LoginMethodPassword}

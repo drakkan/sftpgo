@@ -289,6 +289,7 @@ func doUploadFile(w http.ResponseWriter, r *http.Request, connection *Connection
 	}
 	_, err = io.Copy(writer, r.Body)
 	if err != nil {
+		markTransferError(writer, err)
 		writer.Close() //nolint:errcheck
 		sendAPIResponse(w, r, err, fmt.Sprintf("Error saving file %q", filePath), getMappedStatusCode(err))
 		return err
@@ -372,6 +373,7 @@ func doUploadFiles(w http.ResponseWriter, r *http.Request, connection *Connectio
 		}
 		_, err = io.Copy(writer, file)
 		if err != nil {
+			markTransferError(writer, err)
 			writer.Close() //nolint:errcheck
 			sendAPIResponse(w, r, err, fmt.Sprintf("Error saving file %q", f.Filename), getMappedStatusCode(err))
 			return uploaded
