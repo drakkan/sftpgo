@@ -2145,6 +2145,7 @@ func AddUser(user *User, executor, ipAddress, role string) error {
 	user.Username = config.convertName(user.Username)
 	err := provider.addUser(user)
 	if err == nil {
+		RemoveCachedWebDAVUser(user.Username)
 		executeAction(operationAdd, executor, ipAddress, actionObjectUser, user.Username, role, user)
 	}
 	return err
