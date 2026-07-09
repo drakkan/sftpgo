@@ -11559,11 +11559,11 @@ func TestSCPUploadPaths(t *testing.T) {
 	err = scpUpload(testFilePath, remoteUpPath, false, false)
 	assert.Error(t, err, "scp upload to a missing dir must fail")
 
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 	err = os.Remove(localPath)
-	assert.NoError(t, err)
-	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 }
 

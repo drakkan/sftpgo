@@ -2453,11 +2453,13 @@ func TestQuotaLimits(t *testing.T) {
 		err = os.Remove(testFilePath2)
 		assert.NoError(t, err)
 		if user.Username == defaultUsername {
-			err = os.RemoveAll(user.GetHomeDir())
-			assert.NoError(t, err)
+			// remove the user before the home dir so the connection
+			// holding the fs root is closed
 			user.QuotaFiles = 0
 			user.QuotaSize = 0
 			_, err = httpdtest.RemoveUser(user, http.StatusOK)
+			assert.NoError(t, err)
+			err = os.RemoveAll(user.GetHomeDir())
 			assert.NoError(t, err)
 			user.Password = defaultPassword
 			user.QuotaSize = 0
