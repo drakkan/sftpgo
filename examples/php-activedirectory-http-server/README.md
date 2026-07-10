@@ -49,6 +49,18 @@ $virtual_folders['example'] = [
       "quota_files" => -1
     ]
 ];
+
+// Alternative example using mapped_subdirectory for multi-tenant shared storage:
+$virtual_folders['shared_example'] = [
+    [
+      "name" => "shared-documents",
+      "mapped_path" => 'F:\files\shared\documents',
+      "virtual_path" => "/documents",
+      "mapped_subdirectory" => "#USERNAME#",
+      "quota_size" => -1,
+      "quota_files" => -1
+    ]
+];
 ```
 
 ## Example Connection "Output Object" Allowing For No Files in the User's Home Directory ("Root Directory") but Allowing for Files in the Public/Private Virtual Folders

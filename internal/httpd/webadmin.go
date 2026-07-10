@@ -1254,6 +1254,7 @@ func getVirtualFoldersFromPostFields(r *http.Request) []vfs.VirtualFolder {
 	var virtualFolders []vfs.VirtualFolder
 	folderPaths := r.Form["vfolder_path"]
 	folderNames := r.Form["vfolder_name"]
+	folderSubdirectories := r.Form["vfolder_mapped_subdirectory"]
 	folderQuotaSizes := r.Form["vfolder_quota_size"]
 	folderQuotaFiles := r.Form["vfolder_quota_files"]
 	for idx, p := range folderPaths {
@@ -1269,6 +1270,9 @@ func getVirtualFoldersFromPostFields(r *http.Request) []vfs.VirtualFolder {
 				VirtualPath: p,
 				QuotaFiles:  -1,
 				QuotaSize:   -1,
+			}
+			if len(folderSubdirectories) > idx {
+				vfolder.MappedSubdirectory = strings.TrimSpace(folderSubdirectories[idx])
 			}
 			if len(folderQuotaSizes) > idx {
 				quotaSize, err := util.ParseBytes(folderQuotaSizes[idx])
@@ -2019,6 +2023,7 @@ func updateRepeaterFormFields(r *http.Request) {
 			base, _ := strings.CutSuffix(k, "[vfolder_path]")
 			r.Form.Add("vfolder_path", strings.TrimSpace(r.Form.Get(k)))
 			r.Form.Add("vfolder_name", strings.TrimSpace(r.Form.Get(base+"[vfolder_name]")))
+			r.Form.Add("vfolder_mapped_subdirectory", strings.TrimSpace(r.Form.Get(base+"[vfolder_mapped_subdirectory]")))
 			r.Form.Add("vfolder_quota_files", strings.TrimSpace(r.Form.Get(base+"[vfolder_quota_files]")))
 			r.Form.Add("vfolder_quota_size", strings.TrimSpace(r.Form.Get(base+"[vfolder_quota_size]")))
 			continue

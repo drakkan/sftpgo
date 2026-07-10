@@ -190,7 +190,10 @@ var (
 	// ErrShareUsageExceeded is returned when reserving share usage tokens would exceed the share max_tokens limit
 	ErrShareUsageExceeded = util.NewI18nError(
 		util.NewRecordNotFoundError("max share usage exceeded"), util.I18nErrorShareUsage)
-	errInvalidInput         = util.NewValidationError("Invalid input. Slashes (/ ), colons (:), control characters, and reserved system names are not allowed")
+	errInvalidInput              = util.NewValidationError("Invalid input. Slashes (/ ), colons (:), control characters, and reserved system names are not allowed")
+	errInvalidMappedSubdirectory = util.NewI18nError(
+		util.NewValidationError("mapped subdirectory must be a relative path that does not escape the mapped root"),
+		util.I18nErrorPathInvalid)
 	tz                      = ""
 	isAdminCreated          atomic.Bool
 	validTLSUsernames       = []string{string(sdk.TLSUsernameNone), string(sdk.TLSUsernameCN)}
@@ -2772,7 +2775,7 @@ func validateAssociatedVirtualFolders(vfolders []vfs.VirtualFolder) ([]vfs.Virtu
 		return []vfs.VirtualFolder{}, nil
 	}
 	var virtualFolders []vfs.VirtualFolder
-	folderNames := make(map[string]bool)
+	folderKeys := make(map[[2]string]bool)
 
 	for _, v := range vfolders {
 		v.Name = config.convertName(v.Name)
@@ -2789,9 +2792,18 @@ func validateAssociatedVirtualFolders(vfolders []vfs.VirtualFolder) ([]vfs.Virtu
 		if v.Name == "" {
 			return nil, util.NewI18nError(util.NewValidationError("folder name is mandatory"), util.I18nErrorFolderNameRequired)
 		}
-		if folderNames[v.Name] {
+		subdir, err := normalizeMappedSubdirectory(v.MappedSubdirectory)
+		if err != nil {
+			return nil, err
+		}
+		v.MappedSubdirectory = subdir
+		if err := validateMappedSubdirectoryQuota(v); err != nil {
+			return nil, err
+		}
+		folderKey := [2]string{v.Name, subdir}
+		if folderKeys[folderKey] {
 			return nil, util.NewI18nError(
-				util.NewValidationError(fmt.Sprintf("the folder %q is duplicated", v.Name)),
+				util.NewValidationError(duplicatedFolderMessage(v.Name, subdir)),
 				util.I18nErrorDuplicatedFolders,
 			)
 		}
@@ -2808,13 +2820,56 @@ func validateAssociatedVirtualFolders(vfolders []vfs.VirtualFolder) ([]vfs.Virtu
 			BaseVirtualFolder: vfs.BaseVirtualFolder{
 				Name: v.Name,
 			},
-			VirtualPath: cleanedVPath,
-			QuotaSize:   v.QuotaSize,
-			QuotaFiles:  v.QuotaFiles,
+			VirtualPath:        cleanedVPath,
+			MappedSubdirectory: subdir,
+			QuotaSize:          v.QuotaSize,
+			QuotaFiles:         v.QuotaFiles,
 		})
-		folderNames[v.Name] = true
+		folderKeys[folderKey] = true
 	}
 	return virtualFolders, nil
+}
+
+func duplicatedFolderMessage(name, subdir string) string {
+	if subdir != "" {
+		return fmt.Sprintf("the folder %q with subdirectory %q is duplicated", name, subdir)
+	}
+	return fmt.Sprintf("the folder %q is duplicated", name)
+}
+
+func normalizeMappedSubdirectory(value string) (string, error) {
+	if value == "" {
+		return "", nil
+	}
+	value = strings.ReplaceAll(value, "\\", "/") // collapse "\" like CleanPath, so it can't evade the checks below
+	if path.IsAbs(value) {
+		return "", errInvalidMappedSubdirectory
+	}
+	clean := path.Clean(value)
+	if clean == "." {
+		return "", nil
+	}
+	if clean == ".." || strings.HasPrefix(clean, "../") {
+		return "", errInvalidMappedSubdirectory
+	}
+	// capped uniformly so a config stays valid across providers: the column is
+	// part of a unique index and MySQL stores it as varchar(255)
+	if len(clean) > 255 {
+		return "", util.NewI18nError(
+			util.NewValidationError("mapped subdirectory is too long, 255 is the maximum length allowed"),
+			util.I18nErrorPathInvalid)
+	}
+	return clean, nil
+}
+
+func validateMappedSubdirectoryQuota(v vfs.VirtualFolder) error {
+	if v.MappedSubdirectory != "" && (v.QuotaSize > 0 || v.QuotaFiles > 0) {
+		return util.NewI18nError(
+			util.NewValidationError("a positive quota applies to the whole folder, not the mapped subdirectory: use -1 to include it in the user quota, or 0 for no limit"),
+			util.I18nErrorFolderQuotaInvalid,
+		)
+	}
+	return nil
 }
 
 func validateUserTOTPConfig(c *UserTOTPConfig, username string) error {

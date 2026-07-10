@@ -207,6 +207,18 @@ const (
 		"CREATE INDEX `{{prefix}}shares_groups_mapping_share_id_idx` ON `{{shares_groups_mapping}}` (`share_id`); " +
 		"CREATE INDEX `{{prefix}}shares_groups_mapping_group_id_idx` ON `{{shares_groups_mapping}}` (`group_id`);"
 	mysqlV34DownSQL = "DROP TABLE IF EXISTS `{{shares_groups_mapping}}`;"
+	mysqlV35SQL     = "ALTER TABLE `{{users_folders_mapping}}` ADD COLUMN `subdirectory` varchar(255) NOT NULL DEFAULT '';" +
+		"ALTER TABLE `{{groups_folders_mapping}}` ADD COLUMN `subdirectory` varchar(255) NOT NULL DEFAULT '';" +
+		"ALTER TABLE `{{users_folders_mapping}}` DROP CONSTRAINT `{{prefix}}unique_user_folder_mapping`;" +
+		"ALTER TABLE `{{users_folders_mapping}}` ADD CONSTRAINT `{{prefix}}unique_user_folder_mapping` UNIQUE (`user_id`, `folder_id`, `subdirectory`);" +
+		"ALTER TABLE `{{groups_folders_mapping}}` DROP CONSTRAINT `{{prefix}}unique_group_folder_mapping`;" +
+		"ALTER TABLE `{{groups_folders_mapping}}` ADD CONSTRAINT `{{prefix}}unique_group_folder_mapping` UNIQUE (`group_id`, `folder_id`, `subdirectory`);"
+	mysqlV35DownSQL = "ALTER TABLE `{{users_folders_mapping}}` DROP CONSTRAINT `{{prefix}}unique_user_folder_mapping`;" +
+		"ALTER TABLE `{{groups_folders_mapping}}` DROP CONSTRAINT `{{prefix}}unique_group_folder_mapping`;" +
+		"ALTER TABLE `{{users_folders_mapping}}` ADD CONSTRAINT `{{prefix}}unique_user_folder_mapping` UNIQUE (`user_id`, `folder_id`);" +
+		"ALTER TABLE `{{groups_folders_mapping}}` ADD CONSTRAINT `{{prefix}}unique_group_folder_mapping` UNIQUE (`group_id`, `folder_id`);" +
+		"ALTER TABLE `{{users_folders_mapping}}` DROP COLUMN `subdirectory`;" +
+		"ALTER TABLE `{{groups_folders_mapping}}` DROP COLUMN `subdirectory`;"
 )
 
 // MySQLProvider defines the auth provider for MySQL/MariaDB database
@@ -817,6 +829,8 @@ func (p *MySQLProvider) migrateDatabase() error {
 		return err
 	case version == 33:
 		return updateMySQLDatabaseFromV33(p.dbHandle)
+	case version == 34:
+		return updateMySQLDatabaseFromV34(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -841,6 +855,8 @@ func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 	switch dbVersion.Version {
 	case 34:
 		return downgradeMySQLDatabaseFromV34(p.dbHandle)
+	case 35:
+		return downgradeMySQLDatabaseFromV35(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
@@ -880,11 +896,25 @@ func (p *MySQLProvider) normalizeError(err error, fieldType int) error {
 }
 
 func updateMySQLDatabaseFromV33(dbHandle *sql.DB) error {
-	return updateMySQLDatabaseFrom33To34(dbHandle)
+	if err := updateMySQLDatabaseFrom33To34(dbHandle); err != nil {
+		return err
+	}
+	return updateMySQLDatabaseFromV34(dbHandle)
+}
+
+func updateMySQLDatabaseFromV34(dbHandle *sql.DB) error {
+	return updateMySQLDatabaseFrom34To35(dbHandle)
 }
 
 func downgradeMySQLDatabaseFromV34(dbHandle *sql.DB) error {
 	return downgradeMySQLDatabaseFrom34To33(dbHandle)
+}
+
+func downgradeMySQLDatabaseFromV35(dbHandle *sql.DB) error {
+	if err := downgradeMySQLDatabaseFrom35To34(dbHandle); err != nil {
+		return err
+	}
+	return downgradeMySQLDatabaseFromV34(dbHandle)
 }
 
 func updateMySQLDatabaseFrom33To34(dbHandle *sql.DB) error {
@@ -904,4 +934,24 @@ func downgradeMySQLDatabaseFrom34To33(dbHandle *sql.DB) error {
 
 	sql := strings.ReplaceAll(mysqlV34DownSQL, "{{shares_groups_mapping}}", sqlTableSharesGroupsMapping)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 33, false)
+}
+
+func updateMySQLDatabaseFrom34To35(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database schema version: 34 -> 35")
+	providerLog(logger.LevelInfo, "updating database schema version: 34 -> 35")
+
+	sql := strings.ReplaceAll(mysqlV35SQL, "{{prefix}}", config.SQLTablesPrefix)
+	sql = strings.ReplaceAll(sql, "{{users_folders_mapping}}", sqlTableUsersFoldersMapping)
+	sql = strings.ReplaceAll(sql, "{{groups_folders_mapping}}", sqlTableGroupsFoldersMapping)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 35, true)
+}
+
+func downgradeMySQLDatabaseFrom35To34(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database schema version: 35 -> 34")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 35 -> 34")
+
+	sql := strings.ReplaceAll(mysqlV35DownSQL, "{{prefix}}", config.SQLTablesPrefix)
+	sql = strings.ReplaceAll(sql, "{{users_folders_mapping}}", sqlTableUsersFoldersMapping)
+	sql = strings.ReplaceAll(sql, "{{groups_folders_mapping}}", sqlTableGroupsFoldersMapping)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 34, false)
 }

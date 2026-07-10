@@ -74,6 +74,7 @@ type S3Fs struct {
 	localTempDir string
 	// if not empty this fs is mouted as virtual folder in the specified path
 	mountPath         string
+	subDir            string
 	config            *S3FsConfig
 	svc               *s3.Client
 	ctxTimeout        time.Duration
@@ -88,13 +89,14 @@ func init() {
 
 // NewS3Fs returns an S3Fs object that allows to interact with an s3 compatible
 // object storage
-func NewS3Fs(connectionID, localTempDir, mountPath string, s3Config S3FsConfig) (Fs, error) {
+func NewS3Fs(connectionID, localTempDir, subDir, mountPath string, s3Config S3FsConfig) (Fs, error) {
 	if localTempDir == "" {
 		localTempDir = getLocalTempDir()
 	}
 	fs := &S3Fs{
 		connectionID: connectionID,
 		localTempDir: localTempDir,
+		subDir:       subDir,
 		mountPath:    getMountPath(mountPath),
 		config:       &s3Config,
 		ctxTimeout:   30 * time.Second,
@@ -178,7 +180,7 @@ func (fs *S3Fs) Stat(name string) (os.FileInfo, error) {
 	if name == "" || name == "/" || name == "." {
 		return NewFileInfo(name, true, 0, time.Unix(0, 0), false), nil
 	}
-	if fs.config.KeyPrefix == name+"/" {
+	if fs.effectivePrefix() == name+"/" {
 		return NewFileInfo(name, true, 0, time.Unix(0, 0), false), nil
 	}
 	obj, err := fs.headObject(name)
@@ -491,7 +493,7 @@ func (fs *S3Fs) CheckRootPath(username string, uid int, gid int) bool {
 // ScanRootDirContents returns the number of files contained in the bucket,
 // and their size
 func (fs *S3Fs) ScanRootDirContents() (int, int64, error) {
-	return fs.GetDirSize(fs.config.KeyPrefix)
+	return fs.GetDirSize(fs.effectivePrefix())
 }
 
 // GetDirSize returns the number of files and the size for a folder
@@ -548,11 +550,11 @@ func (fs *S3Fs) GetRelativePath(name string) string {
 	if !path.IsAbs(rel) {
 		rel = "/" + rel
 	}
-	if fs.config.KeyPrefix != "" {
-		if !strings.HasPrefix(rel, "/"+fs.config.KeyPrefix) {
+	if prefix := fs.effectivePrefix(); prefix != "" {
+		if !strings.HasPrefix(rel, "/"+prefix) {
 			rel = "/"
 		}
-		rel = path.Clean("/" + strings.TrimPrefix(rel, "/"+fs.config.KeyPrefix))
+		rel = path.Clean("/" + strings.TrimPrefix(rel, "/"+prefix))
 	}
 	if fs.mountPath != "" {
 		rel = path.Join(fs.mountPath, rel)
@@ -618,7 +620,18 @@ func (fs *S3Fs) ResolvePath(virtualPath string) (string, error) {
 		}
 	}
 	virtualPath = path.Clean("/" + virtualPath)
-	return fs.Join(fs.config.KeyPrefix, strings.TrimPrefix(virtualPath, "/")), nil
+	return fs.Join(fs.effectivePrefix(), strings.TrimPrefix(virtualPath, "/")), nil
+}
+
+func (fs *S3Fs) effectivePrefix() string {
+	if fs.subDir == "" {
+		return fs.config.KeyPrefix
+	}
+	prefix := path.Join(fs.config.KeyPrefix, fs.subDir)
+	if prefix == "" || prefix == "/" {
+		return ""
+	}
+	return strings.TrimPrefix(prefix, "/") + "/"
 }
 
 // CopyFile implements the FsFileCopier interface

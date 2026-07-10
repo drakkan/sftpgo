@@ -178,11 +178,11 @@ func (u *User) GetFilesystem(connectionID string) (fs vfs.Fs, err error) {
 func (u *User) getRootFs(connectionID string) (fs vfs.Fs, err error) {
 	switch u.FsConfig.Provider {
 	case sdk.S3FilesystemProvider:
-		return vfs.NewS3Fs(connectionID, u.GetHomeDir(), "", u.FsConfig.S3Config)
+		return vfs.NewS3Fs(connectionID, u.GetHomeDir(), "", "", u.FsConfig.S3Config)
 	case sdk.GCSFilesystemProvider:
-		return vfs.NewGCSFs(connectionID, u.GetHomeDir(), "", u.FsConfig.GCSConfig)
+		return vfs.NewGCSFs(connectionID, u.GetHomeDir(), "", "", u.FsConfig.GCSConfig)
 	case sdk.AzureBlobFilesystemProvider:
-		return vfs.NewAzBlobFs(connectionID, u.GetHomeDir(), "", u.FsConfig.AzBlobConfig)
+		return vfs.NewAzBlobFs(connectionID, u.GetHomeDir(), "", "", u.FsConfig.AzBlobConfig)
 	case sdk.CryptedFilesystemProvider:
 		return vfs.NewCryptFs(connectionID, u.GetHomeDir(), "", u.FsConfig.CryptConfig)
 	case sdk.SFTPFilesystemProvider:
@@ -191,9 +191,9 @@ func (u *User) getRootFs(connectionID string) (fs vfs.Fs, err error) {
 			return nil, err
 		}
 		forbiddenSelfUsers = append(forbiddenSelfUsers, u.Username)
-		return vfs.NewSFTPFs(connectionID, "", u.GetHomeDir(), forbiddenSelfUsers, u.FsConfig.SFTPConfig)
+		return vfs.NewSFTPFs(connectionID, "", "", u.GetHomeDir(), forbiddenSelfUsers, u.FsConfig.SFTPConfig)
 	case sdk.HTTPFilesystemProvider:
-		return vfs.NewHTTPFs(connectionID, u.GetHomeDir(), "", u.FsConfig.HTTPConfig)
+		return vfs.NewHTTPFs(connectionID, u.GetHomeDir(), "", "", u.FsConfig.HTTPConfig)
 	default:
 		return vfs.NewOsFs(connectionID, u.GetHomeDir(), "", &u.FsConfig.OSConfig), nil
 	}
@@ -341,6 +341,9 @@ func (u *User) isFsEqual(other *User) bool {
 			f1 := &other.VirtualFolders[idx1]
 			if f.VirtualPath == f1.VirtualPath {
 				found = true
+				if f.MappedSubdirectory != f1.MappedSubdirectory {
+					return false
+				}
 				if f.FsConfig.Provider == sdk.LocalFilesystemProvider && f.MappedPath != f1.MappedPath {
 					return false
 				}
@@ -843,7 +846,7 @@ func (u *User) FilterListDir(dirContents []os.FileInfo, virtualPath string) []os
 func (u *User) IsMappedPath(fsPath string) bool {
 	for idx := range u.VirtualFolders {
 		v := &u.VirtualFolders[idx]
-		if fsPath == v.MappedPath {
+		if fsPath == v.MappedPath || fsPath == v.GetEffectiveMappedPath() {
 			return true
 		}
 	}
@@ -1745,6 +1748,7 @@ func (u *User) mergeVirtualFolders(group *Group, groupType int, replacer *string
 			folder.VirtualPath = u.replacePlaceholder(folder.VirtualPath, replacer)
 			if _, ok := folderPaths[folder.VirtualPath]; !ok {
 				folder.MappedPath = u.replacePlaceholder(folder.MappedPath, replacer)
+				folder.MappedSubdirectory = u.replacePlaceholder(folder.MappedSubdirectory, replacer)
 				folder.FsConfig = u.replaceFsConfigPlaceholders(folder.FsConfig, replacer)
 				u.VirtualFolders = append(u.VirtualFolders, folder)
 			}

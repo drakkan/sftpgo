@@ -6152,6 +6152,73 @@ func TestUserFolderMapping(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestUserFolderMappingWithSubdirectory(t *testing.T) {
+	baseMappedPath := filepath.Join(os.TempDir(), "subdir_mapping_test")
+	err := os.MkdirAll(baseMappedPath, os.ModePerm)
+	assert.NoError(t, err)
+	defer os.RemoveAll(baseMappedPath)
+
+	folderName := "shared_mapping_folder"
+	f := vfs.BaseVirtualFolder{
+		Name:       folderName,
+		MappedPath: baseMappedPath,
+	}
+	_, _, err = httpdtest.AddFolder(f, http.StatusCreated)
+	assert.NoError(t, err)
+
+	users := []struct {
+		username string
+		subdir   string
+		vpath    string
+	}{
+		{"mapping_user1", "tenant1/data", "/data"},
+		{"mapping_user2", "tenant2/data", "/data"},
+		{"mapping_user3", "", "/shared"},
+	}
+
+	var createdUsers []dataprovider.User
+
+	for _, userInfo := range users {
+		u := getTestUser()
+		u.Username = userInfo.username
+		u.VirtualFolders = []vfs.VirtualFolder{
+			{
+				BaseVirtualFolder: vfs.BaseVirtualFolder{
+					Name: folderName,
+				},
+				VirtualPath:        userInfo.vpath,
+				MappedSubdirectory: userInfo.subdir,
+			},
+		}
+
+		user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+		assert.NoError(t, err)
+		createdUsers = append(createdUsers, user)
+	}
+
+	folder, _, err := httpdtest.GetFolderByName(folderName, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, folder.Users, 3)
+
+	for _, userInfo := range users {
+		user, _, err := httpdtest.GetUserByUsername(userInfo.username, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, user.VirtualFolders, 1) {
+			vf := user.VirtualFolders[0]
+			assert.Equal(t, userInfo.subdir, vf.MappedSubdirectory)
+			assert.Equal(t, userInfo.vpath, vf.VirtualPath)
+			assert.Equal(t, folderName, vf.Name)
+		}
+	}
+
+	for _, user := range createdUsers {
+		_, err = httpdtest.RemoveUser(user, http.StatusOK)
+		assert.NoError(t, err)
+	}
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName}, http.StatusOK)
+	assert.NoError(t, err)
+}
+
 func TestUserS3Config(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
@@ -8307,6 +8374,116 @@ func TestFolders(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveFolder(folder2, http.StatusOK)
 	assert.NoError(t, err)
+}
+
+func TestVirtualFolderSubdirectoryValidation(t *testing.T) {
+	mappedPath := filepath.Join(os.TempDir(), "subdir_validation")
+	folderName := "test_subdir_folder"
+
+	f := vfs.BaseVirtualFolder{
+		Name:       folderName,
+		MappedPath: mappedPath,
+	}
+	folder, _, err := httpdtest.AddFolder(f, http.StatusCreated)
+	assert.NoError(t, err)
+	defer httpdtest.RemoveFolder(folder, http.StatusOK)
+
+	testCases := []struct {
+		name           string
+		subdirectory   string
+		expectedStatus int
+	}{
+		{"valid_simple", "simple", http.StatusCreated},
+		{"valid_nested", "level1/level2/level3", http.StatusCreated},
+		{"valid_empty", "", http.StatusCreated},
+		{"invalid_absolute", "/absolute/path", http.StatusBadRequest},
+		{"invalid_parent_traversal", "../escape", http.StatusBadRequest},
+		{"invalid_embedded_traversal", "valid/../../../escape", http.StatusBadRequest},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			u := getTestUser()
+			u.Username = fmt.Sprintf("subdir_test_%s", tc.name)
+			u.VirtualFolders = []vfs.VirtualFolder{
+				{
+					BaseVirtualFolder: vfs.BaseVirtualFolder{
+						Name: folderName,
+					},
+					VirtualPath:        "/test",
+					MappedSubdirectory: tc.subdirectory,
+				},
+			}
+
+			user, resp, err := httpdtest.AddUser(u, tc.expectedStatus)
+			assert.NoError(t, err, string(resp))
+			if tc.expectedStatus == http.StatusCreated {
+				_, err = httpdtest.RemoveUser(user, http.StatusOK)
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestVirtualFolderSubdirectoryDuplication(t *testing.T) {
+	mappedPath := filepath.Join(os.TempDir(), "dup_validation")
+	folderName := "dup_test_folder"
+
+	f := vfs.BaseVirtualFolder{
+		Name:       folderName,
+		MappedPath: mappedPath,
+	}
+	folder, _, err := httpdtest.AddFolder(f, http.StatusCreated)
+	assert.NoError(t, err)
+	defer httpdtest.RemoveFolder(folder, http.StatusOK)
+
+	u := getTestUser()
+	u.Username = "dup_test_user"
+	u.VirtualFolders = []vfs.VirtualFolder{
+		{
+			BaseVirtualFolder: vfs.BaseVirtualFolder{
+				Name: folderName,
+			},
+			VirtualPath:        "/folder1",
+			MappedSubdirectory: "subdir1",
+		},
+		{
+			BaseVirtualFolder: vfs.BaseVirtualFolder{
+				Name: folderName,
+			},
+			VirtualPath:        "/folder2",
+			MappedSubdirectory: "subdir2",
+		},
+	}
+
+	// the same folder mapped to different subdirectories is allowed
+	user, resp, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	defer httpdtest.RemoveUser(user, http.StatusOK)
+
+	u2 := getTestUser()
+	u2.Username = "dup_test_user2"
+	u2.VirtualFolders = []vfs.VirtualFolder{
+		{
+			BaseVirtualFolder: vfs.BaseVirtualFolder{
+				Name: folderName,
+			},
+			VirtualPath:        "/path1",
+			MappedSubdirectory: "same_subdir",
+		},
+		{
+			BaseVirtualFolder: vfs.BaseVirtualFolder{
+				Name: folderName,
+			},
+			VirtualPath:        "/path2",
+			MappedSubdirectory: "same_subdir",
+		},
+	}
+
+	// the same folder with the same subdirectory is a duplicate
+	_, resp, err = httpdtest.AddUser(u2, http.StatusBadRequest)
+	assert.NoError(t, err, string(resp))
+	assert.Contains(t, string(resp), "duplicated")
 }
 
 func TestFolderRelations(t *testing.T) {

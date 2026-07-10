@@ -5769,6 +5769,9 @@ components:
           properties:
             virtual_path:
               type: string
+            mapped_subdirectory:
+              type: string
+              description: 'Optional relative subdirectory that scopes this folder to a subtree of the backing storage, so users can share a base folder while each is isolated to its own subdirectory. Independent positive quotas are not supported when set.'
             quota_size:
               type: integer
               format: int64

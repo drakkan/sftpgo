@@ -310,13 +310,14 @@ type SFTPFs struct {
 	connectionID string
 	// if not empty this fs is mouted as virtual folder in the specified path
 	mountPath    string
+	subDir       string
 	localTempDir string
 	config       *SFTPFsConfig
 	conn         *sftpConnection
 }
 
 // NewSFTPFs returns an SFTPFs object that allows to interact with an SFTP server
-func NewSFTPFs(connectionID, mountPath, localTempDir string, forbiddenSelfUsernames []string, config SFTPFsConfig) (Fs, error) {
+func NewSFTPFs(connectionID, mountPath, subDir, localTempDir string, forbiddenSelfUsernames []string, config SFTPFsConfig) (Fs, error) {
 	if localTempDir == "" {
 		localTempDir = getLocalTempDir()
 	}
@@ -346,6 +347,7 @@ func NewSFTPFs(connectionID, mountPath, localTempDir string, forbiddenSelfUserna
 	sftpFs := &SFTPFs{
 		connectionID: connectionID,
 		mountPath:    getMountPath(mountPath),
+		subDir:       subDir,
 		localTempDir: localTempDir,
 		config:       &config,
 		conn:         conn,
@@ -647,15 +649,16 @@ func (fs *SFTPFs) CheckRootPath(username string, uid int, gid int) bool {
 	defer osFs.Close() //nolint:errcheck
 
 	osFs.CheckRootPath(username, uid, gid)
-	if fs.config.Prefix == "/" {
+	prefix := fs.effectivePrefix()
+	if prefix == "/" {
 		return true
 	}
 	client, err := fs.conn.getClient()
 	if err != nil {
 		return false
 	}
-	if err := client.MkdirAll(fs.config.Prefix); err != nil {
-		fsLog(fs, logger.LevelDebug, "error creating root directory %q for user %q: %v", fs.config.Prefix, username, err)
+	if err := client.MkdirAll(prefix); err != nil {
+		fsLog(fs, logger.LevelDebug, "error creating root directory %q for user %q: %v", prefix, username, err)
 		return false
 	}
 	return true
@@ -664,7 +667,7 @@ func (fs *SFTPFs) CheckRootPath(username string, uid int, gid int) bool {
 // ScanRootDirContents returns the number of files contained in a directory and
 // their size
 func (fs *SFTPFs) ScanRootDirContents() (int, int64, error) {
-	return fs.GetDirSize(fs.config.Prefix)
+	return fs.GetDirSize(fs.effectivePrefix())
 }
 
 // CheckMetadata checks the metadata consistency
@@ -686,22 +689,23 @@ func (fs *SFTPFs) GetRelativePath(name string) string {
 	if rel == "." {
 		rel = ""
 	}
+	prefix := fs.effectivePrefix()
 	if !path.IsAbs(rel) {
 		// If we have a relative path we assume it is already relative to the virtual root
 		rel = "/" + rel
-	} else if fs.config.Prefix != "/" {
-		prefixDir := fs.config.Prefix
+	} else if prefix != "/" {
+		prefixDir := prefix
 		if !strings.HasSuffix(prefixDir, "/") {
 			prefixDir += "/"
 		}
 
-		if rel == fs.config.Prefix {
+		if rel == prefix {
 			rel = "/"
 		} else if after, found := strings.CutPrefix(rel, prefixDir); found {
 			rel = path.Clean("/" + after)
 		} else {
 			// Absolute path outside of the configured prefix
-			fsLog(fs, logger.LevelWarn, "path %q is an absolute path outside %q", name, fs.config.Prefix)
+			fsLog(fs, logger.LevelWarn, "path %q is an absolute path outside %q", name, prefix)
 			rel = "/"
 		}
 	}
@@ -750,8 +754,9 @@ func (fs *SFTPFs) ResolvePath(virtualPath string) (string, error) {
 		}
 	}
 	virtualPath = path.Clean("/" + virtualPath)
-	fsPath := fs.Join(fs.config.Prefix, virtualPath)
-	if fs.config.Prefix != "/" && fsPath != "/" {
+	prefix := fs.effectivePrefix()
+	fsPath := fs.Join(prefix, virtualPath)
+	if prefix != "/" && fsPath != "/" {
 		validatedPath, err := fs.canonicalRealPath(fsPath)
 		if err != nil {
 			fsLog(fs, logger.LevelError, "Invalid path resolution, original path %q resolved %q err: %v",
@@ -778,7 +783,7 @@ func (fs *SFTPFs) RealPath(p string) (string, error) {
 		return "", err
 	}
 	resolved = path.Clean(strings.ReplaceAll(resolved, "\\", "/"))
-	if fs.config.Prefix != "/" {
+	if fs.effectivePrefix() != "/" {
 		if err := fs.isSubDir(resolved); err != nil {
 			fsLog(fs, logger.LevelError, "Invalid real path resolution, original path %q resolved %q err: %v",
 				p, resolved, err)
@@ -796,7 +801,7 @@ func (fs *SFTPFs) canonicalRealPath(name string) (string, error) { //nolint:gocy
 	name = path.Clean("/" + strings.ReplaceAll(name, "\\", "/"))
 	resolved := "/"
 	var rest []string
-	if prefix := fs.config.Prefix; prefix != "" && prefix != "/" {
+	if prefix := fs.effectivePrefix(); prefix != "" && prefix != "/" {
 		if name == prefix {
 			return prefix, nil
 		}
@@ -853,18 +858,26 @@ func (fs *SFTPFs) canonicalRealPath(name string) (string, error) { //nolint:gocy
 }
 
 func (fs *SFTPFs) isSubDir(name string) error {
-	if name == fs.config.Prefix {
+	prefix := fs.effectivePrefix()
+	if name == prefix {
 		return nil
 	}
-	if len(name) < len(fs.config.Prefix) {
-		err := fmt.Errorf("path %q is not inside: %q", name, fs.config.Prefix)
+	if len(name) < len(prefix) {
+		err := fmt.Errorf("path %q is not inside: %q", name, prefix)
 		return &pathResolutionError{err: err.Error()}
 	}
-	if !strings.HasPrefix(name, fs.config.Prefix+"/") {
-		err := fmt.Errorf("path %q is not inside: %q", name, fs.config.Prefix)
+	if !strings.HasPrefix(name, prefix+"/") {
+		err := fmt.Errorf("path %q is not inside: %q", name, prefix)
 		return &pathResolutionError{err: err.Error()}
 	}
 	return nil
+}
+
+func (fs *SFTPFs) effectivePrefix() string {
+	if fs.subDir == "" {
+		return fs.config.Prefix
+	}
+	return util.CleanPath(path.Join(fs.config.Prefix, fs.subDir))
 }
 
 // GetDirSize returns the number of files and the size for a folder

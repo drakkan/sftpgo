@@ -566,6 +566,8 @@
     "virtual_folders": {
         "view_manage": "View and manage virtual folders",
         "mount_path": "mount path, i.e. /vfolder",
+        "subdirectory": "mapped subdirectory within storage (optional)",
+        "subdirectory_help": "Scopes this folder to a subtree of the shared storage. Independent positive quotas are not supported when set.",
         "quota_size": "Quota size",
         "quota_size_help": "0 means no limit. You can use MB/GB/TB suffix",
         "quota_files": "Quota files",

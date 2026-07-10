@@ -66,6 +66,7 @@ type AzureBlobFs struct {
 	localTempDir string
 	// if not empty this fs is mouted as virtual folder in the specified path
 	mountPath       string
+	subDir          string
 	config          *AzBlobFsConfig
 	containerClient *container.Client
 	ctxTimeout      time.Duration
@@ -77,13 +78,14 @@ func init() {
 }
 
 // NewAzBlobFs returns an AzBlobFs object that allows to interact with Azure Blob storage
-func NewAzBlobFs(connectionID, localTempDir, mountPath string, config AzBlobFsConfig) (Fs, error) {
+func NewAzBlobFs(connectionID, localTempDir, subDir, mountPath string, config AzBlobFsConfig) (Fs, error) {
 	if localTempDir == "" {
 		localTempDir = getLocalTempDir()
 	}
 	fs := &AzureBlobFs{
 		connectionID:   connectionID,
 		localTempDir:   localTempDir,
+		subDir:         subDir,
 		mountPath:      getMountPath(mountPath),
 		config:         &config,
 		ctxTimeout:     30 * time.Second,
@@ -185,7 +187,7 @@ func (fs *AzureBlobFs) Stat(name string) (os.FileInfo, error) {
 	if name == "" || name == "/" || name == "." {
 		return NewFileInfo(name, true, 0, time.Unix(0, 0), false), nil
 	}
-	if fs.config.KeyPrefix == name+"/" {
+	if fs.effectivePrefix() == name+"/" {
 		return NewFileInfo(name, true, 0, time.Unix(0, 0), false), nil
 	}
 
@@ -535,7 +537,7 @@ func (fs *AzureBlobFs) CheckRootPath(username string, uid int, gid int) bool {
 // ScanRootDirContents returns the number of files contained in the bucket,
 // and their size
 func (fs *AzureBlobFs) ScanRootDirContents() (int, int64, error) {
-	return fs.GetDirSize(fs.config.KeyPrefix)
+	return fs.GetDirSize(fs.effectivePrefix())
 }
 
 // GetDirSize returns the number of files and the size for a folder
@@ -597,11 +599,11 @@ func (fs *AzureBlobFs) GetRelativePath(name string) string {
 	if !path.IsAbs(rel) {
 		rel = "/" + rel
 	}
-	if fs.config.KeyPrefix != "" {
-		if !strings.HasPrefix(rel, "/"+fs.config.KeyPrefix) {
+	if prefix := fs.effectivePrefix(); prefix != "" {
+		if !strings.HasPrefix(rel, "/"+prefix) {
 			rel = "/"
 		}
-		rel = path.Clean("/" + strings.TrimPrefix(rel, "/"+fs.config.KeyPrefix))
+		rel = path.Clean("/" + strings.TrimPrefix(rel, "/"+prefix))
 	}
 	if fs.mountPath != "" {
 		rel = path.Join(fs.mountPath, rel)
@@ -676,7 +678,18 @@ func (fs *AzureBlobFs) ResolvePath(virtualPath string) (string, error) {
 		}
 	}
 	virtualPath = path.Clean("/" + virtualPath)
-	return fs.Join(fs.config.KeyPrefix, strings.TrimPrefix(virtualPath, "/")), nil
+	return fs.Join(fs.effectivePrefix(), strings.TrimPrefix(virtualPath, "/")), nil
+}
+
+func (fs *AzureBlobFs) effectivePrefix() string {
+	if fs.subDir == "" {
+		return fs.config.KeyPrefix
+	}
+	prefix := path.Join(fs.config.KeyPrefix, fs.subDir)
+	if prefix == "" || prefix == "/" {
+		return ""
+	}
+	return strings.TrimPrefix(prefix, "/") + "/"
 }
 
 // CopyFile implements the FsFileCopier interface

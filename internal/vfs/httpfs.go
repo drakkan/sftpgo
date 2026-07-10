@@ -199,13 +199,14 @@ type HTTPFs struct {
 	localTempDir string
 	// if not empty this fs is mouted as virtual folder in the specified path
 	mountPath  string
+	subDir     string
 	config     *HTTPFsConfig
 	client     *http.Client
 	ctxTimeout time.Duration
 }
 
 // NewHTTPFs returns an HTTPFs object that allows to interact with SFTPGo HTTP filesystem backends
-func NewHTTPFs(connectionID, localTempDir, mountPath string, config HTTPFsConfig) (Fs, error) {
+func NewHTTPFs(connectionID, localTempDir, subDir, mountPath string, config HTTPFsConfig) (Fs, error) {
 	if localTempDir == "" {
 		localTempDir = getLocalTempDir()
 	}
@@ -223,6 +224,7 @@ func NewHTTPFs(connectionID, localTempDir, mountPath string, config HTTPFsConfig
 	fs := &HTTPFs{
 		connectionID: connectionID,
 		localTempDir: localTempDir,
+		subDir:       subDir,
 		mountPath:    mountPath,
 		config:       &config,
 		ctxTimeout:   30 * time.Second,
@@ -552,9 +554,9 @@ func (*HTTPFs) IsNotSupported(err error) bool {
 	return err == ErrVfsUnsupported
 }
 
-// CheckRootPath creates the specified local root directory if it does not exists
+// CheckRootPath creates the local directory for temporary files. The remote
+// root, including any mapped subdirectory, must already exist on the server.
 func (fs *HTTPFs) CheckRootPath(username string, uid int, gid int) bool {
-	// we need a local directory for temporary files
 	osFs := NewOsFs(fs.ConnectionID(), fs.localTempDir, "", nil)
 	defer osFs.Close() //nolint:errcheck
 
@@ -563,7 +565,7 @@ func (fs *HTTPFs) CheckRootPath(username string, uid int, gid int) bool {
 
 // ScanRootDirContents returns the number of files and their size
 func (fs *HTTPFs) ScanRootDirContents() (int, int64, error) {
-	return fs.GetDirSize("/")
+	return fs.GetDirSize(fs.effectiveRoot())
 }
 
 // CheckMetadata checks the metadata consistency
@@ -611,6 +613,13 @@ func (fs *HTTPFs) GetRelativePath(name string) string {
 	if !path.IsAbs(rel) {
 		rel = "/" + rel
 	}
+	if root := fs.effectiveRoot(); root != "/" {
+		if !strings.HasPrefix(rel, root+"/") && rel != root {
+			rel = "/"
+		} else {
+			rel = path.Clean("/" + strings.TrimPrefix(rel, root))
+		}
+	}
 	if fs.mountPath != "" {
 		rel = path.Join(fs.mountPath, rel)
 	}
@@ -644,7 +653,14 @@ func (fs *HTTPFs) ResolvePath(virtualPath string) (string, error) {
 			virtualPath = after
 		}
 	}
-	return path.Clean("/" + virtualPath), nil
+	return path.Join(fs.effectiveRoot(), path.Clean("/"+virtualPath)), nil
+}
+
+func (fs *HTTPFs) effectiveRoot() string {
+	if fs.subDir == "" {
+		return "/"
+	}
+	return path.Clean("/" + fs.subDir)
 }
 
 // GetMimeType returns the content type

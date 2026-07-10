@@ -198,6 +198,38 @@ CREATE INDEX "{{prefix}}shares_groups_mapping_group_id_idx" ON "{{shares_groups_
 CREATE INDEX "{{prefix}}shares_groups_mapping_share_id_idx" ON "{{shares_groups_mapping}}" ("share_id");
 `
 	sqliteV34DownSQL = `DROP TABLE IF EXISTS "{{shares_groups_mapping}}";`
+	sqliteV35SQL     = `ALTER TABLE "{{users_folders_mapping}}" ADD COLUMN "subdirectory" text NOT NULL DEFAULT '';
+ALTER TABLE "{{groups_folders_mapping}}" ADD COLUMN "subdirectory" text NOT NULL DEFAULT '';
+CREATE TABLE "{{users_folders_mapping}}_new" ("id" integer NOT NULL PRIMARY KEY, "virtual_path" text NOT NULL, "quota_size" bigint NOT NULL, "quota_files" integer NOT NULL, "user_id" integer NOT NULL REFERENCES "{{users}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED, "folder_id" integer NOT NULL REFERENCES "{{folders}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED, "subdirectory" text NOT NULL DEFAULT '', "sort_order" integer NOT NULL DEFAULT 0, CONSTRAINT "{{prefix}}unique_user_folder_mapping" UNIQUE ("user_id", "folder_id", "subdirectory"));
+INSERT INTO "{{users_folders_mapping}}_new" ("id", "virtual_path", "quota_size", "quota_files", "user_id", "folder_id", "subdirectory", "sort_order") SELECT "id", "virtual_path", "quota_size", "quota_files", "user_id", "folder_id", "subdirectory", "sort_order" FROM "{{users_folders_mapping}}";
+DROP TABLE "{{users_folders_mapping}}";
+ALTER TABLE "{{users_folders_mapping}}_new" RENAME TO "{{users_folders_mapping}}";
+CREATE TABLE "{{groups_folders_mapping}}_new" ("id" integer NOT NULL PRIMARY KEY, "virtual_path" text NOT NULL, "quota_size" bigint NOT NULL, "quota_files" integer NOT NULL, "group_id" integer NOT NULL REFERENCES "{{groups}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED, "folder_id" integer NOT NULL REFERENCES "{{folders}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED, "subdirectory" text NOT NULL DEFAULT '', "sort_order" integer NOT NULL DEFAULT 0, CONSTRAINT "{{prefix}}unique_group_folder_mapping" UNIQUE ("group_id", "folder_id", "subdirectory"));
+INSERT INTO "{{groups_folders_mapping}}_new" ("id", "virtual_path", "quota_size", "quota_files", "group_id", "folder_id", "subdirectory", "sort_order") SELECT "id", "virtual_path", "quota_size", "quota_files", "group_id", "folder_id", "subdirectory", "sort_order" FROM "{{groups_folders_mapping}}";
+DROP TABLE "{{groups_folders_mapping}}";
+ALTER TABLE "{{groups_folders_mapping}}_new" RENAME TO "{{groups_folders_mapping}}";
+CREATE INDEX "{{prefix}}users_folders_mapping_folder_id_idx" ON "{{users_folders_mapping}}" ("folder_id");
+CREATE INDEX "{{prefix}}users_folders_mapping_user_id_idx" ON "{{users_folders_mapping}}" ("user_id");
+CREATE INDEX "{{prefix}}users_folders_mapping_sort_order_idx" ON "{{users_folders_mapping}}" ("sort_order");
+CREATE INDEX "{{prefix}}groups_folders_mapping_folder_id_idx" ON "{{groups_folders_mapping}}" ("folder_id");
+CREATE INDEX "{{prefix}}groups_folders_mapping_group_id_idx" ON "{{groups_folders_mapping}}" ("group_id");
+CREATE INDEX "{{prefix}}groups_folders_mapping_sort_order_idx" ON "{{groups_folders_mapping}}" ("sort_order");
+`
+	sqliteV35DownSQL = `CREATE TABLE "{{users_folders_mapping}}_old" ("id" integer NOT NULL PRIMARY KEY, "virtual_path" text NOT NULL, "quota_size" bigint NOT NULL, "quota_files" integer NOT NULL, "user_id" integer NOT NULL REFERENCES "{{users}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED, "folder_id" integer NOT NULL REFERENCES "{{folders}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED, "sort_order" integer NOT NULL DEFAULT 0, CONSTRAINT "{{prefix}}unique_user_folder_mapping" UNIQUE ("user_id", "folder_id"));
+INSERT INTO "{{users_folders_mapping}}_old" ("id", "virtual_path", "quota_size", "quota_files", "user_id", "folder_id", "sort_order") SELECT "id", "virtual_path", "quota_size", "quota_files", "user_id", "folder_id", "sort_order" FROM "{{users_folders_mapping}}";
+DROP TABLE "{{users_folders_mapping}}";
+ALTER TABLE "{{users_folders_mapping}}_old" RENAME TO "{{users_folders_mapping}}";
+CREATE TABLE "{{groups_folders_mapping}}_old" ("id" integer NOT NULL PRIMARY KEY, "virtual_path" text NOT NULL, "quota_size" bigint NOT NULL, "quota_files" integer NOT NULL, "group_id" integer NOT NULL REFERENCES "{{groups}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED, "folder_id" integer NOT NULL REFERENCES "{{folders}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED, "sort_order" integer NOT NULL DEFAULT 0, CONSTRAINT "{{prefix}}unique_group_folder_mapping" UNIQUE ("group_id", "folder_id"));
+INSERT INTO "{{groups_folders_mapping}}_old" ("id", "virtual_path", "quota_size", "quota_files", "group_id", "folder_id", "sort_order") SELECT "id", "virtual_path", "quota_size", "quota_files", "group_id", "folder_id", "sort_order" FROM "{{groups_folders_mapping}}";
+DROP TABLE "{{groups_folders_mapping}}";
+ALTER TABLE "{{groups_folders_mapping}}_old" RENAME TO "{{groups_folders_mapping}}";
+CREATE INDEX "{{prefix}}users_folders_mapping_folder_id_idx" ON "{{users_folders_mapping}}" ("folder_id");
+CREATE INDEX "{{prefix}}users_folders_mapping_user_id_idx" ON "{{users_folders_mapping}}" ("user_id");
+CREATE INDEX "{{prefix}}users_folders_mapping_sort_order_idx" ON "{{users_folders_mapping}}" ("sort_order");
+CREATE INDEX "{{prefix}}groups_folders_mapping_folder_id_idx" ON "{{groups_folders_mapping}}" ("folder_id");
+CREATE INDEX "{{prefix}}groups_folders_mapping_group_id_idx" ON "{{groups_folders_mapping}}" ("group_id");
+CREATE INDEX "{{prefix}}groups_folders_mapping_sort_order_idx" ON "{{groups_folders_mapping}}" ("sort_order");
+`
 )
 
 // SQLiteProvider defines the auth provider for SQLite database
@@ -744,6 +776,8 @@ func (p *SQLiteProvider) migrateDatabase() error {
 		return err
 	case version == 33:
 		return updateSQLiteDatabaseFromV33(p.dbHandle)
+	case version == 34:
+		return updateSQLiteDatabaseFromV34(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -768,6 +802,8 @@ func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 	switch dbVersion.Version {
 	case 34:
 		return downgradeSQLiteDatabaseFromV34(p.dbHandle)
+	case 35:
+		return downgradeSQLiteDatabaseFromV35(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
@@ -814,11 +850,25 @@ func executePragmaOptimize(dbHandle *sql.DB) error {
 }
 
 func updateSQLiteDatabaseFromV33(dbHandle *sql.DB) error {
-	return updateSQLiteDatabaseFrom33To34(dbHandle)
+	if err := updateSQLiteDatabaseFrom33To34(dbHandle); err != nil {
+		return err
+	}
+	return updateSQLiteDatabaseFromV34(dbHandle)
+}
+
+func updateSQLiteDatabaseFromV34(dbHandle *sql.DB) error {
+	return updateSQLiteDatabaseFrom34To35(dbHandle)
 }
 
 func downgradeSQLiteDatabaseFromV34(dbHandle *sql.DB) error {
 	return downgradeSQLiteDatabaseFrom34To33(dbHandle)
+}
+
+func downgradeSQLiteDatabaseFromV35(dbHandle *sql.DB) error {
+	if err := downgradeSQLiteDatabaseFrom35To34(dbHandle); err != nil {
+		return err
+	}
+	return downgradeSQLiteDatabaseFromV34(dbHandle)
 }
 
 func updateSQLiteDatabaseFrom33To34(dbHandle *sql.DB) error {
@@ -838,6 +888,32 @@ func downgradeSQLiteDatabaseFrom34To33(dbHandle *sql.DB) error {
 
 	sql := strings.ReplaceAll(sqliteV34DownSQL, "{{shares_groups_mapping}}", sqlTableSharesGroupsMapping)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 33, false)
+}
+
+func updateSQLiteDatabaseFrom34To35(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating SQLite database schema version: 34 -> 35")
+	providerLog(logger.LevelInfo, "updating SQLite database schema version: 34 -> 35")
+
+	sql := strings.ReplaceAll(sqliteV35SQL, "{{users_folders_mapping}}", sqlTableUsersFoldersMapping)
+	sql = strings.ReplaceAll(sql, "{{groups_folders_mapping}}", sqlTableGroupsFoldersMapping)
+	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{groups}}", sqlTableGroups)
+	sql = strings.ReplaceAll(sql, "{{folders}}", sqlTableFolders)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 35, true)
+}
+
+func downgradeSQLiteDatabaseFrom35To34(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database schema version: 35 -> 34")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 35 -> 34")
+
+	sql := strings.ReplaceAll(sqliteV35DownSQL, "{{users_folders_mapping}}", sqlTableUsersFoldersMapping)
+	sql = strings.ReplaceAll(sql, "{{groups_folders_mapping}}", sqlTableGroupsFoldersMapping)
+	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{groups}}", sqlTableGroups)
+	sql = strings.ReplaceAll(sql, "{{folders}}", sqlTableFolders)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 34, false)
 }
 
 /*func setPragmaFK(dbHandle *sql.DB, value string) error {

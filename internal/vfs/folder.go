@@ -17,6 +17,7 @@ package vfs
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/rs/xid"
@@ -107,7 +108,6 @@ func (v *BaseVirtualFolder) HasRedactedSecret() bool {
 
 // hasPathPlaceholder returns true if the folder has a path placeholder
 func (v *BaseVirtualFolder) hasPathPlaceholder() bool {
-	placeholders := []string{"%username%", "%role%"}
 	var config string
 	switch v.FsConfig.Provider {
 	case sdk.S3FilesystemProvider:
@@ -121,8 +121,12 @@ func (v *BaseVirtualFolder) hasPathPlaceholder() bool {
 	case sdk.LocalFilesystemProvider, sdk.CryptedFilesystemProvider:
 		config = v.MappedPath
 	}
-	for _, placeholder := range placeholders {
-		if strings.Contains(config, placeholder) {
+	return hasPathPlaceholder(config)
+}
+
+func hasPathPlaceholder(value string) bool {
+	for _, placeholder := range []string{"%username%", "%role%"} {
+		if strings.Contains(value, placeholder) {
 			return true
 		}
 	}
@@ -138,35 +142,46 @@ func (v *BaseVirtualFolder) hasPathPlaceholder() bool {
 type VirtualFolder struct {
 	BaseVirtualFolder
 	VirtualPath string `json:"virtual_path"`
+	// Optional relative subdirectory that narrows this folder to a subtree of the backing storage
+	MappedSubdirectory string `json:"mapped_subdirectory,omitempty"`
 	// Maximum size allowed as bytes. 0 means unlimited, -1 included in user quota
 	QuotaSize int64 `json:"quota_size"`
 	// Maximum number of files allowed. 0 means unlimited, -1 included in user quota
 	QuotaFiles int `json:"quota_files"`
 }
 
+// GetEffectiveMappedPath returns the mapped path narrowed by the mapped
+// subdirectory. It is meaningful only for local and crypted filesystems.
+func (v *VirtualFolder) GetEffectiveMappedPath() string {
+	if v.MappedSubdirectory == "" {
+		return v.MappedPath
+	}
+	return filepath.Join(v.MappedPath, filepath.FromSlash(v.MappedSubdirectory))
+}
+
 // GetFilesystem returns the filesystem for this folder
 func (v *VirtualFolder) GetFilesystem(connectionID string, forbiddenSelfUsers []string) (Fs, error) {
 	switch v.FsConfig.Provider {
 	case sdk.S3FilesystemProvider:
-		return NewS3Fs(connectionID, v.MappedPath, v.VirtualPath, v.FsConfig.S3Config)
+		return NewS3Fs(connectionID, v.MappedPath, v.MappedSubdirectory, v.VirtualPath, v.FsConfig.S3Config)
 	case sdk.GCSFilesystemProvider:
-		return NewGCSFs(connectionID, v.MappedPath, v.VirtualPath, v.FsConfig.GCSConfig)
+		return NewGCSFs(connectionID, v.MappedPath, v.MappedSubdirectory, v.VirtualPath, v.FsConfig.GCSConfig)
 	case sdk.AzureBlobFilesystemProvider:
-		return NewAzBlobFs(connectionID, v.MappedPath, v.VirtualPath, v.FsConfig.AzBlobConfig)
+		return NewAzBlobFs(connectionID, v.MappedPath, v.MappedSubdirectory, v.VirtualPath, v.FsConfig.AzBlobConfig)
 	case sdk.CryptedFilesystemProvider:
-		return NewCryptFs(connectionID, v.MappedPath, v.VirtualPath, v.FsConfig.CryptConfig)
+		return NewCryptFs(connectionID, v.GetEffectiveMappedPath(), v.VirtualPath, v.FsConfig.CryptConfig)
 	case sdk.SFTPFilesystemProvider:
-		return NewSFTPFs(connectionID, v.VirtualPath, v.MappedPath, forbiddenSelfUsers, v.FsConfig.SFTPConfig)
+		return NewSFTPFs(connectionID, v.VirtualPath, v.MappedSubdirectory, v.MappedPath, forbiddenSelfUsers, v.FsConfig.SFTPConfig)
 	case sdk.HTTPFilesystemProvider:
-		return NewHTTPFs(connectionID, v.MappedPath, v.VirtualPath, v.FsConfig.HTTPConfig)
+		return NewHTTPFs(connectionID, v.MappedPath, v.MappedSubdirectory, v.VirtualPath, v.FsConfig.HTTPConfig)
 	default:
-		return NewOsFs(connectionID, v.MappedPath, v.VirtualPath, &v.FsConfig.OSConfig), nil
+		return NewOsFs(connectionID, v.GetEffectiveMappedPath(), v.VirtualPath, &v.FsConfig.OSConfig), nil
 	}
 }
 
 // ScanQuota scans the folder and returns the number of files and their size
 func (v *VirtualFolder) ScanQuota() (int, int64, error) {
-	if v.hasPathPlaceholder() {
+	if v.hasPathPlaceholder() || hasPathPlaceholder(v.MappedSubdirectory) {
 		return 0, 0, errors.New("cannot scan quota: this folder has a path placeholder")
 	}
 	fs, err := v.GetFilesystem(xid.New().String(), nil)
@@ -194,9 +209,10 @@ func (v *VirtualFolder) HasNoQuotaRestrictions(checkFiles bool) bool {
 // GetACopy returns a copy
 func (v *VirtualFolder) GetACopy() VirtualFolder {
 	return VirtualFolder{
-		BaseVirtualFolder: v.BaseVirtualFolder.GetACopy(),
-		VirtualPath:       v.VirtualPath,
-		QuotaSize:         v.QuotaSize,
-		QuotaFiles:        v.QuotaFiles,
+		BaseVirtualFolder:  v.BaseVirtualFolder.GetACopy(),
+		VirtualPath:        v.VirtualPath,
+		MappedSubdirectory: v.MappedSubdirectory,
+		QuotaSize:          v.QuotaSize,
+		QuotaFiles:         v.QuotaFiles,
 	}
 }
