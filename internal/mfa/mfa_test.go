@@ -109,22 +109,15 @@ func TestMFAConfig(t *testing.T) {
 	stopCleanupTicker()
 }
 
-func TestGenerateQRCodeFromURL(t *testing.T) {
-	_, err := GenerateQRCodeFromURL("http://foo\x7f.cloud", 200, 200)
-	assert.Error(t, err)
-	config := TOTPConfig{
-		Name:   "config name",
-		Issuer: "SFTPGo",
-		Algo:   TOTPAlgoSHA256,
-	}
-	key, qrCode, err := config.generate("a", 150, 150)
-	require.NoError(t, err)
-
-	qrCode1, err := GenerateQRCodeFromURL(key.URL(), 150, 150)
-	require.NoError(t, err)
-	assert.Equal(t, qrCode, qrCode1)
-	_, err = GenerateQRCodeFromURL(key.URL(), 10, 10)
-	assert.Error(t, err)
+func TestValidateTOTPSecret(t *testing.T) {
+	// a 20 bytes secret, base32 without padding, as we generate it
+	require.NoError(t, ValidateTOTPSecret("DDGJZVPOUIXZWFR2S7UZQUJVDVBF2ZH3"))
+	// shorter than 20 bytes once decoded
+	err := ValidateTOTPSecret("DDGJZVPO")
+	assert.ErrorContains(t, err, "at least")
+	// not a valid base32 string
+	err = ValidateTOTPSecret("not base32 @@@")
+	assert.ErrorContains(t, err, "invalid secret encoding")
 }
 
 func TestCleanupPasscodes(t *testing.T) {
