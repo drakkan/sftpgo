@@ -3686,6 +3686,21 @@ func TestPermMFADisabled(t *testing.T) {
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
+	// a secret weaker than the one we generate is rejected
+	weakTOTPConfig := dataprovider.UserTOTPConfig{
+		Enabled:    true,
+		ConfigName: configName,
+		Secret:     kms.NewPlainSecret("DDGJZVPO"),
+		Protocols:  []string{common.ProtocolSSH},
+	}
+	asJSON, err = json.Marshal(weakTOTPConfig)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "at least")
 	// now we cannot disable MFA for this user
 	user.Filters.WebClient = []string{sdk.WebClientMFADisabled}
 	_, resp, err = httpdtest.UpdateUser(user, http.StatusBadRequest, "")
@@ -10322,6 +10337,21 @@ func TestAdminTOTP(t *testing.T) {
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), "this passcode was already used")
 
+	// a secret weaker than the one we generate is rejected
+	weakTOTPConfig := dataprovider.AdminTOTPConfig{
+		Enabled:    true,
+		ConfigName: totpGenResp.ConfigName,
+		Secret:     kms.NewPlainSecret("DDGJZVPO"),
+	}
+	asJSON, err = json.Marshal(weakTOTPConfig)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, adminTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, altToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "at least")
+
 	adminTOTPConfig := dataprovider.AdminTOTPConfig{
 		Enabled:    true,
 		ConfigName: totpGenResp.ConfigName,
@@ -10865,21 +10895,6 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	setJWTCookieForReq(req, authenticatedCookie)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	// get MFA qrcode
-	req, err = http.NewRequest(http.MethodGet, path.Join(webClientMFAPath, "qrcode?url="+url.QueryEscape(key.URL())), nil)
-	assert.NoError(t, err)
-	req.RemoteAddr = defaultRemoteAddr
-	setJWTCookieForReq(req, authenticatedCookie)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr)
-	assert.Equal(t, "image/png", rr.Header().Get("Content-Type"))
-	// invalid MFA url
-	req, err = http.NewRequest(http.MethodGet, path.Join(webClientMFAPath, "qrcode?url="+url.QueryEscape("http://foo\x7f.eu")), nil)
-	assert.NoError(t, err)
-	req.RemoteAddr = defaultRemoteAddr
-	setJWTCookieForReq(req, authenticatedCookie)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusInternalServerError, rr)
 	// check that the recovery code was marked as used
 	req, err = http.NewRequest(http.MethodGet, user2FARecoveryCodesPath, nil)
 	assert.NoError(t, err)
@@ -11340,6 +11355,7 @@ func TestSearchEvents(t *testing.T) {
 }
 
 func TestMFAErrors(t *testing.T) {
+	validSecret := "DDGJZVPOUIXZWFR2S7UZQUJVDVBF2ZH3"
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
 	assert.False(t, user.Filters.TOTPConfig.Enabled)
@@ -11388,7 +11404,7 @@ func TestMFAErrors(t *testing.T) {
 	userTOTPConfig := dataprovider.UserTOTPConfig{
 		Enabled:    true,
 		ConfigName: "missing name",
-		Secret:     kms.NewPlainSecret(xid.New().String()),
+		Secret:     kms.NewPlainSecret(validSecret),
 		Protocols:  []string{common.ProtocolSSH},
 	}
 	asJSON, err = json.Marshal(userTOTPConfig)
@@ -11418,7 +11434,7 @@ func TestMFAErrors(t *testing.T) {
 	userTOTPConfig = dataprovider.UserTOTPConfig{
 		Enabled:    true,
 		ConfigName: mfa.GetAvailableTOTPConfigNames()[0],
-		Secret:     kms.NewPlainSecret(xid.New().String()),
+		Secret:     kms.NewPlainSecret(validSecret),
 		Protocols:  nil,
 	}
 	asJSON, err = json.Marshal(userTOTPConfig)
@@ -11433,7 +11449,7 @@ func TestMFAErrors(t *testing.T) {
 	userTOTPConfig = dataprovider.UserTOTPConfig{
 		Enabled:    true,
 		ConfigName: mfa.GetAvailableTOTPConfigNames()[0],
-		Secret:     kms.NewPlainSecret(xid.New().String()),
+		Secret:     kms.NewPlainSecret(validSecret),
 		Protocols:  []string{common.ProtocolWebDAV},
 	}
 	asJSON, err = json.Marshal(userTOTPConfig)
@@ -11448,7 +11464,7 @@ func TestMFAErrors(t *testing.T) {
 	adminTOTPConfig := dataprovider.AdminTOTPConfig{
 		Enabled:    true,
 		ConfigName: "",
-		Secret:     kms.NewPlainSecret("secret"),
+		Secret:     kms.NewPlainSecret(validSecret),
 	}
 	asJSON, err = json.Marshal(adminTOTPConfig)
 	assert.NoError(t, err)
