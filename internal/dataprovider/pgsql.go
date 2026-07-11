@@ -243,23 +243,18 @@ func init() {
 }
 
 func initializePGSQLProvider() error {
+	pgxConfig, err := pgx.ParseConfig(getPGSQLConnectionString(false))
+	if err != nil {
+		providerLog(logger.LevelError, "error parsing postgres configuration, connection string: %q, error: %v",
+			getPGSQLConnectionString(true), err)
+		return err
+	}
+
 	var dbHandle *sql.DB
-	if config.TargetSessionAttrs == "any" || config.AWSIAMAuth {
-		pgxConfig, err := pgx.ParseConfig(getPGSQLConnectionString(false))
-		if err != nil {
-			providerLog(logger.LevelError, "error parsing postgres configuration, connection string: %q, error: %v",
-				getPGSQLConnectionString(true), err)
-			return err
-		}
-		dbHandle = stdlib.OpenDB(*pgxConfig, stdlib.OptionBeforeConnect(pgsqlBeforeConnect))
+	if config.TargetSessionAttrs == "any" {
+		dbHandle = stdlib.OpenDB(*pgxConfig, stdlib.OptionBeforeConnect(pgsqlRandomizeHostOrderFunc))
 	} else {
-		var err error
-		dbHandle, err = sql.Open("pgx", getPGSQLConnectionString(false))
-		if err != nil {
-			providerLog(logger.LevelError, "error creating postgres database handler, connection string: %q, error: %v",
-				getPGSQLConnectionString(true), err)
-			return err
-		}
+		dbHandle = stdlib.OpenDB(*pgxConfig, stdlib.OptionBeforeConnect(pgsqlAWSIAMAuth))
 	}
 	providerLog(logger.LevelDebug, "postgres database handle created, connection string: %q, pool size: %d",
 		getPGSQLConnectionString(true), config.PoolSize)
@@ -279,14 +274,22 @@ func initializePGSQLProvider() error {
 	return dbHandle.PingContext(ctx)
 }
 
-// pgsqlBeforeConnect is invoked before each new physical connection is established.
+// pgsqlRandomizeHostOrderFunc is invoked before each new physical connection is established.
 // It randomizes the host order and, if AWS IAM authentication is enabled, replaces
 // the password with a freshly generated RDS/Aurora IAM auth token, since these
 // tokens are short-lived and cannot be generated once and reused for the pool lifetime
-func pgsqlBeforeConnect(ctx context.Context, cc *pgx.ConnConfig) error {
+func pgsqlRandomizeHostOrderFunc(ctx context.Context, cc *pgx.ConnConfig) error {
 	if err := stdlib.RandomizeHostOrderFunc(ctx, cc); err != nil {
 		return err
 	}
+	return pgsqlAWSIAMAuth(ctx, cc)
+}
+
+// pgsqlAWSIAMAuth is invoked before each new physical connection is established.
+// If AWS IAM authentication is enabled, it replaces the password with a freshly generated
+// RDS/Aurora IAM auth token, since these tokens are short-lived and cannot be generated
+// once and reused for the pool lifetime
+func pgsqlAWSIAMAuth(ctx context.Context, cc *pgx.ConnConfig) error {
 	if !config.AWSIAMAuth {
 		return nil
 	}
