@@ -392,6 +392,10 @@ type Config struct {
 	// It's typically used in combination with multiple host names to select the first
 	// acceptable alternative among several hosts
 	TargetSessionAttrs string `json:"target_session_attrs" mapstructure:"target_session_attrs"`
+	// AWSIAMAuth is a postgresql specific option. Set to true to authenticate using an AWS RDS/Aurora
+	// IAM authentication token instead of the configured password. The token is generated using the
+	// default AWS credentials chain and is refreshed for each new physical connection
+	AWSIAMAuth bool `json:"aws_iam_auth" mapstructure:"aws_iam_auth"`
 	// Path to the root certificate authority used to verify that the server certificate was signed by a trusted CA
 	RootCert string `json:"root_cert" mapstructure:"root_cert"`
 	// Path to the client certificate for two-way TLS authentication

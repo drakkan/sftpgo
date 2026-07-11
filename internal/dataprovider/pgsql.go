@@ -244,14 +244,14 @@ func init() {
 
 func initializePGSQLProvider() error {
 	var dbHandle *sql.DB
-	if config.TargetSessionAttrs == "any" {
+	if config.TargetSessionAttrs == "any" || config.AWSIAMAuth {
 		pgxConfig, err := pgx.ParseConfig(getPGSQLConnectionString(false))
 		if err != nil {
 			providerLog(logger.LevelError, "error parsing postgres configuration, connection string: %q, error: %v",
 				getPGSQLConnectionString(true), err)
 			return err
 		}
-		dbHandle = stdlib.OpenDB(*pgxConfig, stdlib.OptionBeforeConnect(stdlib.RandomizeHostOrderFunc))
+		dbHandle = stdlib.OpenDB(*pgxConfig, stdlib.OptionBeforeConnect(pgsqlBeforeConnect))
 	} else {
 		var err error
 		dbHandle, err = sql.Open("pgx", getPGSQLConnectionString(false))
@@ -277,6 +277,26 @@ func initializePGSQLProvider() error {
 	defer cancel()
 
 	return dbHandle.PingContext(ctx)
+}
+
+// pgsqlBeforeConnect is invoked before each new physical connection is established.
+// It randomizes the host order and, if AWS IAM authentication is enabled, replaces
+// the password with a freshly generated RDS/Aurora IAM auth token, since these
+// tokens are short-lived and cannot be generated once and reused for the pool lifetime
+func pgsqlBeforeConnect(ctx context.Context, cc *pgx.ConnConfig) error {
+	if err := stdlib.RandomizeHostOrderFunc(ctx, cc); err != nil {
+		return err
+	}
+	if !config.AWSIAMAuth {
+		return nil
+	}
+	token, err := getPGSQLAWSIAMToken(ctx, cc.Host, cc.Port, cc.User)
+	if err != nil {
+		providerLog(logger.LevelError, "unable to build AWS RDS IAM auth token for host %q: %v", cc.Host, err)
+		return err
+	}
+	cc.Password = token
+	return nil
 }
 
 func getPGSQLHostsAndPorts(configHost string, configPort int) (string, string) {
@@ -308,7 +328,10 @@ func getPGSQLConnectionString(redactedPwd bool) string {
 	var connectionString string
 	if config.ConnectionString == "" {
 		password := config.Password
-		if redactedPwd && password != "" {
+		if config.AWSIAMAuth {
+			// the password is ignored, an IAM auth token is generated for each new connection
+			password = ""
+		} else if redactedPwd && password != "" {
 			password = "[redacted]"
 		}
 		host, port := getPGSQLHostsAndPorts(config.Host, config.Port)

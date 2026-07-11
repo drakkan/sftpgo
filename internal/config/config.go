@@ -348,6 +348,7 @@ func Init() {
 			SSLMode:            0,
 			DisableSNI:         false,
 			TargetSessionAttrs: "",
+			AWSIAMAuth:         false,
 			RootCert:           "",
 			ClientCert:         "",
 			ClientKey:          "",
@@ -2161,6 +2162,7 @@ func setViperDefaults() {
 	viper.SetDefault("data_provider.sslmode", globalConf.ProviderConf.SSLMode)
 	viper.SetDefault("data_provider.disable_sni", globalConf.ProviderConf.DisableSNI)
 	viper.SetDefault("data_provider.target_session_attrs", globalConf.ProviderConf.TargetSessionAttrs)
+	viper.SetDefault("data_provider.aws_iam_auth", globalConf.ProviderConf.AWSIAMAuth)
 	viper.SetDefault("data_provider.root_cert", globalConf.ProviderConf.RootCert)
 	viper.SetDefault("data_provider.client_cert", globalConf.ProviderConf.ClientCert)
 	viper.SetDefault("data_provider.client_key", globalConf.ProviderConf.ClientKey)
