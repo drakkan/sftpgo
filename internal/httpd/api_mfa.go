@@ -246,7 +246,7 @@ func getNewRecoveryCode() string {
 	return fmt.Sprintf("RC-%v", strings.ToUpper(util.GenerateUniqueID()))
 }
 
-func saveUserTOTPConfig(username string, r *http.Request, recoveryCodes []dataprovider.RecoveryCode) error {
+func saveUserTOTPConfig(username string, r *http.Request, recoveryCodes []dataprovider.RecoveryCode) error { //nolint:gocyclo
 	user, userMerged, err := dataprovider.GetUserVariants(username, "")
 	if err != nil {
 		return err
