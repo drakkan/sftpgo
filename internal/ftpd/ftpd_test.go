@@ -1943,7 +1943,7 @@ func TestDefender(t *testing.T) {
 		assert.Equal(t, 2, host.Score)
 	}
 
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		_, err = getFTPClient(user, false, nil)
 		assert.Error(t, err)
 	}
@@ -4266,9 +4266,9 @@ func getTestUserWithHTTPFs() dataprovider.User {
 
 func getExtAuthScriptContent(user dataprovider.User) []byte {
 	extAuthContent := []byte("#!/bin/sh\n\n")
-	extAuthContent = append(extAuthContent, []byte(fmt.Sprintf("if test \"$SFTPGO_AUTHD_USERNAME\" = \"%v\"; then\n", user.Username))...)
+	extAuthContent = append(extAuthContent, fmt.Appendf(nil, "if test \"$SFTPGO_AUTHD_USERNAME\" = \"%v\"; then\n", user.Username)...)
 	u, _ := json.Marshal(user)
-	extAuthContent = append(extAuthContent, []byte(fmt.Sprintf("echo '%v'\n", string(u)))...)
+	extAuthContent = append(extAuthContent, fmt.Appendf(nil, "echo '%v'\n", string(u))...)
 	extAuthContent = append(extAuthContent, []byte("else\n")...)
 	extAuthContent = append(extAuthContent, []byte("echo '{\"username\":\"\"}'\n")...)
 	extAuthContent = append(extAuthContent, []byte("fi\n")...)
@@ -4283,7 +4283,7 @@ func getPreLoginScriptContent(user dataprovider.User, nonJSONResponse bool) []by
 	}
 	if len(user.Username) > 0 {
 		u, _ := json.Marshal(user)
-		content = append(content, []byte(fmt.Sprintf("echo '%v'\n", string(u)))...)
+		content = append(content, fmt.Appendf(nil, "echo '%v'\n", string(u))...)
 	}
 	return content
 }
@@ -4314,7 +4314,7 @@ func getSftpClient(user dataprovider.User) (*ssh.Client, *sftp.Client, error) {
 
 func getExitCodeScriptContent(exitCode int) []byte {
 	content := []byte("#!/bin/sh\n\n")
-	content = append(content, []byte(fmt.Sprintf("exit %v", exitCode))...)
+	content = append(content, fmt.Appendf(nil, "exit %v", exitCode)...)
 	return content
 }
 

@@ -855,8 +855,7 @@ func (p *MySQLProvider) normalizeError(err error, fieldType int) error {
 	if err == nil {
 		return nil
 	}
-	var mysqlErr *mysql.MySQLError
-	if errors.As(err, &mysqlErr) {
+	if mysqlErr, ok := errors.AsType[*mysql.MySQLError](err); ok {
 		switch mysqlErr.Number {
 		case 1062:
 			var message string

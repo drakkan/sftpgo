@@ -445,8 +445,7 @@ func (*S3Fs) IsNotExist(err error) bool {
 		return false
 	}
 
-	var re *awshttp.ResponseError
-	if errors.As(err, &re) {
+	if re, ok := errors.AsType[*awshttp.ResponseError](err); ok {
 		if re.Response != nil {
 			return re.Response.StatusCode == http.StatusNotFound
 		}
@@ -461,8 +460,7 @@ func (*S3Fs) IsPermission(err error) bool {
 		return false
 	}
 
-	var re *awshttp.ResponseError
-	if errors.As(err, &re) {
+	if re, ok := errors.AsType[*awshttp.ResponseError](err); ok {
 		if re.Response != nil {
 			return re.Response.StatusCode == http.StatusForbidden ||
 				re.Response.StatusCode == http.StatusUnauthorized

@@ -366,17 +366,17 @@ func (c *BaseConnection) CheckParentDirs(virtualPath string) error {
 		return err
 	}
 	dirs := util.GetDirsForVirtualPath(virtualPath)
-	for idx := len(dirs) - 1; idx >= 0; idx-- {
-		fs, err = c.User.GetFilesystemForPath(dirs[idx], c.GetID())
+	for _, dir := range slices.Backward(dirs) {
+		fs, err = c.User.GetFilesystemForPath(dir, c.GetID())
 		if err != nil {
 			return err
 		}
 		if fs.HasVirtualFolders() {
 			continue
 		}
-		if err = c.createDirIfMissing(dirs[idx]); err != nil {
+		if err = c.createDirIfMissing(dir); err != nil {
 			return fmt.Errorf("unable to check/create missing parent dir %q for virtual path %q: %w",
-				dirs[idx], virtualPath, err)
+				dir, virtualPath, err)
 		}
 	}
 	return nil
@@ -1772,8 +1772,7 @@ func (c *BaseConnection) GetGenericError(err error) error {
 			return fmt.Errorf("%w: %w", sftp.ErrSSHFxFailure, err)
 		}
 		if err != nil {
-			var pathError *fs.PathError
-			if errors.As(err, &pathError) {
+			if pathError, ok := errors.AsType[*fs.PathError](err); ok {
 				c.Log(logger.LevelError, "generic path error: %+v", pathError)
 				return fmt.Errorf("%w: %v %v", sftp.ErrSSHFxFailure, pathError.Op, pathError.Err.Error())
 			}

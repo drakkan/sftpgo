@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/url"
 	"os"
 	"path"
@@ -429,9 +430,8 @@ func (c *S3FsConfig) checkCredentials() error {
 // ValidateAndEncryptCredentials validates the configuration and encrypts access secret if it is in plain text
 func (c *S3FsConfig) ValidateAndEncryptCredentials(additionalData string) error {
 	if err := c.validate(); err != nil {
-		var errI18n *util.I18nError
 		errValidation := util.NewValidationError(fmt.Sprintf("could not validate s3config: %v", err))
-		if errors.As(err, &errI18n) {
+		if errI18n, ok := errors.AsType[*util.I18nError](err); ok {
 			return util.NewI18nError(errValidation, errI18n.Message)
 		}
 		return util.NewI18nError(errValidation, util.I18nErrorFsValidation)
@@ -559,9 +559,8 @@ func (c *GCSFsConfig) HideConfidentialData() {
 // ValidateAndEncryptCredentials validates the configuration and encrypts credentials if they are in plain text
 func (c *GCSFsConfig) ValidateAndEncryptCredentials(additionalData string) error {
 	if err := c.validate(); err != nil {
-		var errI18n *util.I18nError
 		errValidation := util.NewValidationError(fmt.Sprintf("could not validate GCS config: %v", err))
-		if errors.As(err, &errI18n) {
+		if errI18n, ok := errors.AsType[*util.I18nError](err); ok {
 			return util.NewI18nError(errValidation, errI18n.Message)
 		}
 		return util.NewI18nError(errValidation, util.I18nErrorFsValidation)
@@ -720,9 +719,8 @@ func (c *AzBlobFsConfig) isSecretEqual(other AzBlobFsConfig) bool {
 // ValidateAndEncryptCredentials validates the configuration and  encrypts access secret if it is in plain text
 func (c *AzBlobFsConfig) ValidateAndEncryptCredentials(additionalData string) error {
 	if err := c.validate(); err != nil {
-		var errI18n *util.I18nError
 		errValidation := util.NewValidationError(fmt.Sprintf("could not validate Azure Blob config: %v", err))
-		if errors.As(err, &errI18n) {
+		if errI18n, ok := errors.AsType[*util.I18nError](err); ok {
 			return util.NewI18nError(errValidation, errI18n.Message)
 		}
 		return util.NewI18nError(errValidation, util.I18nErrorFsValidation)
@@ -883,9 +881,8 @@ func (c *CryptFsConfig) isEqual(other CryptFsConfig) bool {
 // ValidateAndEncryptCredentials validates the configuration and encrypts the passphrase if it is in plain text
 func (c *CryptFsConfig) ValidateAndEncryptCredentials(additionalData string) error {
 	if err := c.validate(); err != nil {
-		var errI18n *util.I18nError
 		errValidation := util.NewValidationError(fmt.Sprintf("could not validate crypt fs config: %v", err))
-		if errors.As(err, &errI18n) {
+		if errI18n, ok := errors.AsType[*util.I18nError](err); ok {
 			return util.NewI18nError(errValidation, errI18n.Message)
 		}
 		return util.NewI18nError(errValidation, util.I18nErrorFsValidation)
@@ -1032,9 +1029,7 @@ func (p *pipeReader) Metadata() map[string]string {
 		return nil
 	}
 	result := make(map[string]string)
-	for k, v := range p.metadata {
-		result[k] = v
-	}
+	maps.Copy(result, p.metadata)
 	return result
 }
 

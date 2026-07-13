@@ -229,7 +229,7 @@ func TestBasicDefender(t *testing.T) {
 	assert.Equal(t, 0, defender.countHosts())
 
 	time.Sleep(20 * time.Millisecond)
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		defender.AddEvent(testIP1, ProtocolSSH, HostEventNoLoginTried)
 	}
 	assert.Equal(t, 0, defender.countHosts())
@@ -244,7 +244,7 @@ func TestBasicDefender(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, banTime)
 
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		defender.AddEvent(testIP, ProtocolSSH, HostEventNoLoginTried)
 		time.Sleep(10 * time.Millisecond)
 		defender.AddEvent(testIP3, ProtocolSSH, HostEventNoLoginTried)
@@ -546,7 +546,7 @@ func BenchmarkDefenderBannedSearch(b *testing.B) {
 
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		d.IsBanned("192.168.1.1", ProtocolSSH)
 	}
 }
@@ -561,7 +561,7 @@ func BenchmarkCleanup(b *testing.B) {
 
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); inc(ip) {
 			d.AddEvent(ip.String(), ProtocolSSH, HostEventLoginFailed)
 			if d.countHosts() > d.config.EntriesHardLimit {
@@ -576,7 +576,7 @@ func BenchmarkCleanup(b *testing.B) {
 
 func BenchmarkCIDRanger(b *testing.B) {
 	ranger := cidranger.NewPCTrieRanger()
-	for i := 0; i < 255; i++ {
+	for i := range 255 {
 		cidr := fmt.Sprintf("192.168.%d.1/24", i)
 		_, network, _ := net.ParseCIDR(cidr)
 		if err := ranger.Insert(cidranger.NewBasicRangerEntry(*network)); err != nil {
@@ -587,7 +587,7 @@ func BenchmarkCIDRanger(b *testing.B) {
 	ipToMatch := net.ParseIP("192.167.1.2")
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		if _, err := ranger.Contains(ipToMatch); err != nil {
 			panic(err)
 		}
@@ -596,7 +596,7 @@ func BenchmarkCIDRanger(b *testing.B) {
 
 func BenchmarkNetContains(b *testing.B) {
 	var nets []*net.IPNet
-	for i := 0; i < 255; i++ {
+	for i := range 255 {
 		cidr := fmt.Sprintf("192.168.%d.1/24", i)
 		_, network, _ := net.ParseCIDR(cidr)
 		nets = append(nets, network)
@@ -605,7 +605,7 @@ func BenchmarkNetContains(b *testing.B) {
 	ipToMatch := net.ParseIP("192.167.1.1")
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		for _, n := range nets {
 			n.Contains(ipToMatch)
 		}

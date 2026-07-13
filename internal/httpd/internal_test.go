@@ -1088,7 +1088,7 @@ func TestTokenSignatureValidation(t *testing.T) {
 	rr = httptest.NewRecorder()
 	testServer.Config.Handler.ServeHTTP(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	loginCookie := strings.Split(rr.Header().Get("Set-Cookie"), ";")[0]
+	loginCookie, _, _ := strings.Cut(rr.Header().Get("Set-Cookie"), ";")
 	assert.NotEmpty(t, loginCookie)
 	csrfToken, err := getCSRFTokenFromBody(rr.Body)
 	assert.NoError(t, err)
@@ -1105,7 +1105,7 @@ func TestTokenSignatureValidation(t *testing.T) {
 	rr = httptest.NewRecorder()
 	testServer.Config.Handler.ServeHTTP(rr, req)
 	assert.Equal(t, http.StatusFound, rr.Code)
-	userCookie := strings.Split(rr.Header().Get("Set-Cookie"), ";")[0]
+	userCookie, _, _ := strings.Cut(rr.Header().Get("Set-Cookie"), ";")
 	assert.NotEmpty(t, userCookie)
 	// Test a WebClient page and a JSON API
 	rr = httptest.NewRecorder()
@@ -2707,7 +2707,7 @@ func TestStreamJSONArray(t *testing.T) {
 	assert.Equal(t, `[]`, rr.Body.String())
 
 	data := []int{}
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		data = append(data, i)
 	}
 

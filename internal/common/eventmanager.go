@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"html"
 	"io"
+	"maps"
 	"mime"
 	"mime/multipart"
 	"net/http"
@@ -594,16 +595,12 @@ func (p *EventParams) getACopy() *EventParams {
 	params.retentionChecks = retentionChecks
 	if p.IDPCustomFields != nil {
 		fields := make(map[string]string)
-		for k, v := range *p.IDPCustomFields {
-			fields[k] = v
-		}
+		maps.Copy(fields, *p.IDPCustomFields)
 		params.IDPCustomFields = &fields
 	}
 	if len(params.Metadata) > 0 {
 		metadata := make(map[string]string)
-		for k, v := range p.Metadata {
-			metadata[k] = v
-		}
+		maps.Copy(metadata, p.Metadata)
 		params.Metadata = metadata
 	}
 

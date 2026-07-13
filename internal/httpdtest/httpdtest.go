@@ -229,7 +229,7 @@ func RemoveUser(user dataprovider.User, expectedStatusCode int) ([]byte, error) 
 // directory right after deleting the user: on Windows an open filesystem
 // root prevents the removal, so wait here instead of in every test.
 func waitNoUserConnections(username string) {
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		hasConns := false
 		for _, stat := range common.Connections.GetStats("") {
 			if stat.Username == username {

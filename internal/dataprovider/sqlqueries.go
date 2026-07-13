@@ -371,7 +371,7 @@ func getGroupsQuery(order string, minimal bool) string {
 
 func getGroupsWithNamesQuery(numArgs int) string {
 	var sb strings.Builder
-	for idx := 0; idx < numArgs; idx++ {
+	for idx := range numArgs {
 		if sb.Len() == 0 {
 			sb.WriteString("(")
 		} else {
@@ -389,7 +389,7 @@ func getGroupsWithNamesQuery(numArgs int) string {
 
 func getUsersInGroupsQuery(numArgs int) string {
 	var sb strings.Builder
-	for idx := 0; idx < numArgs; idx++ {
+	for idx := range numArgs {
 		if sb.Len() == 0 {
 			sb.WriteString("(")
 		} else {
@@ -603,7 +603,7 @@ func getUsersQuery(order, role string) string {
 
 func getUsersForQuotaCheckQuery(numArgs int) string {
 	var sb strings.Builder
-	for idx := 0; idx < numArgs; idx++ {
+	for idx := range numArgs {
 		if sb.Len() == 0 {
 			sb.WriteString("(")
 		} else {

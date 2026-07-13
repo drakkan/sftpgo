@@ -488,10 +488,8 @@ func (c *EventActionCommandConfig) validate() error {
 		}
 	}
 	c.Args = util.RemoveDuplicates(c.Args, true)
-	for _, arg := range c.Args {
-		if arg == "" {
-			return util.NewValidationError("invalid command args")
-		}
+	if slices.Contains(c.Args, "") {
+		return util.NewValidationError("invalid command args")
 	}
 	return nil
 }
@@ -543,16 +541,12 @@ func (c *EventActionEmailConfig) validate() error {
 		)
 	}
 	c.Recipients = util.RemoveDuplicates(c.Recipients, false)
-	for _, r := range c.Recipients {
-		if r == "" {
-			return util.NewValidationError("invalid email recipients")
-		}
+	if slices.Contains(c.Recipients, "") {
+		return util.NewValidationError("invalid email recipients")
 	}
 	c.Bcc = util.RemoveDuplicates(c.Bcc, false)
-	for _, r := range c.Bcc {
-		if r == "" {
-			return util.NewValidationError("invalid email bcc")
-		}
+	if slices.Contains(c.Bcc, "") {
+		return util.NewValidationError("invalid email bcc")
 	}
 	if c.Subject == "" {
 		return util.NewI18nError(

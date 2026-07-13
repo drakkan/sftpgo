@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 
@@ -431,10 +432,5 @@ func (s *Secret) TryDecrypt() error {
 }
 
 func isSecretStatusValid(status string) bool {
-	for idx := range validSecretStatuses {
-		if validSecretStatuses[idx] == status {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(validSecretStatuses, status)
 }

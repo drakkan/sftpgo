@@ -653,12 +653,11 @@ func (p *MemoryProvider) getUsers(limit int, offset int, order, role string) ([]
 			}
 		}
 	} else {
-		for i := len(p.dbHandle.usernames) - 1; i >= 0; i-- {
+		for _, username := range slices.Backward(p.dbHandle.usernames) {
 			itNum++
 			if itNum <= offset {
 				continue
 			}
-			username := p.dbHandle.usernames[i]
 			u := p.dbHandle.users[username]
 			user := u.getACopy()
 			if !user.hasRole(role) {
@@ -905,12 +904,11 @@ func (p *MemoryProvider) getAdmins(limit int, offset int, order string) ([]Admin
 			}
 		}
 	} else {
-		for i := len(p.dbHandle.adminsUsernames) - 1; i >= 0; i-- {
+		for _, username := range slices.Backward(p.dbHandle.adminsUsernames) {
 			itNum++
 			if itNum <= offset {
 				continue
 			}
-			username := p.dbHandle.adminsUsernames[i]
 			a := p.dbHandle.admins[username]
 			admin := a.getACopy()
 			admin.HideConfidentialData()
@@ -974,12 +972,11 @@ func (p *MemoryProvider) getGroups(limit, offset int, order string, _ bool) ([]G
 			}
 		}
 	} else {
-		for i := len(p.dbHandle.groupnames) - 1; i >= 0; i-- {
+		for _, name := range slices.Backward(p.dbHandle.groupnames) {
 			itNum++
 			if itNum <= offset {
 				continue
 			}
-			name := p.dbHandle.groupnames[i]
 			g := p.dbHandle.groups[name]
 			group := g.getACopy()
 			p.addVirtualFoldersToGroup(&group)
@@ -1477,12 +1474,11 @@ func (p *MemoryProvider) getFolders(limit, offset int, order string, _ bool) ([]
 			}
 		}
 	} else {
-		for i := len(p.dbHandle.vfoldersNames) - 1; i >= 0; i-- {
+		for _, name := range slices.Backward(p.dbHandle.vfoldersNames) {
 			itNum++
 			if itNum <= offset {
 				continue
 			}
-			name := p.dbHandle.vfoldersNames[i]
 			f := p.dbHandle.vfolders[name]
 			folder := f.GetACopy()
 			folder.PrepareForRendering()
@@ -1742,12 +1738,11 @@ func (p *MemoryProvider) getAPIKeys(limit int, offset int, order string) ([]APIK
 	}
 	itNum := 0
 	if order == OrderDESC {
-		for i := len(p.dbHandle.apiKeysIDs) - 1; i >= 0; i-- {
+		for _, keyID := range slices.Backward(p.dbHandle.apiKeysIDs) {
 			itNum++
 			if itNum <= offset {
 				continue
 			}
-			keyID := p.dbHandle.apiKeysIDs[i]
 			k := p.dbHandle.apiKeys[keyID]
 			apiKey := k.getACopy()
 			apiKey.HideConfidentialData()
@@ -1968,8 +1963,7 @@ func (p *MemoryProvider) getShares(limit int, offset int, order, username string
 	shares := make([]Share, 0, limit)
 	itNum := 0
 	if order == OrderDESC {
-		for i := len(p.dbHandle.sharesIDs) - 1; i >= 0; i-- {
-			shareID := p.dbHandle.sharesIDs[i]
+		for _, shareID := range slices.Backward(p.dbHandle.sharesIDs) {
 			s := p.dbHandle.shares[shareID]
 			if s.Username != username {
 				continue
@@ -2134,12 +2128,11 @@ func (p *MemoryProvider) getEventActions(limit, offset int, order string, _ bool
 			}
 		}
 	} else {
-		for i := len(p.dbHandle.actionsNames) - 1; i >= 0; i-- {
+		for _, name := range slices.Backward(p.dbHandle.actionsNames) {
 			itNum++
 			if itNum <= offset {
 				continue
 			}
-			name := p.dbHandle.actionsNames[i]
 			a := p.dbHandle.actions[name]
 			action := a.getACopy()
 			action.PrepareForRendering()
@@ -2285,12 +2278,11 @@ func (p *MemoryProvider) getEventRules(limit, offset int, order string) ([]Event
 			}
 		}
 	} else {
-		for i := len(p.dbHandle.rulesNames) - 1; i >= 0; i-- {
+		for _, name := range slices.Backward(p.dbHandle.rulesNames) {
 			itNum++
 			if itNum <= offset {
 				continue
 			}
-			name := p.dbHandle.rulesNames[i]
 			r := p.dbHandle.rules[name]
 			rule := r.getACopy()
 			p.addActionsToRule(&rule)
@@ -2619,12 +2611,11 @@ func (p *MemoryProvider) getRoles(limit int, offset int, order string, _ bool) (
 			}
 		}
 	} else {
-		for i := len(p.dbHandle.roleNames) - 1; i >= 0; i-- {
+		for _, name := range slices.Backward(p.dbHandle.roleNames) {
 			itNum++
 			if itNum <= offset {
 				continue
 			}
-			name := p.dbHandle.roleNames[i]
 			r := p.dbHandle.roles[name]
 			role := r.getACopy()
 			roles = append(roles, role)
@@ -2751,8 +2742,8 @@ func (p *MemoryProvider) getIPListEntries(listType IPListType, filter, from, ord
 			}
 		}
 	} else {
-		for i := len(p.dbHandle.ipListEntriesKeys) - 1; i >= 0; i-- {
-			e := p.dbHandle.ipListEntries[p.dbHandle.ipListEntriesKeys[i]]
+		for _, v := range slices.Backward(p.dbHandle.ipListEntriesKeys) {
+			e := p.dbHandle.ipListEntries[v]
 			if e.Type == listType && e.satisfySearchConstraints(filter, from, order) {
 				entry := e.getACopy()
 				entry.PrepareForRendering()

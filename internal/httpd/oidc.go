@@ -128,8 +128,8 @@ func (o *OIDC) getForcedRole(audience string) string {
 
 func (o *OIDC) getRedirectURL() string {
 	url := o.RedirectBaseURL
-	if strings.HasSuffix(o.RedirectBaseURL, "/") {
-		url = strings.TrimSuffix(o.RedirectBaseURL, "/")
+	if before, ok := strings.CutSuffix(o.RedirectBaseURL, "/"); ok {
+		url = before
 	}
 	url += webOIDCRedirectPath
 	logger.Debug(logSender, "", "oidc redirect URL: %q", url)

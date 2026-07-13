@@ -1928,7 +1928,7 @@ func getPreLoginScriptContent(user dataprovider.User, nonJSONResponse bool) []by
 	}
 	if len(user.Username) > 0 {
 		u, _ := json.Marshal(user)
-		content = append(content, []byte(fmt.Sprintf("echo '%v'\n", string(u)))...)
+		content = append(content, fmt.Appendf(nil, "echo '%v'\n", string(u))...)
 	}
 	return content
 }

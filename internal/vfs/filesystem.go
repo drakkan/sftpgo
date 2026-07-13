@@ -27,13 +27,13 @@ import (
 type Filesystem struct {
 	RedactedSecret string                 `json:"-"`
 	Provider       sdk.FilesystemProvider `json:"provider"`
-	OSConfig       sdk.OSFsConfig         `json:"osconfig,omitempty"`
-	S3Config       S3FsConfig             `json:"s3config,omitempty"`
-	GCSConfig      GCSFsConfig            `json:"gcsconfig,omitempty"`
-	AzBlobConfig   AzBlobFsConfig         `json:"azblobconfig,omitempty"`
-	CryptConfig    CryptFsConfig          `json:"cryptconfig,omitempty"`
-	SFTPConfig     SFTPFsConfig           `json:"sftpconfig,omitempty"`
-	HTTPConfig     HTTPFsConfig           `json:"httpconfig,omitempty"`
+	OSConfig       sdk.OSFsConfig         `json:"osconfig"`
+	S3Config       S3FsConfig             `json:"s3config"`
+	GCSConfig      GCSFsConfig            `json:"gcsconfig"`
+	AzBlobConfig   AzBlobFsConfig         `json:"azblobconfig"`
+	CryptConfig    CryptFsConfig          `json:"cryptconfig"`
+	SFTPConfig     SFTPFsConfig           `json:"sftpconfig"`
+	HTTPConfig     HTTPFsConfig           `json:"httpconfig"`
 }
 
 // SetEmptySecrets sets the secrets to empty

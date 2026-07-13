@@ -918,7 +918,7 @@ func TestFilePatterns(t *testing.T) {
 	assert.Len(t, filtered, 0)
 
 	dirContents = nil
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		dirContents = append(dirContents, vfs.NewFileInfo(fmt.Sprintf("ic%02d", i), i%2 == 0, int64(i), time.Now(), false))
 	}
 	dirContents = append(dirContents, vfs.NewFileInfo("ic350", false, 123, time.Now(), false))
@@ -1168,7 +1168,7 @@ func TestListerAt(t *testing.T) {
 	err = lister.Close()
 	require.NoError(t, err)
 
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		f, err := os.Create(filepath.Join(dir, strconv.Itoa(i)))
 		require.NoError(t, err)
 		err = f.Close()

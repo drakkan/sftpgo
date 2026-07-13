@@ -1625,10 +1625,7 @@ func sqlCommonGetRecentlyUpdatedUsers(after int64, dbHandle sqlQuerier) ([]User,
 }
 
 func sqlGetMaxUsersForQuotaCheckRange() int {
-	maxUsers := 50
-	if maxUsers > len(sqlPlaceholders) {
-		maxUsers = len(sqlPlaceholders)
-	}
+	maxUsers := min(50, len(sqlPlaceholders))
 	return maxUsers
 }
 

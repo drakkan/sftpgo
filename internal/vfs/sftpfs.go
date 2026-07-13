@@ -246,9 +246,8 @@ func (c *SFTPFsConfig) validateCredentials() error {
 // ValidateAndEncryptCredentials validates the config and encrypts credentials if they are in plain text
 func (c *SFTPFsConfig) ValidateAndEncryptCredentials(additionalData string) error {
 	if err := c.validate(); err != nil {
-		var errI18n *util.I18nError
 		errValidation := util.NewValidationError(fmt.Sprintf("could not validate SFTP fs config: %v", err))
-		if errors.As(err, &errI18n) {
+		if errI18n, ok := errors.AsType[*util.I18nError](err); ok {
 			return util.NewI18nError(errValidation, errI18n.Message)
 		}
 		return util.NewI18nError(errValidation, util.I18nErrorFsValidation)
@@ -1001,10 +1000,8 @@ func (c *sftpConnection) openConnNoLock() error {
 				}
 			}
 			if len(c.config.Fingerprints) > 0 {
-				for _, provided := range c.config.Fingerprints {
-					if provided == fp {
-						return nil
-					}
+				if slices.Contains(c.config.Fingerprints, fp) {
+					return nil
 				}
 				return fmt.Errorf("invalid fingerprint %q", fp)
 			}

@@ -265,12 +265,12 @@ func TestHTTPFsWalk(t *testing.T) {
 	require.Len(t, walkedPaths, 1)
 	require.Contains(t, walkedPaths, "/")
 	// now add some files/folders
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		err = os.WriteFile(filepath.Join(basePath, fmt.Sprintf("file%d", i)), nil, os.ModePerm)
 		assert.NoError(t, err)
 		err = os.Mkdir(filepath.Join(basePath, fmt.Sprintf("dir%d", i)), os.ModePerm)
 		assert.NoError(t, err)
-		for j := 0; j < 5; j++ {
+		for j := range 5 {
 			err = os.WriteFile(filepath.Join(basePath, fmt.Sprintf("dir%d", i), fmt.Sprintf("subfile%d", j)), nil, os.ModePerm)
 			assert.NoError(t, err)
 		}
@@ -286,10 +286,10 @@ func TestHTTPFsWalk(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, walkedPaths, 71)
 	require.Contains(t, walkedPaths, "/")
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		require.Contains(t, walkedPaths, path.Join("/", fmt.Sprintf("file%d", i)))
 		require.Contains(t, walkedPaths, path.Join("/", fmt.Sprintf("dir%d", i)))
-		for j := 0; j < 5; j++ {
+		for j := range 5 {
 			require.Contains(t, walkedPaths, path.Join("/", fmt.Sprintf("dir%d", i), fmt.Sprintf("subfile%d", j)))
 		}
 	}

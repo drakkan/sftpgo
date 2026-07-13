@@ -40,7 +40,7 @@ type GroupUserSettings struct {
 type Group struct {
 	sdk.BaseGroup
 	// settings to apply to users for whom this is a primary group
-	UserSettings GroupUserSettings `json:"user_settings,omitempty"`
+	UserSettings GroupUserSettings `json:"user_settings"`
 	// Mapping between virtual paths and virtual folders
 	VirtualFolders []vfs.VirtualFolder `json:"virtual_folders,omitempty"`
 }

@@ -1024,7 +1024,7 @@ func TestReadDirLongNames(t *testing.T) {
 		defer client.Close()
 
 		numFiles := 1000
-		for i := 0; i < 1000; i++ {
+		for range 1000 {
 			fPath := filepath.Join(user.GetHomeDir(), hex.EncodeToString(util.GenerateRandomBytes(127)))
 			err = os.WriteFile(fPath, util.GenerateRandomBytes(30), 0666)
 			assert.NoError(t, err)
@@ -1233,7 +1233,7 @@ func TestDefender(t *testing.T) {
 		assert.Equal(t, 1, host.Score)
 	}
 
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		_, _, err = getSftpClient(user, usePubKey)
 		assert.Error(t, err)
 	}
@@ -1379,7 +1379,7 @@ func TestConcurrency(t *testing.T) {
 	assert.NoError(t, err)
 
 	var closedConns atomic.Int32
-	for i := 0; i < numLogins; i++ {
+	for i := range numLogins {
 		wg.Add(1)
 		go func(counter int) {
 			defer wg.Done()
@@ -1396,10 +1396,7 @@ func TestConcurrency(t *testing.T) {
 		}(i)
 	}
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
+	wg.Go(func() {
 		maxConns := 0
 		maxSessions := 0
 		for {
@@ -1421,7 +1418,7 @@ func TestConcurrency(t *testing.T) {
 		}
 		assert.Greater(t, maxConns, 0)
 		assert.Greater(t, maxSessions, 0)
-	}()
+	})
 
 	wg.Wait()
 
@@ -3736,7 +3733,7 @@ func TestPreLoginHookPreserveMFAConfig(t *testing.T) {
 		Secret:     kms.NewPlainSecret(key.Secret()),
 		Protocols:  []string{common.ProtocolSSH},
 	}
-	for i := 0; i < 12; i++ {
+	for range 12 {
 		user.Filters.RecoveryCodes = append(user.Filters.RecoveryCodes, dataprovider.RecoveryCode{
 			Secret: kms.NewPlainSecret(fmt.Sprintf("RC-%v", strings.ToUpper(util.GenerateUniqueID()))),
 		})
@@ -4812,7 +4809,7 @@ func TestExternalAuthPreserveMFAConfig(t *testing.T) {
 		Secret:     kms.NewPlainSecret(key.Secret()),
 		Protocols:  []string{common.ProtocolSSH},
 	}
-	for i := 0; i < 12; i++ {
+	for range 12 {
 		user.Filters.RecoveryCodes = append(user.Filters.RecoveryCodes, dataprovider.RecoveryCode{
 			Secret: kms.NewPlainSecret(fmt.Sprintf("RC-%v", strings.ToUpper(util.GenerateUniqueID()))),
 		})
@@ -12199,20 +12196,20 @@ func getKeyboardInteractiveScriptForBuiltinChecks(addPasscode bool, result int) 
 	echos := []bool{false}
 	q, _ := json.Marshal([]string{"Password: "})
 	e, _ := json.Marshal(echos)
-	content = append(content, []byte(fmt.Sprintf("echo '{\"questions\":%v,\"echos\":%v,\"check_password\":1}'\n", string(q), string(e)))...)
+	content = append(content, fmt.Appendf(nil, "echo '{\"questions\":%v,\"echos\":%v,\"check_password\":1}'\n", string(q), string(e))...)
 	content = append(content, []byte("read ANSWER\n\n")...)
 	content = append(content, []byte("if test \"$ANSWER\" != \"OK\"; then\n")...)
 	content = append(content, []byte("exit 1\n")...)
 	content = append(content, []byte("fi\n\n")...)
 	if addPasscode {
 		q, _ := json.Marshal([]string{"Passcode: "})
-		content = append(content, []byte(fmt.Sprintf("echo '{\"questions\":%v,\"echos\":%v,\"check_password\":2}'\n", string(q), string(e)))...)
+		content = append(content, fmt.Appendf(nil, "echo '{\"questions\":%v,\"echos\":%v,\"check_password\":2}'\n", string(q), string(e))...)
 		content = append(content, []byte("read ANSWER\n\n")...)
 		content = append(content, []byte("if test \"$ANSWER\" != \"OK\"; then\n")...)
 		content = append(content, []byte("exit 1\n")...)
 		content = append(content, []byte("fi\n\n")...)
 	}
-	content = append(content, []byte(fmt.Sprintf("echo '{\"auth_result\":%v}'\n", result))...)
+	content = append(content, fmt.Appendf(nil, "echo '{\"auth_result\":%v}'\n", result)...)
 	return content
 }
 
@@ -12225,17 +12222,17 @@ func getKeyboardInteractiveScriptContent(questions []string, sleepTime int, nonJ
 	}
 	e, _ := json.Marshal(echos)
 	if nonJSONResponse {
-		content = append(content, []byte(fmt.Sprintf("echo 'questions: %v echos: %v\n", string(q), string(e)))...)
+		content = append(content, fmt.Appendf(nil, "echo 'questions: %v echos: %v\n", string(q), string(e))...)
 	} else {
-		content = append(content, []byte(fmt.Sprintf("echo '{\"questions\":%v,\"echos\":%v}'\n", string(q), string(e)))...)
+		content = append(content, fmt.Appendf(nil, "echo '{\"questions\":%v,\"echos\":%v}'\n", string(q), string(e))...)
 	}
 	for index := range questions {
-		content = append(content, []byte(fmt.Sprintf("read ANSWER%v\n", index))...)
+		content = append(content, fmt.Appendf(nil, "read ANSWER%v\n", index)...)
 	}
 	if sleepTime > 0 {
-		content = append(content, []byte(fmt.Sprintf("sleep %v\n", sleepTime))...)
+		content = append(content, fmt.Appendf(nil, "sleep %v\n", sleepTime)...)
 	}
-	content = append(content, []byte(fmt.Sprintf("echo '{\"auth_result\":%v}'\n", result))...)
+	content = append(content, fmt.Appendf(nil, "echo '{\"auth_result\":%v}'\n", result)...)
 	return content
 }
 
@@ -12244,7 +12241,7 @@ func getExtAuthScriptContent(user dataprovider.User, nonJSONResponse, emptyRespo
 	if emptyResponse {
 		return extAuthContent
 	}
-	extAuthContent = append(extAuthContent, []byte(fmt.Sprintf("if test \"$SFTPGO_AUTHD_USERNAME\" = \"%v\"; then\n", user.Username))...)
+	extAuthContent = append(extAuthContent, fmt.Appendf(nil, "if test \"$SFTPGO_AUTHD_USERNAME\" = \"%v\"; then\n", user.Username)...)
 	if username != "" {
 		user.Username = username
 	}
@@ -12252,7 +12249,7 @@ func getExtAuthScriptContent(user dataprovider.User, nonJSONResponse, emptyRespo
 	if nonJSONResponse {
 		extAuthContent = append(extAuthContent, []byte("echo 'text response'\n")...)
 	} else {
-		extAuthContent = append(extAuthContent, []byte(fmt.Sprintf("echo '%v'\n", string(u)))...)
+		extAuthContent = append(extAuthContent, fmt.Appendf(nil, "echo '%v'\n", string(u))...)
 	}
 	extAuthContent = append(extAuthContent, []byte("else\n")...)
 	if nonJSONResponse {
@@ -12272,20 +12269,20 @@ func getPreLoginScriptContent(user dataprovider.User, nonJSONResponse bool) []by
 	}
 	if len(user.Username) > 0 {
 		u, _ := json.Marshal(user)
-		content = append(content, []byte(fmt.Sprintf("echo '%v'\n", string(u)))...)
+		content = append(content, fmt.Appendf(nil, "echo '%v'\n", string(u))...)
 	}
 	return content
 }
 
 func getExitCodeScriptContent(exitCode int) []byte {
 	content := []byte("#!/bin/sh\n\n")
-	content = append(content, []byte(fmt.Sprintf("exit %v", exitCode))...)
+	content = append(content, fmt.Appendf(nil, "exit %v", exitCode)...)
 	return content
 }
 
 func getCheckPwdScriptsContents(status int, toVerify string) []byte {
 	content := []byte("#!/bin/sh\n\n")
-	content = append(content, []byte(fmt.Sprintf("echo '{\"status\":%v,\"to_verify\":\"%v\"}'\n", status, toVerify))...)
+	content = append(content, fmt.Appendf(nil, "echo '{\"status\":%v,\"to_verify\":\"%v\"}'\n", status, toVerify)...)
 	if status > 0 {
 		content = append(content, []byte("exit 0")...)
 	} else {
@@ -12361,8 +12358,8 @@ func createInitialFiles(scriptArgs string) {
 	if err != nil {
 		logger.WarnToConsole("unable to save private key to file: %v", err)
 	}
-	err = os.WriteFile(gitWrapPath, []byte(fmt.Sprintf("%v -i %v -oStrictHostKeyChecking=no %v\n",
-		sshPath, privateKeyPath, scriptArgs)), os.ModePerm)
+	err = os.WriteFile(gitWrapPath, fmt.Appendf(nil, "%v -i %v -oStrictHostKeyChecking=no %v\n",
+		sshPath, privateKeyPath, scriptArgs), os.ModePerm)
 	if err != nil {
 		logger.WarnToConsole("unable to save gitwrap shell script: %v", err)
 	}

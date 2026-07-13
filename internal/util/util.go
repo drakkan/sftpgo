@@ -157,7 +157,7 @@ func SanitizeCSVRow(row []string) []string {
 // IsStringPrefixInSlice searches a string prefix in a slice and returns true
 // if a matching prefix is found
 func IsStringPrefixInSlice(obj string, list []string) bool {
-	for i := 0; i < len(list); i++ {
+	for i := range list {
 		if strings.HasPrefix(obj, list[i]) {
 			return true
 		}
@@ -216,7 +216,7 @@ func IsNameValid(name string) bool {
 	}
 
 	upperName := strings.ToUpper(name)
-	baseName := strings.Split(upperName, ".")[0]
+	baseName, _, _ := strings.Cut(upperName, ".")
 
 	switch baseName {
 	case "CON", "PRN", "AUX", "NUL",

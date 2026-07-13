@@ -1179,7 +1179,7 @@ func TestDefender(t *testing.T) {
 		assert.Equal(t, 1, host.Score)
 	}
 
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		client = getWebDavClient(user, false, nil)
 		assert.Error(t, checkBasicFunc(client))
 	}
@@ -2259,13 +2259,11 @@ func TestClientClose(t *testing.T) {
 		assert.NoError(t, checkBasicFunc(client))
 
 		var wg sync.WaitGroup
-		wg.Add(1)
-		go func() {
+		wg.Go(func() {
 			err = uploadFileWithRawClient(testFilePath, testFileName, user.Username, defaultPassword,
 				true, testFileSize, client)
 			assert.Error(t, err)
-			wg.Done()
-		}()
+		})
 
 		assert.Eventually(t, func() bool {
 			for _, stat := range common.Connections.GetStats("") {
@@ -2295,12 +2293,10 @@ func TestClientClose(t *testing.T) {
 		assert.NoError(t, err)
 		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
 
-		wg.Add(1)
-		go func() {
+		wg.Go(func() {
 			err = downloadFile(testFileName, localDownloadPath, testFileSize, client)
 			assert.Error(t, err)
-			wg.Done()
-		}()
+		})
 
 		assert.Eventually(t, func() bool {
 			for _, stat := range common.Connections.GetStats("") {
@@ -3660,12 +3656,12 @@ func getEncryptedFileSize(size int64) (int64, error) {
 func getExtAuthScriptContent(user dataprovider.User, password string) []byte {
 	extAuthContent := []byte("#!/bin/sh\n\n")
 	if password != "" {
-		extAuthContent = append(extAuthContent, []byte(fmt.Sprintf("if test \"$SFTPGO_AUTHD_USERNAME\" = \"%s\" -a \"$SFTPGO_AUTHD_PASSWORD\" = \"%s\"; then\n", user.Username, password))...)
+		extAuthContent = append(extAuthContent, fmt.Appendf(nil, "if test \"$SFTPGO_AUTHD_USERNAME\" = \"%s\" -a \"$SFTPGO_AUTHD_PASSWORD\" = \"%s\"; then\n", user.Username, password)...)
 	} else {
-		extAuthContent = append(extAuthContent, []byte(fmt.Sprintf("if test \"$SFTPGO_AUTHD_USERNAME\" = \"%s\"; then\n", user.Username))...)
+		extAuthContent = append(extAuthContent, fmt.Appendf(nil, "if test \"$SFTPGO_AUTHD_USERNAME\" = \"%s\"; then\n", user.Username)...)
 	}
 	u, _ := json.Marshal(user)
-	extAuthContent = append(extAuthContent, []byte(fmt.Sprintf("echo '%s'\n", string(u)))...)
+	extAuthContent = append(extAuthContent, fmt.Appendf(nil, "echo '%s'\n", string(u))...)
 	extAuthContent = append(extAuthContent, []byte("else\n")...)
 	extAuthContent = append(extAuthContent, []byte("echo '{\"username\":\"\"}'\n")...)
 	extAuthContent = append(extAuthContent, []byte("fi\n")...)
@@ -3680,14 +3676,14 @@ func getPreLoginScriptContent(user dataprovider.User, nonJSONResponse bool) []by
 	}
 	if len(user.Username) > 0 {
 		u, _ := json.Marshal(user)
-		content = append(content, []byte(fmt.Sprintf("echo '%v'\n", string(u)))...)
+		content = append(content, fmt.Appendf(nil, "echo '%v'\n", string(u))...)
 	}
 	return content
 }
 
 func getExitCodeScriptContent(exitCode int) []byte {
 	content := []byte("#!/bin/sh\n\n")
-	content = append(content, []byte(fmt.Sprintf("exit %v", exitCode))...)
+	content = append(content, fmt.Appendf(nil, "exit %v", exitCode)...)
 	return content
 }
 

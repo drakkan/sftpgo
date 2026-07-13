@@ -736,7 +736,7 @@ func TestContentType(t *testing.T) {
 	err = davFile.Close()
 	assert.NoError(t, err)
 
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		// the second time the cache will be used
 		baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath, testFilePath, testFile+".custom",
 			common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{})

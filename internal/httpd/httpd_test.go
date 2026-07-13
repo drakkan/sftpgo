@@ -11956,7 +11956,7 @@ func TestWebAPIChangeUserProfileMock(t *testing.T) {
 	err = json.Unmarshal(rr.Body.Bytes(), &profileReq)
 	assert.NoError(t, err)
 	assert.Equal(t, email, profileReq["email"].(string))
-	assert.Len(t, profileReq["additional_emails"].([]interface{}), 1)
+	assert.Len(t, profileReq["additional_emails"].([]any), 1)
 	assert.Equal(t, description, profileReq["description"].(string))
 	assert.True(t, profileReq["allow_api_key_auth"].(bool))
 	val, ok := profileReq["public_keys"].([]any)
@@ -13812,7 +13812,7 @@ func TestDefender(t *testing.T) {
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		_, err = getJWTWebClientTokenFromTestServerWithAddr(defaultUsername, "wrong pwd", remoteAddr)
 		assert.Error(t, err)
 	}
@@ -15331,7 +15331,7 @@ func TestShareMaxTokensConcurrent(t *testing.T) {
 	results := make(chan int, numRequests)
 	var wg sync.WaitGroup
 	wg.Add(numRequests)
-	for i := 0; i < numRequests; i++ {
+	for range numRequests {
 		go func() {
 			defer wg.Done()
 			r, errReq := http.NewRequest(http.MethodGet, sharesPath+"/"+objectID+"?compress=false", nil)
@@ -16520,8 +16520,8 @@ func TestBrowseShares(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), util.I18nErrorPathInvalid)
 
 	fakePDF := []byte(`%PDF-1.6`)
-	for i := 0; i < 128; i++ {
-		fakePDF = append(fakePDF, []byte(fmt.Sprintf("%d", i))...)
+	for i := range 128 {
+		fakePDF = append(fakePDF, fmt.Appendf(nil, "%d", i)...)
 	}
 	pdfPath := filepath.Join(user.GetHomeDir(), shareDir, "test.pdf")
 	pdfLinkPath := filepath.Join(user.GetHomeDir(), shareDir, "link.pdf")
@@ -17589,8 +17589,8 @@ func TestWebClientViewPDF(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), util.I18nErrorPDFMessage)
 
 	fakePDF := []byte(`%PDF-1.6`)
-	for i := 0; i < 128; i++ {
-		fakePDF = append(fakePDF, []byte(fmt.Sprintf("%d", i))...)
+	for i := range 128 {
+		fakePDF = append(fakePDF, fmt.Appendf(nil, "%d", i)...)
 	}
 	err = os.WriteFile(filepath.Join(user.GetHomeDir(), "test.pdf"), fakePDF, 0666)
 	assert.NoError(t, err)
@@ -20061,9 +20061,7 @@ func TestClientUserClose(t *testing.T) {
 	assert.NoError(t, err)
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		defer func() {
 			rcv := recover()
 			assert.Equal(t, http.ErrAbortHandler, rcv)
@@ -20072,19 +20070,15 @@ func TestClientUserClose(t *testing.T) {
 		setJWTCookieForReq(req, webToken)
 		rr := executeRequest(req)
 		checkResponseCode(t, http.StatusOK, rr)
-	}()
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	})
+	wg.Go(func() {
 		req, _ := http.NewRequest(http.MethodGet, webClientEditFilePath+"?path="+testFileName, nil)
 		setJWTCookieForReq(req, webToken)
 		rr := executeRequest(req)
 		checkResponseCode(t, http.StatusInternalServerError, rr)
 		assert.Contains(t, rr.Body.String(), util.I18nError500Message)
-	}()
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	})
+	wg.Go(func() {
 		body := new(bytes.Buffer)
 		writer := multipart.NewWriter(body)
 		part, err := writer.CreateFormFile("filenames", "upload.dat")
@@ -20102,7 +20096,7 @@ func TestClientUserClose(t *testing.T) {
 		rr := executeRequest(req)
 		checkResponseCode(t, http.StatusBadRequest, rr)
 		assert.Contains(t, rr.Body.String(), "transfer aborted")
-	}()
+	})
 	// wait for the transfers
 	assert.Eventually(t, func() bool {
 		stats := common.Connections.GetStats("")
@@ -28239,7 +28233,7 @@ func createTestFile(path string, size int64) error {
 
 func getExitCodeScriptContent(exitCode int) []byte {
 	content := []byte("#!/bin/sh\n\n")
-	content = append(content, []byte(fmt.Sprintf("exit %v", exitCode))...)
+	content = append(content, fmt.Appendf(nil, "exit %v", exitCode)...)
 	return content
 }
 
@@ -28296,8 +28290,8 @@ func createTestPNG(name string, width, height int, imgColor color.Color) error {
 	upLeft := image.Point{0, 0}
 	lowRight := image.Point{width, height}
 	img := image.NewRGBA(image.Rectangle{upLeft, lowRight})
-	for x := 0; x < width; x++ {
-		for y := 0; y < height; y++ {
+	for x := range width {
+		for y := range height {
 			img.Set(x, y, imgColor)
 		}
 	}
@@ -28314,7 +28308,7 @@ func BenchmarkSecretDecryption(b *testing.B) {
 	s.SetAdditionalData("username")
 	err := s.Encrypt()
 	require.NoError(b, err)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		err = s.Clone().Decrypt()
 		require.NoError(b, err)
 	}

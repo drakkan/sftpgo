@@ -129,7 +129,7 @@ type UserFilters struct {
 	// AdditionalEmails defines additional email addresses
 	AdditionalEmails []string `json:"additional_emails,omitempty"`
 	// Time-based one time passwords configuration
-	TOTPConfig UserTOTPConfig `json:"totp_config,omitempty"`
+	TOTPConfig UserTOTPConfig `json:"totp_config"`
 	// Recovery codes to use if the user loses access to their second factor auth device.
 	// Each code can only be used once, you should use these codes to login and disable or
 	// reset 2FA for your account
@@ -201,8 +201,7 @@ func (u *User) getRootFs(connectionID string) (fs vfs.Fs, err error) {
 
 func (u *User) checkDirWithParents(virtualDirPath, connectionID string) error {
 	dirs := util.GetDirsForVirtualPath(virtualDirPath)
-	for idx := len(dirs) - 1; idx >= 0; idx-- {
-		vPath := dirs[idx]
+	for _, vPath := range slices.Backward(dirs) {
 		if vPath == "/" {
 			continue
 		}

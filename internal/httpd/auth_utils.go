@@ -105,14 +105,7 @@ func getTokenDuration(audience tokenAudience) time.Duration {
 }
 
 func getMaxCookieDuration() time.Duration {
-	result := csrfTokenDuration
-	if shareTokenDuration > result {
-		result = shareTokenDuration
-	}
-	if cookieTokenDuration > result {
-		result = cookieTokenDuration
-	}
-	return result
+	return max(cookieTokenDuration, shareTokenDuration, csrfTokenDuration)
 }
 
 func hasUserAudience(claims *jwt.Claims) bool {

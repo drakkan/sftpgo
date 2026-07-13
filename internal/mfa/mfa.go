@@ -57,7 +57,6 @@ func (c *Config) Initialize() error {
 	serviceStatus.TOTPConfigs = nil
 	totp := make(map[string]bool)
 	for _, totpConfig := range c.TOTP {
-		totpConfig := totpConfig //pin
 		if err := totpConfig.validate(); err != nil {
 			totpConfigs = nil
 			return fmt.Errorf("invalid TOTP config %+v: %v", totpConfig, err)

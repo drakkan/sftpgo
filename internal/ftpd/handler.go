@@ -554,8 +554,8 @@ func getPathRelativeTo(base, target string) string {
 		if !strings.HasSuffix(base, "/") {
 			base += "/"
 		}
-		if strings.HasPrefix(target, base) {
-			sb.WriteString(strings.TrimPrefix(target, base))
+		if after, ok := strings.CutPrefix(target, base); ok {
+			sb.WriteString(after)
 			return sb.String()
 		}
 		if base == "/" || base == "./" {

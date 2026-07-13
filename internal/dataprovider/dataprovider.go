@@ -682,7 +682,7 @@ type DefenderEntry struct {
 	ID      int64     `json:"-"`
 	IP      string    `json:"ip"`
 	Score   int       `json:"score,omitempty"`
-	BanTime time.Time `json:"ban_time,omitempty"`
+	BanTime time.Time `json:"ban_time"`
 }
 
 // GetID returns an unique ID for a defender entry

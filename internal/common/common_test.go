@@ -609,7 +609,7 @@ func TestRateLimitersIntegration(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = LimitRate(ProtocolSSH, source2)
 	assert.NoError(t, err)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		_, err = LimitRate(ProtocolWebDAV, source3)
 		assert.NoError(t, err)
 	}
@@ -1857,7 +1857,7 @@ func TestSQLPlaceholderLimits(t *testing.T) {
 	err := dataprovider.AddFolder(&folder, "", "", "")
 	assert.NoError(t, err)
 
-	for i := 0; i < numGroups; i++ {
+	for i := range numGroups {
 		group := dataprovider.Group{
 			BaseGroup: sdk.BaseGroup{
 				Name: fmt.Sprintf("testgroup%d", i),
@@ -1900,7 +1900,7 @@ func TestSQLPlaceholderLimits(t *testing.T) {
 	users, err := dataprovider.GetUsersForQuotaCheck(map[string]bool{user.Username: true})
 	assert.NoError(t, err)
 	if assert.Len(t, users, 1) {
-		for i := 0; i < numGroups; i++ {
+		for i := range numGroups {
 			_, ok := users[0].Permissions[fmt.Sprintf("/dir%d", i)]
 			assert.True(t, ok)
 		}
@@ -1909,7 +1909,7 @@ func TestSQLPlaceholderLimits(t *testing.T) {
 	err = dataprovider.DeleteUser(user.Username, "", "", "")
 	assert.NoError(t, err)
 
-	for i := 0; i < numUsers; i++ {
+	for i := range numUsers {
 		user := dataprovider.User{
 			BaseUser: sdk.BaseUser{
 				Username: fmt.Sprintf("testusername%d", i),
@@ -1935,7 +1935,7 @@ func TestSQLPlaceholderLimits(t *testing.T) {
 	err = dataprovider.DeleteFolder(folder.Name, "", "", "")
 	assert.NoError(t, err)
 
-	for i := 0; i < numUsers; i++ {
+	for i := range numUsers {
 		username := fmt.Sprintf("testusername%d", i)
 		user, err := dataprovider.UserExists(username, "")
 		assert.NoError(t, err)
@@ -1944,7 +1944,7 @@ func TestSQLPlaceholderLimits(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	for i := 0; i < numGroups; i++ {
+	for i := range numGroups {
 		groupName := fmt.Sprintf("testgroup%d", i)
 		err = dataprovider.DeleteGroup(groupName, "", "", "")
 		assert.NoError(t, err)
@@ -1979,7 +1979,7 @@ func TestServerVersion(t *testing.T) {
 
 func BenchmarkBcryptHashing(b *testing.B) {
 	bcryptPassword := "bcryptpassword"
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := bcrypt.GenerateFromPassword([]byte(bcryptPassword), 10)
 		if err != nil {
 			panic(err)
@@ -1989,7 +1989,7 @@ func BenchmarkBcryptHashing(b *testing.B) {
 
 func BenchmarkCompareBcryptPassword(b *testing.B) {
 	bcryptPassword := "$2a$10$lPDdnDimJZ7d5/GwL6xDuOqoZVRXok6OHHhivCnanWUtcgN0Zafki"
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		err := bcrypt.CompareHashAndPassword([]byte(bcryptPassword), []byte("password"))
 		if err != nil {
 			panic(err)
@@ -1999,7 +1999,7 @@ func BenchmarkCompareBcryptPassword(b *testing.B) {
 
 func BenchmarkArgon2Hashing(b *testing.B) {
 	argonPassword := "argon2password"
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := argon2id.CreateHash(argonPassword, argon2id.DefaultParams)
 		if err != nil {
 			panic(err)
@@ -2009,7 +2009,7 @@ func BenchmarkArgon2Hashing(b *testing.B) {
 
 func BenchmarkCompareArgon2Password(b *testing.B) {
 	argon2Password := "$argon2id$v=19$m=65536,t=1,p=2$aOoAOdAwvzhOgi7wUFjXlw$wn/y37dBWdKHtPXHR03nNaKHWKPXyNuVXOknaU+YZ+s"
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := argon2id.ComparePasswordAndHash("password", argon2Password)
 		if err != nil {
 			panic(err)
@@ -2019,7 +2019,7 @@ func BenchmarkCompareArgon2Password(b *testing.B) {
 
 func BenchmarkAddRemoveConnections(b *testing.B) {
 	var conns []ActiveConnection
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		conns = append(conns, &fakeConnection{
 			BaseConnection: NewBaseConnection(fmt.Sprintf("id%d", i), ProtocolSFTP, "", "", dataprovider.User{
 				BaseUser: sdk.BaseUser{
@@ -2029,14 +2029,14 @@ func BenchmarkAddRemoveConnections(b *testing.B) {
 		})
 	}
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		for _, c := range conns {
 			if err := Connections.Add(c); err != nil {
 				panic(err)
 			}
 		}
 		var wg sync.WaitGroup
-		for idx := len(conns) - 1; idx >= 0; idx-- {
+		for idx := range slices.Backward(conns) {
 			wg.Add(1)
 			go func(index int) {
 				defer wg.Done()
@@ -2050,16 +2050,16 @@ func BenchmarkAddRemoveConnections(b *testing.B) {
 func BenchmarkAddRemoveSSHConnections(b *testing.B) {
 	conn1, conn2 := net.Pipe()
 	var conns []*SSHConnection
-	for i := 0; i < 2000; i++ {
+	for i := range 2000 {
 		conns = append(conns, NewSSHConnection(fmt.Sprintf("id%d", i), conn1))
 	}
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		for _, c := range conns {
 			Connections.AddSSHConnection(c)
 		}
-		for idx := len(conns) - 1; idx >= 0; idx-- {
-			Connections.RemoveSSHConnection(conns[idx].GetID())
+		for _, conn := range slices.Backward(conns) {
+			Connections.RemoveSSHConnection(conn.GetID())
 		}
 	}
 	conn1.Close()

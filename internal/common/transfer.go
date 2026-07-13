@@ -223,8 +223,7 @@ func (t *BaseTransfer) SetCancelFn(cancelFn func()) {
 // converts it into a more understandable form for the client if it is a
 // well-known type of error
 func (t *BaseTransfer) ConvertError(err error) error {
-	var pathError *fs.PathError
-	if errors.As(err, &pathError) {
+	if pathError, ok := errors.AsType[*fs.PathError](err); ok {
 		return fmt.Errorf("%s %s: %s", pathError.Op, t.GetVirtualPath(), pathError.Err.Error())
 	}
 	return t.Connection.GetFsError(t.Fs, err)

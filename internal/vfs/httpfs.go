@@ -165,9 +165,8 @@ func (c *HTTPFsConfig) validate() error {
 func (c *HTTPFsConfig) ValidateAndEncryptCredentials(additionalData string) error {
 	err := c.validate()
 	if err != nil {
-		var errI18n *util.I18nError
 		errValidation := util.NewValidationError(fmt.Sprintf("could not validate HTTP fs config: %v", err))
-		if errors.As(err, &errI18n) {
+		if errI18n, ok := errors.AsType[*util.I18nError](err); ok {
 			return util.NewI18nError(errValidation, errI18n.Message)
 		}
 		return util.NewI18nError(errValidation, util.I18nErrorFsValidation)

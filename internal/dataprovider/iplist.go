@@ -157,8 +157,14 @@ func (e *IPListEntry) RenderAsJSON(reload bool) ([]byte, error) {
 	return json.Marshal(e)
 }
 
+// keyPrefix returns the provider key prefix shared by all the entries
+// with this list type
+func (t IPListType) keyPrefix() string {
+	return strconv.Itoa(int(t)) + "_"
+}
+
 func (e *IPListEntry) getKey() string {
-	return fmt.Sprintf("%d_%s", e.Type, e.IPOrNet)
+	return e.Type.keyPrefix() + e.IPOrNet
 }
 
 func (e *IPListEntry) getName() string {

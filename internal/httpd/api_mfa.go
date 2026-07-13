@@ -104,7 +104,7 @@ func saveTOTPConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	recoveryCodes := make([]dataprovider.RecoveryCode, 0, 12)
-	for i := 0; i < 12; i++ {
+	for range 12 {
 		code := getNewRecoveryCode()
 		recoveryCodes = append(recoveryCodes, dataprovider.RecoveryCode{Secret: kms.NewPlainSecret(code)})
 	}
@@ -202,7 +202,7 @@ func generateRecoveryCodes(w http.ResponseWriter, r *http.Request) {
 	}
 	recoveryCodes := make([]string, 0, 12)
 	accountRecoveryCodes := make([]dataprovider.RecoveryCode, 0, 12)
-	for i := 0; i < 12; i++ {
+	for range 12 {
 		code := getNewRecoveryCode()
 		recoveryCodes = append(recoveryCodes, code)
 		accountRecoveryCodes = append(accountRecoveryCodes, dataprovider.RecoveryCode{Secret: kms.NewPlainSecret(code)})

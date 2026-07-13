@@ -648,7 +648,7 @@ func TestCryptFsUserUploadErrorOverwrite(t *testing.T) {
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	var buf []byte
-	for i := 0; i < 4000; i++ {
+	for range 4000 {
 		buf = append(buf, []byte("a")...)
 	}
 	bufSize := int64(len(buf))
@@ -775,15 +775,12 @@ func TestWaitForConnections(t *testing.T) {
 		assert.NoError(t, err)
 
 		var wg sync.WaitGroup
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			time.Sleep(1 * time.Second)
 			common.WaitForTransfers(10)
 			common.WaitForTransfers(0)
 			common.WaitForTransfers(10)
-		}()
+		})
 
 		err = writeSFTPFileNoCheck(testFileName, testFileSize, client)
 		assert.NoError(t, err)
@@ -817,13 +814,10 @@ func TestWaitForConnections(t *testing.T) {
 		assert.NoError(t, err)
 
 		var wg sync.WaitGroup
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			time.Sleep(1 * time.Second)
 			common.WaitForTransfers(1)
-		}()
+		})
 
 		err = writeSFTPFileNoCheck(testFileName, testFileSize, client)
 		// we don't have an error here because the service won't really stop
@@ -1078,7 +1072,7 @@ func TestHiddenRoot(t *testing.T) {
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		err = os.MkdirAll(filepath.Join(user.HomeDir, fmt.Sprintf("ftp%d", i)), os.ModePerm)
 		assert.NoError(t, err)
 	}
@@ -1104,7 +1098,7 @@ func TestHiddenRoot(t *testing.T) {
 			_, err = client.Stat(name)
 			assert.ErrorIs(t, err, os.ErrNotExist)
 		}
-		for i := 0; i < 10; i++ {
+		for i := range 10 {
 			_, err = client.Stat(fmt.Sprintf("ftp%d", i))
 			assert.ErrorIs(t, err, os.ErrNotExist)
 		}
@@ -4928,7 +4922,7 @@ func TestEventRuleFsActions(t *testing.T) {
 			return userGet.UsedQuotaFiles == 1 && userGet.UsedQuotaSize == size
 		}, 2*time.Second, 100*time.Millisecond)
 
-		for i := 0; i < 2; i++ {
+		for range 2 {
 			err = client.Mkdir(testFileName)
 			assert.NoError(t, err)
 			assert.Eventually(t, func() bool {
@@ -7883,7 +7877,7 @@ func TestEventRuleIPBlocked(t *testing.T) {
 	time.Sleep(300 * time.Millisecond)
 	assert.Empty(t, lastReceivedEmail.get().From, lastReceivedEmail.get().Data)
 
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		user.Password = "wrong_pwd"
 		_, _, err = getSftpClient(user)
 		assert.Error(t, err)
@@ -8797,12 +8791,9 @@ func TestMaxSessionsSameConnection(t *testing.T) {
 		// must still count as a single session.
 		var wg sync.WaitGroup
 		var writeErr error
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			writeErr = writeSFTPFile(testFileName, 64*1024, client)
-		}()
+		})
 		// wait for the transfer to start
 		time.Sleep(100 * time.Millisecond)
 
@@ -10095,7 +10086,7 @@ func writeSFTPFileNoCheck(name string, size int64, client *sftp.Client) error {
 
 func getUploadScriptEnvContent(envVar string) []byte {
 	content := []byte("#!/bin/sh\n\n")
-	content = append(content, []byte(fmt.Sprintf("if [ -z \"$%s\" ]\n", envVar))...)
+	content = append(content, fmt.Appendf(nil, "if [ -z \"$%s\" ]\n", envVar)...)
 	content = append(content, []byte("then\n")...)
 	content = append(content, []byte("    exit 1\n")...)
 	content = append(content, []byte("else\n")...)
@@ -10108,17 +10099,17 @@ func getUploadScriptContent(movedPath, logFilePath string, exitStatus int) []byt
 	content := []byte("#!/bin/sh\n\n")
 	content = append(content, []byte("sleep 1\n")...)
 	if logFilePath != "" {
-		content = append(content, []byte(fmt.Sprintf("echo $@ > %v\n", logFilePath))...)
+		content = append(content, fmt.Appendf(nil, "echo $@ > %v\n", logFilePath)...)
 	}
-	content = append(content, []byte(fmt.Sprintf("mv ${SFTPGO_ACTION_PATH} %v\n", movedPath))...)
-	content = append(content, []byte(fmt.Sprintf("exit %d", exitStatus))...)
+	content = append(content, fmt.Appendf(nil, "mv ${SFTPGO_ACTION_PATH} %v\n", movedPath)...)
+	content = append(content, fmt.Appendf(nil, "exit %d", exitStatus)...)
 	return content
 }
 
 func getSaveProviderObjectScriptContent(outFilePath string, exitStatus int) []byte {
 	content := []byte("#!/bin/sh\n\n")
-	content = append(content, []byte(fmt.Sprintf("echo ${SFTPGO_OBJECT_DATA} > %v\n", outFilePath))...)
-	content = append(content, []byte(fmt.Sprintf("exit %d", exitStatus))...)
+	content = append(content, fmt.Appendf(nil, "echo ${SFTPGO_OBJECT_DATA} > %v\n", outFilePath)...)
+	content = append(content, fmt.Appendf(nil, "exit %d", exitStatus)...)
 	return content
 }
 

@@ -2921,7 +2921,7 @@ func (p *BoltProvider) getIPListEntries(listType IPListType, filter, from, order
 		if err != nil {
 			return err
 		}
-		prefix := []byte(fmt.Sprintf("%d_", listType))
+		prefix := []byte(listType.keyPrefix())
 		acceptKey := func(k []byte) bool {
 			return k != nil && bytes.HasPrefix(k, prefix)
 		}
@@ -3003,7 +3003,7 @@ func (p *BoltProvider) countIPListEntries(listType IPListType) (int64, error) {
 			count = int64(bucket.Stats().KeyN)
 			return nil
 		}
-		prefix := []byte(fmt.Sprintf("%d_", listType))
+		prefix := []byte(listType.keyPrefix())
 		cursor := bucket.Cursor()
 		for k, _ := cursor.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = cursor.Next() {
 			count++
@@ -3035,7 +3035,7 @@ func (p *BoltProvider) getListEntriesForIP(ip string, listType IPListType) ([]IP
 		if err != nil {
 			return err
 		}
-		prefix := []byte(fmt.Sprintf("%d_", listType))
+		prefix := []byte(listType.keyPrefix())
 		cursor := bucket.Cursor()
 		for k, v := cursor.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = cursor.Next() {
 			var entry IPListEntry

@@ -195,7 +195,7 @@ type AdminFilters struct {
 	// Require two factor authentication
 	RequireTwoFactor bool `json:"require_two_factor"`
 	// Time-based one time passwords configuration
-	TOTPConfig AdminTOTPConfig `json:"totp_config,omitempty"`
+	TOTPConfig AdminTOTPConfig `json:"totp_config"`
 	// Recovery codes to use if the user loses access to their second factor auth device.
 	// Each code can only be used once, you should use these codes to login and disable or
 	// reset 2FA for your account
@@ -244,7 +244,7 @@ type Admin struct {
 	Password       string       `json:"password,omitempty"`
 	Email          string       `json:"email,omitempty"`
 	Permissions    []string     `json:"permissions"`
-	Filters        AdminFilters `json:"filters,omitempty"`
+	Filters        AdminFilters `json:"filters"`
 	Description    string       `json:"description,omitempty"`
 	AdditionalInfo string       `json:"additional_info,omitempty"`
 	// Groups membership

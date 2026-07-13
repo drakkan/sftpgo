@@ -883,8 +883,7 @@ func (p *PGSQLProvider) normalizeError(err error, fieldType int) error {
 	if err == nil {
 		return nil
 	}
-	var pgsqlErr *pgconn.PgError
-	if errors.As(err, &pgsqlErr) {
+	if pgsqlErr, ok := errors.AsType[*pgconn.PgError](err); ok {
 		switch pgsqlErr.Code {
 		case "23505":
 			var message string

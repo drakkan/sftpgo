@@ -431,8 +431,7 @@ func (*GCSFs) IsNotExist(err error) bool {
 	if errors.Is(err, storage.ErrObjectNotExist) {
 		return true
 	}
-	var apiErr *googleapi.Error
-	if errors.As(err, &apiErr) {
+	if apiErr, ok := errors.AsType[*googleapi.Error](err); ok {
 		if apiErr.Code == http.StatusNotFound {
 			return true
 		}
@@ -446,8 +445,7 @@ func (*GCSFs) IsPermission(err error) bool {
 	if err == nil {
 		return false
 	}
-	var apiErr *googleapi.Error
-	if errors.As(err, &apiErr) {
+	if apiErr, ok := errors.AsType[*googleapi.Error](err); ok {
 		if apiErr.Code == http.StatusForbidden || apiErr.Code == http.StatusUnauthorized {
 			return true
 		}
