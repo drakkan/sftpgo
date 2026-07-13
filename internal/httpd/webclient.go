@@ -140,6 +140,7 @@ type filesPage struct {
 	CurrentDir         string
 	DirsURL            string
 	SearchURL          string
+	ThumbnailURL       string
 	FileActionsURL     string
 	CheckExistURL      string
 	DownloadURL        string
@@ -804,6 +805,7 @@ func (s *httpdServer) renderSharedFilesPage(w http.ResponseWriter, r *http.Reque
 		ViewPDFURL:         path.Join(baseSharePath, "viewpdf"),
 		DirsURL:            path.Join(baseSharePath, "dirs"),
 		SearchURL:          "", // recursive search is not offered on public share pages
+		ThumbnailURL:       "", // thumbnails are not offered on public share pages
 		FileURL:            "",
 		FileActionsURL:     "",
 		CheckExistURL:      path.Join(baseSharePath, "browse", "exist"),
@@ -861,6 +863,7 @@ func (s *httpdServer) renderFilesPage(w http.ResponseWriter, r *http.Request, di
 		ViewPDFURL:         webClientViewPDFPath,
 		DirsURL:            webClientDirsPath,
 		SearchURL:          webClientSearchPath,
+		ThumbnailURL:       thumbnailURLForUser(),
 		FileURL:            webClientFilePath,
 		FileActionsURL:     webClientFileActionsPath,
 		CheckExistURL:      webClientExistPath,
@@ -1523,6 +1526,105 @@ func (s *httpdServer) handleClientGetFiles(w http.ResponseWriter, r *http.Reques
 			s.renderFilesPage(w, r, path.Dir(name), util.NewI18nError(err, i18nFsMsg(status)), &user)
 		}
 	}
+}
+
+// handleClientThumbnail serves a small cached JPEG thumbnail for an image or
+// video file. It is modeled on handleClientGetFiles: the file is always opened
+// through the user's connection (never the OS path), so backend and permission
+// checks apply. Any failure returns 404 so the WebClient falls back to a generic
+// icon; the main listing never depends on this endpoint.
+func (s *httpdServer) handleClientThumbnail(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	if thumbs == nil || !thumbs.enabled {
+		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
+	}
+	claims, err := jwt.FromContext(r.Context())
+	if err != nil || claims.Username == "" {
+		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+		return
+	}
+	user, err := dataprovider.GetUserWithGroupSettings(claims.Username, "")
+	if err != nil {
+		status := getRespStatus(err)
+		http.Error(w, http.StatusText(status), status)
+		return
+	}
+	connID := xid.New().String()
+	protocol := getProtocolFromRequest(r)
+	connectionID := fmt.Sprintf("%s_%s", protocol, connID)
+	if err := checkHTTPClientUser(&user, r, connectionID, false, false); err != nil {
+		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+		return
+	}
+	baseConn := common.NewBaseConnection(connID, protocol, util.GetHTTPLocalAddress(r), r.RemoteAddr, user)
+	connection := newConnection(baseConn, w, r)
+	if err = common.Connections.Add(connection); err != nil {
+		http.Error(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
+		return
+	}
+	defer common.Connections.Remove(connection.GetID())
+
+	name := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
+	if name == "/" || !thumbs.canThumbnail(name) {
+		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
+	}
+	info, err := connection.Stat(name, 0)
+	if err != nil || info.IsDir() {
+		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
+	}
+	if thumbs.maxSourceSize > 0 && info.Size() > thumbs.maxSourceSize {
+		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
+	}
+
+	key := thumbs.cacheKey(user.Username, name, info.ModTime(), info.Size())
+	etag := `"` + key + `"`
+	w.Header().Set("Cache-Control", "private, max-age=3600")
+	w.Header().Set("ETag", etag)
+	if match := r.Header.Get("If-None-Match"); match == etag {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+
+	// Serve from cache if we already have this exact thumbnail.
+	if data, err := os.ReadFile(thumbs.cachePath(key)); err == nil {
+		writeThumbnail(w, data)
+		return
+	}
+
+	// Generate lazily: open through the connection so the storage backend and the
+	// virtual-filesystem sandbox are respected.
+	reader, err := connection.getFileReader(name, 0, http.MethodGet)
+	if err != nil {
+		connection.Log(logger.LevelDebug, "thumbnail: cannot open %q: %v", name, err)
+		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
+	}
+	defer reader.Close()
+
+	limited := io.LimitReader(reader, thumbs.readLimit()+1)
+	var data []byte
+	if thumbs.isVideo(name) {
+		data, err = thumbs.generateFromVideo(limited, strings.ToLower(path.Ext(name)))
+	} else {
+		data, err = thumbs.generateFromImage(limited)
+	}
+	if err != nil {
+		connection.Log(logger.LevelDebug, "thumbnail: generation failed for %q: %v", name, err)
+		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
+	}
+	thumbs.store(key, data)
+	writeThumbnail(w, data)
+}
+
+func writeThumbnail(w http.ResponseWriter, data []byte) {
+	w.Header().Set("Content-Type", "image/jpeg")
+	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+	w.Write(data) //nolint:errcheck
 }
 
 func (s *httpdServer) handleClientEditFile(w http.ResponseWriter, r *http.Request) {

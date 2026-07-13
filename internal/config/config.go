@@ -433,6 +433,13 @@ func Init() {
 				InstallationCode:     "",
 				InstallationCodeHint: defaultInstallCodeHint,
 			},
+			Thumbnails: httpd.ThumbnailsConfig{
+				Enabled:       true,
+				CacheDir:      "",
+				CacheMaxSize:  512,
+				MaxSourceSize: 100,
+				FFmpegPath:    "",
+			},
 			HideSupportLink: false,
 		},
 		HTTPConfig: httpclient.Config{
@@ -2237,6 +2244,11 @@ func setViperDefaults() {
 	viper.SetDefault("httpd.cors.allow_private_network", globalConf.HTTPDConfig.Cors.AllowPrivateNetwork)
 	viper.SetDefault("httpd.setup.installation_code", globalConf.HTTPDConfig.Setup.InstallationCode)
 	viper.SetDefault("httpd.setup.installation_code_hint", globalConf.HTTPDConfig.Setup.InstallationCodeHint)
+	viper.SetDefault("httpd.thumbnails.enabled", globalConf.HTTPDConfig.Thumbnails.Enabled)
+	viper.SetDefault("httpd.thumbnails.cache_dir", globalConf.HTTPDConfig.Thumbnails.CacheDir)
+	viper.SetDefault("httpd.thumbnails.cache_max_size", globalConf.HTTPDConfig.Thumbnails.CacheMaxSize)
+	viper.SetDefault("httpd.thumbnails.max_source_size", globalConf.HTTPDConfig.Thumbnails.MaxSourceSize)
+	viper.SetDefault("httpd.thumbnails.ffmpeg_path", globalConf.HTTPDConfig.Thumbnails.FFmpegPath)
 	viper.SetDefault("httpd.hide_support_link", globalConf.HTTPDConfig.HideSupportLink)
 	viper.SetDefault("http.timeout", globalConf.HTTPConfig.Timeout)
 	viper.SetDefault("http.retry_wait_min", globalConf.HTTPConfig.RetryWaitMin)

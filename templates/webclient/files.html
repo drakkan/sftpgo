@@ -41,6 +41,17 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         </div>
         <div class="card-toolbar">
             <div class="d-flex justify-content-end" data-kt-filemanager-table-toolbar="base">
+                {{- if .ThumbnailURL}}
+                <button id="id_view_toggle_button" type="button" class="btn btn-flex btn-light me-3"
+                        title="Toggle grid view" data-i18n="[title]fs.view.toggle">
+                    <i id="id_view_toggle_icon" class="ki-duotone ki-element-11 fs-2">
+                        <span class="path1"></span>
+                        <span class="path2"></span>
+                        <span class="path3"></span>
+                        <span class="path4"></span>
+                    </i>
+                </button>
+                {{- end}}
                 {{- if .CanCreateDirs}}
                 <button id="id_create_dir_button" type="button" class="btn btn-flex btn-light-primary me-3">
                     <i class="ki-duotone ki-add-folder fs-2">
@@ -201,6 +212,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 <tbody id="file_manager_list_body" class="text-gray-700 fw-semibold">
                 </tbody>
             </table>
+            <!-- Feature: grid/gallery view. Populated from the DataTable's current
+                 page when grid mode is active; the table above is hidden then. -->
+            <div id="file_manager_grid" class="dt-grid d-none"></div>
         </div>
     </div>
 </div>
@@ -221,6 +235,65 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     [data-kt-filemanager-table-nav-bar="base"].dnd-breadcrumb-target { transition: box-shadow .1s ease-in-out; }
     [data-kt-filemanager-table-nav-bar="base"].dnd-drop-over {
         box-shadow: 0 0 0 2px var(--bs-primary, #009ef7);
+    }
+
+    /* Feature: thumbnails + grid view */
+    #file_manager_list_body img.dt-thumb {
+        width: 40px;
+        height: 40px;
+        object-fit: cover;
+        border-radius: 4px;
+        background-color: var(--bs-gray-100, #f5f8fa);
+        flex: 0 0 auto;
+    }
+    #id_view_toggle_button.active {
+        background-color: var(--bs-primary, #009ef7);
+        color: #fff;
+    }
+    .dt-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 1rem;
+        padding: 0.5rem 0;
+    }
+    .dt-grid-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 0.75rem;
+        border: 1px solid var(--bs-gray-200, #eff2f5);
+        border-radius: 0.65rem;
+        cursor: pointer;
+        transition: box-shadow .1s ease-in-out, border-color .1s ease-in-out;
+    }
+    .dt-grid-card:hover {
+        border-color: var(--bs-primary, #009ef7);
+        box-shadow: 0 0 0 1px var(--bs-primary, #009ef7);
+    }
+    .dt-grid-thumb {
+        width: 100%;
+        height: 130px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+    .dt-grid-thumb img.dt-thumb-lg {
+        max-width: 100%;
+        max-height: 130px;
+        object-fit: cover;
+        border-radius: 4px;
+    }
+    .dt-grid-thumb .dt-grid-icon { font-size: 3.5rem; }
+    .dt-grid-name {
+        margin-top: 0.5rem;
+        width: 100%;
+        text-align: center;
+        font-size: 0.85rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: var(--bs-gray-800, #3f4254);
     }
 </style>
 {{- end}}
@@ -577,6 +650,180 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         // and the move endpoint assumes sources live in the current directory.
         var searchMode = false;
 
+        // ---- Feature: thumbnails + grid view --------------------------------
+        // THUMBNAIL_URL is empty when thumbnails are disabled or on share pages,
+        // in which case we simply keep the existing icons.
+        var THUMBNAIL_URL = '{{.ThumbnailURL}}';
+        // Source extensions the backend can produce a thumbnail for. Videos are
+        // included optimistically; if ffmpeg is unavailable the request 404s and
+        // the icon fallback kicks in.
+        var thumbImageExts = ["jpg", "jpeg", "png", "gif", "webp", "bmp"];
+        var thumbVideoExts = ["mp4", "mov", "mkv", "webm", "avi", "m4v"];
+        // In-memory (per session) grid/table view preference; not persisted.
+        var gridMode = false;
+
+        function fileExtOf(name) {
+            let i = name.lastIndexOf(".");
+            if (i < 0) {
+                return "";
+            }
+            return name.slice(i + 1).toLowerCase();
+        }
+
+        function thumbKind(row) {
+            if (!THUMBNAIL_URL || row["type"] != "2") {
+                return null;
+            }
+            let ext = fileExtOf(row["name"]);
+            if (thumbImageExts.includes(ext)) {
+                return "image";
+            }
+            if (thumbVideoExts.includes(ext)) {
+                return "video";
+            }
+            return null;
+        }
+
+        function thumbnailSrc(row) {
+            // row['url'] points at the file via the files endpoint; swap the base
+            // path for the thumbnail endpoint to get its thumbnail URL.
+            return row["url"].replace('{{.FilesURL}}', THUMBNAIL_URL);
+        }
+
+        // mediaIcon returns either a lazy <img> thumbnail (for media files) or the
+        // regular duotone icon markup. The fallback icon class is stashed on the img
+        // so the capturing error handler can restore it if the thumbnail fails.
+        function mediaIcon(row, iconName) {
+            let iconHTML = `<i class="ki-duotone ${iconName} fs-2x text-primary me-4">
+                                <i class="path1"></i>
+                                <i class="path2"></i>
+                            </i>`;
+            if (!thumbKind(row)) {
+                return iconHTML;
+            }
+            return `<img src="${thumbnailSrc(row)}" loading="lazy" class="dt-thumb me-4"
+                         data-fallback-icon="${iconName}" alt="">`;
+        }
+
+        // initThumbErrorHandler installs a single capturing 'error' listener (error
+        // events don't bubble) that swaps a failed thumbnail back to its icon. This
+        // keeps us CSP-safe (no inline onerror attributes).
+        function initThumbErrorHandler(container) {
+            if (!container || container.dataset.thumbErrBound) {
+                return;
+            }
+            container.dataset.thumbErrBound = "1";
+            container.addEventListener('error', function (e) {
+                let img = e.target;
+                if (!img || img.tagName !== 'IMG' || !img.classList.contains('dt-thumb')) {
+                    return;
+                }
+                let icon = img.dataset.fallbackIcon || 'ki-file';
+                let holder = document.createElement('span');
+                holder.innerHTML = `<i class="ki-duotone ${icon} fs-2x text-primary me-4"><i class="path1"></i><i class="path2"></i></i>`;
+                if (holder.firstElementChild) {
+                    img.replaceWith(holder.firstElementChild);
+                }
+            }, true);
+        }
+
+        function attrEscape(s) {
+            return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+        }
+
+        // renderGrid rebuilds the gallery cards from the DataTable's current page,
+        // so search, paging and ordering all keep working in grid mode.
+        function renderGrid() {
+            let grid = document.getElementById('file_manager_grid');
+            if (!grid) {
+                return;
+            }
+            let rows = dt.rows({ page: 'current', search: 'applied' }).data();
+            let html = "";
+            for (let i = 0; i < rows.length; i++) {
+                let row = rows[i];
+                let isFolder = row["type"] == "1";
+                let kind = thumbKind(row);
+                let cardKind = kind || (isFolder ? "folder" : "other");
+                let thumbInner;
+                if (kind) {
+                    let fallbackIcon = isFolder ? "ki-folder" : "ki-file";
+                    thumbInner = `<img src="${thumbnailSrc(row)}" loading="lazy" class="dt-thumb-lg" data-fallback-icon="${fallbackIcon}" alt="">`;
+                } else {
+                    let icon = isFolder ? "ki-folder" : (row["size"] === "" ? "ki-file-right" : "ki-file");
+                    thumbInner = `<i class="ki-duotone ${icon} dt-grid-icon text-primary"><i class="path1"></i><i class="path2"></i></i>`;
+                }
+                html += `<div class="dt-grid-card" data-url="${attrEscape(row["url"])}" data-kind="${cardKind}" data-name="${attrEscape(row["name"])}">
+                            <div class="dt-grid-thumb">${thumbInner}</div>
+                            <div class="dt-grid-name" title="${attrEscape(row["name"])}">${escapeHTML(row["name"])}</div>
+                        </div>`;
+            }
+            grid.innerHTML = html;
+        }
+
+        function applyViewMode() {
+            let table = document.getElementById('file_manager_list');
+            let grid = document.getElementById('file_manager_grid');
+            if (!table || !grid) {
+                return;
+            }
+            if (gridMode) {
+                renderGrid();
+                table.classList.add('d-none');
+                grid.classList.remove('d-none');
+            } else {
+                grid.classList.add('d-none');
+                table.classList.remove('d-none');
+            }
+        }
+
+        function openGridLightbox(clickedCard) {
+            let grid = document.getElementById('file_manager_grid');
+            let cards = grid.querySelectorAll('.dt-grid-card[data-kind="image"]');
+            let items = [];
+            let idx = 0;
+            cards.forEach(function (c, i) {
+                items.push({ src: c.dataset.url, name: c.dataset.name || '' });
+                if (c === clickedCard) {
+                    idx = i;
+                }
+            });
+            if (items.length) {
+                ImageViewer.open(items, idx);
+            }
+        }
+
+        var initGridView = function () {
+            let btn = document.getElementById('id_view_toggle_button');
+            if (!btn) {
+                return;
+            }
+            let grid = document.getElementById('file_manager_grid');
+            initThumbErrorHandler(grid);
+
+            grid.addEventListener('click', function (e) {
+                let card = e.target.closest('.dt-grid-card');
+                if (!card) {
+                    return;
+                }
+                let kind = card.dataset.kind;
+                if (kind === "image") {
+                    openGridLightbox(card);
+                } else if (kind === "video") {
+                    openMediaPlayer(card.dataset.name, card.dataset.url);
+                } else {
+                    // Folders navigate in; other files download/preview.
+                    window.location.href = card.dataset.url;
+                }
+            });
+
+            $(btn).off('click').on('click', function () {
+                gridMode = !gridMode;
+                btn.classList.toggle('active', gridMode);
+                applyViewMode();
+            });
+        }
+
 
         // Private functions
         var initDatatable = function () {
@@ -664,11 +911,13 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                     icon_name = "ki-file-right"
                                 }
 
+                                // Show a lazy thumbnail for image/video files, falling back
+                                // to the icon if generation fails (handled in a CSP-safe
+                                // capturing 'error' listener, see initThumbErrorHandler).
+                                let media = mediaIcon(row, icon_name);
+
                                 return `<div class="d-flex align-items-center">
-                                            <i class="ki-duotone ${icon_name} fs-2x text-primary me-4">
-                                                <i class="path1"></i>
-                                                <i class="path2"></i>
-                                            </i>
+                                            ${media}
                                             <a href="${row['url']}" class="text-gray-800 text-hover-primary">${data}</a>
                                         </div>`
                             }
@@ -936,6 +1185,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 toggleToolbars();
                 handleRowActions();
                 $('#file_manager_list_body').localize();
+                // Keep the grid (if visible) in sync with the current page.
+                applyViewMode();
             }
 
             dt.on('user-select', function(e, dt, type, cell, originalEvent){
@@ -1607,6 +1858,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 initToggleToolbar();
                 //{{- if .CanRename}}
                 initDragAndDrop();
+                //{{- end}}
+                //{{- if .ThumbnailURL}}
+                initThumbErrorHandler(document.getElementById('file_manager_list_body'));
+                initGridView();
                 //{{- end}}
             }
         }

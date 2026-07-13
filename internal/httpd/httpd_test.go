@@ -183,6 +183,7 @@ const (
 	webClientEditFilePath          = "/web/client/editfile"
 	webClientDirsPath              = "/web/client/dirs"
 	webClientSearchPath            = "/web/client/search"
+	webClientThumbnailPath         = "/web/client/thumbnail"
 	webClientDownloadZipPath       = "/web/client/downloadzip"
 	webChangeClientPwdPath         = "/web/client/changepwd"
 	webClientProfilePath           = "/web/client/profile"
@@ -18638,6 +18639,74 @@ func TestWebClientSearch(t *testing.T) {
 	// WebClient auth middleware.
 	req, _ := http.NewRequest(http.MethodGet, webClientSearchPath+"?path=/&q=report", nil)
 	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusFound, rr)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestWebClientThumbnail(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+
+	// Write a real PNG so the thumbnailer has something to decode, plus a
+	// non-image file and a directory to exercise the rejection paths.
+	err = os.MkdirAll(user.GetHomeDir(), os.ModePerm)
+	assert.NoError(t, err)
+	var pngBuf bytes.Buffer
+	img := image.NewRGBA(image.Rect(0, 0, 640, 480))
+	for y := 0; y < 480; y++ {
+		for x := 0; x < 640; x++ {
+			img.Set(x, y, color.RGBA{R: uint8(x % 256), G: uint8(y % 256), B: 120, A: 255})
+		}
+	}
+	err = png.Encode(&pngBuf, img)
+	assert.NoError(t, err)
+	err = os.WriteFile(filepath.Join(user.GetHomeDir(), "pic.png"), pngBuf.Bytes(), os.ModePerm)
+	assert.NoError(t, err)
+	err = os.WriteFile(filepath.Join(user.GetHomeDir(), "note.txt"), []byte("hello"), os.ModePerm)
+	assert.NoError(t, err)
+	err = os.MkdirAll(filepath.Join(user.GetHomeDir(), "adir"), os.ModePerm)
+	assert.NoError(t, err)
+
+	webToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	// A valid image produces a JPEG thumbnail with an ETag.
+	req, _ := http.NewRequest(http.MethodGet, webClientThumbnailPath+"?path="+url.QueryEscape("/pic.png"), nil)
+	setJWTCookieForReq(req, webToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Equal(t, "image/jpeg", rr.Header().Get("Content-Type"))
+	etag := rr.Header().Get("ETag")
+	assert.NotEmpty(t, etag)
+	// The response body must be a non-empty JPEG (starts with the SOI marker).
+	body := rr.Body.Bytes()
+	if assert.GreaterOrEqual(t, len(body), 2) {
+		assert.Equal(t, []byte{0xFF, 0xD8}, body[:2])
+	}
+
+	// A conditional request with the same ETag is answered with 304.
+	req, _ = http.NewRequest(http.MethodGet, webClientThumbnailPath+"?path="+url.QueryEscape("/pic.png"), nil)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("If-None-Match", etag)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotModified, rr)
+
+	// Non-image files, directories, the root and missing files are all rejected
+	// so the WebClient falls back to a generic icon.
+	for _, p := range []string{"/note.txt", "/adir", "/", "/missing.png"} {
+		req, _ = http.NewRequest(http.MethodGet, webClientThumbnailPath+"?path="+url.QueryEscape(p), nil)
+		setJWTCookieForReq(req, webToken)
+		rr = executeRequest(req)
+		checkResponseCode(t, http.StatusNotFound, rr)
+	}
+
+	// Unauthenticated requests are redirected to the login page.
+	req, _ = http.NewRequest(http.MethodGet, webClientThumbnailPath+"?path="+url.QueryEscape("/pic.png"), nil)
+	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusFound, rr)
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)

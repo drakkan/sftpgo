@@ -281,6 +281,9 @@
         "search": {
             "location": "Speicherort"
         },
+        "view": {
+            "toggle": "Rasteransicht umschalten"
+        },
         "view_file": "Datei \"{{- path}} \" anzeigen",
         "edit_file": "Datei \"{{- path}} \" bearbeiten",
         "new_folder": "Neuer Ordner",
