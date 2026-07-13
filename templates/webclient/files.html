@@ -209,6 +209,19 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 {{- define "extra_css"}}
 <link href="{{.StaticURL}}/assets/plugins/custom/datatables/datatables.bundle.css" rel="stylesheet" type="text/css"/>
 <link href="{{.StaticURL}}/vendor/imageviewer/imageviewer.css" rel="stylesheet" type="text/css"/>
+<style {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
+    /* Feature: drag-and-drop move */
+    #file_manager_list_body tr[draggable="true"] { cursor: grab; }
+    #file_manager_list_body tr.dnd-dragging { opacity: 0.4; }
+    #file_manager_list_body tr.dnd-drop-over > td {
+        background-color: var(--bs-primary-light, #e9f3ff) !important;
+        box-shadow: inset 0 0 0 2px var(--bs-primary, #009ef7);
+    }
+    [data-kt-filemanager-table-nav-bar="base"].dnd-breadcrumb-target { transition: box-shadow .1s ease-in-out; }
+    [data-kt-filemanager-table-nav-bar="base"].dnd-drop-over {
+        box-shadow: 0 0 0 2px var(--bs-primary, #009ef7);
+    }
+</style>
 {{- end}}
 
 {{- define "extra_js"}}
@@ -587,6 +600,19 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 },
                 deferRender: true,
                 processing: true,
+                //{{- if .CanRename}}
+                createdRow: function (row, data) {
+                    // Feature: drag-and-drop move. Tag every row with its metadata so the
+                    // delegated drag handlers (see initDragAndDrop) can act without extra lookups.
+                    row.setAttribute('draggable', 'true');
+                    row.dataset.meta = data['meta'];
+                    row.dataset.type = data['type'];
+                    if (data['type'] == '1' && data['dir_path']) {
+                        row.dataset.dirPath = data['dir_path'];
+                        row.classList.add('dnd-folder');
+                    }
+                },
+                //{{- end}}
                 lengthMenu: [ 10, 25, 50, 100, 250, 500 ],
                 select: {
                     style: 'multi',
@@ -1288,12 +1314,215 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             handleToogleToolbar(pageSelected, totalSelected);
         }
 
+        //{{- if .CanRename}}
+        // ---- Feature: drag-and-drop move -------------------------------------
+        // Reuses the existing /file-actions/move endpoint (same request the "Move
+        // or copy" dialog issues). No backend changes. Source items always live in
+        // the current directory (that's what the listing shows); the drop target is
+        // either a folder row or the breadcrumb (move up one level).
+        var draggedMeta = null;
+        var draggedType = null;
+
+        // dir_path values from the backend are url.QueryEscape'd (space -> '+',
+        // '/' -> '%2F'); turn one back into a plain absolute path.
+        function decodeDirPath(s) {
+            return decodeURIComponent(String(s).replace(/\+/g, '%20'));
+        }
+
+        function clearDropHighlights() {
+            document.querySelectorAll('.dnd-drop-over').forEach(function (el) {
+                el.classList.remove('dnd-drop-over');
+            });
+        }
+
+        function showDragMoveError(status) {
+            let errorMessage;
+            switch (status) {
+                case 400: errorMessage = "fs.move.err_unsupported"; break;
+                case 403: errorMessage = "fs.move.err_403"; break;
+                case 429: errorMessage = "fs.move.err_429"; break;
+                default:  errorMessage = "fs.move.err_generic";
+            }
+            ModalAlert.fire({
+                text: $.t(errorMessage),
+                icon: "warning",
+                confirmButtonText: $.t('general.ok'),
+                customClass: { confirmButton: "btn btn-primary" }
+            });
+        }
+
+        // Move the dragged item (from the current dir) into targetDirDecoded.
+        function dragMoveItem(sourceMeta, targetDirDecoded) {
+            let sourceName = getNameFromMeta(sourceMeta);
+            let sourceType = getTypeFromMeta(sourceMeta);
+
+            let curDecoded = decodeURIComponent('{{.CurrentDir}}');
+            let normCur = (curDecoded !== "/" && curDecoded.endsWith('/')) ? curDecoded.slice(0, -1) : curDecoded;
+            let normTgt = (targetDirDecoded !== "/" && targetDirDecoded.endsWith('/')) ? targetDirDecoded.slice(0, -1) : targetDirDecoded;
+
+            // No-op: dropping back into the folder the item already lives in.
+            if (normTgt === normCur) {
+                return;
+            }
+            // Guard: never move a folder into itself or one of its descendants.
+            if (sourceType === "1") {
+                let sourceFull = (normCur === "/" ? "" : normCur) + "/" + sourceName;
+                if (normTgt === sourceFull || normTgt.startsWith(sourceFull + "/")) {
+                    showDragMoveError(400);
+                    return;
+                }
+            }
+
+            let targetDirEnc = encodeURIComponent(targetDirDecoded);
+            let reqPath = '{{.FileActionsURL}}/move';
+            reqPath += '?path={{.CurrentDir}}' + encodeURIComponent("/" + sourceName) +
+                       '&target=' + targetDirEnc + encodeURIComponent("/" + sourceName);
+
+            KTApp.showPageLoading();
+            axios.post(reqPath, null, {
+                timeout: 15000,
+                headers: { 'X-CSRF-TOKEN': '{{.CSRFToken}}' },
+                validateStatus: function (status) { return status == 202; }
+            }).then(function (response) {
+                taskStatusWaiter.wait({
+                    taskID: response.data.message,
+                    delay: 500
+                }).then((result) => {
+                    KTApp.hidePageLoading();
+                    if (result.status != 200) {
+                        showDragMoveError(result.status);
+                        return;
+                    }
+                    dt.ajax.reload(null, false);
+                });
+            }).catch(function (error) {
+                KTApp.hidePageLoading();
+                let status = 0;
+                if (error && error.response) {
+                    status = error.response.status;
+                }
+                showDragMoveError(status);
+            });
+        }
+
+        var initDragAndDrop = function () {
+            let body = document.getElementById('file_manager_list_body');
+            if (!body || body.dataset.dndBound) {
+                return;
+            }
+            body.dataset.dndBound = "1";
+
+            body.addEventListener('dragstart', function (e) {
+                let tr = e.target.closest('tr');
+                if (!tr || !tr.dataset.meta) {
+                    return;
+                }
+                draggedMeta = tr.dataset.meta;
+                draggedType = tr.dataset.type;
+                tr.classList.add('dnd-dragging');
+                if (e.dataTransfer) {
+                    e.dataTransfer.effectAllowed = 'move';
+                    // Firefox requires data to be set for the drag to start.
+                    e.dataTransfer.setData('text/plain', draggedMeta);
+                }
+            });
+
+            body.addEventListener('dragend', function (e) {
+                let tr = e.target.closest('tr');
+                if (tr) {
+                    tr.classList.remove('dnd-dragging');
+                }
+                draggedMeta = null;
+                draggedType = null;
+                clearDropHighlights();
+            });
+
+            body.addEventListener('dragover', function (e) {
+                if (!draggedMeta) {
+                    return;
+                }
+                let tr = e.target.closest('tr.dnd-folder');
+                if (!tr || tr.dataset.meta === draggedMeta) {
+                    return;
+                }
+                e.preventDefault();
+                if (e.dataTransfer) {
+                    e.dataTransfer.dropEffect = 'move';
+                }
+                if (!tr.classList.contains('dnd-drop-over')) {
+                    clearDropHighlights();
+                    tr.classList.add('dnd-drop-over');
+                }
+            });
+
+            body.addEventListener('dragleave', function (e) {
+                let tr = e.target.closest('tr.dnd-folder');
+                if (tr && !tr.contains(e.relatedTarget)) {
+                    tr.classList.remove('dnd-drop-over');
+                }
+            });
+
+            body.addEventListener('drop', function (e) {
+                if (!draggedMeta) {
+                    return;
+                }
+                let tr = e.target.closest('tr.dnd-folder');
+                if (!tr || tr.dataset.meta === draggedMeta || !tr.dataset.dirPath) {
+                    return;
+                }
+                e.preventDefault();
+                let meta = draggedMeta;
+                clearDropHighlights();
+                dragMoveItem(meta, decodeDirPath(tr.dataset.dirPath));
+            });
+
+            // Breadcrumb becomes a "move up one level" drop target (skipped at root).
+            let navBar = document.querySelector('[data-kt-filemanager-table-nav-bar="base"]');
+            let curDecoded = decodeURIComponent('{{.CurrentDir}}');
+            if (navBar && curDecoded !== "/" && curDecoded !== "") {
+                let normCur = curDecoded.endsWith('/') ? curDecoded.slice(0, -1) : curDecoded;
+                let parentDir = normCur.substring(0, normCur.lastIndexOf('/'));
+                if (parentDir === "") {
+                    parentDir = "/";
+                }
+                navBar.classList.add('dnd-breadcrumb-target');
+                navBar.addEventListener('dragover', function (e) {
+                    if (!draggedMeta) {
+                        return;
+                    }
+                    e.preventDefault();
+                    if (e.dataTransfer) {
+                        e.dataTransfer.dropEffect = 'move';
+                    }
+                    navBar.classList.add('dnd-drop-over');
+                });
+                navBar.addEventListener('dragleave', function (e) {
+                    if (!navBar.contains(e.relatedTarget)) {
+                        navBar.classList.remove('dnd-drop-over');
+                    }
+                });
+                navBar.addEventListener('drop', function (e) {
+                    if (!draggedMeta) {
+                        return;
+                    }
+                    e.preventDefault();
+                    let meta = draggedMeta;
+                    navBar.classList.remove('dnd-drop-over');
+                    dragMoveItem(meta, parentDir);
+                });
+            }
+        }
+        //{{- end}}
+
         return {
             init: function () {
                 initLightbox();
                 initDatatable();
                 handleSearchDatatable();
                 initToggleToolbar();
+                //{{- if .CanRename}}
+                initDragAndDrop();
+                //{{- end}}
             }
         }
     }();
