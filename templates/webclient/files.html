@@ -194,6 +194,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         <th data-i18n="general.name" class="min-w-250px">Name</th>
                         <th data-i18n="general.size" class="min-w-10px">Size</th>
                         <th data-i18n="general.last_modified" class="min-w-125px">Last Modified</th>
+                        <th data-i18n="fs.search.location" class="min-w-150px">Location</th>
                         <th class="w-125px"></th>
                     </tr>
                 </thead>
@@ -571,6 +572,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     var KTDatatablesServerSide = function () {
         // Shared variables
         var dt;
+        // True while recursive search results are shown (see handleSearchDatatable).
+        // Drag-and-drop move is disabled in this mode because results span folders
+        // and the move endpoint assumes sources live in the current directory.
+        var searchMode = false;
 
 
         // Private functions
@@ -627,12 +632,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 stateLoadParams: function (settings, data) {
                     if (!data.sftpgo_dir || data.sftpgo_dir != '{{.CurrentDir}}'){
                         data.start = 0;
-                        data.search.search = "";
                     }
-                    if (data.search.search){
-                        const filterSearch = document.querySelector('[data-kt-filemanager-table-filter="search"]');
-                        filterSearch.value = data.search.search;
-                    }
+                    // Recursive search is server-side and per-session; never restore a
+                    // stale client-side filter from saved state.
+                    data.search.search = "";
                 },
                 columns: [
                     {
@@ -699,6 +702,21 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 return ""
                             }
                             return data;
+                        }
+                    },
+                    {
+                        // Location column: populated only by recursive search results
+                        // (the "path" field). Hidden in normal listings, shown while searching.
+                        data: "path",
+                        defaultContent: '',
+                        render: function (data, type) {
+                            if (type === 'display') {
+                                if (!data) {
+                                    return "";
+                                }
+                                return `<a href="{{.FilesURL}}?path=${encodeURIComponent(data)}" class="text-gray-600 text-hover-primary">${escapeHTML(data)}</a>`;
+                            }
+                            return data || "";
                         }
                     },
                     {
@@ -846,7 +864,14 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         searchable: false
                     },
                     {
+                        // Location column: hidden by default, revealed during search.
                         targets: 5,
+                        visible: false,
+                        orderable: true,
+                        searchable: false
+                    },
+                    {
+                        targets: 6,
                         orderable: false,
                         searchable: false
                     }
@@ -1050,12 +1075,66 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             });
         }
 
+        // ---- Feature: recursive search --------------------------------------
+        // The toolbar search box performs a recursive, wildcard/partial search of
+        // the current directory and everything beneath it via the /web/client/search
+        // endpoint. When the box is cleared we switch the table's ajax source back to
+        // the normal /dirs listing. The extra "Location" column (index 5) is revealed
+        // while search results are shown so each hit's folder is visible.
+        var PATH_COLUMN_INDEX = 5;
+
+        function setPathColumnVisible(visible) {
+            dt.column(PATH_COLUMN_INDEX).visible(visible, false);
+        }
+
+        function applySearch(q) {
+            dt.rows().deselect();
+            if (q === "") {
+                if (!searchMode) {
+                    return;
+                }
+                searchMode = false;
+                setPathColumnVisible(false);
+                dt.ajax.url('{{.DirsURL}}?path={{.CurrentDir}}').load();
+            } else {
+                searchMode = true;
+                setPathColumnVisible(true);
+                let url = '{{.SearchURL}}?path={{.CurrentDir}}&q=' + encodeURIComponent(q);
+                dt.ajax.url(url).load();
+            }
+        }
+
         var handleSearchDatatable = function () {
-            const filterSearch = $(document.querySelector('[data-kt-filemanager-table-filter="search"]'));
-            filterSearch.off("keyup");
-            filterSearch.on('keyup', function (e) {
-                dt.rows().deselect();
-                dt.search(e.target.value).draw();
+            const filterSearch = document.querySelector('[data-kt-filemanager-table-filter="search"]');
+            if (!filterSearch) {
+                return;
+            }
+            let searchTimer = null;
+            let lastQuery = "";
+            const trigger = function (immediate) {
+                let q = filterSearch.value.trim();
+                clearTimeout(searchTimer);
+                const run = function () {
+                    if (q === lastQuery) {
+                        return;
+                    }
+                    lastQuery = q;
+                    applySearch(q);
+                };
+                if (immediate) {
+                    run();
+                } else {
+                    // Debounce so we don't launch a recursive walk on every keystroke.
+                    searchTimer = setTimeout(run, 400);
+                }
+            };
+            $(filterSearch).off("keyup input keydown");
+            filterSearch.addEventListener('input', function () { trigger(false); });
+            filterSearch.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    trigger(true);
+                }
             });
         }
 
@@ -1413,6 +1492,12 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             body.dataset.dndBound = "1";
 
             body.addEventListener('dragstart', function (e) {
+                if (searchMode) {
+                    // Sources in search results may live in other folders; the move
+                    // endpoint expects them in the current dir, so disable DnD here.
+                    e.preventDefault();
+                    return;
+                }
                 let tr = e.target.closest('tr');
                 if (!tr || !tr.dataset.meta) {
                     return;

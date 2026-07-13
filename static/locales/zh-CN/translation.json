@@ -278,6 +278,9 @@
         "expired_session": "会话已过期，请重新登录。"
     },
     "fs": {
+        "search": {
+            "location": "位置"
+        },
         "view_file": "查看文件 \"{{- path}}\"",
         "edit_file": "编辑文件 \"{{- path}}\"",
         "new_folder": "新文件夹",

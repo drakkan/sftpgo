@@ -62,6 +62,15 @@ const (
 	templateUploadToShare  = "shareupload.html"
 )
 
+// Safety caps for the recursive WebClient search (handleClientSearch). Recursive
+// listing can be slow/metered on cloud backends (S3, GCS, Azure), so the walk is
+// bounded even though local filesystems would handle much more. When a cap is hit
+// the walk stops early and logs it; partial results are still returned.
+const (
+	maxSearchDirs    = 5000
+	maxSearchResults = 2000
+)
+
 // condResult is the result of an HTTP request precondition check.
 // See https://tools.ietf.org/html/rfc7232 section 3.
 type condResult int
@@ -130,6 +139,7 @@ type filesPage struct {
 	baseClientPage
 	CurrentDir         string
 	DirsURL            string
+	SearchURL          string
 	FileActionsURL     string
 	CheckExistURL      string
 	DownloadURL        string
@@ -793,6 +803,7 @@ func (s *httpdServer) renderSharedFilesPage(w http.ResponseWriter, r *http.Reque
 		ShareUploadBaseURL: path.Join(baseSharePath, url.PathEscape(dirName)),
 		ViewPDFURL:         path.Join(baseSharePath, "viewpdf"),
 		DirsURL:            path.Join(baseSharePath, "dirs"),
+		SearchURL:          "", // recursive search is not offered on public share pages
 		FileURL:            "",
 		FileActionsURL:     "",
 		CheckExistURL:      path.Join(baseSharePath, "browse", "exist"),
@@ -849,6 +860,7 @@ func (s *httpdServer) renderFilesPage(w http.ResponseWriter, r *http.Request, di
 		DownloadURL:        webClientDownloadZipPath,
 		ViewPDFURL:         webClientViewPDFPath,
 		DirsURL:            webClientDirsPath,
+		SearchURL:          webClientSearchPath,
 		FileURL:            webClientFilePath,
 		FileActionsURL:     webClientFileActionsPath,
 		CheckExistURL:      webClientExistPath,
@@ -1296,6 +1308,162 @@ func (s *httpdServer) handleClientGetDirContents(w http.ResponseWriter, r *http.
 		return data, count, err
 	}
 
+	streamJSONArray(w, defaultQueryLimit, dataGetter)
+}
+
+// matchesSearchQuery reports whether name matches the search query q. If q contains
+// a wildcard (* or ?) it is treated as a glob via path.Match; a malformed pattern
+// falls back to a case-insensitive substring match so the user still gets results.
+func matchesSearchQuery(q, qLower, name string) bool {
+	if strings.ContainsAny(q, "*?") {
+		matched, err := path.Match(q, name)
+		if err == nil {
+			return matched
+		}
+	}
+	return strings.Contains(strings.ToLower(name), qLower)
+}
+
+// handleClientSearch recursively searches the directory given by the "path" query
+// param (and everything beneath it) for entries whose name matches the "q" query,
+// returning matches in the exact same JSON row shape as handleClientGetDirContents
+// plus a "path" field naming each hit's parent directory. It is modeled on
+// handleClientGetDirContents and goes through the same auth/permission checks; the
+// per-directory connection.ReadDir call enforces the user's permissions, and the
+// walk is bounded by maxSearchDirs / maxSearchResults.
+func (s *httpdServer) handleClientSearch(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := jwt.FromContext(r.Context())
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, nil, util.I18nErrorDirList403, http.StatusForbidden)
+		return
+	}
+
+	user, err := dataprovider.GetUserWithGroupSettings(claims.Username, "")
+	if err != nil {
+		sendAPIResponse(w, r, nil, util.I18nErrorDirListUser, getRespStatus(err))
+		return
+	}
+
+	connID := xid.New().String()
+	protocol := getProtocolFromRequest(r)
+	connectionID := fmt.Sprintf("%s_%s", protocol, connID)
+	if err := checkHTTPClientUser(&user, r, connectionID, false, false); err != nil {
+		sendAPIResponse(w, r, err, getI18NErrorString(err, util.I18nErrorDirList403), http.StatusForbidden)
+		return
+	}
+	baseConn := common.NewBaseConnection(connID, protocol, util.GetHTTPLocalAddress(r), r.RemoteAddr, user)
+	connection := newConnection(baseConn, w, r)
+	if err = common.Connections.Add(connection); err != nil {
+		sendAPIResponse(w, r, err, util.I18nErrorDirList429, http.StatusTooManyRequests)
+		return
+	}
+	defer common.Connections.Remove(connection.GetID())
+
+	startDir := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
+	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	qLower := strings.ToLower(q)
+
+	results := make([]map[string]any, 0)
+	if q == "" {
+		// Nothing to search for: return an empty array in the standard shape.
+		streamJSONArray(w, defaultQueryLimit, func(_, _ int) ([]byte, int, error) {
+			return []byte("[]"), 0, nil
+		})
+		return
+	}
+
+	// Breadth-first walk starting at startDir, bounded by the safety caps.
+	queue := []string{startDir}
+	dirsWalked := 0
+	truncated := false
+
+	for len(queue) > 0 {
+		if dirsWalked >= maxSearchDirs {
+			truncated = true
+			break
+		}
+		dir := queue[0]
+		queue = queue[1:]
+		dirsWalked++
+
+		lister, err := connection.ReadDir(dir)
+		if err != nil {
+			// Skip directories the user cannot list or that no longer exist.
+			connection.Log(logger.LevelDebug, "search: skipping dir %q: %v", dir, err)
+			continue
+		}
+
+		for {
+			entries, err := lister.Next(defaultQueryLimit)
+			for _, info := range entries {
+				name := info.Name()
+				if info.IsDir() {
+					// Always recurse, whether or not the folder name itself matches.
+					queue = append(queue, path.Join(dir, name))
+				}
+				if !matchesSearchQuery(q, qLower, name) {
+					continue
+				}
+				res := make(map[string]any)
+				res["id"] = len(results) + 1
+				res["url"] = getFileObjectURL(dir, name, webClientFilesPath)
+				if info.IsDir() {
+					res["type"] = "1"
+					res["size"] = ""
+					res["dir_path"] = url.QueryEscape(path.Join(dir, name))
+				} else {
+					res["type"] = "2"
+					if info.Mode()&os.ModeSymlink != 0 {
+						res["size"] = ""
+					} else {
+						res["size"] = info.Size()
+						if info.Size() < httpdMaxEditFileSize {
+							res["edit_url"] = strings.Replace(res["url"].(string), webClientFilesPath, webClientEditFilePath, 1)
+						}
+					}
+				}
+				res["meta"] = fmt.Sprintf("%v_%v", res["type"], name)
+				res["name"] = name
+				res["last_modified"] = getFileObjectModTime(info.ModTime())
+				// Extra field (search only): the hit's parent directory, so the UI can
+				// show where each result lives and navigate to it.
+				res["path"] = dir
+				results = append(results, res)
+
+				if len(results) >= maxSearchResults {
+					truncated = true
+					break
+				}
+			}
+			if errors.Is(err, io.EOF) || err != nil || truncated {
+				break
+			}
+		}
+		lister.Close()
+
+		if truncated {
+			break
+		}
+	}
+
+	if truncated {
+		connection.Log(logger.LevelInfo, "search for %q under %q hit a safety cap (dirs walked: %d, results: %d); returning partial results",
+			q, startDir, dirsWalked, len(results))
+	}
+
+	dataGetter := func(limit, offset int) ([]byte, int, error) {
+		if offset >= len(results) {
+			return []byte("[]"), 0, nil
+		}
+		end := offset + limit
+		if end > len(results) {
+			end = len(results)
+		}
+		chunk := results[offset:end]
+		data, err := json.Marshal(chunk)
+		return data, len(chunk), err
+	}
 	streamJSONArray(w, defaultQueryLimit, dataGetter)
 }
 

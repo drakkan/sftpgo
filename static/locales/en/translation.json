@@ -278,6 +278,9 @@
         "expired_session": "Your session has expired. Please log in again"
     },
     "fs": {
+        "search": {
+            "location": "Location"
+        },
         "view_file": "View file \"{{- path}}\"",
         "edit_file": "Edit file \"{{- path}}\"",
         "new_folder": "New Folder",

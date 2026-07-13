@@ -160,6 +160,7 @@ const (
 	webClientSharePathDefault             = "/web/client/share"
 	webClientEditFilePathDefault          = "/web/client/editfile"
 	webClientDirsPathDefault              = "/web/client/dirs"
+	webClientSearchPathDefault            = "/web/client/search"
 	webClientDownloadZipPathDefault       = "/web/client/downloadzip"
 	webClientProfilePathDefault           = "/web/client/profile"
 	webClientPingPathDefault              = "/web/client/ping"
@@ -262,6 +263,7 @@ var (
 	webClientSharePath             string
 	webClientEditFilePath          string
 	webClientDirsPath              string
+	webClientSearchPath            string
 	webClientDownloadZipPath       string
 	webClientProfilePath           string
 	webClientPingPath              string
@@ -1293,6 +1295,7 @@ func updateWebClientURLs(baseURL string) {
 	webClientSharePath = path.Join(baseURL, webClientSharePathDefault)
 	webClientEditFilePath = path.Join(baseURL, webClientEditFilePathDefault)
 	webClientDirsPath = path.Join(baseURL, webClientDirsPathDefault)
+	webClientSearchPath = path.Join(baseURL, webClientSearchPathDefault)
 	webClientDownloadZipPath = path.Join(baseURL, webClientDownloadZipPathDefault)
 	webClientProfilePath = path.Join(baseURL, webClientProfilePathDefault)
 	webClientPingPath = path.Join(baseURL, webClientPingPathDefault)
