@@ -692,7 +692,8 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 
 				switch req.Type {
 				case "subsystem":
-					if bytes.Equal(req.Payload[4:], []byte("sftp")) {
+					var msg sshSubsystemMsg
+					if err := ssh.Unmarshal(req.Payload, &msg); err == nil && msg.Name == "sftp" {
 						ok = true
 						sshConnection.UpdateLastActivity()
 						connection := &Connection{
