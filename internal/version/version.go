@@ -18,7 +18,7 @@ package version
 import "strings"
 
 const (
-	version = "2.7.4"
+	version = "2.7.5"
 	appName = "SFTPGo"
 )
 
