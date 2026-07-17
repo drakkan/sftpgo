@@ -8864,6 +8864,57 @@ func TestOpenUnhandledChannel(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestInvalidSubsystemRequest(t *testing.T) {
+	u := getTestUser(false)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	config := &ssh.ClientConfig{
+		User:            user.Username,
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Auth:            []ssh.AuthMethod{ssh.Password(defaultPassword)},
+		Timeout:         5 * time.Second,
+	}
+	conn, err := ssh.Dial("tcp", sftpServerAddr, config)
+	if assert.NoError(t, err) {
+		// malformed and short payloads, as well as any payload that is not the "sftp"
+		// wire string, must be rejected without affecting the server
+		payloads := [][]byte{
+			nil,
+			{},
+			{1, 2, 3},
+			{0, 0, 0, 3, 'f', 't', 'p'},
+			ssh.Marshal(struct{ Name string }{Name: "sftpa"}),
+			ssh.Marshal(struct{ Name string }{Name: "shell"}),
+		}
+		for _, payload := range payloads {
+			ch, reqs, err := conn.OpenChannel("session", nil)
+			if assert.NoError(t, err) {
+				go ssh.DiscardRequests(reqs)
+				accepted, err := ch.SendRequest("subsystem", true, payload)
+				assert.NoError(t, err)
+				assert.False(t, accepted, "subsystem request with payload %v must be rejected", payload)
+				err = ch.Close()
+				assert.NoError(t, err)
+			}
+		}
+		err = conn.Close()
+		assert.NoError(t, err)
+	}
+	// the server must still be alive and serve a regular SFTP session
+	conn, client, err := getSftpClient(user, false)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		assert.NoError(t, checkBasicSFTP(client))
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestAlgorithmNotNegotiated(t *testing.T) {
 	u := getTestUser(false)
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
