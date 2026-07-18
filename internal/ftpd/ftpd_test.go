@@ -65,6 +65,7 @@ const (
 	sftpServerAddr          = "127.0.0.1:2122"
 	ftpSrvAddrTLS           = "127.0.0.1:2124" // ftp server with implicit tls
 	ftpSrvAddrTLSResumption = "127.0.0.1:2126" // ftp server with implicit tls
+	ftpSrvAddrMultiplexing  = "127.0.0.1:2125" // ftp server with passive port multiplexing, single passive port
 	defaultUsername         = "test_user_ftp"
 	defaultPassword         = "test_password"
 	osWindows               = "windows"
@@ -450,6 +451,28 @@ func TestMain(m *testing.M) { //nolint:gocyclo
 	}
 	ftpdConf.CACertificates = []string{caCrtPath}
 	ftpdConf.CARevocationLists = []string{caCRLPath}
+
+	go func() {
+		logger.Debug(logSender, "", "initializing FTP server with config %+v", ftpdConf)
+		if err := ftpdConf.Initialize(configDir); err != nil {
+			logger.ErrorToConsole("could not start FTP server: %v", err)
+			os.Exit(1)
+		}
+	}()
+
+	waitTCPListening(ftpdConf.Bindings[0].GetAddress())
+
+	ftpdConf = config.GetFTPDConfig()
+	ftpdConf.Bindings = []ftpd.Binding{
+		{
+			Port: 2125,
+		},
+	}
+	// a single passive port shared across clients: concurrent passive transfers
+	// from different IPs are only possible with passive port multiplexing enabled
+	ftpdConf.PassivePortRange.Start = 50010
+	ftpdConf.PassivePortRange.End = 50010
+	ftpdConf.PassivePortMultiplexing = true
 
 	go func() {
 		logger.Debug(logSender, "", "initializing FTP server with config %+v", ftpdConf)
@@ -4039,6 +4062,159 @@ func TestNestedVirtualFolders(t *testing.T) {
 	assert.Equal(t, int32(0), common.Connections.GetTotalTransfers())
 }
 
+// syncTransferReader produces size bytes, all equal to fill, but blocks on the
+// first Read until it is released, after signaling that the transfer has
+// started. It lets a test hold several passive transfers in-flight at the same
+// time, each sending a distinct byte pattern.
+type syncTransferReader struct {
+	size     int64
+	written  int64
+	fill     byte
+	started  chan<- struct{}
+	release  <-chan struct{}
+	signaled bool
+}
+
+func (r *syncTransferReader) Read(p []byte) (int, error) {
+	if !r.signaled {
+		r.signaled = true
+		r.started <- struct{}{}
+		<-r.release
+	}
+	if r.written >= r.size {
+		return 0, io.EOF
+	}
+	n := len(p)
+	if int64(n) > r.size-r.written {
+		n = int(r.size - r.written)
+	}
+	for i := range p[:n] {
+		p[i] = r.fill
+	}
+	r.written += int64(n)
+	return n, nil
+}
+
+func TestFTPPassivePortMultiplexing(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("this test binds clients to multiple loopback IPs, which is only portable on Linux")
+	}
+	// this test runs many concurrent transfers for a single user, so lift the
+	// per-host and total transfer limits for its duration; otherwise the transfers
+	// are denied once the limit is reached (depending on the version the per-host
+	// limit is enforced per user or per IP)
+	oldMaxPerHost := common.Config.MaxPerHostConnections
+	oldMaxTotal := common.Config.MaxTotalConnections
+	common.Config.MaxPerHostConnections = 0
+	common.Config.MaxTotalConnections = 0
+	t.Cleanup(func() {
+		common.Config.MaxPerHostConnections = oldMaxPerHost
+		common.Config.MaxTotalConnections = oldMaxTotal
+	})
+	u := getTestUser()
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	t.Cleanup(func() {
+		_, err := httpdtest.RemoveUser(user, http.StatusOK)
+		assert.NoError(t, err)
+		err = os.RemoveAll(user.GetHomeDir())
+		assert.NoError(t, err)
+	})
+
+	const (
+		numClients = 100
+		fileSize   = int64(65536)
+	)
+	// numClients clients, each from a different source IP, run overlapping passive
+	// transfers against a server whose passive port range is a single port. The
+	// simultaneous passive data connections can share that one port only because
+	// PassivePortMultiplexing is enabled; without it every PASV after the first
+	// would fail with a port exhaustion error. Each client sends a distinct byte
+	// pattern so we can verify the server demultiplexed the shared port correctly,
+	// delivering each data connection to its own session.
+	type clientSpec struct {
+		localIP string
+		name    string
+		fill    byte
+	}
+	specs := make([]clientSpec, numClients)
+	for i := range specs {
+		specs[i] = clientSpec{
+			localIP: fmt.Sprintf("127.0.0.%d", i+2), // 127.0.0.2, 127.0.0.3, ...
+			name:    fmt.Sprintf("file%d.dat", i),
+			fill:    byte('a' + i),
+		}
+	}
+
+	started := make(chan struct{}, numClients)
+	release := make(chan struct{})
+	errCh := make(chan error, numClients)
+
+	upload := func(s clientSpec) {
+		c, e := getFTPClientFromIP(user, ftpSrvAddrMultiplexing, s.localIP)
+		if e != nil {
+			errCh <- e
+			return
+		}
+		defer c.Quit() //nolint:errcheck
+		r := &syncTransferReader{size: fileSize, fill: s.fill, started: started, release: release}
+		errCh <- c.Stor(s.name, r)
+	}
+
+	for _, s := range specs {
+		go upload(s)
+	}
+
+	// wait until every transfer holds the shared passive port, then let them finish
+	timeout := time.After(60 * time.Second)
+	for got := 0; got < numClients; {
+		select {
+		case <-started:
+			got++
+		case e := <-errCh:
+			close(release)
+			t.Fatalf("a concurrent passive transfer failed before the data phase: %v", e)
+		case <-timeout:
+			close(release)
+			t.Fatalf("timed out waiting for %d concurrent passive transfers to start (only %d started)", numClients, got)
+		}
+	}
+	close(release)
+
+	for range specs {
+		assert.NoError(t, <-errCh)
+	}
+
+	// every stored file must contain only the byte pattern its own client sent:
+	// this proves the shared passive port was demultiplexed by client IP and no
+	// data connection was delivered to the wrong session
+	vc, err := getFTPClientFromIP(user, ftpSrvAddrMultiplexing, specs[0].localIP)
+	require.NoError(t, err)
+	defer vc.Quit() //nolint:errcheck
+	for _, s := range specs {
+		r, e := vc.Retr(s.name)
+		if !assert.NoError(t, e) {
+			continue
+		}
+		data, e := io.ReadAll(r)
+		r.Close() //nolint:errcheck
+		assert.NoError(t, e)
+		if !assert.Len(t, data, int(fileSize)) {
+			continue
+		}
+		mismatch := -1
+		for i, b := range data {
+			if b != s.fill {
+				mismatch = i
+				break
+			}
+		}
+		assert.Equal(t, -1, mismatch,
+			"file %q contains data its client did not send (first mismatch at byte %d): the shared passive port was mis-routed",
+			s.name, mismatch)
+	}
+}
+
 func checkBasicFTP(client *ftp.ServerConn) error {
 	_, err := client.CurrentDir()
 	if err != nil {
@@ -4195,6 +4371,24 @@ func getFTPClient(user dataprovider.User, useTLS bool, tlsConfig *tls.Config, di
 		return nil, err
 	}
 	return client, err
+}
+
+// getFTPClientFromIP returns an FTP client whose control and data connections
+// originate from the given local IP address, allowing tests to simulate clients
+// connecting from different source IPs.
+func getFTPClientFromIP(user dataprovider.User, addr, localIP string) (*ftp.ServerConn, error) {
+	dialer := net.Dialer{
+		Timeout:   5 * time.Second,
+		LocalAddr: &net.TCPAddr{IP: net.ParseIP(localIP)},
+	}
+	client, err := ftp.Dial(addr, ftp.DialWithDialer(dialer))
+	if err != nil {
+		return nil, err
+	}
+	if err := client.Login(user.Username, defaultPassword); err != nil {
+		return nil, err
+	}
+	return client, nil
 }
 
 func waitTCPListening(address string) {
