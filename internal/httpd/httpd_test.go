@@ -8795,7 +8795,7 @@ func TestLoaddataFromPostBody(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestLoaddata(t *testing.T) {
+func TestLoaddata(t *testing.T) { //nolint:gocyclo
 	err := dataprovider.UpdateConfigs(nil, "", "", "")
 	assert.NoError(t, err)
 	mappedPath := filepath.Join(os.TempDir(), "restored_folder")
@@ -8809,6 +8809,7 @@ func TestLoaddata(t *testing.T) {
 			Name: folderName,
 		},
 		VirtualPath: "/vuserpath",
+		Subpath:     "/tenants/sub1",
 	})
 	group := getTestGroup()
 	group.ID = 1
@@ -8818,6 +8819,7 @@ func TestLoaddata(t *testing.T) {
 			Name: folderName,
 		},
 		VirtualPath: "/vgrouppath",
+		Subpath:     "/tenants/%username%",
 	})
 	role := getTestRole()
 	role.ID = 1
@@ -8964,7 +8966,9 @@ func TestLoaddata(t *testing.T) {
 	assert.Greater(t, configsGet.UpdatedAt, int64(0))
 	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
-	assert.Len(t, user.VirtualFolders, 1)
+	if assert.Len(t, user.VirtualFolders, 1) {
+		assert.Equal(t, "/tenants/sub1", user.VirtualFolders[0].Subpath)
+	}
 	assert.Len(t, user.Groups, 1)
 	_, err = dataprovider.ShareExists(share.ShareID, user.Username)
 	assert.NoError(t, err)
@@ -8974,7 +8978,9 @@ func TestLoaddata(t *testing.T) {
 
 	group, _, err = httpdtest.GetGroupByName(group.Name, http.StatusOK)
 	assert.NoError(t, err)
-	assert.Len(t, group.VirtualFolders, 1)
+	if assert.Len(t, group.VirtualFolders, 1) {
+		assert.Equal(t, "/tenants/%username%", group.VirtualFolders[0].Subpath)
+	}
 
 	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
 	assert.NoError(t, err)
@@ -22351,6 +22357,11 @@ func TestWebUserAddMock(t *testing.T) {
 	form.Set("virtual_folders[0][vfolder_name]", folderName)
 	form.Set("virtual_folders[0][vfolder_quota_files]", "2")
 	form.Set("virtual_folders[0][vfolder_quota_size]", "1024")
+	form.Set("virtual_folders[1][vfolder_path]", "/vdir2")
+	form.Set("virtual_folders[1][vfolder_name]", folderName)
+	form.Set("virtual_folders[1][vfolder_subpath]", " /tenants/sub1 ")
+	form.Set("virtual_folders[1][vfolder_quota_files]", "2")
+	form.Set("virtual_folders[1][vfolder_quota_size]", "1024")
 	form.Set("directory_patterns[0][pattern_path]", "/dir2")
 	form.Set("directory_patterns[0][patterns]", "*.jpg,*.png")
 	form.Set("directory_patterns[0][pattern_type]", "allowed")
@@ -22677,13 +22688,21 @@ func TestWebUserAddMock(t *testing.T) {
 		assert.Fail(t, "user permissions must contain /somedir", "actual: %v", newUser.Permissions)
 	}
 	assert.Len(t, newUser.PublicKeys, 2)
-	assert.Len(t, newUser.VirtualFolders, 1)
+	assert.Len(t, newUser.VirtualFolders, 2)
 	for _, v := range newUser.VirtualFolders {
-		assert.Equal(t, v.VirtualPath, "/vdir")
 		assert.Equal(t, v.Name, folderName)
 		assert.Equal(t, v.MappedPath, mappedDir)
 		assert.Equal(t, v.QuotaFiles, 2)
 		assert.Equal(t, v.QuotaSize, int64(1024))
+		switch v.VirtualPath {
+		case "/vdir":
+			assert.Empty(t, v.Subpath)
+		case "/vdir2":
+			// the form value is trimmed and cleaned
+			assert.Equal(t, "/tenants/sub1", v.Subpath)
+		default:
+			assert.Fail(t, "unexpected virtual path", v.VirtualPath)
+		}
 	}
 	assert.Len(t, newUser.Filters.FilePatterns, 3)
 	for _, filter := range newUser.Filters.FilePatterns {

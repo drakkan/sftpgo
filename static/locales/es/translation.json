@@ -518,6 +518,7 @@
         "folder_path_required": "La ruta de montaje de la carpeta virtual es obligatoria",
         "folder_duplicated": "Carpetas virtuales duplicadas detectadas",
         "folder_overlapped": "Carpetas virtuales superpuestas detectadas",
+        "folder_quota_mismatch": "Los límites de cuota se aplican a toda la carpeta virtual, todos los montajes de la misma carpeta deben usar los mismos valores",
         "folder_quota_size_invalid": "La cuota como tamaño de carpetas virtuales debe ser mayor o igual a -1",
         "folder_quota_file_invalid": "La cuota como archivos de carpetas virtuales debe ser mayor o igual a -1",
         "folder_quota_invalid": "Las cuotas como tamaño y como número de archivos de carpetas virtuales deben ser ambas -1 o mayor o igual a 0",
@@ -574,7 +575,9 @@
         "template_name_placeholder": "reemplazado con el nombre de la carpeta virtual especificada",
         "template_help": "Las carpetas virtuales generadas pueden ser guardadas o exportadas. Las carpetas exportadas pueden ser importadas desde la sección \"Mantenimiento\" de esta instancia de SFTPGo u otra.",
         "name": "Nombre de carpeta virtual",
-        "template_no_folder": "Ninguna carpeta virtual válida definida, no se puede completar la acción solicitada"
+        "template_no_folder": "Ninguna carpeta virtual válida definida, no se puede completar la acción solicitada",
+        "subpath": "subruta, p. ej. /subdir",
+        "subpath_help": "Monta la carpeta con la raíz desplazada a esta subruta"
     },
     "storage": {
         "title": "Sistema de archivos",

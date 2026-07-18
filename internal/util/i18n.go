@@ -135,6 +135,7 @@ const (
 	I18nErrorFolderMountPathRequired   = "user.folder_path_required"
 	I18nErrorDuplicatedFolders         = "user.folder_duplicated"
 	I18nErrorOverlappedFolders         = "user.folder_overlapped"
+	I18nErrorFolderQuotaMismatch       = "user.folder_quota_mismatch"
 	I18nErrorFolderQuotaSizeInvalid    = "user.folder_quota_size_invalid"
 	I18nErrorFolderQuotaFileInvalid    = "user.folder_quota_file_invalid"
 	I18nErrorFolderQuotaInvalid        = "user.folder_quota_invalid"

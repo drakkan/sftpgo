@@ -518,6 +518,7 @@
         "folder_path_required": "The virtual folder mount path is required",
         "folder_duplicated": "Duplicated virtual folders detected",
         "folder_overlapped": "Overlapping virtual folders detected",
+        "folder_quota_mismatch": "Quota limits apply to the whole virtual folder, all mounts of the same folder must use the same values",
         "folder_quota_size_invalid": "The quota as size of virtual folders must be greater than or equal to -1",
         "folder_quota_file_invalid": "The quota as files of virtual folders must be greater than or equal to -1",
         "folder_quota_invalid": "Quotas as size and as number of files of virtual folders must be both -1 or greater or equal than 0",
@@ -574,7 +575,9 @@
         "template_name_placeholder": "replaced with the name of the specified virtual folder",
         "template_help": "The generated virtual folders can be saved or exported. Exported folders can be imported from the \"Maintenance\" section of this SFTPGo instance or another.",
         "name": "Virtual folder name",
-        "template_no_folder": "No valid virtual folder defined, unable to complete the requested action"
+        "template_no_folder": "No valid virtual folder defined, unable to complete the requested action",
+        "subpath": "sub-path, i.e. /subdir",
+        "subpath_help": "Mount the folder re-rooted at this sub-path"
     },
     "storage": {
         "title": "File system",

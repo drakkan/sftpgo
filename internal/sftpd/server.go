@@ -615,6 +615,9 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Error(logSender, "", "panic in AcceptInboundConnection: %q stack trace: %v", r, string(debug.Stack()))
+			if conn != nil {
+				conn.Close() //nolint:errcheck
+			}
 		}
 	}()
 

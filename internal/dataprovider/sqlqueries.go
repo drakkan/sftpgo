@@ -797,10 +797,10 @@ func getClearGroupFolderMappingQuery() string {
 }
 
 func getAddGroupFolderMappingQuery() string {
-	return fmt.Sprintf(`INSERT INTO %s (virtual_path,quota_size,quota_files,folder_id,group_id,sort_order)
-		VALUES (%s,%s,%s,(SELECT id FROM %s WHERE name = %s),(SELECT id FROM %s WHERE name = %s),%s)`,
-		sqlTableGroupsFoldersMapping, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlTableFolders,
-		sqlPlaceholders[3], getSQLQuotedName(sqlTableGroups), sqlPlaceholders[4], sqlPlaceholders[5])
+	return fmt.Sprintf(`INSERT INTO %s (virtual_path,quota_size,quota_files,subpath,folder_id,group_id,sort_order)
+		VALUES (%s,%s,%s,%s,(SELECT id FROM %s WHERE name = %s),(SELECT id FROM %s WHERE name = %s),%s)`,
+		sqlTableGroupsFoldersMapping, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3],
+		sqlTableFolders, sqlPlaceholders[4], getSQLQuotedName(sqlTableGroups), sqlPlaceholders[5], sqlPlaceholders[6])
 }
 
 func getClearUserFolderMappingQuery() string {
@@ -809,10 +809,10 @@ func getClearUserFolderMappingQuery() string {
 }
 
 func getAddUserFolderMappingQuery() string {
-	return fmt.Sprintf(`INSERT INTO %s (virtual_path,quota_size,quota_files,folder_id,user_id,sort_order)
-		VALUES (%s,%s,%s,(SELECT id FROM %s WHERE name = %s),(SELECT id FROM %s WHERE username = %s),%s)`,
-		sqlTableUsersFoldersMapping, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlTableFolders,
-		sqlPlaceholders[3], sqlTableUsers, sqlPlaceholders[4], sqlPlaceholders[5])
+	return fmt.Sprintf(`INSERT INTO %s (virtual_path,quota_size,quota_files,subpath,folder_id,user_id,sort_order)
+		VALUES (%s,%s,%s,%s,(SELECT id FROM %s WHERE name = %s),(SELECT id FROM %s WHERE username = %s),%s)`,
+		sqlTableUsersFoldersMapping, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3],
+		sqlTableFolders, sqlPlaceholders[4], sqlTableUsers, sqlPlaceholders[5], sqlPlaceholders[6])
 }
 
 func getFoldersQuery(order string, minimal bool) string {
@@ -888,7 +888,8 @@ func getRelatedFoldersForUsersQuery(users []User) string {
 		sb.WriteString(")")
 	}
 	return fmt.Sprintf(`SELECT f.id,f.name,f.path,f.used_quota_size,f.used_quota_files,f.last_quota_update,fm.virtual_path,
-		fm.quota_size,fm.quota_files,fm.user_id,f.filesystem,f.description FROM %s f INNER JOIN %s fm ON f.id = fm.folder_id WHERE
+		fm.quota_size,fm.quota_files,fm.subpath,fm.user_id,f.filesystem,f.description
+		FROM %s f INNER JOIN %s fm ON f.id = fm.folder_id WHERE
 		fm.user_id IN %s ORDER BY fm.sort_order`, sqlTableFolders, sqlTableUsersFoldersMapping, sb.String())
 }
 
@@ -905,7 +906,7 @@ func getRelatedUsersForFoldersQuery(folders []vfs.BaseVirtualFolder) string {
 	if sb.Len() > 0 {
 		sb.WriteString(")")
 	}
-	return fmt.Sprintf(`SELECT fm.folder_id,u.username FROM %s fm INNER JOIN %s u ON fm.user_id = u.id
+	return fmt.Sprintf(`SELECT DISTINCT fm.folder_id,u.username FROM %s fm INNER JOIN %s u ON fm.user_id = u.id
 		WHERE fm.folder_id IN %s ORDER BY u.username`, sqlTableUsersFoldersMapping, sqlTableUsers, sb.String())
 }
 
@@ -922,7 +923,7 @@ func getRelatedGroupsForFoldersQuery(folders []vfs.BaseVirtualFolder) string {
 	if sb.Len() > 0 {
 		sb.WriteString(")")
 	}
-	return fmt.Sprintf(`SELECT fm.folder_id,g.name FROM %s fm INNER JOIN %s g ON fm.group_id = g.id
+	return fmt.Sprintf(`SELECT DISTINCT fm.folder_id,g.name FROM %s fm INNER JOIN %s g ON fm.group_id = g.id
 		WHERE fm.folder_id IN %s ORDER BY g.name`, sqlTableGroupsFoldersMapping, getSQLQuotedName(sqlTableGroups),
 		sb.String())
 }
@@ -975,7 +976,8 @@ func getRelatedFoldersForGroupsQuery(groups []Group) string {
 		sb.WriteString(")")
 	}
 	return fmt.Sprintf(`SELECT f.id,f.name,f.path,f.used_quota_size,f.used_quota_files,f.last_quota_update,fm.virtual_path,
-		fm.quota_size,fm.quota_files,fm.group_id,f.filesystem,f.description FROM %s f INNER JOIN %s fm ON f.id = fm.folder_id WHERE
+		fm.quota_size,fm.quota_files,fm.subpath,fm.group_id,f.filesystem,f.description
+		FROM %s f INNER JOIN %s fm ON f.id = fm.folder_id WHERE
 		fm.group_id IN %s ORDER BY fm.sort_order`, sqlTableFolders, sqlTableGroupsFoldersMapping, sb.String())
 }
 

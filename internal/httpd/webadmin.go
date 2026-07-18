@@ -1256,6 +1256,7 @@ func getVirtualFoldersFromPostFields(r *http.Request) []vfs.VirtualFolder {
 	folderNames := r.Form["vfolder_name"]
 	folderQuotaSizes := r.Form["vfolder_quota_size"]
 	folderQuotaFiles := r.Form["vfolder_quota_files"]
+	folderSubpaths := r.Form["vfolder_subpath"]
 	for idx, p := range folderPaths {
 		name := ""
 		if len(folderNames) > idx {
@@ -1281,6 +1282,9 @@ func getVirtualFoldersFromPostFields(r *http.Request) []vfs.VirtualFolder {
 				if err == nil {
 					vfolder.QuotaFiles = quotaFiles
 				}
+			}
+			if len(folderSubpaths) > idx {
+				vfolder.Subpath = folderSubpaths[idx]
 			}
 			virtualFolders = append(virtualFolders, vfolder)
 		}
@@ -1939,6 +1943,7 @@ func getUserFromTemplate(user dataprovider.User, template userTemplateFields) da
 	for _, vfolder := range user.VirtualFolders {
 		vfolder.Name = replacePlaceholders(vfolder.Name, replacements)
 		vfolder.VirtualPath = replacePlaceholders(vfolder.VirtualPath, replacements)
+		vfolder.Subpath = replacePlaceholders(vfolder.Subpath, replacements)
 		vfolders = append(vfolders, vfolder)
 	}
 	user.VirtualFolders = vfolders
@@ -2021,6 +2026,7 @@ func updateRepeaterFormFields(r *http.Request) {
 			r.Form.Add("vfolder_name", strings.TrimSpace(r.Form.Get(base+"[vfolder_name]")))
 			r.Form.Add("vfolder_quota_files", strings.TrimSpace(r.Form.Get(base+"[vfolder_quota_files]")))
 			r.Form.Add("vfolder_quota_size", strings.TrimSpace(r.Form.Get(base+"[vfolder_quota_size]")))
+			r.Form.Add("vfolder_subpath", strings.TrimSpace(r.Form.Get(base+"[vfolder_subpath]")))
 			continue
 		}
 		if hasPrefixAndSuffix(k, "directory_permissions[", "][sub_perm_path]") {

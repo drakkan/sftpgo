@@ -95,6 +95,7 @@ const (
 
 var (
 	errNoMatchingVirtualFolder = errors.New("no matching virtual folder found")
+	errUnusableVirtualFolder   = errors.New("virtual folder mount cannot be served")
 	permsRenameAny             = []string{PermRename, PermRenameDirs, PermRenameFiles}
 	permsDeleteAny             = []string{PermDelete, PermDeleteDirs, PermDeleteFiles}
 )
@@ -292,6 +293,9 @@ func (u *User) CheckFsRoot(connectionID string) error {
 		fs, err := u.GetFilesystemForPath(v.VirtualPath, connectionID)
 		if err == nil {
 			fs.CheckRootPath(u.Username, u.GetUID(), u.GetGID())
+		} else {
+			logger.Warn(logSender, connectionID, "user %q: cannot create filesystem for virtual folder %q: %v",
+				u.Username, v.VirtualPath, err)
 		}
 		// now check intermediary folders
 		err = u.checkDirWithParents(path.Dir(v.VirtualPath), connectionID)
@@ -638,9 +642,15 @@ func (u *User) GetFilesystemForPath(virtualPath, connectionID string) (vfs.Fs, e
 	var folder vfs.VirtualFolder
 	hasFolder := false
 	if len(u.VirtualFolders) > 0 {
-		if f, err := u.GetVirtualFolderForPath(virtualPath); err == nil {
+		f, err := u.GetVirtualFolderForPath(virtualPath)
+		switch {
+		case err == nil:
 			folder = f
 			hasFolder = true
+		case !errors.Is(err, errNoMatchingVirtualFolder):
+			// the path belongs to a mount that cannot be served: it must
+			// not fall through to the root filesystem
+			return nil, err
 		}
 	}
 	cacheKey := "/"
@@ -696,11 +706,37 @@ func (u *User) GetVirtualFolderForPath(virtualPath string) (vfs.VirtualFolder, e
 		for idx := range u.VirtualFolders {
 			v := &u.VirtualFolders[idx]
 			if v.VirtualPath == dirsForPath[index] {
+				if v.Subpath != "" {
+					if !isCanonicalSubPath(v.Subpath) || v.FsConfig.Provider == sdk.HTTPFilesystemProvider {
+						return folder, fmt.Errorf("%w: mount %q, subpath %q", errUnusableVirtualFolder,
+							v.VirtualPath, v.Subpath)
+					}
+					return v.WithSubPath(v.Subpath, v.VirtualPath), nil
+				}
 				return *v, nil
 			}
 		}
 	}
 	return folder, errNoMatchingVirtualFolder
+}
+
+func isCanonicalSubPath(s string) bool {
+	if len(s) < 2 || s[0] != '/' {
+		return false
+	}
+	start := 1
+	for i := 1; i <= len(s); i++ {
+		if i == len(s) || s[i] == '/' {
+			seg := s[start:i]
+			if seg == "" || seg == "." || seg == ".." {
+				return false
+			}
+			start = i + 1
+		} else if s[i] == '\\' {
+			return false
+		}
+	}
+	return true
 }
 
 // ScanQuota scans the user home dir and virtual folders, included in its quota,
@@ -716,11 +752,14 @@ func (u *User) ScanQuota() (int, int64, error) {
 	if err != nil {
 		return numFiles, size, err
 	}
+	// quota is folder-wide.
+	scannedFolders := make(map[string]bool)
 	for idx := range u.VirtualFolders {
 		v := &u.VirtualFolders[idx]
-		if !v.IsIncludedInUserQuota() {
+		if !v.IsIncludedInUserQuota() || scannedFolders[v.Name] {
 			continue
 		}
+		scannedFolders[v.Name] = true
 		num, s, err := v.ScanQuota()
 		if err != nil {
 			return numFiles, size, err
@@ -844,6 +883,13 @@ func (u *User) IsMappedPath(fsPath string) bool {
 		v := &u.VirtualFolders[idx]
 		if fsPath == v.MappedPath {
 			return true
+		}
+		// for local and CryptFs mappings the subpath backing directory is
+		// the mount root
+		if v.Subpath != "" && v.IsLocalOrLocalCrypted() {
+			if fsPath == filepath.Join(v.MappedPath, v.Subpath) {
+				return true
+			}
 		}
 	}
 	return false
@@ -1745,10 +1791,36 @@ func (u *User) mergeVirtualFolders(group *Group, groupType int, replacer *string
 			if _, ok := folderPaths[folder.VirtualPath]; !ok {
 				folder.MappedPath = u.replacePlaceholder(folder.MappedPath, replacer)
 				folder.FsConfig = u.replaceFsConfigPlaceholders(folder.FsConfig, replacer)
+				subpath, ok := u.renderSubPathValue(folder.Subpath, replacer)
+				if !ok {
+					logger.Warn(logSender, "", "user %q: dropping folder mount %q from group %q, subpath %q renders empty or collapses",
+						u.Username, folder.VirtualPath, group.Name, folder.Subpath)
+					continue
+				}
+				folder.Subpath = subpath
 				u.VirtualFolders = append(u.VirtualFolders, folder)
 			}
 		}
 	}
+}
+
+func countPathSegments(p string) int {
+	p = util.CleanPath(p)
+	if p == "/" {
+		return 0
+	}
+	return strings.Count(p, "/")
+}
+
+func (u *User) renderSubPathValue(value string, replacer *strings.Replacer) (string, bool) {
+	if value == "" || !strings.Contains(value, "%") {
+		return value, true
+	}
+	rendered := util.CleanPath(replacer.Replace(value))
+	if countPathSegments(rendered) < countPathSegments(value) {
+		return "", false
+	}
+	return rendered, true
 }
 
 func (u *User) mergePermissions(group *Group, groupType int, replacer *strings.Replacer) {
@@ -1788,7 +1860,29 @@ func (u *User) mergeFilePatterns(group *Group, groupType int, replacer *strings.
 	}
 }
 
+func (u *User) alignVirtualFolderQuotas() {
+	if len(u.VirtualFolders) < 2 {
+		return
+	}
+	quotas := make(map[string]*vfs.VirtualFolder, len(u.VirtualFolders))
+	for idx := range u.VirtualFolders {
+		v := &u.VirtualFolders[idx]
+		if first, ok := quotas[v.Name]; ok {
+			if v.QuotaSize != first.QuotaSize || v.QuotaFiles != first.QuotaFiles {
+				logger.Warn(logSender, "", "user %q: folder %q limits on mount %q (size: %d, files: %d) replaced with the ones on mount %q (size: %d, files: %d)",
+					u.Username, v.Name, v.VirtualPath, v.QuotaSize, v.QuotaFiles,
+					first.VirtualPath, first.QuotaSize, first.QuotaFiles)
+			}
+			v.QuotaSize = first.QuotaSize
+			v.QuotaFiles = first.QuotaFiles
+		} else {
+			quotas[v.Name] = v
+		}
+	}
+}
+
 func (u *User) removeDuplicatesAfterGroupMerge() {
+	u.alignVirtualFolderQuotas()
 	u.Filters.AllowedIP = util.RemoveDuplicates(u.Filters.AllowedIP, false)
 	u.Filters.DeniedIP = util.RemoveDuplicates(u.Filters.DeniedIP, false)
 	u.Filters.DeniedLoginMethods = util.RemoveDuplicates(u.Filters.DeniedLoginMethods, false)
@@ -1835,9 +1929,7 @@ func (u *User) getACopy() User {
 	}
 	permissions := make(map[string][]string)
 	for k, v := range u.Permissions {
-		perms := make([]string, len(v))
-		copy(perms, v)
-		permissions[k] = perms
+		permissions[k] = slices.Clone(v)
 	}
 	filters := UserFilters{
 		BaseUserFilters: copyBaseUserFilters(u.Filters.BaseUserFilters),

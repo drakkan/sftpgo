@@ -39,7 +39,7 @@ import (
 )
 
 const (
-	boltDatabaseVersion = 34
+	boltDatabaseVersion = 35
 )
 
 var (
@@ -3170,10 +3170,10 @@ func (p *BoltProvider) migrateDatabase() error {
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
-	case version == 33:
-		logger.InfoToConsole("updating database schema version: %d -> 34", version)
-		providerLog(logger.LevelInfo, "updating database schema version: %d -> 34", version)
-		return updateBoltDatabaseVersion(p.dbHandle, 34)
+	case version == 33, version == 34:
+		logger.InfoToConsole("updating database schema version: %d -> 35", version)
+		providerLog(logger.LevelInfo, "updating database schema version: %d -> 35", version)
+		return updateBoltDatabaseVersion(p.dbHandle, 35)
 
 	default:
 		if version > boltDatabaseVersion {
@@ -3196,7 +3196,7 @@ func (p *BoltProvider) revertDatabase(targetVersion int) error {
 		return errors.New("current version match target version, nothing to do")
 	}
 	switch dbVersion.Version {
-	case 34:
+	case 34, 35:
 		logger.InfoToConsole("downgrading database schema version: %d -> 33", dbVersion.Version)
 		providerLog(logger.LevelInfo, "downgrading database schema version: %d -> 33", dbVersion.Version)
 		return updateBoltDatabaseVersion(p.dbHandle, 33)

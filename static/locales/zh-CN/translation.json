@@ -518,6 +518,7 @@
         "folder_path_required": "虚拟文件夹挂载路径是必需的",
         "folder_duplicated": "检测到重复的虚拟文件夹",
         "folder_overlapped": "检测到的虚拟文件夹重叠",
+        "folder_quota_mismatch": "配额限制适用于整个虚拟文件夹，同一文件夹的所有挂载必须使用相同的值",
         "folder_quota_size_invalid": "虚拟文件夹的容量大小配额必须大于或等于 -1",
         "folder_quota_file_invalid": "虚拟文件夹的文件个数配额必须大于或等于 -1",
         "folder_quota_invalid": "虚拟文件夹的大小和文件数量必须是 -1 或大于或等于 0",
@@ -574,7 +575,9 @@
         "template_name_placeholder": "替换为指定虚拟文件夹的名称",
         "template_help": "生成的虚拟文件夹可以保存或导出。导出的文件夹可以从此 SFTPGo 实例的 “维护” 部分或其他部分导入。",
         "name": "虚拟文件夹名称",
-        "template_no_folder": "未定义有效的虚拟文件夹，无法完成请求的操作"
+        "template_no_folder": "未定义有效的虚拟文件夹，无法完成请求的操作",
+        "subpath": "子路径，例如 /subdir",
+        "subpath_help": "以该子路径为根挂载文件夹"
     },
     "storage": {
         "title": "文件系统",

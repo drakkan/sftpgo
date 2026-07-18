@@ -518,6 +518,7 @@
         "folder_path_required": "Le chemin de montage du dossier virtuel est requis",
         "folder_duplicated": "Dossiers virtuels en double détectés",
         "folder_overlapped": "Chevauchement des dossiers virtuels détecté",
+        "folder_quota_mismatch": "Les limites de quota s'appliquent à l'ensemble du dossier virtuel, tous les montages du même dossier doivent utiliser les mêmes valeurs",
         "folder_quota_size_invalid": "Le quota de taille des dossiers virtuels doit être supérieur ou égal à -1",
         "folder_quota_file_invalid": "Le quota de fichiers des dossiers virtuels doit être supérieur ou égal à -1",
         "folder_quota_invalid": "Les quotas de taille et de nombre de fichiers des dossiers virtuels doivent être tous deux à -1 ou supérieurs ou égaux à 0",
@@ -574,7 +575,9 @@
         "template_name_placeholder": "remplacé par le nom du dossier virtuel spécifié",
         "template_help": "Les dossiers virtuels générés peuvent être enregistrés ou exportés. Les dossiers exportés peuvent être importés depuis la section \"Maintenance\" de cette instance SFTPGo ou une autre.",
         "name": "Nom du dossier virtuel",
-        "template_no_folder": "Aucun dossier virtuel valide défini, impossible de compléter l'action demandée"
+        "template_no_folder": "Aucun dossier virtuel valide défini, impossible de compléter l'action demandée",
+        "subpath": "sous-chemin, p. ex. /subdir",
+        "subpath_help": "Monte le dossier avec la racine déplacée sur ce sous-chemin"
     },
     "storage": {
         "title": "Système de fichiers",

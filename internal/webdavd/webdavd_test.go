@@ -1722,12 +1722,13 @@ func TestMaxTransfers(t *testing.T) {
 	err = createTestFile(testFilePath, testFileSize)
 	assert.NoError(t, err)
 	// upload over 127.0.0.1 so it shares the per-host transfer budget with the
-	// SFTP client; with two active SFTP transfers this upload must be denied
-	srcFile, err := os.Open(testFilePath)
+	// SFTP client; with two active SFTP transfers this upload must be denied.
+	// The body is buffered: an *os.File held by the transport after the
+	// denied upload would block the source removal on Windows
+	uploadData, err := os.ReadFile(testFilePath)
 	assert.NoError(t, err)
-	defer srcFile.Close()
 	uploadReq, err := http.NewRequest(http.MethodPut,
-		fmt.Sprintf("http://127.0.0.1:%d/%s", webDavServerPort, testFileName), srcFile)
+		fmt.Sprintf("http://127.0.0.1:%d/%s", webDavServerPort, testFileName), struct{ io.Reader }{bytes.NewReader(uploadData)})
 	assert.NoError(t, err)
 	uploadReq.SetBasicAuth(user.Username, defaultPassword)
 	httpClient := &http.Client{Timeout: 10 * time.Second}
@@ -1964,12 +1965,21 @@ func TestUploadAbortAtomic(t *testing.T) {
 	client := getWebDavClient(user, false, nil)
 	_, err = client.Stat(testFileName)
 	assert.Error(t, err)
-	// no orphan atomic temp file must be left behind
-	entries, err := os.ReadDir(user.GetHomeDir())
-	assert.NoError(t, err)
-	for _, entry := range entries {
-		assert.NotContains(t, entry.Name(), ".sftpgo-upload.")
-	}
+	// no orphan atomic temp file must be left behind. The server removes
+	// it when the failed transfer closes, which can complete after the
+	// client sees the aborted request
+	assert.Eventually(t, func() bool {
+		entries, err := os.ReadDir(user.GetHomeDir())
+		if err != nil {
+			return false
+		}
+		for _, entry := range entries {
+			if strings.Contains(entry.Name(), ".sftpgo-upload.") {
+				return false
+			}
+		}
+		return true
+	}, 2*time.Second, 100*time.Millisecond)
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -3453,11 +3463,16 @@ func checkFileSize(remoteDestPath string, expectedSize int64, client *gowebdav.C
 func uploadFileWithRawClient(localSourcePath string, remoteDestPath string, username, password string,
 	useTLS bool, expectedSize int64, client *gowebdav.Client, headers ...dataprovider.KeyValue,
 ) error {
-	srcFile, err := os.Open(localSourcePath)
+	// buffer the payload: the transport closes the request body
+	// asynchronously after an aborted upload, and an *os.File handle
+	// still held there makes the source file undeletable on Windows.
+	// The anonymous wrapper hides the reader's length so the request
+	// stays chunked like a file body.
+	data, err := os.ReadFile(localSourcePath)
 	if err != nil {
 		return err
 	}
-	defer srcFile.Close()
+	srcFile := struct{ io.Reader }{bytes.NewReader(data)}
 
 	var tlsConfig *tls.Config
 	rootPath := fmt.Sprintf("http://%v/", webDavServerAddr)

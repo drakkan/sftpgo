@@ -2150,6 +2150,9 @@ func compareVirtualFolders(expected []vfs.VirtualFolder, actual []vfs.VirtualFol
 				if (v.QuotaFiles) != (v1.QuotaFiles) {
 					return errors.New("vfolder quota files mismatch")
 				}
+				if v.Subpath != v1.Subpath {
+					return errors.New("vfolder subpath mismatch")
+				}
 				found = true
 				break
 			}

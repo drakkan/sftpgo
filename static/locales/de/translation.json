@@ -518,6 +518,7 @@
         "folder_path_required": "Der Pfad zum Mounten des virtuellen Ordners ist erforderlich",
         "folder_duplicated": "Doppelte virtuelle Ordner erkannt",
         "folder_overlapped": "Überlappende virtuelle Ordner erkannt",
+        "folder_quota_mismatch": "Kontingentgrenzen gelten für den gesamten virtuellen Ordner, alle Einbindungen desselben Ordners müssen dieselben Werte verwenden",
         "folder_quota_size_invalid": "Das Kontingentgröße der virtuellen Ordner muss größer oder gleich -1 sein",
         "folder_quota_file_invalid": "Das Kontingent als Dateien virtueller Ordner muss größer oder gleich -1 sein",
         "folder_quota_invalid": "Quoten als Größe und als Anzahl der Dateien in virtuellen Ordnern müssen sowohl -1 als auch größer oder gleich 0 sein",
@@ -574,7 +575,9 @@
         "template_name_placeholder": "mit dem Namen des angegebenen virtuellen Ordners ersetzt",
         "template_help": "Die generierten virtuellen Ordner können gespeichert oder exportiert werden. Exportierte Ordner können aus dem Abschnitt „Wartung“ dieser oder einer anderen SFTPGo-Instanz importiert werden.",
         "name": "Name des virtuellen Ordners",
-        "template_no_folder": "Kein gültiger virtueller Ordner definiert, kann die angeforderte Aktion nicht abschließen"
+        "template_no_folder": "Kein gültiger virtueller Ordner definiert, kann die angeforderte Aktion nicht abschließen",
+        "subpath": "Unterpfad, z. B. /subdir",
+        "subpath_help": "Der Ordner wird mit diesem Unterpfad als Wurzel eingebunden"
     },
     "storage": {
         "title": "Dateisystem",

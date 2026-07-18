@@ -826,6 +826,9 @@ func (c *BaseConnection) renameInternal(virtualSourcePath, virtualTargetPath str
 	if err != nil {
 		return err
 	}
+	if c.IsSameResource(virtualSourcePath, virtualTargetPath) && fsSourcePath == fsTargetPath {
+		return fmt.Errorf("the rename source and target cannot be the same: %w", c.GetOpUnsupportedError())
+	}
 	startTime := time.Now()
 	srcInfo, err := fsSrc.Lstat(fsSourcePath)
 	if err != nil {

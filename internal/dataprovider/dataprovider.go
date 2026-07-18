@@ -2767,12 +2767,51 @@ func validateUserGroups(user *User) error {
 	return nil
 }
 
+// maxFolderSubpathLen matches the varchar(191) subpath column: the widest
+// utf8mb4 column whose unique index fits the 767-byte key limit of legacy
+// InnoDB row formats. The limit is enforced on every provider for uniform
+// semantics and portable dumps.
+const maxFolderSubpathLen = 191
+
+func validateFolderSubPathValue(value string) (string, error) {
+	cleaned := util.CleanPath(value)
+	if cleaned == "/" || cleaned != "/"+strings.TrimPrefix(strings.TrimSuffix(value, "/"), "/") {
+		return "", fmt.Errorf("invalid sub path %q", value)
+	}
+	return cleaned, nil
+}
+
+func validateFolderSubpath(vfolder *vfs.VirtualFolder) error {
+	if vfolder.Subpath == "" {
+		return nil
+	}
+	cleaned, err := validateFolderSubPathValue(vfolder.Subpath)
+	if err != nil || len(cleaned) > maxFolderSubpathLen {
+		return util.NewI18nError(
+			util.NewValidationError(fmt.Sprintf("invalid subpath %q for folder %q, it must be a canonical path of at most %d characters",
+				vfolder.Subpath, vfolder.Name, maxFolderSubpathLen)),
+			util.I18nErrorPathInvalid,
+		)
+	}
+	vfolder.Subpath = cleaned
+	return nil
+}
+
 func validateAssociatedVirtualFolders(vfolders []vfs.VirtualFolder) ([]vfs.VirtualFolder, error) {
 	if len(vfolders) == 0 {
 		return []vfs.VirtualFolder{}, nil
 	}
+	type folderMountKey struct {
+		name    string
+		subpath string
+	}
+	type folderQuotaLimits struct {
+		size  int64
+		files int
+	}
 	var virtualFolders []vfs.VirtualFolder
-	folderNames := make(map[string]bool)
+	folderMounts := make(map[folderMountKey]bool)
+	folderQuotas := make(map[string]folderQuotaLimits)
 
 	for _, v := range vfolders {
 		v.Name = config.convertName(v.Name)
@@ -2789,7 +2828,23 @@ func validateAssociatedVirtualFolders(vfolders []vfs.VirtualFolder) ([]vfs.Virtu
 		if v.Name == "" {
 			return nil, util.NewI18nError(util.NewValidationError("folder name is mandatory"), util.I18nErrorFolderNameRequired)
 		}
-		if folderNames[v.Name] {
+		if err := validateFolderSubpath(&v); err != nil {
+			return nil, err
+		}
+		// quota is folder-wide: every mount of the same folder must carry
+		// the same limits
+		if limits, ok := folderQuotas[v.Name]; ok {
+			if limits.size != v.QuotaSize || limits.files != v.QuotaFiles {
+				return nil, util.NewI18nError(
+					util.NewValidationError(fmt.Sprintf("quota limits for folder %q must be the same on all its mounts", v.Name)),
+					util.I18nErrorFolderQuotaMismatch,
+				)
+			}
+		} else {
+			folderQuotas[v.Name] = folderQuotaLimits{size: v.QuotaSize, files: v.QuotaFiles}
+		}
+		mountKey := folderMountKey{name: v.Name, subpath: v.Subpath}
+		if folderMounts[mountKey] {
 			return nil, util.NewI18nError(
 				util.NewValidationError(fmt.Sprintf("the folder %q is duplicated", v.Name)),
 				util.I18nErrorDuplicatedFolders,
@@ -2811,8 +2866,9 @@ func validateAssociatedVirtualFolders(vfolders []vfs.VirtualFolder) ([]vfs.Virtu
 			VirtualPath: cleanedVPath,
 			QuotaSize:   v.QuotaSize,
 			QuotaFiles:  v.QuotaFiles,
+			Subpath:     v.Subpath,
 		})
-		folderNames[v.Name] = true
+		folderMounts[mountKey] = true
 	}
 	return virtualFolders, nil
 }

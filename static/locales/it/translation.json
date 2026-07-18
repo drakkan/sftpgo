@@ -518,6 +518,7 @@
         "folder_path_required": "Il percorso di montaggio delle cartelle virtuali è obbligatorio",
         "folder_duplicated": "Rilevate cartelle virtuali duplicate",
         "folder_overlapped": "Rilevate cartelle virtuali sovrapposte",
+        "folder_quota_mismatch": "I limiti di quota si applicano all'intera cartella virtuale, tutti i mount della stessa cartella devono usare gli stessi valori",
         "folder_quota_size_invalid": "La quota come dimensione delle cartelle virtuali deve essere maggiore o uguale a -1",
         "folder_quota_file_invalid": "La quota come numero di file delle cartelle virtuali deve essere maggiore o uguale a -1",
         "folder_quota_invalid": "Le quote come dimensione e numero di file delle cartelle virtuali devono essere entrambe -1 o maggiore o uguale di 0",
@@ -574,7 +575,9 @@
         "template_name_placeholder": "sostituito con il nome della cartella virtuale specificata",
         "template_help": "Le cartelle virtuali generate possono essere salvate o esportate. Le cartelle esportate possono essere importate dalla sezione \"Manutenzione\" di questa istanza SFTPGo o di un'altra.",
         "name": "Nome cartella virtuale",
-        "template_no_folder": "Nessuna cartella virtuale valida definita. Impossibile completare l'azione richiesta"
+        "template_no_folder": "Nessuna cartella virtuale valida definita. Impossibile completare l'azione richiesta",
+        "subpath": "sottopercorso, es. /subdir",
+        "subpath_help": "Monta la cartella con radice spostata su questo sottopercorso"
     },
     "storage": {
         "title": "File System",

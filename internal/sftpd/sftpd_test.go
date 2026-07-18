@@ -5797,6 +5797,339 @@ func TestVirtualFolders(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestVirtualFolderSubpath(t *testing.T) {
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	mappedPath := filepath.Join(os.TempDir(), "vdir-subpath")
+	folderName := filepath.Base(mappedPath)
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name: folderName,
+		},
+		VirtualPath: "/current",
+		Subpath:     "/tenant1",
+	})
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name: folderName,
+		},
+		VirtualPath: "/all",
+	})
+	f := vfs.BaseVirtualFolder{
+		Name:       folderName,
+		MappedPath: mappedPath,
+	}
+	_, _, err := httpdtest.AddFolder(f, http.StatusCreated)
+	assert.NoError(t, err)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		// the re-rooted mount dir is auto created inside the folder
+		_, err = os.Stat(filepath.Join(mappedPath, "tenant1"))
+		assert.NoError(t, err)
+		testFileSize := int64(65535)
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join("/current", testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		info, err := os.Stat(filepath.Join(mappedPath, "tenant1", testFileName))
+		if assert.NoError(t, err) {
+			assert.Equal(t, testFileSize, info.Size())
+		}
+		_, err = client.Stat(path.Join("/all", "tenant1", testFileName))
+		assert.NoError(t, err)
+		// the sub-path stays invisible in the re-rooted mount
+		_, err = client.Stat(path.Join("/current", "tenant1"))
+		assert.Error(t, err)
+		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
+		err = sftpDownloadFile(path.Join("/current", testFileName), localDownloadPath, testFileSize, client)
+		assert.NoError(t, err)
+		// the re-rooted mount root cannot be removed
+		err = client.RemoveDirectory("/current")
+		assert.Error(t, err)
+		// the backing dir is a mount root also through the plain mount
+		err = client.RemoveDirectory(path.Join("/all", "tenant1"))
+		assert.Error(t, err)
+		// renaming the backing dir through the plain mount is not allowed
+		err = client.Rename(path.Join("/all", "tenant1"), path.Join("/all", "renamed"))
+		assert.Error(t, err)
+		// a rename resolving to the same backend path through two mounts
+		// is rejected and leaves the quota untouched
+		err = client.Rename(path.Join("/all", "tenant1", testFileName), path.Join("/current", testFileName))
+		assert.Error(t, err)
+		_, err = client.Stat(path.Join("/current", testFileName))
+		assert.NoError(t, err)
+		folderGet, _, err := httpdtest.GetFolderByName(folderName, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, folderGet.UsedQuotaFiles)
+		assert.Equal(t, testFileSize, folderGet.UsedQuotaSize)
+		// a cross-mount rename to a different backend path works
+		err = client.Rename(path.Join("/all", "tenant1", testFileName), path.Join("/all", testFileName))
+		assert.NoError(t, err)
+		_, err = client.Stat(path.Join("/current", testFileName))
+		assert.Error(t, err)
+		err = client.Rename(path.Join("/all", testFileName), path.Join("/current", testFileName))
+		assert.NoError(t, err)
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+		err = os.Remove(localDownloadPath)
+		assert.NoError(t, err)
+	}
+	// a duplicate (folder, subpath) mapping is rejected
+	u = getTestUser(usePubKey)
+	u.Username += "_dup"
+	for range 2 {
+		u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+			BaseVirtualFolder: vfs.BaseVirtualFolder{
+				Name: folderName,
+			},
+			VirtualPath: "/m" + strconv.Itoa(len(u.VirtualFolders)),
+			Subpath:     "/tenant1",
+		})
+	}
+	_, resp, err := httpdtest.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err, string(resp))
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(f, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath)
+	assert.NoError(t, err)
+}
+
+func TestVirtualFolderSubpathMountsQuota(t *testing.T) {
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	mappedPath := filepath.Join(os.TempDir(), "vdir-multimount-quota")
+	folderName := filepath.Base(mappedPath)
+	// quota is folder-wide: both mounts must carry the same limits and
+	// usage through one mount must count against the other
+	for idx, subPath := range []string{"/sub1", "/sub2"} {
+		u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+			BaseVirtualFolder: vfs.BaseVirtualFolder{Name: folderName},
+			VirtualPath:       fmt.Sprintf("/m%d", idx+1),
+			Subpath:           subPath,
+			QuotaFiles:        1,
+			QuotaSize:         0,
+		})
+	}
+	f := vfs.BaseVirtualFolder{
+		Name:       folderName,
+		MappedPath: mappedPath,
+	}
+	_, _, err := httpdtest.AddFolder(f, http.StatusCreated)
+	assert.NoError(t, err)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		testFileSize := int64(32768)
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join("/m1", testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		// the folder is at its files limit: denied through the other mount
+		err = sftpUploadFile(testFilePath, path.Join("/m2", testFileName), testFileSize, client)
+		assert.Error(t, err)
+		// usage is tracked once for the whole folder
+		folderGet, _, err := httpdtest.GetFolderByName(folderName, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, folderGet.UsedQuotaFiles)
+		assert.Equal(t, testFileSize, folderGet.UsedQuotaSize)
+		// removing through the other mount frees the quota
+		err = client.Remove(path.Join("/m1", testFileName))
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join("/m2", testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+	}
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(f, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath)
+	assert.NoError(t, err)
+}
+
+func TestVirtualFolderSubpathGroupInherited(t *testing.T) {
+	usePubKey := true
+	mappedPath := filepath.Join(os.TempDir(), "vdir-group-subpath")
+	folderName := filepath.Base(mappedPath)
+	f := vfs.BaseVirtualFolder{
+		Name:       folderName,
+		MappedPath: mappedPath,
+	}
+	_, _, err := httpdtest.AddFolder(f, http.StatusCreated)
+	assert.NoError(t, err)
+	g := getTestGroup()
+	g.VirtualFolders = []vfs.VirtualFolder{
+		{
+			BaseVirtualFolder: vfs.BaseVirtualFolder{Name: folderName},
+			VirtualPath:       "/data",
+			Subpath:           "/tenants/%username%",
+		},
+		{
+			BaseVirtualFolder: vfs.BaseVirtualFolder{Name: folderName},
+			VirtualPath:       "/byrole",
+			Subpath:           "/roles/%role%",
+		},
+	}
+	group, _, err := httpdtest.AddGroup(g, http.StatusCreated)
+	assert.NoError(t, err)
+	u1 := getTestUser(usePubKey)
+	u1.Groups = []sdk.GroupMapping{{Name: group.Name, Type: sdk.GroupTypePrimary}}
+	user1, _, err := httpdtest.AddUser(u1, http.StatusCreated)
+	assert.NoError(t, err)
+	u2 := getTestUser(usePubKey)
+	u2.Username += "_2"
+	u2.Groups = []sdk.GroupMapping{{Name: group.Name, Type: sdk.GroupTypePrimary}}
+	user2, _, err := httpdtest.AddUser(u2, http.StatusCreated)
+	assert.NoError(t, err)
+
+	testFileSize := int64(32768)
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user1, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		_, err = os.Stat(filepath.Join(mappedPath, "tenants", user1.Username))
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join("/data", testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		info, err := os.Stat(filepath.Join(mappedPath, "tenants", user1.Username, testFileName))
+		if assert.NoError(t, err) {
+			assert.Equal(t, testFileSize, info.Size())
+		}
+		// the mount with an empty %role% render is dropped: the path is a
+		// regular directory of the user root filesystem
+		_, err = client.ReadDir("/byrole")
+		assert.Error(t, err)
+		err = client.Mkdir("/byrole")
+		assert.NoError(t, err)
+		_, err = os.Stat(filepath.Join(user1.GetHomeDir(), "byrole"))
+		assert.NoError(t, err)
+	}
+	conn, client, err = getSftpClient(user2, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		// each member gets their own sub-tree: no cross-user visibility
+		_, err = client.Stat(path.Join("/data", testFileName))
+		assert.Error(t, err)
+		contents, err := client.ReadDir("/data")
+		assert.NoError(t, err)
+		assert.Len(t, contents, 0)
+		_, err = os.Stat(filepath.Join(mappedPath, "tenants", user2.Username))
+		assert.NoError(t, err)
+	}
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user2, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(f, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user1.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(user2.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath)
+	assert.NoError(t, err)
+}
+
+func TestVirtualFolderSubpathSFTPFs(t *testing.T) {
+	usePubKey := true
+	// the folder authenticates to the backing account with a password
+	baseUser, _, err := httpdtest.AddUser(getTestUser(false), http.StatusCreated)
+	assert.NoError(t, err)
+	folderName := "sftp-subpath-folder"
+	f := vfs.BaseVirtualFolder{
+		Name: folderName,
+		FsConfig: vfs.Filesystem{
+			Provider: sdk.SFTPFilesystemProvider,
+			SFTPConfig: vfs.SFTPFsConfig{
+				BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
+					Endpoint: sftpServerAddr,
+					Username: baseUser.Username,
+				},
+				Password: kms.NewPlainSecret(defaultPassword),
+			},
+		},
+	}
+	_, _, err = httpdtest.AddFolder(f, http.StatusCreated)
+	assert.NoError(t, err)
+	u := getTestUser(usePubKey)
+	u.Username += "_sub"
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{Name: folderName},
+		VirtualPath:       "/mnt",
+		Subpath:           "/tenant1",
+	})
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	// the backend directory served by the re-rooted mount
+	err = os.MkdirAll(filepath.Join(baseUser.GetHomeDir(), "tenant1"), os.ModePerm)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		testFileSize := int64(32768)
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join("/mnt", testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		// the file lands in the folder sub-path of the backing account
+		info, err := os.Stat(filepath.Join(baseUser.GetHomeDir(), "tenant1", testFileName))
+		if assert.NoError(t, err) {
+			assert.Equal(t, testFileSize, info.Size())
+		}
+		// the sub-path stays invisible in the mount
+		_, err = client.Stat(path.Join("/mnt", "tenant1"))
+		assert.Error(t, err)
+		contents, err := client.ReadDir("/mnt")
+		assert.NoError(t, err)
+		assert.Len(t, contents, 1)
+		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
+		err = sftpDownloadFile(path.Join("/mnt", testFileName), localDownloadPath, testFileSize, client)
+		assert.NoError(t, err)
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+		err = os.Remove(localDownloadPath)
+		assert.NoError(t, err)
+	}
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(f, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(baseUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(baseUser.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestVirtualFoldersQuotaLimit(t *testing.T) {
 	usePubKey := false
 	u1 := getTestUser(usePubKey)

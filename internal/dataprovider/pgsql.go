@@ -227,6 +227,45 @@ CREATE INDEX "{{prefix}}shares_groups_mapping_share_id_idx" ON "{{shares_groups_
 CREATE INDEX "{{prefix}}shares_groups_mapping_group_id_idx" ON "{{shares_groups_mapping}}" ("group_id");
 `
 	pgsqlV34DownSQL = `DROP TABLE IF EXISTS "{{shares_groups_mapping}}";`
+	pgsqlV35SQL     = `ALTER TABLE "{{users_folders_mapping}}" ADD COLUMN "exposed_subpaths" text NULL;
+ALTER TABLE "{{users_folders_mapping}}" ADD COLUMN "subpath" text DEFAULT '' NOT NULL;
+ALTER TABLE "{{users_folders_mapping}}" DROP CONSTRAINT "{{prefix}}unique_user_folder_mapping";
+ALTER TABLE "{{users_folders_mapping}}" ADD CONSTRAINT "{{prefix}}unique_user_folder_mapping" UNIQUE ("user_id", "folder_id", "subpath");
+ALTER TABLE "{{groups_folders_mapping}}" ADD COLUMN "exposed_subpaths" text NULL;
+ALTER TABLE "{{groups_folders_mapping}}" ADD COLUMN "subpath" text DEFAULT '' NOT NULL;
+ALTER TABLE "{{groups_folders_mapping}}" DROP CONSTRAINT "{{prefix}}unique_group_folder_mapping";
+ALTER TABLE "{{groups_folders_mapping}}" ADD CONSTRAINT "{{prefix}}unique_group_folder_mapping" UNIQUE ("group_id", "folder_id", "subpath");
+`
+	pgsqlV35DownSQL = `ALTER TABLE "{{users_folders_mapping}}" DROP COLUMN "subpath" CASCADE;
+ALTER TABLE "{{users_folders_mapping}}" DROP COLUMN "exposed_subpaths" CASCADE;
+ALTER TABLE "{{users_folders_mapping}}" ADD CONSTRAINT "{{prefix}}unique_user_folder_mapping" UNIQUE ("user_id", "folder_id");
+ALTER TABLE "{{groups_folders_mapping}}" DROP COLUMN "subpath" CASCADE;
+ALTER TABLE "{{groups_folders_mapping}}" DROP COLUMN "exposed_subpaths" CASCADE;
+ALTER TABLE "{{groups_folders_mapping}}" ADD CONSTRAINT "{{prefix}}unique_group_folder_mapping" UNIQUE ("group_id", "folder_id");
+`
+)
+
+var (
+	crdbV35SQL = []string{
+		`ALTER TABLE "{{users_folders_mapping}}" ADD COLUMN IF NOT EXISTS "exposed_subpaths" text NULL`,
+		`ALTER TABLE "{{users_folders_mapping}}" ADD COLUMN IF NOT EXISTS "subpath" text DEFAULT '' NOT NULL`,
+		`ALTER TABLE "{{groups_folders_mapping}}" ADD COLUMN IF NOT EXISTS "exposed_subpaths" text NULL`,
+		`ALTER TABLE "{{groups_folders_mapping}}" ADD COLUMN IF NOT EXISTS "subpath" text DEFAULT '' NOT NULL`,
+		`ALTER TABLE "{{users_folders_mapping}}" DROP CONSTRAINT IF EXISTS "{{prefix}}unique_user_folder_mapping"`,
+		`ALTER TABLE "{{groups_folders_mapping}}" DROP CONSTRAINT IF EXISTS "{{prefix}}unique_group_folder_mapping"`,
+		`ALTER TABLE "{{users_folders_mapping}}" ADD CONSTRAINT IF NOT EXISTS "{{prefix}}unique_user_folder_mapping" UNIQUE ("user_id", "folder_id", "subpath")`,
+		`ALTER TABLE "{{groups_folders_mapping}}" ADD CONSTRAINT IF NOT EXISTS "{{prefix}}unique_group_folder_mapping" UNIQUE ("group_id", "folder_id", "subpath")`,
+	}
+	crdbV35DownSQL = []string{
+		`ALTER TABLE "{{users_folders_mapping}}" DROP CONSTRAINT IF EXISTS "{{prefix}}unique_user_folder_mapping"`,
+		`ALTER TABLE "{{groups_folders_mapping}}" DROP CONSTRAINT IF EXISTS "{{prefix}}unique_group_folder_mapping"`,
+		`ALTER TABLE "{{users_folders_mapping}}" ADD CONSTRAINT IF NOT EXISTS "{{prefix}}unique_user_folder_mapping" UNIQUE ("user_id", "folder_id")`,
+		`ALTER TABLE "{{groups_folders_mapping}}" ADD CONSTRAINT IF NOT EXISTS "{{prefix}}unique_group_folder_mapping" UNIQUE ("group_id", "folder_id")`,
+		`ALTER TABLE "{{users_folders_mapping}}" DROP COLUMN IF EXISTS "subpath" CASCADE`,
+		`ALTER TABLE "{{users_folders_mapping}}" DROP COLUMN IF EXISTS "exposed_subpaths" CASCADE`,
+		`ALTER TABLE "{{groups_folders_mapping}}" DROP COLUMN IF EXISTS "subpath" CASCADE`,
+		`ALTER TABLE "{{groups_folders_mapping}}" DROP COLUMN IF EXISTS "exposed_subpaths" CASCADE`,
+	}
 )
 
 var (
@@ -812,20 +851,32 @@ func (p *PGSQLProvider) initializeDatabase() error {
 	if err == nil && dbVersion.Version > 0 {
 		return ErrNoInitRequired
 	}
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, sql.ErrNoRows) && config.Driver != CockroachDataProviderName {
+		// on CockroachDB an empty schema_version is the footprint of an
+		// interrupted initialization: the statements are idempotent, so
+		// the retry below completes the missing pieces.
 		return errSchemaVersionEmpty
 	}
 	logger.InfoToConsole("creating initial database schema, version 33")
 	providerLog(logger.LevelInfo, "creating initial database schema, version 33")
-	var initialSQL string
 	if config.Driver == CockroachDataProviderName {
-		initialSQL = sqlReplaceAll(pgsqlInitial)
-		initialSQL = strings.ReplaceAll(initialSQL, "GENERATED ALWAYS AS IDENTITY", "DEFAULT unordered_unique_rowid()")
-	} else {
-		initialSQL = sqlReplaceAll(pgsqlInitial + ipListsLikeIndex)
+		return runCRDBStatements(p.dbHandle, crdbInitialStatements(), 33, true)
 	}
-
+	initialSQL := sqlReplaceAll(pgsqlInitial + ipListsLikeIndex)
 	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{initialSQL}, 33, true)
+}
+
+func crdbInitialStatements() []string {
+	initialSQL := sqlReplaceAll(pgsqlInitial)
+	initialSQL = strings.ReplaceAll(initialSQL, "GENERATED ALWAYS AS IDENTITY", "DEFAULT unordered_unique_rowid()")
+	initialSQL = strings.ReplaceAll(initialSQL, "CREATE TABLE ", "CREATE TABLE IF NOT EXISTS ")
+	initialSQL = strings.ReplaceAll(initialSQL, "CREATE INDEX ", "CREATE INDEX IF NOT EXISTS ")
+	initialSQL = strings.ReplaceAll(initialSQL, "ADD CONSTRAINT ", "ADD CONSTRAINT IF NOT EXISTS ")
+	initialSQL = strings.ReplaceAll(initialSQL,
+		fmt.Sprintf("INSERT INTO %s (configs) VALUES ('{}')", sqlTableConfigs),
+		fmt.Sprintf("INSERT INTO %s (configs) SELECT '{}' WHERE NOT EXISTS (SELECT id FROM %s)",
+			sqlTableConfigs, sqlTableConfigs))
+	return strings.Split(initialSQL, ";")
 }
 
 func (p *PGSQLProvider) migrateDatabase() error {
@@ -845,6 +896,8 @@ func (p *PGSQLProvider) migrateDatabase() error {
 		return err
 	case version == 33:
 		return updatePGSQLDatabaseFromV33(p.dbHandle)
+	case version == 34:
+		return updatePGSQLDatabaseFromV34(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -869,6 +922,8 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 	switch dbVersion.Version {
 	case 34:
 		return downgradePGSQLDatabaseFromV34(p.dbHandle)
+	case 35:
+		return downgradePGSQLDatabaseFromV35(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
@@ -907,11 +962,25 @@ func (p *PGSQLProvider) normalizeError(err error, fieldType int) error {
 }
 
 func updatePGSQLDatabaseFromV33(dbHandle *sql.DB) error {
-	return updatePGSQLDatabaseFrom33To34(dbHandle)
+	if err := updatePGSQLDatabaseFrom33To34(dbHandle); err != nil {
+		return err
+	}
+	return updatePGSQLDatabaseFromV34(dbHandle)
+}
+
+func updatePGSQLDatabaseFromV34(dbHandle *sql.DB) error {
+	return updatePGSQLDatabaseFrom34To35(dbHandle)
 }
 
 func downgradePGSQLDatabaseFromV34(dbHandle *sql.DB) error {
 	return downgradePGSQLDatabaseFrom34To33(dbHandle)
+}
+
+func downgradePGSQLDatabaseFromV35(dbHandle *sql.DB) error {
+	if err := downgradePGSQLDatabaseFrom35To34(dbHandle); err != nil {
+		return err
+	}
+	return downgradePGSQLDatabaseFromV34(dbHandle)
 }
 
 func updatePGSQLDatabaseFrom33To34(dbHandle *sql.DB) error {
@@ -931,4 +1000,70 @@ func downgradePGSQLDatabaseFrom34To33(dbHandle *sql.DB) error {
 
 	sql := strings.ReplaceAll(pgsqlV34DownSQL, "{{shares_groups_mapping}}", sqlTableSharesGroupsMapping)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 33, false)
+}
+
+func replaceV35MappingTablesPlaceholders(sql string) string {
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	sql = strings.ReplaceAll(sql, "{{users_folders_mapping}}", sqlTableUsersFoldersMapping)
+	return strings.ReplaceAll(sql, "{{groups_folders_mapping}}", sqlTableGroupsFoldersMapping)
+}
+
+func replaceV35MappingTablesPlaceholdersList(statements []string) []string {
+	result := make([]string, 0, len(statements))
+	for _, q := range statements {
+		result = append(result, replaceV35MappingTablesPlaceholders(q))
+	}
+	return result
+}
+
+func runCRDBStatements(dbHandle *sql.DB, statements []string, newVersion int, isUp bool) error {
+	if currentVersion, err := sqlCommonGetDatabaseVersion(dbHandle, false); err == nil {
+		if (isUp && currentVersion.Version >= newVersion) || (!isUp && currentVersion.Version <= newVersion) {
+			providerLog(logger.LevelInfo, "current schema version: %d, requested: %d, did you execute simultaneous migrations?",
+				currentVersion.Version, newVersion)
+			return nil
+		}
+	}
+	execStatement := func(q string) error {
+		ctx, cancel := context.WithTimeout(context.Background(), longSQLQueryTimeout)
+		defer cancel()
+
+		_, err := dbHandle.ExecContext(ctx, q)
+		return err
+	}
+	for _, q := range statements {
+		q = strings.TrimSpace(q)
+		if q == "" {
+			continue
+		}
+		if err := execStatement(q); err != nil {
+			return err
+		}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	return sqlCommonUpdateDatabaseVersion(ctx, dbHandle, newVersion)
+}
+
+func updatePGSQLDatabaseFrom34To35(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database schema version: 34 -> 35")
+	providerLog(logger.LevelInfo, "updating database schema version: 34 -> 35")
+
+	if config.Driver == CockroachDataProviderName {
+		return runCRDBStatements(dbHandle, replaceV35MappingTablesPlaceholdersList(crdbV35SQL), 35, true)
+	}
+	sql := replaceV35MappingTablesPlaceholders(pgsqlV35SQL)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 35, true)
+}
+
+func downgradePGSQLDatabaseFrom35To34(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database schema version: 35 -> 34")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 35 -> 34")
+
+	if config.Driver == CockroachDataProviderName {
+		return runCRDBStatements(dbHandle, replaceV35MappingTablesPlaceholdersList(crdbV35DownSQL), 34, false)
+	}
+	sql := replaceV35MappingTablesPlaceholders(pgsqlV35DownSQL)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 34, false)
 }
