@@ -5878,6 +5878,10 @@ func TestVirtualFolderSubpath(t *testing.T) {
 		assert.NoError(t, err)
 		err = os.Remove(localDownloadPath)
 		assert.NoError(t, err)
+		err = client.Close()
+		assert.NoError(t, err)
+		err = conn.Close()
+		assert.NoError(t, err)
 	}
 	// a duplicate (folder, subpath) mapping is rejected
 	u = getTestUser(usePubKey)
@@ -5896,9 +5900,11 @@ func TestVirtualFolderSubpath(t *testing.T) {
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
 	_, err = httpdtest.RemoveFolder(f, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
+		2*time.Second, 100*time.Millisecond)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 	err = os.RemoveAll(mappedPath)
 	assert.NoError(t, err)
@@ -5953,11 +5959,17 @@ func TestVirtualFolderSubpathMountsQuota(t *testing.T) {
 		assert.NoError(t, err)
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
+		err = client.Close()
+		assert.NoError(t, err)
+		err = conn.Close()
+		assert.NoError(t, err)
 	}
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveFolder(f, http.StatusOK)
 	assert.NoError(t, err)
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
+		2*time.Second, 100*time.Millisecond)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 	err = os.RemoveAll(mappedPath)
@@ -6024,6 +6036,10 @@ func TestVirtualFolderSubpathGroupInherited(t *testing.T) {
 		assert.NoError(t, err)
 		_, err = os.Stat(filepath.Join(user1.GetHomeDir(), "byrole"))
 		assert.NoError(t, err)
+		err = client.Close()
+		assert.NoError(t, err)
+		err = conn.Close()
+		assert.NoError(t, err)
 	}
 	conn, client, err = getSftpClient(user2, usePubKey)
 	if assert.NoError(t, err) {
@@ -6037,6 +6053,10 @@ func TestVirtualFolderSubpathGroupInherited(t *testing.T) {
 		assert.Len(t, contents, 0)
 		_, err = os.Stat(filepath.Join(mappedPath, "tenants", user2.Username))
 		assert.NoError(t, err)
+		err = client.Close()
+		assert.NoError(t, err)
+		err = conn.Close()
+		assert.NoError(t, err)
 	}
 	err = os.Remove(testFilePath)
 	assert.NoError(t, err)
@@ -6048,6 +6068,8 @@ func TestVirtualFolderSubpathGroupInherited(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveFolder(f, http.StatusOK)
 	assert.NoError(t, err)
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
+		2*time.Second, 100*time.Millisecond)
 	err = os.RemoveAll(user1.GetHomeDir())
 	assert.NoError(t, err)
 	err = os.RemoveAll(user2.GetHomeDir())
@@ -6117,14 +6139,20 @@ func TestVirtualFolderSubpathSFTPFs(t *testing.T) {
 		assert.NoError(t, err)
 		err = os.Remove(localDownloadPath)
 		assert.NoError(t, err)
+		err = client.Close()
+		assert.NoError(t, err)
+		err = conn.Close()
+		assert.NoError(t, err)
 	}
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
-	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveFolder(f, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(baseUser, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
+		2*time.Second, 100*time.Millisecond)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 	err = os.RemoveAll(baseUser.GetHomeDir())
 	assert.NoError(t, err)
