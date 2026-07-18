@@ -88,14 +88,183 @@ func (v *mockOIDCVerifier) Verify(_ context.Context, _ string) (*oidc.IDToken, e
 	return v.token, v.err
 }
 
-// hack because the field is unexported
-func setIDTokenClaims(idToken *oidc.IDToken, claims []byte) {
-	pointerVal := reflect.ValueOf(idToken)
-	val := reflect.Indirect(pointerVal)
-	member := val.FieldByName("claims")
-	ptr := unsafe.Pointer(member.UnsafeAddr())
-	realPtr := (*[]byte)(ptr)
-	*realPtr = claims
+type mockOIDCUserInfoFetcher struct {
+	userInfo *oidc.UserInfo
+	err      error
+}
+
+func (f *mockOIDCUserInfoFetcher) UserInfo(_ context.Context, _ oauth2.TokenSource) (*oidc.UserInfo, error) {
+	return f.userInfo, f.err
+}
+
+// setClaims writes the raw claims payload into the unexported "claims" field that
+// oidc.IDToken and oidc.UserInfo read in their Claims methods.
+func setClaims(v any, claims []byte) {
+	member := reflect.Indirect(reflect.ValueOf(v)).FieldByName("claims")
+	*(*[]byte)(unsafe.Pointer(member.UnsafeAddr())) = claims
+}
+
+func setUserInfoClaims(ui *oidc.UserInfo, claims []byte) { setClaims(ui, claims) }
+
+func setIDTokenClaims(idToken *oidc.IDToken, claims []byte) { setClaims(idToken, claims) }
+
+func TestMergeOIDCClaims(t *testing.T) {
+	merged := mergeOIDCClaims(
+		map[string]any{"email": "old@example.com", "name": "Old"},
+		map[string]any{"email": "new@example.com"},
+	)
+	assert.Equal(t, "new@example.com", merged["email"])
+	assert.Equal(t, "Old", merged["name"])
+	merged = mergeOIDCClaims(
+		map[string]any{"name": "Old"},
+		map[string]any{"email": "new@example.com"},
+	)
+	assert.Equal(t, "new@example.com", merged["email"])
+	assert.Equal(t, "Old", merged["name"])
+	merged = mergeOIDCClaims(map[string]any{"name": "Old"}, nil)
+	assert.Equal(t, "Old", merged["name"])
+	assert.Len(t, merged, 1)
+	merged = mergeOIDCClaims(nil, map[string]any{"email": "e@example.com"})
+	assert.Equal(t, "e@example.com", merged["email"])
+}
+
+func oidcRedirectHarness(t *testing.T, username, idClaims string, ui *oidc.UserInfo,
+	uiErr error, idTokenClaimsOnly bool,
+) *httptest.ResponseRecorder {
+	t.Helper()
+	tokenValidationMode = 2
+	server := getTestOIDCServer()
+	require.NoError(t, server.binding.OIDC.initialize())
+	require.NoError(t, server.initializeRouter())
+	server.binding.OIDC.IDTokenClaimsOnly = idTokenClaimsOnly
+
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username:    username,
+			Password:    "pwd",
+			HomeDir:     filepath.Join(os.TempDir(), username),
+			Status:      1,
+			Permissions: map[string][]string{"/": {dataprovider.PermAny}},
+		},
+	}
+	_ = dataprovider.DeleteUser(username, "", "", "")
+	require.NoError(t, dataprovider.AddUser(&user, "", "", ""))
+	t.Cleanup(func() {
+		_ = dataprovider.DeleteUser(username, "", "", "")
+		if mgr, ok := oidcMgr.(*memoryOIDCManager); ok {
+			for k := range mgr.tokens {
+				mgr.removeToken(k)
+			}
+		}
+	})
+
+	token := (&oauth2.Token{AccessToken: "at", Expiry: time.Now().Add(5 * time.Minute)}).
+		WithExtra(map[string]any{"id_token": "id_token_val"})
+	server.binding.OIDC.oauth2Config = &mockOAuth2Config{
+		tokenSource: &mockTokenSource{token: token},
+		authCodeURL: webOIDCRedirectPath,
+		token:       token,
+	}
+
+	authReq := newOIDCPendingAuth(tokenAudienceWebClient)
+	oidcMgr.addPendingAuth(authReq)
+	idToken := &oidc.IDToken{Nonce: authReq.Nonce, Subject: "user-sub", Expiry: time.Now().Add(5 * time.Minute)}
+	setIDTokenClaims(idToken, []byte(idClaims))
+	server.binding.OIDC.verifier = &mockOIDCVerifier{token: idToken}
+	server.binding.OIDC.userInfoFetcher = &mockOIDCUserInfoFetcher{userInfo: ui, err: uiErr}
+
+	rr := httptest.NewRecorder()
+	r, err := http.NewRequest(http.MethodGet, webOIDCRedirectPath+"?state="+authReq.State, nil)
+	require.NoError(t, err)
+	server.router.ServeHTTP(rr, r)
+	return rr
+}
+
+func TestOIDCRedirectUserInfoMerge(t *testing.T) {
+	ui := &oidc.UserInfo{Subject: "user-sub"}
+	setUserInfoClaims(ui, []byte(`{"sub":"user-sub","preferred_username":"test_oidc_ui_user"}`))
+	rr := oidcRedirectHarness(t, "test_oidc_ui_user", `{"sub":"user-sub"}`, ui, nil, false)
+	assert.Equal(t, http.StatusFound, rr.Code, rr.Body.String())
+	assert.Equal(t, webClientFilesPath, rr.Header().Get("Location"))
+}
+
+func TestOIDCRedirectSubMismatchRejected(t *testing.T) {
+	ui := &oidc.UserInfo{Subject: "other-sub"}
+	setUserInfoClaims(ui, []byte(`{"sub":"other-sub","preferred_username":"test_oidc_ui_user"}`))
+	rr := oidcRedirectHarness(t, "test_oidc_ui_user", `{"sub":"user-sub"}`, ui, nil, false)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webClientLoginPath, rr.Header().Get("Location"))
+}
+
+func TestOIDCRedirectUserInfoErrorFallsBack(t *testing.T) {
+	rr := oidcRedirectHarness(t, "test_oidc_ui_user",
+		`{"sub":"user-sub","preferred_username":"test_oidc_ui_user"}`,
+		nil, fmt.Errorf("userinfo unreachable"), false)
+	assert.Equal(t, http.StatusFound, rr.Code, rr.Body.String())
+	assert.Equal(t, webClientFilesPath, rr.Header().Get("Location"))
+}
+
+func TestOIDCRedirectIDTokenClaimsOnlySkipsUserInfo(t *testing.T) {
+	ui := &oidc.UserInfo{Subject: "other-sub"}
+	setUserInfoClaims(ui, []byte(`{"sub":"other-sub"}`))
+	rr := oidcRedirectHarness(t, "test_oidc_ui_user",
+		`{"sub":"user-sub","preferred_username":"test_oidc_ui_user"}`, ui, nil, true)
+	assert.Equal(t, http.StatusFound, rr.Code, rr.Body.String())
+	assert.Equal(t, webClientFilesPath, rr.Header().Get("Location"))
+}
+
+func TestOIDCRedirectUserInfoParseFailureRejected(t *testing.T) {
+	ui := &oidc.UserInfo{Subject: "user-sub"}
+	setUserInfoClaims(ui, []byte(`{not valid json`))
+	rr := oidcRedirectHarness(t, "test_oidc_ui_user",
+		`{"sub":"user-sub","preferred_username":"test_oidc_ui_user"}`, ui, nil, false)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webClientLoginPath, rr.Header().Get("Location"))
+}
+
+func TestOIDCRoleFromUserInfo(t *testing.T) {
+	ui := &oidc.UserInfo{Subject: "user-sub"}
+	setUserInfoClaims(ui, []byte(`{"sub":"user-sub","preferred_username":"u","sftpgo_role":"admin"}`))
+	o := OIDC{ClientID: "test-client", userInfoFetcher: &mockOIDCUserInfoFetcher{userInfo: ui}}
+
+	idToken := &oidc.IDToken{Subject: "user-sub"}
+	idClaims := map[string]any{"sub": "user-sub", "preferred_username": "u"}
+	merged, err := o.resolveClaims(context.Background(), idToken, idClaims, &oauth2.Token{AccessToken: "at"})
+	require.NoError(t, err)
+
+	var token oidcToken
+	require.NoError(t, token.parseClaims(merged, "preferred_username", "sftpgo_role", nil, ""))
+	assert.True(t, token.isAdmin())
+}
+
+func TestOIDCResolveClaimsRealUserInfo(t *testing.T) {
+	var issuer string
+	mux := http.NewServeMux()
+	mux.HandleFunc("/.well-known/openid-configuration", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(w, `{"issuer":%q,"authorization_endpoint":%q,"token_endpoint":%q,"userinfo_endpoint":%q,"jwks_uri":%q}`,
+			issuer, issuer+"/auth", issuer+"/token", issuer+"/userinfo", issuer+"/keys")
+	})
+	mux.HandleFunc("/userinfo", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(w, `{"sub":"user-sub","preferred_username":"real_ui_user","email":"real@example.com"}`)
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	issuer = srv.URL
+
+	o := OIDC{ClientID: "test-client"}
+	provider, err := oidc.NewProvider(context.Background(), issuer)
+	require.NoError(t, err)
+	o.provider = provider
+
+	idToken := &oidc.IDToken{Subject: "user-sub"}
+	idClaims := map[string]any{"sub": "user-sub", "sftpgo_role": "admin"}
+	merged, err := o.resolveClaims(context.Background(), idToken, idClaims, &oauth2.Token{AccessToken: "at"})
+	require.NoError(t, err)
+	assert.Equal(t, "real_ui_user", merged["preferred_username"])
+	assert.Equal(t, "real@example.com", merged["email"])
+	assert.Equal(t, "admin", merged["sftpgo_role"])
 }
 
 func TestOIDCInitialization(t *testing.T) {

@@ -27681,6 +27681,10 @@ func startOIDCMockServer() {
 			w.WriteHeader(http.StatusNotFound)
 			fmt.Fprintf(w, "Not found\n")
 		})
+		// tests that don't set a UserInfo mock fall back to id-token claims deterministically
+		http.HandleFunc("/auth/realms/sftpgo/protocol/openid-connect/userinfo", func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusUnauthorized)
+		})
 		if err := http.ListenAndServe(oidcMockAddr, nil); err != nil {
 			logger.ErrorToConsole("could not start HTTP notification server: %v", err)
 			os.Exit(1)
