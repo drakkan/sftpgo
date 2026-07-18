@@ -3093,7 +3093,16 @@ func TestCrossFolderRename(t *testing.T) {
 		assert.NoError(t, err)
 		_, err = client.Stat(path.Join("/", folder7, "afile.bin"))
 		assert.NoError(t, err)
+		// folder7 aliases folder4's backend path: source and target resolve
+		// to the same file, the rename is rejected like the copy path does
+		// and the file stays reachable through both mounts
 		err = client.Rename(path.Join("/", folder4, "afile.bin"), path.Join("/", folder7, "afile.bin"))
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
+		}
+		_, err = client.Stat(path.Join("/", folder4, "afile.bin"))
+		assert.NoError(t, err)
+		_, err = client.Stat(path.Join("/", folder7, "afile.bin"))
 		assert.NoError(t, err)
 	}
 

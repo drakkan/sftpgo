@@ -1095,18 +1095,18 @@ func TestStatForOngoingTransfers(t *testing.T) {
 			},
 		},
 	}
-	fileName := "file.txt"
+	fileName := xid.New().String() + ".txt"
 	conn := NewBaseConnection(xid.New().String(), ProtocolSFTP, "", "", user)
 	fs := vfs.NewOsFs("", os.TempDir(), "", nil)
 	tr := NewBaseTransfer(nil, conn, nil, filepath.Join(os.TempDir(), fileName), filepath.Join(os.TempDir(), fileName),
 		fileName, TransferUpload, 0, 0, 0, 0, true, fs, dataprovider.TransferQuota{})
-	_, err := conn.DoStat("/file.txt", 0, false)
+	_, err := conn.DoStat("/"+fileName, 0, false)
 	assert.NoError(t, err)
 	err = tr.Close()
 	assert.NoError(t, err)
 	tr = NewBaseTransfer(nil, conn, nil, filepath.Join(os.TempDir(), fileName), filepath.Join(os.TempDir(), fileName),
 		fileName, TransferDownload, 0, 0, 0, 0, true, fs, dataprovider.TransferQuota{})
-	_, err = conn.DoStat("/file.txt", 0, false)
+	_, err = conn.DoStat("/"+fileName, 0, false)
 	assert.Error(t, err)
 	err = tr.Close()
 	assert.NoError(t, err)
