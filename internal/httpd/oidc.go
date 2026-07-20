@@ -67,6 +67,8 @@ type OIDCTokenVerifier interface {
 // endpoint, so we can mock it in tests. *oidc.Provider satisfies it.
 type OIDCUserInfoFetcher interface {
 	UserInfo(ctx context.Context, tokenSource oauth2.TokenSource) (*oidc.UserInfo, error)
+	// UserInfoEndpoint returns the discovered userinfo_endpoint, or "" if unadvertised.
+	UserInfoEndpoint() string
 }
 
 // OIDC defines the OpenID Connect configuration
@@ -102,7 +104,8 @@ type OIDC struct {
 	// Custom token claims fields to pass to the pre-login hook
 	CustomFields []string `json:"custom_fields" mapstructure:"custom_fields"`
 	// If set, claims are read only from the verified ID token and the UserInfo
-	// endpoint is not queried. Only needed for providers that fail to support UserInfo.
+	// endpoint is never queried, even when advertised. An unadvertised endpoint is
+	// skipped automatically, so this is only for overriding a broken advertised one.
 	IDTokenClaimsOnly bool `json:"id_token_claims_only" mapstructure:"id_token_claims_only"`
 	// InsecureSkipSignatureCheck causes SFTPGo to skip JWT signature validation.
 	// It's intended for special cases where providers, such as Azure, use the "none"
@@ -214,26 +217,29 @@ func (o *OIDC) getUserInfoFetcher() OIDCUserInfoFetcher {
 }
 
 // resolveClaims returns the claims map used to derive the SFTPGo identity. An
-// unreachable UserInfo endpoint is an availability failure and falls back to the
-// id token claims; a UserInfo response that is reached but cannot be trusted (its
-// subject differs from the id token subject, or its body cannot be parsed) is an
-// integrity failure and rejects the login.
+// unadvertised UserInfo endpoint falls back to the id token claims; once the
+// endpoint is advertised the login is rejected unless it can be queried and trusted
+// (its subject must match the id token subject and its body must parse).
 func (o *OIDC) resolveClaims(ctx context.Context, idToken *oidc.IDToken,
 	idTokenClaims map[string]any, accessToken *oauth2.Token,
 ) (map[string]any, error) {
 	if o.IDTokenClaimsOnly {
 		return idTokenClaims, nil
 	}
-	if accessToken == nil || accessToken.AccessToken == "" {
-		logger.Warn(logSender, "", "no access token available to query the OpenID UserInfo endpoint, using id token claims")
+	fetcher := o.getUserInfoFetcher()
+	if fetcher.UserInfoEndpoint() == "" {
 		return idTokenClaims, nil
+	}
+	if accessToken == nil || accessToken.AccessToken == "" {
+		logger.Warn(logSender, "", "no access token available to query the advertised OpenID UserInfo endpoint")
+		return nil, errors.New("no access token available to query the UserInfo endpoint")
 	}
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
-	userInfo, err := o.getUserInfoFetcher().UserInfo(ctx, oauth2.StaticTokenSource(accessToken))
+	userInfo, err := fetcher.UserInfo(ctx, oauth2.StaticTokenSource(accessToken))
 	if err != nil {
-		logger.Warn(logSender, "", "unable to query the OpenID UserInfo endpoint, falling back to id token claims: %v", err)
-		return idTokenClaims, nil
+		logger.Warn(logSender, "", "unable to query the advertised OpenID UserInfo endpoint: %v", err)
+		return nil, fmt.Errorf("unable to query the UserInfo endpoint: %w", err)
 	}
 	if userInfo.Subject != idToken.Subject {
 		logger.Warn(logSender, "", "OpenID UserInfo subject %q does not match id token subject %q",

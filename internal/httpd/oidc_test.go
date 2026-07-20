@@ -89,12 +89,22 @@ func (v *mockOIDCVerifier) Verify(_ context.Context, _ string) (*oidc.IDToken, e
 }
 
 type mockOIDCUserInfoFetcher struct {
-	userInfo *oidc.UserInfo
-	err      error
+	userInfo   *oidc.UserInfo
+	err        error
+	noEndpoint bool
 }
 
 func (f *mockOIDCUserInfoFetcher) UserInfo(_ context.Context, _ oauth2.TokenSource) (*oidc.UserInfo, error) {
 	return f.userInfo, f.err
+}
+
+// UserInfoEndpoint is non-empty by default so mocks exercise the query path; set
+// noEndpoint to model a provider that does not advertise one.
+func (f *mockOIDCUserInfoFetcher) UserInfoEndpoint() string {
+	if f.noEndpoint {
+		return ""
+	}
+	return "https://example.test/userinfo"
 }
 
 // setClaims writes the raw claims payload into the unexported "claims" field that
@@ -102,6 +112,21 @@ func (f *mockOIDCUserInfoFetcher) UserInfo(_ context.Context, _ oauth2.TokenSour
 func setClaims(v any, claims []byte) {
 	member := reflect.Indirect(reflect.ValueOf(v)).FieldByName("claims")
 	*(*[]byte)(unsafe.Pointer(member.UnsafeAddr())) = claims
+}
+
+// echoUserInfoFetcher models a spec-compliant provider whose UserInfo agrees with
+// the id token: it returns the current verifier token's subject and raw claims, so
+// the mandatory merge is a faithful identity for tests exercising the login flow.
+type echoUserInfoFetcher struct{ oidc *OIDC }
+
+func (f *echoUserInfoFetcher) UserInfoEndpoint() string { return "https://example.test/userinfo" }
+
+func (f *echoUserInfoFetcher) UserInfo(_ context.Context, _ oauth2.TokenSource) (*oidc.UserInfo, error) {
+	idToken := f.oidc.verifier.(*mockOIDCVerifier).token
+	ui := &oidc.UserInfo{Subject: idToken.Subject}
+	member := reflect.Indirect(reflect.ValueOf(idToken)).FieldByName("claims")
+	setClaims(ui, *(*[]byte)(unsafe.Pointer(member.UnsafeAddr())))
+	return ui, nil
 }
 
 func setUserInfoClaims(ui *oidc.UserInfo, claims []byte) { setClaims(ui, claims) }
@@ -196,12 +221,12 @@ func TestOIDCRedirectSubMismatchRejected(t *testing.T) {
 	assert.Equal(t, webClientLoginPath, rr.Header().Get("Location"))
 }
 
-func TestOIDCRedirectUserInfoErrorFallsBack(t *testing.T) {
+func TestOIDCRedirectUserInfoErrorRejected(t *testing.T) {
 	rr := oidcRedirectHarness(t, "test_oidc_ui_user",
 		`{"sub":"user-sub","preferred_username":"test_oidc_ui_user"}`,
 		nil, fmt.Errorf("userinfo unreachable"), false)
 	assert.Equal(t, http.StatusFound, rr.Code, rr.Body.String())
-	assert.Equal(t, webClientFilesPath, rr.Header().Get("Location"))
+	assert.Equal(t, webClientLoginPath, rr.Header().Get("Location"))
 }
 
 func TestOIDCRedirectIDTokenClaimsOnlySkipsUserInfo(t *testing.T) {
@@ -220,6 +245,20 @@ func TestOIDCRedirectUserInfoParseFailureRejected(t *testing.T) {
 		`{"sub":"user-sub","preferred_username":"test_oidc_ui_user"}`, ui, nil, false)
 	assert.Equal(t, http.StatusFound, rr.Code)
 	assert.Equal(t, webClientLoginPath, rr.Header().Get("Location"))
+}
+
+func TestOIDCResolveClaimsNoEndpointSkipsUserInfo(t *testing.T) {
+	// No advertised endpoint: use id token claims without querying, even though the
+	// available UserInfo response has a mismatched subject that would otherwise reject.
+	ui := &oidc.UserInfo{Subject: "other-sub"}
+	setUserInfoClaims(ui, []byte(`{"sub":"other-sub","preferred_username":"attacker"}`))
+	o := OIDC{ClientID: "test-client", userInfoFetcher: &mockOIDCUserInfoFetcher{userInfo: ui, noEndpoint: true}}
+
+	idToken := &oidc.IDToken{Subject: "user-sub"}
+	idClaims := map[string]any{"sub": "user-sub", "preferred_username": "u"}
+	merged, err := o.resolveClaims(context.Background(), idToken, idClaims, &oauth2.Token{AccessToken: "at"})
+	require.NoError(t, err)
+	assert.Equal(t, "u", merged["preferred_username"])
 }
 
 func TestOIDCRoleFromUserInfo(t *testing.T) {
@@ -312,6 +351,7 @@ func TestOIDCLoginLogout(t *testing.T) {
 	server := getTestOIDCServer()
 	err := server.binding.OIDC.initialize()
 	assert.NoError(t, err)
+	server.binding.OIDC.userInfoFetcher = &echoUserInfoFetcher{oidc: &server.binding.OIDC}
 	err = server.initializeRouter()
 	require.NoError(t, err)
 
@@ -735,6 +775,7 @@ func TestOIDCLoginNextRedirect(t *testing.T) {
 	server := getTestOIDCServer()
 	err := server.binding.OIDC.initialize()
 	assert.NoError(t, err)
+	server.binding.OIDC.userInfoFetcher = &echoUserInfoFetcher{oidc: &server.binding.OIDC}
 	err = server.initializeRouter()
 	require.NoError(t, err)
 
@@ -1088,6 +1129,7 @@ func TestValidateOIDCToken(t *testing.T) {
 	server := getTestOIDCServer()
 	err := server.binding.OIDC.initialize()
 	assert.NoError(t, err)
+	server.binding.OIDC.userInfoFetcher = &echoUserInfoFetcher{oidc: &server.binding.OIDC}
 	err = server.initializeRouter()
 	require.NoError(t, err)
 
@@ -1290,6 +1332,7 @@ func TestOIDCImplicitRoles(t *testing.T) {
 	server.binding.OIDC.ImplicitRoles = true
 	err := server.binding.OIDC.initialize()
 	assert.NoError(t, err)
+	server.binding.OIDC.userInfoFetcher = &echoUserInfoFetcher{oidc: &server.binding.OIDC}
 	err = server.initializeRouter()
 	require.NoError(t, err)
 
@@ -1564,6 +1607,7 @@ func TestOIDCEvMgrIntegration(t *testing.T) {
 	server.binding.OIDC.CustomFields = []string{"custom1.sub", "custom2"}
 	err = server.binding.OIDC.initialize()
 	assert.NoError(t, err)
+	server.binding.OIDC.userInfoFetcher = &echoUserInfoFetcher{oidc: &server.binding.OIDC}
 	err = server.initializeRouter()
 	require.NoError(t, err)
 	// login a user with OIDC
@@ -1702,6 +1746,7 @@ func TestOIDCPreLoginHook(t *testing.T) {
 	server.binding.OIDC.CustomFields = []string{"field1", "field2"}
 	err = server.binding.OIDC.initialize()
 	assert.NoError(t, err)
+	server.binding.OIDC.userInfoFetcher = &echoUserInfoFetcher{oidc: &server.binding.OIDC}
 	err = server.initializeRouter()
 	require.NoError(t, err)
 
@@ -1879,6 +1924,7 @@ func TestOIDCWithLoginFormsDisabled(t *testing.T) {
 	server.binding.EnableWebClient = true
 	err := server.binding.OIDC.initialize()
 	assert.NoError(t, err)
+	server.binding.OIDC.userInfoFetcher = &echoUserInfoFetcher{oidc: &server.binding.OIDC}
 	err = server.initializeRouter()
 	require.NoError(t, err)
 	// login with an admin user
