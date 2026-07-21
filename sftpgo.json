@@ -304,6 +304,7 @@
           "role_field": "",
           "implicit_roles": false,
           "custom_fields": [],
+          "id_token_claims_only": false,
           "insecure_skip_signature_check": false,
           "debug": false
         },

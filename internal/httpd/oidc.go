@@ -63,6 +63,14 @@ type OIDCTokenVerifier interface {
 	Verify(ctx context.Context, rawIDToken string) (*oidc.IDToken, error)
 }
 
+// OIDCUserInfoFetcher defines an interface for querying the OpenID UserInfo
+// endpoint, so we can mock it in tests. *oidc.Provider satisfies it.
+type OIDCUserInfoFetcher interface {
+	UserInfo(ctx context.Context, tokenSource oauth2.TokenSource) (*oidc.UserInfo, error)
+	// UserInfoEndpoint returns the discovered userinfo_endpoint, or "" if unadvertised.
+	UserInfoEndpoint() string
+}
+
 // OIDC defines the OpenID Connect configuration
 type OIDC struct {
 	// ClientID is the application's ID
@@ -95,6 +103,10 @@ type OIDC struct {
 	Scopes []string `json:"scopes" mapstructure:"scopes"`
 	// Custom token claims fields to pass to the pre-login hook
 	CustomFields []string `json:"custom_fields" mapstructure:"custom_fields"`
+	// If set, claims are read only from the verified ID token and the UserInfo
+	// endpoint is never queried, even when advertised. An unadvertised endpoint is
+	// skipped automatically, so this is only for overriding a broken advertised one.
+	IDTokenClaimsOnly bool `json:"id_token_claims_only" mapstructure:"id_token_claims_only"`
 	// InsecureSkipSignatureCheck causes SFTPGo to skip JWT signature validation.
 	// It's intended for special cases where providers, such as Azure, use the "none"
 	// algorithm. Skipping the signature validation can cause security issues
@@ -104,6 +116,7 @@ type OIDC struct {
 	Debug             bool `json:"debug" mapstructure:"debug"`
 	provider          *oidc.Provider
 	verifier          OIDCTokenVerifier
+	userInfoFetcher   OIDCUserInfoFetcher
 	providerLogoutURL string
 	oauth2Config      OAuth2Config
 }
@@ -174,6 +187,7 @@ func (o *OIDC) initialize() error {
 	}
 	o.provider = provider
 	o.verifier = nil
+	o.userInfoFetcher = nil
 	o.oauth2Config = &oauth2.Config{
 		ClientID:     o.ClientID,
 		ClientSecret: o.ClientSecret,
@@ -193,6 +207,51 @@ func (o *OIDC) getVerifier(ctx context.Context) OIDCTokenVerifier {
 		ClientID:                   o.ClientID,
 		InsecureSkipSignatureCheck: o.InsecureSkipSignatureCheck,
 	})
+}
+
+func (o *OIDC) getUserInfoFetcher() OIDCUserInfoFetcher {
+	if o.userInfoFetcher != nil {
+		return o.userInfoFetcher
+	}
+	return o.provider
+}
+
+// resolveClaims returns the claims map used to derive the SFTPGo identity. An
+// unadvertised UserInfo endpoint falls back to the id token claims; once the
+// endpoint is advertised the login is rejected unless it can be queried and trusted
+// (its subject must match the id token subject and its body must parse).
+func (o *OIDC) resolveClaims(ctx context.Context, idToken *oidc.IDToken,
+	idTokenClaims map[string]any, accessToken *oauth2.Token,
+) (map[string]any, error) {
+	if o.IDTokenClaimsOnly {
+		return idTokenClaims, nil
+	}
+	fetcher := o.getUserInfoFetcher()
+	if fetcher.UserInfoEndpoint() == "" {
+		return idTokenClaims, nil
+	}
+	if accessToken == nil || accessToken.AccessToken == "" {
+		logger.Warn(logSender, "", "no access token available to query the advertised OpenID UserInfo endpoint")
+		return nil, errors.New("no access token available to query the UserInfo endpoint")
+	}
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	userInfo, err := fetcher.UserInfo(ctx, oauth2.StaticTokenSource(accessToken))
+	if err != nil {
+		logger.Warn(logSender, "", "unable to query the advertised OpenID UserInfo endpoint: %v", err)
+		return nil, fmt.Errorf("unable to query the UserInfo endpoint: %w", err)
+	}
+	if userInfo.Subject != idToken.Subject {
+		logger.Warn(logSender, "", "OpenID UserInfo subject %q does not match id token subject %q",
+			userInfo.Subject, idToken.Subject)
+		return nil, errors.New("UserInfo subject does not match id token subject")
+	}
+	userInfoClaims := make(map[string]any)
+	if err := userInfo.Claims(&userInfoClaims); err != nil {
+		logger.Warn(logSender, "", "unable to parse OpenID UserInfo claims: %v", err)
+		return nil, fmt.Errorf("unable to parse OpenID UserInfo claims: %w", err)
+	}
+	return mergeOIDCClaims(idTokenClaims, userInfoClaims), nil
 }
 
 type oidcPendingAuth struct {
@@ -709,6 +768,14 @@ func (s *httpdServer) handleOIDCRedirect(w http.ResponseWriter, r *http.Request)
 		doLogout(rawIDToken)
 		return
 	}
+	claims, err = s.binding.OIDC.resolveClaims(ctx, idToken, claims, oauth2Token)
+	if err != nil {
+		logger.Debug(logSender, "", "unable to resolve oidc claims: %v", err)
+		setFlashMessage(w, r, newFlashMessage("Unable to verify OpenID claims", util.I18nOIDCTokenInvalid))
+		doRedirect()
+		doLogout(rawIDToken)
+		return
+	}
 	s.debugTokenClaims(claims, rawIDToken)
 	token := oidcToken{
 		AccessToken:  oauth2Token.AccessToken,
@@ -892,4 +959,24 @@ func getOIDCFieldFromClaims(claims map[string]any, fieldName string) (any, bool)
 	}
 
 	return val, ok
+}
+
+// mergeOIDCClaims overlays UserInfo claims over ID token claims (UserInfo wins on
+// conflict, token-only claims are preserved). The "sid" session claim is kept from
+// the ID token: it belongs to the id/logout token per the Back-Channel Logout spec,
+// and a stray UserInfo "sid" must not desync back-channel logout.
+func mergeOIDCClaims(idTokenClaims, userInfoClaims map[string]any) map[string]any {
+	merged := make(map[string]any, len(idTokenClaims)+len(userInfoClaims))
+	for k, v := range idTokenClaims {
+		merged[k] = v
+	}
+	for k, v := range userInfoClaims {
+		if k == "sid" {
+			if _, ok := idTokenClaims["sid"]; ok {
+				continue
+			}
+		}
+		merged[k] = v
+	}
+	return merged
 }
