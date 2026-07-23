@@ -135,6 +135,7 @@ var (
 			CustomFields:               []string{},
 			InsecureSkipSignatureCheck: false,
 			Debug:                      false,
+			AutoLogin:                  0,
 		},
 		Security: httpd.SecurityConf{
 			Enabled:                   false,
@@ -1685,6 +1686,12 @@ func getHTTPDOIDCFromEnv(idx int) (httpd.OIDC, bool) {
 	debug, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__DEBUG", idx))
 	if ok {
 		result.Debug = debug
+		isSet = true
+	}
+
+	autoLogin, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__AUTO_LOGIN", idx), 32)
+	if ok {
+		result.AutoLogin = int(autoLogin)
 		isSet = true
 	}
 

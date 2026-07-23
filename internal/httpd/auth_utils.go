@@ -43,6 +43,11 @@ const (
 )
 
 const (
+	noAutoLoginCookieName     = "no_auto_login"
+	noAutoLoginCookieValidity = 60 * time.Second
+)
+
+const (
 	tokenValidationModeDefault       = 0
 	tokenValidationModeNoIPMatch     = 1
 	tokenValidationModeUserSignature = 2
@@ -158,6 +163,44 @@ func removeCookie(w http.ResponseWriter, r *http.Request, cookiePath string) {
 		SameSite: http.SameSiteStrictMode,
 	})
 	w.Header().Add("Cache-Control", `no-cache="Set-Cookie"`)
+}
+
+// setNoAutoLoginCookie sets a short lived cookie asking the next login page render to
+// skip the OIDC auto login redirect. It is set on logout so that logging out does not
+// immediately start a new login flow: the identity provider session usually outlives the
+// SFTPGo one and the user would be silently logged in again.
+func setNoAutoLoginCookie(w http.ResponseWriter, r *http.Request, cookiePath string) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     noAutoLoginCookieName,
+		Value:    "1",
+		Path:     cookiePath,
+		Expires:  time.Now().Add(noAutoLoginCookieValidity),
+		MaxAge:   int(noAutoLoginCookieValidity / time.Second),
+		HttpOnly: true,
+		Secure:   isTLS(r),
+		SameSite: http.SameSiteLaxMode,
+	})
+	w.Header().Add("Cache-Control", `no-cache="Set-Cookie"`)
+}
+
+// consumeNoAutoLoginCookie reports whether the no auto login cookie is set, clearing it
+// so that only the next login page render skips the OIDC auto login redirect.
+func consumeNoAutoLoginCookie(w http.ResponseWriter, r *http.Request, cookiePath string) bool {
+	if _, err := r.Cookie(noAutoLoginCookieName); err != nil {
+		return false
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     noAutoLoginCookieName,
+		Value:    "",
+		Path:     cookiePath,
+		Expires:  time.Unix(0, 0),
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   isTLS(r),
+		SameSite: http.SameSiteLaxMode,
+	})
+	w.Header().Add("Cache-Control", `no-cache="Set-Cookie"`)
+	return true
 }
 
 func oidcTokenFromContext(r *http.Request) string {

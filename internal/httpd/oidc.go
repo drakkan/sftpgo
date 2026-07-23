@@ -101,7 +101,19 @@ type OIDC struct {
 	InsecureSkipSignatureCheck bool `json:"insecure_skip_signature_check" mapstructure:"insecure_skip_signature_check"`
 	// Debug enables the OIDC debug mode. In debug mode, the received id_token will be logged
 	// at the debug level
-	Debug             bool `json:"debug" mapstructure:"debug"`
+	Debug bool `json:"debug" mapstructure:"debug"`
+	// Defines the login pages that redirect to the OpenID provider instead of rendering
+	// the SFTPGo login page:
+	//
+	// - 1 means the WebAdmin UI login page
+	// - 2 means the WebClient UI login page
+	//
+	// You can combine the values. For example 3 means that both the WebAdmin and the
+	// WebClient login pages redirect to the configured OpenID provider.
+	// The SFTPGo login page is still rendered, without redirecting, if an error must be
+	// displayed and just after an explicit logout, so that authentication errors remain
+	// visible and logging out does not immediately start a new login flow.
+	AutoLogin         int `json:"auto_login" mapstructure:"auto_login"`
 	provider          *oidc.Provider
 	verifier          OIDCTokenVerifier
 	providerLogoutURL string

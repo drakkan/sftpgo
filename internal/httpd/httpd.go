@@ -763,6 +763,14 @@ func (b *Binding) isWebClientLoginFormDisabled() bool {
 	return false
 }
 
+func (b *Binding) isWebAdminAutoLoginEnabled() bool {
+	return b.OIDC.AutoLogin&1 != 0 && b.OIDC.hasRoles() && !b.isWebAdminOIDCLoginDisabled()
+}
+
+func (b *Binding) isWebClientAutoLoginEnabled() bool {
+	return b.OIDC.AutoLogin&2 != 0 && b.OIDC.isEnabled() && !b.isWebClientOIDCLoginDisabled()
+}
+
 func (b *Binding) isAdminTokenEndpointDisabled() bool {
 	return b.DisabledLoginMethods&16 != 0
 }
@@ -805,6 +813,19 @@ func (b *Binding) convertLoginMethods() {
 	}
 }
 
+// checkAutoLogin ensures that the OIDC login is available for each UI configured to
+// redirect to the OpenID provider, so that a misconfiguration is reported on startup
+// instead of leaving the login page unreachable.
+func (b *Binding) checkAutoLogin() error {
+	if b.OIDC.AutoLogin&1 != 0 && !b.isWebAdminAutoLoginEnabled() {
+		return errors.New("OIDC auto login is enabled for the WebAdmin UI but OIDC login is not available")
+	}
+	if b.OIDC.AutoLogin&2 != 0 && !b.isWebClientAutoLoginEnabled() {
+		return errors.New("OIDC auto login is enabled for the WebClient UI but OIDC login is not available")
+	}
+	return nil
+}
+
 func (b *Binding) checkLoginMethods() error {
 	b.convertLoginMethods()
 	if b.isWebAdminLoginFormDisabled() && b.isWebAdminOIDCLoginDisabled() {
@@ -822,6 +843,9 @@ func (b *Binding) checkLoginMethods() error {
 		if b.isWebClientLoginFormDisabled() && !b.OIDC.isEnabled() {
 			return errors.New("no login method available for WebClient UI")
 		}
+	}
+	if err := b.checkAutoLogin(); err != nil {
+		return err
 	}
 	if b.EnableRESTAPI && !b.hasLoginForAPI() {
 		return errors.New("no login method available for REST API")
