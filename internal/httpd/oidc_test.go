@@ -17,6 +17,7 @@ package httpd
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/fs"
@@ -707,6 +708,169 @@ func TestOIDCLoginNextRedirect(t *testing.T) {
 	assert.NoError(t, err)
 	err = dataprovider.DeleteUser(username, "", "", "")
 	assert.NoError(t, err)
+}
+
+func TestOIDCAutoLoginConfig(t *testing.T) {
+	b := getTestOIDCServer().binding
+	err := b.OIDC.initialize()
+	require.NoError(t, err)
+
+	// auto login is disabled by default
+	assert.False(t, b.isWebAdminAutoLoginEnabled())
+	assert.False(t, b.isWebClientAutoLoginEnabled())
+	assert.NoError(t, b.checkLoginMethods())
+
+	b.OIDC.AutoLogin = 1
+	assert.True(t, b.isWebAdminAutoLoginEnabled())
+	assert.False(t, b.isWebClientAutoLoginEnabled())
+	b.OIDC.AutoLogin = 2
+	assert.False(t, b.isWebAdminAutoLoginEnabled())
+	assert.True(t, b.isWebClientAutoLoginEnabled())
+	b.OIDC.AutoLogin = 3
+	assert.True(t, b.isWebAdminAutoLoginEnabled())
+	assert.True(t, b.isWebClientAutoLoginEnabled())
+	assert.NoError(t, b.checkLoginMethods())
+
+	// auto login requires the OIDC login to be enabled for the same UI
+	b.EnableWebAdmin = true
+	b.EnableWebClient = true
+	b.DisabledLoginMethods = 1
+	assert.False(t, b.isWebAdminAutoLoginEnabled())
+	assert.ErrorContains(t, b.checkLoginMethods(), "WebAdmin UI")
+	b.DisabledLoginMethods = 2
+	assert.False(t, b.isWebClientAutoLoginEnabled())
+	assert.ErrorContains(t, b.checkLoginMethods(), "WebClient UI")
+
+	// the WebAdmin UI also requires a role mapping
+	b.DisabledLoginMethods = 0
+	b.OIDC.RoleField = ""
+	b.OIDC.ImplicitRoles = false
+	assert.False(t, b.isWebAdminAutoLoginEnabled())
+	assert.ErrorContains(t, b.checkLoginMethods(), "WebAdmin UI")
+}
+
+func getResponseCookie(rr *httptest.ResponseRecorder, name string) *http.Cookie {
+	resp := http.Response{Header: rr.Header()}
+	for _, c := range resp.Cookies() {
+		if c.Name == name {
+			return c
+		}
+	}
+	return nil
+}
+
+func TestNoAutoLoginCookie(t *testing.T) {
+	rr := httptest.NewRecorder()
+	r, err := http.NewRequest(http.MethodGet, webClientLoginPath, nil)
+	require.NoError(t, err)
+	assert.False(t, consumeNoAutoLoginCookie(rr, r, webBaseClientPath))
+	assert.Empty(t, rr.Header().Get("Set-Cookie"))
+
+	setNoAutoLoginCookie(rr, r, webBaseClientPath)
+	resp := http.Response{Header: rr.Header()}
+	cookies := resp.Cookies()
+	require.Len(t, cookies, 1)
+	assert.Equal(t, noAutoLoginCookieName, cookies[0].Name)
+	assert.Equal(t, webBaseClientPath, cookies[0].Path)
+	assert.True(t, cookies[0].HttpOnly)
+	assert.Positive(t, cookies[0].MaxAge)
+
+	// the cookie is consumed once and then cleared
+	rr = httptest.NewRecorder()
+	r.Header.Set("Cookie", fmt.Sprintf("%v=1", noAutoLoginCookieName))
+	assert.True(t, consumeNoAutoLoginCookie(rr, r, webBaseClientPath))
+	resp = http.Response{Header: rr.Header()}
+	cookies = resp.Cookies()
+	require.Len(t, cookies, 1)
+	assert.Equal(t, noAutoLoginCookieName, cookies[0].Name)
+	assert.Equal(t, webBaseClientPath, cookies[0].Path)
+	assert.Equal(t, -1, cookies[0].MaxAge)
+}
+
+func TestOIDCAutoLogin(t *testing.T) {
+	oidcMgr, ok := oidcMgr.(*memoryOIDCManager)
+	require.True(t, ok)
+	server := getTestOIDCServer()
+	err := server.binding.OIDC.initialize()
+	assert.NoError(t, err)
+	err = server.initializeRouter()
+	require.NoError(t, err)
+
+	// auto login is disabled by default, both login pages are rendered
+	for _, loginPath := range []string{webClientLoginPath, webAdminLoginPath} {
+		rr := httptest.NewRecorder()
+		r, err := http.NewRequest(http.MethodGet, loginPath, nil)
+		assert.NoError(t, err)
+		server.router.ServeHTTP(rr, r)
+		assert.Equal(t, http.StatusOK, rr.Code)
+	}
+	require.Len(t, oidcMgr.pendingAuths, 0)
+
+	server.binding.OIDC.AutoLogin = 3
+
+	// the WebClient login page starts the OIDC flow preserving a safe next
+	safeNext := webClientFilesPath + "?path=%2Ffoo"
+	rr := httptest.NewRecorder()
+	r, err := http.NewRequest(http.MethodGet, webClientLoginPath+"?next="+url.QueryEscape(safeNext), nil)
+	assert.NoError(t, err)
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	require.Len(t, oidcMgr.pendingAuths, 1)
+	for k := range oidcMgr.pendingAuths {
+		assert.Equal(t, tokenAudienceWebClient, oidcMgr.pendingAuths[k].Audience)
+		assert.Equal(t, safeNext, oidcMgr.pendingAuths[k].Next)
+		oidcMgr.removePendingAuth(k)
+	}
+
+	// the same for the WebAdmin login page
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodGet, webAdminLoginPath, nil)
+	assert.NoError(t, err)
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	require.Len(t, oidcMgr.pendingAuths, 1)
+	for k := range oidcMgr.pendingAuths {
+		assert.Equal(t, tokenAudienceWebAdmin, oidcMgr.pendingAuths[k].Audience)
+		oidcMgr.removePendingAuth(k)
+	}
+
+	// a pending flash message is rendered instead of redirecting, so that
+	// authentication errors remain visible instead of looping to the provider
+	msg, err := json.Marshal(newFlashMessage("", util.I18nOIDCTokenInvalidRoleAdmin))
+	require.NoError(t, err)
+	flashCookie := fmt.Sprintf("%v=%v", flashCookieName, base64.URLEncoding.EncodeToString(msg))
+	for _, loginPath := range []string{webClientLoginPath, webAdminLoginPath} {
+		rr = httptest.NewRecorder()
+		r, err = http.NewRequest(http.MethodGet, loginPath, nil)
+		assert.NoError(t, err)
+		r.Header.Set("Cookie", flashCookie)
+		server.router.ServeHTTP(rr, r)
+		assert.Equal(t, http.StatusOK, rr.Code)
+	}
+	require.Len(t, oidcMgr.pendingAuths, 0)
+
+	// just after a logout the redirect is skipped once and the cookie is cleared
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodGet, webClientLoginPath, nil)
+	assert.NoError(t, err)
+	r.Header.Set("Cookie", fmt.Sprintf("%v=1", noAutoLoginCookieName))
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	require.Len(t, oidcMgr.pendingAuths, 0)
+	cleared := getResponseCookie(rr, noAutoLoginCookieName)
+	require.NotNil(t, cleared)
+	assert.Equal(t, -1, cleared.MaxAge)
+
+	// without the cookie the next request redirects again
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodGet, webClientLoginPath, nil)
+	assert.NoError(t, err)
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	require.Len(t, oidcMgr.pendingAuths, 1)
+	for k := range oidcMgr.pendingAuths {
+		oidcMgr.removePendingAuth(k)
+	}
 }
 
 func TestOIDCRefreshToken(t *testing.T) {
