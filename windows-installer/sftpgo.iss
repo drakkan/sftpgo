@@ -66,10 +66,10 @@ Source: "{#MyAppDir}\openapi\*"; DestDir: "{commonappdata}\{#MyAppName}\openapi"
 Source: "README.txt"; DestDir: "{app}"; Flags: ignoreversion isreadme
 
 [Dirs]
-Name: "{commonappdata}\{#MyAppName}\logs"; Permissions: everyone-full
-Name: "{commonappdata}\{#MyAppName}\backups"; Permissions: everyone-full
-Name: "{commonappdata}\{#MyAppName}\env.d"; Permissions: everyone-full
-Name: "{commonappdata}\{#MyAppName}\certs"; Permissions: everyone-full
+Name: "{commonappdata}\{#MyAppName}\logs"
+Name: "{commonappdata}\{#MyAppName}\backups"
+Name: "{commonappdata}\{#MyAppName}\env.d"
+Name: "{commonappdata}\{#MyAppName}\certs"
 
 [Icons]
 Name: "{group}\Web Admin"; Filename: "http://localhost:8080/web/admin";
