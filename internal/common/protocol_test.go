@@ -142,8 +142,10 @@ func TestMain(m *testing.M) {
 
 	os.Setenv("SFTPGO_DATA_PROVIDER__CREATE_DEFAULT_ADMIN", "1")
 	os.Setenv("SFTPGO_COMMON__ALLOW_SELF_CONNECTIONS", "1")
+	os.Setenv("SFTPGO_COMMON__SYMLINK_MODE", "3")
 	os.Setenv("SFTPGO_DEFAULT_ADMIN_USERNAME", "admin")
 	os.Setenv("SFTPGO_DEFAULT_ADMIN_PASSWORD", "password")
+	os.Setenv("SFTPGO_COMMON__SECRET_MIN_ENTROPY", "0")
 	err := config.LoadConfig(configDir, "")
 	if err != nil {
 		logger.ErrorToConsole("error loading configuration: %v", err)
@@ -7017,7 +7019,7 @@ func TestEventRuleRenameEvent(t *testing.T) {
 	assert.NoError(t, err)
 
 	u := getTestUser()
-	u.Username = "test <html > chars"
+	u.Username = "test & chars"
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	conn, client, err := getSftpClient(user)
@@ -7042,7 +7044,7 @@ func TestEventRuleRenameEvent(t *testing.T) {
 		assert.Contains(t, email.Data, fmt.Sprintf(`Subject: "rename" from "%s"`, user.Username))
 		assert.Contains(t, email.Data, "Content-Type: text/html")
 		assert.Contains(t, email.Data, fmt.Sprintf("Target path %q", path.Join("/subdir", testFileName)))
-		assert.Contains(t, email.Data, "Name: test &lt;html &gt; chars,")
+		assert.Contains(t, email.Data, "Name: test &amp; chars,")
 	}
 
 	_, err = httpdtest.RemoveEventRule(rule1, http.StatusOK)
@@ -7070,7 +7072,7 @@ func TestEventRuleIDPLogin(t *testing.T) {
 	require.NoError(t, err)
 	lastReceivedEmail.reset()
 
-	username := `test_"idp_"login`
+	username := `test_'idp_'login`
 	custom1 := `cust"oa"1`
 	u := map[string]any{
 		"username": "{{.Name}}",

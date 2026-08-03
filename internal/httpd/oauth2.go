@@ -20,8 +20,6 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/oauth2"
-
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/kms"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
@@ -50,7 +48,6 @@ type oauth2PendingAuth struct {
 	ClientSecret *kms.Secret `json:"client_secret"`
 	RedirectURL  string      `json:"redirect_url"`
 	IssuedAt     int64       `json:"issued_at"`
-	Verifier     string      `json:"verifier"`
 }
 
 func newOAuth2PendingAuth(provider int, redirectURL, clientID string, clientSecret *kms.Secret) oauth2PendingAuth {
@@ -61,7 +58,6 @@ func newOAuth2PendingAuth(provider int, redirectURL, clientID string, clientSecr
 		ClientSecret: clientSecret,
 		RedirectURL:  redirectURL,
 		IssuedAt:     util.GetTimeAsMsSinceEpoch(time.Now()),
-		Verifier:     oauth2.GenerateVerifier(),
 	}
 }
 

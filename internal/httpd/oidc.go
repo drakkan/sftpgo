@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"path"
 	"slices"
 	"strings"
 	"time"
@@ -37,11 +38,12 @@ import (
 )
 
 const (
-	oidcCookieKey       = "oidc"
-	adminRoleFieldValue = "admin"
-	authStateValidity   = 2 * 60 * 1000   // 2 minutes
-	tokenUpdateInterval = 3 * 60 * 1000   // 3 minutes
-	tokenDeleteInterval = 2 * 3600 * 1000 // 2 hours
+	oidcCookieKey          = "oidc"
+	adminRoleFieldValue    = "admin"
+	authStateValidity      = 1 * 60 * 1000 // 1 minute
+	maxWebClientNextLength = 4096
+	tokenUpdateInterval    = 3 * 60 * 1000   // 3 minutes
+	tokenDeleteInterval    = 2 * 3600 * 1000 // 2 hours
 )
 
 var (
@@ -200,7 +202,7 @@ type oidcPendingAuth struct {
 	Nonce    string        `json:"nonce"`
 	Audience tokenAudience `json:"audience"`
 	IssuedAt int64         `json:"issued_at"`
-	Verifier string        `json:"verifier"`
+	Next     string        `json:"next,omitempty"`
 }
 
 func newOIDCPendingAuth(audience tokenAudience) oidcPendingAuth {
@@ -209,7 +211,6 @@ func newOIDCPendingAuth(audience tokenAudience) oidcPendingAuth {
 		Nonce:    util.GenerateOpaqueString(),
 		Audience: audience,
 		IssuedAt: util.GetTimeAsMsSinceEpoch(time.Now()),
-		Verifier: oauth2.GenerateVerifier(),
 	}
 }
 
@@ -593,11 +594,42 @@ func (s *httpdServer) handleWebClientOIDCLogin(w http.ResponseWriter, r *http.Re
 	s.oidcLoginRedirect(w, r, tokenAudienceWebClient)
 }
 
+// safeRedirectURL returns the normalized same-origin URL whose cleaned path
+// resolves under base, or nil when next is not a safe redirect target.
+func safeRedirectURL(next, base string) *url.URL {
+	if next == "" || len(next) > maxWebClientNextLength {
+		return nil
+	}
+	u, err := url.Parse(next)
+	if err != nil || u.Scheme != "" || u.Host != "" || strings.Contains(u.Path, "\\") {
+		return nil
+	}
+	if u.Path = path.Clean(u.Path); !strings.HasPrefix(u.Path, base) {
+		return nil
+	}
+	u.RawPath = ""
+	return u
+}
+
+// safeRedirectTarget returns the normalized redirect target for next, or
+// ("", false) when next is not a safe same-origin target under base.
+func safeRedirectTarget(next, base string) (string, bool) {
+	if u := safeRedirectURL(next, base); u != nil {
+		return u.String(), true
+	}
+	return "", false
+}
+
 func (s *httpdServer) oidcLoginRedirect(w http.ResponseWriter, r *http.Request, audience tokenAudience) {
 	pendingAuth := newOIDCPendingAuth(audience)
+	if audience == tokenAudienceWebClient {
+		if target, ok := safeRedirectTarget(r.URL.Query().Get("next"), webClientFilesPath); ok {
+			pendingAuth.Next = target
+		}
+	}
 	oidcMgr.addPendingAuth(pendingAuth)
 	http.Redirect(w, r, s.binding.OIDC.oauth2Config.AuthCodeURL(pendingAuth.State,
-		oidc.Nonce(pendingAuth.Nonce), oauth2.S256ChallengeOption(pendingAuth.Verifier)), http.StatusFound)
+		oidc.Nonce(pendingAuth.Nonce)), http.StatusFound)
 }
 
 func (s *httpdServer) debugTokenClaims(claims map[string]any, rawIDToken string) {
@@ -636,8 +668,7 @@ func (s *httpdServer) handleOIDCRedirect(w http.ResponseWriter, r *http.Request)
 	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 	defer cancel()
 
-	oauth2Token, err := s.binding.OIDC.oauth2Config.Exchange(ctx, r.URL.Query().Get("code"),
-		oauth2.VerifierOption(authReq.Verifier))
+	oauth2Token, err := s.binding.OIDC.oauth2Config.Exchange(ctx, r.URL.Query().Get("code"))
 	if err != nil {
 		logger.Debug(logSender, "", "failed to exchange oidc token: %v", err)
 		setFlashMessage(w, r, newFlashMessage("Failed to exchange OpenID token", util.I18nOIDCErrTokenExchange))
@@ -730,10 +761,10 @@ func (s *httpdServer) handleOIDCRedirect(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	loginOIDCUser(w, r, token)
+	loginOIDCUser(w, r, token, authReq.Next)
 }
 
-func loginOIDCUser(w http.ResponseWriter, r *http.Request, token oidcToken) {
+func loginOIDCUser(w http.ResponseWriter, r *http.Request, token oidcToken, next string) {
 	oidcMgr.addToken(token)
 
 	cookie := http.Cookie{
@@ -750,6 +781,10 @@ func loginOIDCUser(w http.ResponseWriter, r *http.Request, token oidcToken) {
 	w.Header().Add("Cache-Control", `no-cache="Set-Cookie"`)
 	if token.isAdmin() {
 		http.Redirect(w, r, webUsersPath, http.StatusFound)
+		return
+	}
+	if target, ok := safeRedirectTarget(next, webClientFilesPath); ok {
+		http.Redirect(w, r, target, http.StatusFound)
 		return
 	}
 	http.Redirect(w, r, webClientFilesPath, http.StatusFound)

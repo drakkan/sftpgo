@@ -206,8 +206,7 @@ func getUserFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	inline := r.URL.Query().Get("inline") != ""
-	if status, err := downloadFile(w, r, connection, name, info, inline, nil); err != nil {
+	if status, err := downloadFile(w, r, connection, name, info, false, nil); err != nil {
 		resp := apiResponse{
 			Error:   err.Error(),
 			Message: http.StatusText(status),

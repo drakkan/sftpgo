@@ -220,25 +220,36 @@ func (*OsFs) Mkdir(name string) error {
 	return os.Mkdir(name, os.ModePerm)
 }
 
-// Symlink creates source as a symbolic link to target.
 func (*OsFs) Symlink(source, target string) error {
 	return os.Symlink(source, target)
 }
 
-// Readlink returns the destination of the named symbolic link
-// as absolute virtual path
 func (fs *OsFs) Readlink(name string) (string, error) {
-	// we don't have to follow multiple links:
-	// https://github.com/openssh/openssh-portable/blob/7bf2eb958fbb551e7d61e75c176bb3200383285d/sftp-server.c#L1329
-	resolved, err := os.Readlink(name)
+	target, err := os.Readlink(name)
 	if err != nil {
 		return "", err
 	}
-	resolved = filepath.Clean(resolved)
-	if !filepath.IsAbs(resolved) {
-		resolved = filepath.Join(filepath.Dir(name), resolved)
+	linksWalked := 0
+	// resolve the directory the target points through component by component
+	//  but do not follow the final component, keeping one-level readlink semantics
+	startDir := filepath.VolumeName(target) + string(os.PathSeparator)
+	if !filepath.IsAbs(target) {
+		if startDir, err = fs.resolveForConfinement(filepath.Dir(name), &linksWalked); err != nil {
+			return "", err
+		}
 	}
-	return fs.GetRelativePath(resolved), nil
+	// strip the volume name (e.g. "C:" on Windows) before splitting: it belongs to
+	// startDir, not to the components, otherwise it would be treated as a path entry
+	comps := splitPathComponents(target[len(filepath.VolumeName(target)):])
+	if len(comps) == 0 {
+		return fs.relativeToRoot(fs.normalize(fs.rootDir), fs.normalize(startDir)), nil
+	}
+	resolvedDir, err := fs.walkResolve(startDir, comps[:len(comps)-1], &linksWalked)
+	if err != nil {
+		return "", err
+	}
+	resolved := filepath.Join(resolvedDir, comps[len(comps)-1])
+	return fs.relativeToRoot(fs.normalize(fs.rootDir), resolved), nil
 }
 
 // Chown changes the numeric uid and gid of the named file.
@@ -351,18 +362,30 @@ func (*OsFs) GetAtomicUploadPath(name string) string {
 // GetRelativePath returns the path for a file relative to the user's home dir.
 // This is the path as seen by SFTPGo users
 func (fs *OsFs) GetRelativePath(name string) string {
+	return fs.relativeToRoot(fs.rootDir, name)
+}
+
+func (fs *OsFs) relativeToRoot(root, name string) string {
 	virtualPath := "/"
 	if fs.mountPath != "" {
 		virtualPath = fs.mountPath
 	}
-	rel, err := filepath.Rel(fs.rootDir, filepath.Clean(name))
-	if err != nil {
-		return ""
+	cleanName := filepath.Clean(name)
+	if strings.TrimRight(cleanName, `\/`) == strings.TrimRight(root, `\/`) {
+		return virtualPath
 	}
-	if rel == "." || strings.HasPrefix(rel, "..") {
+	rel, err := filepath.Rel(root, cleanName)
+	if err != nil {
+		return virtualPath
+	}
+	rel = filepath.ToSlash(rel)
+	if rel == ".." || strings.HasPrefix(rel, "../") {
+		return virtualPath
+	}
+	if rel == "." {
 		rel = ""
 	}
-	return path.Join(virtualPath, filepath.ToSlash(rel))
+	return path.Join(virtualPath, rel)
 }
 
 // Walk walks the file tree rooted at root, calling walkFn for each file or
@@ -378,13 +401,15 @@ func (*OsFs) Join(elem ...string) string {
 
 // ResolvePath returns the matching filesystem path for the specified sftp path
 func (fs *OsFs) ResolvePath(virtualPath string) (string, error) {
-	virtualPath = strings.ReplaceAll(virtualPath, "\\", "/")
 	if !filepath.IsAbs(fs.rootDir) {
 		return "", fmt.Errorf("invalid root path %q", fs.rootDir)
 	}
 	if fs.mountPath != "" {
-		virtualPath = strings.TrimPrefix(virtualPath, fs.mountPath)
+		if after, found := strings.CutPrefix(virtualPath, fs.mountPath); found {
+			virtualPath = after
+		}
 	}
+	virtualPath = path.Clean("/" + virtualPath)
 	r := filepath.Clean(filepath.Join(fs.rootDir, virtualPath))
 	p, err := filepath.EvalSymlinks(r)
 	if isInvalidNameError(err) {
@@ -394,6 +419,11 @@ func (fs *OsFs) ResolvePath(virtualPath string) (string, error) {
 	if err != nil && !isNotExist {
 		return "", err
 	} else if isNotExist {
+		if linkErr := fs.checkDanglingSymlinks(r); linkErr != nil {
+			fsLog(fs, logger.LevelError, "Invalid path resolution, original path %q resolved %q err: %v",
+				virtualPath, r, linkErr)
+			return r, linkErr
+		}
 		// The requested path doesn't exist, so at this point we need to iterate up the
 		// path chain until we hit a directory that _does_ exist and can be validated.
 		_, err = fs.findFirstExistingDir(r)
@@ -411,36 +441,82 @@ func (fs *OsFs) ResolvePath(virtualPath string) (string, error) {
 	return r, err
 }
 
-// RealPath implements the FsRealPather interface
+const maxResolvedSymlinks = 10
+
+// RealPath implements the FsRealPather interface. SSH_FXP_REALPATH does not
+// mandate link resolution, and avoiding it keeps the result well-defined for
+// not-yet-existing paths.
 func (fs *OsFs) RealPath(p string) (string, error) {
-	linksWalked := 0
-	for {
-		info, err := os.Lstat(p)
+	return fs.GetRelativePath(p), nil
+}
+
+func (fs *OsFs) resolveForConfinement(name string, linksWalked *int) (string, error) {
+	vol := filepath.VolumeName(name)
+	return fs.walkResolve(vol+string(os.PathSeparator), splitPathComponents(name[len(vol):]), linksWalked)
+}
+
+func (fs *OsFs) walkResolve(resolved string, rest []string, linksWalked *int) (string, error) {
+	for len(rest) > 0 {
+		comp := rest[0]
+		rest = rest[1:]
+		switch comp {
+		case "", ".":
+			continue
+		case "..":
+			resolved = filepath.Dir(resolved)
+			continue
+		}
+		candidate := filepath.Join(resolved, comp)
+		info, err := os.Lstat(candidate)
 		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				return fs.GetRelativePath(p), nil
+			if !fs.IsNotExist(err) {
+				return "", err
 			}
-			return "", err
+			// the tail does not exist, so it holds no symlinks: resolve it lexically
+			// against the normalized existing prefix
+			parts := append([]string{fs.normalize(resolved), comp}, rest...)
+			return filepath.Clean(filepath.Join(parts...)), nil
 		}
 		if info.Mode()&os.ModeSymlink == 0 {
-			return fs.GetRelativePath(p), nil
+			resolved = candidate
+			continue
 		}
-		resolvedLink, err := os.Readlink(p)
+		*linksWalked++
+		if *linksWalked > maxResolvedSymlinks {
+			fsLog(fs, logger.LevelError, "unable to resolve path, too many links: %d", *linksWalked)
+			return "", &pathResolutionError{err: "too many symbolic links"}
+		}
+		target, err := os.Readlink(candidate)
 		if err != nil {
 			return "", err
 		}
-		resolvedLink = filepath.Clean(resolvedLink)
-		if filepath.IsAbs(resolvedLink) {
-			p = resolvedLink
-		} else {
-			p = filepath.Join(filepath.Dir(p), resolvedLink)
+		if filepath.IsAbs(target) {
+			// an absolute target restarts from the volume root; a relative one is
+			// resolved against the link's directory, which is the current resolved
+			resolved = filepath.VolumeName(target) + string(os.PathSeparator)
 		}
-		linksWalked++
-		if linksWalked > 10 {
-			fsLog(fs, logger.LevelError, "unable to get real path, too many links: %d", linksWalked)
-			return "", &pathResolutionError{err: "too many links"}
-		}
+		rest = append(splitPathComponents(target[len(filepath.VolumeName(target)):]), rest...)
 	}
+	return fs.normalize(resolved), nil
+}
+
+// normalize returns p with symbolic links and platform aliases resolved
+// (filepath.EvalSymlinks), or p unchanged if it cannot be resolved.
+func (fs *OsFs) normalize(p string) string {
+	if resolved, err := filepath.EvalSymlinks(p); err == nil {
+		return resolved
+	}
+	return p
+}
+
+// splitPathComponents splits p into its slash- or separator-delimited components,
+// dropping leading and trailing empties.
+func splitPathComponents(p string) []string {
+	p = strings.Trim(filepath.ToSlash(p), "/")
+	if p == "" {
+		return nil
+	}
+	return strings.Split(p, "/")
 }
 
 // GetDirSize returns the number of files and the size for a folder
@@ -526,6 +602,32 @@ func (fs *OsFs) findFirstExistingDir(path string) (string, error) {
 	}
 	err = fs.isSubDir(p)
 	return p, err
+}
+
+func (fs *OsFs) checkDanglingSymlinks(name string) error {
+	current := filepath.Clean(name)
+	for {
+		info, err := os.Lstat(current)
+		if err == nil {
+			if info.Mode()&os.ModeSymlink == 0 {
+				return nil
+			}
+			linksWalked := 0
+			resolved, err := fs.resolveForConfinement(current, &linksWalked)
+			if err != nil {
+				return err
+			}
+			return fs.isSubDir(resolved)
+		}
+		if !fs.IsNotExist(err) {
+			return err
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			return nil
+		}
+		current = parent
+	}
 }
 
 func (fs *OsFs) isSubDir(sub string) error {

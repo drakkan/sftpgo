@@ -879,9 +879,9 @@ func getCSVRetentionReport(results []folderRetentionCheckResult) ([]byte, error)
 	}
 
 	for _, result := range results {
-		err = csvWriter.Write([]string{result.Path, strconv.Itoa(result.Retention), strconv.Itoa(result.DeletedFiles),
-			strconv.FormatInt(result.DeletedSize, 10), strconv.FormatInt(result.Elapsed.Milliseconds(), 10),
-			result.Info, result.Error})
+		err = csvWriter.Write(util.SanitizeCSVRow([]string{result.Path, strconv.Itoa(result.Retention),
+			strconv.Itoa(result.DeletedFiles), strconv.FormatInt(result.DeletedSize, 10),
+			strconv.FormatInt(result.Elapsed.Milliseconds(), 10), result.Info, result.Error}))
 		if err != nil {
 			return nil, err
 		}
@@ -923,8 +923,9 @@ func closeWriterAndUpdateQuota(w io.WriteCloser, conn *BaseConnection, virtualSo
 				errTransfer = errWrite
 			}
 			if operation == operationCopy {
-				logger.CommandLog(copyLogSender, fsSrcPath, fsDstPath, conn.User.Username, "", conn.ID, conn.protocol, -1, -1,
-					"", "", "", info.Size(), conn.localAddr, conn.remoteAddr, elapsed)
+				logger.CommandLog(copyLogSender, fsSrcPath, fsDstPath, virtualSourcePath, virtualTargetPath,
+					conn.User.Username, "", conn.ID, conn.protocol, -1, -1, "", "", "", info.Size(),
+					conn.localAddr, conn.remoteAddr, elapsed)
 			}
 			ExecuteActionNotification(conn, operation, fsSrcPath, virtualSourcePath, fsDstPath, virtualTargetPath, "", info.Size(), errTransfer, elapsed, nil) //nolint:errcheck
 		}
@@ -1116,7 +1117,7 @@ func addFileToZip(wr *zipWriterWrapper, conn *BaseConnection, entryPath, entryNa
 }
 
 func getZipEntryName(entryPath, baseDir string) (string, error) {
-	if !strings.HasPrefix(entryPath, baseDir) {
+	if entryPath != baseDir && !strings.HasPrefix(entryPath, strings.TrimSuffix(baseDir, "/")+"/") {
 		return "", fmt.Errorf("entry path %q is outside base dir %q", entryPath, baseDir)
 	}
 	entryPath = strings.TrimPrefix(entryPath, baseDir)

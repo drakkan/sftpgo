@@ -44,7 +44,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -132,6 +131,29 @@ var bytesSizeTable = map[string]uint64{
 	"e":  eByte,
 }
 
+// sanitizeCSVField neutralizes leading characters that spreadsheet
+// applications interpret as the start of a formula, mitigating CSV
+// formula injection when exporting user-controlled data.
+func sanitizeCSVField(s string) string {
+	if s == "" {
+		return s
+	}
+	switch s[0] {
+	case '=', '+', '-', '@', '\t', '\r':
+		return "'" + s
+	}
+	return s
+}
+
+// SanitizeCSVRow neutralizes spreadsheet formula triggers in each value of
+// row, in place, and returns it for convenience.
+func SanitizeCSVRow(row []string) []string {
+	for i := range row {
+		row[i] = sanitizeCSVField(row[i])
+	}
+	return row
+}
+
 // IsStringPrefixInSlice searches a string prefix in a slice and returns true
 // if a matching prefix is found
 func IsStringPrefixInSlice(obj string, list []string) bool {
@@ -164,16 +186,27 @@ func RemoveDuplicates(obj []string, trim bool) []string {
 }
 
 // IsNameValid validates that a name/username contains only safe characters.
+// Since names can be used within filesystem paths, only a restricted character
+// set is permitted. Unicode control (Cc), format (Cf) and line/paragraph
+// separator (Zl/Zp) characters, including zero-width, bidirectional and
+// newline-like codepoints, are rejected to prevent invisible, visually
+// confusable names and log injection.
 func IsNameValid(name string) bool {
+	if name == "" {
+		return false
+	}
+	if len(name) > 255 {
+		return false
+	}
 	for _, r := range name {
-		if unicode.IsControl(r) {
+		if unicode.IsControl(r) || unicode.In(r, unicode.Cf, unicode.Zl, unicode.Zp) {
 			return false
 		}
 
 		switch r {
 		case '/', '\\':
 			return false
-		case ':':
+		case ':', '*', '?', '"', '<', '>', '|':
 			return false
 		}
 	}
@@ -542,7 +575,7 @@ func CleanPath(p string) string {
 // CleanPathWithBase returns a clean POSIX (/) absolute path to work with.
 // The specified base will be used if the provided path is not absolute
 func CleanPathWithBase(base, p string) string {
-	p = filepath.ToSlash(p)
+	p = strings.ReplaceAll(p, "\\", "/")
 	if !path.IsAbs(p) {
 		p = path.Join(base, p)
 	}
@@ -960,8 +993,15 @@ func SlicesEqual(s1, s2 []string) bool {
 	if len(s1) != len(s2) {
 		return false
 	}
+
+	counts := make(map[string]int)
 	for _, v := range s1 {
-		if !slices.Contains(s2, v) {
+		counts[v]++
+	}
+
+	for _, v := range s2 {
+		counts[v]--
+		if counts[v] < 0 {
 			return false
 		}
 	}

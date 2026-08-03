@@ -17,6 +17,7 @@ package httpd_test
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -335,10 +336,12 @@ func TestMain(m *testing.M) { //nolint:gocyclo
 	os.Setenv("SFTPGO_COMMON__UPLOAD_MODE", "2")
 	os.Setenv("SFTPGO_DATA_PROVIDER__CREATE_DEFAULT_ADMIN", "1")
 	os.Setenv("SFTPGO_COMMON__ALLOW_SELF_CONNECTIONS", "1")
+	os.Setenv("SFTPGO_COMMON__SYMLINK_MODE", "3")
 	os.Setenv("SFTPGO_DATA_PROVIDER__NAMING_RULES", "0")
 	os.Setenv("SFTPGO_DEFAULT_ADMIN_USERNAME", "admin")
 	os.Setenv("SFTPGO_DEFAULT_ADMIN_PASSWORD", "password")
 	os.Setenv("SFTPGO_HTTPD__MAX_UPLOAD_FILE_SIZE", "1048576000")
+	os.Setenv("SFTPGO_COMMON__SECRET_MIN_ENTROPY", "0")
 	err := config.LoadConfig(configDir, "")
 	if err != nil {
 		logger.WarnToConsole("error loading configuration: %v", err)
@@ -580,12 +583,6 @@ func TestInitialization(t *testing.T) {
 		assert.Contains(t, err.Error(), "oidc")
 	}
 	httpdConf.Bindings[0].OIDC = httpd.OIDC{}
-	httpdConf.Bindings[0].BaseURL = "ftp://127.0.0.1"
-	err = httpdConf.Initialize(configDir, isShared)
-	if assert.Error(t, err) {
-		assert.Contains(t, err.Error(), "URL schema")
-	}
-	httpdConf.Bindings[0].BaseURL = ""
 	httpdConf.Bindings[0].EnableWebClient = true
 	httpdConf.Bindings[0].EnableWebAdmin = true
 	httpdConf.Bindings[0].EnableRESTAPI = true
@@ -635,6 +632,72 @@ func TestInitialization(t *testing.T) {
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
 	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+}
+
+func TestMigrateEventActionPlaceholders(t *testing.T) {
+	if config.GetProviderConf().Driver == dataprovider.MemoryDataProviderName {
+		t.Skip("this test is not supported with the memory provider")
+	}
+	// Add some event actions using the old placeholders syntax
+	a1 := dataprovider.BaseEventAction{
+		Name: xid.New().String(),
+		Type: dataprovider.ActionTypeEmail,
+		Options: dataprovider.BaseEventActionOptions{
+			EmailConfig: dataprovider.EventActionEmailConfig{
+				Recipients: []string{"failure@example.com"},
+				Subject:    `Failed "{{Event}}" from "{{Name}}"`,
+				Body:       "Object name: {{ObjectName}} object type: {{ObjectType}}, IP: {{IP}}",
+			},
+		},
+	}
+	a2 := dataprovider.BaseEventAction{
+		Name: xid.New().String(),
+		Type: dataprovider.ActionTypeFilesystem,
+		Options: dataprovider.BaseEventActionOptions{
+			FsConfig: dataprovider.EventActionFilesystemConfig{
+				Type: dataprovider.FilesystemActionRename,
+				Renames: []dataprovider.RenameConfig{
+					{
+						KeyValue: dataprovider.KeyValue{
+							Key:   "/{{VirtualDirPath}}/{{ObjectName}}",
+							Value: "/{{ObjectName}}_renamed",
+						},
+					},
+				},
+			},
+		},
+	}
+	action1, _, err := httpdtest.AddEventAction(a1, http.StatusCreated)
+	assert.NoError(t, err)
+	action2, _, err := httpdtest.AddEventAction(a2, http.StatusCreated)
+	assert.NoError(t, err)
+	// Revert the database to the previous version.
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	err = dataprovider.RevertDatabase(providerConf, configDir, 29)
+	assert.NoError(t, err)
+	// Close and initialize.
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+	// Check that actions are migrated.
+	action1Get, _, err := httpdtest.GetEventActionByName(action1.Name, http.StatusOK)
+	assert.NoError(t, err)
+	action2Get, _, err := httpdtest.GetEventActionByName(action2.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, `Failed "{{.Event}}" from "{{.Name}}"`, action1Get.Options.EmailConfig.Subject)
+	assert.Equal(t, `Object name: {{.ObjectName}} object type: {{.ObjectType}}, IP: {{.IP}}`, action1Get.Options.EmailConfig.Body)
+	assert.Equal(t, `/{{.VirtualDirPath}}/{{.ObjectName}}`, action2Get.Options.FsConfig.Renames[0].Key)
+	assert.Equal(t, `/{{.ObjectName}}_renamed`, action2Get.Options.FsConfig.Renames[0].Value)
+	// Clenup.
+	_, err = httpdtest.RemoveEventAction(action1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action2, http.StatusOK)
 	assert.NoError(t, err)
 }
 
@@ -870,6 +933,57 @@ func TestRoleRelations(t *testing.T) {
 	_, err = httpdtest.RemoveUser(user1, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user2, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestDisableAdmin2FARequiresWildcard(t *testing.T) {
+	target := getTestAdmin()
+	target.Username = altAdminUsername + "_target"
+	target.Password = altAdminPassword
+	target, _, err := httpdtest.AddAdmin(target, http.StatusCreated)
+	assert.NoError(t, err)
+
+	// caller without `*` but with disable_mfa: blocked from touching another admin's 2FA
+	caller := getTestAdmin()
+	caller.Username = altAdminUsername + "_caller"
+	caller.Password = altAdminPassword
+	caller.Permissions = []string{dataprovider.PermAdminViewUsers, dataprovider.PermAdminDisableMFA}
+	caller, _, err = httpdtest.AddAdmin(caller, http.StatusCreated)
+	assert.NoError(t, err)
+	callerToken, err := getJWTAPITokenFromTestServer(caller.Username, altAdminPassword)
+	assert.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPut, adminPath+"/"+target.Username+"/2fa/disable", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, callerToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+
+	// role admin with disable_mfa: same denial
+	role, _, err := httpdtest.AddRole(getTestRole(), http.StatusCreated)
+	assert.NoError(t, err)
+	roleAdmin := getTestAdmin()
+	roleAdmin.Username = altAdminUsername + "_role_caller"
+	roleAdmin.Password = altAdminPassword
+	roleAdmin.Permissions = []string{dataprovider.PermAdminViewUsers, dataprovider.PermAdminDisableMFA}
+	roleAdmin.Role = role.Name
+	roleAdmin, _, err = httpdtest.AddAdmin(roleAdmin, http.StatusCreated)
+	assert.NoError(t, err)
+	roleAdminToken, err := getJWTAPITokenFromTestServer(roleAdmin.Username, altAdminPassword)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPut, adminPath+"/"+target.Username+"/2fa/disable", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, roleAdminToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+
+	_, err = httpdtest.RemoveAdmin(roleAdmin, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveRole(role, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveAdmin(caller, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveAdmin(target, http.StatusOK)
 	assert.NoError(t, err)
 }
 
@@ -3572,6 +3686,21 @@ func TestPermMFADisabled(t *testing.T) {
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
+	// a secret weaker than the one we generate is rejected
+	weakTOTPConfig := dataprovider.UserTOTPConfig{
+		Enabled:    true,
+		ConfigName: configName,
+		Secret:     kms.NewPlainSecret("DDGJZVPO"),
+		Protocols:  []string{common.ProtocolSSH},
+	}
+	asJSON, err = json.Marshal(weakTOTPConfig)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "at least")
 	// now we cannot disable MFA for this user
 	user.Filters.WebClient = []string{sdk.WebClientMFADisabled}
 	_, resp, err = httpdtest.UpdateUser(user, http.StatusBadRequest, "")
@@ -10208,6 +10337,21 @@ func TestAdminTOTP(t *testing.T) {
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), "this passcode was already used")
 
+	// a secret weaker than the one we generate is rejected
+	weakTOTPConfig := dataprovider.AdminTOTPConfig{
+		Enabled:    true,
+		ConfigName: totpGenResp.ConfigName,
+		Secret:     kms.NewPlainSecret("DDGJZVPO"),
+	}
+	asJSON, err = json.Marshal(weakTOTPConfig)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, adminTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, altToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "at least")
+
 	adminTOTPConfig := dataprovider.AdminTOTPConfig{
 		Enabled:    true,
 		ConfigName: totpGenResp.ConfigName,
@@ -10751,21 +10895,6 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	setJWTCookieForReq(req, authenticatedCookie)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	// get MFA qrcode
-	req, err = http.NewRequest(http.MethodGet, path.Join(webClientMFAPath, "qrcode?url="+url.QueryEscape(key.URL())), nil)
-	assert.NoError(t, err)
-	req.RemoteAddr = defaultRemoteAddr
-	setJWTCookieForReq(req, authenticatedCookie)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr)
-	assert.Equal(t, "image/png", rr.Header().Get("Content-Type"))
-	// invalid MFA url
-	req, err = http.NewRequest(http.MethodGet, path.Join(webClientMFAPath, "qrcode?url="+url.QueryEscape("http://foo\x7f.eu")), nil)
-	assert.NoError(t, err)
-	req.RemoteAddr = defaultRemoteAddr
-	setJWTCookieForReq(req, authenticatedCookie)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusInternalServerError, rr)
 	// check that the recovery code was marked as used
 	req, err = http.NewRequest(http.MethodGet, user2FARecoveryCodesPath, nil)
 	assert.NoError(t, err)
@@ -11226,6 +11355,7 @@ func TestSearchEvents(t *testing.T) {
 }
 
 func TestMFAErrors(t *testing.T) {
+	validSecret := "DDGJZVPOUIXZWFR2S7UZQUJVDVBF2ZH3"
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
 	assert.False(t, user.Filters.TOTPConfig.Enabled)
@@ -11274,7 +11404,7 @@ func TestMFAErrors(t *testing.T) {
 	userTOTPConfig := dataprovider.UserTOTPConfig{
 		Enabled:    true,
 		ConfigName: "missing name",
-		Secret:     kms.NewPlainSecret(xid.New().String()),
+		Secret:     kms.NewPlainSecret(validSecret),
 		Protocols:  []string{common.ProtocolSSH},
 	}
 	asJSON, err = json.Marshal(userTOTPConfig)
@@ -11304,7 +11434,7 @@ func TestMFAErrors(t *testing.T) {
 	userTOTPConfig = dataprovider.UserTOTPConfig{
 		Enabled:    true,
 		ConfigName: mfa.GetAvailableTOTPConfigNames()[0],
-		Secret:     kms.NewPlainSecret(xid.New().String()),
+		Secret:     kms.NewPlainSecret(validSecret),
 		Protocols:  nil,
 	}
 	asJSON, err = json.Marshal(userTOTPConfig)
@@ -11319,7 +11449,7 @@ func TestMFAErrors(t *testing.T) {
 	userTOTPConfig = dataprovider.UserTOTPConfig{
 		Enabled:    true,
 		ConfigName: mfa.GetAvailableTOTPConfigNames()[0],
-		Secret:     kms.NewPlainSecret(xid.New().String()),
+		Secret:     kms.NewPlainSecret(validSecret),
 		Protocols:  []string{common.ProtocolWebDAV},
 	}
 	asJSON, err = json.Marshal(userTOTPConfig)
@@ -11334,7 +11464,7 @@ func TestMFAErrors(t *testing.T) {
 	adminTOTPConfig := dataprovider.AdminTOTPConfig{
 		Enabled:    true,
 		ConfigName: "",
-		Secret:     kms.NewPlainSecret("secret"),
+		Secret:     kms.NewPlainSecret(validSecret),
 	}
 	asJSON, err = json.Marshal(adminTOTPConfig)
 	assert.NoError(t, err)
@@ -15110,6 +15240,143 @@ func TestSharePasswordPolicy(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestShareMaxTokensConcurrent(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+
+	testFileName := xid.New().String() + ".dat"
+	testFilePath := filepath.Join(user.GetHomeDir(), testFileName)
+	err = createTestFile(testFilePath, 65536)
+	assert.NoError(t, err)
+
+	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	share := dataprovider.Share{
+		Name:      "test_share_concurrent",
+		Scope:     dataprovider.ShareScopeRead,
+		Paths:     []string{"/" + testFileName},
+		MaxTokens: 1,
+	}
+	asJSON, err := json.Marshal(share)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	objectID := rr.Header().Get("X-Object-ID")
+	assert.NotEmpty(t, objectID)
+
+	oldMaxPerHost := common.Config.MaxPerHostConnections
+	common.Config.MaxPerHostConnections = 0
+	defer func() { common.Config.MaxPerHostConnections = oldMaxPerHost }()
+
+	const numRequests = 25
+	results := make(chan int, numRequests)
+	var wg sync.WaitGroup
+	wg.Add(numRequests)
+	for i := 0; i < numRequests; i++ {
+		go func() {
+			defer wg.Done()
+			r, errReq := http.NewRequest(http.MethodGet, sharesPath+"/"+objectID+"?compress=false", nil)
+			if errReq != nil {
+				results <- 0
+				return
+			}
+			results <- executeRequest(r).Code
+		}()
+	}
+	wg.Wait()
+	close(results)
+
+	okCount, exhaustedCount := 0, 0
+	for code := range results {
+		switch code {
+		case http.StatusOK:
+			okCount++
+		case http.StatusNotFound:
+			exhaustedCount++
+		default:
+			t.Errorf("unexpected status code %d", code)
+		}
+	}
+	assert.Equal(t, 1, okCount, "exactly one concurrent request must consume the single token")
+	assert.Equal(t, numRequests-1, exhaustedCount, "every other request must be rejected as usage exceeded")
+
+	shareGet, err := dataprovider.ShareExists(objectID, user.Username)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, shareGet.UsedTokens, "used tokens must not exceed max_tokens under concurrency")
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestShareUploadFilesPartialFailureRefund(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+
+	// a real directory whose name collides with the second uploaded file: the
+	// second file write fails deterministically (either at getFileWriter or at
+	// the atomic-rename in Close), so doUploadFiles returns 1 of 2.
+	collide := "collide_dir"
+	err = os.MkdirAll(filepath.Join(user.GetHomeDir(), collide), os.ModePerm)
+	assert.NoError(t, err)
+
+	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	share := dataprovider.Share{
+		Name:      "partial_refund",
+		Scope:     dataprovider.ShareScopeWrite,
+		Paths:     []string{"/"},
+		Password:  defaultPassword,
+		MaxTokens: 5,
+	}
+	asJSON, err := json.Marshal(share)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	objectID := rr.Header().Get("X-Object-ID")
+	assert.NotEmpty(t, objectID)
+
+	body := new(bytes.Buffer)
+	writer := multipart.NewWriter(body)
+	part1, err := writer.CreateFormFile("filenames", "good.txt")
+	assert.NoError(t, err)
+	_, err = part1.Write([]byte("good content"))
+	assert.NoError(t, err)
+	part2, err := writer.CreateFormFile("filenames", collide)
+	assert.NoError(t, err)
+	_, err = part2.Write([]byte("this write targets a directory and must fail"))
+	assert.NoError(t, err)
+	err = writer.Close()
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodPost, sharesPath+"/"+objectID, bytes.NewReader(body.Bytes()))
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	assert.NotEqual(t, http.StatusCreated, rr.Code, "partial upload must not report success")
+
+	// reserved 2, exactly 1 file uploaded -> the deferred refund must give back
+	// exactly one token, leaving net usage at 1 (not 2, not 0).
+	shareGet, err := dataprovider.ShareExists(objectID, user.Username)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, shareGet.UsedTokens, "failed file must be refunded, succeeded file must be charged")
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestShareMaxExpiration(t *testing.T) {
 	u := getTestUser()
 	u.Filters.MaxSharesExpiration = 5
@@ -16499,6 +16766,61 @@ func TestBrowseShares(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
+}
+
+func TestBrowsableSharePartialDownloadPrefixOverlap(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+
+	shareDir := filepath.Join(user.GetHomeDir(), "share")
+	siblingDir := filepath.Join(user.GetHomeDir(), "share2")
+	assert.NoError(t, os.MkdirAll(shareDir, os.ModePerm))
+	assert.NoError(t, os.MkdirAll(siblingDir, os.ModePerm))
+	secretContents := []byte("prefix-overlap-secret\n")
+	assert.NoError(t, os.WriteFile(filepath.Join(shareDir, "inside.txt"), []byte("inside\n"), os.ModePerm))
+	assert.NoError(t, os.WriteFile(filepath.Join(siblingDir, "secret.txt"), secretContents, os.ModePerm))
+
+	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	share := dataprovider.Share{
+		Name:      "prefix overlap share",
+		Scope:     dataprovider.ShareScopeRead,
+		Paths:     []string{"share"},
+		MaxTokens: 0,
+	}
+	asJSON, err := json.Marshal(share)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	objectID := rr.Header().Get("X-Object-ID")
+	assert.NotEmpty(t, objectID)
+
+	defer func() {
+		rcv := recover()
+		assert.Equal(t, http.ErrAbortHandler, rcv)
+
+		s, err := dataprovider.ShareExists(objectID, user.Username)
+		assert.NoError(t, err)
+		assert.Equal(t, 0, s.UsedTokens)
+
+		_, err = httpdtest.RemoveUser(user, http.StatusOK)
+		assert.NoError(t, err)
+		err = os.RemoveAll(user.GetHomeDir())
+		assert.NoError(t, err)
+	}()
+
+	form := make(url.Values)
+	form.Set("files", `["../share2/secret.txt"]`)
+	req, err = http.NewRequest(http.MethodPost, path.Join(webClientPubSharesPath, objectID, "partial?path=%2F"),
+		bytes.NewBufferString(form.Encode()))
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	executeRequest(req)
 }
 
 func TestUserAPIShareErrors(t *testing.T) {
@@ -27355,6 +27677,126 @@ func getTestRole() dataprovider.Role {
 	}
 }
 
+func TestUserSecretMinEntropy(t *testing.T) {
+	vfs.SetSecretMinEntropy(80)
+	defer vfs.SetSecretMinEntropy(0)
+
+	strongBytes := make([]byte, 32)
+	_, err := rand.Read(strongBytes)
+	assert.NoError(t, err)
+	strong := base64.RawStdEncoding.EncodeToString(strongBytes)
+
+	// REST API: a weak CryptFs passphrase is rejected
+	u := getTestUser()
+	u.Username = "user_entropy_crypt"
+	u.FsConfig.Provider = sdk.CryptedFilesystemProvider
+	u.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret("weak")
+	_, resp, err := httpdtest.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "encryption secret")
+
+	// REST API: a weak S3 SSE-C key is rejected
+	u2 := getTestUser()
+	u2.Username = "user_entropy_ssec"
+	u2.FsConfig.Provider = sdk.S3FilesystemProvider
+	u2.FsConfig.S3Config = vfs.S3FsConfig{
+		BaseS3FsConfig: sdk.BaseS3FsConfig{
+			Bucket: "bucket",
+			Region: "us-east-1",
+		},
+		SSECustomerKey: kms.NewPlainSecret("weak"),
+	}
+	_, resp, err = httpdtest.AddUser(u2, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "encryption secret")
+
+	// REST API: a strong CryptFs passphrase is accepted
+	u3 := getTestUser()
+	u3.Username = "user_entropy_ok"
+	u3.FsConfig.Provider = sdk.CryptedFilesystemProvider
+	u3.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret(strong)
+	user3, _, err := httpdtest.AddUser(u3, http.StatusCreated)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user3, http.StatusOK)
+	assert.NoError(t, err)
+
+	// WebAdmin form: create a base user, then submit the user form switching to
+	// an encrypted filesystem
+	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	apiToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webUserPath, webToken)
+	assert.NoError(t, err)
+
+	user := getTestUser()
+	user.Username = "user_entropy_web"
+	userAsJSON := getUserAsJSON(t, user)
+	req, _ := http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
+	setBearerForReq(req, apiToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	err = render.DecodeJSON(rr.Body, &user)
+	assert.NoError(t, err)
+
+	buildForm := func(passphrase string) url.Values {
+		form := make(url.Values)
+		form.Set(csrfFormToken, csrfToken)
+		form.Set("username", user.Username)
+		form.Set("password", redactedSecret)
+		form.Set("home_dir", user.HomeDir)
+		form.Set("uid", "0")
+		form.Set("gid", "0")
+		form.Set("max_sessions", "0")
+		form.Set("quota_size", "0")
+		form.Set("quota_files", "0")
+		form.Set("upload_bandwidth", "0")
+		form.Set("download_bandwidth", "0")
+		form.Set("upload_data_transfer", "0")
+		form.Set("download_data_transfer", "0")
+		form.Set("total_data_transfer", "0")
+		form.Set("pre_login_cache_time", "0")
+		form.Set("external_auth_cache_time", "0")
+		form.Set("permissions", "*")
+		form.Set("status", "1")
+		form.Set("expiration_date", "")
+		form.Set("allowed_ip", "")
+		form.Set("denied_ip", "")
+		form.Set("max_upload_file_size", "0")
+		form.Set("default_shares_expiration", "0")
+		form.Set("max_shares_expiration", "0")
+		form.Set("password_expiration", "0")
+		form.Set("password_strength", "0")
+		form.Set("fs_provider", "4")
+		form.Set("crypt_passphrase", passphrase)
+		form.Set("cryptfs_read_buffer_size", "0")
+		form.Set("cryptfs_write_buffer_size", "0")
+		return form
+	}
+
+	// a weak passphrase re-renders the page with the entropy error
+	form := buildForm("weak")
+	b, contentType, _ := getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorSecretEntropy)
+
+	// a strong passphrase is accepted
+	form = buildForm(strong)
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+}
+
 func getTestUser() dataprovider.User {
 	user := dataprovider.User{
 		BaseUser: sdk.BaseUser{
@@ -27768,4 +28210,70 @@ func BenchmarkSecretDecryption(b *testing.B) {
 		err = s.Clone().Decrypt()
 		require.NoError(b, err)
 	}
+}
+
+func TestInlineDownloadDisabled(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+
+	err = os.MkdirAll(user.GetHomeDir(), os.ModePerm)
+	assert.NoError(t, err)
+	evilHTML := []byte("<html><body><script>alert(document.domain)</script></body></html>")
+	// a polyglot whose first bytes make http.DetectContentType report a PDF
+	// while the body is HTML; it is padded so ensurePDF can read its header
+	polyHTML := append([]byte("%PDF-1.4\n"), evilHTML...)
+	polyHTML = append(polyHTML, bytes.Repeat([]byte("\n%padding-comment"), 16)...)
+	err = os.WriteFile(filepath.Join(user.GetHomeDir(), "evil.html"), evilHTML, 0o644)
+	assert.NoError(t, err)
+	err = os.WriteFile(filepath.Join(user.GetHomeDir(), "poly.html"), polyHTML, 0o644)
+	assert.NoError(t, err)
+
+	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	share := dataprovider.Share{
+		Name:  "test_inline_disabled",
+		Scope: dataprovider.ShareScopeRead,
+		Paths: []string{"/"},
+	}
+	asJSON, err := json.Marshal(share)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	objectID := rr.Header().Get("X-Object-ID")
+	assert.NotEmpty(t, objectID)
+
+	// browsable share REST download: the inline query parameter is inert,
+	// the response is always served as an attachment
+	req, err = http.NewRequest(http.MethodGet, sharesPath+"/"+objectID+"/files?path=evil.html&inline=1", nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Header().Get("Content-Disposition"), "attachment")
+
+	// authenticated user file download: same, inline is inert
+	req, err = http.NewRequest(http.MethodGet, userFilesPath+"?path=evil.html&inline=1", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Header().Get("Content-Disposition"), "attachment")
+
+	// PDF inline path: a PDF-magic/HTML polyglot is served as application/pdf
+	// with MIME sniffing disabled, so it cannot execute as HTML in our origin
+	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "getpdf?path=poly.html"), nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Equal(t, "application/pdf", rr.Header().Get("Content-Type"))
+	assert.Equal(t, "nosniff", rr.Header().Get("X-Content-Type-Options"))
+	assert.NotContains(t, rr.Header().Get("Content-Disposition"), "attachment")
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
 }

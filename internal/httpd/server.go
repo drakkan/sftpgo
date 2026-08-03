@@ -182,8 +182,8 @@ func (s *httpdServer) renderClientLoginPage(w http.ResponseWriter, r *http.Reque
 		FormDisabled:   s.binding.isWebClientLoginFormDisabled(),
 		CheckRedirect:  true,
 	}
-	if next := r.URL.Query().Get("next"); strings.HasPrefix(next, webClientFilesPath) {
-		data.CurrentURL += "?next=" + url.QueryEscape(next)
+	if target, ok := safeRedirectTarget(r.URL.Query().Get("next"), webClientFilesPath); ok {
+		data.CurrentURL += "?next=" + url.QueryEscape(target)
 	}
 	if s.binding.showAdminLoginURL() {
 		data.AltLoginURL = webAdminLoginPath
@@ -194,6 +194,9 @@ func (s *httpdServer) renderClientLoginPage(w http.ResponseWriter, r *http.Reque
 	}
 	if s.binding.OIDC.isEnabled() && !s.binding.isWebClientOIDCLoginDisabled() {
 		data.OpenIDLoginURL = webClientOIDCLoginPath
+		if target, ok := safeRedirectTarget(r.URL.Query().Get("next"), webClientFilesPath); ok {
+			data.OpenIDLoginURL += "?next=" + url.QueryEscape(target)
+		}
 	}
 	renderClientTemplate(w, templateCommonLogin, data)
 }
@@ -257,6 +260,7 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}},
 			dataprovider.LoginMethodPassword, ipAddr, err, r)
 		s.renderClientLoginPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
+		return
 	}
 
 	if err := common.Config.ExecutePostConnectHook(ipAddr, protocol); err != nil {
@@ -764,16 +768,16 @@ func (s *httpdServer) loginUser(
 	invalidateToken(r)
 	if audience == tokenAudienceWebClientPartial {
 		redirectPath := webClientTwoFactorPath
-		if next := r.URL.Query().Get("next"); strings.HasPrefix(next, webClientFilesPath) {
-			redirectPath += "?next=" + url.QueryEscape(next)
+		if target, ok := safeRedirectTarget(r.URL.Query().Get("next"), webClientFilesPath); ok {
+			redirectPath += "?next=" + url.QueryEscape(target)
 		}
 		http.Redirect(w, r, redirectPath, http.StatusFound)
 		return
 	}
 	updateLoginMetrics(user, dataprovider.LoginMethodPassword, ipAddr, err, r)
 	dataprovider.UpdateLastLogin(user)
-	if next := r.URL.Query().Get("next"); strings.HasPrefix(next, webClientFilesPath) {
-		http.Redirect(w, r, next, http.StatusFound)
+	if target, ok := safeRedirectTarget(r.URL.Query().Get("next"), webClientFilesPath); ok {
+		http.Redirect(w, r, target, http.StatusFound)
 		return
 	}
 	http.Redirect(w, r, webClientFilesPath, http.StatusFound)
@@ -1429,7 +1433,7 @@ func (s *httpdServer) setupRESTAPIRoutes() {
 					updateUserQuotaUsage)
 				router.With(s.checkPerms(dataprovider.PermAdminChangeUsers)).Put(quotasBasePath+"/users/{username}/transfer-usage",
 					updateUserTransferQuotaUsage)
-				router.With(s.checkPerms(dataprovider.PermAdminChangeUsers)).Put(quotasBasePath+"/folders/{name}/usage",
+				router.With(s.checkPerms(dataprovider.PermAdminManageFolders)).Put(quotasBasePath+"/folders/{name}/usage",
 					updateFolderQuotaUsage)
 				router.With(s.checkPerms(dataprovider.PermAdminViewDefender)).Get(defenderHosts, getDefenderHosts)
 				router.With(s.checkPerms(dataprovider.PermAdminViewDefender)).Get(defenderHosts+"/{id}", getDefenderHostByID)
@@ -1439,7 +1443,7 @@ func (s *httpdServer) setupRESTAPIRoutes() {
 				router.With(s.checkPerms(dataprovider.PermAdminAny)).Get(adminPath+"/{username}", getAdminByUsername)
 				router.With(s.checkPerms(dataprovider.PermAdminAny)).Put(adminPath+"/{username}", updateAdmin)
 				router.With(s.checkPerms(dataprovider.PermAdminAny)).Delete(adminPath+"/{username}", deleteAdmin)
-				router.With(s.checkPerms(dataprovider.PermAdminDisableMFA)).Put(adminPath+"/{username}/2fa/disable", disableAdmin2FA)
+				router.With(s.checkPerms(dataprovider.PermAdminAny)).Put(adminPath+"/{username}/2fa/disable", disableAdmin2FA)
 				router.With(s.checkPerms(dataprovider.PermAdminAny)).Get(retentionChecksPath, getRetentionChecks)
 				router.With(s.checkPerms(dataprovider.PermAdminViewEvents), compressor.Handler).
 					Get(fsEventsPath, searchFsEvents)
@@ -1658,8 +1662,6 @@ func (s *httpdServer) setupWebClientRoutes() {
 				Post(webChangeClientPwdPath, s.handleWebClientChangePwdPost)
 			router.With(s.checkHTTPUserPerm(sdk.WebClientMFADisabled), s.refreshCookie).
 				Get(webClientMFAPath, s.handleWebClientMFA)
-			router.With(s.checkHTTPUserPerm(sdk.WebClientMFADisabled), s.refreshCookie).
-				Get(webClientMFAPath+"/qrcode", getQRCode)
 			router.With(s.checkHTTPUserPerm(sdk.WebClientMFADisabled), s.verifyCSRFHeader).
 				Post(webClientTOTPGeneratePath, generateTOTPSecret)
 			router.With(s.checkHTTPUserPerm(sdk.WebClientMFADisabled), s.verifyCSRFHeader).
@@ -1751,7 +1753,6 @@ func (s *httpdServer) setupWebAdminRoutes() {
 			router.With(s.requireBuiltinLogin).Post(webChangeAdminPwdPath, s.handleWebAdminChangePwdPost)
 
 			router.With(s.refreshCookie, s.requireBuiltinLogin).Get(webAdminMFAPath, s.handleWebAdminMFA)
-			router.With(s.refreshCookie, s.requireBuiltinLogin).Get(webAdminMFAPath+"/qrcode", getQRCode)
 			router.With(s.verifyCSRFHeader, s.requireBuiltinLogin).Post(webAdminTOTPGeneratePath, generateTOTPSecret)
 			router.With(s.verifyCSRFHeader, s.requireBuiltinLogin).Post(webAdminTOTPValidatePath, validateTOTPPasscode)
 			router.With(s.verifyCSRFHeader, s.requireBuiltinLogin).Post(webAdminTOTPSavePath, saveTOTPConfig)
@@ -1812,7 +1813,7 @@ func (s *httpdServer) setupWebAdminRoutes() {
 					s.handleWebUpdateAdminPost)
 				router.With(s.checkPerms(dataprovider.PermAdminAny), s.verifyCSRFHeader).
 					Delete(webAdminPath+"/{username}", deleteAdmin)
-				router.With(s.checkPerms(dataprovider.PermAdminDisableMFA), s.verifyCSRFHeader).
+				router.With(s.checkPerms(dataprovider.PermAdminAny), s.verifyCSRFHeader).
 					Put(webAdminPath+"/{username}/2fa/disable", disableAdmin2FA)
 				router.With(s.checkPerms(dataprovider.PermAdminCloseConnections), s.verifyCSRFHeader).
 					Delete(webConnectionsPath+"/{connectionID}", handleCloseConnection)

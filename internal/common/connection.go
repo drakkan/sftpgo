@@ -296,20 +296,6 @@ func (c *BaseConnection) setTimes(fsPath string, atime time.Time, mtime time.Tim
 	return false
 }
 
-// getInfoForOngoingUpload returns upload statistics for an upload currently in
-// progress on this connection.
-func (c *BaseConnection) getInfoForOngoingUpload(fsPath string) (os.FileInfo, error) {
-	c.RLock()
-	defer c.RUnlock()
-
-	for _, t := range c.activeTransfers {
-		if t.GetType() == TransferUpload && t.GetFsPath() == fsPath {
-			return vfs.NewFileInfo(t.GetVirtualPath(), false, t.GetSize(), t.GetStartTime(), false), nil
-		}
-	}
-	return nil, os.ErrNotExist
-}
-
 func (c *BaseConnection) truncateOpenHandle(fsPath string, size int64) (int64, error) {
 	c.RLock()
 	defer c.RUnlock()
@@ -418,7 +404,7 @@ func (c *BaseConnection) CreateDir(virtualPath string, checkFilePatterns bool) e
 	vfs.SetPathPermissions(fs, fsPath, c.User.GetUID(), c.User.GetGID())
 	elapsed := time.Since(startTime).Nanoseconds() / 1000000
 
-	logger.CommandLog(mkdirLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1,
+	logger.CommandLog(mkdirLogSender, fsPath, "", virtualPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1,
 		c.localAddr, c.remoteAddr, elapsed)
 	ExecuteActionNotification(c, operationMkdir, fsPath, virtualPath, "", "", "", 0, nil, elapsed, nil) //nolint:errcheck
 	return nil
@@ -462,7 +448,7 @@ func (c *BaseConnection) RemoveFile(fs vfs.Fs, fsPath, virtualPath string, info 
 	}
 	elapsed := time.Since(startTime).Nanoseconds() / 1000000
 
-	logger.CommandLog(removeLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1,
+	logger.CommandLog(removeLogSender, fsPath, "", virtualPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1,
 		c.localAddr, c.remoteAddr, elapsed)
 	if updateQuota && info.Mode()&os.ModeSymlink == 0 {
 		vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(virtualPath))
@@ -536,7 +522,7 @@ func (c *BaseConnection) RemoveDir(virtualPath string) error {
 	}
 	elapsed := time.Since(startTime).Nanoseconds() / 1000000
 
-	logger.CommandLog(rmdirLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1,
+	logger.CommandLog(rmdirLogSender, fsPath, "", virtualPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1,
 		c.localAddr, c.remoteAddr, elapsed)
 	ExecuteActionNotification(c, operationRmdir, fsPath, virtualPath, "", "", "", 0, nil, elapsed, nil) //nolint:errcheck
 	return nil
@@ -660,8 +646,9 @@ func (c *BaseConnection) copyFile(virtualSourcePath, virtualTargetPath string, s
 			numFiles, sizeDiff, err := copier.CopyFile(fsSourcePath, fsTargetPath, srcInfo)
 			elapsed := time.Since(startTime).Nanoseconds() / 1000000
 			updateUserQuotaAfterFileWrite(c, virtualTargetPath, numFiles, sizeDiff)
-			logger.CommandLog(copyLogSender, fsSourcePath, fsTargetPath, c.User.Username, "", c.ID, c.protocol, -1, -1,
-				"", "", "", srcInfo.Size(), c.localAddr, c.remoteAddr, elapsed)
+			logger.CommandLog(copyLogSender, fsSourcePath, fsTargetPath, virtualSourcePath, virtualTargetPath,
+				c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", srcInfo.Size(),
+				c.localAddr, c.remoteAddr, elapsed)
 			ExecuteActionNotification(c, operationCopy, fsSourcePath, virtualSourcePath, fsTargetPath, virtualTargetPath, "", srcInfo.Size(), err, elapsed, nil) //nolint:errcheck
 			return err
 		}
@@ -794,8 +781,9 @@ func (c *BaseConnection) Copy(virtualSourcePath, virtualTargetPath string) error
 	if err := c.CheckParentDirs(path.Dir(destPath)); err != nil {
 		return err
 	}
-	stopKeepAlive := keepConnectionAlive(c, 2*time.Minute)
-	defer stopKeepAlive()
+	done := make(chan bool)
+	defer close(done)
+	go keepConnectionAlive(c, done, 2*time.Minute)
 
 	return c.doRecursiveCopy(virtualSourcePath, destPath, srcInfo, createTargetDir, 0)
 }
@@ -861,8 +849,9 @@ func (c *BaseConnection) renameInternal(virtualSourcePath, virtualTargetPath str
 	if checkParentDestination {
 		c.CheckParentDirs(path.Dir(virtualTargetPath)) //nolint:errcheck
 	}
-	stopKeepAlive := keepConnectionAlive(c, 2*time.Minute)
-	defer stopKeepAlive()
+	done := make(chan bool)
+	defer close(done)
+	go keepConnectionAlive(c, done, 2*time.Minute)
 
 	files, size, err := fsDst.Rename(fsSourcePath, fsTargetPath, checks)
 	if err != nil {
@@ -872,8 +861,8 @@ func (c *BaseConnection) renameInternal(virtualSourcePath, virtualTargetPath str
 	vfs.SetPathPermissions(fsDst, fsTargetPath, c.User.GetUID(), c.User.GetGID())
 	elapsed := time.Since(startTime).Nanoseconds() / 1000000
 	c.updateQuotaAfterRename(fsDst, virtualSourcePath, virtualTargetPath, fsTargetPath, initialSize, files, size) //nolint:errcheck
-	logger.CommandLog(renameLogSender, fsSourcePath, fsTargetPath, c.User.Username, "", c.ID, c.protocol, -1, -1,
-		"", "", "", -1, c.localAddr, c.remoteAddr, elapsed)
+	logger.CommandLog(renameLogSender, fsSourcePath, fsTargetPath, virtualSourcePath, virtualTargetPath,
+		c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1, c.localAddr, c.remoteAddr, elapsed)
 	ExecuteActionNotification(c, operationRename, fsSourcePath, virtualSourcePath, fsTargetPath, //nolint:errcheck
 		virtualTargetPath, "", 0, nil, elapsed, nil)
 
@@ -898,6 +887,10 @@ func (c *BaseConnection) CreateSymlink(virtualSourcePath, virtualTargetPath stri
 	if err != nil {
 		return err
 	}
+	if !Config.IsSymlinkCreationAllowed(fs) {
+		c.Log(logger.LevelDebug, "symlink creation is disabled by configuration")
+		return c.GetOpUnsupportedError()
+	}
 	fsTargetPath, err := fs.ResolvePath(virtualTargetPath)
 	if err != nil {
 		return c.GetFsError(fs, err)
@@ -910,7 +903,8 @@ func (c *BaseConnection) CreateSymlink(virtualSourcePath, virtualTargetPath stri
 		c.Log(logger.LevelError, "symlinking to root dir is not allowed")
 		return c.GetPermissionDeniedError()
 	}
-	if !c.User.HasPerm(dataprovider.PermCreateSymlinks, path.Dir(virtualTargetPath)) {
+	if !c.User.HasPerm(dataprovider.PermCreateSymlinks, path.Dir(virtualTargetPath)) ||
+		!c.User.HasPerm(dataprovider.PermCreateSymlinks, path.Dir(virtualSourcePath)) {
 		return c.GetPermissionDeniedError()
 	}
 	ok, policy := c.User.IsFileAllowed(virtualSourcePath)
@@ -931,8 +925,8 @@ func (c *BaseConnection) CreateSymlink(virtualSourcePath, virtualTargetPath stri
 		return c.GetFsError(fs, err)
 	}
 	elapsed := time.Since(startTime).Nanoseconds() / 1000000
-	logger.CommandLog(symlinkLogSender, fsSourcePath, fsTargetPath, c.User.Username, "", c.ID, c.protocol, -1, -1, "",
-		"", "", -1, c.localAddr, c.remoteAddr, elapsed)
+	logger.CommandLog(symlinkLogSender, fsSourcePath, fsTargetPath, virtualSourcePath, virtualTargetPath,
+		c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1, c.localAddr, c.remoteAddr, elapsed)
 	return nil
 }
 
@@ -966,19 +960,7 @@ func (c *BaseConnection) doStatInternal(virtualPath string, mode int, checkFileP
 		info, err = fs.Stat(c.getRealFsPath(fsPath))
 	}
 	if err != nil {
-		isNotExist := fs.IsNotExist(err)
-		if isNotExist {
-			// This is primarily useful for atomic storage backends, where files
-			// become visible only after they are closed. However, since we may
-			// be proxying (for example) an SFTP server backed by atomic
-			// storage, and this search only inspects transfers active on the
-			// current connection (typically just one), the check is inexpensive
-			// and safe to perform unconditionally.
-			if info, err := c.getInfoForOngoingUpload(fsPath); err == nil {
-				return info, nil
-			}
-		}
-		if !isNotExist {
+		if !fs.IsNotExist(err) {
 			c.Log(logger.LevelWarn, "stat error for path %q: %+v", virtualPath, err)
 		}
 		return nil, c.GetFsError(fs, err)
@@ -1012,7 +994,7 @@ func (c *BaseConnection) ignoreSetStat(fs vfs.Fs) bool {
 	return false
 }
 
-func (c *BaseConnection) handleChmod(fs vfs.Fs, fsPath, pathForPerms string, attributes *StatAttributes) error {
+func (c *BaseConnection) handleChmod(fs vfs.Fs, fsPath, virtualPath, pathForPerms string, attributes *StatAttributes) error {
 	if !c.User.HasPerm(dataprovider.PermChmod, pathForPerms) {
 		return c.GetPermissionDeniedError()
 	}
@@ -1025,12 +1007,12 @@ func (c *BaseConnection) handleChmod(fs vfs.Fs, fsPath, pathForPerms string, att
 		return c.GetFsError(fs, err)
 	}
 	elapsed := time.Since(startTime).Nanoseconds() / 1000000
-	logger.CommandLog(chmodLogSender, fsPath, "", c.User.Username, attributes.Mode.String(), c.ID, c.protocol,
-		-1, -1, "", "", "", -1, c.localAddr, c.remoteAddr, elapsed)
+	logger.CommandLog(chmodLogSender, fsPath, "", virtualPath, "", c.User.Username, attributes.Mode.String(),
+		c.ID, c.protocol, -1, -1, "", "", "", -1, c.localAddr, c.remoteAddr, elapsed)
 	return nil
 }
 
-func (c *BaseConnection) handleChown(fs vfs.Fs, fsPath, pathForPerms string, attributes *StatAttributes) error {
+func (c *BaseConnection) handleChown(fs vfs.Fs, fsPath, virtualPath, pathForPerms string, attributes *StatAttributes) error {
 	if !c.User.HasPerm(dataprovider.PermChown, pathForPerms) {
 		return c.GetPermissionDeniedError()
 	}
@@ -1044,12 +1026,12 @@ func (c *BaseConnection) handleChown(fs vfs.Fs, fsPath, pathForPerms string, att
 		return c.GetFsError(fs, err)
 	}
 	elapsed := time.Since(startTime).Nanoseconds() / 1000000
-	logger.CommandLog(chownLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, attributes.UID, attributes.GID,
-		"", "", "", -1, c.localAddr, c.remoteAddr, elapsed)
+	logger.CommandLog(chownLogSender, fsPath, "", virtualPath, "", c.User.Username, "", c.ID, c.protocol,
+		attributes.UID, attributes.GID, "", "", "", -1, c.localAddr, c.remoteAddr, elapsed)
 	return nil
 }
 
-func (c *BaseConnection) handleChtimes(fs vfs.Fs, fsPath, pathForPerms string, attributes *StatAttributes) error {
+func (c *BaseConnection) handleChtimes(fs vfs.Fs, fsPath, virtualPath, pathForPerms string, attributes *StatAttributes) error {
 	if !c.User.HasPerm(dataprovider.PermChtimes, pathForPerms) {
 		return c.GetPermissionDeniedError()
 	}
@@ -1070,7 +1052,7 @@ func (c *BaseConnection) handleChtimes(fs vfs.Fs, fsPath, pathForPerms string, a
 	elapsed := time.Since(startTime).Nanoseconds() / 1000000
 	accessTimeString := attributes.Atime.Format(chtimesFormat)
 	modificationTimeString := attributes.Mtime.Format(chtimesFormat)
-	logger.CommandLog(chtimesLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1,
+	logger.CommandLog(chtimesLogSender, fsPath, "", virtualPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1,
 		accessTimeString, modificationTimeString, "", -1, c.localAddr, c.remoteAddr, elapsed)
 	return nil
 }
@@ -1087,19 +1069,19 @@ func (c *BaseConnection) SetStat(virtualPath string, attributes *StatAttributes)
 	pathForPerms := path.Dir(virtualPath)
 
 	if attributes.Flags&StatAttrTimes != 0 {
-		if err = c.handleChtimes(fs, fsPath, pathForPerms, attributes); err != nil {
+		if err = c.handleChtimes(fs, fsPath, virtualPath, pathForPerms, attributes); err != nil {
 			return err
 		}
 	}
 
 	if attributes.Flags&StatAttrPerms != 0 {
-		if err = c.handleChmod(fs, fsPath, pathForPerms, attributes); err != nil {
+		if err = c.handleChmod(fs, fsPath, virtualPath, pathForPerms, attributes); err != nil {
 			return err
 		}
 	}
 
 	if attributes.Flags&StatAttrUIDGID != 0 {
-		if err = c.handleChown(fs, fsPath, pathForPerms, attributes); err != nil {
+		if err = c.handleChown(fs, fsPath, virtualPath, pathForPerms, attributes); err != nil {
 			return err
 		}
 	}
@@ -1114,8 +1096,8 @@ func (c *BaseConnection) SetStat(virtualPath string, attributes *StatAttributes)
 			return c.GetFsError(fs, err)
 		}
 		elapsed := time.Since(startTime).Nanoseconds() / 1000000
-		logger.CommandLog(truncateLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "",
-			"", attributes.Size, c.localAddr, c.remoteAddr, elapsed)
+		logger.CommandLog(truncateLogSender, fsPath, "", virtualPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1,
+			"", "", "", attributes.Size, c.localAddr, c.remoteAddr, elapsed)
 	}
 
 	return nil
@@ -1893,22 +1875,18 @@ func getPermissionDeniedError(protocol string) error {
 	}
 }
 
-func keepConnectionAlive(c *BaseConnection, interval time.Duration) func() {
-	var timer *time.Timer
-	var closed atomic.Bool
+func keepConnectionAlive(c *BaseConnection, done chan bool, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer func() {
+		ticker.Stop()
+	}()
 
-	task := func() {
-		c.UpdateLastActivity()
-
-		if !closed.Load() {
-			timer.Reset(interval)
+	for {
+		select {
+		case <-done:
+			return
+		case <-ticker.C:
+			c.UpdateLastActivity()
 		}
-	}
-
-	timer = time.AfterFunc(interval, task)
-
-	return func() {
-		closed.Store(true)
-		timer.Stop()
 	}
 }

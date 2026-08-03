@@ -57,6 +57,10 @@ type sshSubsystemExecMsg struct {
 	Command string
 }
 
+type sshSubsystemMsg struct {
+	Name string
+}
+
 type hostCertificate struct {
 	Certificate *ssh.Certificate
 	Path        string

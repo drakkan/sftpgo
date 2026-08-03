@@ -343,10 +343,6 @@ func (t *throttledReader) GetRealFsPath(_ string) string {
 	return ""
 }
 
-func (t *throttledReader) GetFsPath() string {
-	return ""
-}
-
 func (t *throttledReader) SetTimes(_ string, _ time.Time, _ time.Time) bool {
 	return false
 }

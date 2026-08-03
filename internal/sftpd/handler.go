@@ -19,6 +19,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/pkg/sftp"
@@ -72,6 +73,7 @@ func (c *Connection) GetCommand() string {
 // Fileread creates a reader for a file on the system and returns the reader back.
 func (c *Connection) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 	c.UpdateLastActivity()
+	updateRequestPaths(request)
 
 	if !c.User.HasPerm(dataprovider.PermDownload, path.Dir(request.Filepath)) {
 		return nil, sftp.ErrSSHFxPermissionDenied
@@ -126,6 +128,7 @@ func (c *Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 
 func (c *Connection) handleFilewrite(request *sftp.Request) (sftp.WriterAtReaderAt, error) { //nolint:gocyclo
 	c.UpdateLastActivity()
+	updateRequestPaths(request)
 
 	if err := common.Connections.IsNewTransferAllowed(c.User.Username); err != nil {
 		c.Log(logger.LevelInfo, "denying file write due to transfer count limits")
@@ -189,6 +192,7 @@ func (c *Connection) handleFilewrite(request *sftp.Request) (sftp.WriterAtReader
 // or writing to those files.
 func (c *Connection) Filecmd(request *sftp.Request) error {
 	c.UpdateLastActivity()
+	updateRequestPaths(request)
 
 	switch request.Method {
 	case "Setstat":
@@ -221,6 +225,7 @@ func (c *Connection) Filecmd(request *sftp.Request) error {
 // a directory as well as perform file/folder stat calls.
 func (c *Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 	c.UpdateLastActivity()
+	updateRequestPaths(request)
 
 	switch request.Method {
 	case "List":
@@ -252,6 +257,7 @@ func (c *Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 
 // Readlink implements the ReadlinkFileLister interface
 func (c *Connection) Readlink(filePath string) (string, error) {
+	filePath = util.CleanPath(filePath)
 	if err := c.canReadLink(filePath); err != nil {
 		return "", err
 	}
@@ -276,6 +282,7 @@ func (c *Connection) Readlink(filePath string) (string, error) {
 // Lstat implements LstatFileLister interface
 func (c *Connection) Lstat(request *sftp.Request) (sftp.ListerAt, error) {
 	c.UpdateLastActivity()
+	updateRequestPaths(request)
 
 	if !c.User.HasPerm(dataprovider.PermListItems, path.Dir(request.Filepath)) {
 		return nil, sftp.ErrSSHFxPermissionDenied
@@ -291,14 +298,13 @@ func (c *Connection) Lstat(request *sftp.Request) (sftp.ListerAt, error) {
 
 // RealPath implements the RealPathFileLister interface
 func (c *Connection) RealPath(p string) (string, error) {
-	if !c.User.HasPerm(dataprovider.PermListItems, path.Dir(p)) {
-		return "", sftp.ErrSSHFxPermissionDenied
-	}
-
 	if c.User.Filters.StartDirectory == "" {
 		p = util.CleanPath(p)
 	} else {
 		p = util.CleanPathWithBase(c.User.Filters.StartDirectory, p)
+	}
+	if !c.User.HasPerm(dataprovider.PermListItems, path.Dir(p)) {
+		return "", sftp.ErrSSHFxPermissionDenied
 	}
 	fs, fsPath, err := c.GetFsAndResolvedPath(p)
 	if err != nil {
@@ -317,6 +323,7 @@ func (c *Connection) RealPath(p string) (string, error) {
 // StatVFS implements StatVFSFileCmder interface
 func (c *Connection) StatVFS(r *sftp.Request) (*sftp.StatVFS, error) {
 	c.UpdateLastActivity()
+	updateRequestPaths(r)
 
 	// we are assuming that r.Filepath is a dir, this could be wrong but should
 	// not produce any side effect here.
@@ -595,4 +602,16 @@ func getOSOpenFlags(requestFlags sftp.FileOpenFlags) (flags int) {
 		osFlags |= os.O_EXCL
 	}
 	return osFlags
+}
+
+func updateRequestPaths(request *sftp.Request) {
+	if request.Method == "Symlink" {
+		request.Filepath = path.Clean(strings.ReplaceAll(request.Filepath, "\\", "/"))
+	} else {
+		request.Filepath = util.CleanPath(request.Filepath)
+	}
+
+	if request.Target != "" {
+		request.Target = util.CleanPath(request.Target)
+	}
 }

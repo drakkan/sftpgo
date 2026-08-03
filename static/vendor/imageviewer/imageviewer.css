@@ -1,0 +1,142 @@
+.iv-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 100000;
+    background: rgba(0, 0, 0, 0.92);
+    display: none;
+    flex-direction: column;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+}
+
+.iv-overlay.iv-visible {
+    display: flex;
+}
+
+.iv-toolbar {
+    display: flex;
+    align-items: center;
+    padding: 4px 12px;
+    z-index: 2;
+}
+
+.iv-counter {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 14px;
+    min-width: 50px;
+}
+
+.iv-btn {
+    background: none;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    font-size: 20px;
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+    line-height: 1;
+    padding: 0;
+}
+
+.iv-btn:hover:not(:disabled) {
+    opacity: 1;
+}
+
+.iv-btn:disabled {
+    opacity: 0.3;
+    cursor: default;
+}
+
+.iv-btn-zoom {
+    font-size: 22px;
+    font-weight: bold;
+}
+
+.iv-btn-close {
+    font-size: 24px;
+}
+
+.iv-container {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+}
+
+.iv-spinner {
+    position: absolute;
+    width: 36px;
+    height: 36px;
+    border: 3px solid rgba(255, 255, 255, 0.2);
+    border-top-color: rgba(255, 255, 255, 0.8);
+    border-radius: 50%;
+    animation: iv-spin 0.8s linear infinite;
+}
+
+@keyframes iv-spin {
+    to { transform: rotate(360deg); }
+}
+
+.iv-img {
+    max-width: 90%;
+    max-height: 100%;
+    object-fit: contain;
+    will-change: transform;
+    position: relative;
+}
+
+.iv-img.iv-fade {
+    transition: opacity 0.2s;
+}
+
+.iv-btn-prev,
+.iv-btn-next {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    font-size: 28px;
+    min-width: 48px;
+    min-height: 64px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+}
+
+.iv-btn-prev {
+    left: 4px;
+}
+
+.iv-btn-next {
+    right: 4px;
+}
+
+.iv-caption {
+    text-align: center;
+    padding: 10px 16px;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 500;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 2;
+}
+
+/* Hide nav arrows on touch devices - use swipe instead */
+@media (pointer: coarse) {
+    .iv-btn-prev,
+    .iv-btn-next {
+        display: none;
+    }
+}

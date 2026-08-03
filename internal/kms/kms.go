@@ -18,6 +18,7 @@ package kms
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -146,6 +147,17 @@ func (c *Configuration) getSecretProvider(base BaseSecret) SecretProvider {
 	}
 	logger.Warn(logSender, "", "no secret provider registered for URL %v, fallback to local provider", c.Secrets.URL)
 	return NewLocalSecret(base, c.Secrets.URL, c.Secrets.masterKey)
+}
+
+// CheckProviderAvailable returns an error when no secret provider is registered
+// for the configured secrets URL.
+func CheckProviderAvailable() error {
+	for k := range secretProviders {
+		if strings.HasPrefix(config.Secrets.URL, k) {
+			return nil
+		}
+	}
+	return fmt.Errorf("no KMS secret provider is registered for the configured URL %q", config.Secrets.URL)
 }
 
 // Secret defines the struct used to store confidential data

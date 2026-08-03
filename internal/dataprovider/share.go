@@ -286,7 +286,7 @@ func (s *Share) GetRelativePath(name string) string {
 // IsUsable checks if the share is usable from the specified IP
 func (s *Share) IsUsable(ip string) (bool, error) {
 	if s.MaxTokens > 0 && s.UsedTokens >= s.MaxTokens {
-		return false, util.NewI18nError(util.NewRecordNotFoundError("max share usage exceeded"), util.I18nErrorShareUsage)
+		return false, ErrShareUsageExceeded
 	}
 	if s.ExpiresAt > 0 {
 		if s.ExpiresAt < util.GetTimeAsMsSinceEpoch(time.Now()) {

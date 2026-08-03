@@ -120,7 +120,6 @@ var (
 		ClientIPHeaderDepth:  0,
 		HideLoginURL:         0,
 		RenderOpenAPI:        true,
-		BaseURL:              "",
 		Languages:            []string{"en"},
 		OIDC: httpd.OIDC{
 			ClientID:                   "",
@@ -211,7 +210,9 @@ func Init() {
 			},
 			SetstatMode:           0,
 			RenameMode:            0,
+			SymlinkMode:           0,
 			ResumeMaxSize:         0,
+			SecretMinEntropy:      80,
 			TempPath:              "",
 			ProxyProtocol:         0,
 			ProxyAllowed:          []string{},
@@ -387,7 +388,7 @@ func Init() {
 			UpdateMode:         0,
 			DelayedQuotaUpdate: 0,
 			CreateDefaultAdmin: false,
-			NamingRules:        1,
+			NamingRules:        5,
 			IsShared:           0,
 			Node: dataprovider.NodeConfig{
 				Host:  "",
@@ -831,6 +832,12 @@ func resetInvalidConfigs() {
 	if globalConf.Common.RenameMode < 0 || globalConf.Common.RenameMode > 1 {
 		warn := fmt.Sprintf("invalid rename mode %d, reset to 0", globalConf.Common.RenameMode)
 		globalConf.Common.RenameMode = 0
+		logger.Warn(logSender, "", "Non-fatal configuration error: %v", warn)
+		logger.WarnToConsole("Non-fatal configuration error: %v", warn)
+	}
+	if globalConf.Common.SymlinkMode < 0 || globalConf.Common.SymlinkMode > 3 {
+		warn := fmt.Sprintf("invalid symlink mode %d, reset to 0", globalConf.Common.SymlinkMode)
+		globalConf.Common.SymlinkMode = 0
 		logger.Warn(logSender, "", "Non-fatal configuration error: %v", warn)
 		logger.WarnToConsole("Non-fatal configuration error: %v", warn)
 	}
@@ -1887,12 +1894,6 @@ func getHTTPDBindingFromEnv(idx int) { //nolint:gocyclo
 		isSet = true
 	}
 
-	baseURL, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%d__BASE_URL", idx))
-	if ok {
-		binding.BaseURL = baseURL
-		isSet = true
-	}
-
 	languages, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%d__LANGUAGES", idx))
 	if ok {
 		binding.Languages = languages
@@ -2054,7 +2055,9 @@ func setViperDefaults() {
 	viper.SetDefault("common.actions.hook", globalConf.Common.Actions.Hook)
 	viper.SetDefault("common.setstat_mode", globalConf.Common.SetstatMode)
 	viper.SetDefault("common.rename_mode", globalConf.Common.RenameMode)
+	viper.SetDefault("common.symlink_mode", globalConf.Common.SymlinkMode)
 	viper.SetDefault("common.resume_max_size", globalConf.Common.ResumeMaxSize)
+	viper.SetDefault("common.secret_min_entropy", globalConf.Common.SecretMinEntropy)
 	viper.SetDefault("common.temp_path", globalConf.Common.TempPath)
 	viper.SetDefault("common.proxy_protocol", globalConf.Common.ProxyProtocol)
 	viper.SetDefault("common.proxy_allowed", globalConf.Common.ProxyAllowed)
