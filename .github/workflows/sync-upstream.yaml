@@ -1,6 +1,8 @@
 ---
-# Requires: Settings -> Actions -> General ->
-# "Allow GitHub Actions to create and approve pull requests".
+# Requires:
+#   * Settings -> Actions -> General ->
+#     "Allow GitHub Actions to create and approve pull requests".
+#   * A repo secret SYNC_TOKEN holding a PAT with the `workflow` scope
 name: Sync upstream release
 
 on:  # yamllint disable-line rule:truthy
@@ -25,6 +27,9 @@ jobs:
         with:
           ref: ${{ env.TARGET_BRANCH }}
           fetch-depth: 0
+          # PAT with `workflow` scope so the push may include upstream
+          # changes to .github/workflows/*. Persisted for the git push step.
+          token: ${{ secrets.SYNC_TOKEN }}
 
       - name: Configure git identity
         run: |
@@ -86,7 +91,9 @@ jobs:
       - name: Open or update pull request
         if: steps.merge.outputs.up_to_date == 'false'
         env:
-          GH_TOKEN: ${{ github.token }}
+          # PAT (not GITHUB_TOKEN) so the PR triggers build-image's
+          # pull_request check to confirm the merged upstream still builds.
+          GH_TOKEN: ${{ secrets.SYNC_TOKEN }}
           UPSTREAM_TAG: ${{ steps.upstream.outputs.tag }}
           SYNC_BRANCH: ${{ steps.upstream.outputs.branch }}
           CONFLICTS: ${{ steps.merge.outputs.conflicts }}
