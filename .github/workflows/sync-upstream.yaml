@@ -129,12 +129,17 @@ jobs:
             TITLE="Merge upstream release ${UPSTREAM_TAG}"
           fi
 
-          OPEN=$(gh pr list --head "${SYNC_BRANCH}" --state open --json number --jq 'length')
+          # --repo pins gh to this repo (detached mode) so --head is treated as a
+          # branch in swisscom/sftpgo, not a cross-fork ref. Without it, gh infers
+          # the head from the PAT user and the fork relationship, producing
+          # "Head ref must be a branch / Head sha can't be blank".
+          OPEN=$(gh pr list --repo "${GITHUB_REPOSITORY}" --head "${SYNC_BRANCH}" --state open --json number --jq 'length')
           if [ "${OPEN}" != "0" ]; then
             # PR already open — the force-push above updated it; just refresh title/body.
-            gh pr edit "${SYNC_BRANCH}" --title "${TITLE}" --body-file pr-body.md
+            gh pr edit "${SYNC_BRANCH}" --repo "${GITHUB_REPOSITORY}" --title "${TITLE}" --body-file pr-body.md
           else
             gh pr create \
+              --repo "${GITHUB_REPOSITORY}" \
               --base "${TARGET_BRANCH}" \
               --head "${SYNC_BRANCH}" \
               --title "${TITLE}" \
