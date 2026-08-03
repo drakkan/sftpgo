@@ -608,21 +608,38 @@ func (c *BaseConnection) checkCopy(srcInfo, dstInfo os.FileInfo, virtualSource, 
 		if util.IsDirOverlapped(virtualSource, virtualTarget, true, "/") {
 			return fmt.Errorf("nested copy %q => %q is not supported: %w", virtualSource, virtualTarget, c.GetOpUnsupportedError())
 		}
-		if util.IsDirOverlapped(fsSourcePath, fsTargetPath, true, c.User.FsConfig.GetPathSeparator()) {
-			c.Log(logger.LevelWarn, "nested fs copy %q => %q not allowed", fsSourcePath, fsTargetPath)
-			return fmt.Errorf("nested fs copy is not supported: %w", c.GetOpUnsupportedError())
-		}
-		return nil
-	}
-	if dstInfo != nil && dstInfo.IsDir() {
+	} else if dstInfo != nil && dstInfo.IsDir() {
 		return fmt.Errorf("cannot overwrite file %q with dir %q: %w", virtualSource, virtualTarget, c.GetOpUnsupportedError())
 	}
-	if c.IsSameResource(virtualSource, virtualTarget) {
-		if fsSourcePath == fsTargetPath {
+	if c.hasSamePathNamespace(virtualSource, virtualTarget) {
+		if srcInfo.IsDir() {
+			srcFsConfig := c.User.GetFsConfigForPath(virtualSource)
+			if util.IsDirOverlapped(fsSourcePath, fsTargetPath, true, srcFsConfig.GetPathSeparator()) {
+				c.Log(logger.LevelWarn, "nested fs copy %q => %q not allowed", fsSourcePath, fsTargetPath)
+				return fmt.Errorf("nested fs copy is not supported: %w", c.GetOpUnsupportedError())
+			}
+		} else if fsSourcePath == fsTargetPath {
 			return fmt.Errorf("the copy source and target cannot be the same: %w", c.GetOpUnsupportedError())
 		}
 	}
 	return nil
+}
+
+func (c *BaseConnection) hasSamePathNamespace(virtualSourcePath, virtualTargetPath string) bool {
+	if hasOSPaths(c.User.GetFsConfigForPath(virtualSourcePath)) &&
+		hasOSPaths(c.User.GetFsConfigForPath(virtualTargetPath)) {
+		return true
+	}
+	return c.IsSameResource(virtualSourcePath, virtualTargetPath)
+}
+
+func hasOSPaths(fsConfig vfs.Filesystem) bool {
+	switch fsConfig.Provider {
+	case sdk.LocalFilesystemProvider, sdk.CryptedFilesystemProvider:
+		return true
+	default:
+		return false
+	}
 }
 
 func (c *BaseConnection) copyFile(virtualSourcePath, virtualTargetPath string, srcInfo os.FileInfo) error {
