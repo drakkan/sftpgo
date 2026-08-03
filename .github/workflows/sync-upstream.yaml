@@ -1,0 +1,135 @@
+---
+# Requires: Settings -> Actions -> General ->
+# "Allow GitHub Actions to create and approve pull requests".
+name: Sync upstream release
+
+on:  # yamllint disable-line rule:truthy
+  schedule:
+    # Mondays 06:00 UTC
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+env:
+  UPSTREAM_REPO: drakkan/sftpgo
+  TARGET_BRANCH: main
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Determine latest upstream release
+        id: upstream
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=$(gh release view --repo "${UPSTREAM_REPO}" --json tagName --jq .tagName)
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "branch=upstream-sync/${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Latest upstream release: ${TAG}"
+
+      - name: Merge upstream release onto sync branch
+        id: merge
+        env:
+          UPSTREAM_TAG: ${{ steps.upstream.outputs.tag }}
+          SYNC_BRANCH: ${{ steps.upstream.outputs.branch }}
+        run: |
+          set +e
+          git remote add upstream "https://github.com/${UPSTREAM_REPO}.git"
+          git fetch upstream "refs/tags/${UPSTREAM_TAG}:refs/tags/${UPSTREAM_TAG}"
+
+          # Nothing to do if the default branch already contains this release.
+          if git merge-base --is-ancestor "refs/tags/${UPSTREAM_TAG}" "origin/${TARGET_BRANCH}"; then
+            echo "up_to_date=true" >> "$GITHUB_OUTPUT"
+            echo "Default branch already contains ${UPSTREAM_TAG}."
+            exit 0
+          fi
+
+          git checkout -B "${SYNC_BRANCH}" "origin/${TARGET_BRANCH}"
+          git merge --no-edit "refs/tags/${UPSTREAM_TAG}"
+          MERGE_RC=$?
+
+          if [ "${MERGE_RC}" -ne 0 ]; then
+            # Conflicted merge: commit the markers so the reviewer has a branch to fix.
+            echo "conflicts=true" >> "$GITHUB_OUTPUT"
+            CONFLICTED=$(git diff --name-only --diff-filter=U | sort | sed 's/^/- /')
+            {
+              echo "conflicted_files<<EOF"
+              echo "${CONFLICTED}"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+            git add -A
+            git commit --no-edit
+          else
+            echo "conflicts=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "up_to_date=false" >> "$GITHUB_OUTPUT"
+
+      - name: Push sync branch
+        if: steps.merge.outputs.up_to_date == 'false'
+        run: git push --force-with-lease origin "${{ steps.upstream.outputs.branch }}"
+
+      - name: Open or update pull request
+        if: steps.merge.outputs.up_to_date == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UPSTREAM_TAG: ${{ steps.upstream.outputs.tag }}
+          SYNC_BRANCH: ${{ steps.upstream.outputs.branch }}
+          CONFLICTS: ${{ steps.merge.outputs.conflicts }}
+          CONFLICTED_FILES: ${{ steps.merge.outputs.conflicted_files }}
+        run: |
+          {
+            printf '%s\n' "Merges upstream release ${UPSTREAM_TAG} (${UPSTREAM_REPO}) into ${TARGET_BRANCH}."
+            printf '%s\n' ""
+            if [ "${CONFLICTS}" = "true" ]; then
+              printf '%s\n' "**This branch contains conflict markers and does NOT build.** Resolve it locally:"
+              printf '%s\n' ""
+              printf '%s\n' '```sh'
+              printf '%s\n' "git fetch origin"
+              printf '%s\n' "git checkout ${SYNC_BRANCH}"
+              printf '%s\n' "git status                # find conflicts, fix the <<<<<<< markers"
+              printf '%s\n' "git add -A && git commit"
+              printf '%s\n' "git push"
+              printf '%s\n' '```'
+              printf '%s\n' ""
+              printf '%s\n' "Conflicted files:"
+              printf '%s\n' "${CONFLICTED_FILES}"
+              printf '%s\n' ""
+              printf '%s\n' "Keep this fork's custom changes intact while taking the upstream changes."
+            else
+              printf '%s\n' "No conflicts. Review the upstream changes, then merge."
+              printf '%s\n' "After merge, publish a new Release to build the image."
+            fi
+          } > pr-body.md
+
+          if [ "${CONFLICTS}" = "true" ]; then
+            TITLE="Merge upstream release ${UPSTREAM_TAG} — conflicts, manual resolution needed"
+          else
+            TITLE="Merge upstream release ${UPSTREAM_TAG}"
+          fi
+
+          OPEN=$(gh pr list --head "${SYNC_BRANCH}" --state open --json number --jq 'length')
+          if [ "${OPEN}" != "0" ]; then
+            # PR already open — the force-push above updated it; just refresh title/body.
+            gh pr edit "${SYNC_BRANCH}" --title "${TITLE}" --body-file pr-body.md
+          else
+            gh pr create \
+              --base "${TARGET_BRANCH}" \
+              --head "${SYNC_BRANCH}" \
+              --title "${TITLE}" \
+              --body-file pr-body.md
+          fi

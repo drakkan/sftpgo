@@ -1,0 +1,67 @@
+---
+name: Build docker image
+on:  # yamllint disable-line rule:truthy
+  push:
+    branches:
+      - main
+    tags:
+      - v*
+  pull_request:
+env:
+  IMAGE_NAME: sftpgo
+  DOCKER_METADATA_PR_HEAD_SHA: true
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Login to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Get tag information
+        id: tag_info
+        run: |
+          LATEST_TAG=$(git tag --points-at HEAD || echo "no-tag")
+
+          # if LATEST_TAG is empty set it to "no-tag"
+          if [ -z "$LATEST_TAG" ]; then
+            LATEST_TAG="no-tag"
+          fi
+
+          echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+      - name: Generate docker image tag
+        id: meta
+        uses: docker/metadata-action@v6.2.0
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          tags: |
+            # (for commits on the main branch only) generate a tag named `latest`
+            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
+            # (for all commits) generate a tag named sha-[short sha value]
+            type=sha,enable=true
+            # (for tagged commits only) the exact git tag verbatim, e.g. v2.7.0
+            type=ref,event=tag
+            # (for tagged commits only) semver-normalized form, e.g. 2.7.0
+            type=semver,pattern={{version}},enable=${{ steps.tag_info.outputs.latest_tag != 'no-tag' }},value=${{ steps.tag_info.outputs.latest_tag }}
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          platforms: linux/amd64
+          # we push only if the pipeline is run against the commits on main branch or a tag
+          push: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            COMMIT_SHA=${{ github.sha }}
