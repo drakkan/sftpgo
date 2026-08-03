@@ -1301,64 +1301,78 @@ func doRecursiveRename(fs Fs, source, target string,
 // RenameAcrossRoots moves source on fsSrc to target on fsDst. It is the
 // fallback for ErrCrossRename. Each regular file is moved by copying it to the
 // destination and then removing it from the source, mirroring the cloud rename;
-// the move is not atomic. Symbolic links and other non-regular files are not
-// recreated at the destination, they are dropped from the source.
+// the move is not atomic. A symbolic link, or any other non-regular entry, is
+// never carried across: renaming one on its own fails with ErrVfsUnsupported, and
+// one found inside a moved tree is left at the source, which then keeps the source
+// directory in place with what could not be moved.
 func RenameAcrossRoots(fsSrc, fsDst Fs, source, target string, srcInfo os.FileInfo, checks, uid, gid int) (int, int64, error) {
-	return moveAcrossRoots(fsSrc, fsDst, source, target, srcInfo, checks, uid, gid, 0)
+	numFiles, filesSize, _, err := moveAcrossRoots(fsSrc, fsDst, source, target, srcInfo, checks, uid, gid, 0)
+	return numFiles, filesSize, err
 }
 
-func moveAcrossRoots(fsSrc, fsDst Fs, source, target string, info os.FileInfo, checks, uid, gid, recursion int) (int, int64, error) { //nolint:gocyclo
+func moveAcrossRoots(fsSrc, fsDst Fs, source, target string, info os.FileInfo, checks, uid, gid, recursion int) (int, int64, bool, error) { //nolint:gocyclo
 	var numFiles int
 	var filesSize int64
+	var keptAtSource bool
 	if info.IsDir() {
 		if recursion > util.MaxRecursion {
-			return numFiles, filesSize, util.ErrRecursionTooDeep
+			return numFiles, filesSize, keptAtSource, util.ErrRecursionTooDeep
 		}
 		recursion++
-		if err := fsDst.Mkdir(target); err != nil && !errors.Is(err, os.ErrExist) {
-			return numFiles, filesSize, err
+		if err := fsDst.Mkdir(target); err != nil {
+			return numFiles, filesSize, keptAtSource, err
 		}
 		SetPathPermissions(fsDst, target, uid, gid)
 		lister, err := fsSrc.ReadDir(source)
 		if err != nil {
-			return numFiles, filesSize, err
+			return numFiles, filesSize, keptAtSource, err
 		}
 		defer lister.Close()
 		for {
 			entries, err := lister.Next(ListerBatchSize)
 			finished := errors.Is(err, io.EOF)
 			if err != nil && !finished {
-				return numFiles, filesSize, err
+				return numFiles, filesSize, keptAtSource, err
 			}
 			for _, entry := range entries {
-				files, size, err := moveAcrossRoots(fsSrc, fsDst, fsSrc.Join(source, entry.Name()),
+				files, size, kept, err := moveAcrossRoots(fsSrc, fsDst, fsSrc.Join(source, entry.Name()),
 					fsDst.Join(target, entry.Name()), entry, checks, uid, gid, recursion)
 				numFiles += files
 				filesSize += size
+				keptAtSource = keptAtSource || kept
 				if err != nil {
-					return numFiles, filesSize, err
+					return numFiles, filesSize, keptAtSource, err
 				}
 			}
 			if finished {
+				// Best effort, setuid, setgid and sticky are dropped as for files.
+				fsDst.Chmod(target, info.Mode().Perm()) //nolint:errcheck
 				// the contents are moved, remove the now-empty source directory
 				lister.Close()
-				return numFiles, filesSize, fsSrc.Remove(source, info.IsDir())
+				if keptAtSource {
+					// the source directory still holds what could not be moved
+					return numFiles, filesSize, true, nil
+				}
+				return numFiles, filesSize, false, fsSrc.Remove(source, info.IsDir())
 			}
 		}
 	}
 	if !info.Mode().IsRegular() {
-		// a symbolic link (or other non-regular entry) is not recreated at the
-		// destination on a cross-root move, it is dropped from the source. Recreating an
-		// attacker-controlled link under a different root could reintroduce a confinement
-		// escape, so it is intentionally not preserved; losing a link is not data loss.
-		fsLog(fsSrc, logger.LevelWarn, "non-regular file %q (mode %s) is not preserved on a cross-root move",
+		if recursion == 0 {
+			fsLog(fsSrc, logger.LevelWarn, "cannot move %q (mode %s) across roots: non-regular entries are not supported",
+				source, info.Mode().String())
+			return numFiles, filesSize, false, ErrVfsUnsupported
+		}
+		fsLog(fsSrc, logger.LevelWarn, "%q (mode %s) is left at the source: non-regular entries are not moved across roots",
 			source, info.Mode().String())
-		return numFiles, filesSize, fsSrc.Remove(source, info.IsDir())
+		return numFiles, filesSize, true, nil
 	}
-	if err := copyFileAcrossRoots(fsSrc, fsDst, source, target); err != nil {
-		return numFiles, filesSize, err
+	if err := copyFileAcrossRoots(fsSrc, fsDst, source, target, recursion == 0); err != nil {
+		return numFiles, filesSize, false, err
 	}
 	SetPathPermissions(fsDst, target, uid, gid)
+	// Best effort, like the mtime below.
+	fsDst.Chmod(target, info.Mode().Perm()) //nolint:errcheck
 	if checks&CheckUpdateModTime == 0 {
 		// Best effort: a metadata failure must not fail the whole move
 		// (directory mtimes are intentionally not restored, they are rarely
@@ -1377,12 +1391,12 @@ func moveAcrossRoots(fsSrc, fsDst Fs, source, target string, info os.FileInfo, c
 		size = fi.Size()
 	}
 	if err := fsSrc.Remove(source, info.IsDir()); err != nil {
-		return numFiles, filesSize, err
+		return numFiles, filesSize, false, err
 	}
-	return numFiles + 1, filesSize + size, nil
+	return numFiles + 1, filesSize + size, false, nil
 }
 
-func copyFileAcrossRoots(fsSrc, fsDst Fs, source, target string) error {
+func copyFileAcrossRoots(fsSrc, fsDst Fs, source, target string, replaceTarget bool) error { //nolint:gocyclo
 	f, r, cancelR, err := fsSrc.Open(source, 0)
 	if err != nil {
 		return err
@@ -1394,12 +1408,18 @@ func copyFileAcrossRoots(fsSrc, fsDst Fs, source, target string) error {
 	} else {
 		reader, readCloser = f, f
 	}
-	if fi, err := fsDst.Lstat(target); err == nil && fi.Mode()&os.ModeSymlink != 0 {
-		// If the target is a symlink remove it, otherwise Create will replace
-		// the linked file.
-		fsDst.Remove(target, false) //nolint:errcheck
+	if replaceTarget {
+		if fi, err := fsDst.Lstat(target); err == nil && !fi.IsDir() {
+			if err := fsDst.Remove(target, false); err != nil {
+				readCloser.Close()
+				if cancelR != nil {
+					cancelR()
+				}
+				return err
+			}
+		}
 	}
-	wf, w, cancelW, err := fsDst.Create(target, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0)
+	wf, w, cancelW, err := fsDst.Create(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0)
 	if err != nil {
 		readCloser.Close()
 		if cancelR != nil {

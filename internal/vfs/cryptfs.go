@@ -148,12 +148,16 @@ func (fs *CryptFs) Open(name string, offset int64) (File, PipeReader, func(), er
 }
 
 // Create creates or opens the named file for writing
-func (fs *CryptFs) Create(name string, _, _ int) (File, PipeWriter, func(), error) {
+func (fs *CryptFs) Create(name string, flag, _ int) (File, PipeWriter, func(), error) {
 	root, rel, err := fs.toRootRelative(name)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	f, err := root.OpenFile(rel, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	writeFlag := os.O_WRONLY | os.O_CREATE | os.O_TRUNC
+	if flag&os.O_EXCL != 0 {
+		writeFlag = os.O_WRONLY | os.O_CREATE | os.O_EXCL
+	}
+	f, err := root.OpenFile(rel, withNonBlock(writeFlag), 0666)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -224,7 +228,7 @@ func (fs *CryptFs) ReadDir(dirname string) (DirLister, error) {
 	if err != nil {
 		return nil, err
 	}
-	f, err := root.Open(rel)
+	f, err := root.OpenFile(rel, withNonBlock(os.O_RDONLY), 0)
 	if err != nil {
 		if isInvalidNameError(err) {
 			err = os.ErrNotExist
@@ -295,7 +299,7 @@ func (fs *CryptFs) getFileAndEncryptionKey(name string) (*os.File, [32]byte, err
 	if err != nil {
 		return nil, key, err
 	}
-	f, err := root.Open(rel)
+	f, err := root.OpenFile(rel, withNonBlock(os.O_RDONLY), 0)
 	if err != nil {
 		return nil, key, err
 	}

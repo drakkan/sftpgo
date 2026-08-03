@@ -128,11 +128,7 @@ func (fs *OsFs) toRootRelative(name string) (*os.Root, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
-	cleanName := filepath.Clean(name)
-	if strings.TrimRight(cleanName, `\/`) == strings.TrimRight(fs.rootDir, `\/`) {
-		return root, ".", nil
-	}
-	rel, err := filepath.Rel(fs.rootDir, cleanName)
+	rel, err := relPath(fs.rootDir, name)
 	if err != nil {
 		return nil, "", &pathResolutionError{err: fmt.Sprintf("cannot resolve %q inside root %q: %v", name, fs.rootDir, err)}
 	}
@@ -179,7 +175,7 @@ func (fs *OsFs) Open(name string, offset int64) (File, PipeReader, func(), error
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	f, err := root.Open(rel)
+	f, err := root.OpenFile(rel, withNonBlock(os.O_RDONLY), 0)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -217,15 +213,18 @@ func (fs *OsFs) Create(name string, flag, _ int) (File, PipeWriter, func(), erro
 		return nil, nil, nil, err
 	}
 	if !fs.useWriteBuffering(flag) {
-		var f *os.File
-		if flag == 0 {
-			f, err = root.Create(rel)
-		} else {
-			f, err = root.OpenFile(rel, flag, 0666)
+		openFlag := flag
+		if openFlag == 0 {
+			openFlag = os.O_RDWR | os.O_CREATE | os.O_TRUNC
 		}
+		f, err := root.OpenFile(rel, withNonBlock(openFlag), 0666)
 		return f, nil, nil, err
 	}
-	f, err := root.OpenFile(rel, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	writeFlag := flag
+	if writeFlag == 0 {
+		writeFlag = os.O_WRONLY | os.O_CREATE | os.O_TRUNC
+	}
+	f, err := root.OpenFile(rel, withNonBlock(writeFlag), 0666)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -311,12 +310,36 @@ func (fs *OsFs) Symlink(source, target string) error {
 		return err
 	}
 	if filepath.IsAbs(source) {
-		if rel, err := filepath.Rel(filepath.Dir(target), source); err == nil {
-			source = rel
+		rel, err := fs.relativeLinkSource(root, relTarget, source)
+		if err != nil {
+			return err
 		}
+		source = rel
+	} else if linkTargetEscapes(source) {
+		return &pathResolutionError{err: fmt.Sprintf("link target %q is not relative to the link directory", source)}
 	}
 	source = filepath.FromSlash(source)
 	return root.Symlink(source, relTarget)
+}
+
+func (fs *OsFs) relativeLinkSource(root *os.Root, relTarget, source string) (string, error) {
+	_, relSource, err := fs.toRootRelative(source)
+	if err != nil {
+		return "", err
+	}
+	linkDir, err := fs.resolveLinkTarget(root, relTarget, ".")
+	if err != nil {
+		return "", err
+	}
+	resolvedSource, err := fs.resolveLinkTarget(root, relSource, filepath.Base(relSource))
+	if err != nil {
+		return "", err
+	}
+	rel, err := relPath(linkDir, resolvedSource)
+	if err != nil {
+		return "", &pathResolutionError{err: fmt.Sprintf("cannot express %q relative to %q: %v", source, linkDir, err)}
+	}
+	return rel, nil
 }
 
 func (fs *OsFs) Readlink(name string) (string, error) {
@@ -393,6 +416,14 @@ func (fs *OsFs) resolveLinkTarget(root *os.Root, linkRel, target string) (string
 	return resolved, nil
 }
 
+func relPath(basepath, targpath string) (string, error) {
+	cleanTarg := filepath.Clean(targpath)
+	if strings.TrimRight(cleanTarg, `\/`) == strings.TrimRight(basepath, `\/`) {
+		return ".", nil
+	}
+	return filepath.Rel(basepath, cleanTarg)
+}
+
 func linkTargetEscapes(target string) bool {
 	return filepath.IsAbs(target) || filepath.VolumeName(target) != "" ||
 		(len(target) > 0 && os.IsPathSeparator(target[0]))
@@ -439,7 +470,7 @@ func (fs *OsFs) Truncate(name string, size int64) error {
 	if err != nil {
 		return err
 	}
-	f, err := root.OpenFile(rel, os.O_WRONLY, 0)
+	f, err := root.OpenFile(rel, withNonBlock(os.O_WRONLY), 0)
 	if err != nil {
 		return err
 	}
@@ -454,7 +485,7 @@ func (fs *OsFs) ReadDir(dirname string) (DirLister, error) {
 	if err != nil {
 		return nil, err
 	}
-	f, err := root.Open(rel)
+	f, err := root.OpenFile(rel, withNonBlock(os.O_RDONLY), 0)
 	if err != nil {
 		if isInvalidNameError(err) {
 			err = os.ErrNotExist
@@ -559,11 +590,7 @@ func (fs *OsFs) relativeToRoot(root, name string) string {
 	if fs.mountPath != "" {
 		virtualPath = fs.mountPath
 	}
-	cleanName := filepath.Clean(name)
-	if strings.TrimRight(cleanName, `\/`) == strings.TrimRight(root, `\/`) {
-		return virtualPath
-	}
-	rel, err := filepath.Rel(root, cleanName)
+	rel, err := relPath(root, name)
 	if err != nil {
 		return virtualPath
 	}
@@ -660,7 +687,7 @@ func (fs *OsFs) GetMimeType(name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	f, err := root.OpenFile(rel, os.O_RDONLY, 0)
+	f, err := root.OpenFile(rel, withNonBlock(os.O_RDONLY), 0)
 	if err != nil {
 		return "", err
 	}
@@ -712,8 +739,8 @@ func (fs *OsFs) useWriteBuffering(flag int) bool {
 	if flag == 0 {
 		return true
 	}
-	if flag&os.O_TRUNC == 0 {
-		fsLog(fs, logger.LevelDebug, "truncate flag missing, buffering write not possible")
+	if flag&(os.O_TRUNC|os.O_EXCL) == 0 {
+		fsLog(fs, logger.LevelDebug, "the file is not guaranteed empty, buffering write not possible")
 		return false
 	}
 	if flag&os.O_RDWR != 0 {

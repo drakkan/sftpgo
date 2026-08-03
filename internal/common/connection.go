@@ -894,8 +894,8 @@ func (c *BaseConnection) renameInternal(virtualSourcePath, virtualTargetPath str
 	files, size, err := fsDst.Rename(fsSourcePath, fsTargetPath, checks)
 	if errors.Is(err, vfs.ErrCrossRename) {
 		// The backend cannot rename as a single operation across two
-		// confinement roots: fall back to a non-atomic copy + delete. Symbolic
-		// links in the moved tree are skipped.
+		// confinement roots: fall back to a non-atomic copy + delete. A symbolic
+		// link in the moved tree is left at the source.
 		files, size, err = vfs.RenameAcrossRoots(fsSrc, fsDst, fsSourcePath, fsTargetPath, srcInfo,
 			checks, c.User.GetUID(), c.User.GetGID())
 	}
@@ -943,10 +943,6 @@ func (c *BaseConnection) CreateSymlink(virtualSourcePath, virtualTargetPath stri
 	fsTargetPath, err := fs.ResolvePath(virtualTargetPath)
 	if err != nil {
 		return c.GetFsError(fs, err)
-	}
-	if fs.GetRelativePath(fsSourcePath) == "/" {
-		c.Log(logger.LevelError, "symlinking root dir is not allowed")
-		return c.GetPermissionDeniedError()
 	}
 	if fs.GetRelativePath(fsTargetPath) == "/" {
 		c.Log(logger.LevelError, "symlinking to root dir is not allowed")

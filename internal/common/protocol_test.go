@@ -2841,8 +2841,10 @@ func TestVirtualFoldersLink(t *testing.T) {
 		if assert.Error(t, err) {
 			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
 		}
+		// a link naming the storage root is a link like any other, see
+		// TestSymlinkToStorageRoot; creating one at the root path stays refused
 		err = client.Symlink("/", "/roolink")
-		assert.ErrorIs(t, err, os.ErrPermission)
+		assert.NoError(t, err)
 		err = client.Symlink(testFileName, "/")
 		assert.ErrorIs(t, err, os.ErrPermission)
 		err = client.Symlink(testFileName, vdirPath1)
