@@ -142,7 +142,7 @@ func setCookie(w http.ResponseWriter, r *http.Request, cookiePath, cookieValue s
 }
 
 func removeCookie(w http.ResponseWriter, r *http.Request, cookiePath string) {
-	invalidateToken(r)
+	invalidateToken(r) //nolint:errcheck
 	http.SetCookie(w, &http.Cookie{
 		Name:     jwt.CookieKey,
 		Value:    "",
@@ -181,12 +181,15 @@ func isTokenInvalidated(r *http.Request) bool {
 	return invalidatedJWTTokens.Get(token.ID)
 }
 
-func invalidateToken(r *http.Request) {
+func invalidateToken(r *http.Request) error {
 	token, err := jwt.FromContext(r.Context())
 	if err != nil {
-		return
+		return err
 	}
-	invalidatedJWTTokens.Add(token.ID, token.Expiry.Time().Add(1*time.Minute).UTC())
+	if token.ID == "" {
+		return errInvalidToken
+	}
+	return invalidatedJWTTokens.Add(token.ID, token.Expiry.Time().Add(1*time.Minute).UTC())
 }
 
 func getUserFromToken(r *http.Request) *dataprovider.User {
@@ -381,7 +384,7 @@ func checkTokenSignature(r *http.Request, token *jwt.Claims) error {
 		}
 	}
 	if err != nil {
-		invalidateToken(r)
+		invalidateToken(r) //nolint:errcheck // best effort: the request is rejected regardless
 	}
 	return err
 }
