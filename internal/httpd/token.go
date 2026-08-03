@@ -34,7 +34,7 @@ func newTokenManager(isShared int) tokenManager {
 }
 
 type tokenManager interface {
-	Add(id string, expiresAt time.Time)
+	Add(id string, expiresAt time.Time) error
 	Get(id string) bool
 	Cleanup()
 }
@@ -43,8 +43,9 @@ type memoryTokenManager struct {
 	invalidatedJWTTokens sync.Map
 }
 
-func (m *memoryTokenManager) Add(id string, expiresAt time.Time) {
+func (m *memoryTokenManager) Add(id string, expiresAt time.Time) error {
 	m.invalidatedJWTTokens.Store(id, expiresAt)
+	return nil
 }
 
 func (m *memoryTokenManager) Get(id string) bool {
@@ -64,13 +65,17 @@ func (m *memoryTokenManager) Cleanup() {
 
 type dbTokenManager struct{}
 
-func (m *dbTokenManager) Add(id string, expiresAt time.Time) {
+func (m *dbTokenManager) Add(id string, expiresAt time.Time) error {
 	session := dataprovider.Session{
 		Key:       id,
 		Type:      dataprovider.SessionTypeInvalidToken,
 		Timestamp: util.GetTimeAsMsSinceEpoch(expiresAt),
 	}
-	dataprovider.AddSharedSession(session) //nolint:errcheck
+	if err := dataprovider.AddSharedSession(session); err != nil {
+		logger.Warn(logSender, "", "unable to add an entry to the invalidation store: %v", err)
+		return err
+	}
+	return nil
 }
 
 func (m *dbTokenManager) Get(id string) bool {

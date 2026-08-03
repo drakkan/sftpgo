@@ -1802,7 +1802,7 @@ func TestJWTTokenValidation(t *testing.T) {
 	fn.ServeHTTP(rr, req.WithContext(ctx))
 	assert.Equal(t, http.StatusOK, rr.Code)
 
-	invalidatedJWTTokens.Add(claims.ID, time.Now().Add(getTokenDuration(tokenAudienceWebAdmin)).UTC())
+	require.NoError(t, invalidatedJWTTokens.Add(claims.ID, time.Now().Add(getTokenDuration(tokenAudienceWebAdmin)).UTC()))
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest(http.MethodGet, webUserPath, nil)
 	ctx = jwt.NewContext(req.Context(), claims, nil)
@@ -2376,11 +2376,32 @@ func TestJWTTokenCleanup(t *testing.T) {
 	req = req.WithContext(jwt.NewContext(req.Context(), claims, nil))
 	assert.False(t, isTokenInvalidated(req))
 
-	invalidatedJWTTokens.Add(claims.ID, time.Now().Add(-getTokenDuration(tokenAudienceWebAdmin)).UTC())
+	require.NoError(t, invalidatedJWTTokens.Add(claims.ID, time.Now().Add(-getTokenDuration(tokenAudienceWebAdmin)).UTC()))
 	require.True(t, isTokenInvalidated(req))
 	startCleanupTicker(100 * time.Millisecond)
 	assert.Eventually(t, func() bool { return !isTokenInvalidated(req) }, 1*time.Second, 200*time.Millisecond)
 	stopCleanupTicker()
+}
+
+func TestInvalidateTokenErrors(t *testing.T) {
+	req, _ := http.NewRequest(http.MethodGet, versionPath, nil)
+	// there is no verified token to invalidate
+	assert.Error(t, invalidateToken(req))
+
+	// a verified token without an identifier cannot be added to the store
+	req = req.WithContext(jwt.NewContext(req.Context(), &jwt.Claims{Username: defaultAdminUsername}, nil))
+	assert.ErrorIs(t, invalidateToken(req), errInvalidToken)
+
+	claims := jwt.NewClaims(tokenAudienceAPI, "", getTokenDuration(tokenAudienceAPI))
+	claims.Username = defaultAdminUsername
+	claims.SetExpiry(time.Now().Add(1 * time.Minute))
+	tokenAuth, err := jwt.NewSigner(jose.HS256, util.GenerateRandomBytes(32))
+	require.NoError(t, err)
+	_, err = tokenAuth.Sign(claims)
+	require.NoError(t, err)
+	req = req.WithContext(jwt.NewContext(req.Context(), claims, nil))
+	assert.NoError(t, invalidateToken(req))
+	assert.True(t, isTokenInvalidated(req))
 }
 
 func TestDbTokenManager(t *testing.T) {
@@ -2397,23 +2418,25 @@ func TestDbTokenManager(t *testing.T) {
 	_, err = tokenAuth.Sign(claims)
 	require.NoError(t, err)
 	require.NotEmpty(t, claims.ID)
-	dbTokenManager.Add(claims.ID, time.Now().Add(-getTokenDuration(tokenAudienceWebClient)).UTC())
+	require.NoError(t, dbTokenManager.Add(claims.ID, time.Now().Add(-getTokenDuration(tokenAudienceWebClient)).UTC()))
 	isInvalidated := dbTokenManager.Get(claims.ID)
 	assert.True(t, isInvalidated)
 	dbTokenManager.Cleanup()
 	isInvalidated = dbTokenManager.Get(claims.ID)
 	assert.False(t, isInvalidated)
-	dbTokenManager.Add(claims.ID, time.Now().Add(getTokenDuration(tokenAudienceWebAdmin)).UTC())
+	require.NoError(t, dbTokenManager.Add(claims.ID, time.Now().Add(getTokenDuration(tokenAudienceWebAdmin)).UTC()))
 	isInvalidated = dbTokenManager.Get(claims.ID)
 	assert.True(t, isInvalidated)
 	dbTokenManager.Cleanup()
 	isInvalidated = dbTokenManager.Get(claims.ID)
 	assert.True(t, isInvalidated)
 
-	// a provider error is fail closed: any token reads as invalidated
+	// a provider error is reported by Add and is fail closed on Get: any token
+	// reads as invalidated
 	providerConf := dataprovider.GetProviderConfig()
 	err = dataprovider.Close()
 	assert.NoError(t, err)
+	assert.Error(t, dbTokenManager.Add(claims.ID, time.Now().Add(1*time.Minute).UTC()))
 	assert.True(t, dbTokenManager.Get(claims.ID))
 	assert.True(t, dbTokenManager.Get("unknown-token-id"))
 	err = dataprovider.Initialize(providerConf, configDir, true)
@@ -2464,7 +2487,7 @@ func TestTokenInvalidationIgnoresEncoding(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodGet, versionPath, nil)
 	req = req.WithContext(jwt.NewContext(req.Context(), verified, nil))
 	assert.False(t, isTokenInvalidated(req))
-	invalidatedJWTTokens.Add(claims.ID, time.Now().Add(1*time.Minute).UTC())
+	require.NoError(t, invalidatedJWTTokens.Add(claims.ID, time.Now().Add(1*time.Minute).UTC()))
 	assert.True(t, isTokenInvalidated(req))
 }
 

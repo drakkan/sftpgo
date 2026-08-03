@@ -394,7 +394,7 @@ func checkNodeToken(tokenAuth *jwt.Signer) func(next http.Handler) http.Handler 
 			// Single-use invalidation of node tokens is a best-effort hygiene measure.
 			// It is not intended to be a security control and is neither documented nor
 			// advertised as such.
-			invalidatedJWTTokens.Add(claims.ID, time.Now().Add(2*time.Minute).UTC())
+			invalidatedJWTTokens.Add(claims.ID, time.Now().Add(2*time.Minute).UTC()) //nolint:errcheck
 
 			c := &jwt.Claims{
 				Username:    claims.Username,

@@ -765,7 +765,7 @@ func (s *httpdServer) loginUser(
 		errorFunc(w, r, util.NewI18nError(err, util.I18nError500Message))
 		return
 	}
-	invalidateToken(r)
+	invalidateToken(r) //nolint:errcheck // best effort: invalidates the pre-login token
 	if audience == tokenAudienceWebClientPartial {
 		redirectPath := webClientTwoFactorPath
 		if target, ok := safeRedirectTarget(r.URL.Query().Get("next"), webClientFilesPath); ok {
@@ -813,7 +813,7 @@ func (s *httpdServer) loginAdmin(
 		errorFunc(w, r, util.NewI18nError(err, util.I18nError500Message))
 		return
 	}
-	invalidateToken(r)
+	invalidateToken(r) //nolint:errcheck // best effort: invalidates the pre-login token
 	if audience == tokenAudienceWebAdminPartial {
 		http.Redirect(w, r, webAdminTwoFactorPath, http.StatusFound)
 		return
@@ -829,7 +829,10 @@ func (s *httpdServer) loginAdmin(
 
 func (s *httpdServer) logout(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
-	invalidateToken(r)
+	if err := invalidateToken(r); err != nil {
+		sendAPIResponse(w, r, errors.New("unable to invalidate the token"), "", http.StatusInternalServerError)
+		return
+	}
 	sendAPIResponse(w, r, nil, "Your token has been invalidated", http.StatusOK)
 }
 
