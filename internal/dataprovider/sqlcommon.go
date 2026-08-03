@@ -36,7 +36,7 @@ import (
 )
 
 const (
-	sqlDatabaseVersion     = 34
+	sqlDatabaseVersion     = 33
 	defaultSQLQueryTimeout = 10 * time.Second
 	longSQLQueryTimeout    = 60 * time.Second
 )
@@ -71,7 +71,6 @@ func sqlReplaceAll(sql string) string {
 	sql = strings.ReplaceAll(sql, "{{groups_folders_mapping}}", sqlTableGroupsFoldersMapping)
 	sql = strings.ReplaceAll(sql, "{{api_keys}}", sqlTableAPIKeys)
 	sql = strings.ReplaceAll(sql, "{{shares}}", sqlTableShares)
-	sql = strings.ReplaceAll(sql, "{{shares_groups_mapping}}", sqlTableSharesGroupsMapping)
 	sql = strings.ReplaceAll(sql, "{{defender_events}}", sqlTableDefenderEvents)
 	sql = strings.ReplaceAll(sql, "{{defender_hosts}}", sqlTableDefenderHosts)
 	sql = strings.ReplaceAll(sql, "{{active_transfers}}", sqlTableActiveTransfers)
@@ -1295,14 +1294,31 @@ func sqlCommonUpdateShareLastUse(shareID string, numTokens int, dbHandle *sql.DB
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
 
-	q := getUpdateShareLastUseQuery()
-	_, err := dbHandle.ExecContext(ctx, q, util.GetTimeAsMsSinceEpoch(time.Now()), numTokens, shareID)
-	if err == nil {
-		providerLog(logger.LevelDebug, "last use updated for shared object %q", shareID)
-	} else {
-		providerLog(logger.LevelWarn, "error updating last use for shared object %q: %v", shareID, err)
+	if numTokens <= 0 {
+		q := getUpdateShareLastUseQuery()
+		_, err := dbHandle.ExecContext(ctx, q, util.GetTimeAsMsSinceEpoch(time.Now()), numTokens, shareID)
+		if err != nil {
+			providerLog(logger.LevelWarn, "error updating last use for shared object %q: %v", shareID, err)
+		}
+		return err
 	}
-	return err
+	q := getReserveShareTokensQuery()
+	res, err := dbHandle.ExecContext(ctx, q, util.GetTimeAsMsSinceEpoch(time.Now()), numTokens, shareID, numTokens)
+	if err != nil {
+		providerLog(logger.LevelWarn, "error reserving usage tokens for shared object %q: %v", shareID, err)
+		return err
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		providerLog(logger.LevelWarn, "error getting affected rows reserving usage tokens for shared object %q: %v",
+			shareID, err)
+		return err
+	}
+	if rows == 0 {
+		return ErrShareUsageExceeded
+	}
+	providerLog(logger.LevelDebug, "usage tokens reserved for shared object %q", shareID)
+	return nil
 }
 
 func sqlCommonUpdateAPIKeyLastUse(keyID string, dbHandle *sql.DB) error {

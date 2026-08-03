@@ -84,7 +84,9 @@ func (c *TOTPConfig) validatePasscode(passcode, secret string) (bool, error) {
 		Algorithm: c.algo,
 	})
 	if match && err == nil {
-		usedPasscodes.Store(key, time.Now().Add(1*time.Minute).UTC())
+		if _, loaded := usedPasscodes.LoadOrStore(key, time.Now().Add(2*time.Minute).UTC()); loaded {
+			return false, errPasscodeUsed
+		}
 	}
 	return match, err
 }

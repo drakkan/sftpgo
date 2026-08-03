@@ -29,6 +29,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
+	"github.com/drakkan/sftpgo/v2/internal/util"
 	"github.com/drakkan/sftpgo/v2/internal/vfs"
 )
 
@@ -97,6 +98,7 @@ func (c *Connection) Create(_ string) (afero.File, error) {
 // Mkdir creates a directory using the connection filesystem
 func (c *Connection) Mkdir(name string, _ os.FileMode) error {
 	c.UpdateLastActivity()
+	name = util.CleanPath(name)
 
 	return c.CreateDir(name, true)
 }
@@ -120,6 +122,7 @@ func (c *Connection) OpenFile(_ string, _ int, _ os.FileMode) (afero.File, error
 // We implements ClientDriverExtensionRemoveDir for directories
 func (c *Connection) Remove(name string) error {
 	c.UpdateLastActivity()
+	name = util.CleanPath(name)
 
 	fs, p, err := c.GetFsAndResolvedPath(name)
 	if err != nil {
@@ -147,6 +150,8 @@ func (c *Connection) RemoveAll(_ string) error {
 // Rename renames a file or a directory
 func (c *Connection) Rename(oldname, newname string) error {
 	c.UpdateLastActivity()
+	oldname = util.CleanPath(oldname)
+	newname = util.CleanPath(newname)
 
 	return c.BaseConnection.Rename(oldname, newname)
 }
@@ -155,6 +160,7 @@ func (c *Connection) Rename(oldname, newname string) error {
 // if any happens
 func (c *Connection) Stat(name string) (os.FileInfo, error) {
 	c.UpdateLastActivity()
+	name = util.CleanPath(name)
 	c.doWildcardListDir = false
 
 	if !c.User.HasPerm(dataprovider.PermListItems, path.Dir(name)) {
@@ -198,6 +204,7 @@ func (c *Connection) Chown(_ string, _, _ int) error {
 // Chmod changes the mode of the named file/directory
 func (c *Connection) Chmod(name string, mode os.FileMode) error {
 	c.UpdateLastActivity()
+	name = util.CleanPath(name)
 
 	attrs := common.StatAttributes{
 		Flags: common.StatAttrPerms,
@@ -209,6 +216,7 @@ func (c *Connection) Chmod(name string, mode os.FileMode) error {
 // Chtimes changes the access and modification times of the named file
 func (c *Connection) Chtimes(name string, atime time.Time, mtime time.Time) error {
 	c.UpdateLastActivity()
+	name = util.CleanPath(name)
 
 	attrs := common.StatAttributes{
 		Flags: common.StatAttrTimes,
@@ -221,6 +229,7 @@ func (c *Connection) Chtimes(name string, atime time.Time, mtime time.Time) erro
 // GetAvailableSpace implements ClientDriverExtensionAvailableSpace interface
 func (c *Connection) GetAvailableSpace(dirName string) (int64, error) {
 	c.UpdateLastActivity()
+	dirName = util.CleanPath(dirName)
 
 	diskQuota, transferQuota := c.HasSpace(false, false, path.Join(dirName, "fakefile.txt"))
 	if !diskQuota.HasSpace || !transferQuota.HasUploadSpace() {
@@ -279,6 +288,7 @@ func (c *Connection) AllocateSpace(_ int) error {
 // RemoveDir implements ClientDriverExtensionRemoveDir
 func (c *Connection) RemoveDir(name string) error {
 	c.UpdateLastActivity()
+	name = util.CleanPath(name)
 
 	return c.BaseConnection.RemoveDir(name)
 }
@@ -286,6 +296,8 @@ func (c *Connection) RemoveDir(name string) error {
 // Symlink implements ClientDriverExtensionSymlink
 func (c *Connection) Symlink(oldname, newname string) error {
 	c.UpdateLastActivity()
+	oldname = util.CleanPath(oldname)
+	newname = util.CleanPath(newname)
 
 	return c.CreateSymlink(oldname, newname)
 }
@@ -293,6 +305,7 @@ func (c *Connection) Symlink(oldname, newname string) error {
 // ReadDir implements ClientDriverExtensionFilelist
 func (c *Connection) ReadDir(name string) ([]os.FileInfo, error) {
 	c.UpdateLastActivity()
+	name = util.CleanPath(name)
 
 	if c.doWildcardListDir {
 		c.doWildcardListDir = false
@@ -311,7 +324,7 @@ func (c *Connection) ReadDir(name string) ([]os.FileInfo, error) {
 			pattern:        baseName,
 			lastCommand:    c.clientContext.GetLastCommand(),
 			dirName:        name,
-			connectionPath: c.clientContext.Path(),
+			connectionPath: util.CleanPath(c.clientContext.Path()),
 		}
 		return consumeDirLister(patternLister)
 	}
@@ -326,6 +339,7 @@ func (c *Connection) ReadDir(name string) ([]os.FileInfo, error) {
 // GetHandle implements ClientDriverExtentionFileTransfer
 func (c *Connection) GetHandle(name string, flags int, offset int64) (ftpserver.FileTransfer, error) {
 	c.UpdateLastActivity()
+	name = util.CleanPath(name)
 
 	fs, p, err := c.GetFsAndResolvedPath(name)
 	if err != nil {

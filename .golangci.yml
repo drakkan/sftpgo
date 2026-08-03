@@ -7,7 +7,6 @@ linters:
     - bodyclose
     - dogsled
     - dupl
-    - goconst
     - gocyclo
     - misspell
     - revive

@@ -212,7 +212,6 @@ type clientMFAPage struct {
 type clientSharesPage struct {
 	baseClientPage
 	BasePublicSharesURL string
-	BaseURL             string
 }
 
 type clientSharePage struct {
@@ -656,8 +655,8 @@ func (s *httpdServer) renderClientTwoFactorPage(w http.ResponseWriter, r *http.R
 		Branding:       s.binding.webClientBranding(),
 		Languages:      s.binding.languages(),
 	}
-	if next := r.URL.Query().Get("next"); strings.HasPrefix(next, webClientFilesPath) {
-		data.CurrentURL += "?next=" + url.QueryEscape(next)
+	if target, ok := safeRedirectTarget(r.URL.Query().Get("next"), webClientFilesPath); ok {
+		data.CurrentURL += "?next=" + url.QueryEscape(target)
 	}
 	renderClientTemplate(w, templateTwoFactor, data)
 }
@@ -943,6 +942,8 @@ func (s *httpdServer) handleClientSharePartialDownload(w http.ResponseWriter, r 
 	if err != nil {
 		return
 	}
+	defer connection.CloseFS() //nolint:errcheck
+
 	if err := validateBrowsableShare(share, connection); err != nil {
 		s.renderClientMessagePage(w, r, util.I18nShareAccessErrorTitle, getRespStatus(err), err, "")
 		return
@@ -974,7 +975,10 @@ func (s *httpdServer) handleClientSharePartialDownload(w http.ResponseWriter, r 
 		return
 	}
 
-	dataprovider.UpdateShareLastUse(&share, 1) //nolint:errcheck
+	if err := dataprovider.UpdateShareLastUse(&share, 1); err != nil {
+		s.renderClientMessagePage(w, r, util.I18nShareAccessErrorTitle, getRespStatus(err), err, "")
+		return
+	}
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"",
 		getCompressedFileName(fmt.Sprintf("share-%s", share.Name), filesList)))
 	renderCompressedFiles(w, connection, name, filesList, &share)
@@ -987,6 +991,8 @@ func (s *httpdServer) handleShareGetDirContents(w http.ResponseWriter, r *http.R
 	if err != nil {
 		return
 	}
+	defer connection.CloseFS() //nolint:errcheck
+
 	if err := validateBrowsableShare(share, connection); err != nil {
 		sendAPIResponse(w, r, err, getI18NErrorString(err, util.I18nError500Message), getRespStatus(err))
 		return
@@ -1052,10 +1058,12 @@ func (s *httpdServer) handleShareGetDirContents(w http.ResponseWriter, r *http.R
 func (s *httpdServer) handleClientUploadToShare(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	validScopes := []dataprovider.ShareScope{dataprovider.ShareScopeWrite, dataprovider.ShareScopeReadWrite}
-	share, _, err := s.checkPublicShare(w, r, validScopes)
+	share, connection, err := s.checkPublicShare(w, r, validScopes)
 	if err != nil {
 		return
 	}
+	defer connection.CloseFS() //nolint:errcheck
+
 	if share.Scope == dataprovider.ShareScopeReadWrite {
 		http.Redirect(w, r, path.Join(webClientPubSharesPath, share.ShareID, "browse"), http.StatusFound)
 		return
@@ -1070,6 +1078,8 @@ func (s *httpdServer) handleShareGetFiles(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		return
 	}
+	defer connection.CloseFS() //nolint:errcheck
+
 	if err := validateBrowsableShare(share, connection); err != nil {
 		s.renderClientMessagePage(w, r, util.I18nShareAccessErrorTitle, getRespStatus(err), err, "")
 		return
@@ -1102,7 +1112,10 @@ func (s *httpdServer) handleShareGetFiles(w http.ResponseWriter, r *http.Request
 		s.renderSharedFilesPage(w, r, share.GetRelativePath(name), nil, share)
 		return
 	}
-	dataprovider.UpdateShareLastUse(&share, 1) //nolint:errcheck
+	if err := dataprovider.UpdateShareLastUse(&share, 1); err != nil {
+		s.renderClientMessagePage(w, r, util.I18nShareAccessErrorTitle, getRespStatus(err), err, "")
+		return
+	}
 	if status, err := downloadFile(w, r, connection, name, info, false, &share); err != nil {
 		dataprovider.UpdateShareLastUse(&share, -1) //nolint:errcheck
 		if status > 0 {
@@ -1115,10 +1128,12 @@ func (s *httpdServer) handleShareGetFiles(w http.ResponseWriter, r *http.Request
 func (s *httpdServer) handleShareViewPDF(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
 	validScopes := []dataprovider.ShareScope{dataprovider.ShareScopeRead, dataprovider.ShareScopeReadWrite}
-	share, _, err := s.checkPublicShare(w, r, validScopes)
+	share, connection, err := s.checkPublicShare(w, r, validScopes)
 	if err != nil {
 		return
 	}
+	defer connection.CloseFS() //nolint:errcheck
+
 	name := util.CleanPath(r.URL.Query().Get("path"))
 	data := viewPDFPage{
 		commonBasePage: getCommonBasePage(r),
@@ -1138,6 +1153,8 @@ func (s *httpdServer) handleShareGetPDF(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		return
 	}
+	defer connection.CloseFS() //nolint:errcheck
+
 	if err := validateBrowsableShare(share, connection); err != nil {
 		s.renderClientMessagePage(w, r, util.I18nShareAccessErrorTitle, getRespStatus(err), err, "")
 		return
@@ -1170,7 +1187,10 @@ func (s *httpdServer) handleShareGetPDF(w http.ResponseWriter, r *http.Request) 
 	if err := s.ensurePDF(w, r, name, connection); err != nil {
 		return
 	}
-	dataprovider.UpdateShareLastUse(&share, 1) //nolint:errcheck
+	if err := dataprovider.UpdateShareLastUse(&share, 1); err != nil {
+		s.renderClientMessagePage(w, r, util.I18nShareAccessErrorTitle, getRespStatus(err), err, "")
+		return
+	}
 	if _, err := downloadFile(w, r, connection, name, info, true, &share); err != nil {
 		dataprovider.UpdateShareLastUse(&share, -1) //nolint:errcheck
 	}
@@ -1610,7 +1630,6 @@ func (s *httpdServer) handleClientGetShares(w http.ResponseWriter, r *http.Reque
 	data := clientSharesPage{
 		baseClientPage:      s.getBaseClientPageData(util.I18nSharesTitle, webClientSharesPath, w, r),
 		BasePublicSharesURL: webClientPubSharesPath,
-		BaseURL:             s.binding.BaseURL,
 	}
 	renderClientTemplate(w, templateClientShares, data)
 }
@@ -1912,6 +1931,7 @@ func (s *httpdServer) handleClientShareLoginPost(w http.ResponseWriter, r *http.
 	}
 	match, err := share.CheckCredentials(strings.TrimSpace(r.Form.Get("share_password")))
 	if !match || err != nil {
+		handleDefenderEventLoginFailed(ipAddr, dataprovider.ErrInvalidCredentials) //nolint:errcheck
 		s.renderShareLoginPage(w, r, util.NewI18nError(dataprovider.ErrInvalidCredentials, util.I18nErrorInvalidCredentials))
 		return
 	}
@@ -1955,10 +1975,12 @@ func (s *httpdServer) handleClientShareLogout(w http.ResponseWriter, r *http.Req
 func (s *httpdServer) handleClientSharedFile(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	validScopes := []dataprovider.ShareScope{dataprovider.ShareScopeRead}
-	share, _, err := s.checkPublicShare(w, r, validScopes)
+	share, connection, err := s.checkPublicShare(w, r, validScopes)
 	if err != nil {
 		return
 	}
+	defer connection.CloseFS() //nolint:errcheck
+
 	query := ""
 	if r.URL.RawQuery != "" {
 		query = "?" + r.URL.RawQuery
@@ -1986,6 +2008,8 @@ func (s *httpdServer) handleClientShareCheckExist(w http.ResponseWriter, r *http
 	if err != nil {
 		return
 	}
+	defer connection.CloseFS() //nolint:errcheck
+
 	if err := validateBrowsableShare(share, connection); err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -2063,25 +2087,14 @@ func doCheckExist(w http.ResponseWriter, r *http.Request, connection *Connection
 }
 
 func checkShareRedirectURL(next, base string) (bool, string) {
-	if !strings.HasPrefix(next, base) {
+	u := safeRedirectURL(next, base)
+	if u == nil {
 		return false, ""
 	}
-	if next == base {
-		return true, path.Join(next, "download")
+	if u.Path == base {
+		u.Path = path.Join(base, "download")
 	}
-	baseURL, err := url.Parse(base)
-	if err != nil {
-		return false, ""
-	}
-	nextURL, err := url.Parse(next)
-	if err != nil {
-		return false, ""
-	}
-	if nextURL.Path == baseURL.Path {
-		redirectURL := nextURL.JoinPath("download")
-		return true, redirectURL.String()
-	}
-	return true, next
+	return true, u.String()
 }
 
 func getWebTask(w http.ResponseWriter, r *http.Request) {

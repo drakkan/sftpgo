@@ -84,14 +84,11 @@ func addScheduledCacheUpdates() error {
 
 func checkDataprovider() {
 	if currentNode != nil {
-		err := provider.updateNodeTimestamp()
-		if err != nil {
+		if err := provider.updateNodeTimestamp(); err != nil {
 			providerLog(logger.LevelError, "unable to update node timestamp: %v", err)
 		} else {
 			providerLog(logger.LevelDebug, "node timestamp updated")
 		}
-		metric.UpdateDataProviderAvailability(err)
-		return
 	}
 	err := provider.checkAvailability()
 	if err != nil {

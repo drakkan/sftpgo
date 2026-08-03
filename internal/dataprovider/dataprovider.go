@@ -27,6 +27,7 @@ import (
 	"crypto/sha512"
 	"crypto/subtle"
 	"crypto/x509"
+	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -186,7 +187,10 @@ var (
 	// ErrDuplicatedKey occurs when there is a unique key constraint violation
 	ErrDuplicatedKey = errors.New("duplicated key not allowed")
 	// ErrForeignKeyViolated occurs when there is a foreign key constraint violation
-	ErrForeignKeyViolated   = errors.New("violates foreign key constraint")
+	ErrForeignKeyViolated = errors.New("violates foreign key constraint")
+	// ErrShareUsageExceeded is returned when reserving share usage tokens would exceed the share max_tokens limit
+	ErrShareUsageExceeded = util.NewI18nError(
+		util.NewRecordNotFoundError("max share usage exceeded"), util.I18nErrorShareUsage)
 	errInvalidInput         = util.NewValidationError("Invalid input. Slashes (/ ), colons (:), control characters, and reserved system names are not allowed")
 	tz                      = ""
 	isAdminCreated          atomic.Bool
@@ -211,7 +215,6 @@ var (
 	sqlTableAdmins               string
 	sqlTableAPIKeys              string
 	sqlTableShares               string
-	sqlTableSharesGroupsMapping  string
 	sqlTableDefenderHosts        string
 	sqlTableDefenderEvents       string
 	sqlTableActiveTransfers      string
@@ -246,7 +249,6 @@ func initSQLTables() {
 	sqlTableAdmins = "admins"
 	sqlTableAPIKeys = "api_keys"
 	sqlTableShares = "shares"
-	sqlTableSharesGroupsMapping = "shares_groups_mapping"
 	sqlTableDefenderHosts = "defender_hosts"
 	sqlTableDefenderEvents = "defender_events"
 	sqlTableActiveTransfers = "active_transfers"
@@ -612,6 +614,11 @@ func ExecuteBackup() (string, error) {
 // ConvertName converts the given name based on the configured rules
 func ConvertName(name string) string {
 	return config.convertName(name)
+}
+
+// IsSharedMode returns true if the data provider is configured as shared (cluster mode).
+func IsSharedMode() bool {
+	return config.IsShared == 1
 }
 
 // ActiveTransfer defines an active protocol transfer
@@ -1057,7 +1064,6 @@ func validateSQLTablesPrefix() error {
 		sqlTableAdmins = config.SQLTablesPrefix + sqlTableAdmins
 		sqlTableAPIKeys = config.SQLTablesPrefix + sqlTableAPIKeys
 		sqlTableShares = config.SQLTablesPrefix + sqlTableShares
-		sqlTableSharesGroupsMapping = config.SQLTablesPrefix + sqlTableSharesGroupsMapping
 		sqlTableDefenderEvents = config.SQLTablesPrefix + sqlTableDefenderEvents
 		sqlTableDefenderHosts = config.SQLTablesPrefix + sqlTableDefenderHosts
 		sqlTableActiveTransfers = config.SQLTablesPrefix + sqlTableActiveTransfers
@@ -1079,12 +1085,12 @@ func validateSQLTablesPrefix() error {
 			"api keys %q shares %q defender hosts %q defender events %q transfers %q  groups %q "+
 			"users groups mapping %q admins groups mapping %q groups folders mapping %q shared sessions %q "+
 			"schema version %q events actions %q events rules %q rules actions mapping %q tasks %q nodes %q roles %q"+
-			"ip lists %q share groups mapping %q configs %q",
+			"ip lists %q configs %q",
 			sqlTableUsers, sqlTableFolders, sqlTableUsersFoldersMapping, sqlTableAdmins, sqlTableAPIKeys,
 			sqlTableShares, sqlTableDefenderHosts, sqlTableDefenderEvents, sqlTableActiveTransfers, sqlTableGroups,
 			sqlTableUsersGroupsMapping, sqlTableAdminsGroupsMapping, sqlTableGroupsFoldersMapping, sqlTableSharedSessions,
 			sqlTableSchemaVersion, sqlTableEventsActions, sqlTableEventsRules, sqlTableRulesActionsMapping,
-			sqlTableTasks, sqlTableNodes, sqlTableRoles, sqlTableIPLists, sqlTableSharesGroupsMapping, sqlTableConfigs)
+			sqlTableTasks, sqlTableNodes, sqlTableRoles, sqlTableIPLists, sqlTableConfigs)
 	}
 	return nil
 }
@@ -1464,7 +1470,11 @@ func CleanupDefender(from int64) error {
 	return provider.cleanupDefender(from)
 }
 
-// UpdateShareLastUse updates the LastUseAt and UsedTokens for the given share
+// UpdateShareLastUse updates the LastUseAt and UsedTokens for the given share.
+// When numTokens is positive the usage is reserved atomically: if max_tokens is
+// set and the reservation would exceed it the share is left unchanged and
+// ErrShareUsageExceeded is returned. A non-positive numTokens refunds previously
+// reserved tokens and is always applied.
 func UpdateShareLastUse(share *Share, numTokens int) error {
 	return provider.updateShareLastUse(share.ShareID, numTokens)
 }
@@ -2135,6 +2145,7 @@ func AddUser(user *User, executor, ipAddress, role string) error {
 	user.Username = config.convertName(user.Username)
 	err := provider.addUser(user)
 	if err == nil {
+		RemoveCachedWebDAVUser(user.Username)
 		executeAction(operationAdd, executor, ipAddress, actionObjectUser, user.Username, role, user)
 	}
 	return err
@@ -4046,6 +4057,9 @@ func executeKeyboardInteractiveProgram(user *User, authHook string, client ssh.K
 			}
 		}()
 	}
+	if err := scanner.Err(); err != nil {
+		once.Do(func() { terminateInteractiveAuthProgram(cmd, false) })
+	}
 	stdin.Close()
 	once.Do(func() { terminateInteractiveAuthProgram(cmd, true) })
 	go func() {
@@ -4216,8 +4230,6 @@ func getPreLoginHookResponse(loginMethod, ip, protocol string, userAsJSON []byte
 }
 
 func executePreLoginHook(username, loginMethod, ip, protocol string, oidcTokenFields *map[string]any) (User, error) {
-	var user User
-
 	u, mergedUser, userAsJSON, err := getUserAndJSONForHook(username, oidcTokenFields)
 	if err != nil {
 		return u, err
@@ -4240,38 +4252,53 @@ func executePreLoginHook(username, loginMethod, ip, protocol string, oidcTokenFi
 		}
 		return u, nil
 	}
-	err = json.Unmarshal(out, &user)
+
+	userID := u.ID
+	userUsedQuotaSize := u.UsedQuotaSize
+	userUsedQuotaFiles := u.UsedQuotaFiles
+	userUsedDownloadTransfer := u.UsedDownloadDataTransfer
+	userUsedUploadTransfer := u.UsedUploadDataTransfer
+	userLastQuotaUpdate := u.LastQuotaUpdate
+	userLastLogin := u.LastLogin
+	userFirstDownload := u.FirstDownload
+	userFirstUpload := u.FirstUpload
+	userLastPwdChange := u.LastPasswordChange
+	userCreatedAt := u.CreatedAt
+	totpConfig := u.Filters.TOTPConfig
+	recoveryCodes := u.Filters.RecoveryCodes
+	err = json.Unmarshal(out, &u)
 	if err != nil {
 		return u, fmt.Errorf("invalid pre-login hook response %q, error: %v", out, err)
 	}
-	if u.ID > 0 {
-		user.ID = u.ID
-		user.UsedQuotaSize = u.UsedQuotaSize
-		user.UsedQuotaFiles = u.UsedQuotaFiles
-		user.UsedUploadDataTransfer = u.UsedUploadDataTransfer
-		user.UsedDownloadDataTransfer = u.UsedDownloadDataTransfer
-		user.LastQuotaUpdate = u.LastQuotaUpdate
-		user.LastLogin = u.LastLogin
-		user.LastPasswordChange = u.LastPasswordChange
-		user.FirstDownload = u.FirstDownload
-		user.FirstUpload = u.FirstUpload
-		// preserve TOTP config and recovery codes
-		user.Filters.TOTPConfig = u.Filters.TOTPConfig
-		user.Filters.RecoveryCodes = u.Filters.RecoveryCodes
-		if err := provider.updateUser(&user); err != nil {
-			return u, err
-		}
+	u.ID = userID
+	u.UsedQuotaSize = userUsedQuotaSize
+	u.UsedQuotaFiles = userUsedQuotaFiles
+	u.UsedUploadDataTransfer = userUsedUploadTransfer
+	u.UsedDownloadDataTransfer = userUsedDownloadTransfer
+	u.LastQuotaUpdate = userLastQuotaUpdate
+	u.LastLogin = userLastLogin
+	u.LastPasswordChange = userLastPwdChange
+	u.FirstDownload = userFirstDownload
+	u.FirstUpload = userFirstUpload
+	u.CreatedAt = userCreatedAt
+	if userID == 0 {
+		err = provider.addUser(&u)
 	} else {
-		if err := provider.addUser(&user); err != nil {
-			return u, err
-		}
+		u.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+		// preserve TOTP config and recovery codes
+		u.Filters.TOTPConfig = totpConfig
+		u.Filters.RecoveryCodes = recoveryCodes
+		err = provider.updateUser(&u)
 	}
-	user, err = provider.userExists(user.Username, "")
 	if err != nil {
 		return u, err
 	}
-	providerLog(logger.LevelDebug, "user %q added/updated from pre-login hook response, id: %d", username, u.ID)
-	if u.ID > 0 {
+	user, err := provider.userExists(username, "")
+	if err != nil {
+		return u, err
+	}
+	providerLog(logger.LevelDebug, "user %q added/updated from pre-login hook response, id: %d", username, userID)
+	if userID > 0 {
 		webDAVUsersCache.swap(&user, "")
 	}
 	return user, nil
@@ -4720,6 +4747,40 @@ func replaceTemplateVars(input string) string {
 	return result.String()
 }
 
+func restoreTemplateVars(input string) string {
+	var result strings.Builder
+	i := 0
+
+	for i < len(input) {
+		if i+3 <= len(input) && input[i:i+3] == "{{." {
+			if i+3 < len(input) {
+				nextChar := input[i+3]
+				if nextChar == ' ' || nextChar == '.' || nextChar == '-' {
+					// Don't change if it's a space, dot, or minus
+					result.WriteString("{{.")
+					i += 3
+					continue
+				}
+			}
+			// Find the closing "}}"
+			closing := strings.Index(input[i:], "}}")
+			if closing != -1 {
+				// Strip the dot and write the rest
+				result.WriteString("{{")
+				result.WriteString(input[i+3 : i+closing])
+				result.WriteString("}}")
+				i += closing + 2
+				continue
+			}
+		}
+
+		result.WriteByte(input[i])
+		i++
+	}
+
+	return result.String()
+}
+
 func updateEventActionPlaceholders(actions []BaseEventAction) ([]BaseEventAction, error) {
 	var result []BaseEventAction
 
@@ -4739,6 +4800,101 @@ func updateEventActionPlaceholders(actions []BaseEventAction) ([]BaseEventAction
 	}
 
 	return result, nil
+}
+
+func restoreEventActionsPlaceholders(actions []BaseEventAction) ([]BaseEventAction, error) {
+	var result []BaseEventAction
+
+	for _, action := range actions {
+		options, err := json.Marshal(action.Options)
+		if err != nil {
+			return nil, err
+		}
+		convertedOptions := restoreTemplateVars(string(options))
+		var opts BaseEventActionOptions
+		err = json.Unmarshal([]byte(convertedOptions), &opts)
+		if err != nil {
+			return nil, err
+		}
+		action.Options = opts
+		result = append(result, action)
+	}
+
+	return result, nil
+}
+
+func updateEventActions() error {
+	actions, err := provider.dumpEventActions()
+	if err != nil {
+		return err
+	}
+	convertedActions, err := updateEventActionPlaceholders(actions)
+	if err != nil {
+		return err
+	}
+	enabledCommands := slices.Clone(EnabledActionCommands)
+	defer func() {
+		EnabledActionCommands = enabledCommands
+	}()
+
+	for _, action := range convertedActions {
+		providerLog(logger.LevelInfo, "updating placeholders for event action %q", action.Name)
+		if action.Options.CmdConfig.Cmd != "" {
+			// EnabledActionCommands are initialized after the data provider,
+			// so all commands should be allowed here temporarily.
+			if !slices.Contains(EnabledActionCommands, action.Options.CmdConfig.Cmd) {
+				EnabledActionCommands = append(EnabledActionCommands, action.Options.CmdConfig.Cmd)
+			}
+		}
+		if err := provider.updateEventAction(&action); err != nil {
+			return fmt.Errorf("unable to save updated event action %q: %w", action.Name, err)
+		}
+	}
+	return nil
+}
+
+func restoreEventActions() error {
+	actions, err := provider.dumpEventActions()
+	if err != nil {
+		return err
+	}
+	convertedActions, err := restoreEventActionsPlaceholders(actions)
+	if err != nil {
+		return err
+	}
+	for _, action := range convertedActions {
+		providerLog(logger.LevelInfo, "restoring placeholders for event action %q", action.Name)
+		if err := provider.updateEventAction(&action); err != nil {
+			return fmt.Errorf("unable to save updated event action %q: %w", action.Name, err)
+		}
+	}
+	return nil
+}
+
+func updateSQLDatabaseFrom31To32(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database data version: 31 -> 32")
+	providerLog(logger.LevelInfo, "updating database data version: 31 -> 32")
+
+	if err := updateEventActions(); err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), longSQLQueryTimeout)
+	defer cancel()
+
+	return sqlCommonUpdateDatabaseVersion(ctx, dbHandle, 32)
+}
+
+func downgradeSQLDatabaseFrom32To31(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database data version: 32 -> 31")
+	providerLog(logger.LevelInfo, "downgrading database data version: 32 -> 31")
+
+	if err := restoreEventActions(); err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), longSQLQueryTimeout)
+	defer cancel()
+
+	return sqlCommonUpdateDatabaseVersion(ctx, dbHandle, 31)
 }
 
 func getConfigPath(name, configDir string) string {

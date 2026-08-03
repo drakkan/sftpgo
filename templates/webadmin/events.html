@@ -154,8 +154,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 <script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/plugins/custom/flatpickr/l10n/it.js"></script>
 <script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/plugins/custom/flatpickr/l10n/de.js"></script>
 <script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/plugins/custom/flatpickr/l10n/fr.js"></script>
-<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/plugins/custom/flatpickr/l10n/zh.js"></script>
-<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/plugins/custom/flatpickr/l10n/es.js"></script>
 <script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/humanize-duration/humanize-duration.min.js"></script>
 <script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
     const pageSize = 20;
@@ -233,7 +231,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             decimalPoints = 0;
         }
         return humanizeDuration(val, {
-            language: humanizeDurationLocale(),
+            language: i18next.resolvedLanguage,
             fallbacks: ["en"],
             maxDecimalPoints: decimalPoints,
             units: units
@@ -607,7 +605,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                     info+=`. ${elapsed}`;
                                 }
                                 if (row.ssh_cmd){
-                                    info+=". "+$.t('events.ssh_cmd')+` "${row.ssh_cmd}"`;
+                                    info+=". "+$.t('events.ssh_cmd')+` "${escapeHTML(row.ssh_cmd)}"`;
                                 }
                                 return info;
                             }
@@ -1012,7 +1010,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             mode: "range",
             defaultDate: [moment().add(-1,'hour').format('YYYY-MM-DD HH:mm')],
             minuteIncrement: 1,
-            locale: flatpickrLocale()
+            locale: i18next.resolvedLanguage
         });
         onEventChanged('1');
     });

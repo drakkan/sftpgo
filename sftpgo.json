@@ -9,7 +9,9 @@
     },
     "setstat_mode": 0,
     "rename_mode": 0,
+    "symlink_mode": 0,
     "resume_max_size": 0,
+    "secret_min_entropy": 80,
     "temp_path": "",
     "proxy_protocol": 0,
     "proxy_allowed": [],
@@ -283,7 +285,6 @@
         "client_ip_header_depth": 0,
         "hide_login_url": 0,
         "render_openapi": true,
-        "base_url": "",
         "languages": [
           "en"
         ],

@@ -478,7 +478,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 clearChilds(qrCodeContainer);
                 let qrCodeImg = document.createElement("img");
                 qrCodeImg.classList.add("mw-150px");
-                qrCodeImg.src = "{{.MFAURL}}/qrcode?url="+encodeURIComponent(response.data.url);
+                qrCodeImg.src = "data:image/png;base64,"+response.data.qr_code;
                 qrCodeImg.alt = $.t('general.qr_code');
                 qrCodeContainer.appendChild(qrCodeImg);
                 qrModal.show();

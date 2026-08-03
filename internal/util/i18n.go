@@ -94,6 +94,7 @@ const (
 	I18nErrorDirList429                = "fs.dir_list.err_429"
 	I18nErrorDirListUser               = "fs.dir_list.err_user"
 	I18nErrorFsValidation              = "fs.err_validation"
+	I18nErrorSecretEntropy             = "fs.err_secret_entropy"
 	I18nErrorChangePwdRequiredFields   = "change_pwd.required_fields"
 	I18nErrorChangePwdNoMatch          = "change_pwd.no_match"
 	I18nErrorChangePwdGeneric          = "change_pwd.generic"

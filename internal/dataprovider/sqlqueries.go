@@ -691,6 +691,12 @@ func getUpdateShareLastUseQuery() string {
 		sqlTableShares, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2])
 }
 
+func getReserveShareTokensQuery() string {
+	return fmt.Sprintf(`UPDATE %s SET last_use_at = %s, used_tokens = used_tokens +%s WHERE share_id = %s `+
+		`AND (max_tokens = 0 OR used_tokens +%s <= max_tokens)`,
+		sqlTableShares, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3])
+}
+
 func getQuotaQuery() string {
 	return fmt.Sprintf(`SELECT used_quota_size,used_quota_files,used_upload_data_transfer,
 		used_download_data_transfer FROM %s WHERE username = %s`,

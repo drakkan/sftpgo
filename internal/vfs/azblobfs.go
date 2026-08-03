@@ -668,9 +668,10 @@ func (*AzureBlobFs) HasVirtualFolders() bool {
 
 // ResolvePath returns the matching filesystem path for the specified sftp path
 func (fs *AzureBlobFs) ResolvePath(virtualPath string) (string, error) {
-	virtualPath = strings.ReplaceAll(virtualPath, "\\", "/")
 	if fs.mountPath != "" {
-		virtualPath = strings.TrimPrefix(virtualPath, fs.mountPath)
+		if after, found := strings.CutPrefix(virtualPath, fs.mountPath); found {
+			virtualPath = after
+		}
 	}
 	virtualPath = path.Clean("/" + virtualPath)
 	return fs.Join(fs.config.KeyPrefix, strings.TrimPrefix(virtualPath, "/")), nil
@@ -914,7 +915,8 @@ func (fs *AzureBlobFs) downloadPart(ctx context.Context, blockBlob *blockblob.Cl
 		return err
 	}
 
-	return writeAtFull(w, buf, writeOffset, int(count))
+	_, err = fs.writeAtFull(w, buf, writeOffset, int(count))
+	return err
 }
 
 func (fs *AzureBlobFs) handleMultipartDownload(ctx context.Context, blockBlob *blockblob.Client,
@@ -1112,6 +1114,18 @@ func (fs *AzureBlobFs) handleMultipartUpload(ctx context.Context, reader io.Read
 
 	_, err := blockBlob.CommitBlockList(ctx, blocks, &commitOptions)
 	return err
+}
+
+func (*AzureBlobFs) writeAtFull(w io.WriterAt, buf []byte, offset int64, count int) (int, error) {
+	written := 0
+	for written < count {
+		n, err := w.WriteAt(buf[written:count], offset+int64(written))
+		written += n
+		if err != nil {
+			return written, err
+		}
+	}
+	return written, nil
 }
 
 func (fs *AzureBlobFs) getCopyOptions(srcInfo os.FileInfo, updateModTime bool) *blob.StartCopyFromURLOptions {

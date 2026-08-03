@@ -427,7 +427,7 @@ func (t *BaseTransfer) Close() error {
 	elapsed := time.Since(t.start).Nanoseconds() / 1000000
 	var uploadFileSize int64
 	if t.transferType == TransferDownload {
-		logger.TransferLog(downloadLogSender, t.fsPath, elapsed, t.BytesSent.Load(), t.Connection.User.Username,
+		logger.TransferLog(downloadLogSender, t.fsPath, t.requestPath, elapsed, t.BytesSent.Load(), t.Connection.User.Username,
 			t.Connection.ID, t.Connection.protocol, t.Connection.localAddr, t.Connection.remoteAddr, t.ftpMode,
 			t.ErrTransfer)
 		ExecuteActionNotification(t.Connection, operationDownload, t.fsPath, t.requestPath, "", "", "", //nolint:errcheck
@@ -449,7 +449,7 @@ func (t *BaseTransfer) Close() error {
 		numFiles, uploadFileSize = t.executeUploadHook(numFiles, uploadFileSize, elapsed)
 		t.updateQuota(numFiles, uploadFileSize)
 		t.updateTimes()
-		logger.TransferLog(uploadLogSender, t.fsPath, elapsed, t.BytesReceived.Load(), t.Connection.User.Username,
+		logger.TransferLog(uploadLogSender, t.fsPath, t.requestPath, elapsed, t.BytesReceived.Load(), t.Connection.User.Username,
 			t.Connection.ID, t.Connection.protocol, t.Connection.localAddr, t.Connection.remoteAddr, t.ftpMode,
 			t.ErrTransfer)
 	}

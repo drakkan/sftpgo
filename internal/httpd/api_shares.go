@@ -198,6 +198,8 @@ func (s *httpdServer) readBrowsableShareContents(w http.ResponseWriter, r *http.
 	if err != nil {
 		return
 	}
+	defer connection.CloseFS() //nolint:errcheck
+
 	if err := validateBrowsableShare(share, connection); err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -229,6 +231,8 @@ func (s *httpdServer) downloadBrowsableSharedFile(w http.ResponseWriter, r *http
 	if err != nil {
 		return
 	}
+	defer connection.CloseFS() //nolint:errcheck
+
 	if err := validateBrowsableShare(share, connection); err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -256,9 +260,11 @@ func (s *httpdServer) downloadBrowsableSharedFile(w http.ResponseWriter, r *http
 		return
 	}
 
-	inline := r.URL.Query().Get("inline") != ""
-	dataprovider.UpdateShareLastUse(&share, 1) //nolint:errcheck
-	if status, err := downloadFile(w, r, connection, name, info, inline, &share); err != nil {
+	if err := dataprovider.UpdateShareLastUse(&share, 1); err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
+	if status, err := downloadFile(w, r, connection, name, info, false, &share); err != nil {
 		dataprovider.UpdateShareLastUse(&share, -1) //nolint:errcheck
 		resp := apiResponse{
 			Error:   err.Error(),
@@ -279,6 +285,7 @@ func (s *httpdServer) downloadFromShare(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		return
 	}
+	defer connection.CloseFS() //nolint:errcheck
 
 	if err = common.Connections.Add(connection); err != nil {
 		sendAPIResponse(w, r, err, "Unable to add connection", http.StatusTooManyRequests)
@@ -299,7 +306,10 @@ func (s *httpdServer) downloadFromShare(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	dataprovider.UpdateShareLastUse(&share, 1) //nolint:errcheck
+	if err := dataprovider.UpdateShareLastUse(&share, 1); err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
 	if compress {
 		transferQuota := connection.GetTransferQuota()
 		if !transferQuota.HasDownloadSpace() {
@@ -342,6 +352,8 @@ func (s *httpdServer) uploadFileToShare(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		return
 	}
+	defer connection.CloseFS() //nolint:errcheck
+
 	filePath := util.CleanPath(path.Join(share.Paths[0], name))
 	expectedPrefix := share.Paths[0]
 	if !strings.HasSuffix(expectedPrefix, "/") {
@@ -351,7 +363,10 @@ func (s *httpdServer) uploadFileToShare(w http.ResponseWriter, r *http.Request) 
 		sendAPIResponse(w, r, err, "Uploading outside the share is not allowed", http.StatusForbidden)
 		return
 	}
-	dataprovider.UpdateShareLastUse(&share, 1) //nolint:errcheck
+	if err := dataprovider.UpdateShareLastUse(&share, 1); err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
 
 	if err = common.Connections.Add(connection); err != nil {
 		sendAPIResponse(w, r, err, "Unable to add connection", http.StatusTooManyRequests)
@@ -380,6 +395,8 @@ func (s *httpdServer) uploadFilesToShare(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		return
 	}
+	defer connection.CloseFS() //nolint:errcheck
+
 	if err := common.Connections.IsNewTransferAllowed(connection.User.Username); err != nil {
 		connection.Log(logger.LevelInfo, "denying file write due to number of transfer limits")
 		sendAPIResponse(w, r, err, "Denying file write due to transfer count limits",
@@ -417,19 +434,23 @@ func (s *httpdServer) uploadFilesToShare(w http.ResponseWriter, r *http.Request)
 		sendAPIResponse(w, r, nil, "No files uploaded!", http.StatusBadRequest)
 		return
 	}
-	if share.MaxTokens > 0 {
-		if len(files) > (share.MaxTokens - share.UsedTokens) {
-			sendAPIResponse(w, r, nil, "Allowed usage exceeded", http.StatusBadRequest)
-			return
-		}
+	if share.MaxTokens > 0 && len(files) > (share.MaxTokens-share.UsedTokens) {
+		sendAPIResponse(w, r, nil, "Allowed usage exceeded", http.StatusBadRequest)
+		return
 	}
-	dataprovider.UpdateShareLastUse(&share, len(files)) //nolint:errcheck
+	if err := dataprovider.UpdateShareLastUse(&share, len(files)); err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
 
+	numUploads := 0
+	defer func() {
+		if numUploads != len(files) {
+			dataprovider.UpdateShareLastUse(&share, numUploads-len(files)) //nolint:errcheck
+		}
+	}()
 	connection.User.CheckFsRoot(connection.ID) //nolint:errcheck
-	numUploads := doUploadFiles(w, r, connection, share.Paths[0], files)
-	if numUploads != len(files) {
-		dataprovider.UpdateShareLastUse(&share, numUploads-len(files)) //nolint:errcheck
-	}
+	numUploads = doUploadFiles(w, r, connection, share.Paths[0], files)
 }
 
 func (s *httpdServer) getShareClaims(r *http.Request, shareID string) (context.Context, *jwt.Claims, error) {
@@ -570,7 +591,6 @@ func validateBrowsableShare(share dataprovider.Share, connection *Connection) er
 	basePath := share.Paths[0]
 	info, err := connection.Stat(basePath, 0)
 	if err != nil {
-		connection.CloseFS() //nolint:errcheck
 		return util.NewI18nError(
 			fmt.Errorf("unable to check the share directory: %w", err),
 			util.I18nErrorShareInvalidPath,
