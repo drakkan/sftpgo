@@ -782,6 +782,7 @@ func (fs *AzureBlobFs) copyFileInternal(source, target string, srcInfo os.FileIn
 		metric.AZCopyObjectCompleted(err)
 		return err
 	}
+	copyID := util.GetStringFromPointer(resp.CopyID)
 	copyStatus := blob.CopyStatusType(util.GetStringFromPointer((*string)(resp.CopyStatus)))
 	nErrors := 0
 	for copyStatus == blob.CopyStatusTypePending {
@@ -793,6 +794,7 @@ func (fs *AzureBlobFs) copyFileInternal(source, target string, srcInfo os.FileIn
 			// of them before giving up.
 			nErrors++
 			if ctx.Err() != nil || nErrors == 3 {
+				fs.abortCopy(dstBlob, target, copyID)
 				metric.AZCopyObjectCompleted(err)
 				return err
 			}
@@ -808,6 +810,18 @@ func (fs *AzureBlobFs) copyFileInternal(source, target string, srcInfo os.FileIn
 
 	metric.AZCopyObjectCompleted(nil)
 	return nil
+}
+
+func (fs *AzureBlobFs) abortCopy(dstBlob *blockblob.Client, target, copyID string) {
+	if copyID == "" {
+		return
+	}
+	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+	defer cancelFn()
+
+	if _, err := dstBlob.AbortCopyFromURL(ctx, copyID, nil); err != nil {
+		fsLog(fs, logger.LevelWarn, "unable to abort the copy to %q, id %q: %v", target, copyID, err)
+	}
 }
 
 func (fs *AzureBlobFs) renameInternal(source, target string, srcInfo os.FileInfo, recursion int,
