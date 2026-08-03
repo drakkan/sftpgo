@@ -15,8 +15,7 @@
 package httpd
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
+	"errors"
 	"sync"
 	"time"
 
@@ -35,8 +34,8 @@ func newTokenManager(isShared int) tokenManager {
 }
 
 type tokenManager interface {
-	Add(token string, expiresAt time.Time)
-	Get(token string) bool
+	Add(id string, expiresAt time.Time)
+	Get(id string) bool
 	Cleanup()
 }
 
@@ -44,12 +43,12 @@ type memoryTokenManager struct {
 	invalidatedJWTTokens sync.Map
 }
 
-func (m *memoryTokenManager) Add(token string, expiresAt time.Time) {
-	m.invalidatedJWTTokens.Store(token, expiresAt)
+func (m *memoryTokenManager) Add(id string, expiresAt time.Time) {
+	m.invalidatedJWTTokens.Store(id, expiresAt)
 }
 
-func (m *memoryTokenManager) Get(token string) bool {
-	_, ok := m.invalidatedJWTTokens.Load(token)
+func (m *memoryTokenManager) Get(id string) bool {
+	_, ok := m.invalidatedJWTTokens.Load(id)
 	return ok
 }
 
@@ -65,29 +64,26 @@ func (m *memoryTokenManager) Cleanup() {
 
 type dbTokenManager struct{}
 
-func (m *dbTokenManager) getKey(token string) string {
-	digest := sha256.Sum256([]byte(token))
-	return hex.EncodeToString(digest[:])
-}
-
-func (m *dbTokenManager) Add(token string, expiresAt time.Time) {
-	key := m.getKey(token)
-	data := map[string]string{
-		"jwt": token,
-	}
+func (m *dbTokenManager) Add(id string, expiresAt time.Time) {
 	session := dataprovider.Session{
-		Key:       key,
-		Data:      data,
+		Key:       id,
 		Type:      dataprovider.SessionTypeInvalidToken,
 		Timestamp: util.GetTimeAsMsSinceEpoch(expiresAt),
 	}
 	dataprovider.AddSharedSession(session) //nolint:errcheck
 }
 
-func (m *dbTokenManager) Get(token string) bool {
-	key := m.getKey(token)
-	_, err := dataprovider.GetSharedSession(key, dataprovider.SessionTypeInvalidToken)
-	return err == nil
+func (m *dbTokenManager) Get(id string) bool {
+	_, err := dataprovider.GetSharedSession(id, dataprovider.SessionTypeInvalidToken)
+	if err == nil {
+		return true
+	}
+	if errors.Is(err, util.ErrNotFound) {
+		return false
+	}
+	// a provider error is treated as invalidated (fail closed)
+	logger.Warn(logSender, "", "unable to check the invalidation store: %v", err)
+	return true
 }
 
 func (m *dbTokenManager) Cleanup() {

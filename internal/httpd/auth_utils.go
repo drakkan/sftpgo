@@ -104,17 +104,6 @@ func getTokenDuration(audience tokenAudience) time.Duration {
 	}
 }
 
-func getMaxCookieDuration() time.Duration {
-	result := csrfTokenDuration
-	if shareTokenDuration > result {
-		result = shareTokenDuration
-	}
-	if cookieTokenDuration > result {
-		result = cookieTokenDuration
-	}
-	return result
-}
-
 func hasUserAudience(claims *jwt.Claims) bool {
 	return claims.HasAnyAudience([]string{tokenAudienceWebClient, tokenAudienceAPIUser})
 }
@@ -185,43 +174,19 @@ func isTLS(r *http.Request) bool {
 }
 
 func isTokenInvalidated(r *http.Request) bool {
-	var findTokenFns []func(r *http.Request) string
-	findTokenFns = append(findTokenFns, jwt.TokenFromHeader)
-	findTokenFns = append(findTokenFns, jwt.TokenFromCookie)
-	findTokenFns = append(findTokenFns, oidcTokenFromContext)
-
-	isTokenFound := false
-	for _, fn := range findTokenFns {
-		token := fn(r)
-		if token != "" {
-			isTokenFound = true
-			if invalidatedJWTTokens.Get(token) {
-				return true
-			}
-		}
+	token, err := jwt.FromContext(r.Context())
+	if err != nil || token.ID == "" {
+		return true
 	}
-
-	return !isTokenFound
+	return invalidatedJWTTokens.Get(token.ID)
 }
 
 func invalidateToken(r *http.Request) {
-	tokenString := jwt.TokenFromHeader(r)
-	if tokenString != "" {
-		invalidateTokenString(r, tokenString, apiTokenDuration)
-	}
-	tokenString = jwt.TokenFromCookie(r)
-	if tokenString != "" {
-		invalidateTokenString(r, tokenString, getMaxCookieDuration())
-	}
-}
-
-func invalidateTokenString(r *http.Request, tokenString string, fallbackDuration time.Duration) {
 	token, err := jwt.FromContext(r.Context())
 	if err != nil {
-		invalidatedJWTTokens.Add(tokenString, time.Now().Add(fallbackDuration).UTC())
 		return
 	}
-	invalidatedJWTTokens.Add(tokenString, token.Expiry.Time().Add(1*time.Minute).UTC())
+	invalidatedJWTTokens.Add(token.ID, token.Expiry.Time().Add(1*time.Minute).UTC())
 }
 
 func getUserFromToken(r *http.Request) *dataprovider.User {

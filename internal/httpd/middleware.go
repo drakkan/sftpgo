@@ -365,18 +365,26 @@ func checkNodeToken(tokenAuth *jwt.Signer) func(next http.Handler) http.Handler 
 			if len(bearer) >= len(prefix) && strings.EqualFold(bearer[:len(prefix)], prefix) {
 				bearer = bearer[len(prefix):]
 			}
-			if invalidatedJWTTokens.Get(bearer) {
+			claims, err := dataprovider.AuthenticateNodeToken(bearer)
+			if err != nil {
+				logger.Debug(logSender, "", "unable to authenticate node token: %v", err)
+				sendAPIResponse(w, r, fmt.Errorf("the provided token cannot be authenticated"), "", http.StatusUnauthorized)
+				return
+			}
+			if claims.ID == "" {
+				logger.Warn(logSender, "", "node token without identifier rejected")
+				sendAPIResponse(w, r, fmt.Errorf("the provided token is not valid"), "", http.StatusUnauthorized)
+				return
+			}
+			if invalidatedJWTTokens.Get(claims.ID) {
 				logger.Debug(logSender, "", "the node token has been invalidated")
 				sendAPIResponse(w, r, fmt.Errorf("the provided token is not valid"), "", http.StatusUnauthorized)
 				return
 			}
-			claims, err := dataprovider.AuthenticateNodeToken(bearer)
-			if err != nil {
-				logger.Debug(logSender, "", "unable to authenticate node token %q: %v", bearer, err)
-				sendAPIResponse(w, r, fmt.Errorf("the provided token cannot be authenticated"), "", http.StatusUnauthorized)
-				return
-			}
-			defer invalidatedJWTTokens.Add(bearer, time.Now().Add(2*time.Minute).UTC())
+			// Single-use invalidation of node tokens is a best-effort hygiene measure.
+			// It is not intended to be a security control and is neither documented nor
+			// advertised as such.
+			invalidatedJWTTokens.Add(claims.ID, time.Now().Add(2*time.Minute).UTC())
 
 			c := &jwt.Claims{
 				Username:    claims.Username,
