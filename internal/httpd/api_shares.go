@@ -453,8 +453,7 @@ func (s *httpdServer) getShareClaims(r *http.Request, shareID string) (context.C
 	if err != nil || token == nil {
 		return nil, nil, errInvalidToken
 	}
-	tokenString := jwt.TokenFromCookie(r)
-	if tokenString == "" || invalidatedJWTTokens.Get(tokenString) {
+	if token.ID == "" || invalidatedJWTTokens.Get(token.ID) {
 		return nil, nil, errInvalidToken
 	}
 	if !token.Audience.Contains(tokenAudienceWebShare) {

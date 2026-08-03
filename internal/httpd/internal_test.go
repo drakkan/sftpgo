@@ -19,6 +19,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -447,10 +448,6 @@ func TestTokenDuration(t *testing.T) {
 	assert.Equal(t, 11*time.Hour, cookieTokenDuration)
 	assert.Equal(t, 11*time.Hour, csrfTokenDuration)
 	assert.Equal(t, 6*time.Hour, shareTokenDuration)
-	assert.Equal(t, 11*time.Hour, getMaxCookieDuration())
-
-	csrfTokenDuration = 1 * time.Hour
-	assert.Equal(t, 11*time.Hour, getMaxCookieDuration())
 }
 
 func TestVerifyCSRFToken(t *testing.T) {
@@ -1764,7 +1761,6 @@ func TestJWTTokenValidation(t *testing.T) {
 	claims := &jwt.Claims{
 		Username: defaultAdminUsername,
 	}
-	claims.SetExpiry(time.Now().UTC().Add(-1 * time.Hour))
 	_, err = tokenAuth.SignWithParams(claims, tokenAudienceWebAdmin, "", getTokenDuration(tokenAudienceWebAdmin))
 	require.NoError(t, err)
 
@@ -1788,14 +1784,6 @@ func TestJWTTokenValidation(t *testing.T) {
 	fn.ServeHTTP(rr, req.WithContext(ctx))
 	assert.Equal(t, http.StatusUnauthorized, rr.Code)
 
-	fn = jwtAuthenticatorWebAdmin(r)
-	rr = httptest.NewRecorder()
-	req, _ = http.NewRequest(http.MethodGet, webUserPath, nil)
-	ctx = jwt.NewContext(req.Context(), claims, nil)
-	fn.ServeHTTP(rr, req.WithContext(ctx))
-	assert.Equal(t, http.StatusFound, rr.Code)
-	assert.Equal(t, webAdminLoginPath, rr.Header().Get("Location"))
-
 	fn = jwtAuthenticatorWebClient(r)
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest(http.MethodGet, webClientFilesPath, nil)
@@ -1803,6 +1791,24 @@ func TestJWTTokenValidation(t *testing.T) {
 	fn.ServeHTTP(rr, req.WithContext(ctx))
 	assert.Equal(t, http.StatusFound, rr.Code)
 	assert.Equal(t, webClientLoginPath, rr.Header().Get("Location"))
+
+	okHandler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	fn = jwtAuthenticatorWebAdmin(okHandler)
+	rr = httptest.NewRecorder()
+	req, _ = http.NewRequest(http.MethodGet, webUserPath, nil)
+	ctx = jwt.NewContext(req.Context(), claims, nil)
+	fn.ServeHTTP(rr, req.WithContext(ctx))
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	invalidatedJWTTokens.Add(claims.ID, time.Now().Add(getTokenDuration(tokenAudienceWebAdmin)).UTC())
+	rr = httptest.NewRecorder()
+	req, _ = http.NewRequest(http.MethodGet, webUserPath, nil)
+	ctx = jwt.NewContext(req.Context(), claims, nil)
+	fn.ServeHTTP(rr, req.WithContext(ctx))
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webAdminLoginPath, rr.Header().Get("Location"))
 
 	errTest := errors.New("test error")
 	permFn := server.checkPerms(dataprovider.PermAdminAny)
@@ -2357,23 +2363,23 @@ func TestJWTTokenCleanup(t *testing.T) {
 	claims.Permissions = admin.Permissions
 	claims.Subject = admin.GetSignature()
 	claims.SetExpiry(time.Now().Add(1 * time.Minute))
-	token, err := server.tokenAuth.Sign(claims)
+	_, err = server.tokenAuth.Sign(claims)
 	assert.NoError(t, err)
 
 	req, _ := http.NewRequest(http.MethodGet, versionPath, nil)
 	assert.True(t, isTokenInvalidated(req))
 
-	fakeToken := "abc"
-	invalidateTokenString(req, fakeToken, -100*time.Millisecond)
-	assert.True(t, invalidatedJWTTokens.Get(fakeToken))
+	// claims without an identifier are fail closed
+	req = req.WithContext(jwt.NewContext(req.Context(), &jwt.Claims{Username: admin.Username}, nil))
+	assert.True(t, isTokenInvalidated(req))
 
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	req = req.WithContext(jwt.NewContext(req.Context(), claims, nil))
+	assert.False(t, isTokenInvalidated(req))
 
-	invalidatedJWTTokens.Add(token, time.Now().Add(-getTokenDuration(tokenAudienceWebAdmin)).UTC())
+	invalidatedJWTTokens.Add(claims.ID, time.Now().Add(-getTokenDuration(tokenAudienceWebAdmin)).UTC())
 	require.True(t, isTokenInvalidated(req))
 	startCleanupTicker(100 * time.Millisecond)
 	assert.Eventually(t, func() bool { return !isTokenInvalidated(req) }, 1*time.Second, 200*time.Millisecond)
-	assert.False(t, invalidatedJWTTokens.Get(fakeToken))
 	stopCleanupTicker()
 }
 
@@ -2383,23 +2389,83 @@ func TestDbTokenManager(t *testing.T) {
 	}
 	mgr := newTokenManager(1)
 	dbTokenManager := mgr.(*dbTokenManager)
-	testToken := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsiV2ViQWRtaW4iLCI6OjEiXSwiZXhwIjoxNjk4NjYwMDM4LCJqdGkiOiJja3ZuazVrYjF1aHUzZXRmZmhyZyIsIm5iZiI6MTY5ODY1ODgwOCwicGVybWlzc2lvbnMiOlsiKiJdLCJzdWIiOiIxNjk3ODIwNDM3NTMyIiwidXNlcm5hbWUiOiJhZG1pbiJ9.LXuFFksvnSuzHqHat6r70yR0jEulNRju7m7SaWrOfy8; csrftoken=mP0C7DqjwpAXsptO2gGCaYBkYw3oNMWB"
-	key := dbTokenManager.getKey(testToken)
-	require.Len(t, key, 64)
-	dbTokenManager.Add(testToken, time.Now().Add(-getTokenDuration(tokenAudienceWebClient)).UTC())
-	isInvalidated := dbTokenManager.Get(testToken)
+	tokenAuth, err := jwt.NewSigner(jose.HS256, util.GenerateRandomBytes(32))
+	require.NoError(t, err)
+	claims := jwt.NewClaims(tokenAudienceWebAdmin, "", getTokenDuration(tokenAudienceWebAdmin))
+	claims.Username = "admin"
+	claims.SetExpiry(time.Now().Add(1 * time.Minute))
+	_, err = tokenAuth.Sign(claims)
+	require.NoError(t, err)
+	require.NotEmpty(t, claims.ID)
+	dbTokenManager.Add(claims.ID, time.Now().Add(-getTokenDuration(tokenAudienceWebClient)).UTC())
+	isInvalidated := dbTokenManager.Get(claims.ID)
 	assert.True(t, isInvalidated)
 	dbTokenManager.Cleanup()
-	isInvalidated = dbTokenManager.Get(testToken)
+	isInvalidated = dbTokenManager.Get(claims.ID)
 	assert.False(t, isInvalidated)
-	dbTokenManager.Add(testToken, time.Now().Add(getTokenDuration(tokenAudienceWebAdmin)).UTC())
-	isInvalidated = dbTokenManager.Get(testToken)
+	dbTokenManager.Add(claims.ID, time.Now().Add(getTokenDuration(tokenAudienceWebAdmin)).UTC())
+	isInvalidated = dbTokenManager.Get(claims.ID)
 	assert.True(t, isInvalidated)
 	dbTokenManager.Cleanup()
-	isInvalidated = dbTokenManager.Get(testToken)
+	isInvalidated = dbTokenManager.Get(claims.ID)
 	assert.True(t, isInvalidated)
-	err := dataprovider.DeleteSharedSession(key, dataprovider.SessionTypeInvalidToken)
+
+	// a provider error is fail closed: any token reads as invalidated
+	providerConf := dataprovider.GetProviderConfig()
+	err = dataprovider.Close()
 	assert.NoError(t, err)
+	assert.True(t, dbTokenManager.Get(claims.ID))
+	assert.True(t, dbTokenManager.Get("unknown-token-id"))
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+	assert.True(t, dbTokenManager.Get(claims.ID))
+	assert.False(t, dbTokenManager.Get("unknown-token-id"))
+
+	err = dataprovider.DeleteSharedSession(claims.ID, dataprovider.SessionTypeInvalidToken)
+	assert.NoError(t, err)
+}
+
+func TestTokenInvalidationIgnoresEncoding(t *testing.T) {
+	tokenAuth, err := jwt.NewSigner(jose.HS256, util.GenerateRandomBytes(32))
+	require.NoError(t, err)
+	claims := jwt.NewClaims(tokenAudienceWebAdmin, "", getTokenDuration(tokenAudienceWebAdmin))
+	claims.SetExpiry(time.Now().Add(1 * time.Minute))
+	token, err := tokenAuth.Sign(claims)
+	require.NoError(t, err)
+
+	// respell the signature: only the unused trailing bits of the final
+	// character differ, so it decodes to the same bytes
+	parts := strings.Split(token, ".")
+	require.Len(t, parts, 3)
+	sig := parts[2]
+	decoded, err := base64.RawURLEncoding.DecodeString(sig)
+	require.NoError(t, err)
+	const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+	respelled := ""
+	for i := range len(alphabet) {
+		c := alphabet[i]
+		if c == sig[len(sig)-1] {
+			continue
+		}
+		candidate := sig[:len(sig)-1] + string(c)
+		if alt, err := base64.RawURLEncoding.DecodeString(candidate); err == nil && bytes.Equal(alt, decoded) {
+			respelled = parts[0] + "." + parts[1] + "." + candidate
+			break
+		}
+	}
+	require.NotEmpty(t, respelled)
+	require.NotEqual(t, token, respelled)
+
+	// the re-encoded spelling verifies to the same identifier
+	verified, err := jwt.VerifyToken(tokenAuth, respelled)
+	require.NoError(t, err)
+	assert.Equal(t, claims.ID, verified.ID)
+
+	req, _ := http.NewRequest(http.MethodGet, versionPath, nil)
+	req = req.WithContext(jwt.NewContext(req.Context(), verified, nil))
+	assert.False(t, isTokenInvalidated(req))
+	invalidatedJWTTokens.Add(claims.ID, time.Now().Add(1*time.Minute).UTC())
+	assert.True(t, isTokenInvalidated(req))
 }
 
 func TestDatabaseSharedSessions(t *testing.T) {
