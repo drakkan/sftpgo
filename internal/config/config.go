@@ -133,6 +133,7 @@ var (
 			ImplicitRoles:              false,
 			Scopes:                     []string{"openid", "profile", "email"},
 			CustomFields:               []string{},
+			QueryUserInfo:              false,
 			InsecureSkipSignatureCheck: false,
 			Debug:                      false,
 		},
@@ -1673,6 +1674,12 @@ func getHTTPDOIDCFromEnv(idx int) (httpd.OIDC, bool) {
 	customFields, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__CUSTOM_FIELDS", idx))
 	if ok {
 		result.CustomFields = customFields
+		isSet = true
+	}
+
+	queryUserInfo, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__QUERY_USERINFO", idx))
+	if ok {
+		result.QueryUserInfo = queryUserInfo
 		isSet = true
 	}
 

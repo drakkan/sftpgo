@@ -133,6 +133,199 @@ func TestOIDCInitialization(t *testing.T) {
 	err = config.initialize()
 	assert.NoError(t, err)
 	assert.Equal(t, "http://127.0.0.1:8081"+webOIDCRedirectPath, config.getRedirectURL())
+	config.QueryUserInfo = true
+	err = config.initialize()
+	assert.NoError(t, err)
+	// the sftpgo2 realm has no userinfo endpoint
+	config.ConfigURL = fmt.Sprintf("http://%v/auth/realms/sftpgo2", oidcMockAddr)
+	err = config.initialize()
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "userinfo endpoint")
+	}
+	config.QueryUserInfo = false
+	err = config.initialize()
+	assert.NoError(t, err)
+}
+
+func TestMergeOIDCClaims(t *testing.T) {
+	// ID token claims take precedence, empty values do not override
+	merged := mergeOIDCClaims(
+		map[string]any{"sub": "123", "preferred_username": "user", "email": "", "groups": []any{}},
+		map[string]any{"sub": "123", "preferred_username": "userinfo_user", "email": "user@example.com",
+			"groups": []any{"g1"}, "sftpgo_role": "admin", "empty": nil},
+	)
+	assert.Equal(t, "user", merged["preferred_username"])
+	assert.Equal(t, "user@example.com", merged["email"])
+	assert.Equal(t, []any{"g1"}, merged["groups"])
+	assert.Equal(t, "admin", merged["sftpgo_role"])
+	assert.NotContains(t, merged, "empty")
+	// claims describing the authentication event are read from the ID token only
+	merged = mergeOIDCClaims(
+		map[string]any{"sub": "123", "sid": "sid123"},
+		map[string]any{"sub": "123", "sid": "sid456", "auth_time": 1, "nonce": "nonce456"},
+	)
+	assert.Equal(t, "sid123", merged["sid"])
+	assert.NotContains(t, merged, "auth_time")
+	assert.NotContains(t, merged, "nonce")
+	merged = mergeOIDCClaims(nil, map[string]any{"preferred_username": "userinfo_user"})
+	assert.Equal(t, "userinfo_user", merged["preferred_username"])
+	merged = mergeOIDCClaims(map[string]any{"preferred_username": "user"}, nil)
+	assert.Equal(t, "user", merged["preferred_username"])
+}
+
+func TestOIDCQueryUserInfo(t *testing.T) {
+	oidcMgr, ok := oidcMgr.(*memoryOIDCManager)
+	require.True(t, ok)
+	server := getTestOIDCServer()
+	server.binding.OIDC.QueryUserInfo = true
+	server.binding.OIDC.CustomFields = []string{"email"}
+	err := server.binding.OIDC.initialize()
+	assert.NoError(t, err)
+	err = server.initializeRouter()
+	require.NoError(t, err)
+
+	admin := dataprovider.Admin{
+		Username:    "oidc_user",
+		Password:    "p",
+		Permissions: []string{dataprovider.PermAdminAny},
+		Status:      1,
+	}
+	err = dataprovider.AddAdmin(&admin, "", "", "")
+	assert.NoError(t, err)
+	defer func() {
+		err := dataprovider.DeleteAdmin(admin.Username, "", "", "")
+		assert.NoError(t, err)
+	}()
+
+	// the mock user info endpoint returns preferred_username "oidc_user" and sftpgo_role "admin"
+	token := (&oauth2.Token{
+		AccessToken: "123",
+		Expiry:      time.Now().Add(5 * time.Minute),
+	}).WithExtra(map[string]any{"id_token": "id_token_val"})
+	server.binding.OIDC.oauth2Config = &mockOAuth2Config{
+		tokenSource: &mockTokenSource{},
+		token:       token,
+	}
+	// minimal ID token: username and role come from the user info response
+	authReq := newOIDCPendingAuth(tokenAudienceWebAdmin)
+	oidcMgr.addPendingAuth(authReq)
+	idToken := &oidc.IDToken{
+		Nonce:   authReq.Nonce,
+		Expiry:  time.Now().Add(5 * time.Minute),
+		Subject: "123",
+	}
+	setIDTokenClaims(idToken, []byte(`{"sub":"123","sid":"sid789"}`))
+	server.binding.OIDC.verifier = &mockOIDCVerifier{token: idToken}
+	rr := httptest.NewRecorder()
+	r, err := http.NewRequest(http.MethodGet, webOIDCRedirectPath+"?state="+authReq.State, nil)
+	assert.NoError(t, err)
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusFound, rr.Code, rr.Body.String())
+	assert.Equal(t, webUsersPath, rr.Header().Get("Location"))
+	require.Len(t, oidcMgr.tokens, 1)
+	var tokenCookie string
+	for k := range oidcMgr.tokens {
+		tokenCookie = k
+	}
+	oidcToken, err := oidcMgr.getToken(tokenCookie)
+	assert.NoError(t, err)
+	assert.Equal(t, "oidc_user", oidcToken.Username)
+	assert.Equal(t, "sid789", oidcToken.SessionID)
+	assert.True(t, oidcToken.isAdmin())
+	// custom fields can be read from the user info response
+	if assert.NotNil(t, oidcToken.CustomFields) {
+		assert.Equal(t, "example@example.com", (*oidcToken.CustomFields)["email"])
+	}
+	oidcMgr.removeToken(tokenCookie)
+
+	// ID token claims take precedence over user info claims
+	authReq = newOIDCPendingAuth(tokenAudienceWebAdmin)
+	oidcMgr.addPendingAuth(authReq)
+	idToken = &oidc.IDToken{
+		Nonce:   authReq.Nonce,
+		Expiry:  time.Now().Add(5 * time.Minute),
+		Subject: "123",
+	}
+	setIDTokenClaims(idToken, []byte(`{"sub":"123","preferred_username":"admin","sftpgo_role":"admin"}`))
+	server.binding.OIDC.verifier = &mockOIDCVerifier{token: idToken}
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodGet, webOIDCRedirectPath+"?state="+authReq.State, nil)
+	assert.NoError(t, err)
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusFound, rr.Code, rr.Body.String())
+	assert.Equal(t, webUsersPath, rr.Header().Get("Location"))
+	require.Len(t, oidcMgr.tokens, 1)
+	for k := range oidcMgr.tokens {
+		tokenCookie = k
+	}
+	oidcToken, err = oidcMgr.getToken(tokenCookie)
+	assert.NoError(t, err)
+	assert.Equal(t, "admin", oidcToken.Username)
+	oidcMgr.removeToken(tokenCookie)
+
+	// the role from the user info response cannot override the ID token role
+	authReq = newOIDCPendingAuth(tokenAudienceWebAdmin)
+	oidcMgr.addPendingAuth(authReq)
+	idToken = &oidc.IDToken{
+		Nonce:   authReq.Nonce,
+		Expiry:  time.Now().Add(5 * time.Minute),
+		Subject: "123",
+	}
+	setIDTokenClaims(idToken, []byte(`{"sub":"123","preferred_username":"oidc_user","sftpgo_role":"user"}`))
+	server.binding.OIDC.verifier = &mockOIDCVerifier{token: idToken}
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodGet, webOIDCRedirectPath+"?state="+authReq.State, nil)
+	assert.NoError(t, err)
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webAdminLoginPath, rr.Header().Get("Location"))
+	require.Len(t, oidcMgr.tokens, 0)
+
+	// a user info subject not matching the ID token subject rejects the login
+	authReq = newOIDCPendingAuth(tokenAudienceWebAdmin)
+	oidcMgr.addPendingAuth(authReq)
+	idToken = &oidc.IDToken{
+		Nonce:   authReq.Nonce,
+		Expiry:  time.Now().Add(5 * time.Minute),
+		Subject: "456",
+	}
+	setIDTokenClaims(idToken, []byte(`{"sub":"456","preferred_username":"admin","sftpgo_role":"admin"}`))
+	server.binding.OIDC.verifier = &mockOIDCVerifier{token: idToken}
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodGet, webOIDCRedirectPath+"?state="+authReq.State, nil)
+	assert.NoError(t, err)
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webAdminLoginPath, rr.Header().Get("Location"))
+	require.Len(t, oidcMgr.tokens, 0)
+	require.Len(t, oidcMgr.pendingAuths, 0)
+
+	// a user info endpoint error rejects the login
+	token = (&oauth2.Token{
+		AccessToken: "500",
+		Expiry:      time.Now().Add(5 * time.Minute),
+	}).WithExtra(map[string]any{"id_token": "id_token_val"})
+	server.binding.OIDC.oauth2Config = &mockOAuth2Config{
+		tokenSource: &mockTokenSource{},
+		token:       token,
+	}
+	authReq = newOIDCPendingAuth(tokenAudienceWebAdmin)
+	oidcMgr.addPendingAuth(authReq)
+	idToken = &oidc.IDToken{
+		Nonce:   authReq.Nonce,
+		Expiry:  time.Now().Add(5 * time.Minute),
+		Subject: "123",
+	}
+	setIDTokenClaims(idToken, []byte(`{"sub":"123","preferred_username":"admin","sftpgo_role":"admin"}`))
+	server.binding.OIDC.verifier = &mockOIDCVerifier{token: idToken}
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodGet, webOIDCRedirectPath+"?state="+authReq.State, nil)
+	assert.NoError(t, err)
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webAdminLoginPath, rr.Header().Get("Location"))
+	require.Len(t, oidcMgr.tokens, 0)
+	require.Len(t, oidcMgr.pendingAuths, 0)
 }
 
 func TestOIDCLoginLogout(t *testing.T) {
@@ -812,6 +1005,64 @@ func TestOIDCRefreshToken(t *testing.T) {
 	// user does not exist
 	err = token.refresh(context.Background(), &config, &verifier, r)
 	assert.Error(t, err)
+	require.Len(t, oidcMgr.tokens, 1)
+	oidcMgr.removeToken(token.Cookie)
+	require.Len(t, oidcMgr.tokens, 0)
+}
+
+func TestOIDCRefreshWithUserInfoClaims(t *testing.T) {
+	oidcMgr, ok := oidcMgr.(*memoryOIDCManager)
+	require.True(t, ok)
+	admin := dataprovider.Admin{
+		Username:    "oidc_userinfo_refresh",
+		Password:    "p",
+		Permissions: []string{dataprovider.PermAdminAny},
+		Status:      1,
+	}
+	err := dataprovider.AddAdmin(&admin, "", "", "")
+	assert.NoError(t, err)
+	defer func() {
+		err := dataprovider.DeleteAdmin(admin.Username, "", "", "")
+		assert.NoError(t, err)
+	}()
+
+	r, err := http.NewRequest(http.MethodGet, webUsersPath, nil)
+	assert.NoError(t, err)
+	// username and role as populated from the UserInfo claims at login
+	token := oidcToken{
+		Cookie:       util.GenerateOpaqueString(),
+		AccessToken:  xid.New().String(),
+		RefreshToken: xid.New().String(),
+		TokenType:    "Bearer",
+		ExpiresAt:    util.GetTimeAsMsSinceEpoch(time.Now().Add(-1 * time.Minute)),
+		Nonce:        xid.New().String(),
+		Username:     admin.Username,
+		Role:         adminRoleFieldValue,
+	}
+	newToken := (&oauth2.Token{
+		AccessToken:  xid.New().String(),
+		RefreshToken: xid.New().String(),
+		Expiry:       time.Now().Add(5 * time.Minute),
+	}).WithExtra(map[string]any{"id_token": "id_token_val"})
+	config := mockOAuth2Config{
+		tokenSource: &mockTokenSource{
+			token: newToken,
+		},
+	}
+	idToken := &oidc.IDToken{
+		Nonce: token.Nonce,
+	}
+	// the refreshed ID token has no username or role claim: the identity
+	// established at login must survive the refresh
+	setIDTokenClaims(idToken, []byte(`{"sid":"new_sid"}`))
+	verifier := mockOIDCVerifier{
+		token: idToken,
+	}
+	err = token.refresh(context.Background(), &config, &verifier, r)
+	assert.NoError(t, err)
+	assert.Equal(t, admin.Username, token.Username)
+	assert.True(t, token.isAdmin())
+	assert.Equal(t, "new_sid", token.SessionID)
 	require.Len(t, oidcMgr.tokens, 1)
 	oidcMgr.removeToken(token.Cookie)
 	require.Len(t, oidcMgr.tokens, 0)

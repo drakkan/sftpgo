@@ -95,6 +95,11 @@ type OIDC struct {
 	Scopes []string `json:"scopes" mapstructure:"scopes"`
 	// Custom token claims fields to pass to the pre-login hook
 	CustomFields []string `json:"custom_fields" mapstructure:"custom_fields"`
+	// QueryUserInfo defines whether to query the UserInfo endpoint after
+	// authentication and read the user claims from both sources.
+	// ID token claims take precedence over UserInfo claims with the same name.
+	// The UserInfo subject must match the ID token subject.
+	QueryUserInfo bool `json:"query_userinfo" mapstructure:"query_userinfo"`
 	// InsecureSkipSignatureCheck causes SFTPGo to skip JWT signature validation.
 	// It's intended for special cases where providers, such as Azure, use the "none"
 	// algorithm. Skipping the signature validation can cause security issues
@@ -171,6 +176,9 @@ func (o *OIDC) initialize() error {
 			o.providerLogoutURL = val
 			logger.Debug(logSender, "", "oidc end session endpoint %q", o.providerLogoutURL)
 		}
+	}
+	if o.QueryUserInfo && provider.UserInfoEndpoint() == "" {
+		return errors.New("oidc: query_userinfo is enabled but the provider has no userinfo endpoint")
 	}
 	o.provider = provider
 	o.verifier = nil
@@ -282,6 +290,42 @@ func (t *oidcToken) parseClaims(claims map[string]any, usernameField, roleField 
 		t.SessionID = sid
 	}
 	return nil
+}
+
+// mergeOIDCClaims returns the UserInfo claims overlaid with the verified ID
+// token claims, so the signed token wins on conflicts. Claims describing the
+// authentication event are read from the ID token only. Null, empty string
+// and empty array values are dropped from both sources: OIDC Core 5.3.2
+// requires omitting unreturned claims instead of setting them to null or empty.
+func mergeOIDCClaims(idTokenClaims, userInfoClaims map[string]any) map[string]any {
+	merged := make(map[string]any, len(idTokenClaims)+len(userInfoClaims))
+	for k, v := range userInfoClaims {
+		switch k {
+		case "sid", "auth_time", "nonce":
+			continue
+		}
+		if isEmptyOIDCClaim(v) {
+			continue
+		}
+		merged[k] = v
+	}
+	for k, v := range idTokenClaims {
+		if isEmptyOIDCClaim(v) {
+			continue
+		}
+		merged[k] = v
+	}
+	return merged
+}
+
+func isEmptyOIDCClaim(v any) bool {
+	if v == nil || v == "" {
+		return true
+	}
+	if s, ok := v.([]any); ok && len(s) == 0 {
+		return true
+	}
+	return false
 }
 
 func (t *oidcToken) getRoleFromField(claims map[string]any, roleField string) {
@@ -710,6 +754,36 @@ func (s *httpdServer) handleOIDCRedirect(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	s.debugTokenClaims(claims, rawIDToken)
+	if s.binding.OIDC.QueryUserInfo {
+		userInfo, err := s.binding.OIDC.provider.UserInfo(ctx, oauth2.StaticTokenSource(oauth2Token))
+		if err != nil {
+			logger.Warn(logSender, "", "unable to query the user info endpoint: %v", err)
+			setFlashMessage(w, r, newFlashMessage("Unable to query the OpenID user info endpoint", util.I18nOIDCErrTokenExchange))
+			doRedirect()
+			doLogout(rawIDToken)
+			return
+		}
+		if userInfo.Subject != idToken.Subject {
+			logger.Debug(logSender, "", "user info subject %q does not match the id token subject %q",
+				userInfo.Subject, idToken.Subject)
+			setFlashMessage(w, r, newFlashMessage("User info subject does not match the ID token subject", util.I18nOIDCTokenInvalid))
+			doRedirect()
+			doLogout(rawIDToken)
+			return
+		}
+		userInfoClaims := make(map[string]any)
+		if err := userInfo.Claims(&userInfoClaims); err != nil {
+			logger.Debug(logSender, "", "unable to get user info claims: %v", err)
+			setFlashMessage(w, r, newFlashMessage("Unable to get OpenID user info claims", util.I18nOIDCTokenInvalid))
+			doRedirect()
+			doLogout(rawIDToken)
+			return
+		}
+		claims = mergeOIDCClaims(claims, userInfoClaims)
+		if s.binding.OIDC.Debug {
+			logger.Debug(logSender, "", "claims after user info merge %+v", claims)
+		}
+	}
 	token := oidcToken{
 		AccessToken:  oauth2Token.AccessToken,
 		TokenType:    oauth2Token.TokenType,
