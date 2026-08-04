@@ -484,9 +484,17 @@ func (s *httpdServer) checkWebClientShareCredentials(w http.ResponseWriter, r *h
 		http.Redirect(w, r, redirectURL, http.StatusFound)
 	}
 
-	if _, _, err := s.getShareClaims(r, share.ShareID); err != nil {
+	_, claims, err := s.getShareClaims(r, share.ShareID)
+	if err != nil {
 		doRedirect()
 		return err
+	}
+	if tokenValidationMode&tokenValidationModeUserSignature != 0 {
+		if share.GetSignature() != claims.Subject {
+			logger.Debug(logSender, "", "the share %q was updated, the login token is no longer valid", share.ShareID)
+			doRedirect()
+			return errInvalidToken
+		}
 	}
 	return nil
 }

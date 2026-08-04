@@ -2491,6 +2491,46 @@ func TestTokenInvalidationIgnoresEncoding(t *testing.T) {
 	assert.True(t, isTokenInvalidated(req))
 }
 
+func TestShareTokenSignatureValidation(t *testing.T) {
+	oldMode := tokenValidationMode
+	defer func() { tokenValidationMode = oldMode }()
+
+	tokenAuth, err := jwt.NewSigner(jose.HS256, util.GenerateRandomBytes(32))
+	require.NoError(t, err)
+	server := httpdServer{tokenAuth: tokenAuth}
+
+	share := dataprovider.Share{ShareID: "testshareid", Username: "u", UpdatedAt: 12345}
+	ipAddr := "127.0.0.1"
+	c := &jwt.Claims{Username: share.ShareID}
+	c.Subject = share.GetSignature()
+	token, err := tokenAuth.SignWithParams(c, tokenAudienceWebShare, ipAddr, time.Minute)
+	require.NoError(t, err)
+
+	buildReq := func() *http.Request {
+		req, _ := http.NewRequest(http.MethodGet, "/", nil)
+		req.RemoteAddr = ipAddr + ":1234"
+		req.Header.Set("Cookie", fmt.Sprintf("%s=%s", jwt.CookieKey, token))
+		return req
+	}
+
+	tokenValidationMode = tokenValidationModeDefault
+	err = server.checkWebClientShareCredentials(httptest.NewRecorder(), buildReq(), &share)
+	require.NoError(t, err)
+
+	tokenValidationMode = tokenValidationModeUserSignature
+	err = server.checkWebClientShareCredentials(httptest.NewRecorder(), buildReq(), &share)
+	require.NoError(t, err)
+
+	updated := share
+	updated.UpdatedAt = 99999
+	err = server.checkWebClientShareCredentials(httptest.NewRecorder(), buildReq(), &updated)
+	require.ErrorIs(t, err, errInvalidToken)
+
+	tokenValidationMode = tokenValidationModeDefault
+	err = server.checkWebClientShareCredentials(httptest.NewRecorder(), buildReq(), &updated)
+	require.NoError(t, err)
+}
+
 func TestDatabaseSharedSessions(t *testing.T) {
 	if !isSharedProviderSupported() {
 		t.Skip("this test it is not available with this provider")

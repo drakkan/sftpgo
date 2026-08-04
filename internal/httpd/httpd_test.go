@@ -17069,6 +17069,7 @@ func TestUserAPIShares(t *testing.T) {
 		assert.Equal(t, shareGetNew, shares[0])
 	}
 
+	updatedAtBeforeLastUse := shareGetNew.UpdatedAt
 	err = dataprovider.UpdateShareLastUse(&shareGetNew, 2)
 	assert.NoError(t, err)
 	req, err = http.NewRequest(http.MethodGet, location, nil)
@@ -17081,6 +17082,9 @@ func TestUserAPIShares(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 2, shareGetNew.UsedTokens, "share: %v", shareGetNew)
 	assert.Greater(t, shareGetNew.LastUseAt, int64(0), "share: %v", shareGetNew)
+	// the login token signature depends on UpdatedAt: the last use accounting must
+	// not bump it or normal usage would invalidate valid cookies
+	assert.Equal(t, updatedAtBeforeLastUse, shareGetNew.UpdatedAt, "share: %v", shareGetNew)
 
 	req, err = http.NewRequest(http.MethodGet, userSharesPath, nil)
 	assert.NoError(t, err)
