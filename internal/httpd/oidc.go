@@ -686,7 +686,7 @@ func (s *httpdServer) debugTokenClaims(claims map[string]any, rawIDToken string)
 	}
 }
 
-func (s *httpdServer) handleOIDCRedirect(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleOIDCRedirect(w http.ResponseWriter, r *http.Request) { //nolint:gocyclo
 	state := r.URL.Query().Get("state")
 	authReq, err := oidcMgr.getPendingAuth(state)
 	if err != nil {
