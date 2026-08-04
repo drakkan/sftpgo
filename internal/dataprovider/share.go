@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -92,6 +93,11 @@ func (s *Share) GetAllowedFromAsString() string {
 // IsPasswordHashed returns true if the password is hashed
 func (s *Share) IsPasswordHashed() bool {
 	return util.IsStringPrefixInSlice(s.Password, hashPwdPrefixes)
+}
+
+// GetSignature returns a value that changes whenever the share is updated.
+func (s *Share) GetSignature() string {
+	return strconv.FormatInt(s.UpdatedAt, 10)
 }
 
 func (s *Share) getACopy() Share {

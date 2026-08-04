@@ -1967,6 +1967,7 @@ func (s *httpdServer) handleClientShareLoginPost(w http.ResponseWriter, r *http.
 	c := &jwt.Claims{
 		Username: shareID,
 	}
+	c.Subject = share.GetSignature()
 	if isRedirect {
 		c.Ref = next
 	}
