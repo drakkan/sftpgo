@@ -1200,7 +1200,7 @@ type azureBlobDirLister struct {
 	metricUpdated bool
 }
 
-func (l *azureBlobDirLister) Next(limit int) ([]os.FileInfo, error) {
+func (l *azureBlobDirLister) Next(limit int) ([]os.FileInfo, error) { //nolint:gocyclo
 	if limit <= 0 {
 		return nil, errInvalidDirListerLimit
 	}

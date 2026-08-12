@@ -501,7 +501,7 @@ func (c *scpCommand) sendDownloadFileData(fs vfs.Fs, filePath string, stat os.Fi
 
 // handleDownload sends filePath to the client. It reports its own errors to the
 // client, so callers must not send them again.
-func (c *scpCommand) handleDownload(filePath string, recursion int) error {
+func (c *scpCommand) handleDownload(filePath string, recursion int) error { //nolint:gocyclo
 	c.connection.UpdateLastActivity()
 	filePath = path.Clean(filePath)
 
