@@ -748,8 +748,8 @@ func (c *scpCommand) parseUploadMessage(fs vfs.Fs, command string) (int64, strin
 			return size, name, err
 		}
 		name = parts[2]
-		if name == "" {
-			err = fmt.Errorf("error getting name from upload message, cannot be empty")
+		if !isValidSCPName(name) {
+			err = fmt.Errorf("invalid name in upload message: %q", name)
 			c.connection.Log(logger.LevelError, "error: %v", err)
 			c.sendErrorMessage(fs, err)
 			return size, name, err
@@ -761,6 +761,14 @@ func (c *scpCommand) parseUploadMessage(fs vfs.Fs, command string) (int64, strin
 		return size, name, err
 	}
 	return size, name, err
+}
+
+func isValidSCPName(name string) bool {
+	if name == "" || name == "." || name == ".." {
+		return false
+	}
+
+	return !strings.ContainsAny(name, `/\`)
 }
 
 func (c *scpCommand) getFileUploadDestPath(fs vfs.Fs, scpDestPath, fileName string) string {
