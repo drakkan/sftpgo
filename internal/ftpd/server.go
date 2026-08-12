@@ -211,23 +211,28 @@ func (s *Server) AuthUser(cc ftpserver.ClientContext, username, password string)
 	return connection, nil
 }
 
-// PreAuthUser implements the MainDriverExtensionUserVerifier interface
+// PreAuthUser implements the MainDriverExtensionUserVerifier interface.
+// It ends the sessions of the accounts that require TLS before the password is sent.
+// The TLS requirement is applied after the authentication too, see validateUser.
 func (s *Server) PreAuthUser(cc ftpserver.ClientContext, username string) error {
-	if s.binding.TLSMode == 0 && s.tlsConfig != nil {
-		user, err := dataprovider.GetFTPPreAuthUser(username, util.GetIPFromRemoteAddress(cc.RemoteAddr().String()))
-		if err == nil {
-			if user.Filters.FTPSecurity == 1 {
-				return cc.SetTLSRequirement(ftpserver.MandatoryEncryption)
-			}
-			return nil
-		}
-		if !errors.Is(err, util.ErrNotFound) {
-			logger.Error(logSender, fmt.Sprintf("%v_%v_%v", common.ProtocolFTP, s.ID, cc.ID()),
-				"unable to get user on pre auth: %v", err)
-			return common.ErrInternalFailure
-		}
+	if s.binding.TLSMode != 0 || cc.HasTLSForControl() {
+		return nil
 	}
-	return nil
+	ipAddr := util.GetIPFromRemoteAddress(cc.RemoteAddr().String())
+	user, err := dataprovider.GetFTPPreAuthUser(username, ipAddr)
+	if err == nil {
+		if user.Filters.FTPSecurity == 1 {
+			return cc.SetTLSRequirement(ftpserver.MandatoryEncryption)
+		}
+		return nil
+	}
+	if errors.Is(err, util.ErrNotFound) {
+		common.AddDefenderEvent(ipAddr, common.ProtocolFTP, common.HostEventUserNotFound)
+		return nil
+	}
+	logger.Error(logSender, fmt.Sprintf("%v_%v_%v", common.ProtocolFTP, s.ID, cc.ID()),
+		"unable to get user on pre auth: %v", err)
+	return common.ErrInternalFailure
 }
 
 // WrapPassiveListener implements the MainDriverExtensionPassiveWrapper interface
@@ -265,7 +270,9 @@ func (s *Server) VerifyConnection(cc ftpserver.ClientContext, user string, tlsCo
 		if dbUser.IsTLSVerificationEnabled() {
 			dbUser, err = dataprovider.CheckUserAndTLSCert(user, ipAddr, common.ProtocolFTP, state.PeerCertificates[0])
 			if err != nil {
-				return nil, err
+				dbUser.Username = user
+				updateLoginMetrics(&dbUser, ipAddr, dataprovider.LoginMethodTLSCertificate, err, nil)
+				return nil, dataprovider.ErrInvalidCredentials
 			}
 
 			cc.SetExtra(&tlsState{
@@ -383,6 +390,17 @@ func (s *Server) validateUser(user dataprovider.User, cc ftpserver.ClientContext
 		logger.Info(logSender, connectionID, "cannot login user %q, %v login method is not allowed",
 			user.Username, loginMethod)
 		return nil, fmt.Errorf("login method %v is not allowed for user %q", loginMethod, user.Username)
+	}
+	if user.Filters.FTPSecurity == 1 {
+		if !cc.HasTLSForControl() {
+			logger.Info(logSender, connectionID, "cannot login user %q, TLS is required", user.Username)
+			return nil, fmt.Errorf("TLS is required for user %q", user.Username)
+		}
+		if s.binding.TLSMode != 2 {
+			if err := cc.SetTLSRequirement(ftpserver.MandatoryEncryption); err != nil {
+				return nil, err
+			}
+		}
 	}
 	if user.MustSetSecondFactorForProtocol(common.ProtocolFTP) {
 		logger.Info(logSender, connectionID, "cannot login user %q, second factor authentication is not set",

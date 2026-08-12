@@ -5413,7 +5413,7 @@ components:
           enum:
             - 0
             - 1
-          description: 'Set to `1` to require TLS for both data and control connection. his setting is useful if you want to allow both encrypted and plain text FTP sessions globally and then you want to require encrypted sessions on a per-user basis. It has no effect if TLS is already required for all users in the configuration file.'
+          description: 'Set to `1` to require TLS for both data and control connection. This setting is useful to allow both encrypted and plain text FTP sessions globally and require encrypted sessions on a per-user basis. The requirement is enforced after the authentication, so it holds for accounts resolved during the login as well; cleartext sessions are closed before the password is sent when the account can be resolved beforehand. It has no effect if TLS is already required for all users in the configuration file.'
         is_anonymous:
           type: boolean
           description: 'If enabled the user can login with any password or no password at all. Anonymous users are supported for FTP and WebDAV protocols and permissions will be automatically set to "list" and "download" (read only)'

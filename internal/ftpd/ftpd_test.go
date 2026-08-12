@@ -3720,7 +3720,7 @@ func TestClientCertificateAuth(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = getFTPClient(user2, true, tlsConfig)
 	if assert.Error(t, err) {
-		assert.Contains(t, err.Error(), "does not match username")
+		assert.Contains(t, err.Error(), "invalid credentials")
 	}
 	// add the certs to the user
 	user2.Filters.TLSUsername = sdk.TLSUsernameNone
@@ -3739,7 +3739,7 @@ func TestClientCertificateAuth(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = getFTPClient(user2, true, tlsConfig)
 	if assert.Error(t, err) {
-		assert.Contains(t, err.Error(), "TLS certificate is not valid")
+		assert.Contains(t, err.Error(), "invalid credentials")
 	}
 
 	// now disable certificate authentication
@@ -3943,7 +3943,7 @@ func TestPreLoginHookWithClientCert(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = getFTPClient(u, true, tlsConfig)
 	if assert.Error(t, err) {
-		assert.Contains(t, err.Error(), "does not match username")
+		assert.Contains(t, err.Error(), "invalid credentials")
 	}
 
 	user2, _, err := httpdtest.GetUserByUsername(tlsClient2Username, http.StatusOK)
