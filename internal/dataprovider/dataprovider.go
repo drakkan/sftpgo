@@ -4527,6 +4527,7 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 		return user, ErrInvalidCredentials
 	}
 	updateUserFromExtAuthResponse(&user, password, pkey)
+	user.Username = config.convertName(user.Username)
 	// some users want to map multiple login usernames with a single SFTPGo account
 	// for example an SFTP user logins using "user1" or "user2" and the external auth
 	// returns "user" in both cases, so we use the username returned from
