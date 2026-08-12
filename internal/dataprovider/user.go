@@ -1072,6 +1072,27 @@ func (u *User) getPatternsFilterForPath(virtualPath string) sdk.PatternsFilter {
 	return filter
 }
 
+// FilePatternsScopeChanges returns true if moving virtualSourcePath to
+// virtualTargetPath would change which file pattern filters govern the moved
+// contents.
+func (u *User) FilePatternsScopeChanges(virtualSourcePath, virtualTargetPath string) bool {
+	if len(u.Filters.FilePatterns) == 0 {
+		return false
+	}
+	for idx := range u.Filters.FilePatterns {
+		p := u.Filters.FilePatterns[idx].Path
+		// a filter defined on the moved tree stays behind, one defined on the
+		// target tree starts to apply
+		if p == virtualSourcePath || strings.HasPrefix(p, virtualSourcePath+"/") ||
+			p == virtualTargetPath || strings.HasPrefix(p, virtualTargetPath+"/") {
+			return true
+		}
+	}
+	// the inherited filter must be the same on both sides
+	return u.getPatternsFilterForPath(virtualSourcePath).Path !=
+		u.getPatternsFilterForPath(virtualTargetPath).Path
+}
+
 func (u *User) isDirHidden(virtualPath string) bool {
 	if len(u.Filters.FilePatterns) == 0 {
 		return false

@@ -1283,6 +1283,76 @@ func TestSymlinkDeniedSourcePolicy(t *testing.T) {
 	err = os.RemoveAll(homeDir)
 	assert.NoError(t, err)
 }
+
+func TestRenameFilePatternsScope(t *testing.T) {
+	homeDir := filepath.Join(os.TempDir(), "renamescope")
+
+	setup := func(patterns []sdk.PatternsFilter) *BaseConnection {
+		err := os.RemoveAll(homeDir)
+		assert.NoError(t, err)
+		err = os.MkdirAll(filepath.Join(homeDir, "alpha", "sub"), os.ModePerm)
+		assert.NoError(t, err)
+		err = os.WriteFile(filepath.Join(homeDir, "alpha", "report.dat"), []byte("k"), 0o600)
+		assert.NoError(t, err)
+		err = os.WriteFile(filepath.Join(homeDir, "alpha", "doc.txt"), []byte("d"), 0o600)
+		assert.NoError(t, err)
+
+		user := dataprovider.User{
+			BaseUser: sdk.BaseUser{
+				Username:    userTestUsername,
+				HomeDir:     homeDir,
+				Permissions: map[string][]string{"/": {dataprovider.PermAny}},
+			},
+		}
+		user.Filters.FilePatterns = patterns
+		return NewBaseConnection("", ProtocolHTTP, "", "", user)
+	}
+	scoped := []sdk.PatternsFilter{
+		{Path: "/alpha", DeniedPatterns: []string{"*.dat"}},
+	}
+
+	// the denied file cannot be moved out directly
+	conn := setup(scoped)
+	assert.ErrorIs(t, conn.Rename("/alpha/report.dat", "/report.dat"), os.ErrPermission)
+	// nor can the directory carrying the filter
+	assert.ErrorIs(t, conn.Rename("/alpha", "/beta"), os.ErrPermission)
+	// renaming the directory carrying the filter is the escape itself, whatever
+	// the new name is
+	assert.ErrorIs(t, conn.Rename("/alpha", "/alpha2"), os.ErrPermission)
+	// a rename that keeps the same filter in scope is still allowed
+	assert.NoError(t, conn.Rename("/alpha/doc.txt", "/alpha/doc2.txt"))
+	assert.NoError(t, conn.Rename("/alpha/sub", "/alpha/sub2"))
+
+	// a filter inherited from a parent is escaped just the same
+	conn = setup([]sdk.PatternsFilter{
+		{Path: "/", DeniedPatterns: []string{"*.dat"}},
+		{Path: "/alpha", AllowedPatterns: []string{"*"}},
+	})
+	assert.ErrorIs(t, conn.Rename("/alpha", "/beta"), os.ErrPermission)
+
+	// a tree that carries nothing the filter denies is moved: the entries are
+	// matched one by one and none of them is being taken out of scope
+	conn = setup([]sdk.PatternsFilter{
+		{Path: "/alpha", DeniedPatterns: []string{"*.bin"}},
+	})
+	assert.NoError(t, conn.Rename("/alpha", "/beta"))
+	// and the same tree cannot be moved where the target name is denied
+	conn = setup([]sdk.PatternsFilter{
+		{Path: "/alpha", DeniedPatterns: []string{"*.bin"}},
+		{Path: "/", DeniedPatterns: []string{"*.dat"}},
+	})
+	assert.ErrorIs(t, conn.Rename("/alpha", "/beta"), os.ErrPermission)
+
+	// with no filter at all, or with a filter on the root only, nothing changes
+	conn = setup(nil)
+	assert.NoError(t, conn.Rename("/alpha", "/beta"))
+	conn = setup([]sdk.PatternsFilter{{Path: "/", DeniedPatterns: []string{"*.dat"}}})
+	assert.NoError(t, conn.Rename("/alpha", "/beta"))
+
+	err := os.RemoveAll(homeDir)
+	assert.NoError(t, err)
+}
+
 func TestListerAt(t *testing.T) {
 	dir := t.TempDir()
 	user := dataprovider.User{
