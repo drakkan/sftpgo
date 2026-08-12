@@ -9850,24 +9850,35 @@ func TestSSHFileHash(t *testing.T) {
 			assert.NoError(t, err)
 			err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
 			assert.NoError(t, err)
-			user.Permissions = make(map[string][]string)
-			user.Permissions["/"] = []string{dataprovider.PermUpload}
-			_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
-			assert.NoError(t, err)
-			_, err = runSSHCommand("sha512sum "+testFileName, user, usePubKey)
-			assert.Error(t, err, "hash command with no list permission must fail")
-
-			user.Permissions["/"] = []string{dataprovider.PermAny}
-			_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
-			assert.NoError(t, err)
-
 			initialHash, err := computeHashForFile(sha512.New(), testFilePath)
 			assert.NoError(t, err)
 
-			out, err := runSSHCommand("sha512sum "+testFileName, user, usePubKey)
-			if assert.NoError(t, err) {
-				assert.Contains(t, string(out), initialHash)
+			// computing a digest requires the same permission as reading the file
+			user.Permissions = make(map[string][]string)
+			for _, perms := range [][]string{
+				{dataprovider.PermUpload},
+				{dataprovider.PermListItems, dataprovider.PermUpload},
+			} {
+				user.Permissions["/"] = perms
+				_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+				assert.NoError(t, err)
+				_, err = runSSHCommand("sha512sum "+testFileName, user, usePubKey)
+				assert.Error(t, err, "hash command with no download permission must fail")
 			}
+			for _, perms := range [][]string{
+				{dataprovider.PermDownload},
+				{dataprovider.PermListItems, dataprovider.PermDownload},
+				{dataprovider.PermAny},
+			} {
+				user.Permissions["/"] = perms
+				_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+				assert.NoError(t, err)
+				out, err := runSSHCommand("sha512sum "+testFileName, user, usePubKey)
+				if assert.NoError(t, err) {
+					assert.Contains(t, string(out), initialHash)
+				}
+			}
+
 			_, err = runSSHCommand("sha512sum invalid_path", user, usePubKey)
 			assert.Error(t, err, "hash for an invalid path must fail")
 

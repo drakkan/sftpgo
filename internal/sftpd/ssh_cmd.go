@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"path"
 	"runtime/debug"
 	"slices"
 	"strings"
@@ -180,12 +181,12 @@ func (c *sshCommand) handleHashCommands() error {
 			c.connection.Log(logger.LevelInfo, "hash not allowed for file %q", sshPath)
 			return c.sendErrorResponse(c.connection.GetErrorForDeniedFile(policy))
 		}
+		if !c.connection.User.HasPerm(dataprovider.PermDownload, path.Dir(sshPath)) {
+			return c.sendErrorResponse(c.connection.GetPermissionDeniedError())
+		}
 		fs, fsPath, err := c.connection.GetFsAndResolvedPath(sshPath)
 		if err != nil {
 			return c.sendErrorResponse(err)
-		}
-		if !c.connection.User.HasPerm(dataprovider.PermListItems, sshPath) {
-			return c.sendErrorResponse(c.connection.GetPermissionDeniedError())
 		}
 		hash, err := c.computeHashForFile(fs, h, fsPath)
 		if err != nil {
