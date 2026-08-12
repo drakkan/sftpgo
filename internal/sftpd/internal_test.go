@@ -926,6 +926,92 @@ func TestSCPParseUploadMessage(t *testing.T) {
 
 	_, _, err = scpCommand.parseUploadMessage(fs, "D0755 0 ")
 	assert.Error(t, err, "parsing upload message with invalid name must fail")
+
+	for _, name := range []string{".", "..", "../name", "sub/name", `..\name`, `sub\name`, "/name"} {
+		_, _, err = scpCommand.parseUploadMessage(fs, "C0644 5 "+name)
+		assert.ErrorContains(t, err, "invalid name", "name %q must be rejected", name)
+
+		_, _, err = scpCommand.parseUploadMessage(fs, "D0755 0 "+name)
+		assert.ErrorContains(t, err, "invalid name", "name %q must be rejected", name)
+	}
+
+	for _, name := range []string{"file with spaces.txt", ".bashrc", "..foo", "a.b.c", "...", "-", "name ", "name."} {
+		size, parsed, err := scpCommand.parseUploadMessage(fs, "C0644 5 "+name)
+		assert.NoError(t, err, "name %q must be accepted", name)
+		assert.Equal(t, int64(5), size)
+		assert.Equal(t, name, parsed)
+	}
+}
+
+func TestSCPUploadDestinationScope(t *testing.T) {
+	runUpload := func(t *testing.T, stream string) (string, error) {
+		t.Helper()
+
+		homeDir := t.TempDir()
+		require.NoError(t, os.MkdirAll(filepath.Join(homeDir, "base", "sub"), os.ModePerm))
+
+		user := dataprovider.User{
+			BaseUser: sdk.BaseUser{
+				HomeDir:     homeDir,
+				Permissions: map[string][]string{"/": {dataprovider.PermAny}},
+			},
+		}
+		mockSSHChannel := MockChannel{
+			Buffer:       bytes.NewBuffer([]byte(stream)),
+			StdErrBuffer: bytes.NewBuffer(make([]byte, 65535)),
+		}
+		connection := &Connection{
+			BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", "", user),
+			channel:        &mockSSHChannel,
+		}
+		scpCommand := scpCommand{
+			sshCommand: sshCommand{
+				command:    "scp",
+				connection: connection,
+				args:       []string{"-r", "-t", "/base/sub"},
+			},
+		}
+		return homeDir, scpCommand.handleRecursiveUpload()
+	}
+
+	// The whole tree is compared, so a write nested anywhere is detected too.
+	treeOf := func(t *testing.T, homeDir string) []string {
+		t.Helper()
+
+		var entries []string
+		require.NoError(t, filepath.WalkDir(homeDir, func(p string, _ fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if rel, err := filepath.Rel(homeDir, p); err == nil && rel != "." {
+				entries = append(entries, filepath.ToSlash(rel))
+			}
+			return nil
+		}))
+		return entries
+	}
+
+	for _, stream := range []string{
+		"D0755 0 .\nE\nD0755 0 .\nE\nC0644 5 file1\nhello\x00",
+		"C0644 5 ../../file1\nhello\x00",
+		"C0644 5 ..\\..\\..\\file1\nhello\x00",
+		"D0755 0 ../../dir1\n",
+		"E\n",
+	} {
+		homeDir, err := runUpload(t, stream)
+		assert.Error(t, err, "stream %q must be rejected", stream)
+		assert.Equal(t, []string{"base", "base/sub"}, treeOf(t, homeDir),
+			"stream %q must not create anything", stream)
+	}
+
+	// A well formed recursive upload, as a control that the check does not
+	// reject the ordinary case.
+	homeDir, err := runUpload(t, "D0755 0 dir1\nC0644 5 file1\nhello\x00D0755 0 dir2\nC0644 5 file2\nhello\x00E\nE\n")
+	assert.NoError(t, err)
+	assert.Equal(t, []string{
+		"base", "base/sub", "base/sub/dir1", "base/sub/dir1/dir2",
+		"base/sub/dir1/dir2/file2", "base/sub/dir1/file1",
+	}, treeOf(t, homeDir))
 }
 
 func TestSCPProtocolMessages(t *testing.T) {
