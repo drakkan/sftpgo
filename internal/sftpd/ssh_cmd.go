@@ -176,6 +176,11 @@ func (c *sshCommand) handleHashCommands() error {
 		response = fmt.Sprintf("%x  -\n", h.Sum(nil))
 	} else {
 		sshPath := c.getDestPath()
+		if len(sshPath) > 1 {
+			// a trailing slash would make the permission check evaluate the path itself
+			// instead of the directory it belongs to
+			sshPath = strings.TrimSuffix(sshPath, "/")
+		}
 		hash, err := c.computeHashForFile(h, sshPath)
 		if err != nil {
 			return c.sendErrorResponse(err)
@@ -286,17 +291,17 @@ func (c *sshCommand) sendExitStatus(err error) {
 func (c *sshCommand) computeHashForFile(hasher hash.Hash, virtualPath string) (string, error) {
 	c.connection.UpdateLastActivity()
 
+	if !c.connection.User.HasPerm(dataprovider.PermDownload, path.Dir(virtualPath)) {
+		return "", c.connection.GetPermissionDeniedError()
+	}
 	if err := common.Connections.IsNewTransferAllowed(c.connection.User.Username); err != nil {
 		c.connection.Log(logger.LevelInfo, "denying file read due to transfer count limits")
-		return "", err
+		return "", c.connection.GetPermissionDeniedError()
 	}
 	transferQuota := c.connection.GetTransferQuota()
 	if !transferQuota.HasDownloadSpace() {
 		c.connection.Log(logger.LevelInfo, "denying file read due to quota limits")
 		return "", c.connection.GetReadQuotaExceededError()
-	}
-	if !c.connection.User.HasPerm(dataprovider.PermDownload, path.Dir(virtualPath)) {
-		return "", c.connection.GetPermissionDeniedError()
 	}
 	if ok, policy := c.connection.User.IsFileAllowed(virtualPath); !ok {
 		c.connection.Log(logger.LevelInfo, "reading file %q is not allowed", virtualPath)
