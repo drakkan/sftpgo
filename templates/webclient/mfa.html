@@ -448,8 +448,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 config_name: $('#id_config option:selected').val(),
                 secret: $('#id_secret').text()
             }, {
+                timeout: 15000,
                 headers: {
-                    timeout: 15000,
                     'X-CSRF-TOKEN': '{{.CSRFToken}}'
                 },
                 validateStatus: function (status) {
@@ -518,8 +518,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         axios.post("{{.GenerateTOTPURL}}", {
                 config_name: configName
             }, {
+                timeout: 15000,
                 headers: {
-                    timeout: 15000,
                     'X-CSRF-TOKEN': '{{.CSRFToken}}'
                 },
                 validateStatus: function (status) {
@@ -621,8 +621,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 		el.disabled = true;
 
         axios.post("{{.SaveTOTPURL}}", postData, {
+                timeout: 15000,
                 headers: {
-                    timeout: 15000,
                     'X-CSRF-TOKEN': '{{.CSRFToken}}'
                 },
                 validateStatus: function (status) {
