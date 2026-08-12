@@ -95,6 +95,14 @@ func (s *Service) Start() error {
 		"log max age: %d log level: %s, log compress: %t, log utc time: %t, load data from: %q, grace time: %d secs",
 		version.GetAsString(), s.ConfigDir, s.ConfigFile, s.LogMaxSize, s.LogMaxBackups, s.LogMaxAge, s.LogLevel,
 		s.LogCompress, s.LogUTCTime, s.LoadDataFrom, graceTime)
+	if os.Geteuid() == 0 {
+		// os.Geteuid returns -1 on Windows.
+		const warnString = "running with an effective uid of 0: file operations, hooks and external commands " +
+			"are executed with root privileges, the only boundary between users is SFTPGo's own permission " +
+			"model. Running the service under a dedicated unprivileged account is recommended"
+		logger.Warn(logSender, "", "%s", warnString)
+		logger.WarnToConsole("%s", warnString)
+	}
 	// in portable mode we don't read configuration from file
 	if s.PortableMode != 1 {
 		err := config.LoadConfig(s.ConfigDir, s.ConfigFile)
