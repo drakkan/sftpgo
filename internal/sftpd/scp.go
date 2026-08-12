@@ -409,9 +409,7 @@ func (c *scpCommand) handleRecursiveDownload(fs vfs.Fs, dirPath, virtualPath str
 			for _, file := range files {
 				filePath := fs.GetRelativePath(fs.Join(dirPath, file.Name()))
 				if file.Mode().IsRegular() || file.Mode()&os.ModeSymlink != 0 {
-					err = c.handleDownload(filePath)
-					if err != nil {
-						c.sendErrorMessage(fs, err)
+					if err := c.handleDownload(filePath); err != nil {
 						return err
 					}
 				} else if file.IsDir() {
@@ -424,17 +422,16 @@ func (c *scpCommand) handleRecursiveDownload(fs vfs.Fs, dirPath, virtualPath str
 		}
 		lister.Close()
 
-		return c.downloadDirs(fs, dirs)
+		return c.downloadDirs(dirs)
 	}
 	err = errors.New("unable to send directory for non recursive copy")
 	c.sendErrorMessage(nil, err)
 	return err
 }
 
-func (c *scpCommand) downloadDirs(fs vfs.Fs, dirs []string) error {
+func (c *scpCommand) downloadDirs(dirs []string) error {
 	for _, dir := range dirs {
 		if err := c.handleDownload(dir); err != nil {
-			c.sendErrorMessage(fs, err)
 			return err
 		}
 	}
@@ -501,6 +498,8 @@ func (c *scpCommand) sendDownloadFileData(fs vfs.Fs, filePath string, stat os.Fi
 	return err
 }
 
+// handleDownload sends filePath to the client. It reports its own errors to the
+// client, so callers must not send them again.
 func (c *scpCommand) handleDownload(filePath string) error {
 	c.connection.UpdateLastActivity()
 
@@ -585,7 +584,9 @@ func (c *scpCommand) handleDownload(filePath string) error {
 	// we need to call Close anyway and return close error if any and
 	// if we have no previous error
 	if err == nil {
-		err = t.Close()
+		if err = t.Close(); err != nil {
+			c.sendErrorMessage(fs, err)
+		}
 	} else {
 		t.TransferError(err)
 		t.Close()
