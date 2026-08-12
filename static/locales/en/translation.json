@@ -93,7 +93,6 @@
         "reset_submit": "Update Password and Sign in",
         "confirm_code": "Confirmation code",
         "reset_pwd_forbidden": "You are not allowed to reset your password",
-        "reset_pwd_no_email": "Your account does not have an email address, it is not possible to reset your password by sending an email verification code",
         "reset_pwd_send_email_err": "Unable to send confirmation code via email",
         "reset_pwd_err_generic": "Unexpected error while resetting password",
         "reset_ok_login_error": "The password reset completed successfully but an unexpected error occurred while signing in",

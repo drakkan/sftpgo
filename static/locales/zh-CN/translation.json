@@ -93,7 +93,6 @@
         "reset_submit": "更新密码并登录",
         "confirm_code": "确认码",
         "reset_pwd_forbidden": "您无权重置密码",
-        "reset_pwd_no_email": "您的账户没有电子邮件地址，无法通过发送电子邮件验证码重置您的密码",
         "reset_pwd_send_email_err": "无法通过电子邮件发送确认码",
         "reset_pwd_err_generic": "重置密码时发生意外错误",
         "reset_ok_login_error": "密码重置成功完成，但在登录时发生异常错误",

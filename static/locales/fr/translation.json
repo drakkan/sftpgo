@@ -93,7 +93,6 @@
         "reset_submit": "Mettre à jour le mot de passe et se connecter",
         "confirm_code": "Code de confirmation",
         "reset_pwd_forbidden": "Vous n'êtes pas autorisé à réinitialiser votre mot de passe",
-        "reset_pwd_no_email": "Votre compte n'a pas d'adresse email, il est impossible de réinitialiser votre mot de passe en envoyant un code de vérification par email",
         "reset_pwd_send_email_err": "Impossible d'envoyer le code de confirmation par email",
         "reset_pwd_err_generic": "Erreur inattendue lors de la réinitialisation du mot de passe",
         "reset_ok_login_error": "La réinitialisation du mot de passe a été complétée avec succès, mais une erreur inattendue s'est produite lors de la connexion",

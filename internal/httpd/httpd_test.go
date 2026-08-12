@@ -26941,6 +26941,7 @@ func TestUserForgotPassword(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), util.I18nErrorUsernameRequired)
 	// user cannot reset the password
+	lastResetCode = ""
 	form.Set("username", user.Username)
 	req, err = http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
@@ -26948,8 +26949,8 @@ func TestUserForgotPassword(t *testing.T) {
 	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
-	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), util.I18nErrorPwdResetForbidded)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Len(t, lastResetCode, 0)
 	user.ExpirationDate = util.GetTimeAsMsSinceEpoch(time.Now().Add(-1 * time.Hour))
 	user.Filters.WebClient = []string{sdk.WebClientAPIKeyAuthChangeDisabled}
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
@@ -27108,13 +27109,13 @@ func TestAPIForgotPassword(t *testing.T) {
 	a.Email = ""
 	admin, _, err := httpdtest.AddAdmin(a, http.StatusCreated)
 	assert.NoError(t, err)
-	// no email, forgot pwd will not work
+	// no email, the request is silently ignored
 	lastResetCode = ""
 	req, err := http.NewRequest(http.MethodPost, path.Join(adminPath, altAdminUsername, "/forgot-password"), nil)
 	assert.NoError(t, err)
 	rr := executeRequest(req)
-	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.Contains(t, rr.Body.String(), "Your account does not have an email address")
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Empty(t, lastResetCode)
 
 	admin.Email = "admin@test.com"
 	admin, _, err = httpdtest.UpdateAdmin(admin, http.StatusOK)
@@ -27171,8 +27172,8 @@ func TestAPIForgotPassword(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, path.Join(userPath, defaultUsername, "/forgot-password"), nil)
 	assert.NoError(t, err)
 	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.Contains(t, rr.Body.String(), "Your account does not have an email address")
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Empty(t, lastResetCode)
 
 	user.Email = "user@test.com"
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")

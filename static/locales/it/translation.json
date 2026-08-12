@@ -93,7 +93,6 @@
         "reset_submit": "Aggiorna password e accedi",
         "confirm_code": "Codice di conferma",
         "reset_pwd_forbidden": "Non ti è consentito reimpostare la password",
-        "reset_pwd_no_email": "Il tuo account non ha un indirizzo e-mail, non è possibile reimpostare la password inviando un codice di verifica via e-mail",
         "reset_pwd_send_email_err": "Errore nell'invio del codice di conferma via e-mail",
         "reset_pwd_err_generic": "Errore imprevisto durante la reimpostazione della password",
         "reset_ok_login_error": "La reimpostazione della password è stata completata correttamente ma si è verificato un errore imprevisto durante l'accesso",

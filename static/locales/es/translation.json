@@ -93,7 +93,6 @@
         "reset_submit": "Actualizar contraseña e Iniciar sesión",
         "confirm_code": "Código de confirmación",
         "reset_pwd_forbidden": "No tienes permiso para restablecer tu contraseña",
-        "reset_pwd_no_email": "Tu cuenta no tiene una dirección de correo electrónico, no es posible restablecer tu contraseña enviando un código de verificación por correo",
         "reset_pwd_send_email_err": "No se puede enviar el código de confirmación por correo electrónico",
         "reset_pwd_err_generic": "Error inesperado al restablecer la contraseña",
         "reset_ok_login_error": "El restablecimiento de contraseña se completó con éxito pero ocurrió un error inesperado al iniciar sesión",

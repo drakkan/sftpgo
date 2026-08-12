@@ -801,50 +801,55 @@ func getActiveUser(username string, r *http.Request) (dataprovider.User, error) 
 	return user, nil
 }
 
+func ignoreForgotPasswordRequest(r *http.Request, username string, isAdmin bool, err error) error {
+	logger.Debug(logSender, middleware.GetReqID(r.Context()),
+		"reset password request for username %q silently ignored, is admin? %t, err: %v", username, isAdmin, err)
+	return nil
+}
+
 func handleForgotPassword(r *http.Request, username string, isAdmin bool) error {
 	var emails []string
 	var subject string
 	var err error
 	var admin dataprovider.Admin
 	var user dataprovider.User
+	var canReset bool
 
 	if username == "" {
 		return util.NewI18nError(util.NewValidationError("username is mandatory"), util.I18nErrorUsernameRequired)
 	}
 	if isAdmin {
 		admin, err = getActiveAdmin(username, util.GetIPFromRemoteAddress(r.RemoteAddr))
-		if admin.Email != "" {
-			emails = []string{admin.Email}
+		if err == nil {
+			if admin.Email != "" {
+				emails = []string{admin.Email}
+			}
+			canReset = true
 		}
 		subject = fmt.Sprintf("Email Verification Code for admin %q", username)
 	} else {
 		user, err = getActiveUser(username, r)
-		emails = user.GetEmailAddresses()
 		subject = fmt.Sprintf("Email Verification Code for user %q", username)
 		if err == nil {
-			if !isUserAllowedToResetPassword(r, &user) {
-				return util.NewI18nError(
-					util.NewValidationError("you are not allowed to reset your password"),
-					util.I18nErrorPwdResetForbidded,
-				)
-			}
+			emails = user.GetEmailAddresses()
+			canReset = isUserAllowedToResetPassword(r, &user)
 		}
 	}
 	if err != nil {
 		if errors.Is(err, util.ErrNotFound) {
-			handleDefenderEventLoginFailed(util.GetIPFromRemoteAddress(r.RemoteAddr), err) //nolint:errcheck
-			logger.Debug(logSender, middleware.GetReqID(r.Context()),
-				"username %q does not exists or cannot login, reset password request silently ignored, is admin? %t, err: %v",
-				username, isAdmin, err)
-			return nil
+			common.AddDefenderEvent(util.GetIPFromRemoteAddress(r.RemoteAddr), common.ProtocolHTTP,
+				common.HostEventUserNotFound)
+			return ignoreForgotPasswordRequest(r, username, isAdmin, err)
 		}
 		return util.NewI18nError(util.NewGenericError("Error retrieving your account, please try again later"), util.I18nErrorGetUser)
 	}
+	if !canReset {
+		return ignoreForgotPasswordRequest(r, username, isAdmin,
+			errors.New("password reset is not allowed for this account"))
+	}
 	if len(emails) == 0 {
-		return util.NewI18nError(
-			util.NewValidationError("Your account does not have an email address, it is not possible to reset your password by sending an email verification code"),
-			util.I18nErrorPwdResetNoEmail,
-		)
+		return ignoreForgotPasswordRequest(r, username, isAdmin,
+			errors.New("the account does not have an email address"))
 	}
 	c := newResetCode(username, isAdmin)
 	body := new(bytes.Buffer)
