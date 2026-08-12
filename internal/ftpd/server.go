@@ -212,7 +212,6 @@ func (s *Server) AuthUser(cc ftpserver.ClientContext, username, password string)
 }
 
 // PreAuthUser implements the MainDriverExtensionUserVerifier interface.
-// It ends the sessions of the accounts that require TLS before the password is sent.
 // The TLS requirement is applied after the authentication too, see validateUser.
 func (s *Server) PreAuthUser(cc ftpserver.ClientContext, username string) error {
 	if s.binding.TLSMode != 0 || cc.HasTLSForControl() {
@@ -227,7 +226,13 @@ func (s *Server) PreAuthUser(cc ftpserver.ClientContext, username string) error 
 		return nil
 	}
 	if errors.Is(err, util.ErrNotFound) {
+		// The failed password exchange scores the attempt again: probing an unknown
+		// account over a cleartext session is charged twice, on purpose. USER can be
+		// repeated on the same session, so end it once the client is banned.
 		common.AddDefenderEvent(ipAddr, common.ProtocolFTP, common.HostEventUserNotFound)
+		if common.IsBanned(ipAddr, common.ProtocolFTP) {
+			return common.ErrConnectionDenied
+		}
 		return nil
 	}
 	logger.Error(logSender, fmt.Sprintf("%v_%v_%v", common.ProtocolFTP, s.ID, cc.ID()),
