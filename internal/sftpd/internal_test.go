@@ -602,6 +602,62 @@ func TestCommandsWithExtensionsFilter(t *testing.T) {
 	assert.EqualError(t, err, common.ErrPermissionDenied.Error())
 }
 
+func TestHashCommandPathPermissions(t *testing.T) {
+	buf := make([]byte, 65535)
+	stdErrBuf := make([]byte, 65535)
+	mockSSHChannel := MockChannel{
+		Buffer:       bytes.NewBuffer(buf),
+		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
+	}
+	homeDir := filepath.Join(os.TempDir(), "hash_path_perms")
+	err := os.MkdirAll(filepath.Join(homeDir, "data", "sub"), os.ModePerm)
+	assert.NoError(t, err)
+
+	defer os.RemoveAll(homeDir) //nolint:errcheck
+
+	err = os.WriteFile(filepath.Join(homeDir, "data", "secret.txt"), []byte("secret"), 0o600)
+	assert.NoError(t, err)
+	err = os.WriteFile(filepath.Join(homeDir, "data", "sub", "file.txt"), []byte("sub"), 0o600)
+	assert.NoError(t, err)
+
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username: "test",
+			HomeDir:  homeDir,
+			Status:   1,
+		},
+	}
+	// the pattern matches the subdirectories of "/data", not "/data" itself, so the
+	// files directly inside it are governed by the root permissions
+	user.Permissions = map[string][]string{
+		"/":       {dataprovider.PermListItems},
+		"/data/*": {dataprovider.PermAny},
+	}
+	connection := &Connection{
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSSH, "", "", user),
+		channel:        &mockSSHChannel,
+	}
+	// a trailing slash must not make the check evaluate the file path itself: it would
+	// match the pattern and grant the download permission the parent directory lacks
+	for _, arg := range []string{"/data/secret.txt", "/data/secret.txt/"} {
+		cmd := sshCommand{
+			command:    "md5sum",
+			connection: connection,
+			args:       []string{arg},
+		}
+		err = cmd.handleHashCommands()
+		assert.EqualError(t, err, common.ErrPermissionDenied.Error(), "hashing %q must be denied", arg)
+	}
+	// the pattern grants the permission where it is meant to
+	cmd := sshCommand{
+		command:    "md5sum",
+		connection: connection,
+		args:       []string{"/data/sub/file.txt"},
+	}
+	err = cmd.handleHashCommands()
+	assert.NoError(t, err)
+}
+
 func TestSSHCommandsRemoteFs(t *testing.T) {
 	buf := make([]byte, 65535)
 	stdErrBuf := make([]byte, 65535)
