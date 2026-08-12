@@ -71,11 +71,7 @@ func (m *dbTokenManager) Add(id string, expiresAt time.Time) error {
 		Type:      dataprovider.SessionTypeInvalidToken,
 		Timestamp: util.GetTimeAsMsSinceEpoch(expiresAt),
 	}
-	if err := dataprovider.AddSharedSession(session); err != nil {
-		logger.Warn(logSender, "", "unable to add an entry to the invalidation store: %v", err)
-		return err
-	}
-	return nil
+	return dataprovider.AddSharedSession(session)
 }
 
 func (m *dbTokenManager) Get(id string) bool {
