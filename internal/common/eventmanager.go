@@ -1646,7 +1646,11 @@ func getUserForEventAction(user *dataprovider.User) error {
 		eventManagerLog(logger.LevelError, "unable to get group for user %q: %+v", user.Username, err)
 		return fmt.Errorf("unable to get groups for user %q", user.Username)
 	}
+	// An action is started by the service, not requested by the account, so the
+	// transfer quota and the bandwidth limits of the user do not bound it.
 	user.UploadDataTransfer = 0
+	user.DownloadDataTransfer = 0
+	user.TotalDataTransfer = 0
 	user.UploadBandwidth = 0
 	user.DownloadBandwidth = 0
 	user.Filters.DisableFsChecks = false
