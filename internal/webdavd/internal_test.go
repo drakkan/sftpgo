@@ -1136,6 +1136,68 @@ func TestBasicUsersCache(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestUsersCacheNamingRules(t *testing.T) {
+	username := "webdav_internal_naming_rules"
+	password := "pwd"
+	u := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username:       username,
+			Password:       password,
+			HomeDir:        filepath.Join(os.TempDir(), username),
+			Status:         1,
+			ExpirationDate: 0,
+		},
+	}
+	u.Permissions = make(map[string][]string)
+	u.Permissions["/"] = []string{dataprovider.PermAny}
+	err := dataprovider.AddUser(&u, "", "", "")
+	assert.NoError(t, err)
+
+	c := &Configuration{
+		Bindings: []Binding{
+			{
+				Port: 9000,
+			},
+		},
+		Cache: Cache{
+			Users: UsersCacheConfig{
+				MaxSize:        50,
+				ExpirationTime: 1,
+			},
+		},
+	}
+	dataprovider.InitializeWebDAVUserCache(c.Cache.Users.MaxSize)
+	server := webDavServer{
+		config:  c,
+		binding: c.Bindings[0],
+	}
+
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("/%v", username), nil)
+	assert.NoError(t, err)
+	// the naming rules trim the spaces, the account is stored and cached without them
+	req.SetBasicAuth(username+" ", password)
+
+	ipAddr := "127.0.0.1"
+	_, isCached, lockSystem, _, err := server.authenticate(req, ipAddr)
+	assert.NoError(t, err)
+	assert.False(t, isCached)
+	assert.NotNil(t, lockSystem)
+
+	_, isCached, cachedLockSystem, _, err := server.authenticate(req, ipAddr)
+	assert.NoError(t, err)
+	assert.True(t, isCached)
+	assert.Same(t, lockSystem, cachedLockSystem)
+
+	dataprovider.RemoveCachedWebDAVUser(username + " ")
+	_, ok := dataprovider.GetCachedWebDAVUser(username)
+	assert.False(t, ok)
+
+	err = dataprovider.DeleteUser(username, "", "", "")
+	assert.NoError(t, err)
+	err = os.RemoveAll(u.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestCachedUserWithFolders(t *testing.T) {
 	username := "webdav_internal_folder_test"
 	password := "dav_pwd"
