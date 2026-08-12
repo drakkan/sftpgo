@@ -10174,6 +10174,8 @@ func TestSSHCopyPermissions(t *testing.T) {
 		dataprovider.PermListItems, dataprovider.PermCopy}
 	u.Permissions["/dir3"] = []string{dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermDownload,
 		dataprovider.PermListItems}
+	u.Permissions["/dir4"] = []string{dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermDownload,
+		dataprovider.PermListItems, dataprovider.PermCopy}
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	conn, client, err := getSftpClient(user, usePubKey)
@@ -10217,8 +10219,12 @@ func TestSSHCopyPermissions(t *testing.T) {
 		// now delete the file and copy inside /dir3
 		err = client.Remove(path.Join("/", testDir, testFileName))
 		assert.NoError(t, err)
-		// the symlink will be skipped, so no errors
+		// the copy permission is required on the directory the entries are copied
+		// to, dir3 does not carry it
 		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join("/", testDir), "/dir3"), user, usePubKey)
+		assert.Error(t, err)
+		// dir4 carries it, and the symlink will be skipped, so no errors
+		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join("/", testDir), "/dir4"), user, usePubKey)
 		assert.NoError(t, err)
 
 		err = os.Remove(testFilePath)
