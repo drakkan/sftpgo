@@ -1548,6 +1548,14 @@ func (u *User) applyGroupSettings(groupsMapping map[string]Group) {
 
 // LoadAndApplyGroupSettings update the user by loading and applying the group settings
 func (u *User) LoadAndApplyGroupSettings() error {
+	err := u.loadAndApplyGroupSettings()
+	if u.Filters.IsAnonymous {
+		u.setAnonymousSettings()
+	}
+	return err
+}
+
+func (u *User) loadAndApplyGroupSettings() error {
 	if !u.hasSettingsFromGroups() {
 		return nil
 	}

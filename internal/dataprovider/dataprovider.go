@@ -3325,9 +3325,6 @@ func validateBaseParams(user *User) error {
 		user.UploadDataTransfer = 0
 		user.DownloadDataTransfer = 0
 	}
-	if user.Filters.IsAnonymous {
-		user.setAnonymousSettings()
-	}
 	err := user.FsConfig.Validate(user.GetEncryptionAdditionalData())
 	if err != nil {
 		return err
@@ -3562,7 +3559,6 @@ func checkUserAndPass(user *User, password, ip, protocol string) (User, error) {
 		return *user, errors.New("login not allowed, password change required")
 	}
 	if user.Filters.IsAnonymous {
-		user.setAnonymousSettings()
 		return *user, nil
 	}
 	password, err = checkUserPasscode(user, password, protocol)
