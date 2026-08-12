@@ -69,6 +69,12 @@ concept**:
   Referrer-Policy, Permissions-Policy and similar. Clickjacking, framing, or
   "missing header X" findings whose only remediation is enabling one of these
   controls fall here.
+- The observable effect of a control that necessarily acts before
+  authentication — a connection refused, a session ended, a requirement
+  applied, an authentication method declined — including what an
+  unauthenticated client can infer from a reply, a sequence, or a response
+  time. Deferring such a control until after authentication would remove the
+  protection it provides, and we do not make that trade.
 - Behavior that requires an administrator to deliberately weaken or disable a
   security control, or to choose an insecure configuration (for example a weak
   operator-chosen secret).
