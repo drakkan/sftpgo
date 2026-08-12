@@ -18570,6 +18570,162 @@ func TestUserCopyDeniedPatternSource(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestImplicitParentDirDeniedPattern(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	uploadFile := func(dirPath, name string, mkdirParents bool) int {
+		body := new(bytes.Buffer)
+		w := multipart.NewWriter(body)
+		part, err := w.CreateFormFile("filenames", name)
+		assert.NoError(t, err)
+		_, err = part.Write([]byte("content of " + name))
+		assert.NoError(t, err)
+		assert.NoError(t, w.Close())
+		reqURL := userFilesPath + "?mkdir_parents=" + strconv.FormatBool(mkdirParents)
+		if dirPath != "" {
+			reqURL += "&path=" + url.QueryEscape(dirPath)
+		}
+		req, err := http.NewRequest(http.MethodPost, reqURL, bytes.NewReader(body.Bytes()))
+		assert.NoError(t, err)
+		req.Header.Add("Content-Type", w.FormDataContentType())
+		setBearerForReq(req, token)
+		return executeRequest(req).Code
+	}
+	copyPath := func(source, target string) int {
+		req, err := http.NewRequest(http.MethodPost, userFileActionsPath+"/copy?path="+
+			url.QueryEscape(source)+"&target="+url.QueryEscape(target), nil)
+		assert.NoError(t, err)
+		setBearerForReq(req, token)
+		return executeRequest(req).Code
+	}
+	dirExists := func(name string) bool {
+		_, err := os.Stat(filepath.Join(user.GetHomeDir(), name))
+		return err == nil
+	}
+
+	// upload the fixtures before any pattern is applied
+	assert.Equal(t, http.StatusCreated, uploadFile("", "readme.txt", false))
+	assert.Equal(t, http.StatusCreated, uploadFile("", "notes.dat", false))
+
+	for _, policy := range []int{sdk.DenyPolicyDefault, sdk.DenyPolicyHide} {
+		user.Filters.FilePatterns = []sdk.PatternsFilter{
+			{Path: "/", DeniedPatterns: []string{"beta*"}, DenyPolicy: policy},
+		}
+		user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+		assert.NoError(t, err)
+		token, err = getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+		assert.NoError(t, err)
+
+		// an explicit mkdir of the denied name is refused
+		req, err := http.NewRequest(http.MethodPost, userDirsPath+"?path=betadir", nil)
+		assert.NoError(t, err)
+		setBearerForReq(req, token)
+		checkResponseCode(t, http.StatusForbidden, executeRequest(req))
+
+		// so a copy creating the same name as a missing parent must be refused too
+		assert.Equal(t, http.StatusForbidden, copyPath("/readme.txt", "/betadir/readme.txt"), "policy %d", policy)
+		assert.False(t, dirExists("betadir"), "policy %d", policy)
+
+		// and so must an upload asking for the missing parents
+		assert.Equal(t, http.StatusForbidden, uploadFile("/betadir2", "readme.txt", true), "policy %d", policy)
+		assert.False(t, dirExists("betadir2"), "policy %d", policy)
+
+		// an allowed parent is still created on demand
+		assert.Equal(t, http.StatusOK, copyPath("/readme.txt", "/newdir/readme.txt"), "policy %d", policy)
+		assert.True(t, dirExists("newdir"), "policy %d", policy)
+
+		// a copy refused on the source leaves no parent behind either
+		user.Filters.FilePatterns = []sdk.PatternsFilter{
+			{Path: "/", DeniedPatterns: []string{"*.dat"}, DenyPolicy: policy},
+		}
+		user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+		assert.NoError(t, err)
+		token, err = getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+		assert.NoError(t, err)
+		expected := http.StatusForbidden
+		if policy == sdk.DenyPolicyHide {
+			expected = http.StatusNotFound
+		}
+		assert.Equal(t, expected, copyPath("/notes.dat", "/otherdir/notes.txt"), "policy %d", policy)
+		assert.False(t, dirExists("otherdir"), "policy %d", policy)
+
+		req, err = http.NewRequest(http.MethodDelete, userDirsPath+"?path=newdir", nil)
+		assert.NoError(t, err)
+		setBearerForReq(req, token)
+		executeRequest(req)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestCopyDirDeniedNames(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	// the fixtures are created before the filter is applied
+	for _, dirPath := range []string{"srcdir", "srcdir/betasub", "srcdir/plain"} {
+		req, err := http.NewRequest(http.MethodPost, userDirsPath+"?path="+url.QueryEscape(dirPath), nil)
+		assert.NoError(t, err)
+		setBearerForReq(req, token)
+		checkResponseCode(t, http.StatusCreated, executeRequest(req))
+	}
+	copyPath := func(source, target string) int {
+		req, err := http.NewRequest(http.MethodPost, userFileActionsPath+"/copy?path="+
+			url.QueryEscape(source)+"&target="+url.QueryEscape(target), nil)
+		assert.NoError(t, err)
+		setBearerForReq(req, token)
+		return executeRequest(req).Code
+	}
+	exists := func(name string) bool {
+		_, err := os.Stat(filepath.Join(user.GetHomeDir(), filepath.FromSlash(name)))
+		return err == nil
+	}
+
+	for _, policy := range []int{sdk.DenyPolicyDefault, sdk.DenyPolicyHide} {
+		user.Filters.FilePatterns = []sdk.PatternsFilter{
+			{Path: "/", DeniedPatterns: []string{"beta*"}, DenyPolicy: policy},
+		}
+		user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+		assert.NoError(t, err)
+		token, err = getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+		assert.NoError(t, err)
+
+		// a denied target name below a parent that does not exist yet: the copy is
+		// refused and the parent it would have created is not left behind
+		assert.Equal(t, http.StatusForbidden, copyPath("/srcdir", "/newparent/betadir"), "policy %d", policy)
+		assert.False(t, exists("newparent"), "policy %d", policy)
+
+		// a nested entry whose name is denied: under the default policy the copy is
+		// refused, under the hide policy the entry is filtered out of the listing
+		code := copyPath("/srcdir", "/dstdir")
+		if policy == sdk.DenyPolicyHide {
+			assert.Equal(t, http.StatusOK, code)
+			assert.True(t, exists("dstdir/plain"))
+		} else {
+			assert.Equal(t, http.StatusForbidden, code)
+		}
+		assert.False(t, exists("dstdir/betasub"), "policy %d", policy)
+
+		req, err := http.NewRequest(http.MethodDelete, userDirsPath+"?path=dstdir", nil)
+		assert.NoError(t, err)
+		setBearerForReq(req, token)
+		executeRequest(req)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestCopyDirRequiresCopyPerm(t *testing.T) {
 	u := getTestUser()
 	u.Permissions = map[string][]string{

@@ -204,7 +204,7 @@ func (c *Connection) Filecmd(request *sftp.Request) error {
 	case "Rmdir":
 		return c.RemoveDir(request.Filepath)
 	case "Mkdir":
-		err := c.CreateDir(request.Filepath, true)
+		err := c.CreateDir(request.Filepath)
 		if err != nil {
 			return err
 		}

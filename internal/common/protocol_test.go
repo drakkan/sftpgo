@@ -3290,7 +3290,7 @@ func TestResolvePathError(t *testing.T) {
 	testPath := "apath"
 	_, err := conn.ListDir(testPath)
 	assert.Error(t, err)
-	err = conn.CreateDir(testPath, true)
+	err = conn.CreateDir(testPath)
 	assert.Error(t, err)
 	err = conn.RemoveDir(testPath)
 	assert.Error(t, err)
@@ -9669,7 +9669,7 @@ func TestHTTPFs(t *testing.T) {
 	assert.NoError(t, err)
 
 	conn := common.NewBaseConnection(xid.New().String(), common.ProtocolFTP, "", "", user)
-	err = conn.CreateDir(httpFsWellKnowDir, false)
+	err = conn.CreateDir(httpFsWellKnowDir)
 	assert.NoError(t, err)
 
 	err = os.WriteFile(filepath.Join(os.TempDir(), "httpfs", defaultHTTPFsUsername, httpFsWellKnowDir, "file.txt"), []byte("data"), 0666)

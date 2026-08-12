@@ -379,14 +379,13 @@ func (c *BaseConnection) GetCreateChecks(virtualPath string, isNewFile bool, isR
 }
 
 // CreateDir creates a new directory at the specified fsPath
-func (c *BaseConnection) CreateDir(virtualPath string, checkFilePatterns bool) error {
+func (c *BaseConnection) CreateDir(virtualPath string) error {
 	if !c.User.HasPerm(dataprovider.PermCreateDirs, path.Dir(virtualPath)) {
 		return c.GetPermissionDeniedError()
 	}
-	if checkFilePatterns {
-		if ok, _ := c.User.IsFileAllowed(virtualPath); !ok {
-			return c.GetPermissionDeniedError()
-		}
+	if ok, _ := c.User.IsFileAllowed(virtualPath); !ok {
+		c.Log(logger.LevelDebug, "creating directory %q is not allowed", virtualPath)
+		return c.GetPermissionDeniedError()
 	}
 	if c.User.IsVirtualFolder(virtualPath) {
 		c.Log(logger.LevelWarn, "mkdir not allowed %q is a virtual folder", virtualPath)
@@ -723,7 +722,7 @@ func (c *BaseConnection) doRecursiveCopy(virtualSourcePath, virtualTargetPath st
 		}
 		recursion++
 		if createTargetDir {
-			if err := c.CreateDir(virtualTargetPath, false); err != nil {
+			if err := c.CreateDir(virtualTargetPath); err != nil {
 				return fmt.Errorf("unable to create directory %q: %w", virtualTargetPath, err)
 			}
 		}
@@ -1037,10 +1036,11 @@ func (c *BaseConnection) DoStat(virtualPath string, mode int, checkFilePatterns 
 	return c.doStatInternal(virtualPath, mode, checkFilePatterns, true)
 }
 
+// createDirIfMissing creates name if it does not exist.
 func (c *BaseConnection) createDirIfMissing(name string) error {
 	_, err := c.DoStat(name, 0, false)
 	if c.IsNotExistError(err) {
-		return c.CreateDir(name, false)
+		return c.CreateDir(name)
 	}
 	return err
 }

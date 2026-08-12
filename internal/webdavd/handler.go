@@ -103,7 +103,7 @@ func (c *Connection) Mkdir(_ context.Context, name string, _ os.FileMode) error 
 	c.UpdateLastActivity()
 
 	name = util.CleanPath(name)
-	return c.CreateDir(name, true)
+	return c.CreateDir(name)
 }
 
 // Rename renames a file or a directory
