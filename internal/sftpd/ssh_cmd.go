@@ -37,7 +37,6 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/metric"
 	"github.com/drakkan/sftpgo/v2/internal/util"
-	"github.com/drakkan/sftpgo/v2/internal/vfs"
 )
 
 const (
@@ -177,20 +176,9 @@ func (c *sshCommand) handleHashCommands() error {
 		response = fmt.Sprintf("%x  -\n", h.Sum(nil))
 	} else {
 		sshPath := c.getDestPath()
-		if ok, policy := c.connection.User.IsFileAllowed(sshPath); !ok {
-			c.connection.Log(logger.LevelInfo, "hash not allowed for file %q", sshPath)
-			return c.sendErrorResponse(c.connection.GetErrorForDeniedFile(policy))
-		}
-		if !c.connection.User.HasPerm(dataprovider.PermDownload, path.Dir(sshPath)) {
-			return c.sendErrorResponse(c.connection.GetPermissionDeniedError())
-		}
-		fs, fsPath, err := c.connection.GetFsAndResolvedPath(sshPath)
+		hash, err := c.computeHashForFile(h, sshPath)
 		if err != nil {
 			return c.sendErrorResponse(err)
-		}
-		hash, err := c.computeHashForFile(fs, h, fsPath)
-		if err != nil {
-			return c.sendErrorResponse(c.connection.GetFsError(fs, err))
 		}
 		response = fmt.Sprintf("%v  %v\n", hash, sshPath)
 	}
@@ -291,24 +279,58 @@ func (c *sshCommand) sendExitStatus(err error) {
 	}
 }
 
-func (c *sshCommand) computeHashForFile(fs vfs.Fs, hasher hash.Hash, path string) (string, error) {
-	hash := ""
-	f, r, _, err := fs.Open(path, 0)
+// computeHashForFile reads the file content to compute its digest. The read is a
+// download: it requires the same access, it is accounted against the data transfer
+// quota and it is registered among the active transfers, so it is throttled, it is
+// visible to the admins and it can be aborted.
+func (c *sshCommand) computeHashForFile(hasher hash.Hash, virtualPath string) (string, error) {
+	c.connection.UpdateLastActivity()
+
+	if err := common.Connections.IsNewTransferAllowed(c.connection.BaseConnection); err != nil {
+		c.connection.Log(logger.LevelInfo, "denying file read due to transfer count limits")
+		return "", err
+	}
+	transferQuota := c.connection.GetTransferQuota()
+	if !transferQuota.HasDownloadSpace() {
+		c.connection.Log(logger.LevelInfo, "denying file read due to quota limits")
+		return "", c.connection.GetReadQuotaExceededError()
+	}
+	if !c.connection.User.HasPerm(dataprovider.PermDownload, path.Dir(virtualPath)) {
+		return "", c.connection.GetPermissionDeniedError()
+	}
+	if ok, policy := c.connection.User.IsFileAllowed(virtualPath); !ok {
+		c.connection.Log(logger.LevelInfo, "reading file %q is not allowed", virtualPath)
+		return "", c.connection.GetErrorForDeniedFile(policy)
+	}
+	fs, fsPath, err := c.connection.GetFsAndResolvedPath(virtualPath)
 	if err != nil {
-		return hash, err
+		return "", err
 	}
-	var reader io.ReadCloser
-	if f != nil {
-		reader = f
-	} else {
-		reader = r
+	if _, err := common.ExecutePreAction(c.connection.BaseConnection, common.OperationPreDownload, fsPath,
+		virtualPath, 0, 0); err != nil {
+		c.connection.Log(logger.LevelDebug, "download for file %q denied by pre action: %v", virtualPath, err)
+		return "", c.connection.GetPermissionDeniedError()
 	}
-	defer reader.Close()
-	_, err = io.Copy(hasher, reader)
+	file, r, cancelFn, err := fs.Open(fsPath, 0)
+	if err != nil {
+		c.connection.Log(logger.LevelError, "could not open file %q for reading: %v", fsPath, err)
+		return "", c.connection.GetFsError(fs, err)
+	}
+	baseTransfer := common.NewBaseTransfer(file, c.connection.BaseConnection, cancelFn, fsPath, fsPath,
+		virtualPath, common.TransferDownload, 0, 0, 0, 0, false, fs, transferQuota)
+	t := newTransfer(baseTransfer, nil, r, nil)
+
+	_, err = io.Copy(hasher, &transferReader{transfer: t})
 	if err == nil {
-		hash = fmt.Sprintf("%x", hasher.Sum(nil))
+		err = t.Close()
+	} else {
+		t.TransferError(err)
+		t.Close()
 	}
-	return hash, err
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", hasher.Sum(nil)), nil
 }
 
 func parseCommandPayload(command string) (string, []string, error) {
