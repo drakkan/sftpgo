@@ -662,6 +662,15 @@ func hasOSPaths(fsConfig vfs.Filesystem) bool {
 	}
 }
 
+// checkCopyTargetPattern matches the file pattern filter on the copy destination.
+func (c *BaseConnection) checkCopyTargetPattern(virtualTargetPath string) error {
+	if ok, _ := c.User.IsFileAllowed(virtualTargetPath); !ok {
+		c.Log(logger.LevelDebug, "copy target path %q is not allowed", virtualTargetPath)
+		return c.GetPermissionDeniedError()
+	}
+	return nil
+}
+
 // checkCopyPermissions validates the source and target authorization for a file copy.
 // The write permission and quota on the target are checked by checkWriterPermsAndQuota.
 func (c *BaseConnection) checkCopyPermissions(virtualSourcePath, virtualTargetPath string) error {
@@ -676,11 +685,7 @@ func (c *BaseConnection) checkCopyPermissions(virtualSourcePath, virtualTargetPa
 		c.Log(logger.LevelDebug, "copy source path %q is not allowed", virtualSourcePath)
 		return c.GetErrorForDeniedFile(policy)
 	}
-	if ok, _ := c.User.IsFileAllowed(virtualTargetPath); !ok {
-		c.Log(logger.LevelDebug, "copy target path %q is not allowed", virtualTargetPath)
-		return c.GetPermissionDeniedError()
-	}
-	return nil
+	return c.checkCopyTargetPattern(virtualTargetPath)
 }
 
 func (c *BaseConnection) copyFile(virtualSourcePath, virtualTargetPath string, srcInfo os.FileInfo) error {
@@ -831,6 +836,27 @@ func (c *BaseConnection) Copy(virtualSourcePath, virtualTargetPath string) error
 	}
 	createTargetDir := dstInfo == nil || !dstInfo.IsDir()
 	if err := c.checkCopy(srcInfo, dstInfo, virtualSourcePath, destPath); err != nil {
+		return err
+	}
+	// The top level is authorized before the missing parents are created. Each
+	// copied file is checked again in copyFile and each created directory in
+	// CreateDir, so a refusal raised deeper in the tree leaves the entries copied
+	// until that point behind.
+	if srcInfo.IsDir() {
+		// A directory tree carrying no file never reaches copyFile, so the top
+		// level carries the copy permission check too, on the directories the
+		// entries are copied from and to. The directories created inside the
+		// tree are checked by CreateDir, under the create_dirs permission.
+		if !c.User.HasPerm(dataprovider.PermCopy, virtualSourcePath) ||
+			!c.User.HasPerm(dataprovider.PermCopy, destPath) {
+			return c.GetPermissionDeniedError()
+		}
+		if createTargetDir {
+			if err := c.checkCopyTargetPattern(destPath); err != nil {
+				return err
+			}
+		}
+	} else if err := c.checkCopyPermissions(virtualSourcePath, destPath); err != nil {
 		return err
 	}
 	if err := c.CheckParentDirs(path.Dir(destPath)); err != nil {

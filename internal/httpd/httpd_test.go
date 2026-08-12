@@ -18680,6 +18680,98 @@ func TestUserCopyDeniedPatternSource(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestCopyDirRequiresCopyPerm(t *testing.T) {
+	u := getTestUser()
+	u.Permissions = map[string][]string{
+		"/": {
+			dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload,
+			dataprovider.PermCreateDirs, dataprovider.PermDelete,
+		},
+	}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	for _, dirPath := range []string{"srcdir", "srcdir/sub"} {
+		req, err := http.NewRequest(http.MethodPost, userDirsPath+"?path="+url.QueryEscape(dirPath), nil)
+		assert.NoError(t, err)
+		setBearerForReq(req, token)
+		checkResponseCode(t, http.StatusCreated, executeRequest(req))
+	}
+	copyDir := func(source, target string) int {
+		req, err := http.NewRequest(http.MethodPost, userFileActionsPath+"/copy?path="+
+			url.QueryEscape(source)+"&target="+url.QueryEscape(target), nil)
+		assert.NoError(t, err)
+		setBearerForReq(req, token)
+		return executeRequest(req).Code
+	}
+	dirExists := func(name string) bool {
+		_, err := os.Stat(filepath.Join(user.GetHomeDir(), name))
+		return err == nil
+	}
+
+	assert.Equal(t, http.StatusForbidden, copyDir("/srcdir", "/dstdir"))
+	assert.False(t, dirExists("dstdir"))
+
+	// the same copy is allowed once the permission is granted
+	user.Permissions["/"] = append(user.Permissions["/"], dataprovider.PermCopy)
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	token, err = getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	assert.Equal(t, http.StatusOK, copyDir("/srcdir", "/dstdir"))
+	assert.True(t, dirExists(filepath.Join("dstdir", "sub")))
+
+	// With per directory permissions the check matches the directories the entries
+	// are copied from and to, not their parents: the copy of a directory whose own
+	// entries cannot be copied is refused before anything is created.
+	err = os.WriteFile(filepath.Join(user.GetHomeDir(), "srcdir", "sub", "a.txt"), []byte("content"), 0o600)
+	assert.NoError(t, err)
+	noCopy := []string{
+		dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload,
+		dataprovider.PermOverwrite, dataprovider.PermCreateDirs, dataprovider.PermDelete,
+	}
+	user.Permissions = map[string][]string{
+		"/":           {dataprovider.PermAny},
+		"/srcdir/sub": noCopy,
+	}
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	token, err = getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	assert.Equal(t, http.StatusForbidden, copyDir("/srcdir/sub", "/dstsub"))
+	assert.False(t, dirExists("dstsub"))
+
+	// the mirror case: the permission granted on the source directory itself is
+	// enough, even when its parent does not carry it
+	req, err := http.NewRequest(http.MethodPost, userDirsPath+"?path="+url.QueryEscape("dst"), nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	checkResponseCode(t, http.StatusCreated, executeRequest(req))
+
+	user.Permissions = map[string][]string{
+		"/":           noCopy,
+		"/srcdir/sub": {dataprovider.PermAny},
+		"/dst":        {dataprovider.PermAny},
+	}
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	token, err = getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	assert.Equal(t, http.StatusOK, copyDir("/srcdir/sub", "/dst/sub"))
+	assert.True(t, dirExists(filepath.Join("dst", "sub")))
+	assert.FileExists(t, filepath.Join(user.GetHomeDir(), "dst", "sub", "a.txt"))
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestCopyDownloadParity(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
