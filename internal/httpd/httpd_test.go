@@ -18424,6 +18424,228 @@ func TestWebUploadSingleFile(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "Unable to retrieve your user")
 }
 
+func TestUserCopyDeniedPatternSource(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	uploadFiles := func(dirPath string, names ...string) {
+		body := new(bytes.Buffer)
+		w := multipart.NewWriter(body)
+		for _, name := range names {
+			part, err := w.CreateFormFile("filenames", name)
+			assert.NoError(t, err)
+			_, err = part.Write([]byte("content of " + name))
+			assert.NoError(t, err)
+		}
+		err := w.Close()
+		assert.NoError(t, err)
+		reqURL := userFilesPath
+		if dirPath != "" {
+			reqURL += "?path=" + url.QueryEscape(dirPath)
+		}
+		req, err := http.NewRequest(http.MethodPost, reqURL, bytes.NewReader(body.Bytes()))
+		assert.NoError(t, err)
+		req.Header.Add("Content-Type", w.FormDataContentType())
+		setBearerForReq(req, token)
+		rr := executeRequest(req)
+		checkResponseCode(t, http.StatusCreated, rr)
+	}
+	// upload the fixtures before any pattern is applied
+	uploadFiles("", "report.dat", "readme.txt")
+	req, err := http.NewRequest(http.MethodPost, userDirsPath+"?path=srcdir", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	uploadFiles("srcdir", "doc1.txt", "doc2.txt")
+
+	// a global extension pattern: the source keeps its extension, so a directory
+	// copy is already blocked by the target check; only a single-file copy that
+	// renames to an allowed extension exercises the source check.
+	globalKeyFilter := []sdk.PatternsFilter{
+		{
+			Path:           "/",
+			DeniedPatterns: []string{"*.dat"},
+		},
+	}
+	// a path-scoped restriction: copying to an unrestricted directory would drain
+	// the denied files without the source check.
+	pathScopedFilter := []sdk.PatternsFilter{
+		{
+			Path:           "/srcdir",
+			DeniedPatterns: []string{"*"},
+		},
+	}
+
+	for _, policy := range []int{sdk.DenyPolicyDefault, sdk.DenyPolicyHide} {
+		deniedCode := http.StatusForbidden
+		if policy == sdk.DenyPolicyHide {
+			deniedCode = http.StatusNotFound
+		}
+
+		globalKeyFilter[0].DenyPolicy = policy
+		user.Filters.FilePatterns = globalKeyFilter
+		user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+		assert.NoError(t, err)
+		token, err = getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+		assert.NoError(t, err)
+
+		// direct download of the denied file is blocked
+		req, err = http.NewRequest(http.MethodGet, userFilesPath+"?path=report.dat", nil)
+		assert.NoError(t, err)
+		setBearerForReq(req, token)
+		rr = executeRequest(req)
+		checkResponseCode(t, deniedCode, rr)
+
+		// the sibling rename is blocked and reports the same policy as a copy
+		req, err = http.NewRequest(http.MethodPost, userFileActionsPath+"/move?path=report.dat&target=moved.txt", nil)
+		assert.NoError(t, err)
+		setBearerForReq(req, token)
+		rr = executeRequest(req)
+		checkResponseCode(t, deniedCode, rr)
+
+		// copying the denied source to an allowed target is blocked
+		req, err = http.NewRequest(http.MethodPost, userFileActionsPath+"/copy?path=report.dat&target=copied.txt", nil)
+		assert.NoError(t, err)
+		setBearerForReq(req, token)
+		rr = executeRequest(req)
+		checkResponseCode(t, deniedCode, rr)
+		// the copy must not have happened
+		req, err = http.NewRequest(http.MethodGet, userFilesPath+"?path=copied.txt", nil)
+		assert.NoError(t, err)
+		setBearerForReq(req, token)
+		rr = executeRequest(req)
+		checkResponseCode(t, http.StatusNotFound, rr)
+
+		// copying an allowed file works
+		req, err = http.NewRequest(http.MethodPost, userFileActionsPath+"/copy?path=readme.txt&target=readme_copy.txt", nil)
+		assert.NoError(t, err)
+		setBearerForReq(req, token)
+		rr = executeRequest(req)
+		checkResponseCode(t, http.StatusOK, rr)
+		req, err = http.NewRequest(http.MethodDelete, userFilesPath+"?path=readme_copy.txt", nil)
+		assert.NoError(t, err)
+		setBearerForReq(req, token)
+		rr = executeRequest(req)
+		checkResponseCode(t, http.StatusOK, rr)
+
+		// path-scoped deny, copy to an unrestricted directory
+		pathScopedFilter[0].DenyPolicy = policy
+		user.Filters.FilePatterns = pathScopedFilter
+		user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+		assert.NoError(t, err)
+		token, err = getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+		assert.NoError(t, err)
+
+		req, err = http.NewRequest(http.MethodPost, userFileActionsPath+"/copy?path=srcdir&target=dstdir", nil)
+		assert.NoError(t, err)
+		setBearerForReq(req, token)
+		rr = executeRequest(req)
+		if policy == sdk.DenyPolicyHide {
+			// hidden entries are filtered from the listing: the copy succeeds and drains nothing
+			checkResponseCode(t, http.StatusOK, rr)
+		} else {
+			// the denied entry aborts the recursive copy
+			checkResponseCode(t, http.StatusForbidden, rr)
+		}
+		// in both cases the restricted files must be absent from the target
+		for _, name := range []string{"doc1.txt", "doc2.txt"} {
+			req, err = http.NewRequest(http.MethodGet, userFilesPath+"?path="+url.QueryEscape("/dstdir/"+name), nil)
+			assert.NoError(t, err)
+			setBearerForReq(req, token)
+			rr = executeRequest(req)
+			checkResponseCode(t, http.StatusNotFound, rr)
+		}
+		req, err = http.NewRequest(http.MethodDelete, userDirsPath+"?path=dstdir", nil)
+		assert.NoError(t, err)
+		setBearerForReq(req, token)
+		executeRequest(req)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestCopyDownloadParity(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	// upload the fixtures before applying any pattern
+	body := new(bytes.Buffer)
+	w := multipart.NewWriter(body)
+	for _, name := range []string{"allowed.txt", "report.dat"} {
+		part, err := w.CreateFormFile("filenames", name)
+		assert.NoError(t, err)
+		_, err = part.Write([]byte("content of " + name))
+		assert.NoError(t, err)
+	}
+	assert.NoError(t, w.Close())
+	req, err := http.NewRequest(http.MethodPost, userFilesPath, bytes.NewReader(body.Bytes()))
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", w.FormDataContentType())
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+
+	downloadStatus := func(tok, srcPath string) int {
+		req, err := http.NewRequest(http.MethodGet, userFilesPath+"?path="+url.QueryEscape(srcPath), nil)
+		assert.NoError(t, err)
+		setBearerForReq(req, tok)
+		return executeRequest(req).Code
+	}
+	copyStatus := func(tok, srcPath, targetName string) int {
+		req, err := http.NewRequest(http.MethodPost, userFileActionsPath+"/copy?path="+
+			url.QueryEscape(srcPath)+"&target="+url.QueryEscape(targetName), nil)
+		assert.NoError(t, err)
+		setBearerForReq(req, tok)
+		return executeRequest(req).Code
+	}
+
+	for _, policy := range []int{sdk.DenyPolicyDefault, sdk.DenyPolicyHide} {
+		user.Filters.FilePatterns = []sdk.PatternsFilter{
+			{Path: "/", DeniedPatterns: []string{"*.dat"}, DenyPolicy: policy},
+		}
+		user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+		assert.NoError(t, err)
+		token, err = getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+		assert.NoError(t, err)
+
+		// an allowed file: downloadable implies copyable
+		assert.Equal(t, http.StatusOK, downloadStatus(token, "/allowed.txt"), "policy %d", policy)
+		assert.Equal(t, http.StatusOK, copyStatus(token, "/allowed.txt", "/allowed_copy.txt"), "policy %d", policy)
+		req, err = http.NewRequest(http.MethodDelete, userFilesPath+"?path=allowed_copy.txt", nil)
+		assert.NoError(t, err)
+		setBearerForReq(req, token)
+		checkResponseCode(t, http.StatusOK, executeRequest(req))
+
+		// a denied file: download and copy must agree
+		dlCode := downloadStatus(token, "/report.dat")
+		cpCode := copyStatus(token, "/report.dat", "/copied.txt")
+		assert.Equal(t, dlCode, cpCode, "download and copy must agree for a denied source, policy %d", policy)
+		expected := http.StatusForbidden
+		if policy == sdk.DenyPolicyHide {
+			expected = http.StatusNotFound
+		}
+		assert.Equal(t, expected, cpCode, "policy %d", policy)
+		// the denied copy must not have produced a file
+		req, err = http.NewRequest(http.MethodGet, userFilesPath+"?path=copied.txt", nil)
+		assert.NoError(t, err)
+		setBearerForReq(req, token)
+		checkResponseCode(t, http.StatusNotFound, executeRequest(req))
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestWebFilesAPI(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)

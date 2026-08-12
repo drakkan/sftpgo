@@ -981,7 +981,7 @@ func TestHiddenPatternFilter(t *testing.T) {
 		err = client.RemoveDirectory(path.Join(deniedDir, dirName))
 		assert.ErrorIs(t, err, os.ErrNotExist)
 		err = client.Rename(path.Join(deniedDir, dirName), path.Join(deniedDir, "newname"))
-		assert.ErrorIs(t, err, os.ErrPermission)
+		assert.ErrorIs(t, err, os.ErrNotExist)
 		err = client.Mkdir(path.Join(deniedDir, "beta1"))
 		assert.ErrorIs(t, err, os.ErrPermission)
 		err = writeSFTPFile(path.Join(deniedDir, "afile.txt"), 1024, client)
@@ -1096,7 +1096,7 @@ func TestHiddenRoot(t *testing.T) {
 		err = writeSFTPFile("ftp123", 4096, client)
 		assert.ErrorIs(t, err, os.ErrPermission)
 		err = client.Rename(testFileName, testFileName+"_rename") //nolint:goconst
-		assert.ErrorIs(t, err, os.ErrPermission)
+		assert.ErrorIs(t, err, os.ErrNotExist)
 		err = writeSFTPFile(path.Join("/ftp", testFileName), 4096, client)
 		assert.NoError(t, err)
 		err = client.Mkdir("/ftp/dir")
