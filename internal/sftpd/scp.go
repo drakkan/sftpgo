@@ -383,15 +383,14 @@ func (c *scpCommand) handleRecursiveDownload(fs vfs.Fs, dirPath, virtualPath str
 		if err != nil {
 			return err
 		}
-		// dirPath is a fs path, not a virtual path
-		lister, err := fs.ReadDir(dirPath)
+		// ListDir requires the list permission and merges the virtual folders and
+		// the file pattern filters, as the listing of any other protocol does.
+		lister, err := c.connection.ListDir(virtualPath)
 		if err != nil {
 			c.sendErrorMessage(fs, err)
 			return err
 		}
 		defer lister.Close()
-
-		vdirs := c.connection.User.GetVirtualFoldersInfo(virtualPath)
 
 		var dirs []string
 		for {
@@ -401,13 +400,8 @@ func (c *scpCommand) handleRecursiveDownload(fs vfs.Fs, dirPath, virtualPath str
 				c.sendErrorMessage(fs, err)
 				return err
 			}
-			files = c.connection.User.FilterListDir(files, fs.GetRelativePath(dirPath))
-			if len(vdirs) > 0 {
-				files = append(files, vdirs...)
-				vdirs = nil
-			}
 			for _, file := range files {
-				filePath := fs.GetRelativePath(fs.Join(dirPath, file.Name()))
+				filePath := path.Join(virtualPath, file.Name())
 				if file.Mode().IsRegular() || file.Mode()&os.ModeSymlink != 0 {
 					if err := c.handleDownload(filePath); err != nil {
 						return err
