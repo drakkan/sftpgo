@@ -996,7 +996,7 @@ func TestSCPProtocolMessages(t *testing.T) {
 	}
 	scpCommand.connection.channel = &mockSSHChannel
 
-	err = scpCommand.downloadDirs(nil, nil)
+	err = scpCommand.downloadDirs(nil)
 	assert.ErrorIs(t, err, writeErr)
 }
 
