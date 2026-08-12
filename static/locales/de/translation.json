@@ -93,7 +93,6 @@
         "reset_submit": "Passwort aktualisieren und anmelden",
         "confirm_code": "Bestätigungscode",
         "reset_pwd_forbidden": "Sie sind nicht berechtigt, Ihr Passwort zurückzusetzen",
-        "reset_pwd_no_email": "Ihr Konto hat keine E-Mail-Adresse, es ist nicht möglich Ihr Passwort zurückzusetzen, indem Sie einen E-Mail-Bestätigungs-Code senden",
         "reset_pwd_send_email_err": "Bestätigungscode konnte nicht per E-Mail gesendet werden",
         "reset_pwd_err_generic": "Unerwarteter Fehler beim Zurücksetzen des Passworts",
         "reset_ok_login_error": "Das Passwort wurde erfolgreich zurückgesetzt, aber beim Anmelden trat ein unerwarteter Fehler auf",

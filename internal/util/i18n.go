@@ -106,7 +106,6 @@ const (
 	I18nErrorPermissionsRequired       = "general.permissions_required"
 	I18nErrorGetUser                   = "general.err_user"
 	I18nErrorPwdResetForbidded         = "login.reset_pwd_forbidden"
-	I18nErrorPwdResetNoEmail           = "login.reset_pwd_no_email"
 	I18nErrorPwdResetSendEmail         = "login.reset_pwd_send_email_err"
 	I18nErrorPwdResetGeneric           = "login.reset_pwd_err_generic"
 	I18nErrorProtocolForbidden         = "general.err_protocol_forbidden"

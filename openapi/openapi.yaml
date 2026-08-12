@@ -3226,7 +3226,7 @@ paths:
       tags:
         - admins
       summary: Send a password reset code by email
-      description: 'You must set up an SMTP server and the account must have a valid email address, in which case SFTPGo will send a code via email to reset the password. If the specified admin does not exist, the request will be silently ignored (a success response will be returned) to avoid disclosing existing admins'
+      description: 'You must set up an SMTP server. SFTPGo will send a code via email to reset the password if the specified admin exists and has a valid email address. Requests that do not meet these conditions are silently ignored (a success response will be returned) to avoid disclosing existing admins'
       operationId: admin_forgot_password
       responses:
         '200':
@@ -3544,7 +3544,7 @@ paths:
       tags:
         - users
       summary: Send a password reset code by email
-      description: 'You must configure an SMTP server, the account must have a valid email address and must not have the "reset-password-disabled" restriction, in which case SFTPGo will send a code via email to reset the password. If the specified user does not exist, the request will be silently ignored (a success response will be returned) to avoid disclosing existing users'
+      description: 'You must configure an SMTP server. SFTPGo will send a code via email to reset the password if the specified user exists, has a valid email address and does not have the "reset-password-disabled" restriction. Requests that do not meet these conditions are silently ignored (a success response will be returned) to avoid disclosing existing users'
       operationId: user_forgot_password
       responses:
         '200':
