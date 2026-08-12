@@ -18570,6 +18570,111 @@ func TestUserCopyDeniedPatternSource(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestUserCopyDeniedPatternDirs(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	// create the fixtures before any pattern is applied
+	for _, dirName := range []string{"hidden", "srcdir"} {
+		req, err := http.NewRequest(http.MethodPost, userDirsPath+"?path="+dirName, nil)
+		assert.NoError(t, err)
+		setBearerForReq(req, token)
+		rr := executeRequest(req)
+		checkResponseCode(t, http.StatusCreated, rr)
+
+		body := new(bytes.Buffer)
+		w := multipart.NewWriter(body)
+		part, err := w.CreateFormFile("filenames", "doc.txt")
+		assert.NoError(t, err)
+		_, err = part.Write([]byte("content of doc.txt"))
+		assert.NoError(t, err)
+		err = w.Close()
+		assert.NoError(t, err)
+		req, err = http.NewRequest(http.MethodPost, userFilesPath+"?path="+url.QueryEscape(dirName),
+			bytes.NewReader(body.Bytes()))
+		assert.NoError(t, err)
+		req.Header.Add("Content-Type", w.FormDataContentType())
+		setBearerForReq(req, token)
+		rr = executeRequest(req)
+		checkResponseCode(t, http.StatusCreated, rr)
+	}
+
+	// a directory hidden by a filter defined on its parent does not exist for
+	// the user: listing it and copying from it must not report success
+	user.Filters.FilePatterns = []sdk.PatternsFilter{
+		{
+			Path:           "/",
+			DeniedPatterns: []string{"hidden"},
+			DenyPolicy:     sdk.DenyPolicyHide,
+		},
+	}
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	token, err = getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodGet, userDirsPath+"?path=hidden", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodPost, userFileActionsPath+"/copy?path=hidden&target=visible", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+	// the target must not have been created
+	req, err = http.NewRequest(http.MethodGet, userDirsPath+"?path=visible", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	// a copy cannot materialize a directory name the filters deny
+	user.Filters.FilePatterns = []sdk.PatternsFilter{
+		{
+			Path:           "/",
+			DeniedPatterns: []string{"beta*"},
+			DenyPolicy:     sdk.DenyPolicyDefault,
+		},
+	}
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	token, err = getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodPost, userFileActionsPath+"/copy?path=srcdir&target=betadir", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	req, err = http.NewRequest(http.MethodGet, userDirsPath+"?path=betadir", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	// an allowed target name works
+	req, err = http.NewRequest(http.MethodPost, userFileActionsPath+"/copy?path=srcdir&target=dstdir", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	req, err = http.NewRequest(http.MethodGet, userFilesPath+"?path="+url.QueryEscape("/dstdir/doc.txt"), nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestImplicitParentDirDeniedPattern(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
