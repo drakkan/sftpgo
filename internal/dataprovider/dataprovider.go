@@ -1394,6 +1394,7 @@ func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.Keyboard
 func GetFTPPreAuthUser(username, ip string) (User, error) {
 	var user User
 	var err error
+	username = config.convertName(username)
 	if config.PreLoginHook != "" {
 		user, err = executePreLoginHook(username, "", ip, protocolFTP, nil)
 	} else {
