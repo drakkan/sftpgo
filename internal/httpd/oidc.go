@@ -39,6 +39,7 @@ import (
 
 const (
 	oidcCookieKey          = "oidc"
+	oidcBrowserCookieKey   = "oidc_browser"
 	adminRoleFieldValue    = "admin"
 	authStateValidity      = 2 * 60 * 1000 // 2 minutes
 	maxWebClientNextLength = 4096
@@ -210,6 +211,7 @@ type oidcPendingAuth struct {
 	IssuedAt int64         `json:"issued_at"`
 	Verifier string        `json:"verifier"`
 	Next     string        `json:"next,omitempty"`
+	Browser  string        `json:"browser,omitempty"`
 }
 
 func newOIDCPendingAuth(audience tokenAudience) oidcPendingAuth {
@@ -671,6 +673,7 @@ func (s *httpdServer) oidcLoginRedirect(w http.ResponseWriter, r *http.Request, 
 			pendingAuth.Next = target
 		}
 	}
+	pendingAuth.Browser = setAuthBrowserID(w, r, oidcBrowserCookieKey)
 	oidcMgr.addPendingAuth(pendingAuth)
 	http.Redirect(w, r, s.binding.OIDC.oauth2Config.AuthCodeURL(pendingAuth.State,
 		oidc.Nonce(pendingAuth.Nonce), oauth2.S256ChallengeOption(pendingAuth.Verifier)), http.StatusFound)
@@ -694,6 +697,13 @@ func (s *httpdServer) handleOIDCRedirect(w http.ResponseWriter, r *http.Request)
 		oidcMgr.removePendingAuth(state)
 		s.renderClientMessagePage(w, r, util.I18nInvalidAuthReqTitle, http.StatusBadRequest,
 			util.NewI18nError(err, util.I18nInvalidAuth), "")
+		return
+	}
+	if !checkAuthBrowserID(r, oidcBrowserCookieKey, authReq.Browser) {
+		logger.Debug(logSender, "", "oidc authentication request started by a different browser")
+		s.renderClientMessagePage(w, r, util.I18nInvalidAuthReqTitle, http.StatusBadRequest,
+			util.NewI18nError(errors.New("the authorization request was started by a different browser"),
+				util.I18nInvalidAuth), "")
 		return
 	}
 	oidcMgr.removePendingAuth(state)
