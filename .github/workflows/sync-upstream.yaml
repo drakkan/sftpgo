@@ -14,6 +14,11 @@ on:  # yamllint disable-line rule:truthy
 env:
   UPSTREAM_REPO: drakkan/sftpgo
   TARGET_BRANCH: main
+  # The only workflows this fork runs. Everything else upstream ships (their
+  # CI, Windows/arm64 builds, their docker and release pipelines) is deleted
+  # on every sync, so an upstream workflow can never start running here
+  # unnoticed. Extended regex, anchored to .github/workflows/<name>.
+  KEEP_WORKFLOWS: 'build-image\.yaml|sync-upstream\.yaml'
 
 jobs:
   sync:
@@ -52,41 +57,79 @@ jobs:
           UPSTREAM_TAG: ${{ steps.upstream.outputs.tag }}
           SYNC_BRANCH: ${{ steps.upstream.outputs.branch }}
         run: |
-          set +e
+          set -euo pipefail
           git remote add upstream "https://github.com/${UPSTREAM_REPO}.git"
           git fetch upstream "refs/tags/${UPSTREAM_TAG}:refs/tags/${UPSTREAM_TAG}"
 
           # Nothing to do if the default branch already contains this release.
-          if git merge-base --is-ancestor "refs/tags/${UPSTREAM_TAG}" "origin/${TARGET_BRANCH}"; then
+          # `--is-ancestor` exits 1 for "no" but 128 for a bad revision, so the
+          # two cases are told apart instead of both meaning "not up to date".
+          ANCESTOR_RC=0
+          git merge-base --is-ancestor "refs/tags/${UPSTREAM_TAG}" "origin/${TARGET_BRANCH}" || ANCESTOR_RC=$?
+          if [ "${ANCESTOR_RC}" -eq 0 ]; then
             echo "up_to_date=true" >> "$GITHUB_OUTPUT"
             echo "Default branch already contains ${UPSTREAM_TAG}."
             exit 0
+          elif [ "${ANCESTOR_RC}" -ne 1 ]; then
+            echo "::error::git merge-base failed (rc=${ANCESTOR_RC})"
+            exit "${ANCESTOR_RC}"
           fi
 
           git checkout -B "${SYNC_BRANCH}" "origin/${TARGET_BRANCH}"
-          git merge --no-edit "refs/tags/${UPSTREAM_TAG}"
-          MERGE_RC=$?
 
-          if [ "${MERGE_RC}" -ne 0 ]; then
+          MERGE_RC=0
+          git merge --no-edit "refs/tags/${UPSTREAM_TAG}" || MERGE_RC=$?
+          if [ "${MERGE_RC}" -ne 0 ] && [ -z "$(git ls-files --unmerged)" ]; then
+            # Merge failed for a reason other than conflicts (bad ref, dirty
+            # tree, ...). Fail loudly rather than push a bogus branch.
+            echo "::error::git merge failed without conflicts (rc=${MERGE_RC})"
+            exit "${MERGE_RC}"
+          fi
+
+          # Delete every workflow upstream ships; this fork runs only its own.
+          # Done before the conflict report so conflicts in workflows we drop
+          # anyway are not raised to the reviewer. `sort -u` because during a
+          # conflicted merge ls-files lists a path once per stage.
+          DROPPED=$(git ls-files -- '.github/workflows/*.yml' '.github/workflows/*.yaml' \
+            | sort -u | grep -Ev "^\.github/workflows/(${KEEP_WORKFLOWS})$" || true)
+          if [ -n "${DROPPED}" ]; then
+            echo "Dropping upstream workflows:"
+            echo "${DROPPED}"
+            # -f is required to remove paths that are unmerged or modified.
+            while IFS= read -r wf; do
+              git rm -q -f -- "${wf}"
+            done <<< "${DROPPED}"
+          fi
+
+          CONFLICTED=$(git ls-files --unmerged | awk '{print $4}' | sort -u | sed 's/^/- /')
+          if [ -n "${CONFLICTED}" ]; then
             # Conflicted merge: commit the markers so the reviewer has a branch to fix.
             echo "conflicts=true" >> "$GITHUB_OUTPUT"
-            CONFLICTED=$(git diff --name-only --diff-filter=U | sort | sed 's/^/- /')
             {
               echo "conflicted_files<<EOF"
               echo "${CONFLICTED}"
               echo "EOF"
             } >> "$GITHUB_OUTPUT"
-            git add -A
-            git commit --no-edit
           else
             echo "conflicts=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [ "${MERGE_RC}" -ne 0 ]; then
+            git add -A
+            git commit --no-edit
+          elif [ -n "${DROPPED}" ]; then
+            git commit -q -m "Drop upstream workflows not used by this fork"
           fi
 
           echo "up_to_date=false" >> "$GITHUB_OUTPUT"
 
       - name: Push sync branch
         if: steps.merge.outputs.up_to_date == 'false'
-        run: git push --force-with-lease origin "${{ steps.upstream.outputs.branch }}"
+        env:
+          # Via env, not a `${{ }}` inline expansion: the branch name is derived
+          # from an upstream tag and must not be pasted into the shell.
+          SYNC_BRANCH: ${{ steps.upstream.outputs.branch }}
+        run: git push --force-with-lease origin "${SYNC_BRANCH}"
 
       - name: Open or update pull request
         if: steps.merge.outputs.up_to_date == 'false'
@@ -99,8 +142,11 @@ jobs:
           CONFLICTS: ${{ steps.merge.outputs.conflicts }}
           CONFLICTED_FILES: ${{ steps.merge.outputs.conflicted_files }}
         run: |
+          set -euo pipefail
           {
             printf '%s\n' "Merges upstream release ${UPSTREAM_TAG} (${UPSTREAM_REPO}) into ${TARGET_BRANCH}."
+            printf '%s\n' ""
+            printf '%s\n' "Workflows upstream ships are deleted by the sync job; this fork runs only \`build-image.yaml\` and \`sync-upstream.yaml\`."
             printf '%s\n' ""
             if [ "${CONFLICTS}" = "true" ]; then
               printf '%s\n' "**This branch contains conflict markers and does NOT build.** Resolve it locally:"
@@ -123,8 +169,12 @@ jobs:
             fi
           } > pr-body.md
 
+          # Conflicted branches are opened as drafts: they carry conflict
+          # markers and do not build, so they must not look mergeable.
+          EXTRA_ARGS=()
           if [ "${CONFLICTS}" = "true" ]; then
             TITLE="Merge upstream release ${UPSTREAM_TAG} — conflicts, manual resolution needed"
+            EXTRA_ARGS+=(--draft)
           else
             TITLE="Merge upstream release ${UPSTREAM_TAG}"
           fi
@@ -143,5 +193,6 @@ jobs:
               --base "${TARGET_BRANCH}" \
               --head "${SYNC_BRANCH}" \
               --title "${TITLE}" \
-              --body-file pr-body.md
+              --body-file pr-body.md \
+              "${EXTRA_ARGS[@]}"
           fi
