@@ -11688,6 +11688,61 @@ func TestSCPStartDirectory(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestSCPRecursiveDownloadRequiresList(t *testing.T) {
+	if scpPath == "" {
+		t.Skip("scp command not found, unable to execute this test")
+	}
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	u.Permissions = map[string][]string{
+		"/":    {dataprovider.PermAny},
+		"/sub": {dataprovider.PermDownload},
+	}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	sub := filepath.Join(user.GetHomeDir(), "sub")
+	err = os.MkdirAll(sub, os.ModePerm)
+	assert.NoError(t, err)
+	err = os.WriteFile(filepath.Join(sub, "data.txt"), []byte("content"), 0o600)
+	assert.NoError(t, err)
+
+	localDir := filepath.Join(homeBasePath, "scpnolist")
+	err = os.RemoveAll(localDir)
+	assert.NoError(t, err)
+	err = os.MkdirAll(localDir, os.ModePerm)
+	assert.NoError(t, err)
+
+	err = scpDownload(localDir, fmt.Sprintf("%v@127.0.0.1:%v", user.Username, "/sub"), false, true)
+	assert.Error(t, err, "a recursive download without the list permission must fail")
+	assert.NoFileExists(t, filepath.Join(localDir, "sub", "data.txt"),
+		"the entries of a directory that cannot be listed must not be sent")
+
+	// naming the file works, it only needs the download permission
+	err = scpDownload(localDir, fmt.Sprintf("%v@127.0.0.1:%v", user.Username, "/sub/data.txt"), false, false)
+	assert.NoError(t, err)
+	assert.FileExists(t, filepath.Join(localDir, "data.txt"))
+
+	// the same download works once the permission is granted
+	user.Permissions["/sub"] = []string{dataprovider.PermListItems, dataprovider.PermDownload}
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	err = os.RemoveAll(localDir)
+	assert.NoError(t, err)
+	err = os.MkdirAll(localDir, os.ModePerm)
+	assert.NoError(t, err)
+	err = scpDownload(localDir, fmt.Sprintf("%v@127.0.0.1:%v", user.Username, "/sub"), false, true)
+	assert.NoError(t, err)
+	assert.FileExists(t, filepath.Join(localDir, "sub", "data.txt"))
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(localDir)
+	assert.NoError(t, err)
+}
+
 func TestSCPDeniedDirNames(t *testing.T) {
 	if scpPath == "" {
 		t.Skip("scp command not found, unable to execute this test")
