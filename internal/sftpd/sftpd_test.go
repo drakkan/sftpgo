@@ -9896,6 +9896,52 @@ func TestSSHFileHash(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestSSHFileHashTransferQuota(t *testing.T) {
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	u.Username = "ssh_hash_quota_user"
+	u.DownloadDataTransfer = 1
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	testFileSize := int64(65535)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+	}
+	initialHash, err := computeHashForFile(sha256.New(), testFilePath)
+	assert.NoError(t, err)
+	// the file content is read, the digest is accounted as a download
+	out, err := runSSHCommand("sha256sum "+testFileName, user, usePubKey)
+	if assert.NoError(t, err) {
+		assert.Contains(t, string(out), initialHash)
+	}
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, testFileSize, user.UsedDownloadDataTransfer)
+	// exhaust the download allowance, reset mode sets the usage to the given
+	// values and 1 MB is the configured limit
+	user.UsedDownloadDataTransfer = 1048576
+	_, err = httpdtest.UpdateTransferQuotaUsage(user, "reset", http.StatusOK)
+	assert.NoError(t, err)
+	_, err = runSSHCommand("sha256sum "+testFileName, user, usePubKey)
+	assert.Error(t, err, "hash with no download allowance must fail")
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestSSHCopy(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)

@@ -578,6 +578,9 @@ func TestCommandsWithExtensionsFilter(t *testing.T) {
 			Status:   1,
 		},
 	}
+	user.Permissions = map[string][]string{
+		"/": {dataprovider.PermAny},
+	}
 	user.Filters.FilePatterns = []sdk.PatternsFilter{
 		{
 			Path:            "/subdir",
