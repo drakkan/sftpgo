@@ -359,6 +359,35 @@ func verifyOAuth2Token(csrfTokenAuth *jwt.Signer, tokenString, ip string) (strin
 	return "", util.NewI18nError(errors.New("invalid OAuth2 state"), util.I18nOAuth2InvalidState)
 }
 
+func setAuthBrowserID(w http.ResponseWriter, r *http.Request, cookieName string) string {
+	browserID := util.GenerateOpaqueString()
+	http.SetCookie(w, &http.Cookie{
+		Name:     cookieName,
+		Value:    browserID,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   isTLS(r),
+		SameSite: http.SameSiteLaxMode,
+	})
+	w.Header().Add("Cache-Control", `no-cache="Set-Cookie"`)
+
+	return browserID
+}
+
+func checkAuthBrowserID(r *http.Request, cookieName, expected string) bool {
+	cookie, err := r.Cookie(cookieName)
+	if err != nil {
+		logger.Debug(logSender, "", "no %q cookie for the request to host %q", cookieName, r.Host)
+		return false
+	}
+	if cookie.Value != expected {
+		logger.Debug(logSender, "", "the %q cookie does not match the authorization request", cookieName)
+		return false
+	}
+
+	return true
+}
+
 func validateIPForToken(token *jwt.Claims, ip string) error {
 	if tokenValidationMode&tokenValidationModeNoIPMatch == 0 {
 		if !token.Audience.Contains(ip) {
