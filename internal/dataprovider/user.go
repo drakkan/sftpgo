@@ -1147,8 +1147,11 @@ func (u *User) isDirHidden(virtualPath string) bool {
 		if dirPath == "/" {
 			return false
 		}
-		filter := u.getPatternsFilterForPath(dirPath)
-		if filter.DenyPolicy == sdk.DenyPolicyHide && filter.Path != dirPath {
+		// The name of a directory is governed by the filter defined for its
+		// parent: the filter defined for the directory itself describes the
+		// entries it carries, not its own name.
+		filter := u.getPatternsFilterForPath(path.Dir(dirPath))
+		if filter.DenyPolicy == sdk.DenyPolicyHide {
 			if !filter.CheckAllowed(path.Base(dirPath)) {
 				return true
 			}

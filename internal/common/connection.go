@@ -335,6 +335,14 @@ func (c *BaseConnection) ListDir(virtualPath string) (*DirListerAt, error) {
 	if !c.User.HasPerm(dataprovider.PermListItems, virtualPath) {
 		return nil, c.GetPermissionDeniedError()
 	}
+	// A directory hidden by a file pattern filter does not exist for the user:
+	// stat reports it as missing, so reading it must agree.
+	if virtualPath != "/" {
+		if ok, policy := c.User.IsFileAllowed(virtualPath); !ok && policy == sdk.DenyPolicyHide {
+			c.Log(logger.LevelDebug, "listing directory %q is not allowed", virtualPath)
+			return nil, c.GetNotExistError()
+		}
+	}
 	fs, fsPath, err := c.GetFsAndResolvedPath(virtualPath)
 	if err != nil {
 		return nil, err
@@ -487,6 +495,10 @@ func (c *BaseConnection) IsRemoveDirAllowed(fs vfs.Fs, fsPath, virtualPath strin
 		c.Log(logger.LevelWarn, "removing root dir is not allowed")
 		return c.GetPermissionDeniedError()
 	}
+	if ok, policy := c.User.IsFileAllowed(virtualPath); !ok {
+		c.Log(logger.LevelDebug, "removing directory %q is not allowed", virtualPath)
+		return c.GetErrorForDeniedFile(policy)
+	}
 	if c.User.IsVirtualFolder(virtualPath) {
 		c.Log(logger.LevelWarn, "removing a virtual folder is not allowed: %q", virtualPath)
 		return fmt.Errorf("removing virtual folders is not allowed: %w", c.GetPermissionDeniedError())
@@ -502,10 +514,6 @@ func (c *BaseConnection) IsRemoveDirAllowed(fs vfs.Fs, fsPath, virtualPath strin
 	}
 	if !c.User.HasAnyPerm([]string{dataprovider.PermDeleteDirs, dataprovider.PermDelete}, path.Dir(virtualPath)) {
 		return c.GetPermissionDeniedError()
-	}
-	if ok, policy := c.User.IsFileAllowed(virtualPath); !ok {
-		c.Log(logger.LevelDebug, "removing directory %q is not allowed", virtualPath)
-		return c.GetErrorForDeniedFile(policy)
 	}
 	return nil
 }
@@ -803,7 +811,7 @@ func (c *BaseConnection) recursiveCopyEntries(virtualSourcePath, virtualTargetPa
 }
 
 // Copy virtualSourcePath to virtualTargetPath
-func (c *BaseConnection) Copy(virtualSourcePath, virtualTargetPath string) error {
+func (c *BaseConnection) Copy(virtualSourcePath, virtualTargetPath string) error { //nolint:gocyclo
 	copyFromSource := strings.HasSuffix(virtualSourcePath, "/")
 	copyInTarget := strings.HasSuffix(virtualTargetPath, "/")
 	virtualSourcePath = path.Clean(virtualSourcePath)
@@ -1021,18 +1029,17 @@ func (c *BaseConnection) CreateSymlink(virtualSourcePath, virtualTargetPath stri
 func (c *BaseConnection) doStatInternal(virtualPath string, mode int, checkFilePatterns,
 	convertResult bool,
 ) (os.FileInfo, error) {
-	// for some vfs we don't create intermediary folders so we cannot simply check
-	// if virtualPath is a virtual folder. Allowing stat for hidden virtual folders
-	// is by purpose.
-	vfolders := c.User.GetVirtualFoldersInPath(path.Dir(virtualPath))
-	if _, ok := vfolders[virtualPath]; ok {
-		return vfs.NewFileInfo(virtualPath, true, 0, time.Unix(0, 0), false), nil
-	}
 	if checkFilePatterns && virtualPath != "/" {
 		ok, policy := c.User.IsFileAllowed(virtualPath)
 		if !ok && policy == sdk.DenyPolicyHide {
 			return nil, c.GetNotExistError()
 		}
+	}
+	// for some vfs we don't create intermediary folders so we cannot simply check
+	// if virtualPath is a virtual folder
+	vfolders := c.User.GetVirtualFoldersInPath(path.Dir(virtualPath))
+	if _, ok := vfolders[virtualPath]; ok {
+		return vfs.NewFileInfo(virtualPath, true, 0, time.Unix(0, 0), false), nil
 	}
 
 	var info os.FileInfo
@@ -1342,6 +1349,12 @@ func (c *BaseConnection) checkFolderRename(fsSrc, fsDst vfs.Fs, fsSourcePath, fs
 func (c *BaseConnection) checkRenamePermissions(fsSrc, fsDst vfs.Fs, fsSourcePath, fsTargetPath, virtualSourcePath,
 	virtualTargetPath string, srcInfo os.FileInfo,
 ) error {
+	if virtualSourcePath != "/" {
+		if ok, policy := c.User.IsFileAllowed(virtualSourcePath); !ok {
+			c.Log(logger.LevelDebug, "rename source path %q is not allowed", virtualSourcePath)
+			return c.GetErrorForDeniedFile(policy)
+		}
+	}
 	if !c.IsSameResource(virtualSourcePath, virtualTargetPath) {
 		c.Log(logger.LevelInfo, "rename %q->%q is not allowed: the paths must be on the same resource",
 			virtualSourcePath, virtualTargetPath)
@@ -1362,10 +1375,6 @@ func (c *BaseConnection) checkRenamePermissions(fsSrc, fsDst vfs.Fs, fsSourcePat
 	if c.User.IsVirtualFolder(virtualSourcePath) || c.User.IsVirtualFolder(virtualTargetPath) {
 		c.Log(logger.LevelWarn, "renaming a virtual folder is not allowed")
 		return c.GetPermissionDeniedError()
-	}
-	if ok, policy := c.User.IsFileAllowed(virtualSourcePath); !ok {
-		c.Log(logger.LevelDebug, "rename source path %q is not allowed", virtualSourcePath)
-		return c.GetErrorForDeniedFile(policy)
 	}
 	if ok, _ := c.User.IsFileAllowed(virtualTargetPath); !ok {
 		c.Log(logger.LevelDebug, "rename target path %q is not allowed", virtualTargetPath)

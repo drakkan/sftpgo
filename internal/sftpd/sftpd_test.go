@@ -11701,14 +11701,54 @@ func TestSCPDeniedDirNames(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.WriteFile(filepath.Join(beta, "a.txt"), []byte("content"), 0o600)
 	assert.NoError(t, err)
+	plain := filepath.Join(user.GetHomeDir(), "plain", "deniedname")
+	err = os.MkdirAll(plain, os.ModePerm)
+	assert.NoError(t, err)
+	err = os.WriteFile(filepath.Join(plain, "a.txt"), []byte("content"), 0o600)
+	assert.NoError(t, err)
 
 	user.Filters.FilePatterns = []sdk.PatternsFilter{
 		{Path: "/", DeniedPatterns: []string{"beta*"}, DenyPolicy: sdk.DenyPolicyHide},
+		{Path: "/plain", DeniedPatterns: []string{"denied*"}},
 	}
 	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 
 	localDir := filepath.Join(homeBasePath, "scpdenied")
+	err = os.MkdirAll(localDir, os.ModePerm)
+	assert.NoError(t, err)
+
+	// the hidden directory cannot be read, and nothing is written locally
+	err = scpDownload(localDir, fmt.Sprintf("%v@127.0.0.1:%v", user.Username, "/beta"), false, true)
+	assert.Error(t, err, "scp download of a hidden directory must fail")
+	entries, err := os.ReadDir(localDir)
+	assert.NoError(t, err)
+	assert.Empty(t, entries, "the hidden directory must not be recreated locally")
+	err = os.RemoveAll(localDir)
+	assert.NoError(t, err)
+	err = os.MkdirAll(localDir, os.ModePerm)
+	assert.NoError(t, err)
+
+	// under the default policy the directory is read and its entries are checked
+	// one by one, as the other protocols do: only the hide policy makes it missing
+	err = scpDownload(localDir, fmt.Sprintf("%v@127.0.0.1:%v", user.Username, "/plain/deniedname"), false, true)
+	assert.NoError(t, err, "the default policy must leave the directory readable")
+	assert.FileExists(t, filepath.Join(localDir, "deniedname", "a.txt"))
+	err = os.RemoveAll(localDir)
+	assert.NoError(t, err)
+	err = os.MkdirAll(localDir, os.ModePerm)
+	assert.NoError(t, err)
+
+	// the entries the same filter denies are still refused, one by one
+	err = os.WriteFile(filepath.Join(plain, "denied2.txt"), []byte("content"), 0o600)
+	assert.NoError(t, err)
+	err = scpDownload(localDir, fmt.Sprintf("%v@127.0.0.1:%v", user.Username, "/plain/deniedname"), false, true)
+	assert.Error(t, err, "a denied entry must not be sent")
+	assert.NoFileExists(t, filepath.Join(localDir, "deniedname", "denied2.txt"))
+	err = os.Remove(filepath.Join(plain, "denied2.txt"))
+	assert.NoError(t, err)
+	err = os.RemoveAll(localDir)
+	assert.NoError(t, err)
 	err = os.MkdirAll(localDir, os.ModePerm)
 	assert.NoError(t, err)
 

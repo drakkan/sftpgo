@@ -26,6 +26,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sftpgo/sdk"
+
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
@@ -535,6 +537,16 @@ func (c *scpCommand) handleDownload(filePath string) error {
 			c.connection.Log(logger.LevelWarn, "error downloading dir: %q, permission denied", filePath)
 			c.sendErrorMessage(fs, common.ErrPermissionDenied)
 			return common.ErrPermissionDenied
+		}
+		// Only the hide policy applies to the directory being read: the entries it
+		// carries are filtered by the listing and checked one by one, so under the
+		// default policy refusing to read it would withhold nothing.
+		if filePath != "/" {
+			if ok, policy := c.connection.User.IsFileAllowed(filePath); !ok && policy == sdk.DenyPolicyHide {
+				c.connection.Log(logger.LevelWarn, "reading directory %q is not allowed", filePath)
+				c.sendErrorMessage(fs, c.connection.GetNotExistError())
+				return common.ErrPermissionDenied
+			}
 		}
 		err = c.handleRecursiveDownload(fs, p, filePath, stat)
 		return err
