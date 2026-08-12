@@ -11027,6 +11027,11 @@ func TestSCPDeniedDirNames(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.WriteFile(filepath.Join(beta, "a.txt"), []byte("content"), 0o600)
 	assert.NoError(t, err)
+	inner := filepath.Join(user.GetHomeDir(), "pub", "inner")
+	err = os.MkdirAll(inner, os.ModePerm)
+	assert.NoError(t, err)
+	err = os.WriteFile(filepath.Join(inner, "a.txt"), []byte("content"), 0o600)
+	assert.NoError(t, err)
 	plain := filepath.Join(user.GetHomeDir(), "plain", "deniedname")
 	err = os.MkdirAll(plain, os.ModePerm)
 	assert.NoError(t, err)
@@ -11035,6 +11040,7 @@ func TestSCPDeniedDirNames(t *testing.T) {
 
 	user.Filters.FilePatterns = []sdk.PatternsFilter{
 		{Path: "/", DeniedPatterns: []string{"beta*"}, DenyPolicy: sdk.DenyPolicyHide},
+		{Path: "/pub/inner", AllowedPatterns: []string{"*.txt"}, DenyPolicy: sdk.DenyPolicyHide},
 		{Path: "/plain", DeniedPatterns: []string{"denied*"}},
 	}
 	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
@@ -11050,6 +11056,16 @@ func TestSCPDeniedDirNames(t *testing.T) {
 	entries, err := os.ReadDir(localDir)
 	assert.NoError(t, err)
 	assert.Empty(t, entries, "the hidden directory must not be recreated locally")
+
+	for _, remotePath := range []string{"/pub/inner", "/pub/inner/"} {
+		err = os.RemoveAll(localDir)
+		assert.NoError(t, err)
+		err = os.MkdirAll(localDir, os.ModePerm)
+		assert.NoError(t, err)
+		err = scpDownload(localDir, fmt.Sprintf("%v@127.0.0.1:%v", user.Username, remotePath), false, true)
+		assert.NoError(t, err, "scp download of %q must be allowed", remotePath)
+		assert.FileExists(t, filepath.Join(localDir, "inner", "a.txt"))
+	}
 	err = os.RemoveAll(localDir)
 	assert.NoError(t, err)
 	err = os.MkdirAll(localDir, os.ModePerm)
