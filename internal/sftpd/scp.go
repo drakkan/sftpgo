@@ -31,6 +31,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
+	"github.com/drakkan/sftpgo/v2/internal/util"
 	"github.com/drakkan/sftpgo/v2/internal/vfs"
 )
 
@@ -78,7 +79,7 @@ func (c *scpCommand) handle() (err error) {
 		if err != nil {
 			return err
 		}
-		err = c.handleDownload(destPath)
+		err = c.handleDownload(destPath, 0)
 		if err != nil {
 			return err
 		}
@@ -375,9 +376,15 @@ func (c *scpCommand) sendDownloadProtocolMessages(virtualDirPath string, stat os
 
 // We send first all the files in the root directory and then the directories.
 // For each directory we recursively call this method again
-func (c *scpCommand) handleRecursiveDownload(fs vfs.Fs, dirPath, virtualPath string, stat os.FileInfo) error {
+func (c *scpCommand) handleRecursiveDownload(fs vfs.Fs, dirPath, virtualPath string, stat os.FileInfo, recursion int) error {
 	var err error
 	if c.isRecursive() {
+		if recursion >= util.MaxRecursion {
+			c.connection.Log(logger.LevelError, "recursive download failed, recursion too deep: %d", recursion)
+			c.sendErrorMessage(fs, util.ErrRecursionTooDeep)
+			return util.ErrRecursionTooDeep
+		}
+		recursion++
 		c.connection.Log(logger.LevelDebug, "recursive download, dir path %q virtual path %q", dirPath, virtualPath)
 		err = c.sendDownloadProtocolMessages(virtualPath, stat)
 		if err != nil {
@@ -403,7 +410,7 @@ func (c *scpCommand) handleRecursiveDownload(fs vfs.Fs, dirPath, virtualPath str
 			for _, file := range files {
 				filePath := path.Join(virtualPath, file.Name())
 				if file.Mode().IsRegular() || file.Mode()&os.ModeSymlink != 0 {
-					if err := c.handleDownload(filePath); err != nil {
+					if err := c.handleDownload(filePath, recursion); err != nil {
 						return err
 					}
 				} else if file.IsDir() {
@@ -416,16 +423,16 @@ func (c *scpCommand) handleRecursiveDownload(fs vfs.Fs, dirPath, virtualPath str
 		}
 		lister.Close()
 
-		return c.downloadDirs(dirs)
+		return c.downloadDirs(dirs, recursion)
 	}
 	err = errors.New("unable to send directory for non recursive copy")
 	c.sendErrorMessage(nil, err)
 	return err
 }
 
-func (c *scpCommand) downloadDirs(dirs []string) error {
+func (c *scpCommand) downloadDirs(dirs []string, recursion int) error {
 	for _, dir := range dirs {
-		if err := c.handleDownload(dir); err != nil {
+		if err := c.handleDownload(dir, recursion); err != nil {
 			return err
 		}
 	}
@@ -494,7 +501,7 @@ func (c *scpCommand) sendDownloadFileData(fs vfs.Fs, filePath string, stat os.Fi
 
 // handleDownload sends filePath to the client. It reports its own errors to the
 // client, so callers must not send them again.
-func (c *scpCommand) handleDownload(filePath string) error {
+func (c *scpCommand) handleDownload(filePath string, recursion int) error {
 	c.connection.UpdateLastActivity()
 	filePath = path.Clean(filePath)
 
@@ -542,7 +549,7 @@ func (c *scpCommand) handleDownload(filePath string) error {
 				return common.ErrPermissionDenied
 			}
 		}
-		err = c.handleRecursiveDownload(fs, p, filePath, stat)
+		err = c.handleRecursiveDownload(fs, p, filePath, stat, recursion)
 		return err
 	}
 
