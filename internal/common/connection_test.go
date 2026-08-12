@@ -682,7 +682,7 @@ func TestErrorResolvePath(t *testing.T) {
 	assert.Error(t, err)
 	err = conn.doRecursiveRemove(nil, "/fspath", "/vpath", vfs.NewFileInfo("vpath", true, 0, time.Now(), false), 2000)
 	assert.Error(t, err, util.ErrRecursionTooDeep)
-	err = conn.doRecursiveCopy("/src", "/dst", vfs.NewFileInfo("src", true, 0, time.Now(), false), false, 2000)
+	err = conn.doRecursiveCopy("/src", "/dst", vfs.NewFileInfo("src", true, 0, time.Now(), false), nil, false, 2000)
 	assert.Error(t, err, util.ErrRecursionTooDeep)
 	err = conn.checkCopy(vfs.NewFileInfo("name", true, 0, time.Unix(0, 0), false), nil, "/source", "/target")
 	assert.Error(t, err)
@@ -1478,6 +1478,42 @@ func TestHiddenVirtualFolderStat(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(homeDir)
 	assert.NoError(t, err)
+}
+
+func TestServerSideCopyWriteChecks(t *testing.T) {
+	newConn := func(perms []string) *BaseConnection {
+		user := dataprovider.User{
+			BaseUser: sdk.BaseUser{
+				Username:    userTestUsername,
+				HomeDir:     filepath.Clean(os.TempDir()),
+				Permissions: map[string][]string{"/": perms},
+			},
+			FsConfig: vfs.Filesystem{
+				Provider: sdk.S3FilesystemProvider,
+				S3Config: vfs.S3FsConfig{
+					BaseS3FsConfig: sdk.BaseS3FsConfig{
+						Bucket:    "buck",
+						Region:    "us-east-1",
+						AccessKey: "key",
+					},
+					AccessSecret: kms.NewPlainSecret("s3secret"),
+				},
+			},
+		}
+		return NewBaseConnection(xid.New().String(), ProtocolHTTP, "", "", user)
+	}
+	srcInfo := vfs.NewFileInfo("a.txt", false, 100, time.Now(), false)
+	dstInfo := vfs.NewFileInfo("b.txt", false, 10, time.Now(), false)
+
+	// the target exists: the overwrite permission is required, upload is not enough
+	conn := newConn([]string{dataprovider.PermListItems, dataprovider.PermDownload,
+		dataprovider.PermUpload, dataprovider.PermCopy})
+	assert.ErrorIs(t, conn.copyFile("/a.txt", "/b.txt", srcInfo, dstInfo), os.ErrPermission)
+
+	// the target does not exist: the upload permission is required, overwrite is not enough
+	conn = newConn([]string{dataprovider.PermListItems, dataprovider.PermDownload,
+		dataprovider.PermOverwrite, dataprovider.PermCopy})
+	assert.ErrorIs(t, conn.copyFile("/a.txt", "/b.txt", srcInfo, nil), os.ErrPermission)
 }
 
 func TestRecursiveRenameHiddenEntry(t *testing.T) {

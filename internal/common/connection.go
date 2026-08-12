@@ -695,7 +695,9 @@ func (c *BaseConnection) checkCopyPermissions(virtualSourcePath, virtualTargetPa
 	return c.checkCopyTargetPattern(virtualTargetPath)
 }
 
-func (c *BaseConnection) copyFile(virtualSourcePath, virtualTargetPath string, srcInfo os.FileInfo) error {
+// copyFile copies a regular file. dstInfo describes the target as the caller
+// resolved it, it is nil if the target does not exist.
+func (c *BaseConnection) copyFile(virtualSourcePath, virtualTargetPath string, srcInfo, dstInfo os.FileInfo) error {
 	if err := c.checkCopyPermissions(virtualSourcePath, virtualTargetPath); err != nil {
 		return err
 	}
@@ -705,19 +707,32 @@ func (c *BaseConnection) copyFile(virtualSourcePath, virtualTargetPath string, s
 			return err
 		}
 		if copier, ok := fs.(vfs.FsFileCopier); ok {
-			_, fsSourcePath, err := c.GetFsAndResolvedPath(virtualSourcePath)
-			if err != nil {
+			// A target that exists but is not a regular file is left to the
+			// streaming path, which reports the appropriate error.
+			if dstInfo == nil || dstInfo.Mode().IsRegular() {
+				numFiles := 1
+				var truncatedSize int64
+				if dstInfo != nil {
+					numFiles = 0
+					truncatedSize = dstInfo.Size()
+				}
+				if err := checkWriterPermsAndQuota(c, virtualTargetPath, numFiles, srcInfo.Size(), truncatedSize); err != nil {
+					return err
+				}
+				_, fsSourcePath, err := c.GetFsAndResolvedPath(virtualSourcePath)
+				if err != nil {
+					return err
+				}
+				startTime := time.Now()
+				numFiles, sizeDiff, err := copier.CopyFile(fsSourcePath, fsTargetPath, srcInfo)
+				elapsed := time.Since(startTime).Nanoseconds() / 1000000
+				updateUserQuotaAfterFileWrite(c, virtualTargetPath, numFiles, sizeDiff)
+				logger.CommandLog(copyLogSender, fsSourcePath, fsTargetPath, virtualSourcePath, virtualTargetPath,
+					c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", srcInfo.Size(),
+					c.localAddr, c.remoteAddr, elapsed)
+				ExecuteActionNotification(c, operationCopy, fsSourcePath, virtualSourcePath, fsTargetPath, virtualTargetPath, "", srcInfo.Size(), err, elapsed, nil) //nolint:errcheck
 				return err
 			}
-			startTime := time.Now()
-			numFiles, sizeDiff, err := copier.CopyFile(fsSourcePath, fsTargetPath, srcInfo)
-			elapsed := time.Since(startTime).Nanoseconds() / 1000000
-			updateUserQuotaAfterFileWrite(c, virtualTargetPath, numFiles, sizeDiff)
-			logger.CommandLog(copyLogSender, fsSourcePath, fsTargetPath, virtualSourcePath, virtualTargetPath,
-				c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", srcInfo.Size(),
-				c.localAddr, c.remoteAddr, elapsed)
-			ExecuteActionNotification(c, operationCopy, fsSourcePath, virtualSourcePath, fsTargetPath, virtualTargetPath, "", srcInfo.Size(), err, elapsed, nil) //nolint:errcheck
-			return err
 		}
 	}
 
@@ -740,7 +755,7 @@ func (c *BaseConnection) copyFile(virtualSourcePath, virtualTargetPath string, s
 		err, operationCopy, startTime)
 }
 
-func (c *BaseConnection) doRecursiveCopy(virtualSourcePath, virtualTargetPath string, srcInfo os.FileInfo,
+func (c *BaseConnection) doRecursiveCopy(virtualSourcePath, virtualTargetPath string, srcInfo, dstInfo os.FileInfo,
 	createTargetDir bool, recursion int,
 ) error {
 	if srcInfo.IsDir() {
@@ -779,7 +794,7 @@ func (c *BaseConnection) doRecursiveCopy(virtualSourcePath, virtualTargetPath st
 		return nil
 	}
 
-	return c.copyFile(virtualSourcePath, virtualTargetPath, srcInfo)
+	return c.copyFile(virtualSourcePath, virtualTargetPath, srcInfo, dstInfo)
 }
 
 func (c *BaseConnection) recursiveCopyEntries(virtualSourcePath, virtualTargetPath string, entries []os.FileInfo, recursion int) error {
@@ -799,7 +814,7 @@ func (c *BaseConnection) recursiveCopyEntries(virtualSourcePath, virtualTargetPa
 		if err := c.checkCopy(info, targetInfo, sourcePath, targetPath); err != nil {
 			return err
 		}
-		if err := c.doRecursiveCopy(sourcePath, targetPath, info, true, recursion); err != nil {
+		if err := c.doRecursiveCopy(sourcePath, targetPath, info, targetInfo, true, recursion); err != nil {
 			if c.IsNotExistError(err) {
 				c.Log(logger.LevelInfo, "skipping copy for source path %q: %v", sourcePath, err)
 				continue
@@ -872,7 +887,7 @@ func (c *BaseConnection) Copy(virtualSourcePath, virtualTargetPath string) error
 	stopKeepAlive := keepConnectionAlive(c, 2*time.Minute)
 	defer stopKeepAlive()
 
-	return c.doRecursiveCopy(virtualSourcePath, destPath, srcInfo, createTargetDir, 0)
+	return c.doRecursiveCopy(virtualSourcePath, destPath, srcInfo, dstInfo, createTargetDir, 0)
 }
 
 // Rename renames (moves) virtualSourcePath to virtualTargetPath
