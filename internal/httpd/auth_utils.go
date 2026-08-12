@@ -375,6 +375,10 @@ func setAuthBrowserID(w http.ResponseWriter, r *http.Request, cookieName string)
 }
 
 func checkAuthBrowserID(r *http.Request, cookieName, expected string) bool {
+	if expected == "" {
+		logger.Debug(logSender, "", "the authorization request has no %q identifier", cookieName)
+		return false
+	}
 	cookie, err := r.Cookie(cookieName)
 	if err != nil {
 		logger.Debug(logSender, "", "no %q cookie for the request to host %q", cookieName, r.Host)
