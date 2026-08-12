@@ -766,7 +766,7 @@ func TestCommandGetFsError(t *testing.T) {
 
 	err := scpCommand.handleRecursiveUpload()
 	assert.Error(t, err)
-	err = scpCommand.handleDownload("")
+	err = scpCommand.handleDownload("", 0)
 	assert.Error(t, err)
 }
 
@@ -996,7 +996,7 @@ func TestSCPProtocolMessages(t *testing.T) {
 	}
 	scpCommand.connection.channel = &mockSSHChannel
 
-	err = scpCommand.downloadDirs(nil)
+	err = scpCommand.downloadDirs(nil, 0)
 	assert.ErrorIs(t, err, writeErr)
 }
 
@@ -1188,7 +1188,7 @@ func TestSCPRecursiveDownloadErrors(t *testing.T) {
 	assert.NoError(t, err)
 	stat, err := os.Stat(path)
 	assert.NoError(t, err)
-	err = scpCommand.handleRecursiveDownload(fs, "invalid_dir", "invalid_dir", stat)
+	err = scpCommand.handleRecursiveDownload(fs, "invalid_dir", "invalid_dir", stat, 0)
 	assert.EqualError(t, err, writeErr.Error())
 
 	mockSSHChannel = MockChannel{
@@ -1198,8 +1198,11 @@ func TestSCPRecursiveDownloadErrors(t *testing.T) {
 		WriteError:   nil,
 	}
 	scpCommand.connection.channel = &mockSSHChannel
-	err = scpCommand.handleRecursiveDownload(fs, "invalid_dir", "invalid_dir", stat)
+	err = scpCommand.handleRecursiveDownload(fs, "invalid_dir", "invalid_dir", stat, 0)
 	assert.Error(t, err, "recursive upload download must fail for a non existing dir")
+
+	err = scpCommand.handleRecursiveDownload(fs, "invalid_dir", "invalid_dir", stat, util.MaxRecursion)
+	assert.ErrorIs(t, err, util.ErrRecursionTooDeep)
 
 	err = os.Remove(path)
 	assert.NoError(t, err)
