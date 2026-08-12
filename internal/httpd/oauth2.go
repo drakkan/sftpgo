@@ -28,6 +28,10 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/util"
 )
 
+const (
+	oauth2BrowserCookieKey = "oauth2_browser"
+)
+
 var (
 	oauth2Mgr oauth2Manager
 )
@@ -51,6 +55,7 @@ type oauth2PendingAuth struct {
 	RedirectURL  string      `json:"redirect_url"`
 	IssuedAt     int64       `json:"issued_at"`
 	Verifier     string      `json:"verifier"`
+	Browser      string      `json:"browser,omitempty"`
 }
 
 func newOAuth2PendingAuth(provider int, redirectURL, clientID string, clientSecret *kms.Secret) oauth2PendingAuth {

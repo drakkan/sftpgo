@@ -1259,6 +1259,49 @@ func TestOAuth2Redirect(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), util.I18nOAuth2ErrorValidateState)
 }
 
+func TestOAuth2RedirectBoundToBrowser(t *testing.T) {
+	server := httpdServer{}
+	err := server.initializeRouter()
+	require.NoError(t, err)
+	if oauth2Mgr == nil {
+		oauth2Mgr = newOAuth2Manager(0)
+	}
+
+	ip := "127.1.1.5"
+	pendingAuth := newOAuth2PendingAuth(0, "http://127.0.0.1/web/oauth2/redirect", "clientID",
+		kms.NewPlainSecret("secret"))
+	pendingAuth.Browser = util.GenerateOpaqueString()
+	oauth2Mgr.addPendingAuth(pendingAuth)
+	tokenString := createOAuth2Token(server.csrfTokenAuth, pendingAuth.State, ip)
+	require.NotEmpty(t, tokenString)
+
+	for _, cookie := range []*http.Cookie{
+		nil,
+		{Name: oauth2BrowserCookieKey, Value: util.GenerateOpaqueString()},
+	} {
+		rr := httptest.NewRecorder()
+		req, err := http.NewRequest(http.MethodGet, webOAuth2RedirectPath+"?state="+tokenString, nil)
+		assert.NoError(t, err)
+		req.RemoteAddr = ip
+		if cookie != nil {
+			req.AddCookie(cookie)
+		}
+		server.handleOAuth2TokenRedirect(rr, req)
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+		assert.Contains(t, rr.Body.String(), util.I18nOAuth2InvalidState)
+		// the refused attempts must not discard the request
+		_, err = oauth2Mgr.getPendingAuth(pendingAuth.State)
+		assert.NoError(t, err)
+	}
+
+	req, err := http.NewRequest(http.MethodGet, webOAuth2RedirectPath+"?state="+tokenString, nil)
+	assert.NoError(t, err)
+	req.AddCookie(&http.Cookie{Name: oauth2BrowserCookieKey, Value: pendingAuth.Browser})
+	assert.True(t, checkAuthBrowserID(req, oauth2BrowserCookieKey, pendingAuth.Browser))
+
+	oauth2Mgr.removePendingAuth(pendingAuth.State)
+}
+
 func TestOAuth2Token(t *testing.T) {
 	server := httpdServer{}
 	err := server.initializeRouter()

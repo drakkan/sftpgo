@@ -4433,6 +4433,12 @@ func (s *httpdServer) handleOAuth2TokenRedirect(w http.ResponseWriter, r *http.R
 			util.NewI18nError(err, util.I18nOAuth2ErrorValidateState), "")
 		return
 	}
+	if !checkAuthBrowserID(r, oauth2BrowserCookieKey, pendingAuth.Browser) {
+		s.renderMessagePage(w, r, util.I18nOAuth2ErrorTitle, http.StatusBadRequest,
+			util.NewI18nError(errors.New("the authorization request was started by a different browser"),
+				util.I18nOAuth2InvalidState), "")
+		return
+	}
 	oauth2Mgr.removePendingAuth(state)
 
 	oauth2Config := smtp.OAuth2Config{
