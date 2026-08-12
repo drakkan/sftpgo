@@ -1405,7 +1405,7 @@ func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.Keyboard
 		}
 		return user, err
 	}
-	return doKeyboardInteractiveAuth(&user, authHook, client, ip, protocol, isPartialAuth)
+	return doKeyboardInteractiveAuth(&user, usePlugin, authHook, client, ip, protocol, isPartialAuth)
 }
 
 // GetFTPPreAuthUser returns the SFTPGo user with the specified username
@@ -4160,7 +4160,7 @@ func executeKeyboardInteractiveProgram(user *User, authHook string, client ssh.K
 	return authResult, err
 }
 
-func doKeyboardInteractiveAuth(user *User, authHook string, client ssh.KeyboardInteractiveChallenge,
+func doKeyboardInteractiveAuth(user *User, usePlugin bool, authHook string, client ssh.KeyboardInteractiveChallenge,
 	ip, protocol string, isPartialAuth bool,
 ) (User, error) {
 	if err := user.LoadAndApplyGroupSettings(); err != nil {
@@ -4169,7 +4169,7 @@ func doKeyboardInteractiveAuth(user *User, authHook string, client ssh.KeyboardI
 	var authResult int
 	var err error
 	if !user.Filters.Hooks.ExternalAuthDisabled {
-		if plugin.Handler.HasAuthScope(plugin.AuthScopeKeyboardInteractive) {
+		if usePlugin {
 			authResult, err = executeKeyboardInteractivePlugin(user, client, ip, protocol)
 			if authResult == 1 && err == nil {
 				authResult, err = checkKeyboardInteractiveSecondFactor(user, client, protocol)
