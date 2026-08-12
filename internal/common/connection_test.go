@@ -263,8 +263,48 @@ func TestRenameVirtualFolders(t *testing.T) {
 	})
 	fs := vfs.NewOsFs("", os.TempDir(), "", nil)
 	conn := NewBaseConnection("", ProtocolFTP, "", "", u)
-	res := conn.isRenamePermitted(fs, fs, "source", "target", vdir, "vdirtarget", nil)
-	assert.False(t, res)
+	err := conn.checkRenamePermissions(fs, fs, "source", "target", vdir, "vdirtarget", nil)
+	assert.ErrorIs(t, err, os.ErrPermission)
+}
+
+func TestRenameDeniedSourcePolicy(t *testing.T) {
+	fs := vfs.NewOsFs("", os.TempDir(), "", nil)
+
+	for _, tc := range []struct {
+		name     string
+		policy   int
+		expected error
+	}{
+		{name: "default policy", policy: sdk.DenyPolicyDefault, expected: os.ErrPermission},
+		{name: "hide policy", policy: sdk.DenyPolicyHide, expected: os.ErrNotExist},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			u := dataprovider.User{
+				BaseUser: sdk.BaseUser{
+					Username:    "user",
+					HomeDir:     filepath.Clean(os.TempDir()),
+					Permissions: map[string][]string{"/": {dataprovider.PermAny}},
+				},
+			}
+			u.Filters.FilePatterns = []sdk.PatternsFilter{
+				{Path: "/", DeniedPatterns: []string{"*.dat"}, DenyPolicy: tc.policy},
+			}
+			conn := NewBaseConnection("", ProtocolHTTP, "", "", u)
+			srcInfo := vfs.NewFileInfo("report.dat", false, 123, time.Now(), false)
+			// a denied source reports the configured policy
+			err := conn.checkRenamePermissions(fs, fs, filepath.Join(os.TempDir(), "report.dat"),
+				filepath.Join(os.TempDir(), "report.txt"), "/report.dat", "/report.txt", srcInfo)
+			assert.ErrorIs(t, err, tc.expected)
+			// a denied target is always a permission error, it is a path being written
+			err = conn.checkRenamePermissions(fs, fs, filepath.Join(os.TempDir(), "doc.txt"),
+				filepath.Join(os.TempDir(), "doc.dat"), "/doc.txt", "/doc.dat", srcInfo)
+			assert.ErrorIs(t, err, os.ErrPermission)
+			// an allowed rename is permitted
+			err = conn.checkRenamePermissions(fs, fs, filepath.Join(os.TempDir(), "doc.txt"),
+				filepath.Join(os.TempDir(), "doc2.txt"), "/doc.txt", "/doc2.txt", srcInfo)
+			assert.NoError(t, err)
+		})
+	}
 }
 
 func TestRenamePerms(t *testing.T) {
@@ -1081,6 +1121,170 @@ func TestFilePatterns(t *testing.T) {
 	}
 	filtered = getFilteredInfo(dirContents, "/dir3/ic35/abc")
 	require.Len(t, filtered, 1)
+}
+
+func TestCheckCopyPermissions(t *testing.T) {
+	allPerms := []string{dataprovider.PermAny}
+	noDownload := []string{dataprovider.PermListItems, dataprovider.PermUpload, dataprovider.PermCopy}
+	noCopy := []string{dataprovider.PermListItems, dataprovider.PermUpload, dataprovider.PermDownload}
+
+	testCases := []struct {
+		name        string
+		permissions map[string][]string
+		patterns    []sdk.PatternsFilter
+		source      string
+		target      string
+		expected    error
+	}{
+		{
+			name:        "all permissions, no patterns",
+			permissions: map[string][]string{"/": allPerms},
+			source:      "/src/file.txt",
+			target:      "/dst/file.txt",
+		},
+		{
+			name:        "no copy permission on the source dir",
+			permissions: map[string][]string{"/": allPerms, "/src": noCopy},
+			source:      "/src/file.txt",
+			target:      "/dst/file.txt",
+			expected:    os.ErrPermission,
+		},
+		{
+			name:        "no copy permission on the target dir",
+			permissions: map[string][]string{"/": allPerms, "/dst": noCopy},
+			source:      "/src/file.txt",
+			target:      "/dst/file.txt",
+			expected:    os.ErrPermission,
+		},
+		{
+			name:        "no download permission on the source dir",
+			permissions: map[string][]string{"/": allPerms, "/src": noDownload},
+			source:      "/src/file.txt",
+			target:      "/dst/file.txt",
+			expected:    os.ErrPermission,
+		},
+		{
+			name:        "glob permission key matching the file only",
+			permissions: map[string][]string{"/": allPerms, "/src/*": noCopy},
+			source:      "/src/file.txt",
+			target:      "/dst/file.txt",
+		},
+		{
+			name:        "glob permission key matching the source dir",
+			permissions: map[string][]string{"/": allPerms, "/sr*": noCopy},
+			source:      "/src/file.txt",
+			target:      "/dst/file.txt",
+			expected:    os.ErrPermission,
+		},
+		{
+			name:        "download permission is not required on the target dir",
+			permissions: map[string][]string{"/": allPerms, "/dst": noDownload},
+			source:      "/src/file.txt",
+			target:      "/dst/file.txt",
+		},
+		{
+			name:        "denied source, default policy",
+			permissions: map[string][]string{"/": allPerms},
+			patterns: []sdk.PatternsFilter{
+				{Path: "/", DeniedPatterns: []string{"*.dat"}, DenyPolicy: sdk.DenyPolicyDefault},
+			},
+			source:   "/src/report.dat",
+			target:   "/dst/report.txt",
+			expected: os.ErrPermission,
+		},
+		{
+			name:        "denied source, hide policy",
+			permissions: map[string][]string{"/": allPerms},
+			patterns: []sdk.PatternsFilter{
+				{Path: "/", DeniedPatterns: []string{"*.dat"}, DenyPolicy: sdk.DenyPolicyHide},
+			},
+			source:   "/src/report.dat",
+			target:   "/dst/report.txt",
+			expected: os.ErrNotExist,
+		},
+		{
+			name:        "hidden source parent dir",
+			permissions: map[string][]string{"/": allPerms},
+			patterns: []sdk.PatternsFilter{
+				{Path: "/", DeniedPatterns: []string{"hidden"}, DenyPolicy: sdk.DenyPolicyHide},
+			},
+			source:   "/hidden/file.txt",
+			target:   "/dst/file.txt",
+			expected: os.ErrNotExist,
+		},
+		{
+			// the hide policy is not forwarded for a path being written
+			name:        "denied target, hide policy",
+			permissions: map[string][]string{"/": allPerms},
+			patterns: []sdk.PatternsFilter{
+				{Path: "/", DeniedPatterns: []string{"*.dat"}, DenyPolicy: sdk.DenyPolicyHide},
+			},
+			source:   "/src/file.txt",
+			target:   "/dst/report.dat",
+			expected: os.ErrPermission,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			user := dataprovider.User{
+				BaseUser: sdk.BaseUser{
+					Username:    "user",
+					HomeDir:     filepath.Clean(os.TempDir()),
+					Permissions: tc.permissions,
+				},
+			}
+			user.Filters.FilePatterns = tc.patterns
+			conn := NewBaseConnection("", ProtocolHTTP, "", "", user)
+			err := conn.checkCopyPermissions(tc.source, tc.target)
+			if tc.expected == nil {
+				assert.NoError(t, err)
+			} else {
+				assert.ErrorIs(t, err, tc.expected)
+			}
+		})
+	}
+}
+
+func TestSymlinkDeniedSourcePolicy(t *testing.T) {
+	oldConfig := Config
+	Config.SymlinkMode = 1
+	defer func() {
+		Config = oldConfig
+	}()
+
+	homeDir := filepath.Join(os.TempDir(), "symlinkpolicy")
+	err := os.MkdirAll(homeDir, os.ModePerm)
+	assert.NoError(t, err)
+
+	for _, tc := range []struct {
+		name     string
+		policy   int
+		expected error
+	}{
+		{name: "default policy", policy: sdk.DenyPolicyDefault, expected: os.ErrPermission},
+		{name: "hide policy", policy: sdk.DenyPolicyHide, expected: os.ErrNotExist},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			user := dataprovider.User{
+				BaseUser: sdk.BaseUser{
+					Username:    userTestUsername,
+					HomeDir:     homeDir,
+					Permissions: map[string][]string{"/": {dataprovider.PermAny}},
+				},
+			}
+			user.Filters.FilePatterns = []sdk.PatternsFilter{
+				{Path: "/", DeniedPatterns: []string{"*.dat"}, DenyPolicy: tc.policy},
+			}
+			conn := NewBaseConnection("", ProtocolHTTP, "", "", user)
+			assert.ErrorIs(t, conn.CreateSymlink("/report.dat", "/link.txt"), tc.expected)
+			// a denied target is a path being written, it always reports permission denied
+			assert.ErrorIs(t, conn.CreateSymlink("/doc.txt", "/link.dat"), os.ErrPermission)
+		})
+	}
+
+	err = os.RemoveAll(homeDir)
+	assert.NoError(t, err)
 }
 
 func TestStatForOngoingTransfers(t *testing.T) {
