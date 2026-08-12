@@ -41,6 +41,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -28852,4 +28853,110 @@ func TestInlineDownloadDisabled(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
+}
+
+const (
+	dirEntriesHTTPFsPort = 34568
+	dirEntriesHTTPFsUser = "httpfs_direntries_user"
+	dirEntriesHTTPFsDir  = "/batchdir"
+	dirEntriesBatchSize  = 1000
+)
+
+var (
+	dirEntriesHTTPFsOnce sync.Once
+	dirEntriesExtra      atomic.Pointer[[]os.FileInfo]
+)
+
+func startDirEntriesHTTPFs(t *testing.T) {
+	t.Helper()
+
+	dirEntriesHTTPFsOnce.Do(func() {
+		callbacks := &httpdtest.HTTPFsCallbacks{
+			Readdir: func(name string) []os.FileInfo {
+				if name != dirEntriesHTTPFsDir {
+					return nil
+				}
+				if entries := dirEntriesExtra.Load(); entries != nil {
+					return *entries
+				}
+				return nil
+			},
+		}
+		go func() {
+			if err := httpdtest.StartTestHTTPFs(dirEntriesHTTPFsPort, callbacks); err != nil {
+				panic(err)
+			}
+		}()
+		waitTCPListening(fmt.Sprintf("127.0.0.1:%d", dirEntriesHTTPFsPort))
+	})
+	require.NoError(t, os.MkdirAll(filepath.Join(os.TempDir(), "httpfs", dirEntriesHTTPFsUser,
+		filepath.FromSlash(dirEntriesHTTPFsDir)), os.ModePerm))
+}
+
+func getDirEntriesHTTPFsUser() dataprovider.User {
+	u := getTestUser()
+	u.FsConfig.Provider = sdk.HTTPFilesystemProvider
+	u.FsConfig.HTTPConfig = vfs.HTTPFsConfig{
+		BaseHTTPFsConfig: sdk.BaseHTTPFsConfig{
+			Endpoint: fmt.Sprintf("http://127.0.0.1:%d/api/v1", dirEntriesHTTPFsPort),
+			Username: dirEntriesHTTPFsUser,
+		},
+		Password: kms.NewEmptySecret(),
+		APIKey:   kms.NewEmptySecret(),
+	}
+	return u
+}
+
+func TestDirContentsAcrossBatches(t *testing.T) {
+	startDirEntriesHTTPFs(t)
+
+	entries := make([]os.FileInfo, 0, dirEntriesBatchSize+2)
+	for idx := range dirEntriesBatchSize + 1 {
+		entries = append(entries, vfs.NewFileInfo(fmt.Sprintf("file%04d.txt", idx), false, 1, time.Unix(0, 0), false))
+	}
+	entries = append(entries, vfs.NewFileInfo("thedir", true, 0, time.Unix(0, 0), false))
+	dirEntriesExtra.Store(&entries)
+	defer dirEntriesExtra.Store(nil)
+
+	user, _, err := httpdtest.AddUser(getDirEntriesHTTPFsUser(), http.StatusCreated)
+	require.NoError(t, err)
+	defer func() {
+		_, err := httpdtest.RemoveUser(user, http.StatusOK)
+		assert.NoError(t, err)
+		assert.NoError(t, os.RemoveAll(user.GetHomeDir()))
+	}()
+
+	webToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
+	require.NoError(t, err)
+
+	// dirtree keeps the directories only: the first batch is all files
+	req, err := http.NewRequest(http.MethodGet, webClientDirsPath+"?dirtree=1&path="+dirEntriesHTTPFsDir, nil)
+	require.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	var contents []map[string]any
+	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &contents))
+	require.Len(t, contents, 1)
+	assert.Equal(t, "thedir", contents[0]["name"])
+
+	// the existence check keeps the requested names only, and the requested
+	// one is served after a full batch of names that do not match
+	filesToCheck := map[string]any{"files": []string{"file1000.txt"}}
+	asJSON, err := json.Marshal(filesToCheck)
+	require.NoError(t, err)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webClientProfilePath, webToken)
+	require.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, webClientExistPath+"?path="+dirEntriesHTTPFsDir, bytes.NewBuffer(asJSON))
+	require.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	setCSRFHeaderForReq(req, csrfToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	var existing []map[string]any
+	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &existing))
+	require.Len(t, existing, 1)
+	assert.Equal(t, "file1000.txt", existing[0]["name"])
 }

@@ -1016,18 +1016,14 @@ func (s *httpdServer) handleShareGetDirContents(w http.ResponseWriter, r *http.R
 	defer lister.Close()
 
 	dataGetter := func(limit, offset int) ([]byte, int, error) {
-		contents, err := lister.Next(limit)
-		if errors.Is(err, io.EOF) {
-			err = nil
-		}
+		contents, finished, err := nextRenderableEntries(lister, limit, func(info os.FileInfo) bool {
+			return info.Mode().IsDir() || info.Mode().IsRegular()
+		})
 		if err != nil {
 			return nil, 0, err
 		}
 		results := make([]map[string]any, 0, len(contents))
 		for idx, info := range contents {
-			if !info.Mode().IsDir() && !info.Mode().IsRegular() {
-				continue
-			}
 			res := make(map[string]any)
 			res["id"] = offset + idx + 1
 			if info.IsDir() {
@@ -1046,8 +1042,8 @@ func (s *httpdServer) handleShareGetDirContents(w http.ResponseWriter, r *http.R
 		}
 		data, err := json.Marshal(results)
 		count := limit
-		if len(results) == 0 {
-			count = 0
+		if finished {
+			count = len(results)
 		}
 		return data, count, err
 	}
@@ -1236,10 +1232,9 @@ func (s *httpdServer) handleClientGetDirContents(w http.ResponseWriter, r *http.
 
 	dirTree := r.URL.Query().Get("dirtree") == "1"
 	dataGetter := func(limit, offset int) ([]byte, int, error) {
-		contents, err := lister.Next(limit)
-		if errors.Is(err, io.EOF) {
-			err = nil
-		}
+		contents, finished, err := nextRenderableEntries(lister, limit, func(info os.FileInfo) bool {
+			return info.IsDir() || !dirTree
+		})
 		if err != nil {
 			return nil, 0, err
 		}
@@ -1253,9 +1248,6 @@ func (s *httpdServer) handleClientGetDirContents(w http.ResponseWriter, r *http.
 				res["size"] = ""
 				res["dir_path"] = url.QueryEscape(path.Join(name, info.Name()))
 			} else {
-				if dirTree {
-					continue
-				}
 				res["type"] = "2"
 				if info.Mode()&os.ModeSymlink != 0 {
 					res["size"] = ""
@@ -1273,8 +1265,8 @@ func (s *httpdServer) handleClientGetDirContents(w http.ResponseWriter, r *http.
 		}
 		data, err := json.Marshal(results)
 		count := limit
-		if len(results) == 0 {
-			count = 0
+		if finished {
+			count = len(results)
 		}
 		return data, count, err
 	}
@@ -2053,33 +2045,34 @@ func doCheckExist(w http.ResponseWriter, r *http.Request, connection *Connection
 	}
 	defer lister.Close()
 
+	found := 0
 	dataGetter := func(limit, _ int) ([]byte, int, error) {
-		contents, err := lister.Next(limit)
-		if errors.Is(err, io.EOF) {
-			err = nil
-		}
+		contents, finished, err := nextRenderableEntries(lister, limit, func(info os.FileInfo) bool {
+			return slices.Contains(filesList.Files, info.Name())
+		})
 		if err != nil {
 			return nil, 0, err
 		}
-		existing := make([]map[string]any, 0)
+		existing := make([]map[string]any, 0, len(contents))
 		for _, info := range contents {
-			if slices.Contains(filesList.Files, info.Name()) {
-				res := make(map[string]any)
-				res["name"] = info.Name()
-				if info.IsDir() {
-					res["type"] = "1"
-					res["size"] = ""
-				} else {
-					res["type"] = "2"
-					res["size"] = info.Size()
-				}
-				existing = append(existing, res)
+			res := make(map[string]any)
+			res["name"] = info.Name()
+			if info.IsDir() {
+				res["type"] = "1"
+				res["size"] = ""
+			} else {
+				res["type"] = "2"
+				res["size"] = info.Size()
 			}
+			existing = append(existing, res)
 		}
+		found += len(existing)
 		data, err := json.Marshal(existing)
 		count := limit
-		if len(existing) == 0 {
-			count = 0
+		// proving that a name is missing requires the whole listing, finding
+		// every checked one does not
+		if finished || found >= len(filesList.Files) {
+			count = len(existing)
 		}
 		return data, count, err
 	}
