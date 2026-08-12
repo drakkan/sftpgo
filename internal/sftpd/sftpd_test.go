@@ -76,6 +76,7 @@ const (
 	logSender           = "sftpdTesting"
 	sftpServerAddr      = "127.0.0.1:2022"
 	sftpSrvAddr2222     = "127.0.0.1:2222"
+	sftpSrvAddr2228     = "127.0.0.1:2228"
 	defaultUsername     = "test_user_sftp"
 	defaultPassword     = "test_password"
 	defaultSFTPUsername = "test_sftpfs_user"
@@ -181,7 +182,7 @@ var (
 	hostKeyFPs       []string
 )
 
-func TestMain(m *testing.M) {
+func TestMain(m *testing.M) { //nolint:gocyclo
 	logFilePath = filepath.Join(configDir, "sftpgo_sftpd_test.log")
 	loginBannerFileName := "login_banner"
 	loginBannerFile := filepath.Join(configDir, loginBannerFileName)
@@ -297,6 +298,25 @@ func TestMain(m *testing.M) {
 
 	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
 	waitTCPListening(httpdConf.Bindings[0].GetAddress())
+
+	// this instance has no keyboard interactive hook, so the builtin flow is used
+	sftpdConf.Bindings = []sftpd.Binding{
+		{
+			Port:             2228,
+			ApplyProxyConfig: false,
+		},
+	}
+	sftpdConf.KeyboardInteractiveHook = ""
+	go func(cfg sftpd.Configuration) {
+		logger.Debug(logSender, "", "initializing SFTP server with the builtin keyboard interactive auth")
+		if err := cfg.Initialize(configDir); err != nil {
+			logger.ErrorToConsole("could not start SFTP server with the builtin keyboard interactive auth: %v", err)
+			os.Exit(1)
+		}
+	}(sftpdConf)
+
+	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
+	sftpdConf.KeyboardInteractiveHook = keyIntAuthPath
 
 	sftpdConf.Bindings = []sftpd.Binding{
 		{
@@ -3407,6 +3427,36 @@ func TestLoginAfterUserUpdateEmptyPwd(t *testing.T) {
 		defer client.Close()
 		assert.NoError(t, checkBasicSFTP(client))
 	}
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestInteractiveLoginMissingUser(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(false), http.StatusCreated)
+	assert.NoError(t, err)
+
+	questions, err := getKeyboardInteractiveQuestions(sftpSrvAddr2228, user.Username, []string{"wrong password"})
+	assert.Error(t, err)
+	assert.Equal(t, []string{"Password: "}, questions)
+	// the same questions are asked for an account that does not exist
+	missingQuestions, err := getKeyboardInteractiveQuestions(sftpSrvAddr2228, user.Username+"_missing",
+		[]string{"wrong password"})
+	assert.Error(t, err)
+	assert.Equal(t, questions, missingQuestions)
+
+	questions, err = getKeyboardInteractiveQuestions(sftpSrvAddr2228, user.Username, []string{defaultPassword})
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"Password: "}, questions)
+
+	// the keyboard interactive hook is not executed for accounts that cannot be resolved,
+	// the password is asked anyway so that clients get a challenge in any case
+	missingQuestions, err = getKeyboardInteractiveQuestions(sftpServerAddr, user.Username+"_missing",
+		[]string{"wrong password"})
+	assert.Error(t, err)
+	assert.Equal(t, []string{"Password: "}, missingQuestions)
+
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
@@ -12401,6 +12451,28 @@ func getSftpClientWithAddr(user dataprovider.User, usePubKey bool, addr string) 
 
 func getSftpClient(user dataprovider.User, usePubKey bool) (*ssh.Client, *sftp.Client, error) {
 	return getSftpClientWithAddr(user, usePubKey, sftpServerAddr)
+}
+
+// getKeyboardInteractiveQuestions returns the questions asked by the server instance
+// listening on the specified address.
+func getKeyboardInteractiveQuestions(addr, username string, answers []string) ([]string, error) {
+	var questions []string
+	config := &ssh.ClientConfig{
+		User:            username,
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Auth: []ssh.AuthMethod{
+			ssh.KeyboardInteractive(func(_, _ string, qs []string, _ []bool) ([]string, error) {
+				questions = append(questions, qs...)
+				return answers, nil
+			}),
+		},
+		Timeout: 5 * time.Second,
+	}
+	conn, err := ssh.Dial("tcp", addr, config)
+	if conn != nil {
+		conn.Close()
+	}
+	return questions, err
 }
 
 func getKeyboardInteractiveSftpClient(user dataprovider.User, answers []string) (*ssh.Client, *sftp.Client, error) {

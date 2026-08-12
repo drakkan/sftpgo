@@ -112,6 +112,7 @@ const (
 	operationDelete           = "delete"
 	sqlPrefixValidChars       = "abcdefghijklmnopqrstuvwxyz_0123456789"
 	maxHookResponseSize       = 1048576 // 1MB
+	passwordPrompt            = "Password: "
 )
 
 // Supported algorithms for hashing passwords.
@@ -1377,7 +1378,19 @@ func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.Keyboard
 	var user User
 	var err error
 	username = config.convertName(username)
-	if plugin.Handler.HasAuthScope(plugin.AuthScopeKeyboardInteractive) {
+	usePlugin := plugin.Handler.HasAuthScope(plugin.AuthScopeKeyboardInteractive)
+	hasCustomChallenges := usePlugin || authHook != ""
+	if !isPartialAuth && !hasCustomChallenges {
+		answers, errPrompt := client("", "", []string{passwordPrompt}, []bool{false})
+		if errPrompt != nil {
+			return user, errPrompt
+		}
+		if len(answers) != 1 {
+			return user, fmt.Errorf("unexpected number of answers: %d", len(answers))
+		}
+		client = (&prefetchedChallenge{client: client, answers: answers}).challenge
+	}
+	if usePlugin {
 		user, err = doPluginAuth(username, "", nil, ip, protocol, nil, plugin.AuthScopeKeyboardInteractive)
 	} else if config.ExternalAuthHook != "" && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&4 != 0) {
 		user, err = doExternalAuth(username, "", nil, "1", ip, protocol, nil)
@@ -1387,6 +1400,9 @@ func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.Keyboard
 		user, err = provider.userExists(username, "")
 	}
 	if err != nil {
+		if !isPartialAuth && hasCustomChallenges {
+			_, _ = client("", "", []string{passwordPrompt}, []bool{false})
+		}
 		return user, err
 	}
 	return doKeyboardInteractiveAuth(&user, authHook, client, ip, protocol, isPartialAuth)
@@ -3865,6 +3881,20 @@ func sendKeyboardAuthHTTPReq(url string, request *plugin.KeyboardAuthRequest) (*
 	return &response, err
 }
 
+type prefetchedChallenge struct {
+	client  ssh.KeyboardInteractiveChallenge
+	answers []string
+	used    bool
+}
+
+func (c *prefetchedChallenge) challenge(name, instruction string, questions []string, echos []bool) ([]string, error) {
+	if !c.used {
+		c.used = true
+		return c.answers, nil
+	}
+	return c.client(name, instruction, questions, echos)
+}
+
 func doBuiltinKeyboardInteractiveAuth(user *User, client ssh.KeyboardInteractiveChallenge,
 	ip, protocol string, isPartialAuth bool,
 ) (int, error) {
@@ -3873,7 +3903,7 @@ func doBuiltinKeyboardInteractiveAuth(user *User, client ssh.KeyboardInteractive
 	}
 	hasSecondFactor := user.Filters.TOTPConfig.Enabled && slices.Contains(user.Filters.TOTPConfig.Protocols, protocolSSH)
 	if !isPartialAuth || !hasSecondFactor {
-		answers, err := client("", "", []string{"Password: "}, []bool{false})
+		answers, err := client("", "", []string{passwordPrompt}, []bool{false})
 		if err != nil {
 			return 0, err
 		}
