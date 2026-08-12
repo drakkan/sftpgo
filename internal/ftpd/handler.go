@@ -100,7 +100,7 @@ func (c *Connection) Mkdir(name string, _ os.FileMode) error {
 	c.UpdateLastActivity()
 	name = util.CleanPath(name)
 
-	return c.CreateDir(name, true)
+	return c.CreateDir(name)
 }
 
 // MkdirAll is not implemented, we don't need it

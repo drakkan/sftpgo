@@ -11688,6 +11688,62 @@ func TestSCPStartDirectory(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestSCPDeniedDirNames(t *testing.T) {
+	if scpPath == "" {
+		t.Skip("scp command not found, unable to execute this test")
+	}
+	usePubKey := true
+	user, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
+	assert.NoError(t, err)
+
+	beta := filepath.Join(user.GetHomeDir(), "beta")
+	err = os.MkdirAll(filepath.Join(beta, "sub"), os.ModePerm)
+	assert.NoError(t, err)
+	err = os.WriteFile(filepath.Join(beta, "a.txt"), []byte("content"), 0o600)
+	assert.NoError(t, err)
+
+	user.Filters.FilePatterns = []sdk.PatternsFilter{
+		{Path: "/", DeniedPatterns: []string{"beta*"}, DenyPolicy: sdk.DenyPolicyHide},
+	}
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+
+	localDir := filepath.Join(homeBasePath, "scpdenied")
+	err = os.MkdirAll(localDir, os.ModePerm)
+	assert.NoError(t, err)
+
+	// a denied directory name cannot be created by a recursive upload
+	upDir := filepath.Join(homeBasePath, "betadir")
+	err = os.MkdirAll(upDir, os.ModePerm)
+	assert.NoError(t, err)
+	err = os.WriteFile(filepath.Join(upDir, "a.txt"), []byte("content"), 0o600)
+	assert.NoError(t, err)
+	err = scpUpload(upDir, fmt.Sprintf("%v@127.0.0.1:%v", user.Username, "/"), false, false)
+	assert.Error(t, err, "scp upload of a denied directory name must fail")
+	assert.NoDirExists(t, filepath.Join(user.GetHomeDir(), "betadir"))
+
+	// an allowed directory name still works
+	okDir := filepath.Join(homeBasePath, "gammadir")
+	err = os.MkdirAll(okDir, os.ModePerm)
+	assert.NoError(t, err)
+	err = os.WriteFile(filepath.Join(okDir, "a.txt"), []byte("content"), 0o600)
+	assert.NoError(t, err)
+	err = scpUpload(okDir, fmt.Sprintf("%v@127.0.0.1:%v", user.Username, "/"), false, false)
+	assert.NoError(t, err)
+	assert.DirExists(t, filepath.Join(user.GetHomeDir(), "gammadir"))
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(localDir)
+	assert.NoError(t, err)
+	err = os.RemoveAll(upDir)
+	assert.NoError(t, err)
+	err = os.RemoveAll(okDir)
+	assert.NoError(t, err)
+}
+
 func TestSCPPatternsFilter(t *testing.T) {
 	if scpPath == "" {
 		t.Skip("scp command not found, unable to execute this test")

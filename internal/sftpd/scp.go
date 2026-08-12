@@ -152,12 +152,6 @@ func (c *scpCommand) handleRecursiveUpload() error {
 func (c *scpCommand) handleCreateDir(fs vfs.Fs, dirPath string) error {
 	c.connection.UpdateLastActivity()
 
-	p, err := fs.ResolvePath(dirPath)
-	if err != nil {
-		c.connection.Log(logger.LevelError, "error creating dir: %q, invalid file path, err: %v", dirPath, err)
-		c.sendErrorMessage(fs, err)
-		return err
-	}
 	if !c.connection.User.HasPerm(dataprovider.PermCreateDirs, path.Dir(dirPath)) {
 		c.connection.Log(logger.LevelError, "error creating dir: %q, permission denied", dirPath)
 		c.sendErrorMessage(fs, common.ErrPermissionDenied)
@@ -168,12 +162,11 @@ func (c *scpCommand) handleCreateDir(fs vfs.Fs, dirPath string) error {
 	if err == nil && info.IsDir() {
 		return nil
 	}
-
-	err = c.createDir(fs, p)
-	if err != nil {
+	if err := c.connection.CreateDir(dirPath); err != nil {
+		c.connection.Log(logger.LevelError, "error creating dir %q: %v", dirPath, err)
+		c.sendErrorMessage(fs, err)
 		return err
 	}
-	c.connection.Log(logger.LevelDebug, "created dir %q", dirPath)
 	return nil
 }
 
@@ -713,17 +706,6 @@ func (c *scpCommand) getNextUploadProtocolMessage() (string, error) {
 		}
 	}
 	return command, err
-}
-
-func (c *scpCommand) createDir(fs vfs.Fs, dirPath string) error {
-	err := fs.Mkdir(dirPath)
-	if err != nil {
-		c.connection.Log(logger.LevelError, "error creating dir %q: %v", dirPath, err)
-		c.sendErrorMessage(fs, err)
-		return err
-	}
-	vfs.SetPathPermissions(fs, dirPath, c.connection.User.GetUID(), c.connection.User.GetGID())
-	return err
 }
 
 // parse protocol messages such as:
