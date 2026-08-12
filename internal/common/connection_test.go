@@ -1324,6 +1324,7 @@ func TestSymlinkDeniedSourcePolicy(t *testing.T) {
 				{Path: "/", DeniedPatterns: []string{"*.dat"}, DenyPolicy: tc.policy},
 			}
 			conn := NewBaseConnection("", ProtocolHTTP, "", "", user)
+			defer conn.CloseFS() //nolint:errcheck
 			assert.ErrorIs(t, conn.CreateSymlink("/report.dat", "/link.txt"), tc.expected)
 			// a denied target is a path being written, it always reports permission denied
 			assert.ErrorIs(t, conn.CreateSymlink("/doc.txt", "/link.dat"), os.ErrPermission)
@@ -1337,7 +1338,11 @@ func TestSymlinkDeniedSourcePolicy(t *testing.T) {
 func TestRenameFilePatternsScope(t *testing.T) {
 	homeDir := filepath.Join(os.TempDir(), "renamescope")
 
+	var conn *BaseConnection
 	setup := func(patterns []sdk.PatternsFilter) *BaseConnection {
+		if conn != nil {
+			assert.NoError(t, conn.CloseFS())
+		}
 		err := os.RemoveAll(homeDir)
 		assert.NoError(t, err)
 		err = os.MkdirAll(filepath.Join(homeDir, "alpha", "sub"), os.ModePerm)
@@ -1355,14 +1360,15 @@ func TestRenameFilePatternsScope(t *testing.T) {
 			},
 		}
 		user.Filters.FilePatterns = patterns
-		return NewBaseConnection("", ProtocolHTTP, "", "", user)
+		conn = NewBaseConnection("", ProtocolHTTP, "", "", user)
+		return conn
 	}
 	scoped := []sdk.PatternsFilter{
 		{Path: "/alpha", DeniedPatterns: []string{"*.dat"}},
 	}
 
 	// the denied file cannot be moved out directly
-	conn := setup(scoped)
+	conn = setup(scoped)
 	assert.ErrorIs(t, conn.Rename("/alpha/report.dat", "/report.dat"), os.ErrPermission)
 	// nor can the directory carrying the filter
 	assert.ErrorIs(t, conn.Rename("/alpha", "/beta"), os.ErrPermission)
@@ -1399,6 +1405,7 @@ func TestRenameFilePatternsScope(t *testing.T) {
 	conn = setup([]sdk.PatternsFilter{{Path: "/", DeniedPatterns: []string{"*.dat"}}})
 	assert.NoError(t, conn.Rename("/alpha", "/beta"))
 
+	assert.NoError(t, conn.CloseFS())
 	err := os.RemoveAll(homeDir)
 	assert.NoError(t, err)
 }
@@ -1411,7 +1418,11 @@ func TestHiddenVirtualFolderStat(t *testing.T) {
 	err = os.MkdirAll(homeDir, os.ModePerm)
 	assert.NoError(t, err)
 
+	var conn *BaseConnection
 	newConn := func(patterns []sdk.PatternsFilter) *BaseConnection {
+		if conn != nil {
+			assert.NoError(t, conn.CloseFS())
+		}
 		user := dataprovider.User{
 			BaseUser: sdk.BaseUser{
 				Username:    userTestUsername,
@@ -1426,7 +1437,8 @@ func TestHiddenVirtualFolderStat(t *testing.T) {
 			QuotaSize:         -1,
 		})
 		user.Filters.FilePatterns = patterns
-		return NewBaseConnection("", ProtocolHTTP, "", "", user)
+		conn = NewBaseConnection("", ProtocolHTTP, "", "", user)
+		return conn
 	}
 	statErr := func(conn *BaseConnection, virtualPath string) error {
 		_, err := conn.DoStat(virtualPath, 0, true)
@@ -1442,7 +1454,7 @@ func TestHiddenVirtualFolderStat(t *testing.T) {
 
 	// no filters: every mount path segment resolves even if it does not exist
 	// on the filesystem, this is why the shortcut exists
-	conn := newConn(nil)
+	conn = newConn(nil)
 	for _, p := range []string{"/1", "/1/2", "/1/2/vdir"} {
 		assert.NoError(t, statErr(conn, p), p)
 	}
@@ -1474,6 +1486,7 @@ func TestHiddenVirtualFolderStat(t *testing.T) {
 	assert.NoError(t, statErr(conn, "/1/2/vdir"))
 	assert.NoError(t, listErr(conn, "/1/2/vdir"))
 
+	assert.NoError(t, conn.CloseFS())
 	err = os.RemoveAll(mappedPath)
 	assert.NoError(t, err)
 	err = os.RemoveAll(homeDir)
@@ -1542,6 +1555,8 @@ func TestRecursiveRenameHiddenEntry(t *testing.T) {
 	conn := NewBaseConnection("", ProtocolHTTP, "", "", user)
 	assert.ErrorIs(t, conn.Rename("/alpha", "/gamma"), os.ErrPermission)
 
+	// the filesystem holds the home dir open until it is closed
+	assert.NoError(t, conn.CloseFS())
 	err = os.RemoveAll(homeDir)
 	assert.NoError(t, err)
 }

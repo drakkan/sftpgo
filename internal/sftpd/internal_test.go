@@ -964,6 +964,7 @@ func TestSCPUploadDestinationScope(t *testing.T) {
 			BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", "", user),
 			channel:        &mockSSHChannel,
 		}
+		defer connection.CloseFS() //nolint:errcheck
 		scpCommand := scpCommand{
 			sshCommand: sshCommand{
 				command:    "scp",
