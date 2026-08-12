@@ -1238,6 +1238,9 @@ func (l *azureBlobDirLister) Next(limit int) ([]os.FileInfo, error) {
 	for _, blobItem := range page.Segment.BlobItems {
 		name := util.GetStringFromPointer(blobItem.Name)
 		name = strings.TrimPrefix(name, l.prefix)
+		if name == "" || name == "/" {
+			continue
+		}
 		size := int64(0)
 		isDir := false
 		var metadata map[string]*string

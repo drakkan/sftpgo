@@ -511,6 +511,9 @@ func (fs *HTTPFs) ReadDir(dirname string) (DirLister, error) {
 	}
 	result := make([]os.FileInfo, 0, len(response))
 	for _, stat := range response {
+		if !addressesEntryInDir(stat.Name) {
+			continue
+		}
 		result = append(result, stat.getFileInfo())
 	}
 	return &baseDirLister{result}, nil
