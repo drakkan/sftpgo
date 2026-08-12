@@ -1246,7 +1246,9 @@ func (c *BaseConnection) checkRecursiveRenameDirPermissions(fsSrc, fsDst vfs.Fs,
 		// if all rename permissions are granted we have finished, otherwise we have to walk
 		// because we could have the rename dir permission but not the rename file and the dir to
 		// rename could contain files
-		if c.User.HasPermsRenameAll(path.Dir(virtualSourcePath)) && c.User.HasPermsRenameAll(path.Dir(virtualTargetPath)) {
+		if c.User.HasPermsRenameAll(path.Dir(virtualSourcePath)) &&
+			c.User.HasPermsRenameAll(path.Dir(virtualTargetPath)) &&
+			!c.User.FilePatternsScopeChanges(virtualSourcePath, virtualTargetPath) {
 			return nil
 		}
 	}
