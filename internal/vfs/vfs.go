@@ -247,6 +247,11 @@ type Metadater interface {
 	Metadata() map[string]string
 }
 
+func addressesEntryInDir(name string) bool {
+	name = path.Base(name)
+	return name != "." && name != ".." && name != "/"
+}
+
 type baseDirLister struct {
 	cache []os.FileInfo
 }
