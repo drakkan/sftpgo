@@ -176,10 +176,8 @@ func (c *sshCommand) handleHashCommands() error {
 		response = fmt.Sprintf("%x  -\n", h.Sum(nil))
 	} else {
 		sshPath := c.getDestPath()
-		if len(sshPath) > 1 {
-			// a trailing slash would make the permission check evaluate the path itself
-			// instead of the directory it belongs to
-			sshPath = strings.TrimSuffix(sshPath, "/")
+		if strings.HasSuffix(sshPath, "/") {
+			return c.sendErrorResponse(errors.New("a path ending with \"/\" refers to a directory"))
 		}
 		hash, err := c.computeHashForFile(h, sshPath)
 		if err != nil {

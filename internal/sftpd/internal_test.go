@@ -637,19 +637,22 @@ func TestHashCommandPathPermissions(t *testing.T) {
 		BaseConnection: common.NewBaseConnection("", common.ProtocolSSH, "", "", user),
 		channel:        &mockSSHChannel,
 	}
-	// a trailing slash must not make the check evaluate the file path itself: it would
-	// match the pattern and grant the download permission the parent directory lacks
-	for _, arg := range []string{"/data/secret.txt", "/data/secret.txt/"} {
-		cmd := sshCommand{
-			command:    "md5sum",
-			connection: connection,
-			args:       []string{arg},
-		}
-		err = cmd.handleHashCommands()
-		assert.EqualError(t, err, common.ErrPermissionDenied.Error(), "hashing %q must be denied", arg)
-	}
-	// the pattern grants the permission where it is meant to
 	cmd := sshCommand{
+		command:    "md5sum",
+		connection: connection,
+		args:       []string{"/data/secret.txt"},
+	}
+	err = cmd.handleHashCommands()
+	assert.EqualError(t, err, common.ErrPermissionDenied.Error())
+	cmd = sshCommand{
+		command:    "md5sum",
+		connection: connection,
+		args:       []string{"/data/secret.txt/"},
+	}
+	err = cmd.handleHashCommands()
+	assert.ErrorContains(t, err, "directory")
+	// the pattern grants the permission where it is meant to
+	cmd = sshCommand{
 		command:    "md5sum",
 		connection: connection,
 		args:       []string{"/data/sub/file.txt"},
