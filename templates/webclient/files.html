@@ -2179,8 +2179,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 axios.post(path, {
                     files: files
                 }, {
+                    timeout: 15000,
                     headers: {
-                        timeout: 15000,
                         'X-CSRF-TOKEN': '{{.CSRFToken}}'
                     },
                     validateStatus: function (status) {

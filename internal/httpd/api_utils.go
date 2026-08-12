@@ -302,18 +302,14 @@ func renderAPIDirContents(w http.ResponseWriter, lister vfs.DirLister, omitNonRe
 	defer lister.Close()
 
 	dataGetter := func(limit, _ int) ([]byte, int, error) {
-		contents, err := lister.Next(limit)
-		if errors.Is(err, io.EOF) {
-			err = nil
-		}
+		contents, finished, err := nextRenderableEntries(lister, limit, func(info os.FileInfo) bool {
+			return !omitNonRegularFiles || info.Mode().IsDir() || info.Mode().IsRegular()
+		})
 		if err != nil {
 			return nil, 0, err
 		}
 		results := make([]map[string]any, 0, len(contents))
 		for _, info := range contents {
-			if omitNonRegularFiles && !info.Mode().IsDir() && !info.Mode().IsRegular() {
-				continue
-			}
 			res := make(map[string]any)
 			res["name"] = info.Name()
 			if info.Mode().IsRegular() {
@@ -325,8 +321,8 @@ func renderAPIDirContents(w http.ResponseWriter, lister vfs.DirLister, omitNonRe
 		}
 		data, err := json.Marshal(results)
 		count := limit
-		if len(results) == 0 {
-			count = 0
+		if finished {
+			count = len(results)
 		}
 		return data, count, err
 	}
@@ -342,6 +338,25 @@ func streamData(w io.Writer, data []byte) {
 	}
 }
 
+func nextRenderableEntries(lister vfs.DirLister, limit int, keep func(os.FileInfo) bool) ([]os.FileInfo, bool, error) {
+	for {
+		contents, err := lister.Next(limit)
+		finished := errors.Is(err, io.EOF)
+		if err != nil && !finished {
+			return nil, false, err
+		}
+		kept := make([]os.FileInfo, 0, len(contents))
+		for _, info := range contents {
+			if keep(info) {
+				kept = append(kept, info)
+			}
+		}
+		if len(kept) > 0 || finished {
+			return kept, finished, nil
+		}
+	}
+}
+
 func streamJSONArray(w http.ResponseWriter, chunkSize int, dataGetter func(limit, offset int) ([]byte, int, error)) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Accept-Ranges", "none")
@@ -349,18 +364,23 @@ func streamJSONArray(w http.ResponseWriter, chunkSize int, dataGetter func(limit
 
 	streamData(w, []byte("["))
 	offset := 0
+	rendered := false
 	for {
 		data, count, err := dataGetter(chunkSize, offset)
 		if err != nil {
+			logger.Error(logSender, "", "unable to stream JSON array, aborting at offset %d: %v", offset, err)
 			panic(http.ErrAbortHandler)
 		}
 		if count == 0 {
 			break
 		}
-		if offset > 0 {
-			streamData(w, []byte(","))
+		if len(data) > 2 {
+			if rendered {
+				streamData(w, []byte(","))
+			}
+			streamData(w, data[1:len(data)-1])
+			rendered = true
 		}
-		streamData(w, data[1:len(data)-1])
 		if count < chunkSize {
 			break
 		}

@@ -4706,3 +4706,103 @@ func TestEventsCSVFormulaInjection(t *testing.T) {
 		assert.False(t, strings.HasPrefix(c, "'"), "benign cell must not be modified: %q", c)
 	}
 }
+
+// fakeDirLister returns the configured batches in order, the last one with
+// io.EOF, and keeps reporting io.EOF once exhausted, as every DirLister
+// implementation does. The limit is ignored, batches are returned as
+// configured.
+type fakeDirLister struct {
+	batches [][]string
+	err     error
+	calls   int
+}
+
+func (l *fakeDirLister) Next(_ int) ([]os.FileInfo, error) {
+	l.calls++
+	if l.err != nil {
+		return nil, l.err
+	}
+	if len(l.batches) == 0 {
+		return nil, io.EOF
+	}
+	names := l.batches[0]
+	l.batches = l.batches[1:]
+	entries := make([]os.FileInfo, 0, len(names))
+	for _, name := range names {
+		entries = append(entries, vfs.NewFileInfo(name, false, 1, time.Unix(0, 0), true))
+	}
+	if len(l.batches) == 0 {
+		return entries, io.EOF
+	}
+	return entries, nil
+}
+
+func (*fakeDirLister) Close() error {
+	return nil
+}
+
+func keepNamed(wanted ...string) func(os.FileInfo) bool {
+	return func(info os.FileInfo) bool {
+		for _, name := range wanted {
+			if info.Name() == name {
+				return true
+			}
+		}
+		return false
+	}
+}
+
+func entryNames(entries []os.FileInfo) []string {
+	result := make([]string, 0, len(entries))
+	for idx := range entries {
+		result = append(result, entries[idx].Name())
+	}
+	return result
+}
+
+func TestNextRenderableEntries(t *testing.T) {
+	// a batch holding no wanted entry must not be reported as the end of the
+	// listing: the wanted name can be in any later batch
+	lister := &fakeDirLister{batches: [][]string{{"a", "b"}, {"c", "d"}, {"target", "e"}}}
+	entries, finished, err := nextRenderableEntries(lister, 2, keepNamed("target"))
+	require.NoError(t, err)
+	assert.True(t, finished)
+	assert.Equal(t, []string{"target"}, entryNames(entries))
+	assert.Equal(t, 3, lister.calls)
+
+	// a match in an intermediate batch is returned without draining the rest
+	lister = &fakeDirLister{batches: [][]string{{"a"}, {"target"}, {"z"}}}
+	entries, finished, err = nextRenderableEntries(lister, 1, keepNamed("target"))
+	require.NoError(t, err)
+	assert.False(t, finished)
+	assert.Equal(t, []string{"target"}, entryNames(entries))
+	assert.Equal(t, 2, lister.calls)
+
+	// nothing matches anywhere: the loop ends on io.EOF, it does not spin
+	lister = &fakeDirLister{batches: [][]string{{"a"}, {"b"}, {"c"}}}
+	entries, finished, err = nextRenderableEntries(lister, 1, keepNamed("target"))
+	require.NoError(t, err)
+	assert.True(t, finished)
+	assert.Empty(t, entries)
+	assert.Equal(t, 3, lister.calls)
+
+	// an exhausted lister keeps reporting the end, so asking again terminates
+	// too instead of spinning
+	entries, finished, err = nextRenderableEntries(lister, 1, keepNamed("target"))
+	require.NoError(t, err)
+	assert.True(t, finished)
+	assert.Empty(t, entries)
+
+	// a listing error is reported
+	lister = &fakeDirLister{err: errors.New("listing failed")}
+	_, _, err = nextRenderableEntries(lister, 1, keepNamed("target"))
+	require.ErrorContains(t, err, "listing failed")
+	assert.Equal(t, 1, lister.calls)
+
+	// an empty listing
+	lister = &fakeDirLister{}
+	entries, finished, err = nextRenderableEntries(lister, 1, keepNamed("target"))
+	require.NoError(t, err)
+	assert.True(t, finished)
+	assert.Empty(t, entries)
+}
