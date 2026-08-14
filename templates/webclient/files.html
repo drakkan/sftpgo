@@ -359,7 +359,13 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 stateSave: false,
                 columns: [
                     {
-                        data: "meta"
+                        data: "meta",
+                        render: function (data, type, row) {
+                            if (type === 'display') {
+                                return "";
+                            }
+                            return data;
+                        }
                     },
                     {
                         data: "name",
