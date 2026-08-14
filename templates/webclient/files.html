@@ -1069,10 +1069,23 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     let currentDir = '{{.CurrentDir}}';
                     let ts = new Date().getTime().toString();
                     let files = JSON.stringify(filesArray);
-                    $(`<form method="post" action="${downloadURL}?path=${currentDir}&_=${ts}" target="_blank" rel="noopener noreferrer">
-                        <input type="hidden" name="_form_token" value="${token}">
-                        <textarea name="files" hidden>${files}</textarea>
-                       </form>`).appendTo('body').submit().remove();
+                    const form = document.createElement('form');
+                    form.method = 'post';
+                    form.action = `${downloadURL}?path=${currentDir}&_=${ts}`;
+                    form.target = '_blank';
+                    form.setAttribute('rel', 'noopener noreferrer');
+                    const tokenInput = document.createElement('input');
+                    tokenInput.type = 'hidden';
+                    tokenInput.name = '_form_token';
+                    tokenInput.value = token;
+                    const filesArea = document.createElement('textarea');
+                    filesArea.name = 'files';
+                    filesArea.hidden = true;
+                    filesArea.value = files;
+                    form.append(tokenInput, filesArea);
+                    document.body.appendChild(form);
+                    form.submit();
+                    form.remove();
                 });
             }
 
