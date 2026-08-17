@@ -98,8 +98,8 @@ type OIDC struct {
 	CustomFields []string `json:"custom_fields" mapstructure:"custom_fields"`
 	// QueryUserInfo defines whether to query the UserInfo endpoint after
 	// authentication and read the user claims from both sources.
-	// ID token claims take precedence over UserInfo claims with the same name.
-	// The UserInfo subject must match the ID token subject.
+	// Non-empty ID token claims take precedence over UserInfo claims with the
+	// same name. The UserInfo subject must match the ID token subject.
 	QueryUserInfo bool `json:"query_userinfo" mapstructure:"query_userinfo"`
 	// InsecureSkipSignatureCheck causes SFTPGo to skip JWT signature validation.
 	// It's intended for special cases where providers, such as Azure, use the "none"
@@ -294,11 +294,14 @@ func (t *oidcToken) parseClaims(claims map[string]any, usernameField, roleField 
 	return nil
 }
 
-// mergeOIDCClaims returns the UserInfo claims overlaid with the verified ID
-// token claims, so the signed token wins on conflicts. Claims describing the
-// authentication event are read from the ID token only. Null, empty string
-// and empty array values are dropped from both sources: OIDC Core 5.3.2
-// requires omitting unreturned claims instead of setting them to null or empty.
+// mergeOIDCClaims combines the UserInfo claims with the ID token claims: ID
+// token values take precedence, and null, empty string and empty array values
+// are dropped from both sources, so an empty value never replaces the value
+// returned by the other source. OIDC Core 5.3.2 says providers SHOULD omit
+// UserInfo claims they do not return instead of sending them empty; the same
+// handling is applied to the ID token. sid, auth_time and nonce are read from
+// the ID token only: the merged claims provide the session ID and the value
+// for the max_age check.
 func mergeOIDCClaims(idTokenClaims, userInfoClaims map[string]any) map[string]any {
 	merged := make(map[string]any, len(idTokenClaims)+len(userInfoClaims))
 	for k, v := range userInfoClaims {
