@@ -115,7 +115,10 @@ jobs:
           fi
 
           if [ "${MERGE_RC}" -ne 0 ]; then
-            git add -A
+            # `add -u`, not `add -A`: restricts staging to tracked and unmerged
+            # paths, so untracked files in the runner's working tree can never
+            # end up in the merge commit.
+            git add -u
             git commit --no-edit
           elif [ -n "${DROPPED}" ]; then
             git commit -q -m "Drop upstream workflows not used by this fork"
@@ -155,7 +158,8 @@ jobs:
               printf '%s\n' "git fetch origin"
               printf '%s\n' "git checkout ${SYNC_BRANCH}"
               printf '%s\n' "git status                # find conflicts, fix the <<<<<<< markers"
-              printf '%s\n' "git add -A && git commit"
+              printf '%s\n' "git add -u                # -u, not -A: do not sweep in untracked files"
+              printf '%s\n' "git commit"
               printf '%s\n' "git push"
               printf '%s\n' '```'
               printf '%s\n' ""

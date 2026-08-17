@@ -1,3 +1,18 @@
 # compilation output
 sftpgo
 sftpgo.exe
+
+# Runtime artifacts created when the daemon or the test suite is run from the
+# repo root: SFTPGo writes its default host keys into the working directory
+# when no host keys are configured (internal/sftpd/server.go).
+id_rsa
+id_rsa.pub
+id_ecdsa
+id_ecdsa.pub
+id_ed25519
+id_ed25519.pub
+
+# Default SQLite data provider store, created in the working directory.
+sftpgo.db
+sftpgo.db-shm
+sftpgo.db-wal
