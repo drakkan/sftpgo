@@ -2233,7 +2233,7 @@ func TestQuotaScanInvalidFs(t *testing.T) {
 }
 
 func TestVerifyTLSConnection(t *testing.T) {
-	oldCertMgr := certMgr
+	oldCertMgr := certMgr.Load()
 
 	caCrlPath := filepath.Join(os.TempDir(), "testcrl.crt")
 	certPath := filepath.Join(os.TempDir(), "testh.crt")
@@ -2252,11 +2252,12 @@ func TestVerifyTLSConnection(t *testing.T) {
 			ID:   common.DefaultTLSKeyPaidID,
 		},
 	}
-	certMgr, err = common.NewCertManager(keyPairs, "", "httpd_test")
+	mgr, err := common.NewCertManager(keyPairs, "", "httpd_test")
 	assert.NoError(t, err)
+	certMgr.Store(mgr)
 
-	certMgr.SetCARevocationLists([]string{caCrlPath})
-	err = certMgr.LoadCRLs()
+	certMgr.Load().SetCARevocationLists([]string{caCrlPath})
+	err = certMgr.Load().LoadCRLs()
 	assert.NoError(t, err)
 
 	crt, err := tls.X509KeyPair([]byte(client1Crt), []byte(client1Key))
@@ -2299,7 +2300,7 @@ func TestVerifyTLSConnection(t *testing.T) {
 	err = os.Remove(keyPath)
 	assert.NoError(t, err)
 
-	certMgr = oldCertMgr
+	certMgr.Store(oldCertMgr)
 }
 
 func TestGetFolderFromTemplate(t *testing.T) {

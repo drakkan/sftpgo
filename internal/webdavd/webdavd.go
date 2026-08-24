@@ -21,6 +21,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
@@ -43,9 +46,10 @@ const (
 )
 
 var (
-	certMgr       *common.CertManager
-	serviceStatus ServiceStatus
-	timeFormats   = []string{
+	certMgr         atomic.Pointer[common.CertManager]
+	serviceStatus   ServiceStatus
+	serviceStatusMu sync.RWMutex
+	timeFormats     = []string{
 		http.TimeFormat,
 		"Mon, _2 Jan 2006 15:04:05 GMT",
 		time.RFC850,
@@ -213,9 +217,37 @@ type Configuration struct {
 	acmeDomain string
 }
 
+func resetServiceStatus() {
+	serviceStatusMu.Lock()
+	defer serviceStatusMu.Unlock()
+
+	serviceStatus = ServiceStatus{
+		Bindings: nil,
+	}
+}
+
+func addServiceStatusBinding(binding Binding) {
+	serviceStatusMu.Lock()
+	defer serviceStatusMu.Unlock()
+
+	serviceStatus.Bindings = append(serviceStatus.Bindings, binding)
+}
+
+func setServiceStatusActive() {
+	serviceStatusMu.Lock()
+	defer serviceStatusMu.Unlock()
+
+	serviceStatus.IsActive = true
+}
+
 // GetStatus returns the server status
 func GetStatus() ServiceStatus {
-	return serviceStatus
+	serviceStatusMu.RLock()
+	defer serviceStatusMu.RUnlock()
+
+	status := serviceStatus
+	status.Bindings = slices.Clone(serviceStatus.Bindings)
+	return status
 }
 
 // ShouldBind returns true if there is at least a valid binding
@@ -329,14 +361,12 @@ func (c *Configuration) Initialize(configDir string) error {
 		if err := mgr.LoadCRLs(); err != nil {
 			return err
 		}
-		certMgr = mgr
+		certMgr.Store(mgr)
 	}
 	compressor := middleware.NewCompressor(5, "text/*")
 	dataprovider.InitializeWebDAVUserCache(c.Cache.Users.MaxSize)
 
-	serviceStatus = ServiceStatus{
-		Bindings: nil,
-	}
+	resetServiceStatus()
 
 	exitChannel := make(chan error, 1)
 
@@ -357,15 +387,15 @@ func (c *Configuration) Initialize(configDir string) error {
 		}(binding)
 	}
 
-	serviceStatus.IsActive = true
+	setServiceStatusActive()
 
 	return <-exitChannel
 }
 
 // ReloadCertificateMgr reloads the certificate manager
 func ReloadCertificateMgr() error {
-	if certMgr != nil {
-		return certMgr.Reload()
+	if mgr := certMgr.Load(); mgr != nil {
+		return mgr.Reload()
 	}
 	return nil
 }

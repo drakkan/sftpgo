@@ -18,7 +18,9 @@
 package sftpd
 
 import (
+	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/crypto/ssh"
@@ -35,6 +37,7 @@ var (
 	defaultSSHCommands = []string{"md5sum", "sha1sum", "sha256sum", "cd", "pwd", "scp"}
 	sshHashCommands    = []string{"md5sum", "sha1sum", "sha256sum", "sha384sum", "sha512sum"}
 	serviceStatus      ServiceStatus
+	serviceStatusMu    sync.RWMutex
 	certKeyAlgoNames   = map[string]string{
 		ssh.CertAlgoRSAv01:       ssh.KeyAlgoRSA,
 		ssh.CertAlgoRSASHA256v01: ssh.KeyAlgoRSASHA256,
@@ -125,7 +128,19 @@ func (s *ServiceStatus) GetPublicKeysAlgosAsString() string {
 
 // GetStatus returns the server status
 func GetStatus() ServiceStatus {
-	return serviceStatus
+	serviceStatusMu.RLock()
+	defer serviceStatusMu.RUnlock()
+
+	status := serviceStatus
+	status.Bindings = slices.Clone(serviceStatus.Bindings)
+	status.SSHCommands = slices.Clone(serviceStatus.SSHCommands)
+	status.HostKeys = slices.Clone(serviceStatus.HostKeys)
+	status.Authentications = slices.Clone(serviceStatus.Authentications)
+	status.MACs = slices.Clone(serviceStatus.MACs)
+	status.KexAlgorithms = slices.Clone(serviceStatus.KexAlgorithms)
+	status.Ciphers = slices.Clone(serviceStatus.Ciphers)
+	status.PublicKeyAlgorithms = slices.Clone(serviceStatus.PublicKeyAlgorithms)
+	return status
 }
 
 // GetDefaultSSHCommands returns the SSH commands enabled as default

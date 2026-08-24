@@ -50,6 +50,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/config"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/httpclient"
+	"github.com/drakkan/sftpgo/v2/internal/httpd"
 	"github.com/drakkan/sftpgo/v2/internal/httpdtest"
 	"github.com/drakkan/sftpgo/v2/internal/kms"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
@@ -401,28 +402,28 @@ func TestMain(m *testing.M) {
 	preDownloadPath = filepath.Join(homeBasePath, "predownload.sh")
 	preUploadPath = filepath.Join(homeBasePath, "preupload.sh")
 
-	go func() {
-		logger.Debug(logSender, "", "initializing WebDAV server with config %+v", webDavConf)
-		if err := webDavConf.Initialize(configDir); err != nil {
+	go func(cfg webdavd.Configuration) {
+		logger.Debug(logSender, "", "initializing WebDAV server with config %+v", cfg)
+		if err := cfg.Initialize(configDir); err != nil {
 			logger.ErrorToConsole("could not start WebDAV server: %v", err)
 			os.Exit(1)
 		}
-	}()
+	}(webDavConf)
 
-	go func() {
-		if err := httpdConf.Initialize(configDir, 0); err != nil {
+	go func(cfg httpd.Conf) {
+		if err := cfg.Initialize(configDir, 0); err != nil {
 			logger.ErrorToConsole("could not start HTTP server: %v", err)
 			os.Exit(1)
 		}
-	}()
+	}(httpdConf)
 
-	go func() {
-		logger.Debug(logSender, "", "initializing SFTP server with config %+v", sftpdConf)
-		if err := sftpdConf.Initialize(configDir); err != nil {
+	go func(cfg sftpd.Configuration) {
+		logger.Debug(logSender, "", "initializing SFTP server with config %+v", cfg)
+		if err := cfg.Initialize(configDir); err != nil {
 			logger.ErrorToConsole("could not start SFTP server: %v", err)
 			os.Exit(1)
 		}
-	}()
+	}(sftpdConf)
 
 	waitTCPListening(webDavConf.Bindings[0].GetAddress())
 	waitTCPListening(webDavConf.Bindings[1].GetAddress())

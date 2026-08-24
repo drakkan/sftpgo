@@ -110,7 +110,7 @@ func (s *Server) GetSettings() (*ftpserver.Settings, error) {
 		return nil, fmt.Errorf("unsupported TLS mode: %d", s.binding.TLSMode)
 	}
 
-	if s.binding.TLSMode > 0 && certMgr == nil {
+	if s.binding.TLSMode > 0 && certMgr.Load() == nil {
 		return nil, errors.New("to enable TLS you need to provide a certificate")
 	}
 
@@ -284,23 +284,23 @@ func (s *Server) VerifyConnection(cc ftpserver.ClientContext, user string, tlsCo
 }
 
 func (s *Server) buildTLSConfig() {
-	if certMgr != nil {
+	if mgr := certMgr.Load(); mgr != nil {
 		certID := common.DefaultTLSKeyPaidID
 		if getConfigPath(s.binding.CertificateFile, "") != "" && getConfigPath(s.binding.CertificateKeyFile, "") != "" {
 			certID = s.binding.GetAddress()
 		}
-		if !certMgr.HasCertificate(certID) {
+		if !mgr.HasCertificate(certID) {
 			return
 		}
 		s.tlsConfig = &tls.Config{
-			GetCertificate: certMgr.GetCertificateFunc(certID),
+			GetCertificate: mgr.GetCertificateFunc(certID),
 			MinVersion:     util.GetTLSVersion(s.binding.MinTLSVersion),
 			CipherSuites:   s.binding.ciphers,
 		}
 		logger.Debug(logSender, "", "configured TLS cipher suites for binding %q: %v, certID: %v",
 			s.binding.GetAddress(), s.binding.ciphers, certID)
 		if s.binding.isMutualTLSEnabled() {
-			s.tlsConfig.ClientCAs = certMgr.GetRootCAs()
+			s.tlsConfig.ClientCAs = mgr.GetRootCAs()
 			s.tlsConfig.VerifyConnection = s.verifyTLSConnection
 			switch s.binding.ClientAuthType {
 			case 1:
@@ -329,7 +329,7 @@ func (s *Server) VerifyTLSConnectionState(_ ftpserver.ClientContext, cs tls.Conn
 }
 
 func (s *Server) verifyTLSConnection(state tls.ConnectionState) error {
-	if certMgr != nil {
+	if mgr := certMgr.Load(); mgr != nil {
 		var clientCrt *x509.Certificate
 		var clientCrtName string
 		if len(state.PeerCertificates) > 0 {
@@ -348,7 +348,7 @@ func (s *Server) verifyTLSConnection(state tls.ConnectionState) error {
 			if len(verifiedChain) > 0 {
 				caCrt = verifiedChain[len(verifiedChain)-1]
 			}
-			if certMgr.IsRevoked(clientCrt, caCrt) {
+			if mgr.IsRevoked(clientCrt, caCrt) {
 				logger.Debug(logSender, "", "tls handshake error, client certificate %q has beed revoked", clientCrtName)
 				return common.ErrCrtRevoked
 			}

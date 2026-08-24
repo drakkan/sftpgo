@@ -63,6 +63,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/config"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
+	"github.com/drakkan/sftpgo/v2/internal/httpd"
 	"github.com/drakkan/sftpgo/v2/internal/httpdtest"
 	"github.com/drakkan/sftpgo/v2/internal/kms"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
@@ -256,7 +257,7 @@ func TestMain(m *testing.M) {
 	sftpdConf.Bindings = []sftpd.Binding{
 		{
 			Port:             2022,
-			ApplyProxyConfig: true,
+			ApplyProxyConfig: false,
 		},
 	}
 	sftpdConf.KexAlgorithms = []string{"curve25519-sha256@libssh.org", ssh.KeyExchangeECDHP256,
@@ -279,21 +280,22 @@ func TestMain(m *testing.M) {
 	createInitialFiles(scriptArgs)
 	sftpdConf.TrustedUserCAKeys = append(sftpdConf.TrustedUserCAKeys, trustedCAUserKey)
 	sftpdConf.RevokedUserCertsFile = revokeUserCerts
+	common.Config.ProxyProtocol = 2
 
 	go func(cfg sftpd.Configuration) {
-		logger.Debug(logSender, "", "initializing SFTP server with config %+v", sftpdConf)
+		logger.Debug(logSender, "", "initializing SFTP server with config %+v", cfg)
 		if err := cfg.Initialize(configDir); err != nil {
 			logger.ErrorToConsole("could not start SFTP server: %v", err)
 			os.Exit(1)
 		}
 	}(sftpdConf)
 
-	go func() {
-		if err := httpdConf.Initialize(configDir, 0); err != nil {
+	go func(cfg httpd.Conf) {
+		if err := cfg.Initialize(configDir, 0); err != nil {
 			logger.ErrorToConsole("could not start HTTP server: %v", err)
 			os.Exit(1)
 		}
-	}()
+	}(httpdConf)
 
 	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
 	waitTCPListening(httpdConf.Bindings[0].GetAddress())
@@ -301,19 +303,18 @@ func TestMain(m *testing.M) {
 	sftpdConf.Bindings = []sftpd.Binding{
 		{
 			Port:             2222,
-			ApplyProxyConfig: true,
+			ApplyProxyConfig: false,
 		},
 	}
 	sftpdConf.PasswordAuthentication = false
-	common.Config.ProxyProtocol = 1
-	go func(cfg sftpd.Configuration) {
+	go func(cfg sftpd.Configuration, proxyProtocol int) {
 		logger.Debug(logSender, "", "initializing SFTP server with config %+v and proxy protocol %v",
-			sftpdConf, common.Config.ProxyProtocol)
+			cfg, proxyProtocol)
 		if err := cfg.Initialize(configDir); err != nil {
 			logger.ErrorToConsole("could not start SFTP server with proxy protocol 1: %v", err)
 			os.Exit(1)
 		}
-	}(sftpdConf)
+	}(sftpdConf, common.Config.ProxyProtocol)
 
 	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
 
@@ -324,14 +325,14 @@ func TestMain(m *testing.M) {
 		},
 	}
 	sftpdConf.PasswordAuthentication = true
-	go func(cfg sftpd.Configuration) {
+	go func(cfg sftpd.Configuration, proxyProtocol int) {
 		logger.Debug(logSender, "", "initializing SFTP server with config %+v and proxy protocol %v",
-			cfg, common.Config.ProxyProtocol)
+			cfg, proxyProtocol)
 		if err := cfg.Initialize(configDir); err != nil {
 			logger.ErrorToConsole("could not start SFTP server with proxy protocol 2: %v", err)
 			os.Exit(1)
 		}
-	}(sftpdConf)
+	}(sftpdConf, common.Config.ProxyProtocol)
 
 	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
 
@@ -342,18 +343,19 @@ func TestMain(m *testing.M) {
 		},
 	}
 	sftpdConf.PasswordAuthentication = true
-	common.Config.ProxyProtocol = 2
-	go func() {
+	go func(cfg sftpd.Configuration, proxyProtocol int) {
 		logger.Debug(logSender, "", "initializing SFTP server with config %+v and proxy protocol %v",
-			sftpdConf, common.Config.ProxyProtocol)
-		if err := sftpdConf.Initialize(configDir); err != nil {
+			cfg, proxyProtocol)
+		if err := cfg.Initialize(configDir); err != nil {
 			logger.ErrorToConsole("could not start SFTP server with proxy protocol 2: %v", err)
 			os.Exit(1)
 		}
-	}()
+	}(sftpdConf, common.Config.ProxyProtocol)
 
 	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
-	getHostKeysFingerprints(sftpdConf.HostKeys)
+	for _, k := range sftpd.GetStatus().HostKeys {
+		hostKeyFPs = append(hostKeyFPs, k.Fingerprint)
+	}
 	startHTTPFs()
 
 	exitCode := m.Run()
@@ -408,9 +410,7 @@ func TestInitialization(t *testing.T) {
 			ApplyProxyConfig: true,
 		},
 	}
-	common.Config.ProxyProtocol = 1
 	assert.True(t, sftpdConf.Bindings[0].HasProxy())
-	common.Config.ProxyProtocol = 0
 	sftpdConf.HostKeys = []string{"missing key"}
 	err = sftpdConf.Initialize(configDir)
 	assert.Error(t, err)
@@ -12634,30 +12634,6 @@ func printLatestLogs(maxNumberOfLines int) {
 	}
 	for _, line := range lines {
 		logger.DebugToConsole("%s", line)
-	}
-}
-
-func getHostKeyFingerprint(name string) (string, error) {
-	privateBytes, err := os.ReadFile(name)
-	if err != nil {
-		return "", err
-	}
-
-	private, err := ssh.ParsePrivateKey(privateBytes)
-	if err != nil {
-		return "", err
-	}
-	return ssh.FingerprintSHA256(private.PublicKey()), nil
-}
-
-func getHostKeysFingerprints(hostKeys []string) {
-	for _, k := range hostKeys {
-		fp, err := getHostKeyFingerprint(filepath.Join(configDir, k))
-		if err != nil {
-			logger.ErrorToConsole("unable to get fingerprint for host key %q: %v", k, err)
-			os.Exit(1)
-		}
-		hostKeyFPs = append(hostKeyFPs, fp)
 	}
 }
 
