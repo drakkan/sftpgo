@@ -194,6 +194,7 @@ var (
 	errInvalidInput         = util.NewValidationError("Invalid input. Slashes (/ ), colons (:), control characters, and reserved system names are not allowed")
 	tz                      = ""
 	isAdminCreated          atomic.Bool
+	lastAdminCheck          atomic.Int64
 	validTLSUsernames       = []string{string(sdk.TLSUsernameNone), string(sdk.TLSUsernameCN)}
 	config                  Config
 	provider                Provider
@@ -234,6 +235,7 @@ var (
 	sqlTableSchemaVersion        string
 	argon2Params                 *argon2id.Params
 	lastLoginMinDelay            = 10 * time.Minute
+	adminCheckMinDelay           = int64(time.Second / time.Millisecond)
 	usernameRegex                = regexp.MustCompile("^[a-zA-Z0-9-_.~]+$")
 	tempPath                     string
 	allowSelfConnections         int
@@ -937,6 +939,7 @@ func Initialize(cnf Config, basePath string, checkAdmins bool) error {
 		return err
 	}
 	isAdminCreated.Store(len(admins) > 0)
+	lastAdminCheck.Store(util.GetTimeAsMsSinceEpoch(time.Now()))
 	if err := config.Node.validate(); err != nil {
 		return err
 	}
@@ -2048,7 +2051,31 @@ func GetNodeByName(name string) (Node, error) {
 // HasAdmin returns true if the first admin has been created
 // and so SFTPGo is ready to be used
 func HasAdmin() bool {
-	return isAdminCreated.Load()
+	if isAdminCreated.Load() {
+		return true
+	}
+	return checkAdminCreated()
+}
+
+func checkAdminCreated() bool {
+	if !slices.Contains(sharedProviders, config.Driver) {
+		return false
+	}
+	now := util.GetTimeAsMsSinceEpoch(time.Now())
+	lastCheck := lastAdminCheck.Load()
+	if now < lastCheck+adminCheckMinDelay || !lastAdminCheck.CompareAndSwap(lastCheck, now) {
+		return false
+	}
+	admins, err := provider.getAdmins(1, 0, OrderASC)
+	if err != nil {
+		providerLog(logger.LevelError, "unable to check if an admin exists: %v", err)
+		return false
+	}
+	if len(admins) == 0 {
+		return false
+	}
+	isAdminCreated.Store(true)
+	return true
 }
 
 // AddAdmin adds a new SFTPGo admin
