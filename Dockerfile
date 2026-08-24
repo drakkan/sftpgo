@@ -1,4 +1,4 @@
-FROM golang:1.25-trixie AS builder
+FROM golang:1.26-trixie AS builder
 
 ENV GOFLAGS="-mod=readonly"
 
