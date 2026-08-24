@@ -255,18 +255,17 @@ func TestMain(m *testing.M) {
 	}()
 
 	go func() {
-		common.Config.ProxyProtocol = 2
 		listener, err := net.Listen("tcp", httpProxyAddr)
 		if err != nil {
 			logger.ErrorToConsole("error creating listener for proxy protocol server: %v", err)
 			os.Exit(1)
 		}
-		proxyListener, err := common.Config.GetProxyListener(listener)
+		proxyConf := common.Configuration{ProxyProtocol: 2}
+		proxyListener, err := proxyConf.GetProxyListener(listener)
 		if err != nil {
 			logger.ErrorToConsole("error creating proxy protocol listener: %v", err)
 			os.Exit(1)
 		}
-		common.Config.ProxyProtocol = 0
 
 		s := &http.Server{}
 		if err := s.Serve(proxyListener); err != nil {
