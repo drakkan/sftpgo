@@ -360,32 +360,43 @@ func (c *Configuration) loadFromProvider() error {
 
 // Initialize the SFTP server and add a persistent listener to handle inbound SFTP connections.
 func (c *Configuration) Initialize(configDir string) error {
+	exitChannel, err := c.startServing(configDir)
+	if err != nil {
+		return err
+	}
+	return <-exitChannel
+}
+
+func (c *Configuration) startServing(configDir string) (chan error, error) {
+	serviceStatusMu.Lock()
+	defer serviceStatusMu.Unlock()
+
 	c.executor = defaultExecutor{}
 	if err := c.loadFromProvider(); err != nil {
-		return fmt.Errorf("unable to load configs from provider: %w", err)
+		return nil, fmt.Errorf("unable to load configs from provider: %w", err)
 	}
 	serviceStatus = ServiceStatus{}
 	serverConfig := c.getServerConfig()
 
 	if !c.ShouldBind() {
-		return common.ErrNoBinding
+		return nil, common.ErrNoBinding
 	}
 
 	_ = sftp.SetSFTPExtensions(sftpExtensions...) // we configure valid SFTP Extensions so we cannot get an error
 	sftp.MaxFilelist = 250
 
 	if err := c.configureSecurityOptions(serverConfig); err != nil {
-		return err
+		return nil, err
 	}
 	if err := c.checkAndLoadHostKeys(configDir, serverConfig); err != nil {
 		serviceStatus.HostKeys = nil
-		return err
+		return nil, err
 	}
 	if err := c.initializeCertChecker(configDir); err != nil {
-		return err
+		return nil, err
 	}
 	if err := c.initializeOPKSSH(); err != nil {
-		return err
+		return nil, err
 	}
 	c.configureKeyboardInteractiveAuth(serverConfig)
 	c.configureLoginBanner(serverConfig, configDir)
@@ -427,8 +438,7 @@ func (c *Configuration) Initialize(configDir string) error {
 	serviceStatus.IsActive = true
 	serviceStatus.SSHCommands = c.EnabledSSHCommands
 	c.updateSupportedAuthentications()
-
-	return <-exitChannel
+	return exitChannel, nil
 }
 
 func (c *Configuration) serve(listener net.Listener, serverConfig *ssh.ServerConfig) error {
@@ -466,7 +476,7 @@ func (c *Configuration) configureKeyAlgos(serverConfig *ssh.ServerConfig) error 
 	if len(c.HostKeyAlgorithms) == 0 {
 		c.HostKeyAlgorithms = preferredHostKeyAlgos
 	} else {
-		c.HostKeyAlgorithms = util.RemoveDuplicates(c.HostKeyAlgorithms, true)
+		c.HostKeyAlgorithms = util.RemoveDuplicates(slices.Clone(c.HostKeyAlgorithms), true)
 	}
 	for _, hostKeyAlgo := range c.HostKeyAlgorithms {
 		if !slices.Contains(supportedHostKeyAlgos, hostKeyAlgo) {
@@ -475,7 +485,7 @@ func (c *Configuration) configureKeyAlgos(serverConfig *ssh.ServerConfig) error 
 	}
 
 	if len(c.PublicKeyAlgorithms) > 0 {
-		c.PublicKeyAlgorithms = util.RemoveDuplicates(c.PublicKeyAlgorithms, true)
+		c.PublicKeyAlgorithms = util.RemoveDuplicates(slices.Clone(c.PublicKeyAlgorithms), true)
 		for _, algo := range c.PublicKeyAlgorithms {
 			if !slices.Contains(supportedPublicKeyAlgos, algo) {
 				return fmt.Errorf("unsupported public key authentication algorithm %q", algo)
@@ -531,7 +541,7 @@ func (c *Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig)
 	serviceStatus.KexAlgorithms = c.KexAlgorithms
 
 	if len(c.Ciphers) > 0 {
-		c.Ciphers = util.RemoveDuplicates(c.Ciphers, true)
+		c.Ciphers = util.RemoveDuplicates(slices.Clone(c.Ciphers), true)
 		for _, cipher := range c.Ciphers {
 			if slices.Contains([]string{"aes192-cbc", "aes256-cbc"}, cipher) {
 				continue
@@ -547,7 +557,7 @@ func (c *Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig)
 	serviceStatus.Ciphers = c.Ciphers
 
 	if len(c.MACs) > 0 {
-		c.MACs = util.RemoveDuplicates(c.MACs, true)
+		c.MACs = util.RemoveDuplicates(slices.Clone(c.MACs), true)
 		for _, mac := range c.MACs {
 			if !slices.Contains(supportedMACs, mac) {
 				return fmt.Errorf("unsupported MAC algorithm %q", mac)

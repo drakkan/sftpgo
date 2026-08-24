@@ -23,7 +23,10 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	ftpserver "github.com/fclairamb/ftpserverlib"
@@ -39,8 +42,9 @@ const (
 )
 
 var (
-	certMgr       *common.CertManager
-	serviceStatus ServiceStatus
+	certMgr         atomic.Pointer[common.CertManager]
+	serviceStatus   ServiceStatus
+	serviceStatusMu sync.RWMutex
 )
 
 // PassiveIPOverride defines an exception for the configured passive IP
@@ -222,7 +226,8 @@ func (b *Binding) HasProxy() bool {
 
 // GetTLSDescription returns the TLS mode as string
 func (b *Binding) GetTLSDescription() string {
-	if certMgr == nil {
+	mgr := certMgr.Load()
+	if mgr == nil {
 		return util.I18nFTPTLSDisabled
 	}
 	switch b.TLSMode {
@@ -232,7 +237,7 @@ func (b *Binding) GetTLSDescription() string {
 		return util.I18nFTPTLSImplicit
 	}
 
-	if certMgr.HasCertificate(common.DefaultTLSKeyPaidID) || certMgr.HasCertificate(b.GetAddress()) {
+	if mgr.HasCertificate(common.DefaultTLSKeyPaidID) || mgr.HasCertificate(b.GetAddress()) {
 		return util.I18nFTPTLSMixed
 	}
 	return util.I18nFTPTLSDisabled
@@ -385,12 +390,9 @@ func (c *Configuration) Initialize(configDir string) error {
 		if err := mgr.LoadCRLs(); err != nil {
 			return err
 		}
-		certMgr = mgr
+		certMgr.Store(mgr)
 	}
-	serviceStatus = ServiceStatus{
-		Bindings:         nil,
-		PassivePortRange: c.PassivePortRange,
-	}
+	resetServiceStatus(c.PassivePortRange)
 
 	exitChannel := make(chan error, 1)
 
@@ -415,25 +417,54 @@ func (c *Configuration) Initialize(configDir string) error {
 			exitChannel <- ftpServer.ListenAndServe()
 		}(server)
 
-		serviceStatus.Bindings = append(serviceStatus.Bindings, binding)
+		addServiceStatusBinding(binding)
 	}
 
-	serviceStatus.IsActive = true
+	setServiceStatusActive()
 
 	return <-exitChannel
 }
 
 // ReloadCertificateMgr reloads the certificate manager
 func ReloadCertificateMgr() error {
-	if certMgr != nil {
-		return certMgr.Reload()
+	if mgr := certMgr.Load(); mgr != nil {
+		return mgr.Reload()
 	}
 	return nil
 }
 
+func resetServiceStatus(portRange PortRange) {
+	serviceStatusMu.Lock()
+	defer serviceStatusMu.Unlock()
+
+	serviceStatus = ServiceStatus{
+		Bindings:         nil,
+		PassivePortRange: portRange,
+	}
+}
+
+func addServiceStatusBinding(binding Binding) {
+	serviceStatusMu.Lock()
+	defer serviceStatusMu.Unlock()
+
+	serviceStatus.Bindings = append(serviceStatus.Bindings, binding)
+}
+
+func setServiceStatusActive() {
+	serviceStatusMu.Lock()
+	defer serviceStatusMu.Unlock()
+
+	serviceStatus.IsActive = true
+}
+
 // GetStatus returns the server status
 func GetStatus() ServiceStatus {
-	return serviceStatus
+	serviceStatusMu.RLock()
+	defer serviceStatusMu.RUnlock()
+
+	status := serviceStatus
+	status.Bindings = slices.Clone(serviceStatus.Bindings)
+	return status
 }
 
 func parsePassiveIP(passiveIP string) (string, error) {

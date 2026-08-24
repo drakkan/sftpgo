@@ -51,6 +51,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/config"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/ftpd"
+	"github.com/drakkan/sftpgo/v2/internal/httpd"
 	"github.com/drakkan/sftpgo/v2/internal/httpdtest"
 	"github.com/drakkan/sftpgo/v2/internal/kms"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
@@ -384,28 +385,28 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	go func() {
-		logger.Debug(logSender, "", "initializing FTP server with config %+v", ftpdConf)
-		if err := ftpdConf.Initialize(configDir); err != nil {
+	go func(cfg ftpd.Configuration) {
+		logger.Debug(logSender, "", "initializing FTP server with config %+v", cfg)
+		if err := cfg.Initialize(configDir); err != nil {
 			logger.ErrorToConsole("could not start FTP server: %v", err)
 			os.Exit(1)
 		}
-	}()
+	}(ftpdConf)
 
-	go func() {
-		logger.Debug(logSender, "", "initializing SFTP server with config %+v", sftpdConf)
-		if err := sftpdConf.Initialize(configDir); err != nil {
+	go func(cfg sftpd.Configuration) {
+		logger.Debug(logSender, "", "initializing SFTP server with config %+v", cfg)
+		if err := cfg.Initialize(configDir); err != nil {
 			logger.ErrorToConsole("could not start SFTP server: %v", err)
 			os.Exit(1)
 		}
-	}()
+	}(sftpdConf)
 
-	go func() {
-		if err := httpdConf.Initialize(configDir, 0); err != nil {
+	go func(cfg httpd.Conf) {
+		if err := cfg.Initialize(configDir, 0); err != nil {
 			logger.ErrorToConsole("could not start HTTP server: %v", err)
 			os.Exit(1)
 		}
-	}()
+	}(httpdConf)
 
 	waitTCPListening(ftpdConf.Bindings[0].GetAddress())
 	waitTCPListening(httpdConf.Bindings[0].GetAddress())
@@ -428,13 +429,13 @@ func TestMain(m *testing.M) {
 	ftpdConf.CombineSupport = 1
 	ftpdConf.HASHSupport = 1
 
-	go func() {
-		logger.Debug(logSender, "", "initializing FTP server with config %+v", ftpdConf)
-		if err := ftpdConf.Initialize(configDir); err != nil {
+	go func(cfg ftpd.Configuration) {
+		logger.Debug(logSender, "", "initializing FTP server with config %+v", cfg)
+		if err := cfg.Initialize(configDir); err != nil {
 			logger.ErrorToConsole("could not start FTP server: %v", err)
 			os.Exit(1)
 		}
-	}()
+	}(ftpdConf)
 
 	waitTCPListening(ftpdConf.Bindings[0].GetAddress())
 
@@ -451,13 +452,13 @@ func TestMain(m *testing.M) {
 	ftpdConf.CACertificates = []string{caCrtPath}
 	ftpdConf.CARevocationLists = []string{caCRLPath}
 
-	go func() {
-		logger.Debug(logSender, "", "initializing FTP server with config %+v", ftpdConf)
-		if err := ftpdConf.Initialize(configDir); err != nil {
+	go func(cfg ftpd.Configuration) {
+		logger.Debug(logSender, "", "initializing FTP server with config %+v", cfg)
+		if err := cfg.Initialize(configDir); err != nil {
 			logger.ErrorToConsole("could not start FTP server: %v", err)
 			os.Exit(1)
 		}
-	}()
+	}(ftpdConf)
 
 	waitTCPListening(ftpdConf.Bindings[0].GetAddress())
 

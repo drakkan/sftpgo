@@ -110,13 +110,13 @@ func (s *httpdServer) listenAndServe() error {
 		MaxHeaderBytes:    1 << 16, // 64KB
 		ErrorLog:          log.New(&logger.StdLoggerWrapper{Sender: logSender}, "", 0),
 	}
-	if certMgr != nil && s.binding.EnableHTTPS {
+	if mgr := certMgr.Load(); mgr != nil && s.binding.EnableHTTPS {
 		certID := common.DefaultTLSKeyPaidID
 		if getConfigPath(s.binding.CertificateFile, "") != "" && getConfigPath(s.binding.CertificateKeyFile, "") != "" {
 			certID = s.binding.GetAddress()
 		}
 		config := &tls.Config{
-			GetCertificate: certMgr.GetCertificateFunc(certID),
+			GetCertificate: mgr.GetCertificateFunc(certID),
 			MinVersion:     util.GetTLSVersion(s.binding.MinTLSVersion),
 			NextProtos:     util.GetALPNProtocols(s.binding.Protocols),
 			CipherSuites:   util.GetTLSCiphersFromNames(s.binding.TLSCipherSuites),
@@ -125,7 +125,7 @@ func (s *httpdServer) listenAndServe() error {
 		logger.Debug(logSender, "", "configured TLS cipher suites for binding %q: %v, certID: %v",
 			s.binding.GetAddress(), httpServer.TLSConfig.CipherSuites, certID)
 		if s.binding.isMutualTLSEnabled() {
-			httpServer.TLSConfig.ClientCAs = certMgr.GetRootCAs()
+			httpServer.TLSConfig.ClientCAs = mgr.GetRootCAs()
 			httpServer.TLSConfig.ClientAuth = tls.RequireAndVerifyClientCert
 			httpServer.TLSConfig.VerifyConnection = s.verifyTLSConnection
 		}
@@ -137,7 +137,7 @@ func (s *httpdServer) listenAndServe() error {
 }
 
 func (s *httpdServer) verifyTLSConnection(state tls.ConnectionState) error {
-	if certMgr != nil {
+	if mgr := certMgr.Load(); mgr != nil {
 		var clientCrt *x509.Certificate
 		var clientCrtName string
 		if len(state.PeerCertificates) > 0 {
@@ -153,7 +153,7 @@ func (s *httpdServer) verifyTLSConnection(state tls.ConnectionState) error {
 			if len(verifiedChain) > 0 {
 				caCrt = verifiedChain[len(verifiedChain)-1]
 			}
-			if certMgr.IsRevoked(clientCrt, caCrt) {
+			if mgr.IsRevoked(clientCrt, caCrt) {
 				logger.Debug(logSender, "", "tls handshake error, client certificate %q has been revoked", clientCrtName)
 				return common.ErrCrtRevoked
 			}
@@ -1288,10 +1288,10 @@ func (s *httpdServer) initializeRouter() error {
 	}
 	if s.cors.Enabled {
 		c := cors.New(cors.Options{
-			AllowedOrigins:       util.RemoveDuplicates(s.cors.AllowedOrigins, true),
-			AllowedMethods:       util.RemoveDuplicates(s.cors.AllowedMethods, true),
-			AllowedHeaders:       util.RemoveDuplicates(s.cors.AllowedHeaders, true),
-			ExposedHeaders:       util.RemoveDuplicates(s.cors.ExposedHeaders, true),
+			AllowedOrigins:       util.RemoveDuplicates(slices.Clone(s.cors.AllowedOrigins), true),
+			AllowedMethods:       util.RemoveDuplicates(slices.Clone(s.cors.AllowedMethods), true),
+			AllowedHeaders:       util.RemoveDuplicates(slices.Clone(s.cors.AllowedHeaders), true),
+			ExposedHeaders:       util.RemoveDuplicates(slices.Clone(s.cors.ExposedHeaders), true),
 			MaxAge:               s.cors.MaxAge,
 			AllowCredentials:     s.cors.AllowCredentials,
 			OptionsPassthrough:   s.cors.OptionsPassthrough,

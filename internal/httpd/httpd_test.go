@@ -436,19 +436,19 @@ func TestMain(m *testing.M) {
 	hostKeyPath := filepath.Join(os.TempDir(), "id_rsa")
 	sftpdConf.HostKeys = []string{hostKeyPath}
 
-	go func() {
-		if err := httpdConf.Initialize(configDir, 0); err != nil {
+	go func(cfg httpd.Conf) {
+		if err := cfg.Initialize(configDir, 0); err != nil {
 			logger.ErrorToConsole("could not start HTTP server: %v", err)
 			os.Exit(1)
 		}
-	}()
+	}(httpdConf)
 
-	go func() {
-		if err := sftpdConf.Initialize(configDir); err != nil {
+	go func(cfg sftpd.Configuration) {
+		if err := cfg.Initialize(configDir); err != nil {
 			logger.ErrorToConsole("could not start SFTP server: %v", err)
 			os.Exit(1)
 		}
-	}()
+	}(sftpdConf)
 
 	startSMTPServer()
 	startOIDCMockServer()
@@ -475,12 +475,12 @@ func TestMain(m *testing.M) {
 	httpdConf.Bindings[0].CertificateKeyFile = keyPath
 	httpdConf.Bindings = append(httpdConf.Bindings, httpd.Binding{})
 
-	go func() {
-		if err := httpdConf.Initialize(configDir, 0); err != nil {
+	go func(cfg httpd.Conf) {
+		if err := cfg.Initialize(configDir, 0); err != nil {
 			logger.ErrorToConsole("could not start HTTPS server: %v", err)
 			os.Exit(1)
 		}
-	}()
+	}(httpdConf)
 	waitTCPListening(httpdConf.Bindings[0].GetAddress())
 	httpd.ReloadCertificateMgr()
 
