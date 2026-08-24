@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -221,6 +222,44 @@ const (
 		"ALTER TABLE `{{groups_folders_mapping}}` DROP INDEX `{{prefix}}unique_group_folder_mapping`, " +
 		"ADD CONSTRAINT `{{prefix}}unique_group_folder_mapping` UNIQUE (`group_id`, `folder_id`), " +
 		"DROP COLUMN `subpath`, DROP COLUMN `exposed_subpaths`;"
+	mysqlV36SQL = "ALTER TABLE `{{groups}}` ADD COLUMN `role_id` integer NULL;" +
+		"ALTER TABLE `{{folders}}` ADD COLUMN `role_id` integer NULL;" +
+		"ALTER TABLE `{{groups}}` ADD CONSTRAINT `{{prefix}}groups_role_id_fk_roles_id` " +
+		"FOREIGN KEY (`role_id`) REFERENCES `{{roles}}`(`id`) ON DELETE NO ACTION;" +
+		"ALTER TABLE `{{folders}}` ADD CONSTRAINT `{{prefix}}folders_role_id_fk_roles_id` " +
+		"FOREIGN KEY (`role_id`) REFERENCES `{{roles}}`(`id`) ON DELETE NO ACTION;" +
+		"ALTER TABLE `{{roles}}` ADD COLUMN `resource_isolation` integer DEFAULT 0 NOT NULL;" +
+		"ALTER TABLE `{{roles}}` ADD COLUMN `settings` longtext NULL;" +
+		"ALTER TABLE `{{users_folders_mapping}}` DROP FOREIGN KEY `{{prefix}}users_folders_mapping_folder_id_fk_folders_id`;" +
+		"ALTER TABLE `{{users_folders_mapping}}` ADD CONSTRAINT `{{prefix}}users_folders_mapping_folder_id_fk_folders_id` " +
+		"FOREIGN KEY (`folder_id`) REFERENCES `{{folders}}` (`id`) ON DELETE NO ACTION;" +
+		"ALTER TABLE `{{groups_folders_mapping}}` DROP FOREIGN KEY `{{prefix}}groups_folders_mapping_folder_id_fk_folders_id`;" +
+		"ALTER TABLE `{{groups_folders_mapping}}` ADD CONSTRAINT `{{prefix}}groups_folders_mapping_folder_id_fk_folders_id` " +
+		"FOREIGN KEY (`folder_id`) REFERENCES `{{folders}}` (`id`) ON DELETE NO ACTION;" +
+		"ALTER TABLE `{{admins_groups_mapping}}` DROP FOREIGN KEY `{{prefix}}admins_groups_mapping_group_id_fk_groups_id`;" +
+		"ALTER TABLE `{{admins_groups_mapping}}` ADD CONSTRAINT `{{prefix}}admins_groups_mapping_group_id_fk_groups_id` " +
+		"FOREIGN KEY (`group_id`) REFERENCES `{{groups}}` (`id`) ON DELETE NO ACTION;" +
+		"ALTER TABLE `{{users}}` DROP FOREIGN KEY `{{prefix}}users_role_id_fk_roles_id`;" +
+		"ALTER TABLE `{{users}}` ADD CONSTRAINT `{{prefix}}users_role_id_fk_roles_id` " +
+		"FOREIGN KEY (`role_id`) REFERENCES `{{roles}}` (`id`) ON DELETE NO ACTION;"
+	mysqlV36DownSQL = "ALTER TABLE `{{groups}}` DROP FOREIGN KEY `{{prefix}}groups_role_id_fk_roles_id`;" +
+		"ALTER TABLE `{{folders}}` DROP FOREIGN KEY `{{prefix}}folders_role_id_fk_roles_id`;" +
+		"ALTER TABLE `{{groups}}` DROP COLUMN `role_id`;" +
+		"ALTER TABLE `{{folders}}` DROP COLUMN `role_id`;" +
+		"ALTER TABLE `{{roles}}` DROP COLUMN `settings`;" +
+		"ALTER TABLE `{{roles}}` DROP COLUMN `resource_isolation`;" +
+		"ALTER TABLE `{{users_folders_mapping}}` DROP FOREIGN KEY `{{prefix}}users_folders_mapping_folder_id_fk_folders_id`;" +
+		"ALTER TABLE `{{users_folders_mapping}}` ADD CONSTRAINT `{{prefix}}users_folders_mapping_folder_id_fk_folders_id` " +
+		"FOREIGN KEY (`folder_id`) REFERENCES `{{folders}}` (`id`) ON DELETE CASCADE;" +
+		"ALTER TABLE `{{groups_folders_mapping}}` DROP FOREIGN KEY `{{prefix}}groups_folders_mapping_folder_id_fk_folders_id`;" +
+		"ALTER TABLE `{{groups_folders_mapping}}` ADD CONSTRAINT `{{prefix}}groups_folders_mapping_folder_id_fk_folders_id` " +
+		"FOREIGN KEY (`folder_id`) REFERENCES `{{folders}}` (`id`) ON DELETE CASCADE;" +
+		"ALTER TABLE `{{admins_groups_mapping}}` DROP FOREIGN KEY `{{prefix}}admins_groups_mapping_group_id_fk_groups_id`;" +
+		"ALTER TABLE `{{admins_groups_mapping}}` ADD CONSTRAINT `{{prefix}}admins_groups_mapping_group_id_fk_groups_id` " +
+		"FOREIGN KEY (`group_id`) REFERENCES `{{groups}}` (`id`) ON DELETE CASCADE;" +
+		"ALTER TABLE `{{users}}` DROP FOREIGN KEY `{{prefix}}users_role_id_fk_roles_id`;" +
+		"ALTER TABLE `{{users}}` ADD CONSTRAINT `{{prefix}}users_role_id_fk_roles_id` " +
+		"FOREIGN KEY (`role_id`) REFERENCES `{{roles}}` (`id`) ON DELETE SET NULL;"
 )
 
 // MySQLProvider defines the auth provider for MySQL/MariaDB database
@@ -811,7 +850,7 @@ func (p *MySQLProvider) initializeDatabase() error {
 	providerLog(logger.LevelInfo, "creating initial database schema, version 33")
 	initialSQL := sqlReplaceAll(mysqlInitialSQL)
 
-	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, strings.Split(initialSQL, ";"), 33, true)
+	return mysqlExecSQLAndUpdateDBVersion(p.dbHandle, strings.Split(initialSQL, ";"), 33, true)
 }
 
 func (p *MySQLProvider) migrateDatabase() error {
@@ -833,6 +872,8 @@ func (p *MySQLProvider) migrateDatabase() error {
 		return updateMySQLDatabaseFromV33(p.dbHandle)
 	case version == 34:
 		return updateMySQLDatabaseFromV34(p.dbHandle)
+	case version == 35:
+		return updateMySQLDatabaseFromV35(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -859,14 +900,29 @@ func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 		return downgradeMySQLDatabaseFromV34(p.dbHandle)
 	case 35:
 		return downgradeMySQLDatabaseFromV35(p.dbHandle)
+	case 36:
+		return downgradeMySQLDatabaseFromV36(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
 }
 
+var mysqlAlreadyAppliedErrors = []uint16{1050, 1060, 1061, 1826, 1091}
+
+func isMySQLAlreadyApplied(err error) bool {
+	if mysqlErr, ok := errors.AsType[*mysql.MySQLError](err); ok {
+		return slices.Contains(mysqlAlreadyAppliedErrors, mysqlErr.Number)
+	}
+	return false
+}
+
+func mysqlExecSQLAndUpdateDBVersion(dbHandle *sql.DB, sqlQueries []string, newVersion int, isUp bool) error {
+	return sqlCommonExecMigration(dbHandle, sqlQueries, newVersion, isUp, isMySQLAlreadyApplied)
+}
+
 func (p *MySQLProvider) resetDatabase() error {
 	sql := sqlReplaceAll(mysqlResetSQL)
-	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, strings.Split(sql, ";"), 0, false)
+	return mysqlExecSQLAndUpdateDBVersion(p.dbHandle, strings.Split(sql, ";"), 0, false)
 }
 
 func (p *MySQLProvider) normalizeError(err error, fieldType int) error {
@@ -904,7 +960,14 @@ func updateMySQLDatabaseFromV33(dbHandle *sql.DB) error {
 }
 
 func updateMySQLDatabaseFromV34(dbHandle *sql.DB) error {
-	return updateMySQLDatabaseFrom34To35(dbHandle)
+	if err := updateMySQLDatabaseFrom34To35(dbHandle); err != nil {
+		return err
+	}
+	return updateMySQLDatabaseFromV35(dbHandle)
+}
+
+func updateMySQLDatabaseFromV35(dbHandle *sql.DB) error {
+	return updateMySQLDatabaseFrom35To36(dbHandle)
 }
 
 func downgradeMySQLDatabaseFromV34(dbHandle *sql.DB) error {
@@ -918,6 +981,13 @@ func downgradeMySQLDatabaseFromV35(dbHandle *sql.DB) error {
 	return downgradeMySQLDatabaseFromV34(dbHandle)
 }
 
+func downgradeMySQLDatabaseFromV36(dbHandle *sql.DB) error {
+	if err := downgradeMySQLDatabaseFrom36To35(dbHandle); err != nil {
+		return err
+	}
+	return downgradeMySQLDatabaseFromV35(dbHandle)
+}
+
 func updateMySQLDatabaseFrom33To34(dbHandle *sql.DB) error {
 	logger.InfoToConsole("updating database schema version: 33 -> 34")
 	providerLog(logger.LevelInfo, "updating database schema version: 33 -> 34")
@@ -926,7 +996,7 @@ func updateMySQLDatabaseFrom33To34(dbHandle *sql.DB) error {
 	sql = strings.ReplaceAll(sql, "{{shares}}", sqlTableShares)
 	sql = strings.ReplaceAll(sql, "{{shares_groups_mapping}}", sqlTableSharesGroupsMapping)
 	sql = strings.ReplaceAll(sql, "{{groups}}", sqlTableGroups)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 34, true)
+	return mysqlExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 34, true)
 }
 
 func downgradeMySQLDatabaseFrom34To33(dbHandle *sql.DB) error {
@@ -934,7 +1004,7 @@ func downgradeMySQLDatabaseFrom34To33(dbHandle *sql.DB) error {
 	providerLog(logger.LevelInfo, "downgrading database schema version: 34 -> 33")
 
 	sql := strings.ReplaceAll(mysqlV34DownSQL, "{{shares_groups_mapping}}", sqlTableSharesGroupsMapping)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 33, false)
+	return mysqlExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 33, false)
 }
 
 func updateMySQLDatabaseFrom34To35(dbHandle *sql.DB) error {
@@ -944,7 +1014,7 @@ func updateMySQLDatabaseFrom34To35(dbHandle *sql.DB) error {
 	sql := strings.ReplaceAll(mysqlV35SQL, "{{prefix}}", config.SQLTablesPrefix)
 	sql = strings.ReplaceAll(sql, "{{users_folders_mapping}}", sqlTableUsersFoldersMapping)
 	sql = strings.ReplaceAll(sql, "{{groups_folders_mapping}}", sqlTableGroupsFoldersMapping)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 35, true)
+	return mysqlExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 35, true)
 }
 
 func downgradeMySQLDatabaseFrom35To34(dbHandle *sql.DB) error {
@@ -954,5 +1024,21 @@ func downgradeMySQLDatabaseFrom35To34(dbHandle *sql.DB) error {
 	sql := strings.ReplaceAll(mysqlV35DownSQL, "{{prefix}}", config.SQLTablesPrefix)
 	sql = strings.ReplaceAll(sql, "{{users_folders_mapping}}", sqlTableUsersFoldersMapping)
 	sql = strings.ReplaceAll(sql, "{{groups_folders_mapping}}", sqlTableGroupsFoldersMapping)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 34, false)
+	return mysqlExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 34, false)
+}
+
+func updateMySQLDatabaseFrom35To36(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database schema version: 35 -> 36")
+	providerLog(logger.LevelInfo, "updating database schema version: 35 -> 36")
+
+	sql := sqlReplaceAll(mysqlV36SQL)
+	return mysqlExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 36, true)
+}
+
+func downgradeMySQLDatabaseFrom36To35(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database schema version: 36 -> 35")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 36 -> 35")
+
+	sql := sqlReplaceAll(mysqlV36DownSQL)
+	return mysqlExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 35, false)
 }

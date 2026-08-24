@@ -243,9 +243,93 @@ ALTER TABLE "{{groups_folders_mapping}}" DROP COLUMN "subpath" CASCADE;
 ALTER TABLE "{{groups_folders_mapping}}" DROP COLUMN "exposed_subpaths" CASCADE;
 ALTER TABLE "{{groups_folders_mapping}}" ADD CONSTRAINT "{{prefix}}unique_group_folder_mapping" UNIQUE ("group_id", "folder_id");
 `
+	pgsqlV36SQL = `ALTER TABLE "{{groups}}" ADD COLUMN "role_id" integer NULL;
+ALTER TABLE "{{folders}}" ADD COLUMN "role_id" integer NULL;
+CREATE INDEX "{{prefix}}groups_role_id_idx" ON "{{groups}}" ("role_id");
+CREATE INDEX "{{prefix}}folders_role_id_idx" ON "{{folders}}" ("role_id");
+ALTER TABLE "{{groups}}" ADD CONSTRAINT "{{prefix}}groups_role_id_fk_roles_id" FOREIGN KEY ("role_id")
+REFERENCES "{{roles}}" ("id") ON DELETE NO ACTION;
+ALTER TABLE "{{folders}}" ADD CONSTRAINT "{{prefix}}folders_role_id_fk_roles_id" FOREIGN KEY ("role_id")
+REFERENCES "{{roles}}" ("id") ON DELETE NO ACTION;
+ALTER TABLE "{{roles}}" ADD COLUMN "resource_isolation" integer DEFAULT 0 NOT NULL;
+ALTER TABLE "{{roles}}" ADD COLUMN "settings" text NULL;
+ALTER TABLE "{{users_folders_mapping}}" DROP CONSTRAINT "{{prefix}}users_folders_mapping_folder_id_fk_folders_id";
+ALTER TABLE "{{users_folders_mapping}}" ADD CONSTRAINT "{{prefix}}users_folders_mapping_folder_id_fk_folders_id"
+FOREIGN KEY ("folder_id") REFERENCES "{{folders}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION;
+ALTER TABLE "{{groups_folders_mapping}}" DROP CONSTRAINT "{{prefix}}groups_folders_mapping_folder_id_fk_folders_id";
+ALTER TABLE "{{groups_folders_mapping}}" ADD CONSTRAINT "{{prefix}}groups_folders_mapping_folder_id_fk_folders_id"
+FOREIGN KEY ("folder_id") REFERENCES "{{folders}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION;
+ALTER TABLE "{{admins_groups_mapping}}" DROP CONSTRAINT "{{prefix}}admins_groups_mapping_group_id_fk_groups_id";
+ALTER TABLE "{{admins_groups_mapping}}" ADD CONSTRAINT "{{prefix}}admins_groups_mapping_group_id_fk_groups_id"
+FOREIGN KEY ("group_id") REFERENCES "{{groups}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION;
+ALTER TABLE "{{users}}" DROP CONSTRAINT "{{prefix}}users_role_id_fk_roles_id";
+ALTER TABLE "{{users}}" ADD CONSTRAINT "{{prefix}}users_role_id_fk_roles_id" FOREIGN KEY ("role_id")
+REFERENCES "{{roles}}" ("id") ON DELETE NO ACTION;
+`
+	pgsqlV36DownSQL = `ALTER TABLE "{{groups}}" DROP COLUMN "role_id" CASCADE;
+ALTER TABLE "{{folders}}" DROP COLUMN "role_id" CASCADE;
+ALTER TABLE "{{roles}}" DROP COLUMN "settings" CASCADE;
+ALTER TABLE "{{roles}}" DROP COLUMN "resource_isolation" CASCADE;
+ALTER TABLE "{{users_folders_mapping}}" DROP CONSTRAINT "{{prefix}}users_folders_mapping_folder_id_fk_folders_id";
+ALTER TABLE "{{users_folders_mapping}}" ADD CONSTRAINT "{{prefix}}users_folders_mapping_folder_id_fk_folders_id"
+FOREIGN KEY ("folder_id") REFERENCES "{{folders}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE;
+ALTER TABLE "{{groups_folders_mapping}}" DROP CONSTRAINT "{{prefix}}groups_folders_mapping_folder_id_fk_folders_id";
+ALTER TABLE "{{groups_folders_mapping}}" ADD CONSTRAINT "{{prefix}}groups_folders_mapping_folder_id_fk_folders_id"
+FOREIGN KEY ("folder_id") REFERENCES "{{folders}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE;
+ALTER TABLE "{{admins_groups_mapping}}" DROP CONSTRAINT "{{prefix}}admins_groups_mapping_group_id_fk_groups_id";
+ALTER TABLE "{{admins_groups_mapping}}" ADD CONSTRAINT "{{prefix}}admins_groups_mapping_group_id_fk_groups_id"
+FOREIGN KEY ("group_id") REFERENCES "{{groups}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE;
+ALTER TABLE "{{users}}" DROP CONSTRAINT "{{prefix}}users_role_id_fk_roles_id";
+ALTER TABLE "{{users}}" ADD CONSTRAINT "{{prefix}}users_role_id_fk_roles_id" FOREIGN KEY ("role_id")
+REFERENCES "{{roles}}" ("id") ON DELETE SET NULL;
+`
 )
 
+// CockroachDB executes DDL inside an explicit transaction as async schema
+// change jobs: the commit succeeds even when a job later fails (verified: a
+// unique-constraint backfill hitting duplicates failed after a successful
+// commit, letting the migration proceed). An autocommit DDL statement
+// instead blocks until its job completes and reports its error, so every
+// migration altering the schema runs its statements one by one outside
+// transactions, each idempotent via IF [NOT] EXISTS so a partial failure can
+// be retried. PostgreSQL keeps the strict statements in a single transaction:
+// it has transactional DDL, does not support ADD CONSTRAINT IF NOT EXISTS and
+// ADD COLUMN IF NOT EXISTS would accept a pre-existing column of a different
+// type. The v35 downgrade re-adds the narrow constraints BEFORE dropping the
+// columns: a multi-mount conflict then aborts while the data is still intact.
 var (
+	crdbV36SQL = []string{
+		`ALTER TABLE "{{groups}}" ADD COLUMN IF NOT EXISTS "role_id" integer NULL`,
+		`ALTER TABLE "{{folders}}" ADD COLUMN IF NOT EXISTS "role_id" integer NULL`,
+		`CREATE INDEX IF NOT EXISTS "{{prefix}}groups_role_id_idx" ON "{{groups}}" ("role_id")`,
+		`CREATE INDEX IF NOT EXISTS "{{prefix}}folders_role_id_idx" ON "{{folders}}" ("role_id")`,
+		`ALTER TABLE "{{groups}}" ADD CONSTRAINT IF NOT EXISTS "{{prefix}}groups_role_id_fk_roles_id" FOREIGN KEY ("role_id") REFERENCES "{{roles}}" ("id") ON DELETE NO ACTION`,
+		`ALTER TABLE "{{folders}}" ADD CONSTRAINT IF NOT EXISTS "{{prefix}}folders_role_id_fk_roles_id" FOREIGN KEY ("role_id") REFERENCES "{{roles}}" ("id") ON DELETE NO ACTION`,
+		`ALTER TABLE "{{roles}}" ADD COLUMN IF NOT EXISTS "resource_isolation" integer DEFAULT 0 NOT NULL`,
+		`ALTER TABLE "{{roles}}" ADD COLUMN IF NOT EXISTS "settings" text NULL`,
+		`ALTER TABLE "{{users_folders_mapping}}" DROP CONSTRAINT IF EXISTS "{{prefix}}users_folders_mapping_folder_id_fk_folders_id"`,
+		`ALTER TABLE "{{users_folders_mapping}}" ADD CONSTRAINT IF NOT EXISTS "{{prefix}}users_folders_mapping_folder_id_fk_folders_id" FOREIGN KEY ("folder_id") REFERENCES "{{folders}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION`,
+		`ALTER TABLE "{{groups_folders_mapping}}" DROP CONSTRAINT IF EXISTS "{{prefix}}groups_folders_mapping_folder_id_fk_folders_id"`,
+		`ALTER TABLE "{{groups_folders_mapping}}" ADD CONSTRAINT IF NOT EXISTS "{{prefix}}groups_folders_mapping_folder_id_fk_folders_id" FOREIGN KEY ("folder_id") REFERENCES "{{folders}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION`,
+		`ALTER TABLE "{{admins_groups_mapping}}" DROP CONSTRAINT IF EXISTS "{{prefix}}admins_groups_mapping_group_id_fk_groups_id"`,
+		`ALTER TABLE "{{admins_groups_mapping}}" ADD CONSTRAINT IF NOT EXISTS "{{prefix}}admins_groups_mapping_group_id_fk_groups_id" FOREIGN KEY ("group_id") REFERENCES "{{groups}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION`,
+		`ALTER TABLE "{{users}}" DROP CONSTRAINT IF EXISTS "{{prefix}}users_role_id_fk_roles_id"`,
+		`ALTER TABLE "{{users}}" ADD CONSTRAINT IF NOT EXISTS "{{prefix}}users_role_id_fk_roles_id" FOREIGN KEY ("role_id") REFERENCES "{{roles}}" ("id") ON DELETE NO ACTION`,
+	}
+	crdbV36DownSQL = []string{
+		`ALTER TABLE "{{groups}}" DROP COLUMN IF EXISTS "role_id" CASCADE`,
+		`ALTER TABLE "{{folders}}" DROP COLUMN IF EXISTS "role_id" CASCADE`,
+		`ALTER TABLE "{{roles}}" DROP COLUMN IF EXISTS "settings" CASCADE`,
+		`ALTER TABLE "{{roles}}" DROP COLUMN IF EXISTS "resource_isolation" CASCADE`,
+		`ALTER TABLE "{{users_folders_mapping}}" DROP CONSTRAINT IF EXISTS "{{prefix}}users_folders_mapping_folder_id_fk_folders_id"`,
+		`ALTER TABLE "{{users_folders_mapping}}" ADD CONSTRAINT IF NOT EXISTS "{{prefix}}users_folders_mapping_folder_id_fk_folders_id" FOREIGN KEY ("folder_id") REFERENCES "{{folders}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE`,
+		`ALTER TABLE "{{groups_folders_mapping}}" DROP CONSTRAINT IF EXISTS "{{prefix}}groups_folders_mapping_folder_id_fk_folders_id"`,
+		`ALTER TABLE "{{groups_folders_mapping}}" ADD CONSTRAINT IF NOT EXISTS "{{prefix}}groups_folders_mapping_folder_id_fk_folders_id" FOREIGN KEY ("folder_id") REFERENCES "{{folders}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE`,
+		`ALTER TABLE "{{admins_groups_mapping}}" DROP CONSTRAINT IF EXISTS "{{prefix}}admins_groups_mapping_group_id_fk_groups_id"`,
+		`ALTER TABLE "{{admins_groups_mapping}}" ADD CONSTRAINT IF NOT EXISTS "{{prefix}}admins_groups_mapping_group_id_fk_groups_id" FOREIGN KEY ("group_id") REFERENCES "{{groups}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE`,
+		`ALTER TABLE "{{users}}" DROP CONSTRAINT IF EXISTS "{{prefix}}users_role_id_fk_roles_id"`,
+		`ALTER TABLE "{{users}}" ADD CONSTRAINT IF NOT EXISTS "{{prefix}}users_role_id_fk_roles_id" FOREIGN KEY ("role_id") REFERENCES "{{roles}}" ("id") ON DELETE SET NULL`,
+	}
 	crdbV35SQL = []string{
 		`ALTER TABLE "{{users_folders_mapping}}" ADD COLUMN IF NOT EXISTS "exposed_subpaths" text NULL`,
 		`ALTER TABLE "{{users_folders_mapping}}" ADD COLUMN IF NOT EXISTS "subpath" text DEFAULT '' NOT NULL`,
@@ -866,17 +950,41 @@ func (p *PGSQLProvider) initializeDatabase() error {
 	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{initialSQL}, 33, true)
 }
 
+// crdbIdempotentStatements splits the given SQL into individual statements and
+// rewrites them so that each one can be re-executed. On CockroachDB the
+// migration takes no lock and a statement can fail after previous ones are
+// already applied, so a retry must be able to run the whole script again.
+func crdbIdempotentStatements(sql string) []string {
+	for _, r := range []struct {
+		old string
+		new string
+	}{
+		{"CREATE TABLE ", "CREATE TABLE IF NOT EXISTS "},
+		{"CREATE INDEX ", "CREATE INDEX IF NOT EXISTS "},
+		{"ADD COLUMN ", "ADD COLUMN IF NOT EXISTS "},
+		{"ADD CONSTRAINT ", "ADD CONSTRAINT IF NOT EXISTS "},
+		{"DROP TABLE ", "DROP TABLE IF EXISTS "},
+		{"DROP COLUMN ", "DROP COLUMN IF EXISTS "},
+		{"DROP CONSTRAINT ", "DROP CONSTRAINT IF EXISTS "},
+	} {
+		sql = strings.ReplaceAll(sql, r.old, r.new)
+	}
+	// statements that already carried the clause now have it twice
+	sql = strings.ReplaceAll(sql, "IF NOT EXISTS IF NOT EXISTS ", "IF NOT EXISTS ")
+	sql = strings.ReplaceAll(sql, "IF EXISTS IF EXISTS ", "IF EXISTS ")
+	return strings.Split(sql, ";")
+}
+
+// crdbInitialStatements returns the initial schema as individual idempotent
+// statements for runCRDBStatements.
 func crdbInitialStatements() []string {
 	initialSQL := sqlReplaceAll(pgsqlInitial)
 	initialSQL = strings.ReplaceAll(initialSQL, "GENERATED ALWAYS AS IDENTITY", "DEFAULT unordered_unique_rowid()")
-	initialSQL = strings.ReplaceAll(initialSQL, "CREATE TABLE ", "CREATE TABLE IF NOT EXISTS ")
-	initialSQL = strings.ReplaceAll(initialSQL, "CREATE INDEX ", "CREATE INDEX IF NOT EXISTS ")
-	initialSQL = strings.ReplaceAll(initialSQL, "ADD CONSTRAINT ", "ADD CONSTRAINT IF NOT EXISTS ")
 	initialSQL = strings.ReplaceAll(initialSQL,
 		fmt.Sprintf("INSERT INTO %s (configs) VALUES ('{}')", sqlTableConfigs),
 		fmt.Sprintf("INSERT INTO %s (configs) SELECT '{}' WHERE NOT EXISTS (SELECT id FROM %s)",
 			sqlTableConfigs, sqlTableConfigs))
-	return strings.Split(initialSQL, ";")
+	return crdbIdempotentStatements(initialSQL)
 }
 
 func (p *PGSQLProvider) migrateDatabase() error {
@@ -898,6 +1006,8 @@ func (p *PGSQLProvider) migrateDatabase() error {
 		return updatePGSQLDatabaseFromV33(p.dbHandle)
 	case version == 34:
 		return updatePGSQLDatabaseFromV34(p.dbHandle)
+	case version == 35:
+		return updatePGSQLDatabaseFromV35(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -924,6 +1034,8 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 		return downgradePGSQLDatabaseFromV34(p.dbHandle)
 	case 35:
 		return downgradePGSQLDatabaseFromV35(p.dbHandle)
+	case 36:
+		return downgradePGSQLDatabaseFromV36(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
@@ -969,7 +1081,14 @@ func updatePGSQLDatabaseFromV33(dbHandle *sql.DB) error {
 }
 
 func updatePGSQLDatabaseFromV34(dbHandle *sql.DB) error {
-	return updatePGSQLDatabaseFrom34To35(dbHandle)
+	if err := updatePGSQLDatabaseFrom34To35(dbHandle); err != nil {
+		return err
+	}
+	return updatePGSQLDatabaseFromV35(dbHandle)
+}
+
+func updatePGSQLDatabaseFromV35(dbHandle *sql.DB) error {
+	return updatePGSQLDatabaseFrom35To36(dbHandle)
 }
 
 func downgradePGSQLDatabaseFromV34(dbHandle *sql.DB) error {
@@ -983,6 +1102,13 @@ func downgradePGSQLDatabaseFromV35(dbHandle *sql.DB) error {
 	return downgradePGSQLDatabaseFromV34(dbHandle)
 }
 
+func downgradePGSQLDatabaseFromV36(dbHandle *sql.DB) error {
+	if err := downgradePGSQLDatabaseFrom36To35(dbHandle); err != nil {
+		return err
+	}
+	return downgradePGSQLDatabaseFromV35(dbHandle)
+}
+
 func updatePGSQLDatabaseFrom33To34(dbHandle *sql.DB) error {
 	logger.InfoToConsole("updating database schema version: 33 -> 34")
 	providerLog(logger.LevelInfo, "updating database schema version: 33 -> 34")
@@ -991,6 +1117,9 @@ func updatePGSQLDatabaseFrom33To34(dbHandle *sql.DB) error {
 	sql = strings.ReplaceAll(sql, "{{shares}}", sqlTableShares)
 	sql = strings.ReplaceAll(sql, "{{shares_groups_mapping}}", sqlTableSharesGroupsMapping)
 	sql = strings.ReplaceAll(sql, "{{groups}}", sqlTableGroups)
+	if config.Driver == CockroachDataProviderName {
+		return runCRDBStatements(dbHandle, crdbIdempotentStatements(sql), 34, true)
+	}
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 34, true)
 }
 
@@ -999,6 +1128,9 @@ func downgradePGSQLDatabaseFrom34To33(dbHandle *sql.DB) error {
 	providerLog(logger.LevelInfo, "downgrading database schema version: 34 -> 33")
 
 	sql := strings.ReplaceAll(pgsqlV34DownSQL, "{{shares_groups_mapping}}", sqlTableSharesGroupsMapping)
+	if config.Driver == CockroachDataProviderName {
+		return runCRDBStatements(dbHandle, crdbIdempotentStatements(sql), 33, false)
+	}
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 33, false)
 }
 
@@ -1066,4 +1198,26 @@ func downgradePGSQLDatabaseFrom35To34(dbHandle *sql.DB) error {
 	}
 	sql := replaceV35MappingTablesPlaceholders(pgsqlV35DownSQL)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 34, false)
+}
+
+func updatePGSQLDatabaseFrom35To36(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database schema version: 35 -> 36")
+	providerLog(logger.LevelInfo, "updating database schema version: 35 -> 36")
+
+	if config.Driver == CockroachDataProviderName {
+		return runCRDBStatements(dbHandle, sqlReplaceAllList(crdbV36SQL), 36, true)
+	}
+	sql := sqlReplaceAll(pgsqlV36SQL)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 36, true)
+}
+
+func downgradePGSQLDatabaseFrom36To35(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database schema version: 36 -> 35")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 36 -> 35")
+
+	if config.Driver == CockroachDataProviderName {
+		return runCRDBStatements(dbHandle, sqlReplaceAllList(crdbV36DownSQL), 35, false)
+	}
+	sql := sqlReplaceAll(pgsqlV36DownSQL)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 35, false)
 }

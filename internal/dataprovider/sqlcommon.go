@@ -36,7 +36,7 @@ import (
 )
 
 const (
-	sqlDatabaseVersion     = 35
+	sqlDatabaseVersion     = 36
 	defaultSQLQueryTimeout = 10 * time.Second
 	longSQLQueryTimeout    = 60 * time.Second
 )
@@ -86,6 +86,14 @@ func sqlReplaceAll(sql string) string {
 	sql = strings.ReplaceAll(sql, "{{configs}}", sqlTableConfigs)
 	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
 	return sql
+}
+
+func sqlReplaceAllList(statements []string) []string {
+	result := make([]string, 0, len(statements))
+	for _, q := range statements {
+		result = append(result, sqlReplaceAll(q))
+	}
+	return result
 }
 
 func sqlCommonGetShareByID(shareID, username string, dbHandle sqlQuerier) (Share, error) {
@@ -3982,6 +3990,16 @@ func sqlCommonUpdateDatabaseVersion(ctx context.Context, dbHandle sqlQuerier, ve
 }
 
 func sqlCommonExecSQLAndUpdateDBVersion(dbHandle *sql.DB, sqlQueries []string, newVersion int, isUp bool) error {
+	return sqlCommonExecMigration(dbHandle, sqlQueries, newVersion, isUp, nil)
+}
+
+// sqlCommonExecMigration executes the given statements and records the new
+// schema version. isApplied, when set, reports whether a statement error means
+// that its effect is already in place: such statements are logged and skipped,
+// so a migration interrupted partway can be completed by running it again.
+func sqlCommonExecMigration(dbHandle *sql.DB, sqlQueries []string, newVersion int, isUp bool,
+	isApplied func(error) bool,
+) error {
 	ctx, cancel := context.WithTimeout(context.Background(), longSQLQueryTimeout)
 	defer cancel()
 
@@ -4014,7 +4032,10 @@ func sqlCommonExecSQLAndUpdateDBVersion(dbHandle *sql.DB, sqlQueries []string, n
 			}
 			_, err := tx.ExecContext(ctx, q)
 			if err != nil {
-				return err
+				if isApplied == nil || !isApplied(err) {
+					return err
+				}
+				providerLog(logger.LevelInfo, "skipping statement, already applied: %v", err)
 			}
 		}
 		if newVersion == 0 {
