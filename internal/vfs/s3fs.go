@@ -243,7 +243,8 @@ func (fs *S3Fs) Open(name string, offset int64) (File, PipeReader, func(), error
 	}
 
 	ctx, cancelFn := context.WithCancel(context.Background())
-	downloader := manager.NewDownloader(fs.svc, func(d *manager.Downloader) { //nolint:staticcheck
+	//lint:ignore SA1019 the transfer manager provides the concurrency and part sizing this download needs
+	downloader := manager.NewDownloader(fs.svc, func(d *manager.Downloader) {
 		d.Concurrency = fs.config.DownloadConcurrency
 		d.PartSize = fs.config.DownloadPartSize
 		if offset == 0 && fs.config.DownloadPartMaxTime > 0 {
@@ -262,7 +263,8 @@ func (fs *S3Fs) Open(name string, offset int64) (File, PipeReader, func(), error
 	go func() {
 		defer cancelFn()
 
-		n, err := downloader.Download(ctx, w, &s3.GetObjectInput{ //nolint:staticcheck
+		//lint:ignore SA1019 the transfer manager provides the concurrency and part sizing this download needs
+		n, err := downloader.Download(ctx, w, &s3.GetObjectInput{
 			Bucket:               aws.String(fs.config.Bucket),
 			Key:                  aws.String(name),
 			Range:                streamRange,
@@ -270,7 +272,7 @@ func (fs *S3Fs) Open(name string, offset int64) (File, PipeReader, func(), error
 			SSECustomerAlgorithm: util.NilIfEmpty(fs.sseCustomerAlgo),
 			SSECustomerKeyMD5:    util.NilIfEmpty(fs.sseCustomerKeyMD5),
 		})
-		w.CloseWithError(err) //nolint:errcheck
+		w.CloseWithError(err)
 		fsLog(fs, logger.LevelDebug, "download completed, path: %q size: %v, err: %+v", name, n, err)
 		metric.S3TransferCompleted(n, 1, err)
 	}()
@@ -307,7 +309,7 @@ func (fs *S3Fs) Create(name string, flag, checks int) (File, PipeWriter, func(),
 			contentType = mime.TypeByExtension(path.Ext(name))
 		}
 		err := fs.handleUpload(ctx, r, name, contentType)
-		r.CloseWithError(err) //nolint:errcheck
+		r.CloseWithError(err)
 		p.Done(err)
 		fsLog(fs, logger.LevelDebug, "upload completed, path: %q, acl: %q, readed bytes: %d, err: %+v",
 			name, fs.config.ACL, r.GetReadedBytes(), err)
@@ -601,7 +603,7 @@ func (fs *S3Fs) Walk(root string, walkFn filepath.WalkFunc) error {
 		page, err := paginator.NextPage(ctx)
 		if err != nil {
 			metric.S3ListObjectsCompleted(err)
-			walkFn(root, NewFileInfo(root, true, 0, time.Unix(0, 0), false), err) //nolint:errcheck
+			_ = walkFn(root, NewFileInfo(root, true, 0, time.Unix(0, 0), false), err)
 			return err
 		}
 		for _, fileObject := range page.Contents {
@@ -619,7 +621,7 @@ func (fs *S3Fs) Walk(root string, walkFn filepath.WalkFunc) error {
 	}
 
 	metric.S3ListObjectsCompleted(nil)
-	walkFn(root, NewFileInfo(root, true, 0, time.Unix(0, 0), false), nil) //nolint:errcheck
+	_ = walkFn(root, NewFileInfo(root, true, 0, time.Unix(0, 0), false), nil)
 	return nil
 }
 
@@ -1218,7 +1220,8 @@ func (fs *S3Fs) downloadToWriter(name string, w PipeWriter) (int64, error) {
 	ctx, cancelFn := context.WithTimeout(context.Background(), preResumeTimeout)
 	defer cancelFn()
 
-	downloader := manager.NewDownloader(fs.svc, func(d *manager.Downloader) { //nolint:staticcheck
+	//lint:ignore SA1019 the transfer manager provides the concurrency and part sizing this download needs
+	downloader := manager.NewDownloader(fs.svc, func(d *manager.Downloader) {
 		d.Concurrency = fs.config.DownloadConcurrency
 		d.PartSize = fs.config.DownloadPartSize
 		if fs.config.DownloadPartMaxTime > 0 {
@@ -1229,7 +1232,8 @@ func (fs *S3Fs) downloadToWriter(name string, w PipeWriter) (int64, error) {
 		}
 	})
 
-	n, err := downloader.Download(ctx, w, &s3.GetObjectInput{ //nolint:staticcheck
+	//lint:ignore SA1019 the transfer manager provides the concurrency and part sizing this download needs
+	n, err := downloader.Download(ctx, w, &s3.GetObjectInput{
 		Bucket:               aws.String(fs.config.Bucket),
 		Key:                  aws.String(name),
 		SSECustomerKey:       util.NilIfEmpty(fs.sseCustomerKey),

@@ -1076,7 +1076,7 @@ func TestTokenSignatureValidation(t *testing.T) {
 	assert.NoError(t, err)
 
 	defer func() {
-		dataprovider.DeleteUser(defeaultUsername, "", "", "") //nolint:errcheck
+		dataprovider.DeleteUser(defeaultUsername, "", "", "")
 	}()
 
 	tokenValidationMode = 2

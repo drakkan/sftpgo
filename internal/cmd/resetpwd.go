@@ -122,7 +122,7 @@ Please take a look at the usage below to customize the options.`,
 func init() {
 	addConfigFlags(resetPwdCmd)
 	resetPwdCmd.Flags().StringVar(&resetPwdAdmin, "admin", "", `Administrator username whose password to reset`)
-	resetPwdCmd.MarkFlagRequired("admin") //nolint:errcheck
+	_ = resetPwdCmd.MarkFlagRequired("admin")
 
 	rootCmd.AddCommand(resetPwdCmd)
 }

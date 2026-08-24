@@ -228,7 +228,7 @@ func (p *BoltProvider) getUserSignature(username string) (string, error) {
 }
 
 func (p *BoltProvider) setUpdatedAt(username string) {
-	p.dbHandle.Update(func(tx *bolt.Tx) error { //nolint:errcheck
+	_ = p.dbHandle.Update(func(tx *bolt.Tx) error {
 		bucket, err := p.getUsersBucket(tx)
 		if err != nil {
 			return err
@@ -3191,7 +3191,7 @@ func (p *BoltProvider) migrateDatabase() error {
 	}
 }
 
-func (p *BoltProvider) revertDatabase(targetVersion int) error { //nolint:gocyclo
+func (p *BoltProvider) revertDatabase(targetVersion int) error {
 	dbVersion, err := getBoltDatabaseVersion(p.dbHandle)
 	if err != nil {
 		return err

@@ -86,7 +86,7 @@ func setBoolFromEnv(receiver *bool, val string) {
 	}
 }
 
-func checkServeParamsFromEnvFiles(configDir string) { //nolint:gocyclo
+func checkServeParamsFromEnvFiles(configDir string) {
 	// The logger is not yet initialized here, we have no way to report errors.
 	envd := filepath.Join(configDir, "env.d")
 	entries, err := os.ReadDir(envd)

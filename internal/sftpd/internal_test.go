@@ -613,7 +613,7 @@ func TestHashCommandPathPermissions(t *testing.T) {
 	err := os.MkdirAll(filepath.Join(homeDir, "data", "sub"), os.ModePerm)
 	assert.NoError(t, err)
 
-	defer os.RemoveAll(homeDir) //nolint:errcheck
+	defer os.RemoveAll(homeDir)
 
 	err = os.WriteFile(filepath.Join(homeDir, "data", "secret.txt"), []byte("secret"), 0o600)
 	assert.NoError(t, err)
@@ -964,7 +964,7 @@ func TestSCPUploadDestinationScope(t *testing.T) {
 			BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", "", user),
 			channel:        &mockSSHChannel,
 		}
-		defer connection.CloseFS() //nolint:errcheck
+		defer connection.CloseFS()
 		scpCommand := scpCommand{
 			sshCommand: sshCommand{
 				command:    "scp",
@@ -1630,11 +1630,12 @@ func TestConfigsFromProvider(t *testing.T) {
 	assert.Len(t, c.PublicKeyAlgorithms, 0)
 	configs := dataprovider.Configs{
 		SFTPD: &dataprovider.SFTPDConfigs{
-			HostKeyAlgos:   []string{ssh.KeyAlgoRSA},
-			KexAlgorithms:  []string{ssh.InsecureKeyExchangeDHGEXSHA1},
-			Ciphers:        []string{ssh.InsecureCipherAES128CBC},
-			MACs:           []string{ssh.HMACSHA512ETM},
-			PublicKeyAlgos: []string{ssh.InsecureKeyAlgoDSA}, //nolint:staticcheck
+			HostKeyAlgos:  []string{ssh.KeyAlgoRSA},
+			KexAlgorithms: []string{ssh.InsecureKeyExchangeDHGEXSHA1},
+			Ciphers:       []string{ssh.InsecureCipherAES128CBC},
+			MACs:          []string{ssh.HMACSHA512ETM},
+			//lint:ignore SA1019 the test covers the DSA algorithm
+			PublicKeyAlgos: []string{ssh.InsecureKeyAlgoDSA},
 		},
 	}
 	err = dataprovider.UpdateConfigs(&configs, "", "", "")
@@ -2010,7 +2011,7 @@ func (f mockCommandExecutor) CombinedOutput(ctx context.Context, name string, ar
 
 func TestVerifyWithOPKSSH(t *testing.T) {
 	sshCert := []byte(`ssh-rsa-cert-v01@openssh.com AAAAHHNzaC1yc2EtY2VydC12MDFAb3BlbnNzaC5jb20AAAAg4+hKHVPKv183MU/Q7XD/mzDBFSc2YY3eraltxLMGJo0AAAADAQABAAABAQCe6jMoy1xCQgiZkZJ7gi6NLj4uRqz2OaUGK/OJYZTfBqK+SlS9iymAluHu9K+cc4+0qxx0gn7dRTJWINSgzvca6ayYe995EKgD1hE5krh9BH0bRrXB+hGqyslcZOgLNO+v8jYojClQbRtET2tS+xb4k33GCuL5wgla2790ZgOQgs7huQUjG0S8c1W+EYt6fI4cWE/DeEBnv9sqryS8rOb0PbM6WUd7XBadwySFWYQUX0ei56GNt12Z4gADEGlFQV/OnV0PvnTcAMGUl0rfToPgJ4jgogWKoTVWuZ9wyA/x+2LRLRvgm2a969ig937/AH0i0Wq+FzqfK7EXQ99Yf5K/AAAAAAAAAAAAAAACAAAAFGhvc3QuZXhhbXBsZS5jb20ta2V5AAAAFAAAABBob3N0LmV4YW1wbGUuY29tAAAAAGXEzYAAAAAAd8sP4wAAAAAAAAAAAAAAAAAAARcAAAAHc3NoLXJzYQAAAAMBAAEAAAEBAL4PXUPSERufZWCW/hhEnylk3IeMgaa+2HcNY5Cur77a8fYy6OYZAPF+vhJUT0akwGUpTeXAZumAgHECDrJlw1J+jo9ZVT0AKDo0wU77IzNzYxob7+dpB02NJ7DLAXmPauQ07Zc5pWJFVKtmuh7YH9pjYtNXSMOXye7k06PBGzX+ztIt7nPWvD9fR2mZeTSoljeBCGZHwdlnV2ESQlQbBoEI93RPxqxJh/UCDatQPhpDbyverr2ZvB9Y45rqsx6ZVmu5RXl3MfBU1U21W/4ia2di3PybyD4rSmVoam0efcqxo6cBKSHe26OFoTuS9zgdH0iCWL37vqOFmJ7eH91M3nMAAAEUAAAADHJzYS1zaGEyLTI1NgAAAQA/ByIegNZYJRRl413S/8LxGvTZnbxsPwaluoJ/54niGZV9P28THz7d9jXfSHPjalhH93jNPfTYXvI4opnDC37ua1Nu8KKfk40IWXnnDdZLWraUxEidIzhmfVtz8kGdGoFQ8H0EzubL7zKNOTlfSfOoDlmQVOuxT/+eh2mEp4ri0/+8J1mLfLBr8tREX0/iaNjK+RKdcyTMicKursAYMCDdu8vlaphxea+ocyHM9izSX/l33t44V13ueTqIOh2Zbl2UE2k+jk+0dc1CmV0SEoiWiIyt8TRM4yQry1vPlQLsrf28sYM/QMwnhCVhyZO3vs5F25aQWrB9d51VEzBW9/fd host.example.com`)
-	key, _, _, _, err := ssh.ParseAuthorizedKey(sshCert) //nolint:dogsled
+	key, _, _, _, err := ssh.ParseAuthorizedKey(sshCert)
 	require.NoError(t, err)
 	cert, ok := key.(*ssh.Certificate)
 	require.True(t, ok)
@@ -2038,7 +2039,7 @@ func TestVerifyWithOPKSSH(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestOsFsRootEscapeMatrix(t *testing.T) { //nolint:gocyclo
+func TestOsFsRootEscapeMatrix(t *testing.T) {
 	if runtime.GOOS == osWindows {
 		t.Skip(`This test is POSIX-specific`)
 	}

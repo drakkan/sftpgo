@@ -278,7 +278,7 @@ func (f *webDavFile) updateTransferQuotaOnSeek() {
 	transferQuota := f.GetTransferQuota()
 	if transferQuota.HasSizeLimits() {
 		go func(ulSize, dlSize int64, user dataprovider.User) {
-			dataprovider.UpdateUserTransferQuota(&user, ulSize, dlSize, false) //nolint:errcheck
+			_ = dataprovider.UpdateUserTransferQuota(&user, ulSize, dlSize, false)
 		}(f.BytesReceived.Load(), f.BytesSent.Load(), f.Connection.User)
 	}
 }
@@ -335,7 +335,7 @@ func (f *webDavFile) Seek(offset int64, whence int) (int64, error) {
 
 		// close the reader and create a new one at startByte
 		if f.reader != nil {
-			f.reader.Close() //nolint:errcheck
+			f.reader.Close()
 			f.reader = nil
 		}
 		startByte := int64(0)

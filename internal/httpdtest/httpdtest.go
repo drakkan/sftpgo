@@ -1647,7 +1647,7 @@ func compareConditionPatternOptions(expected, actual []dataprovider.ConditionPat
 	return nil
 }
 
-func checkEventConditionOptions(expected, actual dataprovider.ConditionOptions) error { //nolint:gocyclo
+func checkEventConditionOptions(expected, actual dataprovider.ConditionOptions) error {
 	if err := compareConditionPatternOptions(expected.Names, actual.Names); err != nil {
 		return errors.New("condition names mismatch")
 	}
@@ -2168,7 +2168,7 @@ func compareFsConfig(expected *vfs.Filesystem, actual *vfs.Filesystem) error {
 	return compareHTTPFsConfig(expected, actual)
 }
 
-func compareS3Config(expected *vfs.Filesystem, actual *vfs.Filesystem) error { //nolint:gocyclo
+func compareS3Config(expected *vfs.Filesystem, actual *vfs.Filesystem) error {
 	if expected.S3Config.Bucket != actual.S3Config.Bucket {
 		return errors.New("fs S3 bucket mismatch")
 	}
@@ -2456,7 +2456,7 @@ func compareUserFiltersEqualFields(expected sdk.BaseUserFilters, actual sdk.Base
 	return nil
 }
 
-func compareBaseUserFilters(expected sdk.BaseUserFilters, actual sdk.BaseUserFilters) error { //nolint:gocyclo
+func compareBaseUserFilters(expected sdk.BaseUserFilters, actual sdk.BaseUserFilters) error {
 	if len(expected.AllowedIP) != len(actual.AllowedIP) {
 		return errors.New("allowed IP mismatch")
 	}

@@ -77,7 +77,7 @@ func TestMFAConfig(t *testing.T) {
 		assert.Equal(t, configName3, status.TOTPConfigs[2].Name)
 	}
 	// now generate some secrets and validate some passcodes
-	_, _, _, err = GenerateTOTPSecret("", "") //nolint:dogsled
+	_, _, _, err = GenerateTOTPSecret("", "")
 	assert.Error(t, err)
 	match, err := ValidateTOTPPasscode("", "", "")
 	assert.Error(t, err)
@@ -137,11 +137,11 @@ func TestTOTPGenerateErrors(t *testing.T) {
 		algo:   otp.AlgorithmSHA1,
 	}
 	// issuer cannot be empty
-	_, _, err := config.generate("username", 200, 200) //nolint:dogsled
+	_, _, err := config.generate("username", 200, 200)
 	assert.Error(t, err)
 	config.Issuer = "issuer"
 	// we cannot encode an image smaller than 45x45
-	_, _, err = config.generate("username", 30, 30) //nolint:dogsled
+	_, _, err = config.generate("username", 30, 30)
 	assert.Error(t, err)
 }
 

@@ -739,7 +739,7 @@ func (p *SQLiteProvider) initializeDatabase() error {
 	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{sql}, 29, true)
 }
 
-func (p *SQLiteProvider) migrateDatabase() error { //nolint:dupl
+func (p *SQLiteProvider) migrateDatabase() error {
 	dbVersion, err := sqlCommonGetDatabaseVersion(p.dbHandle, true)
 	if err != nil {
 		return err

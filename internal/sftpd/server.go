@@ -371,7 +371,7 @@ func (c *Configuration) Initialize(configDir string) error {
 		return common.ErrNoBinding
 	}
 
-	sftp.SetSFTPExtensions(sftpExtensions...) //nolint:errcheck // we configure valid SFTP Extensions so we cannot get an error
+	_ = sftp.SetSFTPExtensions(sftpExtensions...) // we configure valid SFTP Extensions so we cannot get an error
 	sftp.MaxFilelist = 250
 
 	if err := c.configureSecurityOptions(serverConfig); err != nil {
@@ -439,7 +439,8 @@ func (c *Configuration) serve(listener net.Listener, serverConfig *ssh.ServerCon
 		conn, err := listener.Accept()
 		if err != nil {
 			// see https://github.com/golang/go/blob/4aa1efed4853ea067d665a952eee77c52faac774/src/net/http/server.go#L3046
-			if ne, ok := err.(net.Error); ok && ne.Temporary() { //nolint:staticcheck
+			//lint:ignore SA1019 net/http backs off on Accept errors the same way
+			if ne, ok := err.(net.Error); ok && ne.Temporary() {
 				if tempDelay == 0 {
 					tempDelay = 5 * time.Millisecond
 				} else {
@@ -611,7 +612,7 @@ func (c *Configuration) configureKeyboardInteractiveAuth(serverConfig *ssh.Serve
 }
 
 // AcceptInboundConnection handles an inbound connection to the server instance and determines if the request should be served or not.
-func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.ServerConfig) { //nolint:gocyclo
+func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.ServerConfig) {
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Error(logSender, "", "panic in AcceptInboundConnection: %q stack trace: %v", r, string(debug.Stack()))
@@ -628,7 +629,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 	}
 	// Before beginning a handshake must be performed on the incoming net.Conn
 	// we'll set a Deadline for handshake to complete, the default is 2 minutes as OpenSSH
-	conn.SetDeadline(time.Now().Add(handshakeTimeout)) //nolint:errcheck
+	_ = conn.SetDeadline(time.Now().Add(handshakeTimeout))
 
 	sconn, chans, reqs, err := ssh.NewServerConn(conn, config)
 	if err != nil {
@@ -637,7 +638,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 		return
 	}
 	// handshake completed so remove the deadline, we'll use IdleTimeout configuration from now on
-	conn.SetDeadline(time.Time{}) //nolint:errcheck
+	_ = conn.SetDeadline(time.Time{})
 	go ssh.DiscardRequests(reqs)
 
 	defer sconn.Close()
@@ -646,13 +647,13 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 	loginType := sconn.Permissions.ExtraData[extraDataLoginMethodKey].(string)
 	connectionID := hex.EncodeToString(sconn.SessionID())
 
-	defer user.CloseFs() //nolint:errcheck
+	defer user.CloseFs()
 	if err = user.CheckFsRoot(connectionID); err != nil {
 		logger.Warn(logSender, connectionID, "unable to check fs root for user %q: %v", user.Username, err)
 		go discardAllChannels(chans, "invalid root fs", connectionID)
 		return
 	}
-	user.CloseFs() //nolint:errcheck
+	user.CloseFs()
 
 	logger.LoginLog(user.Username, ipAddr, loginType, common.ProtocolSSH, connectionID,
 		util.BytesToString(sconn.ClientVersion()), true,
@@ -672,7 +673,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 		if newChannel.ChannelType() != "session" {
 			logger.Log(logger.LevelDebug, common.ProtocolSSH, connectionID, "received an unknown channel type: %v",
 				newChannel.ChannelType())
-			newChannel.Reject(ssh.UnknownChannelType, "unknown channel type") //nolint:errcheck
+			_ = newChannel.Reject(ssh.UnknownChannelType, "unknown channel type")
 			continue
 		}
 
@@ -724,7 +725,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 					}
 				}
 				if req.WantReply {
-					req.Reply(ok, nil) //nolint:errcheck
+					_ = req.Reply(ok, nil)
 				}
 			}
 		}(requests, channelCounter)
@@ -738,7 +739,7 @@ func (c *Configuration) handleSftpConnection(channel ssh.Channel, connection *Co
 		}
 	}()
 	if err := common.Connections.Add(connection); err != nil {
-		defer connection.CloseFS() //nolint:errcheck
+		defer connection.CloseFS()
 		errClose := connection.Disconnect()
 		logger.Info(logSender, "", "unable to add connection: %v, close err: %v", err, errClose)
 		return
@@ -1127,7 +1128,7 @@ func (c *Configuration) verifyWithOPKSSH(username string, cert *ssh.Certificate)
 		logger.Debug(logSender, "", "unable to execute opk verifier: %s", string(out))
 		return fmt.Errorf("unable to execute opk verifier: %w", err)
 	}
-	pubKey, _, _, _, err := ssh.ParseAuthorizedKey(out) //nolint:dogsled
+	pubKey, _, _, _, err := ssh.ParseAuthorizedKey(out)
 	if err != nil {
 		logger.Debug(logSender, "", "unable to validate the opk verifier output: %s", string(out))
 		return fmt.Errorf("unable to validate the opk verifier output: %w", err)

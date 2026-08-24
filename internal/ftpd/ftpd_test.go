@@ -266,7 +266,7 @@ var (
 	caCRLPath       string
 )
 
-func TestMain(m *testing.M) { //nolint:gocyclo
+func TestMain(m *testing.M) {
 	logFilePath = filepath.Join(configDir, "sftpgo_ftpd_test.log")
 	bannerFileName := "banner_file"
 	bannerFile := filepath.Join(configDir, bannerFileName)
@@ -327,7 +327,7 @@ func TestMain(m *testing.M) { //nolint:gocyclo
 	}
 
 	httpConfig := config.GetHTTPConfig()
-	httpConfig.Initialize(configDir) //nolint:errcheck
+	httpConfig.Initialize(configDir)
 
 	kmsConfig := config.GetKMSConfig()
 	err = kmsConfig.Initialize()
@@ -410,7 +410,7 @@ func TestMain(m *testing.M) { //nolint:gocyclo
 	waitTCPListening(ftpdConf.Bindings[0].GetAddress())
 	waitTCPListening(httpdConf.Bindings[0].GetAddress())
 	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
-	ftpd.ReloadCertificateMgr() //nolint:errcheck
+	ftpd.ReloadCertificateMgr()
 
 	ftpdConf = config.GetFTPDConfig()
 	ftpdConf.Bindings = []ftpd.Binding{
@@ -1666,7 +1666,6 @@ func TestPostConnectHook(t *testing.T) {
 	common.Config.PostConnectHook = ""
 }
 
-//nolint:dupl
 func TestMaxConnections(t *testing.T) {
 	oldValue := common.Config.MaxTotalConnections
 	common.Config.MaxTotalConnections = 1
@@ -1696,7 +1695,6 @@ func TestMaxConnections(t *testing.T) {
 	common.Config.MaxTotalConnections = oldValue
 }
 
-//nolint:dupl
 func TestMaxPerHostConnections(t *testing.T) {
 	oldValue := common.Config.MaxPerHostConnections
 	common.Config.MaxPerHostConnections = 1
@@ -2269,7 +2267,6 @@ func TestResume(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-//nolint:dupl
 func TestDeniedLoginMethod(t *testing.T) {
 	u := getTestUser()
 	u.Filters.DeniedLoginMethods = []string{dataprovider.LoginMethodPassword}
@@ -2292,7 +2289,6 @@ func TestDeniedLoginMethod(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-//nolint:dupl
 func TestDeniedProtocols(t *testing.T) {
 	u := getTestUser()
 	u.Filters.DeniedProtocols = []string{common.ProtocolFTP}

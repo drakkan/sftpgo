@@ -124,7 +124,7 @@ func (s *Service) Start(disableAWSInstallationCode bool) error {
 	}
 
 	s.startServices()
-	go common.Config.ExecuteStartupHook() //nolint:errcheck
+	go func() { _ = common.Config.ExecuteStartupHook() }()
 
 	return nil
 }

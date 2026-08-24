@@ -238,7 +238,7 @@ func (c *Connection) handleUploadFile(fs vfs.Fs, resolvedPath, filePath, request
 			if err == nil {
 				dataprovider.UpdateUserFolderQuota(&vfolder, &c.User, 0, -fileSize, false)
 			} else {
-				dataprovider.UpdateUserQuota(&c.User, 0, -fileSize, false) //nolint:errcheck
+				_ = dataprovider.UpdateUserQuota(&c.User, 0, -fileSize, false)
 			}
 		} else {
 			initialSize = fileSize

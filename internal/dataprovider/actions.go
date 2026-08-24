@@ -125,7 +125,7 @@ func executeAction(operation, executor, ip, objectType, objectName, role string,
 				operation, url.Redacted(), respCode, time.Since(startTime), err)
 			return
 		}
-		executeNotificationCommand(operation, executor, ip, objectType, objectName, role, dataAsJSON) //nolint:errcheck // the error is used in test cases only
+		_ = executeNotificationCommand(operation, executor, ip, objectType, objectName, role, dataAsJSON) // the error is used in test cases only
 	}()
 }
 

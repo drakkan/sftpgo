@@ -253,7 +253,7 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if s.checkRequestMethod(ctx, r, connection) {
 		w.Header().Set("Content-Type", "text/xml; charset=utf-8")
 		w.WriteHeader(http.StatusMultiStatus)
-		w.Write([]byte("")) //nolint:errcheck
+		_, _ = w.Write([]byte(""))
 		writeLog(r, http.StatusMultiStatus, nil)
 		return
 	}

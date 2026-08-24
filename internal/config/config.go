@@ -1490,7 +1490,7 @@ func getHTTPDSecurityProxyHeadersFromEnv(idx int) []httpd.HTTPSProxyHeader {
 	return httpsProxyHeaders
 }
 
-func getHTTPDSecurityConfFromEnv(idx int) (httpd.SecurityConf, bool) { //nolint:gocyclo
+func getHTTPDSecurityConfFromEnv(idx int) (httpd.SecurityConf, bool) {
 	result := defaultHTTPDBinding.Security
 	if len(globalConf.HTTPDConfig.Bindings) > idx {
 		result = globalConf.HTTPDConfig.Bindings[idx].Security
@@ -1830,7 +1830,7 @@ func getHTTPDBindingProxyConfigsFromEnv(idx int, binding *httpd.Binding) bool {
 	return isSet
 }
 
-func getHTTPDBindingFromEnv(idx int) { //nolint:gocyclo
+func getHTTPDBindingFromEnv(idx int) {
 	binding := getDefaultHTTPBinding(idx)
 	isSet := false
 

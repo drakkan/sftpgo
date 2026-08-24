@@ -4083,7 +4083,7 @@ func sqlCommonExecuteTxOnConn(ctx context.Context, conn *sql.Conn, txFn func(*sq
 
 	err = txFn(tx)
 	if err != nil {
-		tx.Rollback() //nolint:errcheck
+		tx.Rollback()
 		return err
 	}
 	return tx.Commit()
@@ -4102,7 +4102,7 @@ func sqlCommonExecuteTx(ctx context.Context, dbHandle *sql.DB, txFn func(*sql.Tx
 	err = txFn(tx)
 	if err != nil {
 		// we don't change the returned error
-		tx.Rollback() //nolint:errcheck
+		tx.Rollback()
 		return err
 	}
 	return tx.Commit()

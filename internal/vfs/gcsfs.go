@@ -166,7 +166,7 @@ func (fs *GCSFs) Open(name string, offset int64) (File, PipeReader, func(), erro
 		defer objectReader.Close()
 
 		n, err := io.Copy(w, objectReader)
-		w.CloseWithError(err) //nolint:errcheck
+		w.CloseWithError(err)
 		fsLog(fs, logger.LevelDebug, "download completed, path: %q size: %v, err: %+v", name, n, err)
 		metric.GCSTransferCompleted(n, 1, err)
 	}()
@@ -248,7 +248,7 @@ func (fs *GCSFs) Create(name string, flag, checks int) (File, PipeWriter, func()
 			partialObject = partialObject.If(storage.Conditions{GenerationMatch: objectWriter.Attrs().Generation})
 			err = fs.composeObjects(ctx, obj, partialObject)
 		}
-		r.CloseWithError(err) //nolint:errcheck
+		r.CloseWithError(err)
 		p.Done(err)
 		fsLog(fs, logger.LevelDebug, "upload completed, path: %q, acl: %q, readed bytes: %v, err: %+v",
 			name, fs.config.ACL, n, err)
@@ -569,7 +569,7 @@ func (fs *GCSFs) Walk(root string, walkFn filepath.WalkFunc) error {
 	query := &storage.Query{Prefix: prefix}
 	err := query.SetAttrSelection(gcsDefaultFieldsSelection)
 	if err != nil {
-		walkFn(root, nil, err) //nolint:errcheck
+		_ = walkFn(root, nil, err)
 		return err
 	}
 
@@ -584,7 +584,7 @@ func (fs *GCSFs) Walk(root string, walkFn filepath.WalkFunc) error {
 		var objects []*storage.ObjectAttrs
 		pageToken, err := pager.NextPage(&objects)
 		if err != nil {
-			walkFn(root, nil, err) //nolint:errcheck
+			_ = walkFn(root, nil, err)
 			return pageToken, err
 		}
 		for _, attrs := range objects {
@@ -620,7 +620,7 @@ func (fs *GCSFs) Walk(root string, walkFn filepath.WalkFunc) error {
 		}
 	}
 
-	walkFn(root, NewFileInfo(root, true, 0, time.Unix(0, 0), false), err) //nolint:errcheck
+	_ = walkFn(root, NewFileInfo(root, true, 0, time.Unix(0, 0), false), err)
 	metric.GCSListObjectsCompleted(err)
 	return err
 }

@@ -2053,7 +2053,7 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 	if err != nil {
 		return user, util.NewI18nError(err, util.I18nErrorInvalidForm)
 	}
-	defer r.MultipartForm.RemoveAll() //nolint:errcheck
+	defer r.MultipartForm.RemoveAll()
 
 	updateRepeaterFormFields(r)
 
@@ -2149,7 +2149,7 @@ func getGroupFromPostFields(r *http.Request) (dataprovider.Group, error) {
 	if err != nil {
 		return group, util.NewI18nError(err, util.I18nErrorInvalidForm)
 	}
-	defer r.MultipartForm.RemoveAll() //nolint:errcheck
+	defer r.MultipartForm.RemoveAll()
 
 	updateRepeaterFormFields(r)
 
@@ -3003,7 +3003,7 @@ func (s *httpdServer) handleWebRestore(w http.ResponseWriter, r *http.Request) {
 		s.renderMaintenancePage(w, r, util.NewI18nError(err, util.I18nErrorInvalidForm))
 		return
 	}
-	defer r.MultipartForm.RemoveAll() //nolint:errcheck
+	defer r.MultipartForm.RemoveAll()
 
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := verifyCSRFToken(r, s.csrfTokenAuth); err != nil {
@@ -3276,7 +3276,7 @@ func (s *httpdServer) handleWebTemplateFolderPost(w http.ResponseWriter, r *http
 		s.renderMessagePage(w, r, util.I18nTemplateFolderTitle, http.StatusBadRequest, util.NewI18nError(err, util.I18nErrorInvalidForm), "")
 		return
 	}
-	defer r.MultipartForm.RemoveAll() //nolint:errcheck
+	defer r.MultipartForm.RemoveAll()
 
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := verifyCSRFToken(r, s.csrfTokenAuth); err != nil {
@@ -3581,7 +3581,7 @@ func (s *httpdServer) handleWebAddFolderPost(w http.ResponseWriter, r *http.Requ
 		s.renderFolderPage(w, r, folder, folderPageModeAdd, util.NewI18nError(err, util.I18nErrorInvalidForm))
 		return
 	}
-	defer r.MultipartForm.RemoveAll() //nolint:errcheck
+	defer r.MultipartForm.RemoveAll()
 
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := verifyCSRFToken(r, s.csrfTokenAuth); err != nil {
@@ -3642,7 +3642,7 @@ func (s *httpdServer) handleWebUpdateFolderPost(w http.ResponseWriter, r *http.R
 		s.renderFolderPage(w, r, folder, folderPageModeUpdate, util.NewI18nError(err, util.I18nErrorInvalidForm))
 		return
 	}
-	defer r.MultipartForm.RemoveAll() //nolint:errcheck
+	defer r.MultipartForm.RemoveAll()
 
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := verifyCSRFToken(r, s.csrfTokenAuth); err != nil {
@@ -4331,7 +4331,7 @@ func (s *httpdServer) handleWebConfigsPost(w http.ResponseWriter, r *http.Reques
 		s.renderBadRequestPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidForm))
 		return
 	}
-	defer r.MultipartForm.RemoveAll() //nolint:errcheck
+	defer r.MultipartForm.RemoveAll()
 
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := verifyCSRFToken(r, s.csrfTokenAuth); err != nil {

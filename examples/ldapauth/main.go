@@ -17,7 +17,7 @@ import (
 const (
 	rootDN       = "dc=example,dc=com"
 	bindUsername = "cn=sftpgo," + rootDN
-	bindURL      = "ldap:///" // That is, the server on the default port of localhost.
+	bindURL      = "ldap:///"                       // That is, the server on the default port of localhost.
 	passwordFile = "/etc/sftpgo/admin-password.txt" // make this file readable only by the server
 	publicDir    = "/var/www/webdav/public"
 )
@@ -99,7 +99,7 @@ func main() {
 	log.Printf("username=%s\n", username)
 	searchFilter := fmt.Sprintf("(uid=%s)", ldap.EscapeFilter(username))
 	searchRequest := ldap.NewSearchRequest(
-		"ou=people," + rootDN,
+		"ou=people,"+rootDN,
 		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false,
 		searchFilter,
 		[]string{"dn", "uid", "homeDirectory", "uidNumber", "gidNumber", "nsSshPublicKey"},
@@ -167,7 +167,7 @@ func main() {
 		gid = 0
 	}
 	homeDir := sr.Entries[0].GetAttributeValue("homeDirectory")
-	if (len(homeDir) <= 0) {
+	if len(homeDir) <= 0 {
 		homeDir = publicDir // homeDir is a required attribute.
 	}
 	// return the authenticated user

@@ -97,7 +97,7 @@ func (fs *CryptFs) Open(name string, offset int64) (File, PipeReader, func(), er
 
 	go func() {
 		if isZeroDownload {
-			w.CloseWithError(err) //nolint:errcheck
+			w.CloseWithError(err)
 			f.Close()
 			fsLog(fs, logger.LevelDebug, "zero bytes download completed, path: %q", name)
 			return
@@ -144,7 +144,7 @@ func (fs *CryptFs) Open(name string, offset int64) (File, PipeReader, func(), er
 				}
 			}
 		}
-		w.CloseWithError(err) //nolint:errcheck
+		w.CloseWithError(err)
 		f.Close()
 		fsLog(fs, logger.LevelDebug, "download completed, path: %q size: %v, err: %v", name, n, err)
 	}()
@@ -205,7 +205,7 @@ func (fs *CryptFs) Create(name string, _, _ int) (File, PipeWriter, func(), erro
 		if err == nil && errClose != nil {
 			err = errClose
 		}
-		r.CloseWithError(err) //nolint:errcheck
+		r.CloseWithError(err)
 		p.Done(err)
 		fsLog(fs, logger.LevelDebug, "upload completed, path: %q, readed bytes: %v, err: %v", name, n, err)
 	}()

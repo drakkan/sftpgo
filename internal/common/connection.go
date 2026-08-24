@@ -413,7 +413,7 @@ func (c *BaseConnection) CreateDir(virtualPath string) error {
 
 	logger.CommandLog(mkdirLogSender, fsPath, "", virtualPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1,
 		c.localAddr, c.remoteAddr, elapsed)
-	ExecuteActionNotification(c, operationMkdir, fsPath, virtualPath, "", "", "", 0, nil, elapsed, nil) //nolint:errcheck
+	_ = ExecuteActionNotification(c, operationMkdir, fsPath, virtualPath, "", "", "", 0, nil, elapsed, nil)
 	return nil
 }
 
@@ -462,10 +462,10 @@ func (c *BaseConnection) RemoveFile(fs vfs.Fs, fsPath, virtualPath string, info 
 		if err == nil {
 			dataprovider.UpdateUserFolderQuota(&vfolder, &c.User, -1, -size, false)
 		} else {
-			dataprovider.UpdateUserQuota(&c.User, -1, -size, false) //nolint:errcheck
+			_ = dataprovider.UpdateUserQuota(&c.User, -1, -size, false)
 		}
 	}
-	ExecuteActionNotification(c, operationDelete, fsPath, virtualPath, "", "", "", size, nil, elapsed, nil) //nolint:errcheck
+	_ = ExecuteActionNotification(c, operationDelete, fsPath, virtualPath, "", "", "", size, nil, elapsed, nil)
 	return nil
 }
 
@@ -531,7 +531,7 @@ func (c *BaseConnection) RemoveDir(virtualPath string) error {
 
 	logger.CommandLog(rmdirLogSender, fsPath, "", virtualPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1,
 		c.localAddr, c.remoteAddr, elapsed)
-	ExecuteActionNotification(c, operationRmdir, fsPath, virtualPath, "", "", "", 0, nil, elapsed, nil) //nolint:errcheck
+	_ = ExecuteActionNotification(c, operationRmdir, fsPath, virtualPath, "", "", "", 0, nil, elapsed, nil)
 	return nil
 }
 
@@ -710,7 +710,7 @@ func (c *BaseConnection) copyFile(virtualSourcePath, virtualTargetPath string, s
 				logger.CommandLog(copyLogSender, fsSourcePath, fsTargetPath, virtualSourcePath, virtualTargetPath,
 					c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", srcInfo.Size(),
 					c.localAddr, c.remoteAddr, elapsed)
-				ExecuteActionNotification(c, operationCopy, fsSourcePath, virtualSourcePath, fsTargetPath, virtualTargetPath, "", srcInfo.Size(), err, elapsed, nil) //nolint:errcheck
+				_ = ExecuteActionNotification(c, operationCopy, fsSourcePath, virtualSourcePath, fsTargetPath, virtualTargetPath, "", srcInfo.Size(), err, elapsed, nil)
 				return err
 			}
 		}
@@ -806,7 +806,7 @@ func (c *BaseConnection) recursiveCopyEntries(virtualSourcePath, virtualTargetPa
 }
 
 // Copy virtualSourcePath to virtualTargetPath
-func (c *BaseConnection) Copy(virtualSourcePath, virtualTargetPath string) error { //nolint:gocyclo
+func (c *BaseConnection) Copy(virtualSourcePath, virtualTargetPath string) error {
 	copyFromSource := strings.HasSuffix(virtualSourcePath, "/")
 	copyInTarget := strings.HasSuffix(virtualTargetPath, "/")
 	virtualSourcePath = path.Clean(virtualSourcePath)
@@ -876,7 +876,7 @@ func (c *BaseConnection) Rename(virtualSourcePath, virtualTargetPath string) err
 	return c.renameInternal(virtualSourcePath, virtualTargetPath, false, vfs.CheckParentDir)
 }
 
-func (c *BaseConnection) renameInternal(virtualSourcePath, virtualTargetPath string, //nolint:gocyclo
+func (c *BaseConnection) renameInternal(virtualSourcePath, virtualTargetPath string,
 	checkParentDestination bool, checks int,
 ) error {
 	if virtualSourcePath == virtualTargetPath {
@@ -931,7 +931,7 @@ func (c *BaseConnection) renameInternal(virtualSourcePath, virtualTargetPath str
 		return c.GetGenericError(ErrQuotaExceeded)
 	}
 	if checkParentDestination {
-		c.CheckParentDirs(path.Dir(virtualTargetPath)) //nolint:errcheck
+		_ = c.CheckParentDirs(path.Dir(virtualTargetPath))
 	}
 	done := make(chan bool)
 	defer close(done)
@@ -944,10 +944,10 @@ func (c *BaseConnection) renameInternal(virtualSourcePath, virtualTargetPath str
 	}
 	vfs.SetPathPermissions(fsDst, fsTargetPath, c.User.GetUID(), c.User.GetGID())
 	elapsed := time.Since(startTime).Nanoseconds() / 1000000
-	c.updateQuotaAfterRename(fsDst, virtualSourcePath, virtualTargetPath, fsTargetPath, initialSize, files, size) //nolint:errcheck
+	_ = c.updateQuotaAfterRename(fsDst, virtualSourcePath, virtualTargetPath, fsTargetPath, initialSize, files, size)
 	logger.CommandLog(renameLogSender, fsSourcePath, fsTargetPath, virtualSourcePath, virtualTargetPath,
 		c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1, c.localAddr, c.remoteAddr, elapsed)
-	ExecuteActionNotification(c, operationRename, fsSourcePath, virtualSourcePath, fsTargetPath, //nolint:errcheck
+	_ = ExecuteActionNotification(c, operationRename, fsSourcePath, virtualSourcePath, fsTargetPath,
 		virtualTargetPath, "", 0, nil, elapsed, nil)
 
 	return nil
@@ -1208,7 +1208,7 @@ func (c *BaseConnection) truncateFile(fs vfs.Fs, fsPath, virtualPath string, siz
 		if err == nil {
 			dataprovider.UpdateUserFolderQuota(&vfolder, &c.User, 0, -sizeDiff, false)
 		} else {
-			dataprovider.UpdateUserQuota(&c.User, 0, -sizeDiff, false) //nolint:errcheck
+			_ = dataprovider.UpdateUserQuota(&c.User, 0, -sizeDiff, false)
 		}
 	}
 	return err
@@ -1633,16 +1633,16 @@ func (c *BaseConnection) updateQuotaMoveFromVFolder(sourceFolder *vfs.VirtualFol
 	// move between a virtual folder and the user home dir
 	dataprovider.UpdateUserFolderQuota(sourceFolder, &c.User, -numFiles, -filesSize, false)
 	if initialSize == -1 {
-		dataprovider.UpdateUserQuota(&c.User, numFiles, filesSize, false) //nolint:errcheck
+		_ = dataprovider.UpdateUserQuota(&c.User, numFiles, filesSize, false)
 		return
 	}
 	// we cannot have a directory here, initialSize != -1 only for files
-	dataprovider.UpdateUserQuota(&c.User, 0, filesSize-initialSize, false) //nolint:errcheck
+	_ = dataprovider.UpdateUserQuota(&c.User, 0, filesSize-initialSize, false)
 }
 
 func (c *BaseConnection) updateQuotaMoveToVFolder(dstFolder *vfs.VirtualFolder, initialSize, filesSize int64, numFiles int) {
 	// move between the user home dir and a virtual folder
-	dataprovider.UpdateUserQuota(&c.User, -numFiles, -filesSize, false) //nolint:errcheck
+	_ = dataprovider.UpdateUserQuota(&c.User, -numFiles, -filesSize, false)
 	if initialSize == -1 {
 		dataprovider.UpdateUserFolderQuota(dstFolder, &c.User, numFiles, filesSize, false)
 		return
@@ -1669,7 +1669,7 @@ func (c *BaseConnection) updateQuotaAfterRename(fs vfs.Fs, virtualSourcePath, vi
 		if initialSize != -1 {
 			// we cannot have a directory here, we are overwriting an existing file
 			// we need to subtract the size of the overwritten file from the user quota
-			dataprovider.UpdateUserQuota(&c.User, -1, -initialSize, false) //nolint:errcheck
+			_ = dataprovider.UpdateUserQuota(&c.User, -1, -initialSize, false)
 		}
 		return nil
 	}

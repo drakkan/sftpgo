@@ -1048,7 +1048,7 @@ func TestBasicUsersCache(t *testing.T) {
 
 	ipAddr := "127.0.0.1"
 
-	_, _, _, _, err = server.authenticate(req, ipAddr) //nolint:dogsled
+	_, _, _, _, err = server.authenticate(req, ipAddr)
 	assert.Error(t, err)
 
 	now := time.Now()
@@ -1070,7 +1070,7 @@ func TestBasicUsersCache(t *testing.T) {
 	}
 	// a wrong password must fail
 	req.SetBasicAuth(username, "wrong")
-	_, _, _, _, err = server.authenticate(req, ipAddr) //nolint:dogsled
+	_, _, _, _, err = server.authenticate(req, ipAddr)
 	assert.EqualError(t, err, dataprovider.ErrInvalidCredentials.Error())
 	req.SetBasicAuth(username, password)
 
@@ -1251,7 +1251,7 @@ func TestCachedUserWithFolders(t *testing.T) {
 
 	ipAddr := "127.0.0.1"
 
-	_, _, _, _, err = server.authenticate(req, ipAddr) //nolint:dogsled
+	_, _, _, _, err = server.authenticate(req, ipAddr)
 	assert.Error(t, err)
 
 	now := time.Now()

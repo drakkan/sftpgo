@@ -337,7 +337,7 @@ func TestMain(m *testing.M) {
 	}
 
 	httpConfig := config.GetHTTPConfig()
-	httpConfig.Initialize(configDir) //nolint:errcheck
+	httpConfig.Initialize(configDir)
 	kmsConfig := config.GetKMSConfig()
 	err = kmsConfig.Initialize()
 	if err != nil {
@@ -428,7 +428,7 @@ func TestMain(m *testing.M) {
 	waitTCPListening(webDavConf.Bindings[1].GetAddress())
 	waitTCPListening(httpdConf.Bindings[0].GetAddress())
 	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
-	webdavd.ReloadCertificateMgr() //nolint:errcheck
+	webdavd.ReloadCertificateMgr()
 
 	exitCode := m.Run()
 	os.Remove(logFilePath)

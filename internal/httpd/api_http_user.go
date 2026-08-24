@@ -88,7 +88,7 @@ func createUserDir(w http.ResponseWriter, r *http.Request) {
 	}
 	defer common.Connections.Remove(connection.GetID())
 
-	connection.User.CheckFsRoot(connection.ID) //nolint:errcheck
+	_ = connection.User.CheckFsRoot(connection.ID)
 	name := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
 	if getBoolQueryParam(r, "mkdir_parents") {
 		if err = connection.CheckParentDirs(path.Dir(name)); err != nil {
@@ -270,7 +270,7 @@ func uploadUserFile(w http.ResponseWriter, r *http.Request) {
 	}
 	defer common.Connections.Remove(connection.GetID())
 
-	connection.User.CheckFsRoot(connection.ID) //nolint:errcheck
+	_ = connection.User.CheckFsRoot(connection.ID)
 	filePath := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
 	if getBoolQueryParam(r, "mkdir_parents") {
 		if err = connection.CheckParentDirs(path.Dir(filePath)); err != nil {
@@ -278,7 +278,7 @@ func uploadUserFile(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	doUploadFile(w, r, connection, filePath) //nolint:errcheck
+	_ = doUploadFile(w, r, connection, filePath)
 }
 
 func doUploadFile(w http.ResponseWriter, r *http.Request, connection *Connection, filePath string) error {
@@ -289,7 +289,7 @@ func doUploadFile(w http.ResponseWriter, r *http.Request, connection *Connection
 	}
 	_, err = io.Copy(writer, r.Body)
 	if err != nil {
-		writer.Close() //nolint:errcheck
+		writer.Close()
 		sendAPIResponse(w, r, err, fmt.Sprintf("Error saving file %q", filePath), getMappedStatusCode(err))
 		return err
 	}
@@ -338,7 +338,7 @@ func uploadUserFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	connection.RemoveTransfer(t)
-	defer r.MultipartForm.RemoveAll() //nolint:errcheck
+	defer r.MultipartForm.RemoveAll()
 
 	parentDir := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
 	files := r.MultipartForm.File["filenames"]
@@ -346,7 +346,7 @@ func uploadUserFiles(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, nil, "No files uploaded!", http.StatusBadRequest)
 		return
 	}
-	connection.User.CheckFsRoot(connection.ID) //nolint:errcheck
+	_ = connection.User.CheckFsRoot(connection.ID)
 	if getBoolQueryParam(r, "mkdir_parents") {
 		if err = connection.CheckParentDirs(parentDir); err != nil {
 			sendAPIResponse(w, r, err, "Error checking parent directories", getMappedStatusCode(err))
@@ -377,7 +377,7 @@ func doUploadFiles(w http.ResponseWriter, r *http.Request, connection *Connectio
 		}
 		_, err = io.Copy(writer, file)
 		if err != nil {
-			writer.Close() //nolint:errcheck
+			writer.Close()
 			sendAPIResponse(w, r, err, fmt.Sprintf("Error saving file %q", f.Filename), getMappedStatusCode(err))
 			return uploaded
 		}
@@ -537,7 +537,7 @@ func changeUserPassword(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	invalidateToken(r) //nolint:errcheck // best effort: the password is already changed
+	_ = invalidateToken(r) // best effort: the password is already changed
 	sendAPIResponse(w, r, err, "Password updated", http.StatusOK)
 }
 

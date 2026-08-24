@@ -284,7 +284,7 @@ func (t *BaseTransfer) Truncate(fsPath string, size int64) (int64, error) {
 						t.transferType, t.ErrTransfer, vfs.IsSFTPFs(t.Fs))
 					if t.transferQuota.HasSizeLimits() {
 						go func(ulSize, dlSize int64, user dataprovider.User) {
-							dataprovider.UpdateUserTransferQuota(&user, ulSize, dlSize, false) //nolint:errcheck
+							_ = dataprovider.UpdateUserTransferQuota(&user, ulSize, dlSize, false)
 						}(t.BytesReceived.Load(), t.BytesSent.Load(), t.Connection.User)
 					}
 					t.BytesReceived.Store(0)
@@ -395,7 +395,7 @@ func (t *BaseTransfer) Close() error {
 	metric.TransferCompleted(t.BytesSent.Load(), t.BytesReceived.Load(),
 		t.transferType, t.ErrTransfer, vfs.IsSFTPFs(t.Fs))
 	if t.transferQuota.HasSizeLimits() {
-		dataprovider.UpdateUserTransferQuota(&t.Connection.User, t.BytesReceived.Load(), //nolint:errcheck
+		_ = dataprovider.UpdateUserTransferQuota(&t.Connection.User, t.BytesReceived.Load(),
 			t.BytesSent.Load(), false)
 	}
 	if (t.File != nil || vfs.IsLocalOsFs(t.Fs)) && t.Connection.IsQuotaExceededError(t.ErrTransfer) {
@@ -430,7 +430,7 @@ func (t *BaseTransfer) Close() error {
 		logger.TransferLog(downloadLogSender, t.fsPath, t.requestPath, elapsed, t.BytesSent.Load(), t.Connection.User.Username,
 			t.Connection.ID, t.Connection.protocol, t.Connection.localAddr, t.Connection.remoteAddr, t.ftpMode,
 			t.ErrTransfer)
-		ExecuteActionNotification(t.Connection, operationDownload, t.fsPath, t.requestPath, "", "", "", //nolint:errcheck
+		_ = ExecuteActionNotification(t.Connection, operationDownload, t.fsPath, t.requestPath, "", "", "",
 			t.BytesSent.Load(), t.ErrTransfer, elapsed, t.metadata)
 	} else {
 		statSize, deletedFiles, errStat := t.getUploadFileSize()
@@ -475,7 +475,7 @@ func (t *BaseTransfer) updateTransferTimestamps(uploadFileSize, elapsed int64) {
 		if t.Connection.User.FirstUpload == 0 && !t.Connection.uploadDone.Load() {
 			if err := dataprovider.UpdateUserTransferTimestamps(t.Connection.User.Username, true); err == nil {
 				t.Connection.uploadDone.Store(true)
-				ExecuteActionNotification(t.Connection, operationFirstUpload, t.fsPath, t.requestPath, "", //nolint:errcheck
+				_ = ExecuteActionNotification(t.Connection, operationFirstUpload, t.fsPath, t.requestPath, "",
 					"", "", uploadFileSize, t.ErrTransfer, elapsed, t.metadata)
 			}
 		}
@@ -484,7 +484,7 @@ func (t *BaseTransfer) updateTransferTimestamps(uploadFileSize, elapsed int64) {
 	if t.Connection.User.FirstDownload == 0 && !t.Connection.downloadDone.Load() && t.BytesSent.Load() > 0 {
 		if err := dataprovider.UpdateUserTransferTimestamps(t.Connection.User.Username, false); err == nil {
 			t.Connection.downloadDone.Store(true)
-			ExecuteActionNotification(t.Connection, operationFirstDownload, t.fsPath, t.requestPath, "", //nolint:errcheck
+			_ = ExecuteActionNotification(t.Connection, operationFirstDownload, t.fsPath, t.requestPath, "",
 				"", "", t.BytesSent.Load(), t.ErrTransfer, elapsed, t.metadata)
 		}
 	}
@@ -539,7 +539,7 @@ func (t *BaseTransfer) updateQuota(numFiles int, fileSize int64) bool {
 			dataprovider.UpdateUserFolderQuota(&vfolder, &t.Connection.User, numFiles,
 				sizeDiff, false)
 		} else {
-			dataprovider.UpdateUserQuota(&t.Connection.User, numFiles, sizeDiff, false) //nolint:errcheck
+			_ = dataprovider.UpdateUserQuota(&t.Connection.User, numFiles, sizeDiff, false)
 		}
 		return true
 	}

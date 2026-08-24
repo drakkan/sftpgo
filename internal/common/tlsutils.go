@@ -290,7 +290,7 @@ func (m *CertManager) monitor() {
 	m.Unlock()
 
 	if isChanged {
-		m.Reload() //nolint:errcheck
+		_ = m.Reload()
 	}
 }
 

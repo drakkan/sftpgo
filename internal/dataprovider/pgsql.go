@@ -842,7 +842,7 @@ func (p *PGSQLProvider) initializeDatabase() error {
 	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{initialSQL}, 29, true)
 }
 
-func (p *PGSQLProvider) migrateDatabase() error { //nolint:dupl
+func (p *PGSQLProvider) migrateDatabase() error {
 	dbVersion, err := sqlCommonGetDatabaseVersion(p.dbHandle, true)
 	if err != nil {
 		return err

@@ -1705,7 +1705,7 @@ func TestFilesystemActionErrors(t *testing.T) {
 	assert.Error(t, err)
 	err = executeCompressFsActionForUser(dataprovider.EventActionFsCompress{}, testReplacer, user)
 	assert.Error(t, err)
-	_, _, _, _, err = getFileWriter(conn, "/path.txt", -1) //nolint:dogsled
+	_, _, _, _, err = getFileWriter(conn, "/path.txt", -1)
 	assert.Error(t, err)
 	err = executeEmailRuleAction(dataprovider.EventActionEmailConfig{
 		Recipients:  []string{"test@example.net"},
@@ -2185,7 +2185,7 @@ func TestEstimateZipSizeErrors(t *testing.T) {
 	err = os.MkdirAll(u.GetHomeDir(), os.ModePerm)
 	assert.NoError(t, err)
 	conn := NewBaseConnection("", ProtocolFTP, "", "", u)
-	_, _, _, _, err = getFileWriter(conn, "/missing/path/file.txt", -1) //nolint:dogsled
+	_, _, _, _, err = getFileWriter(conn, "/missing/path/file.txt", -1)
 	assert.Error(t, err)
 	_, err = getSizeForPath(conn, "/missing", vfs.NewFileInfo("missing", true, 0, time.Now(), false))
 	assert.True(t, conn.IsNotExistError(err))

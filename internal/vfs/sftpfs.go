@@ -352,7 +352,7 @@ func NewSFTPFs(connectionID, mountPath, localTempDir string, forbiddenSelfUserna
 	}
 	err = sftpFs.createConnection()
 	if err != nil {
-		sftpFs.Close() //nolint:errcheck
+		sftpFs.Close()
 	}
 	return sftpFs, err
 }
@@ -417,7 +417,7 @@ func (fs *SFTPFs) Open(name string, offset int64) (File, PipeReader, func(), err
 		//br := bufio.NewReaderSize(f, int(fs.config.BufferSize)*1024*1024)
 		//n, err := fs.copy(w, br)
 		n, err := io.Copy(w, f)
-		w.CloseWithError(err) //nolint:errcheck
+		w.CloseWithError(err)
 		f.Close()
 		fsLog(fs, logger.LevelDebug, "download completed, path: %q size: %v, err: %v", name, n, err)
 	}()
@@ -469,7 +469,7 @@ func (fs *SFTPFs) Create(name string, flag, _ int) (File, PipeWriter, func(), er
 		if err == nil && errClose != nil {
 			err = errClose
 		}
-		r.CloseWithError(err) //nolint:errcheck
+		r.CloseWithError(err)
 		p.Done(err)
 		fsLog(fs, logger.LevelDebug, "upload completed, path: %q, readed bytes: %v, err: %v err truncate: %v",
 			name, n, err, errTruncate)
@@ -490,13 +490,13 @@ func (fs *SFTPFs) Rename(source, target string, checks int) (int, int64, error) 
 	if _, ok := client.HasExtension("posix-rename@openssh.com"); ok {
 		err := client.PosixRename(source, target)
 		if checks&CheckUpdateModTime != 0 && err == nil {
-			fs.Chtimes(target, time.Now(), time.Now(), false) //nolint:errcheck
+			_ = fs.Chtimes(target, time.Now(), time.Now(), false)
 		}
 		return -1, -1, err
 	}
 	err = client.Rename(source, target)
 	if checks&CheckUpdateModTime != 0 && err == nil {
-		fs.Chtimes(target, time.Now(), time.Now(), false) //nolint:errcheck
+		_ = fs.Chtimes(target, time.Now(), time.Now(), false)
 	}
 	return -1, -1, err
 }
@@ -786,7 +786,7 @@ func (fs *SFTPFs) RealPath(p string) (string, error) {
 	return fs.GetRelativePath(resolved), nil
 }
 
-func (fs *SFTPFs) canonicalRealPath(name string) (string, error) { //nolint:gocyclo
+func (fs *SFTPFs) canonicalRealPath(name string) (string, error) {
 	client, err := fs.conn.getClient()
 	if err != nil {
 		return "", err
