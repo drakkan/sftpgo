@@ -143,6 +143,7 @@ func init() {
 	Connections.perUserConns = make(map[string]int)
 	Connections.mapping = make(map[string]int)
 	Connections.sshMapping = make(map[string]int)
+	proxyproto.V1AcceptIPv4InTCP6 = true
 }
 
 // errors definitions
