@@ -88,7 +88,7 @@ func NewOsFs(connectionID, rootDir, mountPath string, config *sdk.OSFsConfig) Fs
 		readBufferSize:  readBufferSize,
 		writeBufferSize: writeBufferSize,
 	}
-	fs.openRoot() //nolint:errcheck // best-effort: a missing home is created by CheckRootPath
+	_, _ = fs.openRoot() // best-effort: a missing home is created by CheckRootPath
 	return fs
 }
 
@@ -198,7 +198,7 @@ func (fs *OsFs) Open(name string, offset int64) (File, PipeReader, func(), error
 	go func() {
 		br := bufio.NewReaderSize(f, fs.readBufferSize)
 		n, err := doCopy(w, br, nil)
-		w.CloseWithError(err) //nolint:errcheck
+		w.CloseWithError(err)
 		f.Close()
 		fsLog(fs, logger.LevelDebug, "download completed, path: %q size: %v, err: %v", name, n, err)
 	}()
@@ -246,7 +246,7 @@ func (fs *OsFs) Create(name string, flag, _ int) (File, PipeWriter, func(), erro
 		if err == nil && errClose != nil {
 			err = errClose
 		}
-		r.CloseWithError(err) //nolint:errcheck
+		r.CloseWithError(err)
 		p.Done(err)
 		fsLog(fs, logger.LevelDebug, "upload completed, path: %q, readed bytes: %v, err: %v", name, n, err)
 	}()
@@ -281,7 +281,7 @@ func (fs *OsFs) Rename(source, target string, checks int) (int, int64, error) {
 		return -1, -1, err
 	}
 	if checks&CheckUpdateModTime != 0 {
-		fs.Chtimes(target, time.Now(), time.Now(), false) //nolint:errcheck
+		_ = fs.Chtimes(target, time.Now(), time.Now(), false)
 	}
 	return -1, -1, nil
 }

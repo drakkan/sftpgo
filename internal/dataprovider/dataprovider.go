@@ -1531,7 +1531,7 @@ func UpdateLastLogin(user *User) {
 // UpdateAdminLastLogin updates the last login field for the given SFTPGo admin
 func UpdateAdminLastLogin(admin *Admin) {
 	if !isLastActivityRecent(admin.LastLogin, lastLoginMinDelay) {
-		provider.updateAdminLastLogin(admin.Username) //nolint:errcheck
+		_ = provider.updateAdminLastLogin(admin.Username)
 	}
 }
 
@@ -1559,10 +1559,10 @@ func UpdateUserQuota(user *User, filesAdd int, sizeAdd int64, reset bool) error 
 // UpdateUserFolderQuota updates the quota for the given user and virtual folder.
 func UpdateUserFolderQuota(folder *vfs.VirtualFolder, user *User, filesAdd int, sizeAdd int64, reset bool) {
 	if folder.IsIncludedInUserQuota() {
-		UpdateUserQuota(user, filesAdd, sizeAdd, reset) //nolint:errcheck
+		_ = UpdateUserQuota(user, filesAdd, sizeAdd, reset)
 		return
 	}
-	UpdateVirtualFolderQuota(&folder.BaseVirtualFolder, filesAdd, sizeAdd, reset) //nolint:errcheck
+	_ = UpdateVirtualFolderQuota(&folder.BaseVirtualFolder, filesAdd, sizeAdd, reset)
 }
 
 // UpdateVirtualFolderQuota updates the quota for the given virtual folder adding filesAdd and sizeAdd.
@@ -3031,7 +3031,8 @@ func validatePublicKeys(user *User) error {
 				util.I18nErrorPubKeyInvalid,
 			)
 		}
-		if out.Type() == ssh.InsecureKeyAlgoDSA { //nolint:staticcheck
+		//lint:ignore SA1019 the check names DSA to reject it
+		if out.Type() == ssh.InsecureKeyAlgoDSA {
 			providerLog(logger.LevelError, "dsa public key not accepted, position: %d", idx)
 			return util.NewI18nError(
 				util.NewValidationError(fmt.Sprintf("DSA key format is insecure and it is not allowed for key at position %d", idx)),

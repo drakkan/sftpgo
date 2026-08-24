@@ -394,7 +394,7 @@ func checkNodeToken(tokenAuth *jwt.Signer) func(next http.Handler) http.Handler 
 			// Single-use invalidation of node tokens is a best-effort hygiene measure.
 			// It is not intended to be a security control and is neither documented nor
 			// advertised as such.
-			invalidatedJWTTokens.Add(claims.ID, time.Now().Add(2*time.Minute).UTC()) //nolint:errcheck
+			_ = invalidatedJWTTokens.Add(claims.ID, time.Now().Add(2*time.Minute).UTC())
 
 			c := &jwt.Claims{
 				Username:    claims.Username,
@@ -439,20 +439,20 @@ func checkAPIKeyAuth(tokenAuth *jwt.Signer, scope dataprovider.APIKeyScope) func
 
 			k, err := dataprovider.APIKeyExists(keyID)
 			if err != nil {
-				handleDefenderEventLoginFailed(util.GetIPFromRemoteAddress(r.RemoteAddr), util.NewRecordNotFoundError("invalid api key")) //nolint:errcheck
+				_ = handleDefenderEventLoginFailed(util.GetIPFromRemoteAddress(r.RemoteAddr), util.NewRecordNotFoundError("invalid api key"))
 				logger.Debug(logSender, "", "invalid api key %q: %v", apiKey, err)
 				sendAPIResponse(w, r, errors.New("the provided api key is not valid"), "", http.StatusBadRequest)
 				return
 			}
 			if k.Scope != scope {
-				handleDefenderEventLoginFailed(util.GetIPFromRemoteAddress(r.RemoteAddr), dataprovider.ErrInvalidCredentials) //nolint:errcheck
+				_ = handleDefenderEventLoginFailed(util.GetIPFromRemoteAddress(r.RemoteAddr), dataprovider.ErrInvalidCredentials)
 				logger.Debug(logSender, "", "unable to authenticate api key %q: invalid scope: got %d, wanted: %d",
 					apiKey, k.Scope, scope)
 				sendAPIResponse(w, r, fmt.Errorf("the provided api key is invalid for this request"), "", http.StatusForbidden)
 				return
 			}
 			if err := k.Authenticate(key); err != nil {
-				handleDefenderEventLoginFailed(util.GetIPFromRemoteAddress(r.RemoteAddr), dataprovider.ErrInvalidCredentials) //nolint:errcheck
+				_ = handleDefenderEventLoginFailed(util.GetIPFromRemoteAddress(r.RemoteAddr), dataprovider.ErrInvalidCredentials)
 				logger.Debug(logSender, "", "unable to authenticate api key %q: %v", apiKey, err)
 				sendAPIResponse(w, r, fmt.Errorf("the provided api key cannot be authenticated"), "", http.StatusUnauthorized)
 				return
@@ -462,7 +462,7 @@ func checkAPIKeyAuth(tokenAuth *jwt.Signer, scope dataprovider.APIKeyScope) func
 					apiUser = k.Admin
 				}
 				if err := authenticateAdminWithAPIKey(apiUser, keyID, tokenAuth, r); err != nil {
-					handleDefenderEventLoginFailed(util.GetIPFromRemoteAddress(r.RemoteAddr), err) //nolint:errcheck
+					_ = handleDefenderEventLoginFailed(util.GetIPFromRemoteAddress(r.RemoteAddr), err)
 					logger.Debug(logSender, "", "unable to authenticate admin %q associated with api key %q: %v",
 						apiUser, apiKey, err)
 					sendAPIResponse(w, r, fmt.Errorf("the admin associated with the provided api key cannot be authenticated"),
@@ -490,7 +490,7 @@ func checkAPIKeyAuth(tokenAuth *jwt.Signer, scope dataprovider.APIKeyScope) func
 				updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: apiUser}},
 					dataprovider.LoginMethodPassword, util.GetIPFromRemoteAddress(r.RemoteAddr), nil, r)
 			}
-			dataprovider.UpdateAPIKeyLastUse(&k) //nolint:errcheck
+			_ = dataprovider.UpdateAPIKeyLastUse(&k)
 
 			next.ServeHTTP(w, r)
 		})
@@ -579,7 +579,7 @@ func authenticateUserWithAPIKey(username, keyID string, tokenAuth *jwt.Signer, r
 		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, err, r)
 		return err
 	}
-	defer user.CloseFs() //nolint:errcheck
+	defer user.CloseFs()
 	err = user.CheckFsRoot(connectionID)
 	if err != nil {
 		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, common.ErrInternalFailure, r)

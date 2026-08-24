@@ -228,7 +228,7 @@ func (p *BoltProvider) getUserSignature(username string) (string, error) {
 }
 
 func (p *BoltProvider) setUpdatedAt(username string) {
-	p.dbHandle.Update(func(tx *bolt.Tx) error { //nolint:errcheck
+	_ = p.dbHandle.Update(func(tx *bolt.Tx) error {
 		bucket, err := p.getUsersBucket(tx)
 		if err != nil {
 			return err

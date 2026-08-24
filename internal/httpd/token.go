@@ -88,5 +88,5 @@ func (m *dbTokenManager) Get(id string) bool {
 }
 
 func (m *dbTokenManager) Cleanup() {
-	dataprovider.CleanupSharedSessions(dataprovider.SessionTypeInvalidToken, time.Now()) //nolint:errcheck
+	_ = dataprovider.CleanupSharedSessions(dataprovider.SessionTypeInvalidToken, time.Now())
 }

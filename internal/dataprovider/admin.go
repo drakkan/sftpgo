@@ -372,7 +372,7 @@ func (a *Admin) applyNamingRules() {
 	}
 }
 
-func (a *Admin) validate() error { //nolint:gocyclo
+func (a *Admin) validate() error {
 	a.SetEmptySecretsIfNil()
 	a.applyNamingRules()
 	a.Password = strings.TrimSpace(a.Password)

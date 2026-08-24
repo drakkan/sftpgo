@@ -1675,7 +1675,7 @@ func (r *EventRule) isStatusValid() bool {
 	return r.Status >= 0 && r.Status <= 1
 }
 
-func (r *EventRule) validate() error { //nolint:gocyclo
+func (r *EventRule) validate() error {
 	if r.Name == "" {
 		return util.NewI18nError(util.NewValidationError("name is mandatory"), util.I18nErrorNameRequired)
 	}

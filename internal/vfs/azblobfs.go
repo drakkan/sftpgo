@@ -235,7 +235,7 @@ func (fs *AzureBlobFs) Open(name string, offset int64) (File, PipeReader, func()
 
 		blockBlob := fs.containerClient.NewBlockBlobClient(name)
 		err := fs.handleMultipartDownload(ctx, blockBlob, offset, w, p)
-		w.CloseWithError(err) //nolint:errcheck
+		w.CloseWithError(err)
 		fsLog(fs, logger.LevelDebug, "download completed, path: %q size: %v, err: %+v", name, w.GetWrittenBytes(), err)
 		metric.AZTransferCompleted(w.GetWrittenBytes(), 1, err)
 	}()
@@ -283,7 +283,7 @@ func (fs *AzureBlobFs) Create(name string, flag, checks int) (File, PipeWriter, 
 
 		blockBlob := fs.containerClient.NewBlockBlobClient(name)
 		err := fs.handleMultipartUpload(ctx, r, blockBlob, &headers, metadata)
-		r.CloseWithError(err) //nolint:errcheck
+		r.CloseWithError(err)
 		p.Done(err)
 		fsLog(fs, logger.LevelDebug, "upload completed, path: %q, readed bytes: %v, err: %+v", name, r.GetReadedBytes(), err)
 		metric.AZTransferCompleted(r.GetReadedBytes(), 0, err)
@@ -523,7 +523,7 @@ func (*AzureBlobFs) isBadRequestError(err error) bool {
 func (fs *AzureBlobFs) CheckRootPath(username string, uid int, gid int) bool {
 	// we need a local directory for temporary files
 	osFs := NewOsFs(fs.ConnectionID(), fs.localTempDir, "", nil)
-	defer osFs.Close() //nolint:errcheck
+	defer osFs.Close()
 
 	return osFs.CheckRootPath(username, uid, gid)
 }
@@ -1200,7 +1200,7 @@ type azureBlobDirLister struct {
 	metricUpdated bool
 }
 
-func (l *azureBlobDirLister) Next(limit int) ([]os.FileInfo, error) { //nolint:gocyclo
+func (l *azureBlobDirLister) Next(limit int) ([]os.FileInfo, error) {
 	if limit <= 0 {
 		return nil, errInvalidDirListerLimit
 	}

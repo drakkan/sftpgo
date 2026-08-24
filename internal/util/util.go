@@ -663,7 +663,7 @@ func HTTPListenAndServe(srv *http.Server, address string, port int, isTLS bool,
 			logger.ErrorToConsole("error creating Unix-domain socket parent dir: %v", err)
 			logger.Error(logSender, "", "error creating Unix-domain socket parent dir: %v", err)
 		}
-		os.Remove(address)
+		_ = os.Remove(address)
 		listener, err = net.Listen("unix", address)
 		if err == nil {
 			// should a chmod err be fatal?

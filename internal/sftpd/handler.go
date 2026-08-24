@@ -126,7 +126,7 @@ func (c *Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 	return c.handleFilewrite(request)
 }
 
-func (c *Connection) handleFilewrite(request *sftp.Request) (sftp.WriterAtReaderAt, error) { //nolint:gocyclo
+func (c *Connection) handleFilewrite(request *sftp.Request) (sftp.WriterAtReaderAt, error) {
 	c.UpdateLastActivity()
 	updateRequestPaths(request)
 
@@ -578,7 +578,7 @@ func (c *Connection) updateQuotaAfterTruncate(requestPath string, fileSize int64
 		dataprovider.UpdateUserFolderQuota(&vfolder, &c.User, 0, -fileSize, false)
 		return
 	}
-	dataprovider.UpdateUserQuota(&c.User, 0, -fileSize, false) //nolint:errcheck
+	_ = dataprovider.UpdateUserQuota(&c.User, 0, -fileSize, false)
 }
 
 func getOSOpenFlags(requestFlags sftp.FileOpenFlags) (flags int) {

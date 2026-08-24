@@ -410,7 +410,7 @@ func getCompressedFileName(username string, files []string) string {
 func renderCompressedFiles(w http.ResponseWriter, conn *Connection, baseDir string, files []string,
 	share *dataprovider.Share,
 ) {
-	conn.User.CheckFsRoot(conn.ID) //nolint:errcheck
+	_ = conn.User.CheckFsRoot(conn.ID)
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Accept-Ranges", "none")
 	w.Header().Set("Content-Transfer-Encoding", "binary")
@@ -422,7 +422,7 @@ func renderCompressedFiles(w http.ResponseWriter, conn *Connection, baseDir stri
 		fullPath := util.CleanPath(path.Join(baseDir, file))
 		if err := addZipEntry(wr, conn, fullPath, baseDir, nil, 0); err != nil {
 			if share != nil {
-				dataprovider.UpdateShareLastUse(share, -1) //nolint:errcheck
+				_ = dataprovider.UpdateShareLastUse(share, -1)
 			}
 			panic(http.ErrAbortHandler)
 		}
@@ -430,7 +430,7 @@ func renderCompressedFiles(w http.ResponseWriter, conn *Connection, baseDir stri
 	if err := wr.Close(); err != nil {
 		conn.Log(logger.LevelError, "unable to close zip file: %v", err)
 		if share != nil {
-			dataprovider.UpdateShareLastUse(share, -1) //nolint:errcheck
+			_ = dataprovider.UpdateShareLastUse(share, -1)
 		}
 		panic(http.ErrAbortHandler)
 	}
@@ -536,7 +536,7 @@ func checkDownloadFileFromShare(share *dataprovider.Share, info os.FileInfo) err
 func downloadFile(w http.ResponseWriter, r *http.Request, connection *Connection, name string,
 	info os.FileInfo, inline bool, share *dataprovider.Share,
 ) (int, error) {
-	connection.User.CheckFsRoot(connection.ID) //nolint:errcheck
+	_ = connection.User.CheckFsRoot(connection.ID)
 	err := checkDownloadFileFromShare(share, info)
 	if err != nil {
 		return http.StatusBadRequest, err
@@ -593,7 +593,7 @@ func downloadFile(w http.ResponseWriter, r *http.Request, connection *Connection
 		_, err = io.CopyN(w, reader, size)
 		if err != nil {
 			if share != nil {
-				dataprovider.UpdateShareLastUse(share, -1) //nolint:errcheck
+				_ = dataprovider.UpdateShareLastUse(share, -1)
 			}
 			connection.Log(logger.LevelDebug, "error reading file to download: %v", err)
 			panic(http.ErrAbortHandler)
@@ -913,7 +913,7 @@ func handleResetPassword(r *http.Request, code, newPassword, confirmPassword str
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	resetCode, err := resetCodesMgr.Get(code)
 	if err != nil {
-		handleDefenderEventLoginFailed(ipAddr, dataprovider.ErrInvalidCredentials) //nolint:errcheck
+		_ = handleDefenderEventLoginFailed(ipAddr, dataprovider.ErrInvalidCredentials)
 		return &admin, &user, util.NewValidationError("confirmation code not found")
 	}
 	if resetCode.IsAdmin != isAdmin {

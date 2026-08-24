@@ -244,7 +244,7 @@ func (fs *S3Fs) Open(name string, offset int64) (File, PipeReader, func(), error
 		defer cancelFn()
 
 		err := fs.handleDownload(ctx, name, offset, w, attrs)
-		w.CloseWithError(err) //nolint:errcheck
+		w.CloseWithError(err)
 		fsLog(fs, logger.LevelDebug, "download completed, path: %q size: %d, err: %+v", name, w.GetWrittenBytes(), err)
 		metric.S3TransferCompleted(w.GetWrittenBytes(), 1, err)
 	}()
@@ -282,7 +282,7 @@ func (fs *S3Fs) Create(name string, flag, checks int) (File, PipeWriter, func(),
 			contentType = mime.TypeByExtension(path.Ext(name))
 		}
 		err := fs.handleUpload(ctx, r, name, contentType)
-		r.CloseWithError(err) //nolint:errcheck
+		r.CloseWithError(err)
 		p.Done(err)
 		fsLog(fs, logger.LevelDebug, "upload completed, path: %q, acl: %q, readed bytes: %d, err: %+v",
 			name, fs.config.ACL, r.GetReadedBytes(), err)
@@ -481,7 +481,7 @@ func (*S3Fs) IsNotSupported(err error) bool {
 func (fs *S3Fs) CheckRootPath(username string, uid int, gid int) bool {
 	// we need a local directory for temporary files
 	osFs := NewOsFs(fs.ConnectionID(), fs.localTempDir, "", nil)
-	defer osFs.Close() //nolint:errcheck
+	defer osFs.Close()
 
 	return osFs.CheckRootPath(username, uid, gid)
 }
@@ -576,7 +576,7 @@ func (fs *S3Fs) Walk(root string, walkFn filepath.WalkFunc) error {
 		page, err := paginator.NextPage(ctx)
 		if err != nil {
 			metric.S3ListObjectsCompleted(err)
-			walkFn(root, NewFileInfo(root, true, 0, time.Unix(0, 0), false), err) //nolint:errcheck
+			_ = walkFn(root, NewFileInfo(root, true, 0, time.Unix(0, 0), false), err)
 			return err
 		}
 		for _, fileObject := range page.Contents {
@@ -594,7 +594,7 @@ func (fs *S3Fs) Walk(root string, walkFn filepath.WalkFunc) error {
 	}
 
 	metric.S3ListObjectsCompleted(nil)
-	walkFn(root, NewFileInfo(root, true, 0, time.Unix(0, 0), false), nil) //nolint:errcheck
+	_ = walkFn(root, NewFileInfo(root, true, 0, time.Unix(0, 0), false), nil)
 	return nil
 }
 

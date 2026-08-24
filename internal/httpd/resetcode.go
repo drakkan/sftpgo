@@ -141,5 +141,5 @@ func (m *dbResetCodeManager) Delete(code string) error {
 }
 
 func (m *dbResetCodeManager) Cleanup() {
-	dataprovider.CleanupSharedSessions(dataprovider.SessionTypeResetCode, time.Now()) //nolint:errcheck
+	_ = dataprovider.CleanupSharedSessions(dataprovider.SessionTypeResetCode, time.Now())
 }

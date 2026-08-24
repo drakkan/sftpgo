@@ -212,7 +212,7 @@ func (s *Share) validatePaths() error {
 	return nil
 }
 
-func (s *Share) validate() error { //nolint:gocyclo
+func (s *Share) validate() error {
 	if s.ShareID == "" {
 		return util.NewValidationError("share_id is mandatory")
 	}

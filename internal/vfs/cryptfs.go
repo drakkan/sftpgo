@@ -63,7 +63,7 @@ func NewCryptFs(connectionID, rootDir, mountPath string, config CryptFsConfig) (
 		},
 		masterKey: []byte(config.Passphrase.GetPayload()),
 	}
-	fs.openRoot() //nolint:errcheck
+	_, _ = fs.openRoot()
 	return fs, nil
 }
 
@@ -92,7 +92,7 @@ func (fs *CryptFs) Open(name string, offset int64) (File, PipeReader, func(), er
 
 	go func() {
 		if isZeroDownload {
-			w.CloseWithError(err) //nolint:errcheck
+			w.CloseWithError(err)
 			f.Close()
 			fsLog(fs, logger.LevelDebug, "zero bytes download completed, path: %q", name)
 			return
@@ -139,7 +139,7 @@ func (fs *CryptFs) Open(name string, offset int64) (File, PipeReader, func(), er
 				}
 			}
 		}
-		w.CloseWithError(err) //nolint:errcheck
+		w.CloseWithError(err)
 		f.Close()
 		fsLog(fs, logger.LevelDebug, "download completed, path: %q size: %v, err: %v", name, n, err)
 	}()
@@ -208,7 +208,7 @@ func (fs *CryptFs) Create(name string, flag, _ int) (File, PipeWriter, func(), e
 		if err == nil && errClose != nil {
 			err = errClose
 		}
-		r.CloseWithError(err) //nolint:errcheck
+		r.CloseWithError(err)
 		p.Done(err)
 		fsLog(fs, logger.LevelDebug, "upload completed, path: %q, readed bytes: %v, err: %v", name, n, err)
 	}()

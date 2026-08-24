@@ -103,10 +103,10 @@ func getCustomServeFlags() []string {
 		result = append(result, "--"+logLevelFlag)
 		result = append(result, logLevel)
 	}
-	if logUTCTime != defaultLogUTCTime {
+	if logUTCTime {
 		result = append(result, "--"+logUTCTimeFlag+"=true")
 	}
-	if logCompress != defaultLogCompress {
+	if logCompress {
 		result = append(result, "--"+logCompressFlag+"=true")
 	}
 	if graceTime != defaultGraceTime {

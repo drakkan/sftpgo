@@ -170,7 +170,7 @@ func TestMain(m *testing.M) {
 	httpConfig := config.GetHTTPConfig()
 	httpConfig.Timeout = 5
 	httpConfig.RetryMax = 0
-	httpConfig.Initialize(configDir) //nolint:errcheck
+	httpConfig.Initialize(configDir)
 	kmsConfig := config.GetKMSConfig()
 	err = kmsConfig.Initialize()
 	if err != nil {
@@ -245,7 +245,7 @@ func TestMain(m *testing.M) {
 				fmt.Fprintf(w, "KO\n")
 				return
 			}
-			defer r.MultipartForm.RemoveAll() //nolint:errcheck
+			defer r.MultipartForm.RemoveAll()
 			fmt.Fprintf(w, "OK\n")
 		})
 		if err := http.ListenAndServe(httpAddr, nil); err != nil {
@@ -3411,7 +3411,7 @@ func TestAtomicUploadErrorReadOnlyHomeDir(t *testing.T) {
 
 		err = os.Chmod(user.GetHomeDir(), 0555)
 		assert.NoError(t, err)
-		defer os.Chmod(user.GetHomeDir(), os.ModePerm) //nolint:errcheck
+		defer os.Chmod(user.GetHomeDir(), os.ModePerm)
 
 		err = checkBasicSFTP(client)
 		assert.NoError(t, err)

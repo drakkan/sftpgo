@@ -68,7 +68,7 @@ func processSSHCommand(payload []byte, connection *Connection, enabledSSHCommand
 						startTime:  time.Now(),
 						args:       args},
 				}
-				go scpCommand.handle() //nolint:errcheck
+				go func() { _ = scpCommand.handle() }()
 				return true
 			}
 			if name != scpCmdName {
@@ -79,7 +79,7 @@ func processSSHCommand(payload []byte, connection *Connection, enabledSSHCommand
 					startTime:  time.Now(),
 					args:       args,
 				}
-				go sshCommand.handle() //nolint:errcheck
+				go func() { _ = sshCommand.handle() }()
 				return true
 			}
 		} else {
@@ -99,7 +99,7 @@ func (c *sshCommand) handle() (err error) {
 		}
 	}()
 	if err := common.Connections.Add(c.connection); err != nil {
-		defer c.connection.CloseFS() //nolint:errcheck
+		defer c.connection.CloseFS()
 		logger.Info(logSender, "", "unable to add SSH command connection: %v", err)
 		return c.sendErrorResponse(err)
 	}
@@ -112,7 +112,7 @@ func (c *sshCommand) handle() (err error) {
 		c.sendExitStatus(nil)
 	} else if c.command == "pwd" {
 		// hard coded response to the start directory
-		c.connection.channel.Write([]byte(util.CleanPath(c.connection.User.Filters.StartDirectory) + "\n")) //nolint:errcheck
+		_, _ = c.connection.channel.Write([]byte(util.CleanPath(c.connection.User.Filters.StartDirectory) + "\n"))
 		c.sendExitStatus(nil)
 	} else if c.command == "sftpgo-copy" {
 		return c.handleSFTPGoCopy()
@@ -132,7 +132,7 @@ func (c *sshCommand) handleSFTPGoCopy() error {
 	if err := c.connection.Copy(sshSourcePath, sshDestPath); err != nil {
 		return c.sendErrorResponse(err)
 	}
-	c.connection.channel.Write([]byte("OK\n")) //nolint:errcheck
+	_, _ = c.connection.channel.Write([]byte("OK\n"))
 	c.sendExitStatus(nil)
 	return nil
 }
@@ -145,7 +145,7 @@ func (c *sshCommand) handleSFTPGoRemove() error {
 	if err := c.connection.RemoveAll(sshDestPath); err != nil {
 		return c.sendErrorResponse(err)
 	}
-	c.connection.channel.Write([]byte("OK\n")) //nolint:errcheck
+	_, _ = c.connection.channel.Write([]byte("OK\n"))
 	c.sendExitStatus(nil)
 	return nil
 }
@@ -172,7 +172,7 @@ func (c *sshCommand) handleHashCommands() error {
 		if err != nil && err != io.EOF {
 			return c.sendErrorResponse(err)
 		}
-		h.Write(buf[:n]) //nolint:errcheck
+		h.Write(buf[:n])
 		response = fmt.Sprintf("%x  -\n", h.Sum(nil))
 	} else {
 		sshPath := c.getDestPath()
@@ -185,7 +185,7 @@ func (c *sshCommand) handleHashCommands() error {
 		}
 		response = fmt.Sprintf("%v  %v\n", hash, sshPath)
 	}
-	c.connection.channel.Write([]byte(response)) //nolint:errcheck
+	_, _ = c.connection.channel.Write([]byte(response))
 	c.sendExitStatus(nil)
 	return nil
 }
@@ -230,7 +230,7 @@ func (c *sshCommand) getRemovePath() (string, error) {
 
 func (c *sshCommand) sendErrorResponse(err error) error {
 	errorString := fmt.Sprintf("%v: %v %v\n", c.command, c.getDestPath(), err)
-	c.connection.channel.Write([]byte(errorString)) //nolint:errcheck
+	_, _ = c.connection.channel.Write([]byte(errorString))
 	c.sendExitStatus(err)
 	return err
 }
@@ -272,7 +272,7 @@ func (c *sshCommand) sendExitStatus(err error) {
 				targetPath = p
 			}
 		}
-		common.ExecuteActionNotification(c.connection.BaseConnection, common.OperationSSHCmd, cmdPath, vCmdPath, //nolint:errcheck
+		_ = common.ExecuteActionNotification(c.connection.BaseConnection, common.OperationSSHCmd, cmdPath, vCmdPath,
 			targetPath, vTargetPath, c.command, 0, err, elapsed, nil)
 		if err == nil {
 			logger.CommandLog(sshCommandLogSender, cmdPath, targetPath, vCmdPath, vTargetPath,

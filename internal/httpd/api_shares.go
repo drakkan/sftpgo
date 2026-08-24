@@ -198,7 +198,7 @@ func (s *httpdServer) readBrowsableShareContents(w http.ResponseWriter, r *http.
 	if err != nil {
 		return
 	}
-	defer connection.CloseFS() //nolint:errcheck
+	defer connection.CloseFS()
 
 	if err := validateBrowsableShare(share, connection); err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
@@ -231,7 +231,7 @@ func (s *httpdServer) downloadBrowsableSharedFile(w http.ResponseWriter, r *http
 	if err != nil {
 		return
 	}
-	defer connection.CloseFS() //nolint:errcheck
+	defer connection.CloseFS()
 
 	if err := validateBrowsableShare(share, connection); err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
@@ -265,7 +265,7 @@ func (s *httpdServer) downloadBrowsableSharedFile(w http.ResponseWriter, r *http
 		return
 	}
 	if status, err := downloadFile(w, r, connection, name, info, false, &share); err != nil {
-		dataprovider.UpdateShareLastUse(&share, -1) //nolint:errcheck
+		_ = dataprovider.UpdateShareLastUse(&share, -1)
 		resp := apiResponse{
 			Error:   err.Error(),
 			Message: http.StatusText(status),
@@ -285,7 +285,7 @@ func (s *httpdServer) downloadFromShare(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		return
 	}
-	defer connection.CloseFS() //nolint:errcheck
+	defer connection.CloseFS()
 
 	if err = common.Connections.Add(connection); err != nil {
 		sendAPIResponse(w, r, err, "Unable to add connection", http.StatusTooManyRequests)
@@ -316,7 +316,7 @@ func (s *httpdServer) downloadFromShare(w http.ResponseWriter, r *http.Request) 
 			err = connection.GetReadQuotaExceededError()
 			connection.Log(logger.LevelInfo, "denying share read due to quota limits")
 			sendAPIResponse(w, r, err, "", getMappedStatusCode(err))
-			dataprovider.UpdateShareLastUse(&share, -1) //nolint:errcheck
+			_ = dataprovider.UpdateShareLastUse(&share, -1)
 			return
 		}
 		baseDir := "/"
@@ -329,7 +329,7 @@ func (s *httpdServer) downloadFromShare(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if status, err := downloadFile(w, r, connection, share.Paths[0], info, false, &share); err != nil {
-		dataprovider.UpdateShareLastUse(&share, -1) //nolint:errcheck
+		_ = dataprovider.UpdateShareLastUse(&share, -1)
 		resp := apiResponse{
 			Error:   err.Error(),
 			Message: http.StatusText(status),
@@ -352,7 +352,7 @@ func (s *httpdServer) uploadFileToShare(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		return
 	}
-	defer connection.CloseFS() //nolint:errcheck
+	defer connection.CloseFS()
 
 	filePath := util.CleanPath(path.Join(share.Paths[0], name))
 	expectedPrefix := share.Paths[0]
@@ -374,7 +374,7 @@ func (s *httpdServer) uploadFileToShare(w http.ResponseWriter, r *http.Request) 
 	}
 	defer common.Connections.Remove(connection.GetID())
 
-	connection.User.CheckFsRoot(connection.ID) //nolint:errcheck
+	_ = connection.User.CheckFsRoot(connection.ID)
 	if getBoolQueryParam(r, "mkdir_parents") {
 		if err = connection.CheckParentDirs(path.Dir(filePath)); err != nil {
 			sendAPIResponse(w, r, err, "Error checking parent directories", getMappedStatusCode(err))
@@ -382,7 +382,7 @@ func (s *httpdServer) uploadFileToShare(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 	if err := doUploadFile(w, r, connection, filePath); err != nil {
-		dataprovider.UpdateShareLastUse(&share, -1) //nolint:errcheck
+		_ = dataprovider.UpdateShareLastUse(&share, -1)
 	}
 }
 
@@ -395,7 +395,7 @@ func (s *httpdServer) uploadFilesToShare(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		return
 	}
-	defer connection.CloseFS() //nolint:errcheck
+	defer connection.CloseFS()
 
 	if err := common.Connections.IsNewTransferAllowed(connection.BaseConnection); err != nil {
 		connection.Log(logger.LevelInfo, "denying file write due to number of transfer limits")
@@ -422,7 +422,7 @@ func (s *httpdServer) uploadFilesToShare(w http.ResponseWriter, r *http.Request)
 		sendAPIResponse(w, r, err, "Unable to parse multipart form", http.StatusBadRequest)
 		return
 	}
-	defer r.MultipartForm.RemoveAll() //nolint:errcheck
+	defer r.MultipartForm.RemoveAll()
 
 	files := r.MultipartForm.File["filenames"]
 	if len(files) == 0 {
@@ -441,10 +441,10 @@ func (s *httpdServer) uploadFilesToShare(w http.ResponseWriter, r *http.Request)
 	numUploads := 0
 	defer func() {
 		if numUploads != len(files) {
-			dataprovider.UpdateShareLastUse(&share, numUploads-len(files)) //nolint:errcheck
+			_ = dataprovider.UpdateShareLastUse(&share, numUploads-len(files))
 		}
 	}()
-	connection.User.CheckFsRoot(connection.ID) //nolint:errcheck
+	_ = connection.User.CheckFsRoot(connection.ID)
 	numUploads = doUploadFiles(w, r, connection, share.Paths[0], files)
 }
 
@@ -540,7 +540,7 @@ func (s *httpdServer) checkPublicShare(w http.ResponseWriter, r *http.Request, v
 			}
 			match, err := share.CheckCredentials(password)
 			if !match || err != nil {
-				handleDefenderEventLoginFailed(ipAddr, dataprovider.ErrInvalidCredentials) //nolint:errcheck
+				_ = handleDefenderEventLoginFailed(ipAddr, dataprovider.ErrInvalidCredentials)
 				w.Header().Set(common.HTTPAuthenticationHeader, basicRealm)
 				renderError(dataprovider.ErrInvalidCredentials, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 				return share, nil, dataprovider.ErrInvalidCredentials

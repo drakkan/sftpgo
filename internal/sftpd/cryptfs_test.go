@@ -199,7 +199,7 @@ func TestUploadResumeCryptFs(t *testing.T) {
 		assert.NoError(t, err)
 		err = appendToTestFile(testFilePath, appendDataSize)
 		assert.NoError(t, err)
-		err = sftpUploadResumeFile(testFilePath, testFileName, testFileSize, false, client)
+		err = sftpUploadResumeFile(testFilePath, testFileSize, false, client)
 		if assert.Error(t, err) {
 			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
 		}
@@ -223,7 +223,7 @@ func TestQuotaFileReplaceCryptFs(t *testing.T) {
 	encryptedFileSize, err := getEncryptedFileSize(testFileSize)
 	assert.NoError(t, err)
 	conn, client, err := getSftpClient(user, usePubKey)
-	if assert.NoError(t, err) { //nolint:dupl
+	if assert.NoError(t, err) {
 		defer conn.Close()
 		defer client.Close()
 		expectedQuotaSize := user.UsedQuotaSize + encryptedFileSize

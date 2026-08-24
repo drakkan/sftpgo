@@ -182,7 +182,7 @@ var (
 	hostKeyFPs       []string
 )
 
-func TestMain(m *testing.M) { //nolint:gocyclo
+func TestMain(m *testing.M) {
 	logFilePath = filepath.Join(configDir, "sftpgo_sftpd_test.log")
 	loginBannerFileName := "login_banner"
 	loginBannerFile := filepath.Join(configDir, loginBannerFileName)
@@ -238,7 +238,7 @@ func TestMain(m *testing.M) { //nolint:gocyclo
 	}
 
 	httpConfig := config.GetHTTPConfig()
-	httpConfig.Initialize(configDir) //nolint:errcheck
+	httpConfig.Initialize(configDir)
 	kmsConfig := config.GetKMSConfig()
 	err = kmsConfig.Initialize()
 	if err != nil {
@@ -1585,7 +1585,7 @@ func TestBufferedSFTP(t *testing.T) {
 		assert.NoError(t, err)
 		err = appendToTestFile(testFilePath, appendDataSize)
 		assert.NoError(t, err)
-		err = sftpUploadResumeFile(testFilePath, testFileName, testFileSize+appendDataSize, false, client)
+		err = sftpUploadResumeFile(testFilePath, testFileSize+appendDataSize, false, client)
 		if assert.Error(t, err) {
 			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
 		}
@@ -1700,7 +1700,7 @@ func TestUploadResume(t *testing.T) {
 			assert.NoError(t, err)
 			err = appendToTestFile(testFilePath, appendDataSize)
 			assert.NoError(t, err)
-			err = sftpUploadResumeFile(testFilePath, testFileName, testFileSize+appendDataSize, false, client)
+			err = sftpUploadResumeFile(testFilePath, testFileSize+appendDataSize, false, client)
 			assert.NoError(t, err)
 			localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
 			err = sftpDownloadFile(testFileName, localDownloadPath, testFileSize+appendDataSize, client)
@@ -1710,7 +1710,7 @@ func TestUploadResume(t *testing.T) {
 			downloadedFileHash, err := computeHashForFile(sha256.New(), localDownloadPath)
 			assert.NoError(t, err)
 			assert.Equal(t, initialHash, downloadedFileHash)
-			err = sftpUploadResumeFile(testFilePath, testFileName, testFileSize+appendDataSize, true, client)
+			err = sftpUploadResumeFile(testFilePath, testFileSize+appendDataSize, true, client)
 			assert.Error(t, err, "resume uploading file with invalid offset must fail")
 			err = os.Remove(testFilePath)
 			assert.NoError(t, err)
@@ -3382,7 +3382,7 @@ func TestLoginAnonymousUser(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestAnonymousGroupInheritance(t *testing.T) { //nolint:dupl
+func TestAnonymousGroupInheritance(t *testing.T) {
 	g := getTestGroup()
 	g.UserSettings.Filters.IsAnonymous = true
 	group, _, err := httpdtest.AddGroup(g, http.StatusCreated)
@@ -3409,7 +3409,7 @@ func TestAnonymousGroupInheritance(t *testing.T) { //nolint:dupl
 	assert.NoError(t, err)
 }
 
-func TestAnonymousGroupInheritancePublicKey(t *testing.T) { //nolint:dupl
+func TestAnonymousGroupInheritancePublicKey(t *testing.T) {
 	g := getTestGroup()
 	g.UserSettings.Filters.IsAnonymous = true
 	group, _, err := httpdtest.AddGroup(g, http.StatusCreated)
@@ -5273,7 +5273,6 @@ func TestQuotaDisabledError(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-//nolint:dupl
 func TestMaxConnections(t *testing.T) {
 	oldValue := common.Config.MaxTotalConnections
 	common.Config.MaxTotalConnections = 1
@@ -5308,7 +5307,6 @@ func TestMaxConnections(t *testing.T) {
 	common.Config.MaxTotalConnections = oldValue
 }
 
-//nolint:dupl
 func TestMaxPerHostConnections(t *testing.T) {
 	oldValue := common.Config.MaxPerHostConnections
 	common.Config.MaxPerHostConnections = 1
@@ -5485,7 +5483,7 @@ func TestQuotaFileReplace(t *testing.T) {
 	testFilePath := filepath.Join(homeBasePath, testFileName)
 	for _, user := range []dataprovider.User{localUser, sftpUser} {
 		conn, client, err := getSftpClient(user, usePubKey)
-		if assert.NoError(t, err) { //nolint:dupl
+		if assert.NoError(t, err) {
 			defer conn.Close()
 			defer client.Close()
 			expectedQuotaSize := testFileSize
@@ -9212,7 +9210,6 @@ func TestPermDelete(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-//nolint:dupl
 func TestPermRename(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
@@ -9244,7 +9241,6 @@ func TestPermRename(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-//nolint:dupl
 func TestPermRenameOverwrite(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
@@ -9301,7 +9297,6 @@ func TestPermCreateDirs(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-//nolint:dupl
 func TestPermSymlink(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
@@ -9402,7 +9397,6 @@ func TestPermChmod(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-//nolint:dupl
 func TestPermChown(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
@@ -9434,7 +9428,6 @@ func TestPermChown(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-//nolint:dupl
 func TestPermChtimes(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
@@ -12781,7 +12774,7 @@ func getSignerForUserCert(certBytes []byte) (ssh.Signer, error) {
 	if err != nil {
 		return nil, err
 	}
-	cert, _, _, _, err := ssh.ParseAuthorizedKey(certBytes) //nolint:dogsled
+	cert, _, _, _, err := ssh.ParseAuthorizedKey(certBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -13002,14 +12995,14 @@ func sftpUploadFile(localSourcePath string, remoteDestPath string, expectedSize 
 	return err
 }
 
-func sftpUploadResumeFile(localSourcePath string, remoteDestPath string, expectedSize int64, invalidOffset bool, //nolint:unparam
+func sftpUploadResumeFile(localSourcePath string, expectedSize int64, invalidOffset bool, //nolint:unparam
 	client *sftp.Client) error {
 	srcFile, err := os.Open(localSourcePath)
 	if err != nil {
 		return err
 	}
 	defer srcFile.Close()
-	fi, err := client.Lstat(remoteDestPath)
+	fi, err := client.Lstat(testFileName)
 	if err != nil {
 		return err
 	}
@@ -13019,7 +13012,7 @@ func sftpUploadResumeFile(localSourcePath string, remoteDestPath string, expecte
 			return err
 		}
 	}
-	destFile, err := client.OpenFile(remoteDestPath, os.O_WRONLY|os.O_APPEND)
+	destFile, err := client.OpenFile(testFileName, os.O_WRONLY|os.O_APPEND)
 	if err != nil {
 		return err
 	}
@@ -13038,7 +13031,7 @@ func sftpUploadResumeFile(localSourcePath string, remoteDestPath string, expecte
 	// we cannot defer closing otherwise Stat will fail for upload atomic mode
 	destFile.Close()
 	if expectedSize > 0 {
-		fi, err := client.Lstat(remoteDestPath)
+		fi, err := client.Lstat(testFileName)
 		if err != nil {
 			return err
 		}

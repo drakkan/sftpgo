@@ -36,10 +36,11 @@ var (
 	sshHashCommands    = []string{"md5sum", "sha1sum", "sha256sum", "sha384sum", "sha512sum"}
 	serviceStatus      ServiceStatus
 	certKeyAlgoNames   = map[string]string{
-		ssh.CertAlgoRSAv01:         ssh.KeyAlgoRSA,
-		ssh.CertAlgoRSASHA256v01:   ssh.KeyAlgoRSASHA256,
-		ssh.CertAlgoRSASHA512v01:   ssh.KeyAlgoRSASHA512,
-		ssh.InsecureCertAlgoDSAv01: ssh.InsecureKeyAlgoDSA, //nolint:staticcheck
+		ssh.CertAlgoRSAv01:       ssh.KeyAlgoRSA,
+		ssh.CertAlgoRSASHA256v01: ssh.KeyAlgoRSASHA256,
+		ssh.CertAlgoRSASHA512v01: ssh.KeyAlgoRSASHA512,
+		//lint:ignore SA1019 the map names the DSA certificate algorithm
+		ssh.InsecureCertAlgoDSAv01: ssh.InsecureKeyAlgoDSA,
 		ssh.CertAlgoECDSA256v01:    ssh.KeyAlgoECDSA256,
 		ssh.CertAlgoECDSA384v01:    ssh.KeyAlgoECDSA384,
 		ssh.CertAlgoECDSA521v01:    ssh.KeyAlgoECDSA521,

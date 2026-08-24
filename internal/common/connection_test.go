@@ -82,10 +82,10 @@ func (fs *MockOsFs) Lstat(name string) (os.FileInfo, error) {
 // Walk returns a duplicate path for testing
 func (fs *MockOsFs) Walk(_ string, walkFn filepath.WalkFunc) error {
 	if fs.err == errWalkDir {
-		walkFn("fsdpath", vfs.NewFileInfo("dpath", true, 0, time.Now(), false), nil)        //nolint:errcheck
-		return walkFn("fsdpath", vfs.NewFileInfo("dpath", true, 0, time.Now(), false), nil) //nolint:errcheck
+		walkFn("fsdpath", vfs.NewFileInfo("dpath", true, 0, time.Now(), false), nil)
+		return walkFn("fsdpath", vfs.NewFileInfo("dpath", true, 0, time.Now(), false), nil)
 	}
-	walkFn("fsfpath", vfs.NewFileInfo("fpath", false, 0, time.Now(), false), nil) //nolint:errcheck
+	walkFn("fsfpath", vfs.NewFileInfo("fpath", false, 0, time.Now(), false), nil)
 	return fs.err
 }
 
@@ -1324,7 +1324,7 @@ func TestSymlinkDeniedSourcePolicy(t *testing.T) {
 				{Path: "/", DeniedPatterns: []string{"*.dat"}, DenyPolicy: tc.policy},
 			}
 			conn := NewBaseConnection("", ProtocolHTTP, "", "", user)
-			defer conn.CloseFS() //nolint:errcheck
+			defer conn.CloseFS()
 			assert.ErrorIs(t, conn.CreateSymlink("/report.dat", "/link.txt"), tc.expected)
 			// a denied target is a path being written, it always reports permission denied
 			assert.ErrorIs(t, conn.CreateSymlink("/doc.txt", "/link.dat"), os.ErrPermission)

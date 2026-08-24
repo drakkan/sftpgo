@@ -220,7 +220,7 @@ func doStartUserQuotaScan(w http.ResponseWriter, r *http.Request, username strin
 			http.StatusConflict)
 		return
 	}
-	go doUserQuotaScan(&user) //nolint:errcheck
+	go func() { _ = doUserQuotaScan(&user) }()
 	sendAPIResponse(w, r, err, "Scan started", http.StatusAccepted)
 }
 
@@ -239,7 +239,7 @@ func doStartFolderQuotaScan(w http.ResponseWriter, r *http.Request, name string)
 			http.StatusConflict)
 		return
 	}
-	go doFolderQuotaScan(folder) //nolint:errcheck
+	go func() { _ = doFolderQuotaScan(folder) }()
 	sendAPIResponse(w, r, err, "Scan started", http.StatusAccepted)
 }
 

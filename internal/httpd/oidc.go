@@ -170,7 +170,7 @@ func (o *OIDC) initialize() error {
 	claims := make(map[string]any)
 	// we cannot get an error here because the response body was already parsed as JSON
 	// on provider creation
-	provider.Claims(&claims) //nolint:errcheck
+	_ = provider.Claims(&claims)
 	endSessionEndPoint, ok := claims["end_session_endpoint"]
 	if ok {
 		if val, ok := endSessionEndPoint.(string); ok {
@@ -517,7 +517,7 @@ func (t *oidcToken) getUser(r *http.Request) error {
 		updateLoginMetrics(user, dataprovider.LoginMethodIDP, ipAddr, err, r)
 		return err
 	}
-	defer user.CloseFs() //nolint:errcheck
+	defer user.CloseFs()
 	err = user.CheckFsRoot(connectionID)
 	if err != nil {
 		logger.Warn(logSender, connectionID, "unable to check fs root: %v", err)
@@ -692,7 +692,7 @@ func (s *httpdServer) debugTokenClaims(claims map[string]any, rawIDToken string)
 	}
 }
 
-func (s *httpdServer) handleOIDCRedirect(w http.ResponseWriter, r *http.Request) { //nolint:gocyclo
+func (s *httpdServer) handleOIDCRedirect(w http.ResponseWriter, r *http.Request) {
 	state := r.URL.Query().Get("state")
 	authReq, err := oidcMgr.getPendingAuth(state)
 	if err != nil {

@@ -404,7 +404,7 @@ func (p *MemoryProvider) addUser(user *User) error {
 	return nil
 }
 
-func (p *MemoryProvider) updateUser(user *User) error { //nolint:gocyclo
+func (p *MemoryProvider) updateUser(user *User) error {
 	err := ValidateUser(user)
 	if err != nil {
 		return err

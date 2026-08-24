@@ -511,7 +511,7 @@ func (c *Connection) handleFTPUploadToExistingFile(fs vfs.Fs, flags int, resolve
 		initialSize = fileSize
 		if vfs.IsSFTPFs(fs) && fs.IsUploadResumeSupported() {
 			// we need this since we don't allow resume with wrong offset, we should fix this in pkg/sftp
-			file.Seek(initialSize, io.SeekStart) //nolint:errcheck // for sftp seek simply set the offset
+			_, _ = file.Seek(initialSize, io.SeekStart) // for sftp seek simply set the offset
 		}
 	} else {
 		if vfs.HasTruncateSupport(fs) {
@@ -519,7 +519,7 @@ func (c *Connection) handleFTPUploadToExistingFile(fs vfs.Fs, flags int, resolve
 			if err == nil {
 				dataprovider.UpdateUserFolderQuota(&vfolder, &c.User, 0, -fileSize, false)
 			} else {
-				dataprovider.UpdateUserQuota(&c.User, 0, -fileSize, false) //nolint:errcheck
+				_ = dataprovider.UpdateUserQuota(&c.User, 0, -fileSize, false)
 			}
 		} else {
 			initialSize = fileSize

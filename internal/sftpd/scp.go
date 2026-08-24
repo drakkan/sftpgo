@@ -54,7 +54,7 @@ func (c *scpCommand) handle() (err error) {
 		}
 	}()
 	if err := common.Connections.Add(c.connection); err != nil {
-		defer c.connection.CloseFS() //nolint:errcheck
+		defer c.connection.CloseFS()
 		logger.Info(logSender, "", "unable to add SCP connection: %v", err)
 		return c.sendErrorResponse(err)
 	}
@@ -263,7 +263,7 @@ func (c *scpCommand) handleUploadFile(fs vfs.Fs, resolvedPath, filePath string, 
 			if err == nil {
 				dataprovider.UpdateUserFolderQuota(&vfolder, &c.connection.User, 0, -fileSize, false)
 			} else {
-				dataprovider.UpdateUserQuota(&c.connection.User, 0, -fileSize, false) //nolint:errcheck
+				_ = dataprovider.UpdateUserQuota(&c.connection.User, 0, -fileSize, false)
 			}
 		} else {
 			initialSize = fileSize
@@ -501,7 +501,7 @@ func (c *scpCommand) sendDownloadFileData(fs vfs.Fs, filePath string, stat os.Fi
 
 // handleDownload sends filePath to the client. It reports its own errors to the
 // client, so callers must not send them again.
-func (c *scpCommand) handleDownload(filePath string, recursion int) error { //nolint:gocyclo
+func (c *scpCommand) handleDownload(filePath string, recursion int) error {
 	c.connection.UpdateLastActivity()
 	filePath = path.Clean(filePath)
 
@@ -670,16 +670,14 @@ func (c *scpCommand) readProtocolMessage() (string, error) {
 
 // sendErrorMessage sends an error message and close the channel
 // we don't check write errors here, we have to close the channel anyway
-//
-//nolint:errcheck
 func (c *scpCommand) sendErrorMessage(fs vfs.Fs, err error) {
-	c.connection.channel.Write(errMsg)
+	_, _ = c.connection.channel.Write(errMsg)
 	if fs != nil {
-		c.connection.channel.Write([]byte(c.connection.GetFsError(fs, err).Error()))
+		_, _ = c.connection.channel.Write([]byte(c.connection.GetFsError(fs, err).Error()))
 	} else {
-		c.connection.channel.Write([]byte(err.Error()))
+		_, _ = c.connection.channel.Write([]byte(err.Error()))
 	}
-	c.connection.channel.Write(newLine)
+	_, _ = c.connection.channel.Write(newLine)
 	c.connection.channel.Close()
 }
 

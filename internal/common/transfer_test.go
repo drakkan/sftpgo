@@ -448,7 +448,7 @@ func TestTransferQuota(t *testing.T) {
 func TestUploadAtomicRenameError(t *testing.T) {
 	homeDir := filepath.Join(os.TempDir(), "home")
 	require.NoError(t, os.MkdirAll(homeDir, os.ModePerm))
-	defer os.RemoveAll(homeDir) //nolint:errcheck
+	defer os.RemoveAll(homeDir)
 
 	conn := NewBaseConnection("", ProtocolSFTP, "", "", dataprovider.User{})
 	fs := vfs.NewOsFs("", homeDir, "", nil)

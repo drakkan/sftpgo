@@ -241,7 +241,7 @@ func (u *User) checkLocalHomeDir(connectionID string) {
 		return
 	default:
 		osFs := vfs.NewOsFs(connectionID, u.GetHomeDir(), "", nil)
-		defer osFs.Close() //nolint:errcheck
+		defer osFs.Close()
 		osFs.CheckRootPath(u.Username, u.GetUID(), u.GetGID())
 	}
 }
@@ -687,7 +687,7 @@ func (u *User) GetFilesystemForPath(virtualPath, connectionID string) (vfs.Fs, e
 	defer cache.Unlock()
 
 	if existing, ok := cache.entries[cacheKey]; ok {
-		fs.Close() //nolint:errcheck
+		fs.Close()
 		return existing, nil
 	}
 	cache.entries[cacheKey] = fs
@@ -1747,7 +1747,7 @@ func (u *User) mergeWithPrimaryGroup(group *Group, replacer *strings.Replacer) {
 	u.mergeAdditiveProperties(group, sdk.GroupTypePrimary, replacer)
 }
 
-func (u *User) mergePrimaryGroupFilters(filters *sdk.BaseUserFilters, replacer *strings.Replacer) { //nolint:gocyclo
+func (u *User) mergePrimaryGroupFilters(filters *sdk.BaseUserFilters, replacer *strings.Replacer) {
 	if u.Filters.MaxUploadFileSize == 0 {
 		u.Filters.MaxUploadFileSize = filters.MaxUploadFileSize
 	}

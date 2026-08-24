@@ -619,7 +619,7 @@ func (c *GCSFsConfig) isSameResource(other GCSFsConfig) bool {
 }
 
 // validate returns an error if the configuration is not valid
-func (c *GCSFsConfig) validate() error { //nolint:gocyclo
+func (c *GCSFsConfig) validate() error {
 	if c.Credentials == nil || c.AutomaticCredentials == 1 {
 		c.Credentials = kms.NewEmptySecret()
 	}
@@ -943,7 +943,7 @@ func NewPipeWriter(w pipeWriterAt) PipeWriter {
 
 // Close waits for the upload to end, closes the pipeWriterAt and returns an error if any.
 func (p *pipeWriter) Close() error {
-	p.pipeWriterAt.Close() //nolint:errcheck // the returned error is always null
+	p.pipeWriterAt.Close() // the returned error is always null
 	<-p.done
 	return p.err
 }
@@ -1315,7 +1315,7 @@ func RenameAcrossRoots(fsSrc, fsDst Fs, source, target string, srcInfo os.FileIn
 	return numFiles, filesSize, err
 }
 
-func moveAcrossRoots(fsSrc, fsDst Fs, source, target string, info os.FileInfo, checks, uid, gid, recursion int) (int, int64, bool, error) { //nolint:gocyclo
+func moveAcrossRoots(fsSrc, fsDst Fs, source, target string, info os.FileInfo, checks, uid, gid, recursion int) (int, int64, bool, error) {
 	var numFiles int
 	var filesSize int64
 	var keptAtSource bool
@@ -1351,7 +1351,7 @@ func moveAcrossRoots(fsSrc, fsDst Fs, source, target string, info os.FileInfo, c
 			}
 			if finished {
 				// Best effort, setuid, setgid and sticky are dropped as for files.
-				fsDst.Chmod(target, info.Mode().Perm()) //nolint:errcheck
+				_ = fsDst.Chmod(target, info.Mode().Perm())
 				// the contents are moved, remove the now-empty source directory
 				lister.Close()
 				if keptAtSource {
@@ -1377,14 +1377,14 @@ func moveAcrossRoots(fsSrc, fsDst Fs, source, target string, info os.FileInfo, c
 	}
 	SetPathPermissions(fsDst, target, uid, gid)
 	// Best effort, like the mtime below.
-	fsDst.Chmod(target, info.Mode().Perm()) //nolint:errcheck
+	_ = fsDst.Chmod(target, info.Mode().Perm())
 	if checks&CheckUpdateModTime == 0 {
 		// Best effort: a metadata failure must not fail the whole move
 		// (directory mtimes are intentionally not restored, they are rarely
 		// relied upon and would need to be set after their contents to survive
 		// the child writes).
 		if mtime := info.ModTime(); !mtime.IsZero() {
-			fsDst.Chtimes(target, mtime, mtime, false) //nolint:errcheck
+			_ = fsDst.Chtimes(target, mtime, mtime, false)
 		}
 	}
 	// account the on-disk size actually written under the destination root, not
@@ -1401,7 +1401,7 @@ func moveAcrossRoots(fsSrc, fsDst Fs, source, target string, info os.FileInfo, c
 	return numFiles + 1, filesSize + size, false, nil
 }
 
-func copyFileAcrossRoots(fsSrc, fsDst Fs, source, target string, replaceTarget bool) error { //nolint:gocyclo
+func copyFileAcrossRoots(fsSrc, fsDst Fs, source, target string, replaceTarget bool) error {
 	f, r, cancelR, err := fsSrc.Open(source, 0)
 	if err != nil {
 		return err
@@ -1448,9 +1448,9 @@ func copyFileAcrossRoots(fsSrc, fsDst Fs, source, target string, replaceTarget b
 			cancelW()
 		}
 		readCloser.Close()
-		writeCloser.Close() //nolint:errcheck
+		writeCloser.Close()
 		// Best effort removal of a partial copy.
-		fsDst.Remove(target, false) //nolint:errcheck
+		_ = fsDst.Remove(target, false)
 		return copyErr
 	}
 	closeErr := writeCloser.Close()
@@ -1463,7 +1463,7 @@ func copyFileAcrossRoots(fsSrc, fsDst Fs, source, target string, replaceTarget b
 	}
 	if closeErr != nil {
 		// Best effort removal of a partial copy.
-		fsDst.Remove(target, false) //nolint:errcheck
+		_ = fsDst.Remove(target, false)
 		return copyErr
 	}
 	return nil
