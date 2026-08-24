@@ -1302,22 +1302,23 @@ func TestCachedUserWithFolders(t *testing.T) {
 		assert.False(t, cachedUser.IsExpired())
 	}
 
+	// a folder referenced by a user cannot be removed
 	err = dataprovider.DeleteFolder(folderName, "", "", "")
-	assert.NoError(t, err)
-	// removing a used folder should invalidate the cache
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "is referenced")
+	}
 	_, isCached, _, loginMethod, err = server.authenticate(req, ipAddr)
 	assert.NoError(t, err)
-	assert.False(t, isCached)
+	assert.True(t, isCached)
 	assert.Equal(t, dataprovider.LoginMethodPassword, loginMethod)
-	cachedUser, ok = dataprovider.GetCachedWebDAVUser(username)
-	if assert.True(t, ok) {
-		assert.False(t, cachedUser.IsExpired())
-	}
 
 	err = dataprovider.DeleteUser(user.Username, "", "", "")
 	assert.NoError(t, err)
 	_, ok = dataprovider.GetCachedWebDAVUser(username)
 	assert.False(t, ok)
+
+	err = dataprovider.DeleteFolder(folderName, "", "", "")
+	assert.NoError(t, err)
 
 	err = os.RemoveAll(u.GetHomeDir())
 	assert.NoError(t, err)

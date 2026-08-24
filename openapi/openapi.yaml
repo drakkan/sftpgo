@@ -1562,7 +1562,7 @@ paths:
       tags:
         - folders
       summary: Delete folder
-      description: Deletes an existing folder
+      description: Deletes an existing folder. A folder referenced by users or groups cannot be deleted, remove the references first
       operationId: delete_folder
       responses:
         '200':
@@ -1754,7 +1754,7 @@ paths:
       tags:
         - groups
       summary: Delete group
-      description: Deletes an existing group
+      description: Deletes an existing group. A group referenced by users or admins cannot be deleted, remove the references first
       operationId: delete_group
       responses:
         '200':
@@ -1934,7 +1934,7 @@ paths:
       tags:
         - roles
       summary: Delete role
-      description: Deletes an existing role
+      description: Deletes an existing role. A role referenced by users or admins cannot be deleted, remove the references first
       operationId: delete_role
       responses:
         '200':

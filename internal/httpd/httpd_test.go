@@ -866,12 +866,13 @@ func TestRoleRelations(t *testing.T) {
 
 	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveRole(role, http.StatusOK)
-	assert.NoError(t, err)
-	user1, _, err = httpdtest.GetUserByUsername(user1.Username, http.StatusOK)
-	assert.NoError(t, err)
-	assert.Empty(t, user1.Role)
+	resp, err = httpdtest.RemoveRole(role, http.StatusOK)
+	assert.Error(t, err, "removing a role referenced by a user should fail")
+	assert.Contains(t, string(resp), "is referenced")
+
 	_, err = httpdtest.RemoveUser(user1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveRole(role, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user2, http.StatusOK)
 	assert.NoError(t, err)
@@ -1512,25 +1513,31 @@ func TestGroupRelations(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveFolder(folder1, http.StatusOK)
+	// folder1 is referenced by the groups
+	_, err = httpdtest.RemoveFolder(folder1, http.StatusBadRequest)
 	assert.NoError(t, err)
 	group1, _, err = httpdtest.GetGroupByName(group1.Name, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Len(t, group1.Users, 0)
-	assert.Len(t, group1.VirtualFolders, 1)
+	assert.Len(t, group1.VirtualFolders, 2)
 	group2, _, err = httpdtest.GetGroupByName(group2.Name, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Len(t, group2.Users, 0)
-	assert.Len(t, group2.VirtualFolders, 0)
+	assert.Len(t, group2.VirtualFolders, 1)
 	group3, _, err = httpdtest.GetGroupByName(group3.Name, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Len(t, group3.Users, 0)
-	assert.Len(t, group3.VirtualFolders, 0)
+	assert.Len(t, group3.VirtualFolders, 1)
 	_, err = httpdtest.RemoveGroup(group1, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveGroup(group2, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveGroup(group3, http.StatusOK)
+	assert.NoError(t, err)
+	folder1, _, err = httpdtest.GetFolderByName(folderName1, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, folder1.Groups, 0)
+	_, err = httpdtest.RemoveFolder(folder1, http.StatusOK)
 	assert.NoError(t, err)
 	folder2, _, err = httpdtest.GetFolderByName(folderName2, http.StatusOK)
 	assert.NoError(t, err)
@@ -3354,7 +3361,7 @@ func TestUserTimestamps(t *testing.T) {
 	assert.Equal(t, createdAt, user.CreatedAt)
 	assert.Greater(t, user.UpdatedAt, updatedAt)
 	updatedAt = user.UpdatedAt
-	// after a folder update or delete the user updated_at field should change
+	// after a folder update the user updated_at field should change
 	folder, _, err := httpdtest.GetFolderByName(folderName, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Len(t, folder.Users, 1)
@@ -3368,21 +3375,15 @@ func TestUserTimestamps(t *testing.T) {
 	assert.Equal(t, int64(0), user.FirstUpload)
 	assert.Equal(t, createdAt, user.CreatedAt)
 	assert.Greater(t, user.UpdatedAt, updatedAt)
-	updatedAt = user.UpdatedAt
-	time.Sleep(10 * time.Millisecond)
-	_, err = httpdtest.RemoveFolder(folder, http.StatusOK)
+	// a folder referenced by a user cannot be removed
+	_, err = httpdtest.RemoveFolder(folder, http.StatusBadRequest)
 	assert.NoError(t, err)
-	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
-	assert.NoError(t, err)
-	assert.Equal(t, int64(0), user.LastLogin)
-	assert.Equal(t, int64(0), user.FirstDownload)
-	assert.Equal(t, int64(0), user.FirstUpload)
-	assert.Equal(t, createdAt, user.CreatedAt)
-	assert.Greater(t, user.UpdatedAt, updatedAt)
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(folder, http.StatusOK)
 	assert.NoError(t, err)
 }
 
@@ -4694,6 +4695,24 @@ func TestAdminGroups(t *testing.T) {
 
 	admin, _, err = httpdtest.UpdateAdmin(a, http.StatusOK)
 	assert.NoError(t, err)
+
+	// the groups are referenced by the admin
+	_, err = httpdtest.RemoveGroup(group1, http.StatusBadRequest)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group2, http.StatusBadRequest)
+	assert.NoError(t, err)
+
+	a.Groups = []dataprovider.AdminGroupMapping{
+		{
+			Name: group3.Name,
+			Options: dataprovider.AdminGroupMappingOptions{
+				AddToUsersAs: dataprovider.GroupAddToUsersAsMembership,
+			},
+		},
+	}
+	admin, _, err = httpdtest.UpdateAdmin(a, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, admin.Groups, 1)
 
 	_, err = httpdtest.RemoveGroup(group1, http.StatusOK)
 	assert.NoError(t, err)
@@ -6127,7 +6146,24 @@ func TestUserFolderMapping(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, folder.Users, 1)
 	assert.Contains(t, folder.Users, user2.Username)
-	// removing virtual folders should clear relations on both side
+	// a folder referenced by a user cannot be removed
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName2}, http.StatusBadRequest)
+	assert.NoError(t, err)
+	// removing the mapping from the user side clears the relation on both sides
+	user2.VirtualFolders = []vfs.VirtualFolder{
+		{
+			BaseVirtualFolder: vfs.BaseVirtualFolder{
+				Name:       folderName1,
+				MappedPath: mappedPath1,
+			},
+			VirtualPath: "/vdir1",
+		},
+	}
+	user2, _, err = httpdtest.UpdateUser(user2, http.StatusOK, "")
+	assert.NoError(t, err)
+	folder, _, err = httpdtest.GetFolderByName(folderName2, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, folder.Users, 0)
 	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName2}, http.StatusOK)
 	assert.NoError(t, err)
 	user2, _, err = httpdtest.GetUserByUsername(user2.Username, http.StatusOK)
@@ -6154,13 +6190,16 @@ func TestUserFolderMapping(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, folder.Users, 1)
 	assert.Contains(t, folder.Users, user2.Username)
-	// removing a folder should clear mapping on the user side too
-	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName1}, http.StatusOK)
+	// a folder referenced by a user cannot be removed
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName1}, http.StatusBadRequest)
 	assert.NoError(t, err)
-	user2, _, err = httpdtest.GetUserByUsername(user2.Username, http.StatusOK)
-	assert.NoError(t, err)
-	assert.Len(t, user2.VirtualFolders, 0)
+	// removing a user should clear the folder mapping
 	_, err = httpdtest.RemoveUser(user2, http.StatusOK)
+	assert.NoError(t, err)
+	folder, _, err = httpdtest.GetFolderByName(folderName1, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, folder.Users, 0)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName1}, http.StatusOK)
 	assert.NoError(t, err)
 }
 
@@ -8410,20 +8449,23 @@ func TestFolderRelations(t *testing.T) {
 	assert.Len(t, folder.Users, 1)
 	assert.Len(t, folder.Groups, 1)
 
-	_, err = httpdtest.RemoveFolder(folder, http.StatusOK)
+	// the folder is referenced by the user and the group
+	_, err = httpdtest.RemoveFolder(folder, http.StatusBadRequest)
 	assert.NoError(t, err)
 
 	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
-	assert.Len(t, user.VirtualFolders, 0)
+	assert.Len(t, user.VirtualFolders, 1)
 
 	group, _, err = httpdtest.GetGroupByName(group.Name, http.StatusOK)
 	assert.NoError(t, err)
-	assert.Len(t, group.VirtualFolders, 0)
+	assert.Len(t, group.VirtualFolders, 1)
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveGroup(group, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(folder, http.StatusOK)
 	assert.NoError(t, err)
 }
 
@@ -9080,19 +9122,19 @@ func TestLoaddata(t *testing.T) {
 	assert.Len(t, dumpedData.EventActions, 0)
 	assert.Len(t, dumpedData.IPLists, 0)
 
-	_, err = httpdtest.RemoveFolder(folder, http.StatusOK)
-	assert.NoError(t, err)
-	_, err = httpdtest.RemoveUser(user, http.StatusOK)
-	assert.NoError(t, err)
-	_, err = httpdtest.RemoveGroup(group, http.StatusOK)
-	assert.NoError(t, err)
 	_, err = httpdtest.RemoveAPIKey(apiKey, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveEventRule(rule, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveEventAction(action, http.StatusOK)
 	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
 	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(folder, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveRole(role, http.StatusOK)
 	assert.NoError(t, err)

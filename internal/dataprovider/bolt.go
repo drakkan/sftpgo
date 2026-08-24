@@ -1207,73 +1207,9 @@ func (p *BoltProvider) updateFolder(folder *vfs.BaseVirtualFolder) error {
 	})
 }
 
-func (p *BoltProvider) deleteFolderMappings(folder vfs.BaseVirtualFolder, usersBucket, groupsBucket *bolt.Bucket) error {
-	for _, username := range folder.Users {
-		var u []byte
-		if u = usersBucket.Get([]byte(username)); u == nil {
-			continue
-		}
-		var user User
-		err := json.Unmarshal(u, &user)
-		if err != nil {
-			return err
-		}
-		var folders []vfs.VirtualFolder
-		for _, userFolder := range user.VirtualFolders {
-			if folder.Name != userFolder.Name {
-				folders = append(folders, userFolder)
-			}
-		}
-		user.VirtualFolders = folders
-		buf, err := json.Marshal(user)
-		if err != nil {
-			return err
-		}
-		err = usersBucket.Put([]byte(user.Username), buf)
-		if err != nil {
-			return err
-		}
-	}
-	for _, groupname := range folder.Groups {
-		var u []byte
-		if u = groupsBucket.Get([]byte(groupname)); u == nil {
-			continue
-		}
-		var group Group
-		err := json.Unmarshal(u, &group)
-		if err != nil {
-			return err
-		}
-		var folders []vfs.VirtualFolder
-		for _, groupFolder := range group.VirtualFolders {
-			if folder.Name != groupFolder.Name {
-				folders = append(folders, groupFolder)
-			}
-		}
-		group.VirtualFolders = folders
-		buf, err := json.Marshal(group)
-		if err != nil {
-			return err
-		}
-		err = groupsBucket.Put([]byte(group.Name), buf)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (p *BoltProvider) deleteFolder(baseFolder vfs.BaseVirtualFolder) error {
 	return p.dbHandle.Update(func(tx *bolt.Tx) error {
 		bucket, err := p.getFoldersBucket(tx)
-		if err != nil {
-			return err
-		}
-		usersBucket, err := p.getUsersBucket(tx)
-		if err != nil {
-			return err
-		}
-		groupsBucket, err := p.getGroupsBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -1287,8 +1223,8 @@ func (p *BoltProvider) deleteFolder(baseFolder vfs.BaseVirtualFolder) error {
 		if err != nil {
 			return err
 		}
-		if err = p.deleteFolderMappings(folder, usersBucket, groupsBucket); err != nil {
-			return err
+		if len(folder.Users) > 0 || len(folder.Groups) > 0 {
+			return util.NewValidationError(fmt.Sprintf("the folder %q is referenced, it cannot be removed", folder.Name))
 		}
 
 		return bucket.Delete([]byte(folder.Name))
@@ -1568,7 +1504,7 @@ func (p *BoltProvider) deleteGroup(group Group) error {
 		if err != nil {
 			return err
 		}
-		if len(oldGroup.Users) > 0 {
+		if len(oldGroup.Users) > 0 || len(oldGroup.Admins) > 0 {
 			return util.NewValidationError(fmt.Sprintf("the group %q is referenced, it cannot be removed", oldGroup.Name))
 		}
 		if len(oldGroup.VirtualFolders) > 0 {
@@ -1578,18 +1514,6 @@ func (p *BoltProvider) deleteGroup(group Group) error {
 			}
 			for idx := range oldGroup.VirtualFolders {
 				err = p.removeRelationFromFolderMapping(oldGroup.VirtualFolders[idx], "", oldGroup.Name, foldersBucket)
-				if err != nil {
-					return err
-				}
-			}
-		}
-		if len(oldGroup.Admins) > 0 {
-			adminsBucket, err := p.getAdminsBucket(tx)
-			if err != nil {
-				return err
-			}
-			for idx := range oldGroup.Admins {
-				err = p.removeGroupFromAdminMapping(oldGroup.Name, oldGroup.Admins[idx], adminsBucket)
 				if err != nil {
 					return err
 				}
@@ -2735,19 +2659,8 @@ func (p *BoltProvider) deleteRole(role Role) error {
 		if err != nil {
 			return err
 		}
-		if len(oldRole.Admins) > 0 {
+		if len(oldRole.Admins) > 0 || len(oldRole.Users) > 0 {
 			return util.NewValidationError(fmt.Sprintf("the role %q is referenced, it cannot be removed", oldRole.Name))
-		}
-		if len(oldRole.Users) > 0 {
-			bucket, err := p.getUsersBucket(tx)
-			if err != nil {
-				return err
-			}
-			for _, username := range oldRole.Users {
-				if err := p.removeRoleFromUser(username, oldRole.Name, bucket); err != nil {
-					return err
-				}
-			}
 		}
 
 		return bucket.Delete([]byte(role.Name))
@@ -3325,29 +3238,6 @@ func (p *BoltProvider) addFolderInternal(folder vfs.BaseVirtualFolder, bucket *b
 	return bucket.Put([]byte(folder.Name), buf)
 }
 
-func (p *BoltProvider) removeRoleFromUser(username, role string, bucket *bolt.Bucket) error {
-	u := bucket.Get([]byte(username))
-	if u == nil {
-		providerLog(logger.LevelWarn, "user %q does not exist, cannot remove role %q", username, role)
-		return nil
-	}
-	var user User
-	err := json.Unmarshal(u, &user)
-	if err != nil {
-		return err
-	}
-	if user.Role == role {
-		user.Role = ""
-		buf, err := json.Marshal(user)
-		if err != nil {
-			return err
-		}
-		return bucket.Put([]byte(user.Username), buf)
-	}
-	providerLog(logger.LevelError, "user %q does not have the expected role %q, actual %q", username, role, user.Role)
-	return nil
-}
-
 func (p *BoltProvider) addAdminToRole(username, roleName string, bucket *bolt.Bucket) error {
 	if roleName == "" {
 		return nil
@@ -3596,31 +3486,6 @@ func (p *BoltProvider) removeAdminFromGroupMapping(username, groupname string, b
 		return err
 	}
 	return bucket.Put([]byte(group.Name), buf)
-}
-
-func (p *BoltProvider) removeGroupFromAdminMapping(groupName, adminName string, bucket *bolt.Bucket) error {
-	var a []byte
-	if a = bucket.Get([]byte(adminName)); a == nil {
-		// the admin does not exist so there is no associated group
-		return nil
-	}
-	var admin Admin
-	err := json.Unmarshal(a, &admin)
-	if err != nil {
-		return err
-	}
-	var newGroups []AdminGroupMapping
-	for _, g := range admin.Groups {
-		if g.Name != groupName {
-			newGroups = append(newGroups, g)
-		}
-	}
-	admin.Groups = newGroups
-	buf, err := json.Marshal(admin)
-	if err != nil {
-		return err
-	}
-	return bucket.Put([]byte(adminName), buf)
 }
 
 func (p *BoltProvider) addRelationToFolderMapping(folderName string, user *User, group *Group, bucket *bolt.Bucket) error {

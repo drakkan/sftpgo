@@ -1125,14 +1125,11 @@ func (p *MemoryProvider) deleteGroup(group Group) error {
 	if err != nil {
 		return err
 	}
-	if len(g.Users) > 0 {
+	if len(g.Users) > 0 || len(g.Admins) > 0 {
 		return util.NewValidationError(fmt.Sprintf("the group %q is referenced, it cannot be removed", group.Name))
 	}
 	for _, oldFolder := range g.VirtualFolders {
 		p.removeRelationFromFolderMapping(oldFolder.Name, "", g.Name)
-	}
-	for _, a := range g.Admins {
-		p.removeGroupFromAdminMapping(g.Name, a)
 	}
 	delete(p.dbHandle.groups, group.Name)
 	// this could be more efficient
@@ -1261,22 +1258,6 @@ func (p *MemoryProvider) removeAdminFromGroupMapping(username, groupname string)
 	}
 	g.Admins = admins
 	p.dbHandle.groups[groupname] = g
-}
-
-func (p *MemoryProvider) removeGroupFromAdminMapping(groupname, username string) {
-	admin, err := p.adminExistsInternal(username)
-	if err != nil {
-		// the admin does not exist so there is no associated group
-		return
-	}
-	var newGroups []AdminGroupMapping
-	for _, g := range admin.Groups {
-		if g.Name != groupname {
-			newGroups = append(newGroups, g)
-		}
-	}
-	admin.Groups = newGroups
-	p.dbHandle.admins[admin.Username] = admin
 }
 
 func (p *MemoryProvider) addUserToGroupMapping(username, groupname string) error {
@@ -1584,33 +1565,8 @@ func (p *MemoryProvider) deleteFolder(f vfs.BaseVirtualFolder) error {
 	if err != nil {
 		return err
 	}
-	for _, username := range folder.Users {
-		user, err := p.userExistsInternal(username)
-		if err == nil {
-			var folders []vfs.VirtualFolder
-			for idx := range user.VirtualFolders {
-				userFolder := &user.VirtualFolders[idx]
-				if folder.Name != userFolder.Name {
-					folders = append(folders, *userFolder)
-				}
-			}
-			user.VirtualFolders = folders
-			p.dbHandle.users[user.Username] = user
-		}
-	}
-	for _, groupname := range folder.Groups {
-		group, err := p.groupExistsInternal(groupname)
-		if err == nil {
-			var folders []vfs.VirtualFolder
-			for idx := range group.VirtualFolders {
-				groupFolder := &group.VirtualFolders[idx]
-				if folder.Name != groupFolder.Name {
-					folders = append(folders, *groupFolder)
-				}
-			}
-			group.VirtualFolders = folders
-			p.dbHandle.groups[group.Name] = group
-		}
+	if len(folder.Users) > 0 || len(folder.Groups) > 0 {
+		return util.NewValidationError(fmt.Sprintf("the folder %q is referenced, it cannot be removed", folder.Name))
 	}
 	delete(p.dbHandle.vfolders, folder.Name)
 	p.dbHandle.vfoldersNames = []string{}
@@ -2561,20 +2517,8 @@ func (p *MemoryProvider) deleteRole(role Role) error {
 	if err != nil {
 		return err
 	}
-	if len(oldRole.Admins) > 0 {
+	if len(oldRole.Admins) > 0 || len(oldRole.Users) > 0 {
 		return util.NewValidationError(fmt.Sprintf("the role %q is referenced, it cannot be removed", oldRole.Name))
-	}
-	for _, username := range oldRole.Users {
-		user, err := p.userExistsInternal(username)
-		if err != nil {
-			continue
-		}
-		if user.Role == role.Name {
-			user.Role = ""
-			p.dbHandle.users[username] = user
-		} else {
-			providerLog(logger.LevelError, "user %q does not have the expected role %q, actual %q", username, role.Name, user.Role)
-		}
 	}
 	delete(p.dbHandle.roles, role.Name)
 	p.dbHandle.roleNames = make([]string, 0, len(p.dbHandle.roles))

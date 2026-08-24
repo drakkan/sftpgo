@@ -1932,7 +1932,10 @@ func TestSQLPlaceholderLimits(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	err = dataprovider.DeleteFolder(folder.Name, "", "", "")
+	f, err := dataprovider.GetFolderByName(folder.Name)
+	assert.NoError(t, err)
+	assert.Len(t, f.Groups, numGroups)
+	err = dataprovider.UpdateFolder(&f, f.Users, f.Groups, "", "", "")
 	assert.NoError(t, err)
 
 	for i := range numUsers {
@@ -1949,6 +1952,9 @@ func TestSQLPlaceholderLimits(t *testing.T) {
 		err = dataprovider.DeleteGroup(groupName, "", "", "")
 		assert.NoError(t, err)
 	}
+
+	err = dataprovider.DeleteFolder(folder.Name, "", "", "")
+	assert.NoError(t, err)
 }
 
 func TestALPNProtocols(t *testing.T) {

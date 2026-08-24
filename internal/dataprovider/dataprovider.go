@@ -1787,21 +1787,13 @@ func DeleteRole(name string, executor, ipAddress, executorRole string) error {
 	if err != nil {
 		return err
 	}
-	if len(role.Admins) > 0 {
+	if len(role.Admins) > 0 || len(role.Users) > 0 {
 		errorString := fmt.Sprintf("the role %q is referenced, it cannot be removed", role.Name)
 		return util.NewValidationError(errorString)
 	}
 	err = provider.deleteRole(role)
 	if err == nil {
 		executeAction(operationDelete, executor, ipAddress, actionObjectRole, role.Name, executorRole, &role)
-		for _, user := range role.Users {
-			provider.setUpdatedAt(user)
-			u, err := provider.userExists(user, "")
-			if err == nil {
-				webDAVUsersCache.swap(&u, "")
-				executeAction(operationUpdate, executor, ipAddress, actionObjectUser, u.Username, u.Role, &u)
-			}
-		}
 	}
 	return err
 }
@@ -1847,20 +1839,12 @@ func DeleteGroup(name string, executor, ipAddress, role string) error {
 	if err != nil {
 		return err
 	}
-	if len(group.Users) > 0 {
+	if len(group.Users) > 0 || len(group.Admins) > 0 {
 		errorString := fmt.Sprintf("the group %q is referenced, it cannot be removed", group.Name)
 		return util.NewValidationError(errorString)
 	}
 	err = provider.deleteGroup(group)
 	if err == nil {
-		for _, user := range group.Users {
-			provider.setUpdatedAt(user)
-			u, err := provider.userExists(user, "")
-			if err == nil {
-				executeAction(operationUpdate, executor, ipAddress, actionObjectUser, u.Username, u.Role, &u)
-			}
-			RemoveCachedWebDAVUser(user)
-		}
 		executeAction(operationDelete, executor, ipAddress, actionObjectGroup, group.Name, role, &group)
 	}
 	return err
@@ -2414,25 +2398,13 @@ func DeleteFolder(folderName, executor, ipAddress, role string) error {
 	if err != nil {
 		return err
 	}
+	if len(folder.Users) > 0 || len(folder.Groups) > 0 {
+		errorString := fmt.Sprintf("the folder %q is referenced, it cannot be removed", folder.Name)
+		return util.NewValidationError(errorString)
+	}
 	err = provider.deleteFolder(folder)
 	if err == nil {
 		executeAction(operationDelete, executor, ipAddress, actionObjectFolder, folder.Name, role, &wrappedFolder{Folder: folder})
-		users := folder.Users
-		usersInGroups, errGrp := provider.getUsersInGroups(folder.Groups)
-		if errGrp == nil {
-			users = append(users, usersInGroups...)
-			users = util.RemoveDuplicates(users, false)
-		} else {
-			providerLog(logger.LevelWarn, "unable to get users in groups %+v: %v", folder.Groups, errGrp)
-		}
-		for _, user := range users {
-			provider.setUpdatedAt(user)
-			u, err := provider.userExists(user, "")
-			if err == nil {
-				executeAction(operationUpdate, executor, ipAddress, actionObjectUser, u.Username, u.Role, &u)
-			}
-			RemoveCachedWebDAVUser(user)
-		}
 		delayedQuotaUpdater.resetFolderQuota(folderName)
 	}
 	return err
