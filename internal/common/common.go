@@ -1203,11 +1203,10 @@ func (conns *ActiveConnections) checkIdles() {
 }
 
 func (conns *ActiveConnections) checkTransfers() {
-	if conns.transfersCheckStatus.Load() {
+	if !conns.transfersCheckStatus.CompareAndSwap(false, true) {
 		logger.Warn(logSender, "", "the previous transfer check is still running, skipping execution")
 		return
 	}
-	conns.transfersCheckStatus.Store(true)
 	defer conns.transfersCheckStatus.Store(false)
 
 	conns.RLock()
