@@ -320,12 +320,14 @@ func (s *httpdServer) downloadFromShare(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 		baseDir := "/"
+		files := share.Paths
 		if info != nil && info.IsDir() {
+			// zip entry names are relative to the shared directory
 			baseDir = share.Paths[0]
-			share.Paths[0] = "/"
+			files = []string{"/"}
 		}
 		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"share-%v.zip\"", share.Name))
-		renderCompressedFiles(w, connection, baseDir, share.Paths, &share)
+		renderCompressedFiles(w, connection, baseDir, files, &share)
 		return
 	}
 	if status, err := downloadFile(w, r, connection, share.Paths[0], info, false, &share); err != nil {
