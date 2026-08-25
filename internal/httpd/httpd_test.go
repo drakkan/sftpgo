@@ -15,6 +15,7 @@
 package httpd_test
 
 import (
+	"archive/zip"
 	"bytes"
 	"crypto/rand"
 	"encoding/base64"
@@ -15306,6 +15307,95 @@ func TestShareUsage(t *testing.T) {
 	assert.NoError(t, err)
 	req.SetBasicAuth(defaultUsername, defaultPassword)
 	executeRequest(req)
+}
+
+func TestShareDirDownloadPreservesPaths(t *testing.T) {
+	u := getTestUser()
+	u.Username = "share_zip_paths_" + xid.New().String()
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	sharedDir := "shared"
+	sharedFileName := "visible.dat"
+	outsideFileName := "outside.dat"
+	err = os.MkdirAll(filepath.Join(user.GetHomeDir(), sharedDir), os.ModePerm)
+	assert.NoError(t, err)
+	err = createTestFile(filepath.Join(user.GetHomeDir(), sharedDir, sharedFileName), 32768)
+	assert.NoError(t, err)
+	err = createTestFile(filepath.Join(user.GetHomeDir(), outsideFileName), 32768)
+	assert.NoError(t, err)
+
+	token, err := getJWTAPIUserTokenFromTestServer(user.Username, defaultPassword)
+	assert.NoError(t, err)
+
+	share := dataprovider.Share{
+		Name:  "test_share_zip_paths",
+		Scope: dataprovider.ShareScopeRead,
+		Paths: []string{"/" + sharedDir},
+	}
+	asJSON, err := json.Marshal(share)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	objectID := rr.Header().Get("X-Object-ID")
+	assert.NotEmpty(t, objectID)
+
+	getZipEntries := func() []string {
+		r, errReq := http.NewRequest(http.MethodGet, sharesPath+"/"+objectID, nil)
+		assert.NoError(t, errReq)
+		resp := executeRequest(r)
+		checkResponseCode(t, http.StatusOK, resp)
+		zipReader, errZip := zip.NewReader(bytes.NewReader(resp.Body.Bytes()), int64(resp.Body.Len()))
+		assert.NoError(t, errZip)
+		var entries []string
+		for _, f := range zipReader.File {
+			entries = append(entries, f.Name)
+		}
+		return entries
+	}
+	listShare := func() []string {
+		r, errReq := http.NewRequest(http.MethodGet, sharesPath+"/"+objectID+"/dirs", nil)
+		assert.NoError(t, errReq)
+		resp := executeRequest(r)
+		checkResponseCode(t, http.StatusOK, resp)
+		var contents []map[string]any
+		err := json.Unmarshal(resp.Body.Bytes(), &contents)
+		assert.NoError(t, err)
+		var names []string
+		for _, c := range contents {
+			names = append(names, c["name"].(string))
+		}
+		return names
+	}
+	// zip entry names are relative to the shared directory
+	assert.Equal(t, []string{"/", sharedFileName}, getZipEntries())
+	// downloading the whole share must not expand the shared paths
+	req, err = http.NewRequest(http.MethodGet, path.Join(userSharesPath, objectID), nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	var savedShare dataprovider.Share
+	err = json.Unmarshal(rr.Body.Bytes(), &savedShare)
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"/" + sharedDir}, savedShare.Paths)
+	// browsing the share still returns the shared directory contents
+	assert.Equal(t, []string{sharedFileName}, listShare())
+	// files outside the shared directory remain unreachable
+	req, err = http.NewRequest(http.MethodGet, sharesPath+"/"+objectID+"/files?path=/"+outsideFileName, nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+	// a new download returns the same archive
+	assert.Equal(t, []string{"/", sharedFileName}, getZipEntries())
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
 }
 
 func TestSharePasswordPolicy(t *testing.T) {

@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -101,16 +102,13 @@ func (s *Share) GetSignature() string {
 }
 
 func (s *Share) getACopy() Share {
-	allowFrom := make([]string, len(s.AllowFrom))
-	copy(allowFrom, s.AllowFrom)
-
 	return Share{
 		ID:          s.ID,
 		ShareID:     s.ShareID,
 		Name:        s.Name,
 		Description: s.Description,
 		Scope:       s.Scope,
-		Paths:       s.Paths,
+		Paths:       slices.Clone(s.Paths),
 		Username:    s.Username,
 		CreatedAt:   s.CreatedAt,
 		UpdatedAt:   s.UpdatedAt,
@@ -119,7 +117,7 @@ func (s *Share) getACopy() Share {
 		Password:    s.Password,
 		MaxTokens:   s.MaxTokens,
 		UsedTokens:  s.UsedTokens,
-		AllowFrom:   allowFrom,
+		AllowFrom:   slices.Clone(s.AllowFrom),
 	}
 }
 
