@@ -35,6 +35,8 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/vfs"
 )
 
+const maxSCPMessageSize = 8192
+
 var (
 	okMsg   = []byte{0x00}
 	warnMsg = []byte{0x01} // must be followed by an optional message and a newline
@@ -635,6 +637,10 @@ func (c *scpCommand) readConfirmationMessage() error {
 			if n > 0 {
 				msg.Write(readed)
 			}
+			if msg.Len() > maxSCPMessageSize {
+				c.connection.channel.Close()
+				return fmt.Errorf("scp error message too long, max size %d bytes", maxSCPMessageSize)
+			}
 		}
 		c.connection.Log(logger.LevelInfo, "scp error message received: %v is error: %v", msg.String(), isError)
 		err = fmt.Errorf("%v", msg.String())
@@ -660,6 +666,10 @@ func (c *scpCommand) readProtocolMessage() (string, error) {
 				break
 			}
 			command.Write(readed)
+			if command.Len() > maxSCPMessageSize {
+				err = fmt.Errorf("scp protocol message too long, max size %d bytes", maxSCPMessageSize)
+				break
+			}
 		}
 	}
 	if err != nil && !errors.Is(err, io.EOF) {
