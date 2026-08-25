@@ -891,6 +891,43 @@ func TestSCPInvalidEndDir(t *testing.T) {
 	assert.EqualError(t, err, "unacceptable end dir command")
 }
 
+func TestSCPMessageSizeLimit(t *testing.T) {
+	stdErrBuf := make([]byte, 65535)
+	connection := &Connection{
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", "", dataprovider.User{
+			BaseUser: sdk.BaseUser{
+				HomeDir: os.TempDir(),
+			},
+		}),
+	}
+	scpCommand := scpCommand{
+		sshCommand: sshCommand{
+			command:    "scp",
+			connection: connection,
+			args:       []string{"-t", "/tmp"},
+		},
+	}
+
+	protocolMsg := bytes.Repeat([]byte("A"), maxSCPMessageSize+1)
+	connection.channel = &MockChannel{
+		Buffer:       bytes.NewBuffer(protocolMsg),
+		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
+	}
+	_, err := scpCommand.readProtocolMessage()
+	assert.ErrorContains(t, err, "scp protocol message too long")
+
+	confirmationMsg := append([]byte{warnMsg[0]}, bytes.Repeat([]byte("A"), maxSCPMessageSize+1)...)
+	connection.channel = &MockChannel{
+		Buffer:       bytes.NewBuffer(confirmationMsg),
+		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
+	}
+	err = scpCommand.readConfirmationMessage()
+	assert.ErrorContains(t, err, "scp error message too long")
+
+	assert.Len(t, common.Connections.GetStats(""), 0)
+	assert.Equal(t, int32(0), common.Connections.GetTotalTransfers())
+}
+
 func TestSCPParseUploadMessage(t *testing.T) {
 	buf := make([]byte, 65535)
 	stdErrBuf := make([]byte, 65535)
