@@ -1728,6 +1728,7 @@ func TestMaxConnections(t *testing.T) {
 		err = client.Quit()
 		assert.NoError(t, err)
 	}
+	waitNoConnections()
 	err = dataprovider.DeleteUser(user.Username, "", "", "")
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
@@ -1757,6 +1758,7 @@ func TestMaxPerHostConnections(t *testing.T) {
 		err = client.Quit()
 		assert.NoError(t, err)
 	}
+	waitNoConnections()
 	err = dataprovider.DeleteUser(user.Username, "", "", "")
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
@@ -1881,6 +1883,7 @@ func TestRateLimiter(t *testing.T) {
 		assert.Contains(t, err.Error(), "banned client IP")
 	}
 
+	waitNoConnections()
 	err = dataprovider.DeleteUser(user.Username, "", "", "")
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
@@ -1947,6 +1950,7 @@ func TestDefender(t *testing.T) {
 		assert.Contains(t, err.Error(), "banned client IP")
 	}
 
+	waitNoConnections()
 	err = dataprovider.DeleteUser(user.Username, "", "", "")
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
