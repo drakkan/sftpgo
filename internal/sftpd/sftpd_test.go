@@ -1266,6 +1266,7 @@ func TestDefender(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
 		2*time.Second, 100*time.Millisecond)
+	waitNoActiveConnections(t)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 
@@ -5301,6 +5302,7 @@ func TestMaxConnections(t *testing.T) {
 	}
 	err = dataprovider.DeleteUser(user.Username, "", "", "")
 	assert.NoError(t, err)
+	waitNoActiveConnections(t)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 
@@ -5335,6 +5337,7 @@ func TestMaxPerHostConnections(t *testing.T) {
 	}
 	err = dataprovider.DeleteUser(user.Username, "", "", "")
 	assert.NoError(t, err)
+	waitNoActiveConnections(t)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 
@@ -5404,6 +5407,7 @@ func TestMaxTransfers(t *testing.T) {
 	}
 	err = dataprovider.DeleteUser(user.Username, "", "", "")
 	assert.NoError(t, err)
+	waitNoActiveConnections(t)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 	assert.Eventually(t, func() bool {
@@ -12697,6 +12701,16 @@ func getTestGroup() dataprovider.Group {
 			Name:        "test_group",
 			Description: "test group description",
 		},
+	}
+}
+
+func waitNoActiveConnections(t *testing.T) {
+	t.Helper()
+	if !assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
+		2*time.Second, 100*time.Millisecond) {
+		for _, st := range common.Connections.GetStats("") {
+			t.Logf("leftover connection: user %q proto %q id %q", st.Username, st.Protocol, st.ConnectionID)
+		}
 	}
 }
 

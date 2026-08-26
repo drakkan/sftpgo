@@ -7916,6 +7916,7 @@ func TestEventRuleIPBlocked(t *testing.T) {
 	assert.NoError(t, err)
 	err = dataprovider.DeleteUser(user.Username, "", "", "")
 	assert.NoError(t, err)
+	waitNoActiveConnections(t)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 
