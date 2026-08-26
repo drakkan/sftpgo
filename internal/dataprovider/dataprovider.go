@@ -2952,13 +2952,10 @@ func validateUserPermissions(permsToCheck map[string][]string) (map[string][]str
 				return permissions, util.NewValidationError(fmt.Sprintf("invalid permission: %q", p))
 			}
 		}
-		cleanedDir := filepath.ToSlash(path.Clean(dir))
-		if cleanedDir != "/" {
-			cleanedDir = strings.TrimSuffix(cleanedDir, "/")
-		}
-		if !path.IsAbs(cleanedDir) {
+		if !path.IsAbs(strings.ReplaceAll(dir, "\\", "/")) {
 			return permissions, util.NewValidationError(fmt.Sprintf("cannot set permissions for non absolute path: %q", dir))
 		}
+		cleanedDir := util.CleanPath(dir)
 		if dir != cleanedDir && cleanedDir == "/" {
 			return permissions, util.NewValidationError(fmt.Sprintf("cannot set permissions for invalid subdirectory: %q is an alias for \"/\"", dir))
 		}
@@ -3039,13 +3036,13 @@ func validateFiltersPatternExtensions(baseFilters *sdk.BaseUserFilters) error {
 	filteredPaths := []string{}
 	var filters []sdk.PatternsFilter
 	for _, f := range baseFilters.FilePatterns {
-		cleanedPath := filepath.ToSlash(path.Clean(f.Path))
-		if !path.IsAbs(cleanedPath) {
+		if !path.IsAbs(strings.ReplaceAll(f.Path, "\\", "/")) {
 			return util.NewI18nError(
 				util.NewValidationError(fmt.Sprintf("invalid path %q for file patterns filter", f.Path)),
 				util.I18nErrorFilePatternPathInvalid,
 			)
 		}
+		cleanedPath := util.CleanPath(f.Path)
 		if slices.Contains(filteredPaths, cleanedPath) {
 			return util.NewI18nError(
 				util.NewValidationError(fmt.Sprintf("duplicate file patterns filter for path %q", f.Path)),
