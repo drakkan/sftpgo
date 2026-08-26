@@ -182,6 +182,33 @@ type FsRealPather interface {
 	RealPath(p string) (string, error)
 }
 
+// EntryCheckFn validates a child entry immediately before a recursive rename
+// carries it to the destination.
+type EntryCheckFn func(source, target string, info os.FileInfo) error
+
+// FsCheckedRenamer is a Fs that can rename a directory by recursing into its
+// entries.
+type FsCheckedRenamer interface {
+	Fs
+	// CanCheckRenamedEntries reports whether this filesystem renames a directory by
+	// recursing into its entries.
+	CanCheckRenamedEntries() bool
+	// RenameChecked renames source to target, calling onEntry for every entry
+	// inside source immediately before that entry is moved.
+	RenameChecked(source, target string, checks int, onEntry EntryCheckFn) (int, int64, error)
+}
+
+// CheckedRenamer returns the filesystem as an FsCheckedRenamer when it renames a
+// directory by recursing into its entries, and nil when the rename is a single
+// operation that carries the whole tree.
+func CheckedRenamer(fs Fs) FsCheckedRenamer {
+	renamer, ok := fs.(FsCheckedRenamer)
+	if !ok || !renamer.CanCheckRenamedEntries() {
+		return nil
+	}
+	return renamer
+}
+
 // FsFileCopier is a Fs that implements the CopyFile method.
 type FsFileCopier interface {
 	Fs
@@ -1105,16 +1132,7 @@ func HasTruncateSupport(fs Fs) bool {
 
 // IsRenameAtomic returns true if renaming a directory is supposed to be atomic
 func IsRenameAtomic(fs Fs) bool {
-	if strings.HasPrefix(fs.Name(), s3fsName) {
-		return false
-	}
-	if strings.HasPrefix(fs.Name(), gcsfsName) {
-		return false
-	}
-	if strings.HasPrefix(fs.Name(), azBlobFsName) {
-		return false
-	}
-	return true
+	return CheckedRenamer(fs) == nil
 }
 
 // HasImplicitAtomicUploads returns true if the fs don't persists partial files on error
@@ -1260,8 +1278,8 @@ func isRootEscapeError(err error) bool {
 }
 
 func doRecursiveRename(fs Fs, source, target string,
-	renameFn func(string, string, os.FileInfo, int, bool) (int, int64, error),
-	recursion int, updateModTime bool,
+	renameFn func(string, string, os.FileInfo, EntryCheckFn, int, bool) (int, int64, error),
+	onEntry EntryCheckFn, recursion int, updateModTime bool,
 ) (int, int64, error) {
 	var numFiles int
 	var filesSize int64
@@ -1286,7 +1304,12 @@ func doRecursiveRename(fs Fs, source, target string,
 		for _, info := range entries {
 			sourceEntry := fs.Join(source, info.Name())
 			targetEntry := fs.Join(target, info.Name())
-			files, size, err := renameFn(sourceEntry, targetEntry, info, recursion, updateModTime)
+			if onEntry != nil {
+				if err := onEntry(sourceEntry, targetEntry, info); err != nil {
+					return numFiles, filesSize, err
+				}
+			}
+			files, size, err := renameFn(sourceEntry, targetEntry, info, onEntry, recursion, updateModTime)
 			if err != nil {
 				if fs.IsNotExist(err) {
 					fsLog(fs, logger.LevelInfo, "skipping rename for %q: %v", sourceEntry, err)

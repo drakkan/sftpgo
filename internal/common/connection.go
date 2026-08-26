@@ -944,7 +944,7 @@ func (c *BaseConnection) renameInternal(virtualSourcePath, virtualTargetPath str
 		}
 	}
 	if srcInfo.IsDir() {
-		if err := c.checkFolderRename(fsSrc, fsDst, fsSourcePath, fsTargetPath, virtualSourcePath, virtualTargetPath, srcInfo); err != nil {
+		if err := c.checkFolderRename(fsSrc, fsDst, fsSourcePath, fsTargetPath, virtualSourcePath, virtualTargetPath); err != nil {
 			return err
 		}
 	}
@@ -955,22 +955,47 @@ func (c *BaseConnection) renameInternal(virtualSourcePath, virtualTargetPath str
 	if checkParentDestination {
 		_ = c.CheckParentDirs(path.Dir(virtualTargetPath))
 	}
+	needsEntryChecks := c.renameNeedsEntryChecks(virtualSourcePath, virtualTargetPath)
+	if needsEntryChecks {
+		if err := c.checkRenameSourceType(fsSrc, fsSourcePath, virtualSourcePath, srcInfo); err != nil {
+			return err
+		}
+	}
+
 	stopKeepAlive := keepConnectionAlive(c, 2*time.Minute)
 	defer stopKeepAlive()
 
-	files, size, err := fsDst.Rename(fsSourcePath, fsTargetPath, checks)
-	if errors.Is(err, vfs.ErrCrossRename) {
-		// The backend cannot rename as a single operation across two
-		// confinement roots: fall back to a non-atomic copy + delete. A symbolic
-		// link in the moved tree is left at the source.
-		files, size, err = vfs.RenameAcrossRoots(fsSrc, fsDst, fsSourcePath, fsTargetPath, srcInfo,
-			checks, c.User.GetUID(), c.User.GetGID())
+	var files int
+	var size int64
+	renamer := vfs.CheckedRenamer(fsDst)
+	if srcInfo.IsDir() && renamer != nil && needsEntryChecks {
+		files, size, err = renamer.RenameChecked(fsSourcePath, fsTargetPath, checks,
+			c.getRenameEntryCheckFn(fsSrc, fsDst))
+	} else {
+		files, size, err = fsDst.Rename(fsSourcePath, fsTargetPath, checks)
+		if errors.Is(err, vfs.ErrCrossRename) {
+			// The backend cannot rename as a single operation across two
+			// confinement roots: fall back to a non-atomic copy + delete. A symbolic
+			// link in the moved tree is left at the source.
+			files, size, err = vfs.RenameAcrossRoots(fsSrc, fsDst, fsSourcePath, fsTargetPath, srcInfo,
+				checks, c.User.GetUID(), c.User.GetGID())
+		}
 	}
 	if err != nil {
-		c.Log(logger.LevelError, "failed to rename %q -> %q: %+v", fsSourcePath, fsTargetPath, err)
+		checkErr, isCheckErr := errors.AsType[*renameCheckError](err)
+		if isCheckErr {
+			c.Log(logger.LevelDebug, "rename %q -> %q denied on an entry, moved files: %d, size: %d, err: %v",
+				fsSourcePath, fsTargetPath, files, size, checkErr.err)
+		} else {
+			c.Log(logger.LevelError, "failed to rename %q -> %q, moved files: %d, size: %d, err: %+v",
+				fsSourcePath, fsTargetPath, files, size, err)
+		}
 		// Best effort quota update.
 		if files > 0 {
 			_ = c.updateQuotaAfterRename(fsDst, virtualSourcePath, virtualTargetPath, fsTargetPath, initialSize, files, size)
+		}
+		if isCheckErr {
+			return checkErr.err
 		}
 		return c.GetFsError(fsSrc, err)
 	}
@@ -1253,50 +1278,90 @@ func (c *BaseConnection) truncateFile(fs vfs.Fs, fsPath, virtualPath string, siz
 	return err
 }
 
-func (c *BaseConnection) checkRecursiveRenameDirPermissions(fsSrc, fsDst vfs.Fs, sourcePath, targetPath,
-	virtualSourcePath, virtualTargetPath string, srcInfo os.FileInfo,
-) error {
-	if !c.User.HasPermissionsInside(virtualSourcePath) &&
-		!c.User.HasPermissionsInside(virtualTargetPath) {
-		if err := c.checkRenamePermissions(fsSrc, fsDst, sourcePath, targetPath, virtualSourcePath,
-			virtualTargetPath, srcInfo); err != nil {
-			c.Log(logger.LevelInfo, "rename %q -> %q is not allowed, virtual destination path: %q, err: %v",
-				sourcePath, targetPath, virtualTargetPath, err)
-			return err
-		}
-		// if all rename permissions are granted we have finished, otherwise we have to walk
-		// because we could have the rename dir permission but not the rename file and the dir to
-		// rename could contain files
-		if c.User.HasPermsRenameAll(path.Dir(virtualSourcePath)) &&
-			c.User.HasPermsRenameAll(path.Dir(virtualTargetPath)) &&
-			!c.User.FilePatternsScopeChanges(virtualSourcePath, virtualTargetPath) {
-			return nil
-		}
+func (c *BaseConnection) renameCrossesEntryRestrictions(virtualSourcePath, virtualTargetPath string) bool {
+	if c.User.HasRenameRestrictionsInside(virtualSourcePath) ||
+		c.User.HasRenameRestrictionsInside(virtualTargetPath) {
+		return true
 	}
+	return c.User.FilePatternsScopeChanges(virtualSourcePath, virtualTargetPath)
+}
 
+func (c *BaseConnection) renameNeedsEntryChecks(virtualSourcePath, virtualTargetPath string) bool {
+	if c.renameCrossesEntryRestrictions(virtualSourcePath, virtualTargetPath) {
+		return true
+	}
+	return !c.User.HasPermsRenameAll(path.Dir(virtualSourcePath)) ||
+		!c.User.HasPermsRenameAll(path.Dir(virtualTargetPath))
+}
+
+func (c *BaseConnection) checkRenameEntryPermissions(fsSrc, fsDst vfs.Fs, sourcePath, targetPath,
+	virtualSourcePath, virtualTargetPath string, info os.FileInfo,
+) error {
+	if err := c.checkRenamePermissions(fsSrc, fsDst, sourcePath, targetPath, virtualSourcePath,
+		virtualTargetPath, info); err != nil {
+		c.Log(logger.LevelInfo, "rename %q -> %q is not allowed, virtual destination path: %q, err: %v",
+			sourcePath, targetPath, virtualTargetPath, err)
+		if c.IsNotExistError(err) {
+			return c.GetPermissionDeniedError()
+		}
+		return err
+	}
+	return nil
+}
+
+func (c *BaseConnection) checkRenameSourceType(fs vfs.Fs, fsSourcePath, virtualSourcePath string,
+	srcInfo os.FileInfo,
+) error {
+	info, err := fs.Lstat(fsSourcePath)
+	if err != nil {
+		return c.GetFsError(fs, err)
+	}
+	if info.IsDir() == srcInfo.IsDir() {
+		return nil
+	}
+	c.Log(logger.LevelDebug, "renaming %q is denied: the path changed type after it was checked, "+
+		"was mode %s, now %s", virtualSourcePath, srcInfo.Mode(), info.Mode())
+	return c.GetPermissionDeniedError()
+}
+
+func (c *BaseConnection) checkRecursiveRenameDirPermissions(fsSrc, fsDst vfs.Fs, sourcePath, targetPath,
+	virtualSourcePath string,
+) error {
+	refuseNonEmpty := !vfs.IsRenameAtomic(fsSrc) && Config.RenameMode == 0
 	return fsSrc.Walk(sourcePath, func(walkedPath string, info os.FileInfo, err error) error {
 		if err != nil {
 			return c.GetFsError(fsSrc, err)
 		}
-		if walkedPath != sourcePath && !vfs.IsRenameAtomic(fsSrc) && Config.RenameMode == 0 {
+		if refuseNonEmpty && walkedPath != sourcePath {
 			c.Log(logger.LevelInfo, "cannot rename non empty directory %q on this filesystem", virtualSourcePath)
 			return c.GetOpUnsupportedError()
 		}
 		dstPath := strings.Replace(walkedPath, sourcePath, targetPath, 1)
-		virtualSrcPath := fsSrc.GetRelativePath(walkedPath)
-		virtualDstPath := fsDst.GetRelativePath(dstPath)
-		if err := c.checkRenamePermissions(fsSrc, fsDst, walkedPath, dstPath, virtualSrcPath, virtualDstPath, info); err != nil {
-			c.Log(logger.LevelInfo, "rename %q -> %q is not allowed, virtual destination path: %q, err: %v",
-				walkedPath, dstPath, virtualDstPath, err)
-			if c.IsNotExistError(err) {
-				// the walk reports the contents of the renamed directory: a hidden
-				// entry inside it must not report the directory itself as missing
-				return c.GetPermissionDeniedError()
-			}
-			return err
+		return c.checkRenameEntryPermissions(fsSrc, fsDst, walkedPath, dstPath,
+			fsSrc.GetRelativePath(walkedPath), fsDst.GetRelativePath(dstPath), info)
+	})
+}
+
+func (c *BaseConnection) getRenameEntryCheckFn(fsSrc, fsDst vfs.Fs) vfs.EntryCheckFn {
+	return func(source, target string, info os.FileInfo) error {
+		if err := c.checkRenameEntryPermissions(fsSrc, fsDst, source, target,
+			fsSrc.GetRelativePath(source), fsDst.GetRelativePath(target), info); err != nil {
+			return &renameCheckError{err: err}
 		}
 		return nil
-	})
+	}
+}
+
+type renameCheckError struct {
+	err error
+}
+
+func (e *renameCheckError) Error() string {
+	return e.err.Error()
+}
+
+func (e *renameCheckError) Unwrap() error {
+	return e.err
 }
 
 func (c *BaseConnection) hasRenamePerms(virtualSourcePath, virtualTargetPath string, fi os.FileInfo) bool {
@@ -1326,7 +1391,7 @@ func (c *BaseConnection) hasRenamePerms(virtualSourcePath, virtualTargetPath str
 }
 
 func (c *BaseConnection) checkFolderRename(fsSrc, fsDst vfs.Fs, fsSourcePath, fsTargetPath, virtualSourcePath,
-	virtualTargetPath string, srcInfo os.FileInfo) error {
+	virtualTargetPath string) error {
 	if util.IsDirOverlapped(virtualSourcePath, virtualTargetPath, true, "/") {
 		c.Log(logger.LevelDebug, "renaming the folder %q->%q is not supported: nested folders",
 			virtualSourcePath, virtualTargetPath)
@@ -1349,8 +1414,19 @@ func (c *BaseConnection) checkFolderRename(fsSrc, fsDst vfs.Fs, fsSourcePath, fs
 			virtualSourcePath, virtualTargetPath)
 		return fmt.Errorf("folder %q has virtual folders inside it: %w", virtualTargetPath, c.GetOpUnsupportedError())
 	}
+	if !c.renameNeedsEntryChecks(virtualSourcePath, virtualTargetPath) {
+		return nil
+	}
+	if vfs.CheckedRenamer(fsDst) == nil {
+		if c.renameCrossesEntryRestrictions(virtualSourcePath, virtualTargetPath) {
+			c.Log(logger.LevelDebug, "renaming the folder %q->%q is denied: per-directory permissions or "+
+				"file pattern filters apply to its entries", virtualSourcePath, virtualTargetPath)
+			return fmt.Errorf("per-directory permissions or file pattern filters apply to the entries of %q: %w",
+				virtualSourcePath, c.GetPermissionDeniedError())
+		}
+	}
 	if err := c.checkRecursiveRenameDirPermissions(fsSrc, fsDst, fsSourcePath, fsTargetPath,
-		virtualSourcePath, virtualTargetPath, srcInfo); err != nil {
+		virtualSourcePath); err != nil {
 		c.Log(logger.LevelDebug, "error checking recursive permissions before renaming %q: %+v", fsSourcePath, err)
 		return err
 	}

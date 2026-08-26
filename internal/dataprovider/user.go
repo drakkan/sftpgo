@@ -923,22 +923,36 @@ func (u *User) HasVirtualFoldersInside(virtualPath string) bool {
 	return false
 }
 
-// HasPermissionsInside returns true if the specified virtualPath has no permissions itself and
-// no subdirs with defined permissions
-func (u *User) HasPermissionsInside(virtualPath string) bool {
+// HasRenameRestrictionsInside returns true if permissions that do not allow
+// renaming both files and directories are defined for the specified virtualPath
+func (u *User) HasRenameRestrictionsInside(virtualPath string) bool {
 	for dir, perms := range u.Permissions {
-		if len(perms) == 1 && perms[0] == PermAny {
+		if permsAllowRenameAll(perms) {
 			continue
 		}
-		if dir == virtualPath {
+		if isPermissionPathInside(dir, virtualPath) {
 			return true
-		} else if len(dir) > len(virtualPath) {
-			if strings.HasPrefix(dir, virtualPath+"/") {
-				return true
-			}
 		}
 	}
 	return false
+}
+
+func isPermissionPathInside(key, virtualPath string) bool {
+	if virtualPath == "/" {
+		return true
+	}
+	prefix := virtualPath + "/"
+	if strings.ContainsAny(key, `[\`) {
+		literal := key[:strings.IndexAny(key, `*?[\`)]
+		return strings.HasPrefix(prefix, literal) || strings.HasPrefix(literal, prefix)
+	}
+	keyDirs := util.GetDirsForVirtualPath(key)
+	dirs := util.GetDirsForVirtualPath(virtualPath)
+	if len(keyDirs) < len(dirs) {
+		return false
+	}
+	match, err := path.Match(keyDirs[len(keyDirs)-len(dirs)], virtualPath)
+	return err == nil && match
 }
 
 // HasPerm returns true if the user has the given permission or any permission
@@ -1001,7 +1015,10 @@ func (u *User) HasPermsDeleteAll(path string) bool {
 // HasPermsRenameAll returns true if the user can rename both files and directories
 // for the given path
 func (u *User) HasPermsRenameAll(path string) bool {
-	perms := u.GetPermissionsForPath(path)
+	return permsAllowRenameAll(u.GetPermissionsForPath(path))
+}
+
+func permsAllowRenameAll(perms []string) bool {
 	canRenameFiles := false
 	canRenameDirs := false
 	for _, permission := range perms {

@@ -9048,6 +9048,85 @@ func TestSplittedDeletePerms(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestRenameDirFilterScope(t *testing.T) {
+	u := getTestUser()
+	u.Filters.FilePatterns = []sdk.PatternsFilter{
+		{
+			Path:           "/alpha",
+			DeniedPatterns: []string{"*.bin"},
+		},
+	}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		err = client.Mkdir("/alpha")
+		assert.NoError(t, err)
+		err = writeSFTPFile(path.Join("/alpha", testFileName), 32, client)
+		assert.NoError(t, err)
+		err = client.Rename("/alpha", "/beta")
+		assert.ErrorIs(t, err, os.ErrPermission)
+		_, err = client.Stat("/beta")
+		assert.ErrorIs(t, err, os.ErrNotExist)
+		_, err = client.Stat(path.Join("/alpha", testFileName))
+		assert.NoError(t, err)
+		err = client.Rename(path.Join("/alpha", testFileName), path.Join("/alpha", testFileName+"_renamed"))
+		assert.NoError(t, err)
+		err = client.Mkdir(testDir)
+		assert.NoError(t, err)
+		err = writeSFTPFile(path.Join(testDir, testFileName), 32, client)
+		assert.NoError(t, err)
+		err = client.Rename(testDir, testDir+"_renamed")
+		assert.NoError(t, err)
+		_, err = client.Stat(path.Join(testDir+"_renamed", testFileName))
+		assert.NoError(t, err)
+	}
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	waitNoActiveConnections(t)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+func TestRenameDirRestrictionInsideTree(t *testing.T) {
+	u := getTestUser()
+	u.Permissions["/source/sub"] = []string{dataprovider.PermListItems, dataprovider.PermDownload}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		err = client.MkdirAll("/source/sub")
+		assert.NoError(t, err)
+		err = client.Rename("/source", "/target")
+		assert.ErrorIs(t, err, os.ErrPermission)
+		_, err = client.Stat("/target")
+		assert.ErrorIs(t, err, os.ErrNotExist)
+		_, err = client.Stat("/source/sub")
+		assert.NoError(t, err)
+	}
+	u.Permissions["/source/sub"] = []string{dataprovider.PermListItems, dataprovider.PermRename}
+	_, _, err = httpdtest.UpdateUser(u, http.StatusOK, "")
+	assert.NoError(t, err)
+
+	conn, client, err = getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		err = client.Rename("/source", "/target")
+		assert.NoError(t, err)
+		_, err = client.Stat("/target/sub")
+		assert.NoError(t, err)
+	}
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	waitNoActiveConnections(t)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestSplittedRenamePerms(t *testing.T) {
 	u := getTestUser()
 	u.Permissions["/"] = []string{dataprovider.PermListItems, dataprovider.PermUpload, dataprovider.PermRenameDirs,

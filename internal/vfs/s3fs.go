@@ -317,6 +317,20 @@ func (fs *S3Fs) Create(name string, flag, checks int) (File, PipeWriter, func(),
 
 // Rename renames (moves) source to target.
 func (fs *S3Fs) Rename(source, target string, checks int) (int, int64, error) {
+	return fs.renameChecked(source, target, checks, nil)
+}
+
+// CanCheckRenamedEntries implements the FsCheckedRenamer interface
+func (*S3Fs) CanCheckRenamedEntries() bool {
+	return true
+}
+
+// RenameChecked implements the FsCheckedRenamer interface
+func (fs *S3Fs) RenameChecked(source, target string, checks int, onEntry EntryCheckFn) (int, int64, error) {
+	return fs.renameChecked(source, target, checks, onEntry)
+}
+
+func (fs *S3Fs) renameChecked(source, target string, checks int, onEntry EntryCheckFn) (int, int64, error) {
 	if source == target {
 		return -1, -1, nil
 	}
@@ -330,7 +344,7 @@ func (fs *S3Fs) Rename(source, target string, checks int) (int, int64, error) {
 	if err != nil {
 		return -1, -1, err
 	}
-	return fs.renameInternal(source, target, fi, 0, checks&CheckUpdateModTime != 0)
+	return fs.renameInternal(source, target, fi, onEntry, 0, checks&CheckUpdateModTime != 0)
 }
 
 // Remove removes the named file or (empty) directory.
@@ -708,8 +722,8 @@ func (fs *S3Fs) copyFileInternal(source, target string, srcInfo os.FileInfo) err
 	return err
 }
 
-func (fs *S3Fs) renameInternal(source, target string, srcInfo os.FileInfo, recursion int,
-	updateModTime bool,
+func (fs *S3Fs) renameInternal(source, target string, srcInfo os.FileInfo,
+	onEntry EntryCheckFn, recursion int, updateModTime bool,
 ) (int, int64, error) {
 	var numFiles int
 	var filesSize int64
@@ -728,7 +742,7 @@ func (fs *S3Fs) renameInternal(source, target string, srcInfo os.FileInfo, recur
 			return numFiles, filesSize, err
 		}
 		if renameMode == 1 {
-			files, size, err := doRecursiveRename(fs, source, target, fs.renameInternal, recursion, updateModTime)
+			files, size, err := doRecursiveRename(fs, source, target, fs.renameInternal, onEntry, recursion, updateModTime)
 			numFiles += files
 			filesSize += size
 			if err != nil {
