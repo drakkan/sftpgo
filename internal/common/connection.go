@@ -974,7 +974,6 @@ func (c *BaseConnection) renameInternal(virtualSourcePath, virtualTargetPath str
 		}
 		return c.GetFsError(fsSrc, err)
 	}
-	vfs.SetPathPermissions(fsDst, fsTargetPath, c.User.GetUID(), c.User.GetGID())
 	elapsed := time.Since(startTime).Nanoseconds() / 1000000
 	_ = c.updateQuotaAfterRename(fsDst, virtualSourcePath, virtualTargetPath, fsTargetPath, initialSize, files, size)
 	logger.CommandLog(renameLogSender, fsSourcePath, fsTargetPath, virtualSourcePath, virtualTargetPath,
