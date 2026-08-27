@@ -3723,6 +3723,171 @@ func TestPreLoginUserCreation(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestPreLoginHookDifferentUsername(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	u1 := getTestUser(usePubKey)
+	u1.Username = defaultUsername + "_1"
+	u1.HomeDir = filepath.Join(homeBasePath, u1.Username)
+	u1.Description = "the account the hook tries to return"
+	user1, _, err := httpdtest.AddUser(u1, http.StatusCreated)
+	assert.NoError(t, err)
+
+	hookUser := u1
+	hookUser.Description = "updated from the hook"
+	hookUser.Permissions = map[string][]string{
+		"/": {dataprovider.PermListItems},
+	}
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	err = os.WriteFile(preLoginPath, getPreLoginScriptContent(hookUser, false), os.ModePerm)
+	assert.NoError(t, err)
+	providerConf.PreLoginHook = preLoginPath
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+	// the hook returns an account different from the login one, the login must fail
+	_, _, err = getSftpClient(u, usePubKey)
+	assert.Error(t, err)
+	// the returned account must be left untouched
+	user1, _, err = httpdtest.GetUserByUsername(user1.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, u1.Description, user1.Description)
+	assert.Equal(t, allPerms, user1.Permissions["/"])
+
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf = config.GetProviderConf()
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+	err = os.Remove(preLoginPath)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user1, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user1.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestPreLoginHookNamingRules(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	u.Username = "PreLogin_NamingRules"
+	u.HomeDir = filepath.Join(homeBasePath, "prelogin_namingrules")
+	// the hook returns the account of the login username with a different spelling
+	hookUser := u
+	hookUser.Username = "preLOGIN_namingRULES"
+	err := dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	providerConf.NamingRules = 7
+	err = os.WriteFile(preLoginPath, getPreLoginScriptContent(hookUser, false), os.ModePerm)
+	assert.NoError(t, err)
+	providerConf.PreLoginHook = preLoginPath
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+
+	storedUsername := dataprovider.ConvertName(u.Username)
+	require.NotEqual(t, u.Username, storedUsername)
+
+	conn, client, err := getSftpClient(u, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		assert.NoError(t, checkBasicSFTP(client))
+	}
+	user, _, err := httpdtest.GetUserByUsername(storedUsername, http.StatusOK)
+	assert.NoError(t, err)
+	userID := user.ID
+	// the account exists now: it has to be updated, not added again
+	conn, client, err = getSftpClient(u, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		assert.NoError(t, checkBasicSFTP(client))
+	}
+	user, _, err = httpdtest.GetUserByUsername(storedUsername, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, userID, user.ID)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf = config.GetProviderConf()
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+	err = os.Remove(preLoginPath)
+	assert.NoError(t, err)
+}
+
+func TestPreLoginHookPartialResponse(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	// a response without the username updates the account of the login username
+	content := []byte("#!/bin/sh\n\necho '{\"description\":\"updated by the hook\"}'\n")
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	err = os.WriteFile(preLoginPath, content, os.ModePerm)
+	assert.NoError(t, err)
+	providerConf.PreLoginHook = preLoginPath
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+
+	conn, client, err := getSftpClient(u, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		assert.NoError(t, checkBasicSFTP(client))
+	}
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, "updated by the hook", user.Description)
+
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf = config.GetProviderConf()
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+	err = os.Remove(preLoginPath)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestPreLoginHookPreserveMFAConfig(t *testing.T) {
 	if runtime.GOOS == osWindows {
 		t.Skip("this test is not available on Windows")

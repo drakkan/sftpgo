@@ -4275,6 +4275,7 @@ func executePreLoginHook(username, loginMethod, ip, protocol string, oidcTokenFi
 		return u, nil
 	}
 
+	loginUser := u.getACopy()
 	userID := u.ID
 	userUsedQuotaSize := u.UsedQuotaSize
 	userUsedQuotaFiles := u.UsedQuotaFiles
@@ -4291,6 +4292,12 @@ func executePreLoginHook(username, loginMethod, ip, protocol string, oidcTokenFi
 	err = json.Unmarshal(out, &u)
 	if err != nil {
 		return u, fmt.Errorf("invalid pre-login hook response %q, error: %v", out, err)
+	}
+	// the response is saved and the login continues with the resulting account, so it
+	// must match the login username. Accounts are stored with the naming rules applied
+	u.Username = config.convertName(u.Username)
+	if u.Username != config.convertName(username) {
+		return loginUser, fmt.Errorf("pre-login hook returned username %q for the login username %q", u.Username, username)
 	}
 	u.ID = userID
 	u.UsedQuotaSize = userUsedQuotaSize
@@ -4628,6 +4635,12 @@ func doPluginAuth(username, password string, pubKey []byte, ip, protocol string,
 	err = json.Unmarshal(out, &user)
 	if err != nil {
 		return user, fmt.Errorf("invalid plugin auth response: %v", err)
+	}
+	// the response is saved and the login continues with the resulting account, so it
+	// must match the login username. Accounts are stored with the naming rules applied
+	user.Username = config.convertName(user.Username)
+	if user.Username != config.convertName(username) {
+		return u, fmt.Errorf("plugin auth returned username %q for the login username %q", user.Username, username)
 	}
 	updateUserFromExtAuthResponse(&user, password, pkey)
 	if u.ID > 0 {
