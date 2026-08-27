@@ -112,16 +112,10 @@ func GenerateTOTPSecret(configName, username string) (string, *otp.Key, []byte, 
 	return "", nil, nil, fmt.Errorf("totp: no configuration %q", configName)
 }
 
-// ValidateTOTPSecret rejects a plain secret weaker than the 20 random bytes we
-// generate (the RFC 6238 recommended size), decoded as base32 without padding,
-// as we issue it.
-//
-// This is a defense-in-depth hygiene check at the enrollment boundary, not a
-// security control. A TOTP secret protects the account owner's own second
-// factor and the owner necessarily knows it, so a deliberately weak secret only
-// weakens that single account and crosses no trust boundary. The check keeps
-// enrollment consistent with the secret the server issues; it does not, and
-// cannot, guarantee secret strength: a low-entropy 20 byte secret still passes.
+// ValidateTOTPSecret rejects a plain secret shorter than the 20 random bytes we
+// generate (the RFC 6238 recommended size), decoded as base32 without padding, as
+// we issue it. The length is all that can be checked here: a low-entropy secret of
+// the required size passes.
 func ValidateTOTPSecret(secret string) error {
 	decoded, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(strings.TrimSpace(secret))
 	if err != nil {

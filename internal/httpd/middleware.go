@@ -391,9 +391,6 @@ func checkNodeToken(tokenAuth *jwt.Signer) func(next http.Handler) http.Handler 
 				sendAPIResponse(w, r, fmt.Errorf("the provided token is not valid"), "", http.StatusUnauthorized)
 				return
 			}
-			// Single-use invalidation of node tokens is a best-effort hygiene measure.
-			// It is not intended to be a security control and is neither documented nor
-			// advertised as such.
 			_ = invalidatedJWTTokens.Add(claims.ID, time.Now().Add(2*time.Minute).UTC())
 
 			c := &jwt.Claims{

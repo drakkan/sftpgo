@@ -1373,7 +1373,10 @@ func moveAcrossRoots(fsSrc, fsDst Fs, source, target string, info os.FileInfo, c
 				}
 			}
 			if finished {
-				// Best effort, setuid, setgid and sticky are dropped as for files.
+				// the mode is restored only now: Mkdir created the destination with the
+				// default permissions so a restrictive source mode could not block the
+				// writes above. A failure leaves those default permissions, setuid, setgid
+				// and sticky are dropped as for files.
 				_ = fsDst.Chmod(target, info.Mode().Perm())
 				// the contents are moved, remove the now-empty source directory
 				lister.Close()
@@ -1399,13 +1402,10 @@ func moveAcrossRoots(fsSrc, fsDst Fs, source, target string, info os.FileInfo, c
 		return numFiles, filesSize, false, err
 	}
 	SetPathPermissions(fsDst, target, uid, gid)
-	// Best effort, like the mtime below.
 	_ = fsDst.Chmod(target, info.Mode().Perm())
 	if checks&CheckUpdateModTime == 0 {
-		// Best effort: a metadata failure must not fail the whole move
-		// (directory mtimes are intentionally not restored, they are rarely
-		// relied upon and would need to be set after their contents to survive
-		// the child writes).
+		// directory mtimes are not restored, they would have to be set after their
+		// contents to survive the child writes
 		if mtime := info.ModTime(); !mtime.IsZero() {
 			_ = fsDst.Chtimes(target, mtime, mtime, false)
 		}
@@ -1472,7 +1472,9 @@ func copyFileAcrossRoots(fsSrc, fsDst Fs, source, target string, replaceTarget b
 		}
 		readCloser.Close()
 		writeCloser.Close()
-		// Best effort removal of a partial copy.
+		// Create succeeded, so target is the partial copy we just wrote: drop it. If the
+		// removal fails too, the partial file is left at the destination and the caller
+		// reports the copy error.
 		_ = fsDst.Remove(target, false)
 		return copyErr
 	}
@@ -1485,7 +1487,6 @@ func copyFileAcrossRoots(fsSrc, fsDst Fs, source, target string, replaceTarget b
 		cancelW()
 	}
 	if closeErr != nil {
-		// Best effort removal of a partial copy.
 		_ = fsDst.Remove(target, false)
 		return closeErr
 	}

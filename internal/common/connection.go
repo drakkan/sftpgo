@@ -990,7 +990,6 @@ func (c *BaseConnection) renameInternal(virtualSourcePath, virtualTargetPath str
 			c.Log(logger.LevelError, "failed to rename %q -> %q, moved files: %d, size: %d, err: %+v",
 				fsSourcePath, fsTargetPath, files, size, err)
 		}
-		// Best effort quota update.
 		if files > 0 {
 			_ = c.updateQuotaAfterRename(fsDst, virtualSourcePath, virtualTargetPath, fsTargetPath, initialSize, files, size)
 		}
@@ -1789,8 +1788,8 @@ func (c *BaseConnection) updateQuotaAfterRename(fs vfs.Fs, virtualSourcePath, vi
 		return nil
 	}
 	if errSrc == nil && errDst == nil && sourceFolder.Name == dstFolder.Name {
-		// Move within the same virtual folder, only overwritten files are to update.
-		// Returning here avoids the racy, best-effort, post-rename stat.
+		// move within the same virtual folder: the moved data stays in the same quota
+		// domain, so only an overwritten file leaves it
 		if initialSize != -1 {
 			dataprovider.UpdateUserFolderQuota(&sourceFolder, &c.User, -1, -initialSize, false)
 		}
@@ -1798,8 +1797,7 @@ func (c *BaseConnection) updateQuotaAfterRename(fs vfs.Fs, virtualSourcePath, vi
 	}
 
 	if filesSize == -1 {
-		// fs.Rename didn't return the affected files/sizes, we need to
-		// calculate them (best effort, may be inaccurate).
+		// fs.Rename didn't return the affected files/sizes, we need to calculate them
 		numFiles = 1
 		if fi, err := fs.Stat(targetPath); err == nil {
 			if fi.Mode().IsDir() {
