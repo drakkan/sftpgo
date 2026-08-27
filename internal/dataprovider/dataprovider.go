@@ -4339,6 +4339,12 @@ func executePreLoginHook(username, loginMethod, ip, protocol string, oidcTokenFi
 	if err != nil {
 		return u, fmt.Errorf("invalid pre-login hook response %q, error: %v", out, err)
 	}
+	// the returned user is saved and the login continues with it, so it must match
+	// the login username. Accounts are stored with the naming rules applied
+	user.Username = config.convertName(user.Username)
+	if user.Username != config.convertName(username) {
+		return u, fmt.Errorf("pre-login hook returned username %q for the login username %q", user.Username, username)
+	}
 	if u.ID > 0 {
 		user.ID = u.ID
 		user.UsedQuotaSize = u.UsedQuotaSize
@@ -4674,6 +4680,12 @@ func doPluginAuth(username, password string, pubKey []byte, ip, protocol string,
 	err = json.Unmarshal(out, &user)
 	if err != nil {
 		return user, fmt.Errorf("invalid plugin auth response: %v", err)
+	}
+	// the returned user is saved and the login continues with it, so it must match
+	// the login username. Accounts are stored with the naming rules applied
+	user.Username = config.convertName(user.Username)
+	if user.Username != config.convertName(username) {
+		return u, fmt.Errorf("plugin auth returned username %q for the login username %q", user.Username, username)
 	}
 	updateUserFromExtAuthResponse(&user, password, pkey)
 	if u.ID > 0 {
