@@ -3729,21 +3729,17 @@ func TestPreLoginHookDifferentUsername(t *testing.T) {
 	}
 	usePubKey := false
 	u := getTestUser(usePubKey)
-	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
-	assert.NoError(t, err)
 	u1 := getTestUser(usePubKey)
 	u1.Username = defaultUsername + "_1"
 	u1.HomeDir = filepath.Join(homeBasePath, u1.Username)
 	u1.Description = "the account the hook tries to return"
-	user1, _, err := httpdtest.AddUser(u1, http.StatusCreated)
-	assert.NoError(t, err)
 
 	hookUser := u1
 	hookUser.Description = "updated from the hook"
 	hookUser.Permissions = map[string][]string{
 		"/": {dataprovider.PermListItems},
 	}
-	err = dataprovider.Close()
+	err := dataprovider.Close()
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
@@ -3752,6 +3748,11 @@ func TestPreLoginHookDifferentUsername(t *testing.T) {
 	assert.NoError(t, err)
 	providerConf.PreLoginHook = preLoginPath
 	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	user1, _, err := httpdtest.AddUser(u1, http.StatusCreated)
 	assert.NoError(t, err)
 	// the hook returns an account different from the login one, the login must fail
 	_, _, err = getSftpClient(u, usePubKey)
@@ -3762,6 +3763,14 @@ func TestPreLoginHookDifferentUsername(t *testing.T) {
 	assert.Equal(t, u1.Description, user1.Description)
 	assert.Equal(t, allPerms, user1.Permissions["/"])
 
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user1, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user1.GetHomeDir())
+	assert.NoError(t, err)
 	err = dataprovider.Close()
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, "")
@@ -3770,14 +3779,6 @@ func TestPreLoginHookDifferentUsername(t *testing.T) {
 	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 	err = os.Remove(preLoginPath)
-	assert.NoError(t, err)
-	_, err = httpdtest.RemoveUser(user, http.StatusOK)
-	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
-	_, err = httpdtest.RemoveUser(user1, http.StatusOK)
-	assert.NoError(t, err)
-	err = os.RemoveAll(user1.GetHomeDir())
 	assert.NoError(t, err)
 }
 
@@ -3848,11 +3849,9 @@ func TestPreLoginHookPartialResponse(t *testing.T) {
 	}
 	usePubKey := false
 	u := getTestUser(usePubKey)
-	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
-	assert.NoError(t, err)
 	// a response without the username updates the account of the login username
 	content := []byte("#!/bin/sh\n\necho '{\"description\":\"updated by the hook\"}'\n")
-	err = dataprovider.Close()
+	err := dataprovider.Close()
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
@@ -3863,6 +3862,8 @@ func TestPreLoginHookPartialResponse(t *testing.T) {
 	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
 	conn, client, err := getSftpClient(u, usePubKey)
 	if assert.NoError(t, err) {
 		defer conn.Close()
@@ -3873,6 +3874,10 @@ func TestPreLoginHookPartialResponse(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "updated by the hook", user.Description)
 
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
 	err = dataprovider.Close()
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, "")
@@ -3881,10 +3886,6 @@ func TestPreLoginHookPartialResponse(t *testing.T) {
 	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 	err = os.Remove(preLoginPath)
-	assert.NoError(t, err)
-	_, err = httpdtest.RemoveUser(user, http.StatusOK)
-	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 
