@@ -1310,6 +1310,8 @@ func doRecursiveRename(fs Fs, source, target string,
 				}
 			}
 			files, size, err := renameFn(sourceEntry, targetEntry, info, onEntry, recursion, updateModTime)
+			numFiles += files
+			filesSize += size
 			if err != nil {
 				if fs.IsNotExist(err) {
 					fsLog(fs, logger.LevelInfo, "skipping rename for %q: %v", sourceEntry, err)
@@ -1317,8 +1319,6 @@ func doRecursiveRename(fs Fs, source, target string,
 				}
 				return numFiles, filesSize, err
 			}
-			numFiles += files
-			filesSize += size
 		}
 		if finished {
 			return numFiles, filesSize, nil
