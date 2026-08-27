@@ -1487,7 +1487,7 @@ func copyFileAcrossRoots(fsSrc, fsDst Fs, source, target string, replaceTarget b
 	if closeErr != nil {
 		// Best effort removal of a partial copy.
 		_ = fsDst.Remove(target, false)
-		return copyErr
+		return closeErr
 	}
 	return nil
 }
