@@ -22,7 +22,7 @@ require (
 	github.com/bmatcuk/doublestar/v4 v4.10.0
 	github.com/cockroachdb/cockroach-go/v2 v2.4.3
 	github.com/coreos/go-oidc/v3 v3.20.0
-	github.com/drakkan/webdav v0.0.0-20260709145212-0af7fe6f3bb2
+	github.com/drakkan/webdav v0.0.0-20260827120142-f3e211091328
 	github.com/eikenb/pipeat v0.0.0-20260709234154-608894928e53
 	github.com/fclairamb/ftpserverlib v0.32.3
 	github.com/go-acme/lego/v4 v4.35.2

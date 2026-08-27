@@ -59,6 +59,7 @@ type BaseTransfer struct {
 	mTime           time.Time
 	transferQuota   dataprovider.TransferQuota
 	metadata        map[string]string
+	finalInfo       fs.FileInfo
 	sync.Mutex
 	errAbort    error
 	ErrTransfer error
@@ -347,6 +348,7 @@ func (t *BaseTransfer) getUploadFileSize() (int64, int, error) {
 	info, err := t.Fs.Stat(t.fsPath)
 	if err == nil {
 		fileSize = info.Size()
+		t.finalInfo = info
 	}
 	if t.ErrTransfer != nil && vfs.IsCryptOsFs(t.Fs) {
 		errDelete := t.Fs.Remove(t.fsPath, false)
@@ -454,6 +456,7 @@ func (t *BaseTransfer) Close() error {
 			t.ErrTransfer)
 	}
 	if t.ErrTransfer != nil {
+		t.finalInfo = nil
 		t.Connection.Log(logger.LevelError, "transfer error: %v, path: %q", t.ErrTransfer, t.fsPath)
 		if err == nil {
 			err = t.ErrTransfer
@@ -524,7 +527,16 @@ func (t *BaseTransfer) updateTimes() {
 		err := t.Fs.Chtimes(t.fsPath, t.aTime, t.mTime, false)
 		t.Connection.Log(logger.LevelDebug, "set times for file %q, atime: %v, mtime: %v, err: %v",
 			t.fsPath, t.aTime, t.mTime, err)
+		if err == nil && t.finalInfo != nil {
+			t.finalInfo = vfs.NewFileInfo(t.finalInfo.Name(), false, t.finalInfo.Size(), t.mTime, true)
+		}
 	}
+}
+
+// GetFinalInfo returns information about the uploaded file, or nil if
+// unavailable
+func (t *BaseTransfer) GetFinalInfo() fs.FileInfo {
+	return t.finalInfo
 }
 
 func (t *BaseTransfer) updateQuota(numFiles int, fileSize int64) bool {

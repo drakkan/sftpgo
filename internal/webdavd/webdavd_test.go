@@ -971,6 +971,74 @@ func TestMtimeHeader(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestUploadETag(t *testing.T) {
+	u := getTestUser()
+	u.Username += "1"
+	localUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	sftpUser := getTestSFTPUser()
+	sftpUser.HomeDir = filepath.Join(homeBasePath, sftpUser.Username)
+	sftpUser.FsConfig.SFTPConfig.Username = localUser.Username
+	sftpUserWithQuota := getTestSFTPUser()
+	sftpUserWithQuota.Username += "_quota"
+	sftpUserWithQuota.HomeDir = filepath.Join(homeBasePath, sftpUserWithQuota.Username)
+	sftpUserWithQuota.FsConfig.SFTPConfig.Username = localUser.Username
+	sftpUserWithQuota.QuotaSize = 6553600
+
+	cryptUserWithQuota := getTestUserWithCryptFs()
+	cryptUserWithQuota.Username += "_quota"
+	cryptUserWithQuota.QuotaSize = 6553600
+
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	testFileSize := int64(65535)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+
+	for _, tc := range []struct {
+		user    dataprovider.User
+		hasETag bool
+	}{
+		{getTestUser(), true},
+		{getTestUserWithCryptFs(), true},
+		{cryptUserWithQuota, true},
+		{sftpUser, false},
+		{sftpUserWithQuota, true},
+	} {
+		user, _, err := httpdtest.AddUser(tc.user, http.StatusCreated)
+		assert.NoError(t, err)
+		etag, err := uploadFileGetETag(testFilePath, testFileName, user.Username, defaultPassword)
+		assert.NoError(t, err, user.Username)
+		if tc.hasETag {
+			assert.NotEmpty(t, etag, user.Username)
+			headETag, err := getETagWithHead(testFileName, user.Username, defaultPassword)
+			assert.NoError(t, err, user.Username)
+			assert.Equal(t, etag, headETag, user.Username)
+			body, err := getPropfindResponse(testFileName, user.Username, defaultPassword)
+			assert.NoError(t, err, user.Username)
+			assert.Contains(t, body, strings.Trim(etag, `"`), user.Username)
+			etag, err = uploadFileGetETag(testFilePath, testFileName, user.Username, defaultPassword,
+				dataprovider.KeyValue{Key: ocMtimeHeader, Value: "1668879480"})
+			assert.NoError(t, err, user.Username)
+			headETag, err = getETagWithHead(testFileName, user.Username, defaultPassword)
+			assert.NoError(t, err, user.Username)
+			assert.Equal(t, etag, headETag, user.Username)
+		} else {
+			assert.Empty(t, etag, user.Username)
+		}
+		_, err = httpdtest.RemoveUser(user, http.StatusOK)
+		assert.NoError(t, err)
+		err = os.RemoveAll(user.GetHomeDir())
+		assert.NoError(t, err)
+	}
+
+	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(localUser.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+}
+
 func TestRenameWithLock(t *testing.T) {
 	u := getTestUser()
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
@@ -3411,6 +3479,72 @@ func uploadFileWithRawClient(localSourcePath string, remoteDestPath string, user
 		return checkFileSize(remoteDestPath, expectedSize, client)
 	}
 	return nil
+}
+
+func uploadFileGetETag(localSourcePath, remoteDestPath, username, password string,
+	headers ...dataprovider.KeyValue,
+) (string, error) {
+	data, err := os.ReadFile(localSourcePath)
+	if err != nil {
+		return "", err
+	}
+	req, err := http.NewRequest(http.MethodPut, fmt.Sprintf("http://%v/%v", webDavServerAddr, remoteDestPath),
+		struct{ io.Reader }{bytes.NewReader(data)})
+	if err != nil {
+		return "", err
+	}
+	req.SetBasicAuth(username, password)
+	for _, kv := range headers {
+		req.Header.Set(kv.Key, kv.Value)
+	}
+	resp, err := httpclient.GetHTTPClient().Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		return "", fmt.Errorf("unexpected status code: %v", resp.StatusCode)
+	}
+	return resp.Header.Get("ETag"), nil
+}
+
+func getETagWithHead(remotePath, username, password string) (string, error) {
+	req, err := http.NewRequest(http.MethodHead, fmt.Sprintf("http://%v/%v", webDavServerAddr, remotePath), nil)
+	if err != nil {
+		return "", err
+	}
+	req.SetBasicAuth(username, password)
+	resp, err := httpclient.GetHTTPClient().Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("unexpected status code: %v", resp.StatusCode)
+	}
+	return resp.Header.Get("ETag"), nil
+}
+
+func getPropfindResponse(remotePath, username, password string) (string, error) {
+	req, err := http.NewRequest("PROPFIND", fmt.Sprintf("http://%v/%v", webDavServerAddr, remotePath), nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Depth", "0")
+	req.SetBasicAuth(username, password)
+	resp, err := httpclient.GetHTTPClient().Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusMultiStatus {
+		return "", fmt.Errorf("unexpected status code: %v", resp.StatusCode)
+	}
+	body, err := io.ReadAll(resp.Body)
+	return string(body), err
 }
 
 // This method is buggy. I have to find time to better investigate and eventually report the issue upstream.

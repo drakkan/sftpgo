@@ -43,12 +43,13 @@ var (
 
 type webDavFile struct {
 	*common.BaseTransfer
-	writer      io.WriteCloser
-	reader      io.ReadCloser
-	info        os.FileInfo
-	startOffset int64
-	isFinished  bool
-	readTried   atomic.Bool
+	writer          io.WriteCloser
+	reader          io.ReadCloser
+	info            os.FileInfo
+	startOffset     int64
+	isFinished      bool
+	readTried       atomic.Bool
+	uploadFinalized atomic.Bool
 }
 
 func newWebDavFile(baseTransfer *common.BaseTransfer, pipeWriter vfs.PipeWriter, pipeReader vfs.PipeReader) *webDavFile {
@@ -133,6 +134,9 @@ func (f *webDavFile) Stat() (os.FileInfo, error) {
 	if f.GetType() == common.TransferDownload && !f.Connection.User.HasPerm(dataprovider.PermListItems, path.Dir(f.GetVirtualPath())) {
 		return nil, f.Connection.GetPermissionDeniedError()
 	}
+	if f.uploadFinalized.Load() {
+		return f.statUploadedFile()
+	}
 	f.Lock()
 	errUpload := f.ErrTransfer
 	f.Unlock()
@@ -159,6 +163,29 @@ func (f *webDavFile) Stat() (os.FileInfo, error) {
 		fsPath:      f.GetFsPath(),
 	}
 	return fi, nil
+}
+
+func (f *webDavFile) statUploadedFile() (os.FileInfo, error) {
+	info := f.GetFinalInfo()
+	if info == nil {
+		if !vfs.IsLocalOrCryptoFs(f.Fs) {
+			return nil, errors.New("no info available for the uploaded file")
+		}
+		var err error
+		info, err = f.Fs.Stat(f.GetFsPath())
+		if err != nil {
+			return nil, f.Connection.GetFsError(f.Fs, err)
+		}
+	}
+	if vfs.IsCryptOsFs(f.Fs) {
+		info = f.Fs.(*vfs.CryptFs).ConvertFileInfo(info)
+	}
+	return &webDavFileInfo{
+		FileInfo:    info,
+		Fs:          f.Fs,
+		virtualPath: f.GetVirtualPath(),
+		fsPath:      f.GetFsPath(),
+	}, nil
 }
 
 func (f *webDavFile) checkFirstRead() error {
@@ -385,6 +412,9 @@ func (f *webDavFile) Close() error {
 		}
 	} else {
 		f.Connection.RemoveTransfer(f.BaseTransfer)
+	}
+	if err == nil && f.GetType() == common.TransferUpload {
+		f.uploadFinalized.Store(true)
 	}
 	return f.Connection.GetFsError(f.Fs, err)
 }
