@@ -106,8 +106,8 @@ Please take a look at the usage below to customize the options.`,
 				service := service.Service{
 					LoadDataFrom:      loadDataFrom,
 					LoadDataMode:      loadDataMode,
-					LoadDataQuotaScan: loadDataQuotaScan,
 					LoadDataClean:     loadDataClean,
+					LoadDataQuotaScan: 0,
 				}
 				if err = service.LoadInitialData(); err != nil {
 					logger.ErrorToConsole("Cannot load initial data: %v", err)

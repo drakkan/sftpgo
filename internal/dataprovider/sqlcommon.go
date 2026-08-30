@@ -572,9 +572,8 @@ func sqlCommonDumpIPListEntries(dbHandle *sql.DB) ([]IPListEntry, error) {
 	if err != nil {
 		return nil, err
 	}
-	if count > ipListMemoryLimit {
-		providerLog(logger.LevelInfo, "IP lists excluded from dump, too many entries: %d", count)
-		return nil, nil
+	if count > ipListDumpLimit {
+		return nil, errTooManyIPListEntries(count)
 	}
 	entries := make([]IPListEntry, 0, 100)
 	ctx, cancel := context.WithTimeout(context.Background(), longSQLQueryTimeout)

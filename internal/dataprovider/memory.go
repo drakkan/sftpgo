@@ -2713,9 +2713,8 @@ func (p *MemoryProvider) dumpIPListEntries() ([]IPListEntry, error) {
 	if p.dbHandle.isClosed {
 		return nil, errMemoryProviderClosed
 	}
-	if count := len(p.dbHandle.ipListEntriesKeys); count > ipListMemoryLimit {
-		providerLog(logger.LevelInfo, "IP lists excluded from dump, too many entries: %d", count)
-		return nil, nil
+	if count := len(p.dbHandle.ipListEntriesKeys); count > ipListDumpLimit {
+		return nil, errTooManyIPListEntries(int64(count))
 	}
 	entries := make([]IPListEntry, 0, len(p.dbHandle.ipListEntries))
 	for _, k := range p.dbHandle.ipListEntriesKeys {

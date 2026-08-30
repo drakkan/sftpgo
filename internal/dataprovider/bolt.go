@@ -2886,9 +2886,8 @@ func (p *BoltProvider) dumpIPListEntries() ([]IPListEntry, error) {
 		if err != nil {
 			return err
 		}
-		if count := bucket.Stats().KeyN; count > ipListMemoryLimit {
-			providerLog(logger.LevelInfo, "IP lists excluded from dump, too many entries: %d", count)
-			return nil
+		if count := bucket.Stats().KeyN; count > ipListDumpLimit {
+			return errTooManyIPListEntries(int64(count))
 		}
 		cursor := bucket.Cursor()
 		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {

@@ -36,11 +36,20 @@ const (
 	// if the list contains more elements than this limit a
 	// database query will be executed
 	ipListMemoryLimit = 15000
+	// maximum number of entries a dump can carry. The check is on the total
+	// across the four supported lists, each of which can match in memory up to
+	// ipListMemoryLimit entries
+	ipListDumpLimit = ipListMemoryLimit * 4
 )
 
 var (
 	inMemoryLists map[IPListType]*IPList
 )
+
+func errTooManyIPListEntries(count int64) error {
+	return fmt.Errorf("unable to dump the IP lists, entries: %d, limit: %d. Request the other scopes to obtain "+
+		"a dump without them", count, ipListDumpLimit)
+}
 
 func init() {
 	inMemoryLists = map[IPListType]*IPList{}
