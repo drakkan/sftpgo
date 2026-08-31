@@ -1260,14 +1260,15 @@ func fileServer(r chi.Router, path string, root http.FileSystem, disableDirector
 		path += "/"
 	}
 	path += "*"
+	if disableDirectoryIndex {
+		root = neuteredFileSystem{root}
+	}
+	handler := http.FileServer(root)
 
 	r.Get(path, func(w http.ResponseWriter, r *http.Request) {
 		rctx := chi.RouteContext(r.Context())
 		pathPrefix := strings.TrimSuffix(rctx.RoutePattern(), "/*")
-		if disableDirectoryIndex {
-			root = neuteredFileSystem{root}
-		}
-		fs := http.StripPrefix(pathPrefix, http.FileServer(root))
+		fs := http.StripPrefix(pathPrefix, handler)
 		fs.ServeHTTP(w, r)
 	})
 }
@@ -1451,16 +1452,19 @@ func (nfs neuteredFileSystem) Open(name string) (http.File, error) {
 
 	s, err := f.Stat()
 	if err != nil {
+		f.Close()
+
 		return nil, err
 	}
 
 	if s.IsDir() {
-		index := path.Join(name, "index.html")
-		if _, err := nfs.fs.Open(index); err != nil {
-			defer f.Close()
+		index, err := nfs.fs.Open(path.Join(name, "index.html"))
+		if err != nil {
+			f.Close()
 
 			return nil, err
 		}
+		index.Close()
 	}
 
 	return f, nil
