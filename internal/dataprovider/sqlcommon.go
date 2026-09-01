@@ -425,7 +425,7 @@ func sqlCommonGetAdminByUsername(username string, dbHandle sqlQuerier) (Admin, e
 func sqlCommonValidateAdminAndPass(username, password, ip string, dbHandle *sql.DB) (Admin, error) {
 	admin, err := sqlCommonGetAdminByUsername(username, dbHandle)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error authenticating admin %q: %v", username, err)
+		providerLog(logger.LevelWarn, "error authenticating admin %q from IP %q: %v", username, ip, err)
 		return admin, err
 	}
 	err = admin.checkUserAndPass(password, ip)
@@ -1180,33 +1180,33 @@ func sqlCommonGetUserByUsername(username, role string, dbHandle sqlQuerier) (Use
 func sqlCommonValidateUserAndPass(username, password, ip, protocol string, dbHandle *sql.DB) (User, error) {
 	user, err := sqlCommonGetUserByUsername(username, "", dbHandle)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error authenticating user %q: %v", username, err)
+		providerLog(logger.LevelWarn, "error authenticating user %q from IP %q: %v", username, ip, err)
 		return user, err
 	}
 	return checkUserAndPass(&user, password, ip, protocol)
 }
 
-func sqlCommonValidateUserAndTLSCertificate(username, protocol string, tlsCert *x509.Certificate, dbHandle *sql.DB) (User, error) {
+func sqlCommonValidateUserAndTLSCertificate(username, ip, protocol string, tlsCert *x509.Certificate, dbHandle *sql.DB) (User, error) {
 	var user User
 	if tlsCert == nil {
 		return user, errors.New("TLS certificate cannot be null or empty")
 	}
 	user, err := sqlCommonGetUserByUsername(username, "", dbHandle)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error authenticating user %q: %v", username, err)
+		providerLog(logger.LevelWarn, "error authenticating user %q from IP %q: %v", username, ip, err)
 		return user, err
 	}
 	return checkUserAndTLSCertificate(&user, protocol, tlsCert)
 }
 
-func sqlCommonValidateUserAndPubKey(username string, pubKey []byte, isSSHCert bool, dbHandle *sql.DB) (User, string, error) {
+func sqlCommonValidateUserAndPubKey(username string, pubKey []byte, ip string, isSSHCert bool, dbHandle *sql.DB) (User, string, error) {
 	var user User
 	if len(pubKey) == 0 {
 		return user, "", errors.New("credentials cannot be null or empty")
 	}
 	user, err := sqlCommonGetUserByUsername(username, "", dbHandle)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error authenticating user %q: %v", username, err)
+		providerLog(logger.LevelWarn, "error authenticating user %q from IP %q: %v", username, ip, err)
 		return user, "", err
 	}
 	return checkUserAndPubKey(&user, pubKey, isSSHCert)
