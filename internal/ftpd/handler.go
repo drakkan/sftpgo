@@ -488,7 +488,11 @@ func (c *Connection) handleFTPUploadToExistingFile(fs vfs.Fs, flags int, resolve
 		return nil, ftpserver.ErrFileNameNotAllowed
 	}
 
-	if common.Config.IsAtomicUploadEnabled() && fs.IsAtomicUploadSupported() {
+	// only a resume needs the existing file moved to the temp path (the upload
+	// continues on its bytes). A plain overwrite must upload into a fresh file record:
+	// renaming the target aside and writing into it propagates the write through every
+	// NTFS hardlink of that record (shared game-content store).
+	if isResume && common.Config.IsAtomicUploadEnabled() && fs.IsAtomicUploadSupported() {
 		_, _, err = fs.Rename(resolvedPath, filePath, 0)
 		if err != nil {
 			c.Log(logger.LevelError, "error renaming existing file for atomic upload, source: %q, dest: %q, err: %+v",
