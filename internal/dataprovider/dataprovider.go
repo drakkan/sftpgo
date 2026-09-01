@@ -770,8 +770,8 @@ func HasUsersBaseDir() bool {
 // Provider defines the interface that data providers must implement.
 type Provider interface {
 	validateUserAndPass(username, password, ip, protocol string) (User, error)
-	validateUserAndPubKey(username string, pubKey []byte, isSSHCert bool) (User, string, error)
-	validateUserAndTLSCert(username, protocol string, tlsCert *x509.Certificate) (User, error)
+	validateUserAndPubKey(username string, pubKey []byte, ip string, isSSHCert bool) (User, string, error)
+	validateUserAndTLSCert(username, ip, protocol string, tlsCert *x509.Certificate) (User, error)
 	updateQuota(username string, filesAdd int, sizeAdd int64, reset bool) error
 	updateTransferQuota(username string, uploadSize, downloadSize int64, reset bool) error
 	getUsedQuota(username string) (int, int64, int64, int64, error)
@@ -1316,7 +1316,7 @@ func CheckUserAndTLSCert(username, ip, protocol string, tlsCert *x509.Certificat
 		}
 		return checkUserAndTLSCertificate(&user, protocol, tlsCert)
 	}
-	return provider.validateUserAndTLSCert(username, protocol, tlsCert)
+	return provider.validateUserAndTLSCert(username, ip, protocol, tlsCert)
 }
 
 // CheckUserAndPass retrieves the SFTPGo user with the given username and password if a match is found or an error
@@ -1370,7 +1370,7 @@ func CheckUserAndPubKey(username string, pubKey []byte, ip, protocol string, isS
 		}
 		return checkUserAndPubKey(&user, pubKey, isSSHCert)
 	}
-	return provider.validateUserAndPubKey(username, pubKey, isSSHCert)
+	return provider.validateUserAndPubKey(username, pubKey, ip, isSSHCert)
 }
 
 // CheckKeyboardInteractiveAuth checks the keyboard interactive authentication and returns
