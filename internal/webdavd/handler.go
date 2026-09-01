@@ -272,15 +272,7 @@ func (c *Connection) handleUploadToExistingFile(fs vfs.Fs, resolvedPath, filePat
 	// will return false in this case and we deny the upload before
 	maxWriteSize, _ := c.GetMaxWriteSize(diskQuota, false, fileSize, fs.IsUploadResumeSupported())
 
-	if common.Config.IsAtomicUploadEnabled() && fs.IsAtomicUploadSupported() {
-		_, _, err = fs.Rename(resolvedPath, filePath, 0)
-		if err != nil {
-			c.Log(logger.LevelError, "error renaming existing file for atomic upload, source: %q, dest: %q, err: %+v",
-				resolvedPath, filePath, err)
-			return nil, c.GetFsError(fs, err)
-		}
-	}
-
+	// overwrites go to a new file so other hard links to the target are left untouched
 	file, w, cancelFn, err := fs.Create(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, c.GetCreateChecks(requestPath, false, false))
 	if err != nil {
 		c.Log(logger.LevelError, "error creating file %q: %+v", resolvedPath, err)
