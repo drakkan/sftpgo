@@ -476,9 +476,16 @@ func (c *Connection) handleFTPUploadToExistingFile(fs vfs.Fs, flags int, resolve
 	// - os.O_WRONLY | os.O_CREATE | os.O_TRUNC if the command is not APPE and REST = 0
 	// so if we don't have O_TRUNC is a resume.
 	isResume := flags&os.O_TRUNC == 0
+	// A resumed upload continues on the existing file via the rename-aside path and thus
+	// reuses the target's file record, writing through any hard link of it. In atomic
+	// mode without resume support there is no safe way to do this, so reject the resume.
+	uploadResumeSupported := vfs.IsUploadResumeSupported(fs, fileSize)
+	if common.Config.IsAtomicUploadEnabled() && common.Config.UploadMode&common.UploadModeAtomicWithResume == 0 {
+		uploadResumeSupported = false
+	}
 	// if there is a size limit remaining size cannot be 0 here, since quotaResult.HasSpace
 	// will return false in this case and we deny the upload before
-	maxWriteSize, err := c.GetMaxWriteSize(diskQuota, isResume, fileSize, vfs.IsUploadResumeSupported(fs, fileSize))
+	maxWriteSize, err := c.GetMaxWriteSize(diskQuota, isResume, fileSize, uploadResumeSupported)
 	if err != nil {
 		c.Log(logger.LevelDebug, "unable to get max write size: %v", err)
 		return nil, err
