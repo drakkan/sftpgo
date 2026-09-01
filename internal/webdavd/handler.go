@@ -272,14 +272,9 @@ func (c *Connection) handleUploadToExistingFile(fs vfs.Fs, resolvedPath, filePat
 	// will return false in this case and we deny the upload before
 	maxWriteSize, _ := c.GetMaxWriteSize(diskQuota, false, fileSize, fs.IsUploadResumeSupported())
 
-	if common.Config.IsAtomicUploadEnabled() && fs.IsAtomicUploadSupported() {
-		_, _, err = fs.Rename(resolvedPath, filePath, 0)
-		if err != nil {
-			c.Log(logger.LevelError, "error renaming existing file for atomic upload, source: %q, dest: %q, err: %+v",
-				resolvedPath, filePath, err)
-			return nil, c.GetFsError(fs, err)
-		}
-	}
+	// WebDAV overwrites are always full uploads — upload into a fresh file record
+	// instead of renaming the target aside, so NTFS hardlinks of the target (shared
+	// game-content store) are never written through.
 
 	file, w, cancelFn, err := fs.Create(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, c.GetCreateChecks(requestPath, false, false))
 	if err != nil {
