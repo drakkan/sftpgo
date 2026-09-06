@@ -402,8 +402,8 @@ func (p *PGSQLProvider) addUser(user *User) error {
 	return p.normalizeError(sqlCommonAddUser(user, p.dbHandle), fieldUsername)
 }
 
-func (p *PGSQLProvider) updateUser(user *User) error {
-	return p.normalizeError(sqlCommonUpdateUser(user, p.dbHandle), -1)
+func (p *PGSQLProvider) updateUser(user *User, expectedUpdatedAt int64) error {
+	return p.normalizeError(sqlCommonUpdateUser(user, expectedUpdatedAt, p.dbHandle), -1)
 }
 
 func (p *PGSQLProvider) deleteUser(user User, softDelete bool) error {
@@ -504,8 +504,8 @@ func (p *PGSQLProvider) addAdmin(admin *Admin) error {
 	return p.normalizeError(sqlCommonAddAdmin(admin, p.dbHandle), fieldUsername)
 }
 
-func (p *PGSQLProvider) updateAdmin(admin *Admin) error {
-	return p.normalizeError(sqlCommonUpdateAdmin(admin, p.dbHandle), -1)
+func (p *PGSQLProvider) updateAdmin(admin *Admin, expectedUpdatedAt int64) error {
+	return p.normalizeError(sqlCommonUpdateAdmin(admin, expectedUpdatedAt, p.dbHandle), -1)
 }
 
 func (p *PGSQLProvider) deleteAdmin(admin Admin) error {

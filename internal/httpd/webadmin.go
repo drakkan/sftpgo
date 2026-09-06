@@ -3169,7 +3169,10 @@ func (s *httpdServer) handleWebUpdateAdminPost(w http.ResponseWriter, r *http.Re
 		s.renderAddUpdateAdminPage(w, r, &updatedAdmin, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken), false)
 		return
 	}
+	executor := claims.Username
 	if username == claims.Username {
+		executor = dataprovider.ActionExecutorSelf
+		updatedAdmin.UpdatedAt = admin.UpdatedAt
 		if !util.SlicesEqual(admin.Permissions, updatedAdmin.Permissions) {
 			s.renderAddUpdateAdminPage(w, r, &updatedAdmin,
 				util.NewI18nError(errors.New("you cannot change your permissions"),
@@ -3195,7 +3198,7 @@ func (s *httpdServer) handleWebUpdateAdminPost(w http.ResponseWriter, r *http.Re
 		updatedAdmin.Filters.RequirePasswordChange = admin.Filters.RequirePasswordChange
 		updatedAdmin.Filters.RequireTwoFactor = admin.Filters.RequireTwoFactor
 	}
-	err = dataprovider.UpdateAdmin(&updatedAdmin, claims.Username, ipAddr, claims.Role)
+	err = dataprovider.UpdateAdmin(&updatedAdmin, executor, ipAddr, claims.Role)
 	if err != nil {
 		s.renderAddUpdateAdminPage(w, r, &updatedAdmin, err, false)
 		return

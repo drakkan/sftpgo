@@ -404,7 +404,7 @@ func (p *MemoryProvider) addUser(user *User) error {
 	return nil
 }
 
-func (p *MemoryProvider) updateUser(user *User) error {
+func (p *MemoryProvider) updateUser(user *User, expectedUpdatedAt int64) error {
 	err := ValidateUser(user)
 	if err != nil {
 		return err
@@ -419,6 +419,9 @@ func (p *MemoryProvider) updateUser(user *User) error {
 	u, err := p.userExistsInternal(user.Username)
 	if err != nil {
 		return err
+	}
+	if expectedUpdatedAt >= 0 && u.UpdatedAt != expectedUpdatedAt {
+		return ErrConcurrentUpdate
 	}
 	p.removeUserFromRole(u.Username, u.Role)
 	if err := p.addUserToRole(user.Username, user.Role); err != nil {
@@ -468,7 +471,7 @@ func (p *MemoryProvider) updateUser(user *User) error {
 	user.FirstDownload = u.FirstDownload
 	user.FirstUpload = u.FirstUpload
 	user.CreatedAt = u.CreatedAt
-	user.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+	user.UpdatedAt = nextUpdatedAt(u.UpdatedAt)
 	user.ID = u.ID
 	// pre-login and external auth hook will use the passed *user so save a copy
 	p.dbHandle.users[user.Username] = user.getACopy()
@@ -775,7 +778,7 @@ func (p *MemoryProvider) addAdmin(admin *Admin) error {
 	return nil
 }
 
-func (p *MemoryProvider) updateAdmin(admin *Admin) error {
+func (p *MemoryProvider) updateAdmin(admin *Admin, expectedUpdatedAt int64) error {
 	p.dbHandle.Lock()
 	defer p.dbHandle.Unlock()
 	if p.dbHandle.isClosed {
@@ -788,6 +791,9 @@ func (p *MemoryProvider) updateAdmin(admin *Admin) error {
 	a, err := p.adminExistsInternal(admin.Username)
 	if err != nil {
 		return err
+	}
+	if expectedUpdatedAt >= 0 && a.UpdatedAt != expectedUpdatedAt {
+		return ErrConcurrentUpdate
 	}
 	p.removeAdminFromRole(a.Username, a.Role)
 	if err := p.addAdminToRole(admin.Username, admin.Role); err != nil {
@@ -816,7 +822,7 @@ func (p *MemoryProvider) updateAdmin(admin *Admin) error {
 	admin.ID = a.ID
 	admin.CreatedAt = a.CreatedAt
 	admin.LastLogin = a.LastLogin
-	admin.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+	admin.UpdatedAt = nextUpdatedAt(a.UpdatedAt)
 	p.dbHandle.admins[admin.Username] = admin.getACopy()
 	return nil
 }

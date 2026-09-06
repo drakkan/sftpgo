@@ -454,7 +454,8 @@ func sqlCommonAddAdmin(admin *Admin, dbHandle *sql.DB) error {
 	})
 }
 
-func sqlCommonUpdateAdmin(admin *Admin, dbHandle *sql.DB) error {
+func sqlCommonUpdateAdmin(admin *Admin, expectedUpdatedAt int64, dbHandle *sql.DB) error {
+	readUpdatedAt := admin.UpdatedAt
 	err := admin.validate()
 	if err != nil {
 		return err
@@ -474,13 +475,25 @@ func sqlCommonUpdateAdmin(admin *Admin, dbHandle *sql.DB) error {
 	defer cancel()
 
 	return sqlCommonExecuteTx(ctx, dbHandle, func(tx *sql.Tx) error {
-		q := getUpdateAdminQuery(admin.Role)
-		_, err = tx.ExecContext(ctx, q, admin.Password, admin.Status, admin.Email, perms, filters,
-			admin.AdditionalInfo, admin.Description, util.GetTimeAsMsSinceEpoch(time.Now()), admin.Role, admin.Username)
+		q := getUpdateAdminQuery(admin.Role, expectedUpdatedAt >= 0)
+		now := util.GetTimeAsMsSinceEpoch(time.Now())
+		args := []any{admin.Password, admin.Status, admin.Email, perms, filters,
+			admin.AdditionalInfo, admin.Description, now, now, admin.Role, admin.Username}
+		if expectedUpdatedAt >= 0 {
+			args = append(args, expectedUpdatedAt)
+		}
+		res, err := tx.ExecContext(ctx, q, args...)
 		if err != nil {
 			return err
 		}
-		return generateAdminGroupMapping(ctx, admin, tx)
+		if err := sqlCommonRequireGuardedRowAffected(res, expectedUpdatedAt); err != nil {
+			return err
+		}
+		if err := generateAdminGroupMapping(ctx, admin, tx); err != nil {
+			return err
+		}
+		admin.UpdatedAt = max(now, readUpdatedAt+1)
+		return nil
 	})
 }
 
@@ -1460,7 +1473,8 @@ func sqlCommonUpdateUserPassword(username, password string, dbHandle *sql.DB) er
 	return sqlCommonRequireRowAffected(res)
 }
 
-func sqlCommonUpdateUser(user *User, dbHandle *sql.DB) error {
+func sqlCommonUpdateUser(user *User, expectedUpdatedAt int64, dbHandle *sql.DB) error {
+	readUpdatedAt := user.UpdatedAt
 	err := ValidateUser(user)
 	if err != nil {
 		return err
@@ -1486,22 +1500,31 @@ func sqlCommonUpdateUser(user *User, dbHandle *sql.DB) error {
 	defer cancel()
 
 	return sqlCommonExecuteTx(ctx, dbHandle, func(tx *sql.Tx) error {
-		q := getUpdateUserQuery(user.Role)
-		res, err := tx.ExecContext(ctx, q, user.Password, publicKeys, user.HomeDir, user.UID, user.GID, user.MaxSessions,
+		q := getUpdateUserQuery(user.Role, expectedUpdatedAt >= 0)
+		now := util.GetTimeAsMsSinceEpoch(time.Now())
+		args := []any{user.Password, publicKeys, user.HomeDir, user.UID, user.GID, user.MaxSessions,
 			user.QuotaSize, user.QuotaFiles, permissions, user.UploadBandwidth, user.DownloadBandwidth, user.Status,
 			user.ExpirationDate, filters, fsConfig, user.AdditionalInfo, user.Description, user.Email,
-			util.GetTimeAsMsSinceEpoch(time.Now()), user.UploadDataTransfer, user.DownloadDataTransfer, user.TotalDataTransfer,
-			user.Role, user.LastPasswordChange, user.Username)
+			now, now, user.UploadDataTransfer, user.DownloadDataTransfer, user.TotalDataTransfer,
+			user.Role, user.LastPasswordChange, user.Username}
+		if expectedUpdatedAt >= 0 {
+			args = append(args, expectedUpdatedAt)
+		}
+		res, err := tx.ExecContext(ctx, q, args...)
 		if err != nil {
 			return err
 		}
-		if err := sqlCommonRequireRowAffected(res); err != nil {
+		if err := sqlCommonRequireGuardedRowAffected(res, expectedUpdatedAt); err != nil {
 			return err
 		}
 		if err := generateUserVirtualFoldersMapping(ctx, user, tx); err != nil {
 			return err
 		}
-		return generateUserGroupMapping(ctx, user, tx)
+		if err := generateUserGroupMapping(ctx, user, tx); err != nil {
+			return err
+		}
+		user.UpdatedAt = max(now, readUpdatedAt+1)
+		return nil
 	})
 }
 
@@ -3973,6 +3996,14 @@ func sqlCommonRequireRowAffected(res sql.Result) error {
 		return util.NewRecordNotFoundError(sql.ErrNoRows.Error())
 	}
 	return nil
+}
+
+func sqlCommonRequireGuardedRowAffected(res sql.Result, expectedUpdatedAt int64) error {
+	err := sqlCommonRequireRowAffected(res)
+	if err != nil && expectedUpdatedAt >= 0 {
+		return ErrConcurrentUpdate
+	}
+	return err
 }
 
 func sqlCommonUpdateDatabaseVersion(ctx context.Context, dbHandle sqlQuerier, version int) error {

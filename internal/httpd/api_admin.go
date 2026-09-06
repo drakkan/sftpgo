@@ -115,7 +115,11 @@ func disableAdmin2FA(w http.ResponseWriter, r *http.Request) {
 	admin.Filters.TOTPConfig = dataprovider.AdminTOTPConfig{
 		Enabled: false,
 	}
-	if err := dataprovider.UpdateAdmin(&admin, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role); err != nil {
+	executor := claims.Username
+	if admin.Username == claims.Username {
+		executor = dataprovider.ActionExecutorSelf
+	}
+	if err := dataprovider.UpdateAdmin(&admin, executor, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role); err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
@@ -143,7 +147,10 @@ func updateAdmin(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
 	}
+	executor := claims.Username
 	if username == claims.Username {
+		executor = dataprovider.ActionExecutorSelf
+		updatedAdmin.UpdatedAt = admin.UpdatedAt
 		if claims.APIKeyID != "" {
 			sendAPIResponse(w, r, errors.New("updating the admin impersonated with an API key is not allowed"), "",
 				http.StatusBadRequest)
@@ -171,7 +178,7 @@ func updateAdmin(w http.ResponseWriter, r *http.Request) {
 	}
 	updatedAdmin.Filters.TOTPConfig = admin.Filters.TOTPConfig
 	updatedAdmin.Filters.RecoveryCodes = admin.Filters.RecoveryCodes
-	err = dataprovider.UpdateAdmin(&updatedAdmin, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
+	err = dataprovider.UpdateAdmin(&updatedAdmin, executor, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return

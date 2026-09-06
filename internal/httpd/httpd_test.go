@@ -29317,3 +29317,66 @@ func TestDirContentsAcrossBatches(t *testing.T) {
 	require.Len(t, existing, 1)
 	assert.Equal(t, "file1000.txt", existing[0]["name"])
 }
+
+func TestSelfUpdateRefusesStaleSnapshot(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	snapshot, err := dataprovider.UserExists(user.Username, "")
+	assert.NoError(t, err)
+	restricted, err := dataprovider.UserExists(user.Username, "")
+	assert.NoError(t, err)
+	restricted.Status = 0
+	_, _, err = httpdtest.UpdateUser(restricted, http.StatusOK, "")
+	assert.NoError(t, err)
+	// the user saves the snapshot read before the administrator change
+	snapshot.Description = "changed by the user"
+	err = dataprovider.UpdateUser(&snapshot, dataprovider.ActionExecutorSelf, "", "")
+	assert.ErrorIs(t, err, dataprovider.ErrConcurrentUpdate)
+	stored, err := dataprovider.UserExists(user.Username, "")
+	assert.NoError(t, err)
+	assert.Equal(t, 0, stored.Status)
+	assert.NotEqual(t, "changed by the user", stored.Description)
+	// a fresh read succeeds and updated_at never repeats
+	previous := stored.UpdatedAt
+	for range 20 {
+		err = dataprovider.UpdateUser(&stored, dataprovider.ActionExecutorSelf, "", "")
+		assert.NoError(t, err)
+		assert.Greater(t, stored.UpdatedAt, previous)
+		previous = stored.UpdatedAt
+	}
+	current, err := dataprovider.UserExists(user.Username, "")
+	assert.NoError(t, err)
+	assert.Equal(t, current.UpdatedAt, stored.UpdatedAt)
+	assert.Equal(t, 0, current.Status)
+
+	a := getTestAdmin()
+	a.Username = "self_update_admin"
+	admin, _, err := httpdtest.AddAdmin(a, http.StatusCreated)
+	assert.NoError(t, err)
+	adminSnapshot, err := dataprovider.AdminExists(admin.Username)
+	assert.NoError(t, err)
+	demoted, err := dataprovider.AdminExists(admin.Username)
+	assert.NoError(t, err)
+	demoted.Status = 0
+	_, _, err = httpdtest.UpdateAdmin(demoted, http.StatusOK)
+	assert.NoError(t, err)
+	adminSnapshot.Description = "changed by the admin"
+	err = dataprovider.UpdateAdmin(&adminSnapshot, dataprovider.ActionExecutorSelf, "", "")
+	assert.ErrorIs(t, err, dataprovider.ErrConcurrentUpdate)
+	storedAdmin, err := dataprovider.AdminExists(admin.Username)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, storedAdmin.Status)
+	assert.NotEqual(t, "changed by the admin", storedAdmin.Description)
+	previous = storedAdmin.UpdatedAt
+	for range 20 {
+		err = dataprovider.UpdateAdmin(&storedAdmin, dataprovider.ActionExecutorSelf, "", "")
+		assert.NoError(t, err)
+		assert.Greater(t, storedAdmin.UpdatedAt, previous)
+		previous = storedAdmin.UpdatedAt
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+}

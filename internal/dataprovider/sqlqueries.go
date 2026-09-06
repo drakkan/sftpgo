@@ -449,11 +449,20 @@ func getAddAdminQuery(role string) string {
 		sqlTableRoles, sqlPlaceholders[10], getCoalesceDefaultForRole(role))
 }
 
-func getUpdateAdminQuery(role string) string {
-	return fmt.Sprintf(`UPDATE %s SET password=%s,status=%s,email=%s,permissions=%s,filters=%s,additional_info=%s,description=%s,updated_at=%s,
+func updatedAtAssignment(newValue1, newValue2 string) string {
+	return fmt.Sprintf(`updated_at=CASE WHEN updated_at >= %s THEN updated_at + 1 ELSE %s END`, newValue1, newValue2)
+}
+
+func getUpdateAdminQuery(role string, guarded bool) string {
+	q := fmt.Sprintf(`UPDATE %s SET password=%s,status=%s,email=%s,permissions=%s,filters=%s,additional_info=%s,description=%s,%s,
 		role_id=COALESCE((SELECT id from %s WHERE name = %s),%s) WHERE username = %s`, sqlTableAdmins, sqlPlaceholders[0],
 		sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3], sqlPlaceholders[4], sqlPlaceholders[5], sqlPlaceholders[6],
-		sqlPlaceholders[7], sqlTableRoles, sqlPlaceholders[8], getCoalesceDefaultForRole(role), sqlPlaceholders[9])
+		updatedAtAssignment(sqlPlaceholders[7], sqlPlaceholders[8]), sqlTableRoles, sqlPlaceholders[9],
+		getCoalesceDefaultForRole(role), sqlPlaceholders[10])
+	if guarded {
+		q += fmt.Sprintf(` AND updated_at = %s`, sqlPlaceholders[11])
+	}
+	return q
 }
 
 func getDeleteAdminQuery() string {
@@ -718,17 +727,21 @@ func getAddUserQuery(role string) string {
 		sqlPlaceholders[24], getCoalesceDefaultForRole(role), sqlPlaceholders[25])
 }
 
-func getUpdateUserQuery(role string) string {
-	return fmt.Sprintf(`UPDATE %s SET password=%s,public_keys=%s,home_dir=%s,uid=%s,gid=%s,max_sessions=%s,quota_size=%s,
+func getUpdateUserQuery(role string, guarded bool) string {
+	q := fmt.Sprintf(`UPDATE %s SET password=%s,public_keys=%s,home_dir=%s,uid=%s,gid=%s,max_sessions=%s,quota_size=%s,
 		quota_files=%s,permissions=%s,upload_bandwidth=%s,download_bandwidth=%s,status=%s,expiration_date=%s,filters=%s,filesystem=%s,
-		additional_info=%s,description=%s,email=%s,updated_at=%s,upload_data_transfer=%s,download_data_transfer=%s,
-		total_data_transfer=%s,role_id=COALESCE((SELECT id from %s WHERE name=%s),%s),last_password_change=%s WHERE username = %s`,
+		additional_info=%s,description=%s,email=%s,%s,upload_data_transfer=%s,download_data_transfer=%s,total_data_transfer=%s,
+		role_id=COALESCE((SELECT id from %s WHERE name=%s),%s),last_password_change=%s WHERE username = %s`,
 		sqlTableUsers, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3], sqlPlaceholders[4],
 		sqlPlaceholders[5], sqlPlaceholders[6], sqlPlaceholders[7], sqlPlaceholders[8], sqlPlaceholders[9],
 		sqlPlaceholders[10], sqlPlaceholders[11], sqlPlaceholders[12], sqlPlaceholders[13], sqlPlaceholders[14],
-		sqlPlaceholders[15], sqlPlaceholders[16], sqlPlaceholders[17], sqlPlaceholders[18], sqlPlaceholders[19],
-		sqlPlaceholders[20], sqlPlaceholders[21], sqlTableRoles, sqlPlaceholders[22], getCoalesceDefaultForRole(role),
-		sqlPlaceholders[23], sqlPlaceholders[24])
+		sqlPlaceholders[15], sqlPlaceholders[16], sqlPlaceholders[17], updatedAtAssignment(sqlPlaceholders[18], sqlPlaceholders[19]),
+		sqlPlaceholders[20], sqlPlaceholders[21], sqlPlaceholders[22], sqlTableRoles, sqlPlaceholders[23],
+		getCoalesceDefaultForRole(role), sqlPlaceholders[24], sqlPlaceholders[25])
+	if guarded {
+		q += fmt.Sprintf(` AND updated_at = %s`, sqlPlaceholders[26])
+	}
+	return q
 }
 
 func getUpdateUserPasswordQuery() string {

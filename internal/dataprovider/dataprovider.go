@@ -188,6 +188,9 @@ var (
 	ErrDuplicatedKey = errors.New("duplicated key not allowed")
 	// ErrForeignKeyViolated occurs when there is a foreign key constraint violation
 	ErrForeignKeyViolated = errors.New("violates foreign key constraint")
+	// ErrConcurrentUpdate is returned when an account is saved from a snapshot that
+	// another write has made stale
+	ErrConcurrentUpdate = errors.New("the account was modified concurrently, retry the operation")
 	// ErrShareUsageExceeded is returned when reserving share usage tokens would exceed the share max_tokens limit
 	ErrShareUsageExceeded = util.NewI18nError(
 		util.NewRecordNotFoundError("max share usage exceeded"), util.I18nErrorShareUsage)
@@ -772,7 +775,7 @@ type Provider interface {
 	getUsedQuota(username string) (int, int64, int64, int64, error)
 	userExists(username, role string) (User, error)
 	addUser(user *User) error
-	updateUser(user *User) error
+	updateUser(user *User, expectedUpdatedAt int64) error
 	deleteUser(user User, softDelete bool) error
 	updateUserPassword(username, password string) error // used internally when converting passwords from other hash
 	getUsers(limit int, offset int, order, role string) ([]User, error)
@@ -802,7 +805,7 @@ type Provider interface {
 	dumpGroups() ([]Group, error)
 	adminExists(username string) (Admin, error)
 	addAdmin(admin *Admin) error
-	updateAdmin(admin *Admin) error
+	updateAdmin(admin *Admin, expectedUpdatedAt int64) error
 	deleteAdmin(admin Admin) error
 	getAdmins(limit int, offset int, order string) ([]Admin, error)
 	dumpAdmins() ([]Admin, error)
@@ -2095,7 +2098,7 @@ func AddAdmin(admin *Admin, executor, ipAddress, role string) error {
 
 // UpdateAdmin updates an existing SFTPGo admin
 func UpdateAdmin(admin *Admin, executor, ipAddress, role string) error {
-	err := provider.updateAdmin(admin)
+	err := provider.updateAdmin(admin, selfUpdateGuard(executor, admin.UpdatedAt))
 	if err == nil {
 		executeAction(operationUpdate, executor, ipAddress, actionObjectAdmin, admin.Username, role, admin)
 	}
@@ -2194,7 +2197,7 @@ func UpdateUserPassword(username, plainPwd, executor, ipAddress, role string) er
 	user.Password = userCopy.Password
 	user.Filters.RequirePasswordChange = false
 	// the last password change is set when validating the user
-	if err := provider.updateUser(&user); err != nil {
+	if err := provider.updateUser(&user, user.UpdatedAt); err != nil {
 		return err
 	}
 	webDAVUsersCache.swap(&user, plainPwd)
@@ -2207,12 +2210,25 @@ func UpdateUser(user *User, executor, ipAddress, role string) error {
 	if user.groupSettingsApplied {
 		return errors.New("cannot save a user with group settings applied")
 	}
-	err := provider.updateUser(user)
+	err := provider.updateUser(user, selfUpdateGuard(executor, user.UpdatedAt))
 	if err == nil {
 		webDAVUsersCache.swap(user, "")
 		executeAction(operationUpdate, executor, ipAddress, actionObjectUser, user.Username, role, user)
 	}
 	return err
+}
+
+const updateUnconditionally int64 = -1
+
+func selfUpdateGuard(executor string, snapshotUpdatedAt int64) int64 {
+	if executor == ActionExecutorSelf {
+		return snapshotUpdatedAt
+	}
+	return updateUnconditionally
+}
+
+func nextUpdatedAt(storedUpdatedAt int64) int64 {
+	return max(util.GetTimeAsMsSinceEpoch(time.Now()), storedUpdatedAt+1)
 }
 
 // DeleteUser deletes an existing SFTPGo user.
@@ -4317,7 +4333,7 @@ func executePreLoginHook(username, loginMethod, ip, protocol string, oidcTokenFi
 		// preserve TOTP config and recovery codes
 		u.Filters.TOTPConfig = totpConfig
 		u.Filters.RecoveryCodes = recoveryCodes
-		err = provider.updateUser(&u)
+		err = provider.updateUser(&u, updateUnconditionally)
 	}
 	if err != nil {
 		return u, err
@@ -4674,7 +4690,7 @@ func doPluginAuth(username, password string, pubKey []byte, ip, protocol string,
 }
 
 func updateUserAfterExternalAuth(user *User) (User, error) {
-	if err := provider.updateUser(user); err != nil {
+	if err := provider.updateUser(user, updateUnconditionally); err != nil {
 		return *user, err
 	}
 	return provider.userExists(user.Username, "")

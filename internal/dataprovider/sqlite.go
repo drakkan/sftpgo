@@ -306,8 +306,8 @@ func (p *SQLiteProvider) addUser(user *User) error {
 	return p.normalizeError(sqlCommonAddUser(user, p.dbHandle), fieldUsername)
 }
 
-func (p *SQLiteProvider) updateUser(user *User) error {
-	return p.normalizeError(sqlCommonUpdateUser(user, p.dbHandle), -1)
+func (p *SQLiteProvider) updateUser(user *User, expectedUpdatedAt int64) error {
+	return p.normalizeError(sqlCommonUpdateUser(user, expectedUpdatedAt, p.dbHandle), -1)
 }
 
 func (p *SQLiteProvider) deleteUser(user User, softDelete bool) error {
@@ -408,8 +408,8 @@ func (p *SQLiteProvider) addAdmin(admin *Admin) error {
 	return p.normalizeError(sqlCommonAddAdmin(admin, p.dbHandle), fieldUsername)
 }
 
-func (p *SQLiteProvider) updateAdmin(admin *Admin) error {
-	return p.normalizeError(sqlCommonUpdateAdmin(admin, p.dbHandle), -1)
+func (p *SQLiteProvider) updateAdmin(admin *Admin, expectedUpdatedAt int64) error {
+	return p.normalizeError(sqlCommonUpdateAdmin(admin, expectedUpdatedAt, p.dbHandle), -1)
 }
 
 func (p *SQLiteProvider) deleteAdmin(admin Admin) error {

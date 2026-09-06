@@ -383,7 +383,7 @@ func (s *httpdServer) handleWebClientTwoFactorRecoveryPost(w http.ResponseWriter
 			user.Filters.RecoveryCodes[idx].Used = true
 			err = dataprovider.UpdateUser(&user, dataprovider.ActionExecutorSelf, ipAddr, user.Role)
 			if err != nil {
-				logger.Warn(logSender, "", "unable to set the recovery code %q as used: %v", recoveryCode, err)
+				logger.Warn(logSender, "", "unable to set the recovery code as used for %q: %v", username, err)
 				s.renderClientInternalServerErrorPage(w, r, errors.New("unable to set the recovery code as used"))
 				return
 			}
@@ -504,7 +504,7 @@ func (s *httpdServer) handleWebAdminTwoFactorRecoveryPost(w http.ResponseWriter,
 			admin.Filters.RecoveryCodes[idx].Used = true
 			err = dataprovider.UpdateAdmin(&admin, dataprovider.ActionExecutorSelf, ipAddr, admin.Role)
 			if err != nil {
-				logger.Warn(logSender, "", "unable to set the recovery code %q as used: %v", recoveryCode, err)
+				logger.Warn(logSender, "", "unable to set the recovery code as used for %q: %v", username, err)
 				s.renderInternalServerErrorPage(w, r, errors.New("unable to set the recovery code as used"))
 				return
 			}

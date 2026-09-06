@@ -393,6 +393,8 @@ func TestGetRespStatus(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, respStatus)
 	respStatus = getRespStatus(plugin.ErrNoSearcher)
 	assert.Equal(t, http.StatusNotImplemented, respStatus)
+	respStatus = getRespStatus(dataprovider.ErrConcurrentUpdate)
+	assert.Equal(t, http.StatusConflict, respStatus)
 }
 
 func TestMappedStatusCode(t *testing.T) {
