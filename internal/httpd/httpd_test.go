@@ -14933,6 +14933,211 @@ func TestPreUploadHook(t *testing.T) {
 	common.Config.Actions.Hook = oldHook
 }
 
+func TestShareOwnerAccountValidity(t *testing.T) {
+	u := getTestUser()
+	u.Username = "share_owner_validity"
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	token, err := getJWTAPIUserTokenFromTestServer(user.Username, defaultPassword)
+	assert.NoError(t, err)
+	err = os.WriteFile(filepath.Join(user.GetHomeDir(), "afile.txt"), []byte("content"), os.ModePerm)
+	assert.NoError(t, err)
+
+	createShare := func(name string, scope dataprovider.ShareScope) string {
+		t.Helper()
+
+		share := dataprovider.Share{
+			Name:  name,
+			Scope: scope,
+			Paths: []string{"/"},
+		}
+		asJSON, errJSON := json.Marshal(share)
+		assert.NoError(t, errJSON)
+		r, errReq := http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+		assert.NoError(t, errReq)
+		setBearerForReq(r, token)
+		resp := executeRequest(r)
+		checkResponseCode(t, http.StatusCreated, resp)
+		objectID := resp.Header().Get("X-Object-ID")
+		assert.NotEmpty(t, objectID)
+		return objectID
+	}
+
+	readID := createShare("owner validity read", dataprovider.ShareScopeRead)
+	writeID := createShare("owner validity write", dataprovider.ShareScopeWrite)
+	readWriteID := createShare("owner validity read write", dataprovider.ShareScopeReadWrite)
+
+	get := func(uri string) *httptest.ResponseRecorder {
+		t.Helper()
+
+		r, errReq := http.NewRequest(http.MethodGet, uri, nil)
+		assert.NoError(t, errReq)
+		r.RequestURI = uri
+		return executeRequest(r)
+	}
+	upload := func(shareID, name string) *httptest.ResponseRecorder {
+		t.Helper()
+
+		r, errReq := http.NewRequest(http.MethodPost, path.Join(sharesPath, shareID, name),
+			bytes.NewBuffer([]byte("content")))
+		assert.NoError(t, errReq)
+		return executeRequest(r)
+	}
+	uploadCounter := 0
+	checkShareUsable := func() {
+		t.Helper()
+
+		uploadCounter++
+		checkResponseCode(t, http.StatusOK, get(sharesPath+"/"+readID+"/dirs"))
+		checkResponseCode(t, http.StatusOK, get(sharesPath+"/"+readID+"/files?path=afile.txt"))
+		checkResponseCode(t, http.StatusOK, get(webClientPubSharesPath+"/"+readID+"/dirs"))
+		checkResponseCode(t, http.StatusOK, get(sharesPath+"/"+readWriteID+"/dirs"))
+		name := fmt.Sprintf("uploaded%d.txt", uploadCounter)
+		checkResponseCode(t, http.StatusCreated, upload(writeID, name))
+		assert.FileExists(t, filepath.Join(user.GetHomeDir(), name))
+	}
+	checkShareRevoked := func() {
+		t.Helper()
+
+		checkResponseCode(t, http.StatusNotFound, get(sharesPath+"/"+readID+"/dirs"))
+		checkResponseCode(t, http.StatusNotFound, get(sharesPath+"/"+readID+"/files?path=afile.txt"))
+		checkResponseCode(t, http.StatusNotFound, get(webClientPubSharesPath+"/"+readID+"/dirs"))
+		checkResponseCode(t, http.StatusNotFound, get(sharesPath+"/"+readWriteID+"/dirs"))
+		checkResponseCode(t, http.StatusNotFound, upload(writeID, "revoked.txt"))
+		checkResponseCode(t, http.StatusNotFound, upload(readWriteID, "revoked.txt"))
+		assert.NoFileExists(t, filepath.Join(user.GetHomeDir(), "revoked.txt"))
+	}
+
+	checkShareUsable()
+	// disabling the owner revokes the shares
+	user.Status = 0
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	checkShareRevoked()
+	_, err = getJWTAPIUserTokenFromTestServer(user.Username, defaultPassword)
+	assert.Error(t, err)
+
+	user.Status = 1
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	checkShareUsable()
+	// an expired owner revokes the shares
+	user.ExpirationDate = util.GetTimeAsMsSinceEpoch(time.Now().Add(-24 * time.Hour))
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	checkShareRevoked()
+	_, err = getJWTAPIUserTokenFromTestServer(user.Username, defaultPassword)
+	assert.Error(t, err)
+
+	user.ExpirationDate = 0
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	checkShareUsable()
+	// access time restrictions limit the owner logins, share recipients are not affected
+	user.Filters.AccessTime = []sdk.TimePeriod{
+		{
+			DayOfWeek: (int(time.Now().Weekday()) + 3) % 7,
+			From:      "00:00",
+			To:        "23:59",
+		},
+	}
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	_, err = getJWTAPIUserTokenFromTestServer(user.Username, defaultPassword)
+	assert.Error(t, err)
+	checkShareUsable()
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	// the shares of a deleted owner are gone too
+	checkResponseCode(t, http.StatusNotFound, get(sharesPath+"/"+readID+"/dirs"))
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestShareOwnerAccountValiditySession(t *testing.T) {
+	u := getTestUser()
+	u.Username = "share_owner_validity_session"
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	defer func() {
+		_, _ = httpdtest.RemoveUser(user, http.StatusOK)
+		_ = os.RemoveAll(user.GetHomeDir())
+	}()
+
+	token, err := getJWTAPIUserTokenFromTestServer(user.Username, defaultPassword)
+	assert.NoError(t, err)
+
+	share := dataprovider.Share{
+		Name:     "owner validity session",
+		Scope:    dataprovider.ShareScopeRead,
+		Paths:    []string{"/"},
+		Password: defaultPassword,
+	}
+	asJSON, err := json.Marshal(share)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	shareID := rr.Header().Get("X-Object-ID")
+	assert.NotEmpty(t, shareID)
+
+	loginURI := path.Join(webClientPubSharesPath, shareID, "login")
+	shareLogin := func() *httptest.ResponseRecorder {
+		t.Helper()
+
+		loginCookie, csrfToken, errCSRF := getCSRFTokenMock(loginURI, defaultRemoteAddr)
+		assert.NoError(t, errCSRF)
+		form := make(url.Values)
+		form.Set("share_password", defaultPassword)
+		form.Set(csrfFormToken, csrfToken)
+		r, errReq := http.NewRequest(http.MethodPost, loginURI, bytes.NewBuffer([]byte(form.Encode())))
+		assert.NoError(t, errReq)
+		r.RemoteAddr = defaultRemoteAddr
+		setLoginCookie(r, loginCookie)
+		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		return executeRequest(r)
+	}
+	listWithCookie := func(cookie string) *httptest.ResponseRecorder {
+		t.Helper()
+
+		uri := webClientPubSharesPath + "/" + shareID + "/dirs"
+		r, errReq := http.NewRequest(http.MethodGet, uri, nil)
+		assert.NoError(t, errReq)
+		r.RequestURI = uri
+		setJWTCookieForReq(r, cookie)
+		return executeRequest(r)
+	}
+
+	rr = shareLogin()
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), util.I18nShareLoginOK)
+	cookie := strings.TrimPrefix(rr.Header().Get("Set-Cookie"), "jwt=")
+	assert.NotEmpty(t, cookie)
+	checkResponseCode(t, http.StatusOK, listWithCookie(cookie))
+
+	user.Status = 0
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	// a session opened before the owner was disabled stops working
+	checkResponseCode(t, http.StatusNotFound, listWithCookie(cookie))
+	// the login still succeeds, the session it issues grants nothing
+	rr = shareLogin()
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), util.I18nShareLoginOK)
+	newCookie := strings.TrimPrefix(rr.Header().Get("Set-Cookie"), "jwt=")
+	assert.NotEmpty(t, newCookie)
+	checkResponseCode(t, http.StatusNotFound, listWithCookie(newCookie))
+
+	user.Status = 1
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	// the session was not invalidated, the owner check is what denied it
+	checkResponseCode(t, http.StatusOK, listWithCookie(cookie))
+}
+
 func TestShareUsage(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)

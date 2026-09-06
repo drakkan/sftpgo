@@ -572,6 +572,10 @@ func getUserForShare(share dataprovider.Share) (dataprovider.User, error) {
 	if err != nil {
 		return user, err
 	}
+	if err := user.CheckAccountValidity(); err != nil {
+		logger.Debug(logSender, "", "unable to serve share %q: %v", share.ShareID, err)
+		return user, util.NewI18nError(util.NewRecordNotFoundError("this share does not exist"), util.I18nError404Message)
+	}
 	if !user.CanManageShares() {
 		return user, util.NewI18nError(util.NewRecordNotFoundError("this share does not exist"), util.I18nError404Message)
 	}

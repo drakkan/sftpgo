@@ -379,14 +379,24 @@ func (u *User) isTimeBasedAccessAllowed(when time.Time) bool {
 	return false
 }
 
-// CheckLoginConditions checks user access restrictions
-func (u *User) CheckLoginConditions() error {
+// CheckAccountValidity returns an error if the account is disabled or expired.
+// Time based access restrictions are not part of it: they limit the logins of
+// the account holder and are checked in CheckLoginConditions.
+func (u *User) CheckAccountValidity() error {
 	if u.Status < 1 {
 		return fmt.Errorf("user %q is disabled", u.Username)
 	}
 	if u.ExpirationDate > 0 && u.ExpirationDate < util.GetTimeAsMsSinceEpoch(time.Now()) {
 		return fmt.Errorf("user %q is expired, expiration timestamp: %v current timestamp: %v", u.Username,
 			u.ExpirationDate, util.GetTimeAsMsSinceEpoch(time.Now()))
+	}
+	return nil
+}
+
+// CheckLoginConditions checks user access restrictions
+func (u *User) CheckLoginConditions() error {
+	if err := u.CheckAccountValidity(); err != nil {
+		return err
 	}
 	if u.isTimeBasedAccessAllowed(time.Now()) {
 		return nil
