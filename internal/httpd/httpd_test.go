@@ -15138,6 +15138,59 @@ func TestShareOwnerAccountValiditySession(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, listWithCookie(cookie))
 }
 
+func TestUserTokenAccountValidity(t *testing.T) {
+	u := getTestUser()
+	u.Username = "user_token_validity"
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	token, err := getJWTAPIUserTokenFromTestServer(user.Username, defaultPassword)
+	assert.NoError(t, err)
+
+	listDirs := func() *httptest.ResponseRecorder {
+		t.Helper()
+
+		r, errReq := http.NewRequest(http.MethodGet, userDirsPath, nil)
+		assert.NoError(t, errReq)
+		setBearerForReq(r, token)
+		return executeRequest(r)
+	}
+
+	checkResponseCode(t, http.StatusOK, listDirs())
+	// a token issued before the account was disabled is refused, HTTP builds a
+	// connection per request and the login conditions are checked on each one
+	user.Status = 0
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	checkResponseCode(t, http.StatusForbidden, listDirs())
+
+	user.Status = 1
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	checkResponseCode(t, http.StatusOK, listDirs())
+
+	user.ExpirationDate = util.GetTimeAsMsSinceEpoch(time.Now().Add(-24 * time.Hour))
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	checkResponseCode(t, http.StatusForbidden, listDirs())
+
+	user.ExpirationDate = 0
+	user.Filters.AccessTime = []sdk.TimePeriod{
+		{
+			DayOfWeek: (int(time.Now().Weekday()) + 3) % 7,
+			From:      "00:00",
+			To:        "23:59",
+		},
+	}
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	checkResponseCode(t, http.StatusForbidden, listDirs())
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestShareUsage(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)

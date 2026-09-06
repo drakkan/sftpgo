@@ -764,6 +764,10 @@ func updateLoginMetrics(user *dataprovider.User, loginMethod, ip string, err err
 }
 
 func checkHTTPClientUser(user *dataprovider.User, r *http.Request, connectionID string, checkSessions, isOIDCLogin bool) error {
+	if err := user.CheckLoginConditions(); err != nil {
+		logger.Info(logSender, connectionID, "cannot login user %q: %v", user.Username, err)
+		return util.NewI18nError(fmt.Errorf("%w: %w", os.ErrPermission, err), util.I18nError403Message)
+	}
 	if slices.Contains(user.Filters.DeniedProtocols, common.ProtocolHTTP) {
 		logger.Info(logSender, connectionID, "cannot login user %q, protocol HTTP is not allowed", user.Username)
 		return util.NewI18nError(
