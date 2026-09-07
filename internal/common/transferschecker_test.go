@@ -34,7 +34,7 @@ import (
 )
 
 func TestTransfersCheckerDiskQuota(t *testing.T) {
-	username := "transfers_check_username"
+	username := "transfers_check_disk_quota_username"
 	folderName := "test_transfers_folder"
 	groupName := "test_transfers_group"
 	vdirPath := "/vdir"
@@ -103,7 +103,7 @@ func TestTransfersCheckerDiskQuota(t *testing.T) {
 	transfer1.BytesReceived.Store(150)
 	err = Connections.Add(fakeConn1)
 	assert.NoError(t, err)
-	waitForCheckerTransfers(t, 1)
+	waitForCheckerTransfers(t, username, 1)
 	// the transferschecker will do nothing if there is only one ongoing transfer
 	Connections.checkTransfers()
 	assert.Nil(t, transfer1.errAbort)
@@ -119,7 +119,7 @@ func TestTransfersCheckerDiskQuota(t *testing.T) {
 	transfer2.BytesReceived.Store(60)
 	err = Connections.Add(fakeConn2)
 	assert.NoError(t, err)
-	waitForCheckerTransfers(t, 2)
+	waitForCheckerTransfers(t, username, 2)
 
 	connID3 := xid.New().String()
 	conn3 := NewBaseConnection(connID3, ProtocolSFTP, "", "", user)
@@ -131,7 +131,7 @@ func TestTransfersCheckerDiskQuota(t *testing.T) {
 	transfer3.BytesReceived.Store(60) // this value will be ignored, this is a download
 	err = Connections.Add(fakeConn3)
 	assert.NoError(t, err)
-	waitForCheckerTransfers(t, 3)
+	waitForCheckerTransfers(t, username, 3)
 
 	// the transfers are not overquota
 	Connections.checkTransfers()
@@ -204,7 +204,7 @@ func TestTransfersCheckerDiskQuota(t *testing.T) {
 
 	err = Connections.Add(fakeConn5)
 	assert.NoError(t, err)
-	waitForCheckerTransfers(t, 5)
+	waitForCheckerTransfers(t, username, 5)
 	transfer4.BytesReceived.Store(50)
 	transfer5.BytesReceived.Store(40)
 	Connections.checkTransfers()
@@ -252,7 +252,7 @@ func TestTransfersCheckerDiskQuota(t *testing.T) {
 	Connections.Remove(fakeConn3.GetID())
 	Connections.Remove(fakeConn4.GetID())
 	Connections.Remove(fakeConn5.GetID())
-	waitForCheckerTransfers(t, 0)
+	waitForCheckerTransfers(t, username, 0)
 	stats := Connections.GetStats("")
 	assert.Len(t, stats, 0)
 	assert.Equal(t, int32(0), Connections.GetTotalTransfers())
@@ -271,7 +271,7 @@ func TestTransfersCheckerDiskQuota(t *testing.T) {
 }
 
 func TestTransferCheckerTransferQuota(t *testing.T) {
-	username := "transfers_check_username"
+	username := "transfers_check_transfer_quota_username"
 	user := dataprovider.User{
 		BaseUser: sdk.BaseUser{
 			Username:          username,
@@ -299,7 +299,7 @@ func TestTransferCheckerTransferQuota(t *testing.T) {
 	transfer1.BytesReceived.Store(150)
 	err = Connections.Add(fakeConn1)
 	assert.NoError(t, err)
-	waitForCheckerTransfers(t, 1)
+	waitForCheckerTransfers(t, username, 1)
 	// the transferschecker will do nothing if there is only one ongoing transfer
 	Connections.checkTransfers()
 	assert.Nil(t, transfer1.errAbort)
@@ -314,7 +314,7 @@ func TestTransferCheckerTransferQuota(t *testing.T) {
 	transfer2.BytesReceived.Store(150)
 	err = Connections.Add(fakeConn2)
 	assert.NoError(t, err)
-	waitForCheckerTransfers(t, 2)
+	waitForCheckerTransfers(t, username, 2)
 	Connections.checkTransfers()
 	assert.Nil(t, transfer1.errAbort)
 	assert.Nil(t, transfer2.errAbort)
@@ -341,7 +341,7 @@ func TestTransferCheckerTransferQuota(t *testing.T) {
 	assert.NoError(t, err)
 	Connections.Remove(fakeConn1.GetID())
 	Connections.Remove(fakeConn2.GetID())
-	waitForCheckerTransfers(t, 0)
+	waitForCheckerTransfers(t, username, 0)
 
 	connID3 := xid.New().String()
 	conn3 := NewBaseConnection(connID3, ProtocolSFTP, "", "", user)
@@ -364,7 +364,7 @@ func TestTransferCheckerTransferQuota(t *testing.T) {
 	transfer4.BytesSent.Store(150)
 	err = Connections.Add(fakeConn4)
 	assert.NoError(t, err)
-	waitForCheckerTransfers(t, 2)
+	waitForCheckerTransfers(t, username, 2)
 	Connections.checkTransfers()
 	assert.Nil(t, transfer3.errAbort)
 	assert.Nil(t, transfer4.errAbort)
@@ -385,7 +385,7 @@ func TestTransferCheckerTransferQuota(t *testing.T) {
 
 	Connections.Remove(fakeConn3.GetID())
 	Connections.Remove(fakeConn4.GetID())
-	waitForCheckerTransfers(t, 0)
+	waitForCheckerTransfers(t, username, 0)
 	stats := Connections.GetStats("")
 	assert.Len(t, stats, 0)
 	assert.Equal(t, int32(0), Connections.GetTotalTransfers())
@@ -848,10 +848,7 @@ func TestTransfersCheckerSharedSingleTransfer(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-// waitForCheckerTransfers waits until the memory transfers checker tracks the expected
-// number of transfers. Transfers are added to and removed from the checker asynchronously,
-// callers must wait before invoking checkTransfers to get deterministic results
-func waitForCheckerTransfers(t *testing.T, expected int) {
+func waitForCheckerTransfers(t *testing.T, username string, expected int) {
 	t.Helper()
 
 	checker, ok := transfersChecker.(*transfersCheckerMem)
@@ -862,8 +859,15 @@ func waitForCheckerTransfers(t *testing.T, expected int) {
 		checker.RLock()
 		defer checker.RUnlock()
 
-		return len(checker.transfers) == expected
-	}, 2*time.Second, 20*time.Millisecond, "the transfers checker does not track %d transfers", expected)
+		var count int
+		for _, transfer := range checker.transfers {
+			if transfer.Username == username {
+				count++
+			}
+		}
+		return count == expected
+	}, 2*time.Second, 20*time.Millisecond, "the transfers checker does not track %d transfers for user %q",
+		expected, username)
 }
 
 func isDbTransferCheckerSupported() bool {
