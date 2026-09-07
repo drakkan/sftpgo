@@ -28,16 +28,6 @@ if [ "$1" = "configure" ]; then
     chmod 640 /etc/sftpgo/sftpgo.json
   fi
 
-  # we added /etc/sftpgo/env.d in v2.4.0, we should check if we are upgrading
-  # from a previous version but a non-recursive chmod/chown shouldn't hurt
-  if [ -d /etc/sftpgo/env.d ]; then
-    chown sftpgo:sftpgo /etc/sftpgo/env.d
-    chmod 750 /etc/sftpgo/env.d
-  fi
-
-  # set the cap_net_bind_service capability so the service can bind to privileged ports
-  setcap cap_net_bind_service=+ep /usr/bin/sftpgo || true
-
 fi
 
 if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-deconfigure" ] || [ "$1" = "abort-remove" ] ; then
