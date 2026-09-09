@@ -307,7 +307,8 @@
           "query_userinfo": false,
           "require_verified_email": false,
           "insecure_skip_signature_check": false,
-          "debug": false
+          "debug": false,
+          "auto_login": 0
         },
         "security": {
           "enabled": false,
