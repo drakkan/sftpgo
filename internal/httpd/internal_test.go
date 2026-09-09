@@ -1253,7 +1253,7 @@ func TestOAuth2Redirect(t *testing.T) {
 	ip := "127.1.1.4"
 	tokenString := createOAuth2Token(server.csrfTokenAuth, xid.New().String(), ip)
 	rr = httptest.NewRecorder()
-	req, err = http.NewRequest(http.MethodGet, webOAuth2RedirectPath+"?state="+tokenString, nil) //nolint:goconst
+	req, err = http.NewRequest(http.MethodGet, webOAuth2RedirectPath+"?state="+tokenString, nil)
 	assert.NoError(t, err)
 	req.RemoteAddr = ip
 	server.handleOAuth2TokenRedirect(rr, req)

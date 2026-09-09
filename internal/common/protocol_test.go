@@ -335,7 +335,7 @@ func TestBaseConnection(t *testing.T) {
 		assert.NoError(t, err)
 		err = f.Close()
 		assert.NoError(t, err)
-		linkName := testFileName + ".link" //nolint:goconst
+		linkName := testFileName + ".link"
 		err = client.Rename(testFileName, testFileName)
 		if assert.Error(t, err) {
 			assert.Contains(t, err.Error(), "the rename source and target cannot be the same")
@@ -440,7 +440,7 @@ func TestRelativeSymlinks(t *testing.T) {
 		defer conn.Close()
 		defer client.Close()
 
-		linkName := testFileName + "_link" //nolint:goconst
+		linkName := testFileName + "_link"
 		err = client.Symlink("non-existent-file", linkName)
 		assert.NoError(t, err)
 		err = client.Remove(linkName)
@@ -1105,7 +1105,7 @@ func TestHiddenRoot(t *testing.T) {
 		assert.ErrorIs(t, err, os.ErrPermission)
 		err = writeSFTPFile("ftp123", 4096, client)
 		assert.ErrorIs(t, err, os.ErrPermission)
-		err = client.Rename(testFileName, testFileName+"_rename") //nolint:goconst
+		err = client.Rename(testFileName, testFileName+"_rename")
 		assert.ErrorIs(t, err, os.ErrNotExist)
 		err = writeSFTPFile(path.Join("/ftp", testFileName), 4096, client)
 		assert.NoError(t, err)
@@ -1529,16 +1529,16 @@ func TestTruncateQuotaLimits(t *testing.T) {
 func TestVirtualFoldersQuotaRenameOverwrite(t *testing.T) {
 	testFileSize := int64(131072)
 	testFileSize1 := int64(65537)
-	testFileName1 := "test_file1.dat" //nolint:goconst
+	testFileName1 := "test_file1.dat"
 	u := getTestUser()
 	u.QuotaFiles = 0
 	u.QuotaSize = 0
 	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
 	folderName1 := filepath.Base(mappedPath1)
-	vdirPath1 := "/vdir1" //nolint:goconst
+	vdirPath1 := "/vdir1"
 	mappedPath2 := filepath.Join(os.TempDir(), "vdir2")
 	folderName2 := filepath.Base(mappedPath2)
-	vdirPath2 := "/vdir2" //nolint:goconst
+	vdirPath2 := "/vdir2"
 	mappedPath3 := filepath.Join(os.TempDir(), "vdir3")
 	folderName3 := filepath.Base(mappedPath3)
 	vdirPath3 := "/vdir3"
@@ -1613,7 +1613,7 @@ func TestVirtualFoldersQuotaRenameOverwrite(t *testing.T) {
 		assert.NoError(t, err)
 		err = writeSFTPFile(path.Join(vdirPath3, testFileName+"1"), testFileSize, client)
 		assert.NoError(t, err)
-		err = client.Rename(testFileName, path.Join(vdirPath1, testFileName+".rename")) //nolint:goconst
+		err = client.Rename(testFileName, path.Join(vdirPath1, testFileName+".rename"))
 		assert.Error(t, err)
 		// we overwrite an existing file and we have unlimited size
 		err = client.Rename(testFileName, path.Join(vdirPath1, testFileName))
@@ -1882,8 +1882,8 @@ func TestQuotaRenameInsideSameVirtualFolder(t *testing.T) {
 		testFileName1 := "test_file1.dat"
 		testFileSize := int64(131072)
 		testFileSize1 := int64(65535)
-		dir1 := "dir1" //nolint:goconst
-		dir2 := "dir2" //nolint:goconst
+		dir1 := "dir1"
+		dir2 := "dir2"
 		assert.NoError(t, err)
 		err = client.Mkdir(path.Join(vdirPath1, dir1))
 		assert.NoError(t, err)
@@ -2808,7 +2808,7 @@ func TestVirtualFoldersLink(t *testing.T) {
 		assert.NoError(t, err)
 		err = client.Symlink(path.Join(vdirPath2, testFileName), path.Join(vdirPath2, testDir, testFileName+".link"))
 		assert.NoError(t, err)
-		err = client.Symlink(path.Join("/", testFileName), path.Join(vdirPath1, testFileName+".link1")) //nolint:goconst
+		err = client.Symlink(path.Join("/", testFileName), path.Join(vdirPath1, testFileName+".link1"))
 		if assert.Error(t, err) {
 			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
 		}
@@ -4919,7 +4919,7 @@ func TestEventRuleFsActions(t *testing.T) {
 		assert.NoError(t, err)
 		_, err = client.Stat(path.Join("basedir", testFileName))
 		assert.Error(t, err)
-		info, err := client.Stat(testFileName + "_renamed") //nolint:goconst
+		info, err := client.Stat(testFileName + "_renamed")
 		if assert.NoError(t, err) {
 			assert.Equal(t, size, info.Size())
 		}
@@ -6190,7 +6190,7 @@ func TestEventActionCompress(t *testing.T) {
 			assert.NoError(t, err)
 			err = f.Close()
 			assert.NoError(t, err)
-			info, err := client.Stat(testFileName + ".zip") //nolint:goconst
+			info, err := client.Stat(testFileName + ".zip")
 			if assert.NoError(t, err) {
 				assert.Greater(t, info.Size(), int64(0))
 				// check quota

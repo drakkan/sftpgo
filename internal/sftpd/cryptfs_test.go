@@ -241,7 +241,7 @@ func TestQuotaFileReplaceCryptFs(t *testing.T) {
 		assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
 		// now create a symlink, replace it with a file and check the quota
 		// replacing a symlink is like uploading a new file
-		err = client.Symlink(testFileName, testFileName+".link") //nolint:goconst
+		err = client.Symlink(testFileName, testFileName+".link")
 		assert.NoError(t, err)
 		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
@@ -456,7 +456,7 @@ func TestSCPRecursiveCryptFs(t *testing.T) {
 	assert.NoError(t, err)
 	testBaseDirName := "atestdir"
 	testBaseDirPath := filepath.Join(homeBasePath, testBaseDirName)
-	testBaseDirDownName := "test_dir_down" //nolint:goconst
+	testBaseDirDownName := "test_dir_down"
 	testBaseDirDownPath := filepath.Join(homeBasePath, testBaseDirDownName)
 	testFilePath := filepath.Join(homeBasePath, testBaseDirName, testFileName)
 	testFilePath1 := filepath.Join(homeBasePath, testBaseDirName, testBaseDirName, testFileName)

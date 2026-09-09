@@ -2390,7 +2390,7 @@ func TestQuotaLimits(t *testing.T) {
 		// test quota files
 		client, err := getFTPClient(user, false, nil)
 		if assert.NoError(t, err) {
-			err = ftpUploadFile(testFilePath, testFileName+".quota", testFileSize, client, 0) //nolint:goconst
+			err = ftpUploadFile(testFilePath, testFileName+".quota", testFileSize, client, 0)
 			assert.NoError(t, err)
 			err = ftpUploadFile(testFilePath, testFileName+".quota1", testFileSize, client, 0)
 			assert.Error(t, err)

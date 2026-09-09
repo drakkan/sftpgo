@@ -613,7 +613,7 @@ func TestBasicHandling(t *testing.T) {
 		files, err := client.ReadDir(testDir)
 		assert.NoError(t, err)
 		assert.Len(t, files, 5)
-		err = client.Copy(testDir, testDir+"_copy", false) //nolint:goconst
+		err = client.Copy(testDir, testDir+"_copy", false)
 		assert.NoError(t, err)
 		err = client.RemoveAll(testDir)
 		assert.NoError(t, err)
@@ -2132,7 +2132,7 @@ func TestQuotaLimits(t *testing.T) {
 		assert.NoError(t, err)
 		client := getWebDavClient(user, false, nil)
 		// test quota files
-		err = uploadFileWithRawClient(testFilePath, testFileName+".quota", user.Username, defaultPassword, false, //nolint:goconst
+		err = uploadFileWithRawClient(testFilePath, testFileName+".quota", user.Username, defaultPassword, false,
 			testFileSize, client)
 		if !assert.NoError(t, err, "username: %v", user.Username) {
 			info, err := os.Stat(testFilePath)
@@ -2934,7 +2934,7 @@ func TestMiscCommands(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 6, user.UsedQuotaFiles)
 		assert.Equal(t, 6*testFileSize, user.UsedQuotaSize)
-		err = client.Copy(dir, dir+"_copy1", false) //nolint:goconst
+		err = client.Copy(dir, dir+"_copy1", false)
 		assert.NoError(t, err)
 		err = client.Copy(dir+"_copy", dir+"_copy1", false)
 		assert.Error(t, err)

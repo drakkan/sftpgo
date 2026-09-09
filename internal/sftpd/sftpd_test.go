@@ -2099,7 +2099,7 @@ func TestChtimes(t *testing.T) {
 			defer client.Close()
 			testFilePath := filepath.Join(homeBasePath, testFileName)
 			testFileSize := int64(65535)
-			testDir := "test" //nolint:goconst
+			testDir := "test"
 			err = createTestFile(testFilePath, testFileSize)
 			assert.NoError(t, err)
 			err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
@@ -2166,7 +2166,7 @@ func TestEscapeHomeDir(t *testing.T) {
 		defer conn.Close()
 		defer client.Close()
 		assert.NoError(t, checkBasicSFTP(client))
-		testDir := "testDir" //nolint:goconst
+		testDir := "testDir"
 		linkPath := filepath.Join(homeBasePath, defaultUsername, testDir)
 		err = os.Symlink(homeBasePath, linkPath)
 		assert.NoError(t, err)
@@ -5375,7 +5375,7 @@ func TestQuotaDisabledError(t *testing.T) {
 		assert.NoError(t, err)
 		err = sftpUploadFile(testFilePath, testFileName+"1", testFileSize, client)
 		assert.NoError(t, err)
-		err = client.Rename(testFileName+"1", testFileName+".rename") //nolint:goconst
+		err = client.Rename(testFileName+"1", testFileName+".rename")
 		assert.NoError(t, err)
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
@@ -5690,7 +5690,7 @@ func TestQuotaRename(t *testing.T) {
 	assert.NoError(t, err)
 	testFileSize := int64(65535)
 	testFileSize1 := int64(65537)
-	testFileName1 := "test_file1.dat" //nolint:goconst
+	testFileName1 := "test_file1.dat"
 	testFilePath := filepath.Join(homeBasePath, testFileName)
 	testFilePath1 := filepath.Join(homeBasePath, testFileName1)
 	for _, user := range []dataprovider.User{localUser, sftpUser} {
@@ -5718,7 +5718,7 @@ func TestQuotaRename(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, 1, user.UsedQuotaFiles)
 			assert.Equal(t, testFileSize1, user.UsedQuotaSize)
-			err = client.Symlink(testFileName+".rename", testFileName+".symlink") //nolint:goconst
+			err = client.Symlink(testFileName+".rename", testFileName+".symlink")
 			assert.NoError(t, err)
 			err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
 			assert.NoError(t, err)
@@ -5855,7 +5855,7 @@ func TestQuotaLimits(t *testing.T) {
 	err = createTestFile(testFilePath1, testFileSize1)
 	assert.NoError(t, err)
 	testFileSize2 := int64(32768)
-	testFileName2 := "test_file2.dat" //nolint:goconst
+	testFileName2 := "test_file2.dat"
 	testFilePath2 := filepath.Join(homeBasePath, testFileName2)
 	err = createTestFile(testFilePath2, testFileSize2)
 	assert.NoError(t, err)
@@ -5865,7 +5865,7 @@ func TestQuotaLimits(t *testing.T) {
 		if assert.NoError(t, err) {
 			defer conn.Close()
 			defer client.Close()
-			err = sftpUploadFile(testFilePath, testFileName+".quota", testFileSize, client) //nolint:goconst
+			err = sftpUploadFile(testFilePath, testFileName+".quota", testFileSize, client)
 			assert.NoError(t, err)
 			err = sftpUploadFile(testFilePath, testFileName+".quota.1", testFileSize, client)
 			if assert.Error(t, err, "user is over quota files, upload must fail") {
@@ -6648,10 +6648,10 @@ func TestVirtualFoldersQuotaLimit(t *testing.T) {
 	u1.QuotaFiles = 1
 	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
 	folderName1 := filepath.Base(mappedPath1)
-	vdirPath1 := "/vdir1" //nolint:goconst
+	vdirPath1 := "/vdir1"
 	mappedPath2 := filepath.Join(os.TempDir(), "vdir2")
 	folderName2 := filepath.Base(mappedPath2)
-	vdirPath2 := "/vdir2" //nolint:goconst
+	vdirPath2 := "/vdir2"
 	u1.VirtualFolders = append(u1.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
 			Name: folderName1,
@@ -7651,10 +7651,10 @@ func TestVirtualFoldersQuotaValues(t *testing.T) {
 	u := getTestUser(usePubKey)
 	u.QuotaFiles = 100
 	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
-	vdirPath1 := "/vdir1" //nolint:goconst
+	vdirPath1 := "/vdir1"
 	folderName1 := filepath.Base(mappedPath1)
 	mappedPath2 := filepath.Join(os.TempDir(), "vdir2")
-	vdirPath2 := "/vdir2" //nolint:goconst
+	vdirPath2 := "/vdir2"
 	folderName2 := filepath.Base(mappedPath2)
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
@@ -7811,8 +7811,8 @@ func TestQuotaRenameInsideSameVirtualFolder(t *testing.T) {
 		testFileSize1 := int64(65535)
 		testFilePath := filepath.Join(homeBasePath, testFileName)
 		testFilePath1 := filepath.Join(homeBasePath, testFileName1)
-		dir1 := "dir1" //nolint:goconst
-		dir2 := "dir2" //nolint:goconst
+		dir1 := "dir1"
+		dir2 := "dir2"
 		err = createTestFile(testFilePath, testFileSize)
 		assert.NoError(t, err)
 		err = createTestFile(testFilePath1, testFileSize1)
@@ -8720,7 +8720,7 @@ func TestVirtualFoldersLink(t *testing.T) {
 		assert.NoError(t, err)
 		err = client.Symlink(path.Join(vdirPath2, testFileName), path.Join(vdirPath2, testDir, testFileName+".link"))
 		assert.NoError(t, err)
-		err = client.Symlink(path.Join("/", testFileName), path.Join(vdirPath1, testFileName+".link1")) //nolint:goconst
+		err = client.Symlink(path.Join("/", testFileName), path.Join(vdirPath1, testFileName+".link1"))
 		assert.Error(t, err)
 		err = client.Symlink(path.Join("/", testFileName), path.Join(vdirPath1, testDir, testFileName+".link1"))
 		assert.Error(t, err)
@@ -9043,7 +9043,7 @@ func TestOverwriteDirWithFile(t *testing.T) {
 		defer conn.Close()
 		defer client.Close()
 		testFileSize := int64(65535)
-		testDirName := "test_dir" //nolint:goconst
+		testDirName := "test_dir"
 		testFilePath := filepath.Join(homeBasePath, testFileName)
 		err = createTestFile(testFilePath, testFileSize)
 		assert.NoError(t, err)
@@ -9657,7 +9657,7 @@ func TestSubDirsOverwrite(t *testing.T) {
 	if assert.NoError(t, err) {
 		defer conn.Close()
 		defer client.Close()
-		testFileName := "/subdir/test_file.dat" //nolint:goconst
+		testFileName := "/subdir/test_file.dat"
 		testFilePath := filepath.Join(homeBasePath, "test_file.dat")
 		testFileSFTPPath := filepath.Join(u.GetHomeDir(), "subdir", "test_file.dat")
 		testFileSize := int64(65535)
@@ -10074,7 +10074,7 @@ func TestResolvePaths(t *testing.T) {
 func TestVirtualRelativePaths(t *testing.T) {
 	user := getTestUser(true)
 	mappedPath := filepath.Join(os.TempDir(), "mdir")
-	vdirPath := "/vdir" //nolint:goconst
+	vdirPath := "/vdir"
 	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
 			MappedPath: mappedPath,
@@ -10855,11 +10855,11 @@ func TestSSHCopy(t *testing.T) {
 			assert.Equal(t, 6, user.UsedQuotaFiles)
 			assert.Equal(t, 3*testFileSize+3*testFileSize1, user.UsedQuotaSize)
 		}
-		out, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath2, testDir1, testFileName), testFileName+".copy"), //nolint:goconst
+		out, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath2, testDir1, testFileName), testFileName+".copy"),
 			user, usePubKey)
 		if assert.NoError(t, err) {
 			assert.Equal(t, "OK\n", string(out))
-			fi, err := client.Stat(testFileName + ".copy") //nolint:goconst
+			fi, err := client.Stat(testFileName + ".copy")
 			if assert.NoError(t, err) {
 				assert.True(t, fi.Mode().IsRegular())
 			}
@@ -10868,7 +10868,7 @@ func TestSSHCopy(t *testing.T) {
 			assert.Equal(t, 7, user.UsedQuotaFiles)
 			assert.Equal(t, 4*testFileSize+3*testFileSize1, user.UsedQuotaSize)
 		}
-		out, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath1, testDir1), path.Join(vdirPath2, testDir1+"copy")), //nolint:goconst
+		out, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath1, testDir1), path.Join(vdirPath2, testDir1+"copy")),
 			user, usePubKey)
 		if assert.NoError(t, err) {
 			assert.Equal(t, "OK\n", string(out))
@@ -11105,7 +11105,7 @@ func TestSSHCopyQuotaLimits(t *testing.T) {
 		assert.NoError(t, err)
 		// user quota: 2 files, size: 32768*2, folder2 quota: 2 files, size: 32768*2
 		// try to duplicate testDir, this will result in 4 file (over quota) and 32768*4 bytes (not over quota)
-		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", testDir, testDir+"_copy"), user, usePubKey) //nolint:goconst
+		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", testDir, testDir+"_copy"), user, usePubKey)
 		assert.Error(t, err)
 		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath2, testDir),
 			path.Join(vdirPath2, testDir+"_copy")), user, usePubKey)
@@ -11489,7 +11489,7 @@ func TestSSHCommandMaxTransfers(t *testing.T) {
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 
-	repoName := "testrepo" //nolint:goconst
+	repoName := "testrepo"
 	clonePath := filepath.Join(homeBasePath, repoName)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -11705,7 +11705,7 @@ func TestSCPRecursive(t *testing.T) {
 	assert.NoError(t, err)
 	testBaseDirName := "test_dir"
 	testBaseDirPath := filepath.Join(homeBasePath, testBaseDirName)
-	testBaseDirDownName := "test_dir_down" //nolint:goconst
+	testBaseDirDownName := "test_dir_down"
 	testBaseDirDownPath := filepath.Join(homeBasePath, testBaseDirDownName)
 	testFilePath := filepath.Join(homeBasePath, testBaseDirName, testFileName)
 	testFilePath1 := filepath.Join(homeBasePath, testBaseDirName, testBaseDirName, testFileName)
@@ -13129,7 +13129,7 @@ func sftpUploadFile(localSourcePath string, remoteDestPath string, expectedSize 
 	return err
 }
 
-func sftpUploadResumeFile(localSourcePath string, expectedSize int64, invalidOffset bool, //nolint:unparam
+func sftpUploadResumeFile(localSourcePath string, expectedSize int64, invalidOffset bool,
 	client *sftp.Client) error {
 	srcFile, err := os.Open(localSourcePath)
 	if err != nil {

@@ -184,7 +184,7 @@ func TestGetOSOpenFlags(t *testing.T) {
 }
 
 func TestUploadResumeInvalidOffset(t *testing.T) {
-	testfile := "testfile" //nolint:goconst
+	testfile := "testfile"
 	file, err := os.Create(testfile)
 	assert.NoError(t, err)
 	user := dataprovider.User{
@@ -368,7 +368,7 @@ func TestUploadFiles(t *testing.T) {
 
 func TestWithInvalidHome(t *testing.T) {
 	u := dataprovider.User{}
-	u.HomeDir = "home_rel_path" //nolint:goconst
+	u.HomeDir = "home_rel_path"
 	_, err := loginUser(&u, dataprovider.LoginMethodPassword, "", nil)
 	assert.Error(t, err, "login a user with an invalid home_dir must fail")
 

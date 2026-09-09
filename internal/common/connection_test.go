@@ -200,7 +200,7 @@ func TestRenameEntryChecks(t *testing.T) {
 		},
 	})
 	fs := vfs.NewOsFs("", filepath.Clean(os.TempDir()), "", nil)
-	defer fs.Close() //nolint:errcheck
+	defer fs.Close()
 	sourcePath := filepath.Join(os.TempDir(), "source")
 	targetPath := filepath.Join(os.TempDir(), "target")
 	// the rename permissions are partial, the entries must be checked one by one
@@ -221,7 +221,7 @@ func TestRenameEntryChecks(t *testing.T) {
 	assert.ErrorIs(t, err, os.ErrPermission)
 	// a filesystem that recurses walks the tree first
 	mockFs := newMockOsFs(false, "mockID", filepath.Clean(os.TempDir()), "S3Fs")
-	defer mockFs.Close() //nolint:errcheck
+	defer mockFs.Close()
 	err = conn.checkFolderRename(mockFs, mockFs, sourcePath, targetPath, "/source", "/target")
 	if assert.Error(t, err) {
 		assert.EqualError(t, err, conn.GetOpUnsupportedError().Error())
@@ -328,7 +328,7 @@ func TestRenameSourceTypeChanged(t *testing.T) {
 	require.NoError(t, os.RemoveAll(root))
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "adir"), os.ModePerm))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "afile"), []byte("f"), 0o600))
-	defer os.RemoveAll(root) //nolint:errcheck
+	defer os.RemoveAll(root)
 
 	conn := NewBaseConnection("", ProtocolWebDAV, "", "", dataprovider.User{
 		BaseUser: sdk.BaseUser{
@@ -336,7 +336,7 @@ func TestRenameSourceTypeChanged(t *testing.T) {
 		},
 	})
 	fs := vfs.NewOsFs("", root, "", nil)
-	defer fs.Close() //nolint:errcheck
+	defer fs.Close()
 	dirInfo := vfs.NewFileInfo("x", true, 0, time.Now(), false)
 	fileInfo := vfs.NewFileInfo("x", false, 0, time.Now(), false)
 

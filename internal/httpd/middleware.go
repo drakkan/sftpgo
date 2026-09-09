@@ -56,7 +56,7 @@ func validateJWTToken(w http.ResponseWriter, r *http.Request, audience tokenAudi
 	} else {
 		redirectPath = webClientLoginPath
 		if uri := r.RequestURI; strings.HasPrefix(uri, webClientFilesPath) {
-			redirectPath += "?next=" + url.QueryEscape(uri) //nolint:goconst
+			redirectPath += "?next=" + url.QueryEscape(uri)
 		}
 	}
 
