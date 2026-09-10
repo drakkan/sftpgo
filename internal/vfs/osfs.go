@@ -25,6 +25,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -491,6 +492,16 @@ func (fs *OsFs) ReadDir(dirname string) (DirLister, error) {
 			err = os.ErrNotExist
 		}
 		return nil, err
+	}
+	fi, err := f.Stat()
+	if err != nil {
+		f.Close()
+		return nil, err
+	}
+	if !fi.IsDir() {
+		name := f.Name()
+		f.Close()
+		return nil, &os.PathError{Op: "readdir", Path: name, Err: syscall.ENOTDIR}
 	}
 	return &osFsDirLister{f}, nil
 }
