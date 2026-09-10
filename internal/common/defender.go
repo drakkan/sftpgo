@@ -225,16 +225,16 @@ func (c *DefenderConfig) validate() error {
 		return err
 	}
 	if c.ScoreInvalid >= c.Threshold {
-		return fmt.Errorf("score_invalid %d cannot be greater than threshold %d", c.ScoreInvalid, c.Threshold)
+		return fmt.Errorf("score_invalid %d must be lower than threshold %d", c.ScoreInvalid, c.Threshold)
 	}
 	if c.ScoreValid >= c.Threshold {
-		return fmt.Errorf("score_valid %d cannot be greater than threshold %d", c.ScoreValid, c.Threshold)
+		return fmt.Errorf("score_valid %d must be lower than threshold %d", c.ScoreValid, c.Threshold)
 	}
 	if c.ScoreLimitExceeded >= c.Threshold {
-		return fmt.Errorf("score_limit_exceeded %d cannot be greater than threshold %d", c.ScoreLimitExceeded, c.Threshold)
+		return fmt.Errorf("score_limit_exceeded %d must be lower than threshold %d", c.ScoreLimitExceeded, c.Threshold)
 	}
 	if c.ScoreNoAuth >= c.Threshold {
-		return fmt.Errorf("score_no_auth %d cannot be greater than threshold %d", c.ScoreNoAuth, c.Threshold)
+		return fmt.Errorf("score_no_auth %d must be lower than threshold %d", c.ScoreNoAuth, c.Threshold)
 	}
 	if c.BanTime <= 0 {
 		return fmt.Errorf("invalid ban_time %v", c.BanTime)
