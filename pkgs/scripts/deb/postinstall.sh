@@ -28,6 +28,10 @@ if [ "$1" = "configure" ]; then
     chmod 640 /etc/sftpgo/sftpgo.json
   fi
 
+  # set the cap_net_bind_service capability so the service and the CLI
+  # commands, such as certificate requests, can bind to privileged ports
+  setcap cap_net_bind_service=+ep /usr/bin/sftpgo || true
+
 fi
 
 if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-deconfigure" ] || [ "$1" = "abort-remove" ] ; then
