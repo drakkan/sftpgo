@@ -92,17 +92,11 @@ func (c *OAuth2Config) isEqual(other *OAuth2Config) bool {
 }
 
 func (c *OAuth2Config) getAccessToken() (string, error) {
-	c.mu.RLock()
-	if c.accessToken.Expiry.After(time.Now().Add(30 * time.Second)) {
-		accessToken := c.accessToken.AccessToken
-		c.mu.RUnlock()
-
-		return accessToken, nil
+	token := c.getCachedToken()
+	if token.AccessToken != "" && token.Expiry.After(time.Now().Add(30*time.Second)) {
+		return token.AccessToken, nil
 	}
-	logger.Debug(logSender, "", "renew oauth2 token required, current token expires at %s", c.accessToken.Expiry)
-	token := new(oauth2.Token)
-	*token = *c.accessToken
-	c.mu.RUnlock()
+	logger.Debug(logSender, "", "renew oauth2 token required, current token expires at %s", token.Expiry)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -112,25 +106,33 @@ func (c *OAuth2Config) getAccessToken() (string, error) {
 		logger.Error(logSender, "", "unable to get new token: %v", err)
 		return "", err
 	}
-	accessToken := newToken.AccessToken
-	refreshToken := newToken.RefreshToken
-	if refreshToken != "" && refreshToken != token.RefreshToken {
-		c.mu.Lock()
-		c.RefreshToken = refreshToken
-		c.accessToken = newToken
-		c.mu.Unlock()
+	updatedRefreshToken := ""
 
+	c.mu.Lock()
+	if newToken.RefreshToken != "" && newToken.RefreshToken != token.RefreshToken {
+		c.RefreshToken = newToken.RefreshToken
+		updatedRefreshToken = newToken.RefreshToken
+	}
+	c.accessToken = newToken
+	c.mu.Unlock()
+
+	if updatedRefreshToken != "" {
 		logger.Debug(logSender, "", "oauth2 refresh token changed")
-		go updateRefreshToken(refreshToken)
+		go updateRefreshToken(updatedRefreshToken)
 	}
-	if accessToken != token.AccessToken {
-		c.mu.Lock()
-		c.accessToken = newToken
-		c.mu.Unlock()
+	logger.Debug(logSender, "", "new oauth2 token saved, expires at %s", newToken.Expiry)
 
-		logger.Debug(logSender, "", "new oauth2 token saved, expires at %s", c.accessToken.Expiry)
-	}
-	return accessToken, nil
+	return newToken.AccessToken, nil
+}
+
+// getCachedToken returns a copy of the cached token.
+func (c *OAuth2Config) getCachedToken() *oauth2.Token {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	token := new(oauth2.Token)
+	*token = *c.accessToken
+	return token
 }
 
 func (c *OAuth2Config) initialize() {

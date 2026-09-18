@@ -2267,6 +2267,11 @@ func setViperDefaults() {
 	viper.SetDefault("smtp.encryption", globalConf.SMTPConfig.Encryption)
 	viper.SetDefault("smtp.domain", globalConf.SMTPConfig.Domain)
 	viper.SetDefault("smtp.templates_path", globalConf.SMTPConfig.TemplatesPath)
+	viper.SetDefault("smtp.oauth2.provider", globalConf.SMTPConfig.OAuth2.Provider)
+	viper.SetDefault("smtp.oauth2.tenant", globalConf.SMTPConfig.OAuth2.Tenant)
+	viper.SetDefault("smtp.oauth2.client_id", globalConf.SMTPConfig.OAuth2.ClientID)
+	viper.SetDefault("smtp.oauth2.client_secret", globalConf.SMTPConfig.OAuth2.ClientSecret)
+	viper.SetDefault("smtp.oauth2.refresh_token", globalConf.SMTPConfig.OAuth2.RefreshToken)
 }
 
 func lookupBoolFromEnv(envName string) (bool, bool) {

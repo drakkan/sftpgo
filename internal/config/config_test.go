@@ -424,6 +424,40 @@ func TestSMTPFromEnv(t *testing.T) {
 	assert.Equal(t, 587, smtpConfig.Port)
 }
 
+func TestSMTPOAuth2FromEnv(t *testing.T) {
+	reset()
+
+	os.Setenv("SFTPGO_SMTP__HOST", "smtp.example.com")
+	os.Setenv("SFTPGO_SMTP__USER", "sftpgo@example.com")
+	os.Setenv("SFTPGO_SMTP__AUTH_TYPE", "3")
+	os.Setenv("SFTPGO_SMTP__OAUTH2__PROVIDER", "1")
+	os.Setenv("SFTPGO_SMTP__OAUTH2__TENANT", "a-tenant-id")
+	os.Setenv("SFTPGO_SMTP__OAUTH2__CLIENT_ID", "client id")
+	os.Setenv("SFTPGO_SMTP__OAUTH2__CLIENT_SECRET", "client secret")
+	os.Setenv("SFTPGO_SMTP__OAUTH2__REFRESH_TOKEN", "refresh token")
+	t.Cleanup(func() {
+		os.Unsetenv("SFTPGO_SMTP__HOST")
+		os.Unsetenv("SFTPGO_SMTP__USER")
+		os.Unsetenv("SFTPGO_SMTP__AUTH_TYPE")
+		os.Unsetenv("SFTPGO_SMTP__OAUTH2__PROVIDER")
+		os.Unsetenv("SFTPGO_SMTP__OAUTH2__TENANT")
+		os.Unsetenv("SFTPGO_SMTP__OAUTH2__CLIENT_ID")
+		os.Unsetenv("SFTPGO_SMTP__OAUTH2__CLIENT_SECRET")
+		os.Unsetenv("SFTPGO_SMTP__OAUTH2__REFRESH_TOKEN")
+	})
+
+	// the environment is the only source, no config file is present
+	err := config.LoadConfig(t.TempDir(), "")
+	assert.NoError(t, err)
+	smtpConfig := config.GetSMTPConfig()
+	assert.Equal(t, 3, smtpConfig.AuthType)
+	assert.Equal(t, 1, smtpConfig.OAuth2.Provider)
+	assert.Equal(t, "a-tenant-id", smtpConfig.OAuth2.Tenant)
+	assert.Equal(t, "client id", smtpConfig.OAuth2.ClientID)
+	assert.Equal(t, "client secret", smtpConfig.OAuth2.ClientSecret)
+	assert.Equal(t, "refresh token", smtpConfig.OAuth2.RefreshToken)
+}
+
 func TestMFAFromEnv(t *testing.T) {
 	reset()
 
