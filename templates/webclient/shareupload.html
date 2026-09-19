@@ -40,7 +40,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             {{- template "errmsg" ""}}
             <form id="upload_files_form" action="{{.UploadBasePath}}" method="POST" enctype="multipart/form-data">
                 <div class="fv-row">
-                    <div class="dropzone mh-350px overflow-auto visibility-auto" id="upload_files">
+                    <div role="button" tabindex="0" class="dropzone mh-350px overflow-auto visibility-auto" id="upload_files">
                         <div class="dz-message needsclick align-items-center">
                             <i class="ki-duotone ki-file-up fs-3x text-primary"><span class="path1"></span><span class="path2"></span></i>
                             <div class="ms-4">
