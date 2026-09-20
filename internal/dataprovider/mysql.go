@@ -371,12 +371,12 @@ func (p *MySQLProvider) validateUserAndPass(username, password, ip, protocol str
 	return sqlCommonValidateUserAndPass(username, password, ip, protocol, p.dbHandle)
 }
 
-func (p *MySQLProvider) validateUserAndTLSCert(username, protocol string, tlsCert *x509.Certificate) (User, error) {
-	return sqlCommonValidateUserAndTLSCertificate(username, protocol, tlsCert, p.dbHandle)
+func (p *MySQLProvider) validateUserAndTLSCert(username, ip, protocol string, tlsCert *x509.Certificate) (User, error) {
+	return sqlCommonValidateUserAndTLSCertificate(username, ip, protocol, tlsCert, p.dbHandle)
 }
 
-func (p *MySQLProvider) validateUserAndPubKey(username string, publicKey []byte, isSSHCert bool) (User, string, error) {
-	return sqlCommonValidateUserAndPubKey(username, publicKey, isSSHCert, p.dbHandle)
+func (p *MySQLProvider) validateUserAndPubKey(username string, publicKey []byte, ip string, isSSHCert bool) (User, string, error) {
+	return sqlCommonValidateUserAndPubKey(username, publicKey, ip, isSSHCert, p.dbHandle)
 }
 
 func (p *MySQLProvider) updateTransferQuota(username string, uploadSize, downloadSize int64, reset bool) error {
