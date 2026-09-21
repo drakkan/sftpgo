@@ -21,7 +21,9 @@ if [ $1 -eq 1 ]; then
   /usr/bin/chmod 640 /etc/sftpgo/sftpgo.json
 fi
 
-# adjust permissions for /srv/sftpgo, /etc/sftpgo/env.d and /var/lib/sftpgo
+# rpm reapplies the packaged directory metadata on every transaction,
+# restore the ownership set at install for /srv/sftpgo, /etc/sftpgo/env.d
+# and /var/lib/sftpgo
 if [ -d /srv/sftpgo ]; then
     /usr/bin/chown sftpgo:sftpgo /srv/sftpgo
     /usr/bin/chmod 750 /srv/sftpgo
@@ -37,7 +39,8 @@ if [ -d /var/lib/sftpgo ]; then
     /usr/bin/chmod 750 /var/lib/sftpgo
 fi
 
-# set the cap_net_bind_service capability so the service can bind to privileged ports
+# set the cap_net_bind_service capability so the service and the CLI
+# commands, such as certificate requests, can bind to privileged ports
 setcap cap_net_bind_service=+ep /usr/bin/sftpgo || :
 
 # reload to pick up any changes to systemd files

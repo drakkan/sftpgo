@@ -103,7 +103,7 @@ func (c *Connection) Mkdir(_ context.Context, name string, _ os.FileMode) error 
 	c.UpdateLastActivity()
 
 	name = util.CleanPath(name)
-	return c.CreateDir(name, true)
+	return c.CreateDir(name)
 }
 
 // Rename renames a file or a directory
@@ -293,7 +293,7 @@ func (c *Connection) handleUploadToExistingFile(fs vfs.Fs, resolvedPath, filePat
 		if err == nil {
 			dataprovider.UpdateUserFolderQuota(&vfolder, &c.User, 0, -fileSize, false)
 		} else {
-			dataprovider.UpdateUserQuota(&c.User, 0, -fileSize, false) //nolint:errcheck
+			_ = dataprovider.UpdateUserQuota(&c.User, 0, -fileSize, false)
 		}
 	} else {
 		initialSize = fileSize

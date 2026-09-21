@@ -100,7 +100,7 @@ func (c *Connection) Mkdir(name string, _ os.FileMode) error {
 	c.UpdateLastActivity()
 	name = util.CleanPath(name)
 
-	return c.CreateDir(name, true)
+	return c.CreateDir(name)
 }
 
 // MkdirAll is not implemented, we don't need it
@@ -511,7 +511,7 @@ func (c *Connection) handleFTPUploadToExistingFile(fs vfs.Fs, flags int, resolve
 		initialSize = fileSize
 		if vfs.IsSFTPFs(fs) && fs.IsUploadResumeSupported() {
 			// we need this since we don't allow resume with wrong offset, we should fix this in pkg/sftp
-			file.Seek(initialSize, io.SeekStart) //nolint:errcheck // for sftp seek simply set the offset
+			_, _ = file.Seek(initialSize, io.SeekStart) // for sftp seek simply set the offset
 		}
 	} else {
 		if vfs.HasTruncateSupport(fs) {
@@ -519,7 +519,7 @@ func (c *Connection) handleFTPUploadToExistingFile(fs vfs.Fs, flags int, resolve
 			if err == nil {
 				dataprovider.UpdateUserFolderQuota(&vfolder, &c.User, 0, -fileSize, false)
 			} else {
-				dataprovider.UpdateUserQuota(&c.User, 0, -fileSize, false) //nolint:errcheck
+				_ = dataprovider.UpdateUserQuota(&c.User, 0, -fileSize, false)
 			}
 		} else {
 			initialSize = fileSize
@@ -554,8 +554,8 @@ func getPathRelativeTo(base, target string) string {
 		if !strings.HasSuffix(base, "/") {
 			base += "/"
 		}
-		if strings.HasPrefix(target, base) {
-			sb.WriteString(strings.TrimPrefix(target, base))
+		if after, ok := strings.CutPrefix(target, base); ok {
+			sb.WriteString(after)
 			return sb.String()
 		}
 		if base == "/" || base == "./" {

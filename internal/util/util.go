@@ -157,7 +157,7 @@ func SanitizeCSVRow(row []string) []string {
 // IsStringPrefixInSlice searches a string prefix in a slice and returns true
 // if a matching prefix is found
 func IsStringPrefixInSlice(obj string, list []string) bool {
-	for i := 0; i < len(list); i++ {
+	for i := range list {
 		if strings.HasPrefix(obj, list[i]) {
 			return true
 		}
@@ -216,7 +216,7 @@ func IsNameValid(name string) bool {
 	}
 
 	upperName := strings.ToUpper(name)
-	baseName := strings.Split(upperName, ".")[0]
+	baseName, _, _ := strings.Cut(upperName, ".")
 
 	switch baseName {
 	case "CON", "PRN", "AUX", "NUL",
@@ -663,7 +663,7 @@ func HTTPListenAndServe(srv *http.Server, address string, port int, isTLS bool,
 			logger.ErrorToConsole("error creating Unix-domain socket parent dir: %v", err)
 			logger.Error(logSender, "", "error creating Unix-domain socket parent dir: %v", err)
 		}
-		os.Remove(address)
+		_ = os.Remove(address)
 		listener, err = net.Listen("unix", address)
 		if err == nil {
 			// should a chmod err be fatal?

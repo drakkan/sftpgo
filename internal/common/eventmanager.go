@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"html"
 	"io"
+	"maps"
 	"mime"
 	"mime/multipart"
 	"net/http"
@@ -230,7 +231,7 @@ func (r *eventRulesContainer) addUpdateRuleInternal(rule dataprovider.EventRule)
 		deletedAt := util.GetTimeFromMsecSinceEpoch(rule.DeletedAt)
 		if deletedAt.Add(30 * time.Minute).Before(time.Now()) {
 			eventManagerLog(logger.LevelDebug, "removing rule %q deleted at %s", rule.Name, deletedAt)
-			go dataprovider.RemoveEventRule(rule) //nolint:errcheck
+			go func() { _ = dataprovider.RemoveEventRule(rule) }()
 		}
 		return
 	}
@@ -594,16 +595,12 @@ func (p *EventParams) getACopy() *EventParams {
 	params.retentionChecks = retentionChecks
 	if p.IDPCustomFields != nil {
 		fields := make(map[string]string)
-		for k, v := range *p.IDPCustomFields {
-			fields[k] = v
-		}
+		maps.Copy(fields, *p.IDPCustomFields)
 		params.IDPCustomFields = &fields
 	}
 	if len(params.Metadata) > 0 {
 		metadata := make(map[string]string)
-		for k, v := range p.Metadata {
-			metadata[k] = v
-		}
+		maps.Copy(metadata, p.Metadata)
 		params.Metadata = metadata
 	}
 
@@ -927,7 +924,7 @@ func closeWriterAndUpdateQuota(w io.WriteCloser, conn *BaseConnection, virtualSo
 					conn.User.Username, "", conn.ID, conn.protocol, -1, -1, "", "", "", info.Size(),
 					conn.localAddr, conn.remoteAddr, elapsed)
 			}
-			ExecuteActionNotification(conn, operation, fsSrcPath, virtualSourcePath, fsDstPath, virtualTargetPath, "", info.Size(), errTransfer, elapsed, nil) //nolint:errcheck
+			_ = ExecuteActionNotification(conn, operation, fsSrcPath, virtualSourcePath, fsDstPath, virtualTargetPath, "", info.Size(), errTransfer, elapsed, nil)
 		}
 	} else {
 		eventManagerLog(logger.LevelWarn, "unable to update quota after writing %q: %v", targetPath, err)
@@ -941,7 +938,7 @@ func closeWriterAndUpdateQuota(w io.WriteCloser, conn *BaseConnection, virtualSo
 func updateUserQuotaAfterFileWrite(conn *BaseConnection, virtualPath string, numFiles int, fileSize int64) {
 	vfolder, err := conn.User.GetVirtualFolderForPath(path.Dir(virtualPath))
 	if err != nil {
-		dataprovider.UpdateUserQuota(&conn.User, numFiles, fileSize, false) //nolint:errcheck
+		_ = dataprovider.UpdateUserQuota(&conn.User, numFiles, fileSize, false)
 		return
 	}
 	dataprovider.UpdateUserFolderQuota(&vfolder, &conn.User, numFiles, fileSize, false)
@@ -1021,7 +1018,7 @@ func getFileWriter(conn *BaseConnection, virtualPath string, expectedSize int64)
 	return w, numFiles, truncatedSize, cancelFn, nil
 }
 
-func addZipEntry(wr *zipWriterWrapper, conn *BaseConnection, entryPath, baseDir string, info os.FileInfo, recursion int) error { //nolint:gocyclo
+func addZipEntry(wr *zipWriterWrapper, conn *BaseConnection, entryPath, baseDir string, info os.FileInfo, recursion int) error {
 	if entryPath == wr.Name {
 		// skip the archive itself
 		return nil
@@ -1352,7 +1349,7 @@ func writeHTTPPart(m *multipart.Writer, part dataprovider.HTTPPart, h textproto.
 	return nil
 }
 
-func getHTTPRuleActionBody(c *dataprovider.EventActionHTTPConfig, replacer *strings.Replacer, //nolint:gocyclo
+func getHTTPRuleActionBody(c *dataprovider.EventActionHTTPConfig, replacer *strings.Replacer,
 	cancel context.CancelFunc, user dataprovider.User, params *EventParams, addObjectData bool,
 ) (io.Reader, string, error) {
 	var body io.Reader
@@ -1387,7 +1384,7 @@ func getHTTPRuleActionBody(c *dataprovider.EventActionHTTPConfig, replacer *stri
 			connectionID := fmt.Sprintf("%s_%s", protocolEventAction, xid.New().String())
 			err = user.CheckFsRoot(connectionID)
 			if err != nil {
-				user.CloseFs() //nolint:errcheck
+				user.CloseFs()
 				return body, "", fmt.Errorf("error getting multipart file/s, unable to check root fs for user %q: %w",
 					user.Username, err)
 			}
@@ -1396,9 +1393,9 @@ func getHTTPRuleActionBody(c *dataprovider.EventActionHTTPConfig, replacer *stri
 
 		go func() {
 			defer w.Close()
-			defer user.CloseFs() //nolint:errcheck
+			defer user.CloseFs()
 			if conn != nil {
-				defer conn.CloseFS() //nolint:errcheck
+				defer conn.CloseFS()
 			}
 
 			for _, part := range c.Parts {
@@ -1618,12 +1615,12 @@ func executeEmailRuleAction(c dataprovider.EventActionEmailConfig, params *Event
 		}
 		connectionID := fmt.Sprintf("%s_%s", protocolEventAction, xid.New().String())
 		err = user.CheckFsRoot(connectionID)
-		defer user.CloseFs() //nolint:errcheck
+		defer user.CloseFs()
 		if err != nil {
 			return fmt.Errorf("error getting email attachments, unable to check root fs for user %q: %w", user.Username, err)
 		}
 		conn := NewBaseConnection(connectionID, protocolEventAction, "", "", user)
-		defer conn.CloseFS() //nolint:errcheck
+		defer conn.CloseFS()
 
 		res, err := getMailAttachments(conn, fileAttachments, replacer)
 		if err != nil {
@@ -1646,7 +1643,11 @@ func getUserForEventAction(user *dataprovider.User) error {
 		eventManagerLog(logger.LevelError, "unable to get group for user %q: %+v", user.Username, err)
 		return fmt.Errorf("unable to get groups for user %q", user.Username)
 	}
+	// An action is started by the service, not requested by the account, so the
+	// transfer quota and the bandwidth limits of the user do not bound it.
 	user.UploadDataTransfer = 0
+	user.DownloadDataTransfer = 0
+	user.TotalDataTransfer = 0
 	user.UploadBandwidth = 0
 	user.DownloadBandwidth = 0
 	user.Filters.DisableFsChecks = false
@@ -1680,12 +1681,12 @@ func executeDeleteFsActionForUser(deletes []string, replacer *strings.Replacer, 
 	}
 	connectionID := fmt.Sprintf("%s_%s", protocolEventAction, xid.New().String())
 	err := user.CheckFsRoot(connectionID)
-	defer user.CloseFs() //nolint:errcheck
+	defer user.CloseFs()
 	if err != nil {
 		return fmt.Errorf("delete error, unable to check root fs for user %q: %w", user.Username, err)
 	}
 	conn := NewBaseConnection(connectionID, protocolEventAction, "", "", user)
-	defer conn.CloseFS() //nolint:errcheck
+	defer conn.CloseFS()
 
 	for _, item := range replacePathsPlaceholders(deletes, replacer) {
 		info, err := conn.DoStat(item, 0, false)
@@ -1749,12 +1750,12 @@ func executeMkDirsFsActionForUser(dirs []string, replacer *strings.Replacer, use
 	}
 	connectionID := fmt.Sprintf("%s_%s", protocolEventAction, xid.New().String())
 	err := user.CheckFsRoot(connectionID)
-	defer user.CloseFs() //nolint:errcheck
+	defer user.CloseFs()
 	if err != nil {
 		return fmt.Errorf("mkdir error, unable to check root fs for user %q: %w", user.Username, err)
 	}
 	conn := NewBaseConnection(connectionID, protocolEventAction, "", "", user)
-	defer conn.CloseFS() //nolint:errcheck
+	defer conn.CloseFS()
 
 	for _, item := range replacePathsPlaceholders(dirs, replacer) {
 		if err = conn.CheckParentDirs(path.Dir(item)); err != nil {
@@ -1809,12 +1810,12 @@ func executeRenameFsActionForUser(renames []dataprovider.RenameConfig, replacer 
 	}
 	connectionID := fmt.Sprintf("%s_%s", protocolEventAction, xid.New().String())
 	err := user.CheckFsRoot(connectionID)
-	defer user.CloseFs() //nolint:errcheck
+	defer user.CloseFs()
 	if err != nil {
 		return fmt.Errorf("rename error, unable to check root fs for user %q: %w", user.Username, err)
 	}
 	conn := NewBaseConnection(connectionID, protocolEventAction, "", "", user)
-	defer conn.CloseFS() //nolint:errcheck
+	defer conn.CloseFS()
 
 	for _, item := range renames {
 		source := util.CleanPath(replaceWithReplacer(item.Key, replacer))
@@ -1839,12 +1840,12 @@ func executeCopyFsActionForUser(keyVals []dataprovider.KeyValue, replacer *strin
 	}
 	connectionID := fmt.Sprintf("%s_%s", protocolEventAction, xid.New().String())
 	err := user.CheckFsRoot(connectionID)
-	defer user.CloseFs() //nolint:errcheck
+	defer user.CloseFs()
 	if err != nil {
 		return fmt.Errorf("copy error, unable to check root fs for user %q: %w", user.Username, err)
 	}
 	conn := NewBaseConnection(connectionID, protocolEventAction, "", "", user)
-	defer conn.CloseFS() //nolint:errcheck
+	defer conn.CloseFS()
 
 	for _, item := range keyVals {
 		source := util.CleanPath(replaceWithReplacer(item.Key, replacer))
@@ -1871,12 +1872,12 @@ func executeExistFsActionForUser(exist []string, replacer *strings.Replacer,
 	}
 	connectionID := fmt.Sprintf("%s_%s", protocolEventAction, xid.New().String())
 	err := user.CheckFsRoot(connectionID)
-	defer user.CloseFs() //nolint:errcheck
+	defer user.CloseFs()
 	if err != nil {
 		return fmt.Errorf("existence check error, unable to check root fs for user %q: %w", user.Username, err)
 	}
 	conn := NewBaseConnection(connectionID, protocolEventAction, "", "", user)
-	defer conn.CloseFS() //nolint:errcheck
+	defer conn.CloseFS()
 
 	for _, item := range replacePathsPlaceholders(exist, replacer) {
 		if _, err = conn.DoStat(item, 0, false); err != nil {
@@ -2030,15 +2031,15 @@ func executeCompressFsActionForUser(c dataprovider.EventActionFsCompress, replac
 	}
 	connectionID := fmt.Sprintf("%s_%s", protocolEventAction, xid.New().String())
 	err := user.CheckFsRoot(connectionID)
-	defer user.CloseFs() //nolint:errcheck
+	defer user.CloseFs()
 	if err != nil {
 		return fmt.Errorf("compress error, unable to check root fs for user %q: %w", user.Username, err)
 	}
 	conn := NewBaseConnection(connectionID, protocolEventAction, "", "", user)
-	defer conn.CloseFS() //nolint:errcheck
+	defer conn.CloseFS()
 
 	name := util.CleanPath(replaceWithReplacer(c.Name, replacer))
-	conn.CheckParentDirs(path.Dir(name)) //nolint:errcheck
+	_ = conn.CheckParentDirs(path.Dir(name))
 	paths := make([]string, 0, len(c.Paths))
 	for idx := range c.Paths {
 		p := util.CleanPath(replaceWithReplacer(c.Paths[idx], replacer))
@@ -2071,13 +2072,13 @@ func executeCompressFsActionForUser(c dataprovider.EventActionFsCompress, replac
 	startTime := time.Now()
 	for _, item := range paths {
 		if err := addZipEntry(zipWriter, conn, item, baseDir, nil, 0); err != nil {
-			closeWriterAndUpdateQuota(writer, conn, name, "", numFiles, truncatedSize, err, operationUpload, startTime) //nolint:errcheck
+			_ = closeWriterAndUpdateQuota(writer, conn, name, "", numFiles, truncatedSize, err, operationUpload, startTime)
 			return err
 		}
 	}
 	if err := zipWriter.Writer.Close(); err != nil {
 		eventManagerLog(logger.LevelError, "unable to close zip file %q: %v", name, err)
-		closeWriterAndUpdateQuota(writer, conn, name, "", numFiles, truncatedSize, err, operationUpload, startTime) //nolint:errcheck
+		_ = closeWriterAndUpdateQuota(writer, conn, name, "", numFiles, truncatedSize, err, operationUpload, startTime)
 		return fmt.Errorf("unable to close zip file %q: %w", name, err)
 	}
 	return closeWriterAndUpdateQuota(writer, conn, name, "", numFiles, truncatedSize, err, operationUpload, startTime)
@@ -2649,7 +2650,7 @@ func executeUserCheckAction(c *dataprovider.EventActionIDPAccountCheck, params *
 	return &u, err
 }
 
-func executeRuleAction(action dataprovider.BaseEventAction, params *EventParams, //nolint:gocyclo
+func executeRuleAction(action dataprovider.BaseEventAction, params *EventParams,
 	conditions dataprovider.ConditionOptions,
 ) error {
 	if len(conditions.EventStatuses) > 0 && !slices.Contains(conditions.EventStatuses, params.Status) {

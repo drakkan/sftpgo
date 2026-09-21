@@ -18,6 +18,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -94,17 +96,19 @@ func (s *Share) IsPasswordHashed() bool {
 	return util.IsStringPrefixInSlice(s.Password, hashPwdPrefixes)
 }
 
-func (s *Share) getACopy() Share {
-	allowFrom := make([]string, len(s.AllowFrom))
-	copy(allowFrom, s.AllowFrom)
+// GetSignature returns a value that changes whenever the share is updated.
+func (s *Share) GetSignature() string {
+	return strconv.FormatInt(s.UpdatedAt, 10)
+}
 
+func (s *Share) getACopy() Share {
 	return Share{
 		ID:          s.ID,
 		ShareID:     s.ShareID,
 		Name:        s.Name,
 		Description: s.Description,
 		Scope:       s.Scope,
-		Paths:       s.Paths,
+		Paths:       slices.Clone(s.Paths),
 		Username:    s.Username,
 		CreatedAt:   s.CreatedAt,
 		UpdatedAt:   s.UpdatedAt,
@@ -113,7 +117,7 @@ func (s *Share) getACopy() Share {
 		Password:    s.Password,
 		MaxTokens:   s.MaxTokens,
 		UsedTokens:  s.UsedTokens,
-		AllowFrom:   allowFrom,
+		AllowFrom:   slices.Clone(s.AllowFrom),
 	}
 }
 
@@ -206,7 +210,7 @@ func (s *Share) validatePaths() error {
 	return nil
 }
 
-func (s *Share) validate() error { //nolint:gocyclo
+func (s *Share) validate() error {
 	if s.ShareID == "" {
 		return util.NewValidationError("share_id is mandatory")
 	}

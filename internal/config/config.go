@@ -133,6 +133,8 @@ var (
 			ImplicitRoles:              false,
 			Scopes:                     []string{"openid", "profile", "email"},
 			CustomFields:               []string{},
+			QueryUserInfo:              false,
+			RequireVerifiedEmail:       false,
 			InsecureSkipSignatureCheck: false,
 			Debug:                      false,
 		},
@@ -211,9 +213,9 @@ func Init() {
 			},
 			SetstatMode:           0,
 			RenameMode:            0,
+			SymlinkMode:           0,
 			ResumeMaxSize:         0,
 			SecretMinEntropy:      80,
-			TempPath:              "",
 			ProxyProtocol:         0,
 			ProxyAllowed:          []string{},
 			ProxySkipped:          []string{},
@@ -836,10 +838,16 @@ func resetInvalidConfigs() {
 		logger.Warn(logSender, "", "Non-fatal configuration error: %v", warn)
 		logger.WarnToConsole("Non-fatal configuration error: %v", warn)
 	}
+	if globalConf.Common.SymlinkMode < 0 || globalConf.Common.SymlinkMode > 3 {
+		warn := fmt.Sprintf("invalid symlink mode %d, reset to 0", globalConf.Common.SymlinkMode)
+		globalConf.Common.SymlinkMode = 0
+		logger.Warn(logSender, "", "Non-fatal configuration error: %v", warn)
+		logger.WarnToConsole("Non-fatal configuration error: %v", warn)
+	}
 }
 
 func loadBindingsFromEnv() {
-	for idx := 0; idx < 10; idx++ {
+	for idx := range 10 {
 		getTOTPFromEnv(idx)
 		getRateLimitersFromEnv(idx)
 		getPluginsFromEnv(idx)
@@ -1146,7 +1154,7 @@ func getFTPDPassiveIPOverridesFromEnv(idx int) []ftpd.PassiveIPOverride {
 		overrides = globalConf.FTPD.Bindings[idx].PassiveIPOverrides
 	}
 
-	for subIdx := 0; subIdx < 10; subIdx++ {
+	for subIdx := range 10 {
 		var override ftpd.PassiveIPOverride
 		var replace bool
 		if len(globalConf.FTPD.Bindings) > idx && len(globalConf.FTPD.Bindings[idx].PassiveIPOverrides) > subIdx {
@@ -1381,7 +1389,7 @@ func getWebDAVDBindingProxyConfigsFromEnv(idx int, binding *webdavd.Binding) boo
 }
 
 func loadWebDAVCacheMappingsFromEnv() []webdavd.CustomMimeMapping {
-	for idx := 0; idx < 30; idx++ {
+	for idx := range 30 {
 		ext, extOK := os.LookupEnv(fmt.Sprintf("SFTPGO_WEBDAVD__CACHE__MIME_TYPES__CUSTOM_MAPPINGS__%d__EXT", idx))
 		mime, mimeOK := os.LookupEnv(fmt.Sprintf("SFTPGO_WEBDAVD__CACHE__MIME_TYPES__CUSTOM_MAPPINGS__%d__MIME", idx))
 		if extOK && mimeOK {
@@ -1456,7 +1464,7 @@ func getHTTPDSecurityProxyHeadersFromEnv(idx int) []httpd.HTTPSProxyHeader {
 		httpsProxyHeaders = globalConf.HTTPDConfig.Bindings[idx].Security.HTTPSProxyHeaders
 	}
 
-	for subIdx := 0; subIdx < 10; subIdx++ {
+	for subIdx := range 10 {
 		var httpsProxyHeader httpd.HTTPSProxyHeader
 		var replace bool
 		if len(globalConf.HTTPDConfig.Bindings) > idx &&
@@ -1485,7 +1493,7 @@ func getHTTPDSecurityProxyHeadersFromEnv(idx int) []httpd.HTTPSProxyHeader {
 	return httpsProxyHeaders
 }
 
-func getHTTPDSecurityConfFromEnv(idx int) (httpd.SecurityConf, bool) { //nolint:gocyclo
+func getHTTPDSecurityConfFromEnv(idx int) (httpd.SecurityConf, bool) {
 	result := defaultHTTPDBinding.Security
 	if len(globalConf.HTTPDConfig.Bindings) > idx {
 		result = globalConf.HTTPDConfig.Bindings[idx].Security
@@ -1670,9 +1678,21 @@ func getHTTPDOIDCFromEnv(idx int) (httpd.OIDC, bool) {
 		isSet = true
 	}
 
+	queryUserInfo, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__QUERY_USERINFO", idx))
+	if ok {
+		result.QueryUserInfo = queryUserInfo
+		isSet = true
+	}
+
 	skipSignatureCheck, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__INSECURE_SKIP_SIGNATURE_CHECK", idx))
 	if ok {
 		result.InsecureSkipSignatureCheck = skipSignatureCheck
+		isSet = true
+	}
+
+	requireVerifiedEmail, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__REQUIRE_VERIFIED_EMAIL", idx))
+	if ok {
+		result.RequireVerifiedEmail = requireVerifiedEmail
 		isSet = true
 	}
 
@@ -1825,7 +1845,7 @@ func getHTTPDBindingProxyConfigsFromEnv(idx int, binding *httpd.Binding) bool {
 	return isSet
 }
 
-func getHTTPDBindingFromEnv(idx int) { //nolint:gocyclo
+func getHTTPDBindingFromEnv(idx int) {
 	binding := getDefaultHTTPBinding(idx)
 	isSet := false
 
@@ -2056,9 +2076,9 @@ func setViperDefaults() {
 	viper.SetDefault("common.actions.hook", globalConf.Common.Actions.Hook)
 	viper.SetDefault("common.setstat_mode", globalConf.Common.SetstatMode)
 	viper.SetDefault("common.rename_mode", globalConf.Common.RenameMode)
+	viper.SetDefault("common.symlink_mode", globalConf.Common.SymlinkMode)
 	viper.SetDefault("common.resume_max_size", globalConf.Common.ResumeMaxSize)
 	viper.SetDefault("common.secret_min_entropy", globalConf.Common.SecretMinEntropy)
-	viper.SetDefault("common.temp_path", globalConf.Common.TempPath)
 	viper.SetDefault("common.proxy_protocol", globalConf.Common.ProxyProtocol)
 	viper.SetDefault("common.proxy_allowed", globalConf.Common.ProxyAllowed)
 	viper.SetDefault("common.proxy_skipped", globalConf.Common.ProxySkipped)
@@ -2248,6 +2268,11 @@ func setViperDefaults() {
 	viper.SetDefault("smtp.encryption", globalConf.SMTPConfig.Encryption)
 	viper.SetDefault("smtp.domain", globalConf.SMTPConfig.Domain)
 	viper.SetDefault("smtp.templates_path", globalConf.SMTPConfig.TemplatesPath)
+	viper.SetDefault("smtp.oauth2.provider", globalConf.SMTPConfig.OAuth2.Provider)
+	viper.SetDefault("smtp.oauth2.tenant", globalConf.SMTPConfig.OAuth2.Tenant)
+	viper.SetDefault("smtp.oauth2.client_id", globalConf.SMTPConfig.OAuth2.ClientID)
+	viper.SetDefault("smtp.oauth2.client_secret", globalConf.SMTPConfig.OAuth2.ClientSecret)
+	viper.SetDefault("smtp.oauth2.refresh_token", globalConf.SMTPConfig.OAuth2.RefreshToken)
 }
 
 func lookupBoolFromEnv(envName string) (bool, bool) {

@@ -114,6 +114,7 @@ func (s *httpdServer) handleSMTPOAuth2TokenRequestPost(w http.ResponseWriter, r 
 	clientSecret := kms.NewPlainSecret(cfg.ClientSecret)
 	clientSecret.SetAdditionalData(xid.New().String())
 	pendingAuth := newOAuth2PendingAuth(req.Provider, cfg.RedirectURL, cfg.ClientID, clientSecret)
+	pendingAuth.Browser = setAuthBrowserID(w, r, oauth2BrowserCookieKey)
 	oauth2Mgr.addPendingAuth(pendingAuth)
 	stateToken := createOAuth2Token(s.csrfTokenAuth, pendingAuth.State, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if stateToken == "" {

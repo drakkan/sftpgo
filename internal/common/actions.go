@@ -183,7 +183,7 @@ func ExecuteActionNotification(conn *BaseConnection, operation, filePath, virtua
 			startNewHook()
 			defer hookEnded()
 
-			actionHandler.Handle(notification) //nolint:errcheck
+			_, _ = actionHandler.Handle(notification)
 		}()
 	}
 	return nil

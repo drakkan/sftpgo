@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"path"
 	"slices"
 	"strings"
 	"time"
@@ -37,11 +38,14 @@ import (
 )
 
 const (
-	oidcCookieKey       = "oidc"
-	adminRoleFieldValue = "admin"
-	authStateValidity   = 2 * 60 * 1000   // 2 minutes
-	tokenUpdateInterval = 3 * 60 * 1000   // 3 minutes
-	tokenDeleteInterval = 2 * 3600 * 1000 // 2 hours
+	oidcCookieKey          = "oidc"
+	oidcBrowserCookieKey   = "oidc_browser"
+	adminRoleFieldValue    = "admin"
+	authStateValidity      = 2 * 60 * 1000 // 2 minutes
+	maxWebClientNextLength = 4096
+	emailVerifiedClaim     = "email_verified"
+	tokenUpdateInterval    = 3 * 60 * 1000   // 3 minutes
+	tokenDeleteInterval    = 2 * 3600 * 1000 // 2 hours
 )
 
 var (
@@ -93,6 +97,15 @@ type OIDC struct {
 	Scopes []string `json:"scopes" mapstructure:"scopes"`
 	// Custom token claims fields to pass to the pre-login hook
 	CustomFields []string `json:"custom_fields" mapstructure:"custom_fields"`
+	// QueryUserInfo defines whether to query the UserInfo endpoint after
+	// authentication and read the user claims from both sources.
+	// Non-empty ID token claims take precedence over UserInfo claims with the
+	// same name. The UserInfo subject must match the ID token subject.
+	QueryUserInfo bool `json:"query_userinfo" mapstructure:"query_userinfo"`
+	// RequireVerifiedEmail defines whether to accept only users whose "email_verified"
+	// claim is set to true in the ID token or, when QueryUserInfo is enabled,
+	// in the merged claims.
+	RequireVerifiedEmail bool `json:"require_verified_email" mapstructure:"require_verified_email"`
 	// InsecureSkipSignatureCheck causes SFTPGo to skip JWT signature validation.
 	// It's intended for special cases where providers, such as Azure, use the "none"
 	// algorithm. Skipping the signature validation can cause security issues
@@ -126,8 +139,8 @@ func (o *OIDC) getForcedRole(audience string) string {
 
 func (o *OIDC) getRedirectURL() string {
 	url := o.RedirectBaseURL
-	if strings.HasSuffix(o.RedirectBaseURL, "/") {
-		url = strings.TrimSuffix(o.RedirectBaseURL, "/")
+	if before, ok := strings.CutSuffix(o.RedirectBaseURL, "/"); ok {
+		url = before
 	}
 	url += webOIDCRedirectPath
 	logger.Debug(logSender, "", "oidc redirect URL: %q", url)
@@ -162,13 +175,20 @@ func (o *OIDC) initialize() error {
 	claims := make(map[string]any)
 	// we cannot get an error here because the response body was already parsed as JSON
 	// on provider creation
-	provider.Claims(&claims) //nolint:errcheck
+	_ = provider.Claims(&claims)
 	endSessionEndPoint, ok := claims["end_session_endpoint"]
 	if ok {
 		if val, ok := endSessionEndPoint.(string); ok {
 			o.providerLogoutURL = val
 			logger.Debug(logSender, "", "oidc end session endpoint %q", o.providerLogoutURL)
 		}
+	}
+	if o.QueryUserInfo && provider.UserInfoEndpoint() == "" {
+		return errors.New("oidc: query_userinfo is enabled but the provider has no userinfo endpoint")
+	}
+	if o.RequireVerifiedEmail && !slices.Contains(o.Scopes, "email") {
+		logger.Warn(logSender, "", "oidc: require_verified_email is enabled and the \"email\" scope is not requested, "+
+			"ensure the provider returns the %q claim", emailVerifiedClaim)
 	}
 	o.provider = provider
 	o.verifier = nil
@@ -199,6 +219,8 @@ type oidcPendingAuth struct {
 	Audience tokenAudience `json:"audience"`
 	IssuedAt int64         `json:"issued_at"`
 	Verifier string        `json:"verifier"`
+	Next     string        `json:"next,omitempty"`
+	Browser  string        `json:"browser,omitempty"`
 }
 
 func newOIDCPendingAuth(audience tokenAudience) oidcPendingAuth {
@@ -279,6 +301,45 @@ func (t *oidcToken) parseClaims(claims map[string]any, usernameField, roleField 
 		t.SessionID = sid
 	}
 	return nil
+}
+
+// mergeOIDCClaims combines the UserInfo claims with the ID token claims: ID
+// token values take precedence, and null, empty string and empty array values
+// are dropped from both sources, so an empty value never replaces the value
+// returned by the other source. OIDC Core 5.3.2 says providers SHOULD omit
+// UserInfo claims they do not return instead of sending them empty; the same
+// handling is applied to the ID token. sid, auth_time and nonce are read from
+// the ID token only: the merged claims provide the session ID and the value
+// for the max_age check.
+func mergeOIDCClaims(idTokenClaims, userInfoClaims map[string]any) map[string]any {
+	merged := make(map[string]any, len(idTokenClaims)+len(userInfoClaims))
+	for k, v := range userInfoClaims {
+		switch k {
+		case "sid", "auth_time", "nonce":
+			continue
+		}
+		if isEmptyOIDCClaim(v) {
+			continue
+		}
+		merged[k] = v
+	}
+	for k, v := range idTokenClaims {
+		if isEmptyOIDCClaim(v) {
+			continue
+		}
+		merged[k] = v
+	}
+	return merged
+}
+
+func isEmptyOIDCClaim(v any) bool {
+	if v == nil || v == "" {
+		return true
+	}
+	if s, ok := v.([]any); ok && len(s) == 0 {
+		return true
+	}
+	return false
 }
 
 func (t *oidcToken) getRoleFromField(claims map[string]any, roleField string) {
@@ -465,7 +526,7 @@ func (t *oidcToken) getUser(r *http.Request) error {
 		updateLoginMetrics(user, dataprovider.LoginMethodIDP, ipAddr, err, r)
 		return err
 	}
-	defer user.CloseFs() //nolint:errcheck
+	defer user.CloseFs()
 	err = user.CheckFsRoot(connectionID)
 	if err != nil {
 		logger.Warn(logSender, connectionID, "unable to check fs root: %v", err)
@@ -591,8 +652,40 @@ func (s *httpdServer) handleWebClientOIDCLogin(w http.ResponseWriter, r *http.Re
 	s.oidcLoginRedirect(w, r, tokenAudienceWebClient)
 }
 
+// safeRedirectURL returns the normalized same-origin URL whose cleaned path
+// resolves under base, or nil when next is not a safe redirect target.
+func safeRedirectURL(next, base string) *url.URL {
+	if next == "" || len(next) > maxWebClientNextLength {
+		return nil
+	}
+	u, err := url.Parse(next)
+	if err != nil || u.Scheme != "" || u.Host != "" || strings.Contains(u.Path, "\\") {
+		return nil
+	}
+	if u.Path = path.Clean(u.Path); !strings.HasPrefix(u.Path, base) {
+		return nil
+	}
+	u.RawPath = ""
+	return u
+}
+
+// safeRedirectTarget returns the normalized redirect target for next, or
+// ("", false) when next is not a safe same-origin target under base.
+func safeRedirectTarget(next, base string) (string, bool) {
+	if u := safeRedirectURL(next, base); u != nil {
+		return u.String(), true
+	}
+	return "", false
+}
+
 func (s *httpdServer) oidcLoginRedirect(w http.ResponseWriter, r *http.Request, audience tokenAudience) {
 	pendingAuth := newOIDCPendingAuth(audience)
+	if audience == tokenAudienceWebClient {
+		if target, ok := safeRedirectTarget(r.URL.Query().Get("next"), webClientFilesPath); ok {
+			pendingAuth.Next = target
+		}
+	}
+	pendingAuth.Browser = setAuthBrowserID(w, r, oidcBrowserCookieKey)
 	oidcMgr.addPendingAuth(pendingAuth)
 	http.Redirect(w, r, s.binding.OIDC.oauth2Config.AuthCodeURL(pendingAuth.State,
 		oidc.Nonce(pendingAuth.Nonce), oauth2.S256ChallengeOption(pendingAuth.Verifier)), http.StatusFound)
@@ -616,6 +709,13 @@ func (s *httpdServer) handleOIDCRedirect(w http.ResponseWriter, r *http.Request)
 		oidcMgr.removePendingAuth(state)
 		s.renderClientMessagePage(w, r, util.I18nInvalidAuthReqTitle, http.StatusBadRequest,
 			util.NewI18nError(err, util.I18nInvalidAuth), "")
+		return
+	}
+	if !checkAuthBrowserID(r, oidcBrowserCookieKey, authReq.Browser) {
+		logger.Debug(logSender, "", "oidc authentication request started by a different browser")
+		s.renderClientMessagePage(w, r, util.I18nInvalidAuthReqTitle, http.StatusBadRequest,
+			util.NewI18nError(errors.New("the authorization request was started by a different browser"),
+				util.I18nInvalidAuth), "")
 		return
 	}
 	oidcMgr.removePendingAuth(state)
@@ -676,6 +776,36 @@ func (s *httpdServer) handleOIDCRedirect(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	s.debugTokenClaims(claims, rawIDToken)
+	if s.binding.OIDC.QueryUserInfo {
+		userInfo, err := s.binding.OIDC.provider.UserInfo(ctx, oauth2.StaticTokenSource(oauth2Token))
+		if err != nil {
+			logger.Warn(logSender, "", "unable to query the user info endpoint: %v", err)
+			setFlashMessage(w, r, newFlashMessage("Unable to query the OpenID user info endpoint", util.I18nOIDCErrTokenExchange))
+			doRedirect()
+			doLogout(rawIDToken)
+			return
+		}
+		if userInfo.Subject != idToken.Subject {
+			logger.Debug(logSender, "", "user info subject %q does not match the id token subject %q",
+				userInfo.Subject, idToken.Subject)
+			setFlashMessage(w, r, newFlashMessage("User info subject does not match the ID token subject", util.I18nOIDCTokenInvalid))
+			doRedirect()
+			doLogout(rawIDToken)
+			return
+		}
+		userInfoClaims := make(map[string]any)
+		if err := userInfo.Claims(&userInfoClaims); err != nil {
+			logger.Debug(logSender, "", "unable to get user info claims: %v", err)
+			setFlashMessage(w, r, newFlashMessage("Unable to get OpenID user info claims", util.I18nOIDCTokenInvalid))
+			doRedirect()
+			doLogout(rawIDToken)
+			return
+		}
+		claims = mergeOIDCClaims(claims, userInfoClaims)
+		if s.binding.OIDC.Debug {
+			logger.Debug(logSender, "", "claims after user info merge %+v", claims)
+		}
+	}
 	token := oidcToken{
 		AccessToken:  oauth2Token.AccessToken,
 		TokenType:    oauth2Token.TokenType,
@@ -686,6 +816,14 @@ func (s *httpdServer) handleOIDCRedirect(w http.ResponseWriter, r *http.Request)
 	}
 	if !oauth2Token.Expiry.IsZero() {
 		token.ExpiresAt = util.GetTimeAsMsSinceEpoch(oauth2Token.Expiry)
+	}
+	if err := validateOIDCEmailVerified(claims, s.binding.OIDC.RequireVerifiedEmail); err != nil {
+		logger.Debug(logSender, "", "unable to validate the OpenID email address: %v", err)
+		setFlashMessage(w, r, newFlashMessage(fmt.Sprintf("Unable to validate the OpenID email address: %v", err),
+			util.I18nOIDCEmailNotVerified))
+		doRedirect()
+		doLogout(rawIDToken)
+		return
 	}
 	err = token.parseClaims(claims, s.binding.OIDC.UsernameField, s.binding.OIDC.RoleField,
 		s.binding.OIDC.CustomFields, s.binding.OIDC.getForcedRole(authReq.Audience))
@@ -728,10 +866,27 @@ func (s *httpdServer) handleOIDCRedirect(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	loginOIDCUser(w, r, token)
+	loginOIDCUser(w, r, token, authReq.Next)
 }
 
-func loginOIDCUser(w http.ResponseWriter, r *http.Request, token oidcToken) {
+func validateOIDCEmailVerified(claims map[string]any, required bool) error {
+	if !required {
+		return nil
+	}
+	switch v := claims[emailVerifiedClaim].(type) {
+	case bool:
+		if !v {
+			return errors.New("the email address is not verified by the identity provider")
+		}
+		return nil
+	case nil:
+		return fmt.Errorf("missing %q claim required to verify the email address", emailVerifiedClaim)
+	default:
+		return fmt.Errorf("invalid type for the %q claim: %T", emailVerifiedClaim, v)
+	}
+}
+
+func loginOIDCUser(w http.ResponseWriter, r *http.Request, token oidcToken, next string) {
 	oidcMgr.addToken(token)
 
 	cookie := http.Cookie{
@@ -748,6 +903,10 @@ func loginOIDCUser(w http.ResponseWriter, r *http.Request, token oidcToken) {
 	w.Header().Add("Cache-Control", `no-cache="Set-Cookie"`)
 	if token.isAdmin() {
 		http.Redirect(w, r, webUsersPath, http.StatusFound)
+		return
+	}
+	if target, ok := safeRedirectTarget(next, webClientFilesPath); ok {
+		http.Redirect(w, r, target, http.StatusFound)
 		return
 	}
 	http.Redirect(w, r, webClientFilesPath, http.StatusFound)

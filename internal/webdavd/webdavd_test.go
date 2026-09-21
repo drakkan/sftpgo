@@ -50,6 +50,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/config"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/httpclient"
+	"github.com/drakkan/sftpgo/v2/internal/httpd"
 	"github.com/drakkan/sftpgo/v2/internal/httpdtest"
 	"github.com/drakkan/sftpgo/v2/internal/kms"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
@@ -273,6 +274,7 @@ func TestMain(m *testing.M) {
 	logger.InitLogger(logFilePath, 5, 1, 28, false, false, zerolog.DebugLevel)
 	os.Setenv("SFTPGO_DATA_PROVIDER__CREATE_DEFAULT_ADMIN", "1")
 	os.Setenv("SFTPGO_COMMON__ALLOW_SELF_CONNECTIONS", "1")
+	os.Setenv("SFTPGO_COMMON__SYMLINK_MODE", "3")
 	os.Setenv("SFTPGO_DEFAULT_ADMIN_USERNAME", "admin")
 	os.Setenv("SFTPGO_DEFAULT_ADMIN_PASSWORD", "password")
 	os.Setenv("SFTPGO_WEBDAVD__CACHE__MIME_TYPES__CUSTOM_MAPPINGS__0__EXT", ".sftpgo")
@@ -336,7 +338,7 @@ func TestMain(m *testing.M) {
 	}
 
 	httpConfig := config.GetHTTPConfig()
-	httpConfig.Initialize(configDir) //nolint:errcheck
+	httpConfig.Initialize(configDir)
 	kmsConfig := config.GetKMSConfig()
 	err = kmsConfig.Initialize()
 	if err != nil {
@@ -400,34 +402,34 @@ func TestMain(m *testing.M) {
 	preDownloadPath = filepath.Join(homeBasePath, "predownload.sh")
 	preUploadPath = filepath.Join(homeBasePath, "preupload.sh")
 
-	go func() {
-		logger.Debug(logSender, "", "initializing WebDAV server with config %+v", webDavConf)
-		if err := webDavConf.Initialize(configDir); err != nil {
+	go func(cfg webdavd.Configuration) {
+		logger.Debug(logSender, "", "initializing WebDAV server with config %+v", cfg)
+		if err := cfg.Initialize(configDir); err != nil {
 			logger.ErrorToConsole("could not start WebDAV server: %v", err)
 			os.Exit(1)
 		}
-	}()
+	}(webDavConf)
 
-	go func() {
-		if err := httpdConf.Initialize(configDir, 0); err != nil {
+	go func(cfg httpd.Conf) {
+		if err := cfg.Initialize(configDir, 0); err != nil {
 			logger.ErrorToConsole("could not start HTTP server: %v", err)
 			os.Exit(1)
 		}
-	}()
+	}(httpdConf)
 
-	go func() {
-		logger.Debug(logSender, "", "initializing SFTP server with config %+v", sftpdConf)
-		if err := sftpdConf.Initialize(configDir); err != nil {
+	go func(cfg sftpd.Configuration) {
+		logger.Debug(logSender, "", "initializing SFTP server with config %+v", cfg)
+		if err := cfg.Initialize(configDir); err != nil {
 			logger.ErrorToConsole("could not start SFTP server: %v", err)
 			os.Exit(1)
 		}
-	}()
+	}(sftpdConf)
 
 	waitTCPListening(webDavConf.Bindings[0].GetAddress())
 	waitTCPListening(webDavConf.Bindings[1].GetAddress())
 	waitTCPListening(httpdConf.Bindings[0].GetAddress())
 	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
-	webdavd.ReloadCertificateMgr() //nolint:errcheck
+	webdavd.ReloadCertificateMgr()
 
 	exitCode := m.Run()
 	os.Remove(logFilePath)
@@ -611,7 +613,7 @@ func TestBasicHandling(t *testing.T) {
 		files, err := client.ReadDir(testDir)
 		assert.NoError(t, err)
 		assert.Len(t, files, 5)
-		err = client.Copy(testDir, testDir+"_copy", false) //nolint:goconst
+		err = client.Copy(testDir, testDir+"_copy", false)
 		assert.NoError(t, err)
 		err = client.RemoveAll(testDir)
 		assert.NoError(t, err)
@@ -621,9 +623,9 @@ func TestBasicHandling(t *testing.T) {
 		err = os.Remove(localDownloadPath)
 		assert.NoError(t, err)
 		if user.Username == defaultUsername {
-			err = os.RemoveAll(user.GetHomeDir())
-			assert.NoError(t, err)
 			_, err = httpdtest.RemoveUser(user, http.StatusOK)
+			assert.NoError(t, err)
+			err = os.RemoveAll(user.GetHomeDir())
 			assert.NoError(t, err)
 			user.Password = defaultPassword
 			user.ID = 0
@@ -820,9 +822,7 @@ func TestAnonymousUser(t *testing.T) {
 	u := getTestUser()
 	u.Password = ""
 	u.Filters.IsAnonymous = true
-	_, _, err := httpdtest.AddUser(u, http.StatusCreated)
-	assert.Error(t, err)
-	user, _, err := httpdtest.GetUserByUsername(u.Username, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 
 	client := getWebDavClient(user, false, nil)
@@ -971,6 +971,74 @@ func TestMtimeHeader(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestUploadETag(t *testing.T) {
+	u := getTestUser()
+	u.Username += "1"
+	localUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	sftpUser := getTestSFTPUser()
+	sftpUser.HomeDir = filepath.Join(homeBasePath, sftpUser.Username)
+	sftpUser.FsConfig.SFTPConfig.Username = localUser.Username
+	sftpUserWithQuota := getTestSFTPUser()
+	sftpUserWithQuota.Username += "_quota"
+	sftpUserWithQuota.HomeDir = filepath.Join(homeBasePath, sftpUserWithQuota.Username)
+	sftpUserWithQuota.FsConfig.SFTPConfig.Username = localUser.Username
+	sftpUserWithQuota.QuotaSize = 6553600
+
+	cryptUserWithQuota := getTestUserWithCryptFs()
+	cryptUserWithQuota.Username += "_quota"
+	cryptUserWithQuota.QuotaSize = 6553600
+
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	testFileSize := int64(65535)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+
+	for _, tc := range []struct {
+		user    dataprovider.User
+		hasETag bool
+	}{
+		{getTestUser(), true},
+		{getTestUserWithCryptFs(), true},
+		{cryptUserWithQuota, true},
+		{sftpUser, false},
+		{sftpUserWithQuota, true},
+	} {
+		user, _, err := httpdtest.AddUser(tc.user, http.StatusCreated)
+		assert.NoError(t, err)
+		etag, err := uploadFileGetETag(testFilePath, testFileName, user.Username, defaultPassword)
+		assert.NoError(t, err, user.Username)
+		if tc.hasETag {
+			assert.NotEmpty(t, etag, user.Username)
+			headETag, err := getETagWithHead(testFileName, user.Username, defaultPassword)
+			assert.NoError(t, err, user.Username)
+			assert.Equal(t, etag, headETag, user.Username)
+			body, err := getPropfindResponse(testFileName, user.Username, defaultPassword)
+			assert.NoError(t, err, user.Username)
+			assert.Contains(t, body, strings.Trim(etag, `"`), user.Username)
+			etag, err = uploadFileGetETag(testFilePath, testFileName, user.Username, defaultPassword,
+				dataprovider.KeyValue{Key: ocMtimeHeader, Value: "1668879480"})
+			assert.NoError(t, err, user.Username)
+			headETag, err = getETagWithHead(testFileName, user.Username, defaultPassword)
+			assert.NoError(t, err, user.Username)
+			assert.Equal(t, etag, headETag, user.Username)
+		} else {
+			assert.Empty(t, etag, user.Username)
+		}
+		_, err = httpdtest.RemoveUser(user, http.StatusOK)
+		assert.NoError(t, err)
+		err = os.RemoveAll(user.GetHomeDir())
+		assert.NoError(t, err)
+	}
+
+	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(localUser.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+}
+
 func TestRenameWithLock(t *testing.T) {
 	u := getTestUser()
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
@@ -1075,6 +1143,14 @@ func TestPropPatch(t *testing.T) {
 		assert.NoError(t, err)
 		_, err = httpdtest.RemoveUser(user, http.StatusOK)
 		assert.NoError(t, err)
+		// close the cached SFTP connection to the local user too, it keeps
+		// the shared home dir root open and on Windows an open root prevents
+		// the home dir removal
+		for _, stat := range common.Connections.GetStats("") {
+			common.Connections.Close(stat.ConnectionID, "")
+		}
+		assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
+			2*time.Second, 100*time.Millisecond)
 		err = os.RemoveAll(user.GetHomeDir())
 		assert.NoError(t, err)
 	}
@@ -1170,7 +1246,7 @@ func TestDefender(t *testing.T) {
 		assert.Equal(t, 1, host.Score)
 	}
 
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		client = getWebDavClient(user, false, nil)
 		assert.Error(t, checkBasicFunc(client))
 	}
@@ -1316,12 +1392,10 @@ func TestExternalAuthReturningAnonymousUser(t *testing.T) {
 	user, _, err := httpdtest.GetUserByUsername(defaultUsername, http.StatusOK)
 	assert.NoError(t, err)
 	assert.True(t, user.Filters.IsAnonymous)
-	assert.Equal(t, []string{dataprovider.PermListItems, dataprovider.PermDownload}, user.Permissions["/"])
-	assert.Equal(t, []string{common.ProtocolSSH, common.ProtocolHTTP}, user.Filters.DeniedProtocols)
-	assert.Equal(t, []string{dataprovider.SSHLoginMethodPublicKey, dataprovider.SSHLoginMethodPassword,
-		dataprovider.SSHLoginMethodKeyboardInteractive, dataprovider.SSHLoginMethodKeyAndPassword,
-		dataprovider.SSHLoginMethodKeyAndKeyboardInt, dataprovider.LoginMethodTLSCertificate,
-		dataprovider.LoginMethodTLSCertificateAndPwd}, user.Filters.DeniedLoginMethods)
+	// the restrictions apply to the session, the stored account keeps the settings the hook returned
+	assert.Equal(t, allPerms, user.Permissions["/"])
+	assert.Equal(t, []string{common.ProtocolSSH}, user.Filters.DeniedProtocols)
+	assert.Empty(t, user.Filters.DeniedLoginMethods)
 
 	u.Password = emptyPwdPlaceholder
 	client = getWebDavClient(user, false, nil)
@@ -1713,12 +1787,13 @@ func TestMaxTransfers(t *testing.T) {
 	err = createTestFile(testFilePath, testFileSize)
 	assert.NoError(t, err)
 	// upload over 127.0.0.1 so it shares the per-host transfer budget with the
-	// SFTP client; with two active SFTP transfers this upload must be denied
-	srcFile, err := os.Open(testFilePath)
+	// SFTP client; with two active SFTP transfers this upload must be denied.
+	// The body is buffered: an *os.File held by the transport after the
+	// denied upload would block the source removal on Windows
+	uploadData, err := os.ReadFile(testFilePath)
 	assert.NoError(t, err)
-	defer srcFile.Close()
 	uploadReq, err := http.NewRequest(http.MethodPut,
-		fmt.Sprintf("http://127.0.0.1:%d/%s", webDavServerPort, testFileName), srcFile)
+		fmt.Sprintf("http://127.0.0.1:%d/%s", webDavServerPort, testFileName), struct{ io.Reader }{bytes.NewReader(uploadData)})
 	assert.NoError(t, err)
 	uploadReq.SetBasicAuth(user.Username, defaultPassword)
 	httpClient := &http.Client{Timeout: 10 * time.Second}
@@ -1927,6 +2002,70 @@ func TestUploadErrors(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestUploadAbortAtomic(t *testing.T) {
+	oldUploadMode := common.Config.UploadMode
+	common.Config.UploadMode = 1
+	defer func() {
+		common.Config.UploadMode = oldUploadMode
+	}()
+
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+
+	body := &abortingReader{data: make([]byte, 32*1024)}
+	req, err := http.NewRequest(http.MethodPut, fmt.Sprintf("http://%v/%v", webDavServerAddr, testFileName), body)
+	assert.NoError(t, err)
+	req.SetBasicAuth(user.Username, defaultPassword)
+	// declare more bytes than the body will deliver so the server sees a truncated body
+	req.ContentLength = 1024 * 1024
+	httpClient := &http.Client{Timeout: 10 * time.Second}
+	defer httpClient.CloseIdleConnections()
+	resp, err := httpClient.Do(req)
+	if err == nil {
+		assert.NotEqual(t, http.StatusCreated, resp.StatusCode)
+		resp.Body.Close()
+	}
+
+	// the truncated upload must not be finalized
+	client := getWebDavClient(user, false, nil)
+	_, err = client.Stat(testFileName)
+	assert.Error(t, err)
+	// no orphan atomic temp file must be left behind. The server removes
+	// it when the failed transfer closes, which can complete after the
+	// client sees the aborted request
+	assert.Eventually(t, func() bool {
+		entries, err := os.ReadDir(user.GetHomeDir())
+		if err != nil {
+			return false
+		}
+		for _, entry := range entries {
+			if strings.Contains(entry.Name(), ".sftpgo-upload.") {
+				return false
+			}
+		}
+		return true
+	}, 2*time.Second, 100*time.Millisecond)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+type abortingReader struct {
+	data []byte
+	sent bool
+}
+
+func (r *abortingReader) Read(p []byte) (int, error) {
+	if !r.sent {
+		r.sent = true
+		n := copy(p, r.data)
+		return n, nil
+	}
+	return 0, errors.New("simulated client abort")
+}
+
 func TestDeniedLoginMethod(t *testing.T) {
 	u := getTestUser()
 	u.Filters.DeniedLoginMethods = []string{dataprovider.LoginMethodPassword}
@@ -1993,7 +2132,7 @@ func TestQuotaLimits(t *testing.T) {
 		assert.NoError(t, err)
 		client := getWebDavClient(user, false, nil)
 		// test quota files
-		err = uploadFileWithRawClient(testFilePath, testFileName+".quota", user.Username, defaultPassword, false, //nolint:goconst
+		err = uploadFileWithRawClient(testFilePath, testFileName+".quota", user.Username, defaultPassword, false,
 			testFileSize, client)
 		if !assert.NoError(t, err, "username: %v", user.Username) {
 			info, err := os.Stat(testFilePath)
@@ -2053,9 +2192,9 @@ func TestQuotaLimits(t *testing.T) {
 		err = os.Remove(testFilePath2)
 		assert.NoError(t, err)
 		if user.Username == defaultUsername {
-			err = os.RemoveAll(user.GetHomeDir())
-			assert.NoError(t, err)
 			_, err = httpdtest.RemoveUser(user, http.StatusOK)
+			assert.NoError(t, err)
+			err = os.RemoveAll(user.GetHomeDir())
 			assert.NoError(t, err)
 			user.Password = defaultPassword
 			user.ID = 0
@@ -2155,9 +2294,9 @@ func TestUploadMaxSize(t *testing.T) {
 		err = os.Remove(testFilePath1)
 		assert.NoError(t, err)
 		if user.Username == defaultUsername {
-			err = os.RemoveAll(user.GetHomeDir())
-			assert.NoError(t, err)
 			_, err = httpdtest.RemoveUser(user, http.StatusOK)
+			assert.NoError(t, err)
+			err = os.RemoveAll(user.GetHomeDir())
 			assert.NoError(t, err)
 			user.Filters.MaxUploadFileSize = 65536000
 			user.Password = defaultPassword
@@ -2195,13 +2334,11 @@ func TestClientClose(t *testing.T) {
 		assert.NoError(t, checkBasicFunc(client))
 
 		var wg sync.WaitGroup
-		wg.Add(1)
-		go func() {
+		wg.Go(func() {
 			err = uploadFileWithRawClient(testFilePath, testFileName, user.Username, defaultPassword,
 				true, testFileSize, client)
 			assert.Error(t, err)
-			wg.Done()
-		}()
+		})
 
 		assert.Eventually(t, func() bool {
 			for _, stat := range common.Connections.GetStats("") {
@@ -2231,12 +2368,10 @@ func TestClientClose(t *testing.T) {
 		assert.NoError(t, err)
 		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
 
-		wg.Add(1)
-		go func() {
+		wg.Go(func() {
 			err = downloadFile(testFileName, localDownloadPath, testFileSize, client)
 			assert.Error(t, err)
-			wg.Done()
-		}()
+		})
 
 		assert.Eventually(t, func() bool {
 			for _, stat := range common.Connections.GetStats("") {
@@ -2446,6 +2581,14 @@ func TestBytesRangeRequests(t *testing.T) {
 		assert.NoError(t, err)
 		_, err = httpdtest.RemoveUser(user, http.StatusOK)
 		assert.NoError(t, err)
+		// close the cached SFTP connection to the local user too, it keeps
+		// the shared home dir root open and on Windows an open root prevents
+		// the home dir removal
+		for _, stat := range common.Connections.GetStats("") {
+			common.Connections.Close(stat.ConnectionID, "")
+		}
+		assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
+			2*time.Second, 100*time.Millisecond)
 		err = os.RemoveAll(user.GetHomeDir())
 		assert.NoError(t, err)
 	}
@@ -2791,7 +2934,7 @@ func TestMiscCommands(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 6, user.UsedQuotaFiles)
 		assert.Equal(t, 6*testFileSize, user.UsedQuotaSize)
-		err = client.Copy(dir, dir+"_copy1", false) //nolint:goconst
+		err = client.Copy(dir, dir+"_copy1", false)
 		assert.NoError(t, err)
 		err = client.Copy(dir+"_copy", dir+"_copy1", false)
 		assert.Error(t, err)
@@ -2819,9 +2962,9 @@ func TestMiscCommands(t *testing.T) {
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 		if user.Username == defaultUsername {
-			err = os.RemoveAll(user.GetHomeDir())
-			assert.NoError(t, err)
 			_, err = httpdtest.RemoveUser(user, http.StatusOK)
+			assert.NoError(t, err)
+			err = os.RemoveAll(user.GetHomeDir())
 			assert.NoError(t, err)
 			user.Password = defaultPassword
 			user.ID = 0
@@ -3385,11 +3528,16 @@ func checkFileSize(remoteDestPath string, expectedSize int64, client *gowebdav.C
 func uploadFileWithRawClient(localSourcePath string, remoteDestPath string, username, password string,
 	useTLS bool, expectedSize int64, client *gowebdav.Client, headers ...dataprovider.KeyValue,
 ) error {
-	srcFile, err := os.Open(localSourcePath)
+	// buffer the payload: the transport closes the request body
+	// asynchronously after an aborted upload, and an *os.File handle
+	// still held there makes the source file undeletable on Windows.
+	// The anonymous wrapper hides the reader's length so the request
+	// stays chunked like a file body.
+	data, err := os.ReadFile(localSourcePath)
 	if err != nil {
 		return err
 	}
-	defer srcFile.Close()
+	srcFile := struct{ io.Reader }{bytes.NewReader(data)}
 
 	var tlsConfig *tls.Config
 	rootPath := fmt.Sprintf("http://%v/", webDavServerAddr)
@@ -3428,6 +3576,72 @@ func uploadFileWithRawClient(localSourcePath string, remoteDestPath string, user
 		return checkFileSize(remoteDestPath, expectedSize, client)
 	}
 	return nil
+}
+
+func uploadFileGetETag(localSourcePath, remoteDestPath, username, password string,
+	headers ...dataprovider.KeyValue,
+) (string, error) {
+	data, err := os.ReadFile(localSourcePath)
+	if err != nil {
+		return "", err
+	}
+	req, err := http.NewRequest(http.MethodPut, fmt.Sprintf("http://%v/%v", webDavServerAddr, remoteDestPath),
+		struct{ io.Reader }{bytes.NewReader(data)})
+	if err != nil {
+		return "", err
+	}
+	req.SetBasicAuth(username, password)
+	for _, kv := range headers {
+		req.Header.Set(kv.Key, kv.Value)
+	}
+	resp, err := httpclient.GetHTTPClient().Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		return "", fmt.Errorf("unexpected status code: %v", resp.StatusCode)
+	}
+	return resp.Header.Get("ETag"), nil
+}
+
+func getETagWithHead(remotePath, username, password string) (string, error) {
+	req, err := http.NewRequest(http.MethodHead, fmt.Sprintf("http://%v/%v", webDavServerAddr, remotePath), nil)
+	if err != nil {
+		return "", err
+	}
+	req.SetBasicAuth(username, password)
+	resp, err := httpclient.GetHTTPClient().Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("unexpected status code: %v", resp.StatusCode)
+	}
+	return resp.Header.Get("ETag"), nil
+}
+
+func getPropfindResponse(remotePath, username, password string) (string, error) {
+	req, err := http.NewRequest("PROPFIND", fmt.Sprintf("http://%v/%v", webDavServerAddr, remotePath), nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Depth", "0")
+	req.SetBasicAuth(username, password)
+	resp, err := httpclient.GetHTTPClient().Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusMultiStatus {
+		return "", fmt.Errorf("unexpected status code: %v", resp.StatusCode)
+	}
+	body, err := io.ReadAll(resp.Body)
+	return string(body), err
 }
 
 // This method is buggy. I have to find time to better investigate and eventually report the issue upstream.
@@ -3588,12 +3802,12 @@ func getEncryptedFileSize(size int64) (int64, error) {
 func getExtAuthScriptContent(user dataprovider.User, password string) []byte {
 	extAuthContent := []byte("#!/bin/sh\n\n")
 	if password != "" {
-		extAuthContent = append(extAuthContent, []byte(fmt.Sprintf("if test \"$SFTPGO_AUTHD_USERNAME\" = \"%s\" -a \"$SFTPGO_AUTHD_PASSWORD\" = \"%s\"; then\n", user.Username, password))...)
+		extAuthContent = append(extAuthContent, fmt.Appendf(nil, "if test \"$SFTPGO_AUTHD_USERNAME\" = \"%s\" -a \"$SFTPGO_AUTHD_PASSWORD\" = \"%s\"; then\n", user.Username, password)...)
 	} else {
-		extAuthContent = append(extAuthContent, []byte(fmt.Sprintf("if test \"$SFTPGO_AUTHD_USERNAME\" = \"%s\"; then\n", user.Username))...)
+		extAuthContent = append(extAuthContent, fmt.Appendf(nil, "if test \"$SFTPGO_AUTHD_USERNAME\" = \"%s\"; then\n", user.Username)...)
 	}
 	u, _ := json.Marshal(user)
-	extAuthContent = append(extAuthContent, []byte(fmt.Sprintf("echo '%s'\n", string(u)))...)
+	extAuthContent = append(extAuthContent, fmt.Appendf(nil, "echo '%s'\n", string(u))...)
 	extAuthContent = append(extAuthContent, []byte("else\n")...)
 	extAuthContent = append(extAuthContent, []byte("echo '{\"username\":\"\"}'\n")...)
 	extAuthContent = append(extAuthContent, []byte("fi\n")...)
@@ -3608,14 +3822,14 @@ func getPreLoginScriptContent(user dataprovider.User, nonJSONResponse bool) []by
 	}
 	if len(user.Username) > 0 {
 		u, _ := json.Marshal(user)
-		content = append(content, []byte(fmt.Sprintf("echo '%v'\n", string(u)))...)
+		content = append(content, fmt.Appendf(nil, "echo '%v'\n", string(u))...)
 	}
 	return content
 }
 
 func getExitCodeScriptContent(exitCode int) []byte {
 	content := []byte("#!/bin/sh\n\n")
-	content = append(content, []byte(fmt.Sprintf("exit %v", exitCode))...)
+	content = append(content, fmt.Appendf(nil, "exit %v", exitCode)...)
 	return content
 }
 

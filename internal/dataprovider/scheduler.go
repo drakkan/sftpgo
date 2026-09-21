@@ -127,7 +127,7 @@ func checkUserCache() {
 			deletedAt := util.GetTimeFromMsecSinceEpoch(user.DeletedAt)
 			if deletedAt.Add(30 * time.Minute).Before(time.Now()) {
 				providerLog(logger.LevelDebug, "removing user %q deleted at %s", user.Username, deletedAt)
-				go provider.deleteUser(user, false) //nolint:errcheck
+				go func() { _ = provider.deleteUser(user, false) }()
 			}
 			webDAVUsersCache.remove(user.Username)
 			cachedUserPasswords.Remove(user.Username)
@@ -168,7 +168,7 @@ func checkIPListEntryCache() {
 			deletedAt := util.GetTimeFromMsecSinceEpoch(e.DeletedAt)
 			if deletedAt.Add(30 * time.Minute).Before(time.Now()) {
 				providerLog(logger.LevelDebug, "removing IP list entry %q deleted at %s", e.getName(), deletedAt)
-				go provider.deleteIPListEntry(e, false) //nolint:errcheck
+				go func() { _ = provider.deleteIPListEntry(e, false) }()
 			}
 			for _, l := range inMemoryLists {
 				l.removeEntry(&e)

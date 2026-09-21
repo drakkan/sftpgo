@@ -166,7 +166,7 @@ func (fs *GCSFs) Open(name string, offset int64) (File, PipeReader, func(), erro
 		defer objectReader.Close()
 
 		n, err := io.Copy(w, objectReader)
-		w.CloseWithError(err) //nolint:errcheck
+		w.CloseWithError(err)
 		fsLog(fs, logger.LevelDebug, "download completed, path: %q size: %v, err: %+v", name, n, err)
 		metric.GCSTransferCompleted(n, 1, err)
 	}()
@@ -248,7 +248,7 @@ func (fs *GCSFs) Create(name string, flag, checks int) (File, PipeWriter, func()
 			partialObject = partialObject.If(storage.Conditions{GenerationMatch: objectWriter.Attrs().Generation})
 			err = fs.composeObjects(ctx, obj, partialObject)
 		}
-		r.CloseWithError(err) //nolint:errcheck
+		r.CloseWithError(err)
 		p.Done(err)
 		fsLog(fs, logger.LevelDebug, "upload completed, path: %q, acl: %q, readed bytes: %v, err: %+v",
 			name, fs.config.ACL, n, err)
@@ -263,6 +263,20 @@ func (fs *GCSFs) Create(name string, flag, checks int) (File, PipeWriter, func()
 
 // Rename renames (moves) source to target.
 func (fs *GCSFs) Rename(source, target string, checks int) (int, int64, error) {
+	return fs.renameChecked(source, target, checks, nil)
+}
+
+// CanCheckRenamedEntries implements the FsCheckedRenamer interface
+func (*GCSFs) CanCheckRenamedEntries() bool {
+	return true
+}
+
+// RenameChecked implements the FsCheckedRenamer interface
+func (fs *GCSFs) RenameChecked(source, target string, checks int, onEntry EntryCheckFn) (int, int64, error) {
+	return fs.renameChecked(source, target, checks, onEntry)
+}
+
+func (fs *GCSFs) renameChecked(source, target string, checks int, onEntry EntryCheckFn) (int, int64, error) {
 	if source == target {
 		return -1, -1, nil
 	}
@@ -276,7 +290,7 @@ func (fs *GCSFs) Rename(source, target string, checks int) (int, int64, error) {
 	if err != nil {
 		return -1, -1, err
 	}
-	return fs.renameInternal(source, target, fi, 0, checks&CheckUpdateModTime != 0)
+	return fs.renameInternal(source, target, fi, onEntry, 0, checks&CheckUpdateModTime != 0)
 }
 
 // Remove removes the named file or (empty) directory.
@@ -431,8 +445,7 @@ func (*GCSFs) IsNotExist(err error) bool {
 	if errors.Is(err, storage.ErrObjectNotExist) {
 		return true
 	}
-	var apiErr *googleapi.Error
-	if errors.As(err, &apiErr) {
+	if apiErr, ok := errors.AsType[*googleapi.Error](err); ok {
 		if apiErr.Code == http.StatusNotFound {
 			return true
 		}
@@ -446,8 +459,7 @@ func (*GCSFs) IsPermission(err error) bool {
 	if err == nil {
 		return false
 	}
-	var apiErr *googleapi.Error
-	if errors.As(err, &apiErr) {
+	if apiErr, ok := errors.AsType[*googleapi.Error](err); ok {
 		if apiErr.Code == http.StatusForbidden || apiErr.Code == http.StatusUnauthorized {
 			return true
 		}
@@ -467,6 +479,8 @@ func (*GCSFs) IsNotSupported(err error) bool {
 func (fs *GCSFs) CheckRootPath(username string, uid int, gid int) bool {
 	// we need a local directory for temporary files
 	osFs := NewOsFs(fs.ConnectionID(), fs.localTempDir, "", nil)
+	defer osFs.Close()
+
 	return osFs.CheckRootPath(username, uid, gid)
 }
 
@@ -569,7 +583,7 @@ func (fs *GCSFs) Walk(root string, walkFn filepath.WalkFunc) error {
 	query := &storage.Query{Prefix: prefix}
 	err := query.SetAttrSelection(gcsDefaultFieldsSelection)
 	if err != nil {
-		walkFn(root, nil, err) //nolint:errcheck
+		_ = walkFn(root, nil, err)
 		return err
 	}
 
@@ -584,7 +598,7 @@ func (fs *GCSFs) Walk(root string, walkFn filepath.WalkFunc) error {
 		var objects []*storage.ObjectAttrs
 		pageToken, err := pager.NextPage(&objects)
 		if err != nil {
-			walkFn(root, nil, err) //nolint:errcheck
+			_ = walkFn(root, nil, err)
 			return pageToken, err
 		}
 		for _, attrs := range objects {
@@ -620,7 +634,7 @@ func (fs *GCSFs) Walk(root string, walkFn filepath.WalkFunc) error {
 		}
 	}
 
-	walkFn(root, NewFileInfo(root, true, 0, time.Unix(0, 0), false), err) //nolint:errcheck
+	_ = walkFn(root, NewFileInfo(root, true, 0, time.Unix(0, 0), false), err)
 	metric.GCSListObjectsCompleted(err)
 	return err
 }
@@ -809,8 +823,8 @@ func (fs *GCSFs) copyFileInternal(source, target string, conditions *storage.Con
 	return err
 }
 
-func (fs *GCSFs) renameInternal(source, target string, srcInfo os.FileInfo, recursion int,
-	updateModTime bool,
+func (fs *GCSFs) renameInternal(source, target string, srcInfo os.FileInfo,
+	onEntry EntryCheckFn, recursion int, updateModTime bool,
 ) (int, int64, error) {
 	var numFiles int
 	var filesSize int64
@@ -829,7 +843,7 @@ func (fs *GCSFs) renameInternal(source, target string, srcInfo os.FileInfo, recu
 			return numFiles, filesSize, err
 		}
 		if renameMode == 1 {
-			files, size, err := doRecursiveRename(fs, source, target, fs.renameInternal, recursion, updateModTime)
+			files, size, err := doRecursiveRename(fs, source, target, fs.renameInternal, onEntry, recursion, updateModTime)
 			numFiles += files
 			filesSize += size
 			if err != nil {
@@ -846,6 +860,10 @@ func (fs *GCSFs) renameInternal(source, target string, srcInfo os.FileInfo, recu
 	err := fs.Remove(source, srcInfo.IsDir())
 	if fs.IsNotExist(err) {
 		err = nil
+	}
+	if err != nil && !srcInfo.IsDir() {
+		numFiles--
+		filesSize -= srcInfo.Size()
 	}
 	return numFiles, filesSize, err
 }

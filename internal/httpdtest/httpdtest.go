@@ -28,6 +28,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/render"
 	"github.com/sftpgo/sdk"
@@ -214,7 +215,33 @@ func RemoveUser(user dataprovider.User, expectedStatusCode int) ([]byte, error) 
 	}
 	defer resp.Body.Close()
 	body, _ = getResponseBody(resp)
-	return body, checkResponse(resp.StatusCode, expectedStatusCode)
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if err == nil && expectedStatusCode == http.StatusOK {
+		waitNoUserConnections(dataprovider.ConvertName(user.Username))
+	}
+	return body, err
+}
+
+// waitNoUserConnections waits, within a timeout, for the active connections
+// of the given user to be removed. Deleting a user disconnects it after the
+// API response is sent and a connection releases its filesystems only when
+// it is removed from the active ones. Tests generally remove the user's home
+// directory right after deleting the user: on Windows an open filesystem
+// root prevents the removal, so wait here instead of in every test.
+func waitNoUserConnections(username string) {
+	for range 100 {
+		hasConns := false
+		for _, stat := range common.Connections.GetStats("") {
+			if stat.Username == username {
+				hasConns = true
+				break
+			}
+		}
+		if !hasConns {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
 }
 
 // GetUserByUsername gets a user by username and checks the received HTTP Status code against expectedStatusCode.
@@ -1647,7 +1674,7 @@ func compareConditionPatternOptions(expected, actual []dataprovider.ConditionPat
 	return nil
 }
 
-func checkEventConditionOptions(expected, actual dataprovider.ConditionOptions) error { //nolint:gocyclo
+func checkEventConditionOptions(expected, actual dataprovider.ConditionOptions) error {
 	if err := compareConditionPatternOptions(expected.Names, actual.Names); err != nil {
 		return errors.New("condition names mismatch")
 	}
@@ -2123,6 +2150,9 @@ func compareVirtualFolders(expected []vfs.VirtualFolder, actual []vfs.VirtualFol
 				if (v.QuotaFiles) != (v1.QuotaFiles) {
 					return errors.New("vfolder quota files mismatch")
 				}
+				if v.Subpath != v1.Subpath {
+					return errors.New("vfolder subpath mismatch")
+				}
 				found = true
 				break
 			}
@@ -2168,7 +2198,7 @@ func compareFsConfig(expected *vfs.Filesystem, actual *vfs.Filesystem) error {
 	return compareHTTPFsConfig(expected, actual)
 }
 
-func compareS3Config(expected *vfs.Filesystem, actual *vfs.Filesystem) error { //nolint:gocyclo
+func compareS3Config(expected *vfs.Filesystem, actual *vfs.Filesystem) error {
 	if expected.S3Config.Bucket != actual.S3Config.Bucket {
 		return errors.New("fs S3 bucket mismatch")
 	}
@@ -2220,8 +2250,9 @@ func compareS3Config(expected *vfs.Filesystem, actual *vfs.Filesystem) error { /
 	if expected.S3Config.UploadPartMaxTime != actual.S3Config.UploadPartMaxTime {
 		return errors.New("fs S3 upload part max time mismatch")
 	}
-	if expected.S3Config.KeyPrefix != actual.S3Config.KeyPrefix &&
-		expected.S3Config.KeyPrefix+"/" != actual.S3Config.KeyPrefix {
+	expectedS3KeyPrefix := strings.TrimPrefix(expected.S3Config.KeyPrefix, "/")
+	if expectedS3KeyPrefix != actual.S3Config.KeyPrefix &&
+		expectedS3KeyPrefix+"/" != actual.S3Config.KeyPrefix {
 		return errors.New("fs S3 key prefix mismatch")
 	}
 	return nil
@@ -2237,8 +2268,9 @@ func compareGCSConfig(expected *vfs.Filesystem, actual *vfs.Filesystem) error {
 	if expected.GCSConfig.ACL != actual.GCSConfig.ACL {
 		return errors.New("GCS ACL mismatch")
 	}
-	if expected.GCSConfig.KeyPrefix != actual.GCSConfig.KeyPrefix &&
-		expected.GCSConfig.KeyPrefix+"/" != actual.GCSConfig.KeyPrefix {
+	expectedGCSKeyPrefix := strings.TrimPrefix(expected.GCSConfig.KeyPrefix, "/")
+	if expectedGCSKeyPrefix != actual.GCSConfig.KeyPrefix &&
+		expectedGCSKeyPrefix+"/" != actual.GCSConfig.KeyPrefix {
 		return errors.New("GCS key prefix mismatch")
 	}
 	if expected.GCSConfig.AutomaticCredentials != actual.GCSConfig.AutomaticCredentials {
@@ -2344,8 +2376,9 @@ func compareAzBlobConfig(expected *vfs.Filesystem, actual *vfs.Filesystem) error
 	if expected.AzBlobConfig.DownloadConcurrency != actual.AzBlobConfig.DownloadConcurrency {
 		return errors.New("azure Blob download concurrency mismatch")
 	}
-	if expected.AzBlobConfig.KeyPrefix != actual.AzBlobConfig.KeyPrefix &&
-		expected.AzBlobConfig.KeyPrefix+"/" != actual.AzBlobConfig.KeyPrefix {
+	expectedAzKeyPrefix := strings.TrimPrefix(expected.AzBlobConfig.KeyPrefix, "/")
+	if expectedAzKeyPrefix != actual.AzBlobConfig.KeyPrefix &&
+		expectedAzKeyPrefix+"/" != actual.AzBlobConfig.KeyPrefix {
 		return errors.New("azure Blob key prefix mismatch")
 	}
 	if expected.AzBlobConfig.UseEmulator != actual.AzBlobConfig.UseEmulator {
@@ -2456,7 +2489,7 @@ func compareUserFiltersEqualFields(expected sdk.BaseUserFilters, actual sdk.Base
 	return nil
 }
 
-func compareBaseUserFilters(expected sdk.BaseUserFilters, actual sdk.BaseUserFilters) error { //nolint:gocyclo
+func compareBaseUserFilters(expected sdk.BaseUserFilters, actual sdk.BaseUserFilters) error {
 	if len(expected.AllowedIP) != len(actual.AllowedIP) {
 		return errors.New("allowed IP mismatch")
 	}

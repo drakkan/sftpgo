@@ -112,6 +112,7 @@ const (
 	operationDelete           = "delete"
 	sqlPrefixValidChars       = "abcdefghijklmnopqrstuvwxyz_0123456789"
 	maxHookResponseSize       = 1048576 // 1MB
+	passwordPrompt            = "Password: "
 )
 
 // Supported algorithms for hashing passwords.
@@ -177,6 +178,9 @@ var (
 	ValidProtocols = []string{protocolSSH, protocolFTP, protocolWebDAV, protocolHTTP}
 	// MFAProtocols defines the supported protocols for multi-factor authentication
 	MFAProtocols = []string{protocolHTTP, protocolSSH, protocolFTP}
+	// ErrPlaceholderUnset is returned when a group setting uses a placeholder
+	// the account has no value for. The login is refused
+	ErrPlaceholderUnset = errors.New("a group setting uses a placeholder the account has no value for")
 	// ErrNoInitRequired defines the error returned by InitProvider if no inizialization/update is required
 	ErrNoInitRequired = errors.New("the data provider is up to date")
 	// ErrInvalidCredentials defines the error to return if the supplied credentials are invalid
@@ -187,12 +191,16 @@ var (
 	ErrDuplicatedKey = errors.New("duplicated key not allowed")
 	// ErrForeignKeyViolated occurs when there is a foreign key constraint violation
 	ErrForeignKeyViolated = errors.New("violates foreign key constraint")
+	// ErrConcurrentUpdate is returned when an account is saved from a snapshot that
+	// another write has made stale
+	ErrConcurrentUpdate = errors.New("the account was modified concurrently, retry the operation")
 	// ErrShareUsageExceeded is returned when reserving share usage tokens would exceed the share max_tokens limit
 	ErrShareUsageExceeded = util.NewI18nError(
 		util.NewRecordNotFoundError("max share usage exceeded"), util.I18nErrorShareUsage)
 	errInvalidInput         = util.NewValidationError("Invalid input. Slashes (/ ), colons (:), control characters, and reserved system names are not allowed")
 	tz                      = ""
 	isAdminCreated          atomic.Bool
+	lastAdminCheck          atomic.Int64
 	validTLSUsernames       = []string{string(sdk.TLSUsernameNone), string(sdk.TLSUsernameCN)}
 	config                  Config
 	provider                Provider
@@ -234,8 +242,8 @@ var (
 	sqlTableSchemaVersion        string
 	argon2Params                 *argon2id.Params
 	lastLoginMinDelay            = 10 * time.Minute
+	adminCheckMinDelay           = int64(time.Second / time.Millisecond)
 	usernameRegex                = regexp.MustCompile("^[a-zA-Z0-9-_.~]+$")
-	tempPath                     string
 	allowSelfConnections         int
 	fnReloadRules                FnReloadRules
 	fnRemoveRule                 FnRemoveRule
@@ -683,7 +691,7 @@ type DefenderEntry struct {
 	ID      int64     `json:"-"`
 	IP      string    `json:"ip"`
 	Score   int       `json:"score,omitempty"`
-	BanTime time.Time `json:"ban_time,omitempty"`
+	BanTime time.Time `json:"ban_time"`
 }
 
 // GetID returns an unique ID for a defender entry
@@ -775,7 +783,7 @@ type Provider interface {
 	getUsedQuota(username string) (int, int64, int64, int64, error)
 	userExists(username, role string) (User, error)
 	addUser(user *User) error
-	updateUser(user *User) error
+	updateUser(user *User, expectedUpdatedAt int64) error
 	deleteUser(user User, softDelete bool) error
 	updateUserPassword(username, password string) error // used internally when converting passwords from other hash
 	getUsers(limit int, offset int, order, role string) ([]User, error)
@@ -805,7 +813,7 @@ type Provider interface {
 	dumpGroups() ([]Group, error)
 	adminExists(username string) (Admin, error)
 	addAdmin(admin *Admin) error
-	updateAdmin(admin *Admin) error
+	updateAdmin(admin *Admin, expectedUpdatedAt int64) error
 	deleteAdmin(admin Admin) error
 	getAdmins(limit int, offset int, order string) ([]Admin, error)
 	dumpAdmins() ([]Admin, error)
@@ -896,11 +904,6 @@ func SetAllowSelfConnections(value int) {
 	allowSelfConnections = value
 }
 
-// SetTempPath sets the path for temporary files
-func SetTempPath(fsPath string) {
-	tempPath = fsPath
-}
-
 func checkSharedMode() {
 	if !slices.Contains(sharedProviders, config.Driver) {
 		config.IsShared = 0
@@ -947,6 +950,7 @@ func Initialize(cnf Config, basePath string, checkAdmins bool) error {
 		return err
 	}
 	isAdminCreated.Store(len(admins) > 0)
+	lastAdminCheck.Store(util.GetTimeAsMsSinceEpoch(time.Now()))
 	if err := config.Node.validate(); err != nil {
 		return err
 	}
@@ -1383,7 +1387,19 @@ func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.Keyboard
 	var user User
 	var err error
 	username = config.convertName(username)
-	if plugin.Handler.HasAuthScope(plugin.AuthScopeKeyboardInteractive) {
+	usePlugin := plugin.Handler.HasAuthScope(plugin.AuthScopeKeyboardInteractive)
+	hasCustomChallenges := usePlugin || authHook != ""
+	if !isPartialAuth && !hasCustomChallenges {
+		answers, errPrompt := client("", "", []string{passwordPrompt}, []bool{false})
+		if errPrompt != nil {
+			return user, errPrompt
+		}
+		if len(answers) != 1 {
+			return user, fmt.Errorf("unexpected number of answers: %d", len(answers))
+		}
+		client = (&prefetchedChallenge{client: client, answers: answers}).challenge
+	}
+	if usePlugin {
 		user, err = doPluginAuth(username, "", nil, ip, protocol, nil, plugin.AuthScopeKeyboardInteractive)
 	} else if config.ExternalAuthHook != "" && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&4 != 0) {
 		user, err = doExternalAuth(username, "", nil, "1", ip, protocol, nil)
@@ -1393,9 +1409,12 @@ func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.Keyboard
 		user, err = provider.userExists(username, "")
 	}
 	if err != nil {
+		if !isPartialAuth && hasCustomChallenges {
+			_, _ = client("", "", []string{passwordPrompt}, []bool{false})
+		}
 		return user, err
 	}
-	return doKeyboardInteractiveAuth(&user, authHook, client, ip, protocol, isPartialAuth)
+	return doKeyboardInteractiveAuth(&user, usePlugin, authHook, client, ip, protocol, isPartialAuth)
 }
 
 // GetFTPPreAuthUser returns the SFTPGo user with the specified username
@@ -1405,6 +1424,7 @@ func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.Keyboard
 func GetFTPPreAuthUser(username, ip string) (User, error) {
 	var user User
 	var err error
+	username = config.convertName(username)
 	if config.PreLoginHook != "" {
 		user, err = executePreLoginHook(username, "", ip, protocolFTP, nil)
 	} else {
@@ -1517,7 +1537,7 @@ func UpdateLastLogin(user *User) {
 // UpdateAdminLastLogin updates the last login field for the given SFTPGo admin
 func UpdateAdminLastLogin(admin *Admin) {
 	if !isLastActivityRecent(admin.LastLogin, lastLoginMinDelay) {
-		provider.updateAdminLastLogin(admin.Username) //nolint:errcheck
+		_ = provider.updateAdminLastLogin(admin.Username)
 	}
 }
 
@@ -1545,10 +1565,10 @@ func UpdateUserQuota(user *User, filesAdd int, sizeAdd int64, reset bool) error 
 // UpdateUserFolderQuota updates the quota for the given user and virtual folder.
 func UpdateUserFolderQuota(folder *vfs.VirtualFolder, user *User, filesAdd int, sizeAdd int64, reset bool) {
 	if folder.IsIncludedInUserQuota() {
-		UpdateUserQuota(user, filesAdd, sizeAdd, reset) //nolint:errcheck
+		_ = UpdateUserQuota(user, filesAdd, sizeAdd, reset)
 		return
 	}
-	UpdateVirtualFolderQuota(&folder.BaseVirtualFolder, filesAdd, sizeAdd, reset) //nolint:errcheck
+	_ = UpdateVirtualFolderQuota(&folder.BaseVirtualFolder, filesAdd, sizeAdd, reset)
 }
 
 // UpdateVirtualFolderQuota updates the quota for the given virtual folder adding filesAdd and sizeAdd.
@@ -1773,21 +1793,13 @@ func DeleteRole(name string, executor, ipAddress, executorRole string) error {
 	if err != nil {
 		return err
 	}
-	if len(role.Admins) > 0 {
+	if len(role.Admins) > 0 || len(role.Users) > 0 {
 		errorString := fmt.Sprintf("the role %q is referenced, it cannot be removed", role.Name)
 		return util.NewValidationError(errorString)
 	}
 	err = provider.deleteRole(role)
 	if err == nil {
 		executeAction(operationDelete, executor, ipAddress, actionObjectRole, role.Name, executorRole, &role)
-		for _, user := range role.Users {
-			provider.setUpdatedAt(user)
-			u, err := provider.userExists(user, "")
-			if err == nil {
-				webDAVUsersCache.swap(&u, "")
-				executeAction(operationUpdate, executor, ipAddress, actionObjectUser, u.Username, u.Role, &u)
-			}
-		}
 	}
 	return err
 }
@@ -1833,20 +1845,12 @@ func DeleteGroup(name string, executor, ipAddress, role string) error {
 	if err != nil {
 		return err
 	}
-	if len(group.Users) > 0 {
+	if len(group.Users) > 0 || len(group.Admins) > 0 {
 		errorString := fmt.Sprintf("the group %q is referenced, it cannot be removed", group.Name)
 		return util.NewValidationError(errorString)
 	}
 	err = provider.deleteGroup(group)
 	if err == nil {
-		for _, user := range group.Users {
-			provider.setUpdatedAt(user)
-			u, err := provider.userExists(user, "")
-			if err == nil {
-				executeAction(operationUpdate, executor, ipAddress, actionObjectUser, u.Username, u.Role, &u)
-			}
-			RemoveCachedWebDAVUser(user)
-		}
 		executeAction(operationDelete, executor, ipAddress, actionObjectGroup, group.Name, role, &group)
 	}
 	return err
@@ -2058,7 +2062,31 @@ func GetNodeByName(name string) (Node, error) {
 // HasAdmin returns true if the first admin has been created
 // and so SFTPGo is ready to be used
 func HasAdmin() bool {
-	return isAdminCreated.Load()
+	if isAdminCreated.Load() {
+		return true
+	}
+	return checkAdminCreated()
+}
+
+func checkAdminCreated() bool {
+	if !slices.Contains(sharedProviders, config.Driver) {
+		return false
+	}
+	now := util.GetTimeAsMsSinceEpoch(time.Now())
+	lastCheck := lastAdminCheck.Load()
+	if now < lastCheck+adminCheckMinDelay || !lastAdminCheck.CompareAndSwap(lastCheck, now) {
+		return false
+	}
+	admins, err := provider.getAdmins(1, 0, OrderASC)
+	if err != nil {
+		providerLog(logger.LevelError, "unable to check if an admin exists: %v", err)
+		return false
+	}
+	if len(admins) == 0 {
+		return false
+	}
+	isAdminCreated.Store(true)
+	return true
 }
 
 // AddAdmin adds a new SFTPGo admin
@@ -2078,7 +2106,7 @@ func AddAdmin(admin *Admin, executor, ipAddress, role string) error {
 
 // UpdateAdmin updates an existing SFTPGo admin
 func UpdateAdmin(admin *Admin, executor, ipAddress, role string) error {
-	err := provider.updateAdmin(admin)
+	err := provider.updateAdmin(admin, selfUpdateGuard(executor, admin.UpdatedAt))
 	if err == nil {
 		executeAction(operationUpdate, executor, ipAddress, actionObjectAdmin, admin.Username, role, admin)
 	}
@@ -2156,6 +2184,7 @@ func AddUser(user *User, executor, ipAddress, role string) error {
 	user.Username = config.convertName(user.Username)
 	err := provider.addUser(user)
 	if err == nil {
+		RemoveCachedWebDAVUser(user.Username)
 		executeAction(operationAdd, executor, ipAddress, actionObjectUser, user.Username, role, user)
 	}
 	return err
@@ -2176,7 +2205,7 @@ func UpdateUserPassword(username, plainPwd, executor, ipAddress, role string) er
 	user.Password = userCopy.Password
 	user.Filters.RequirePasswordChange = false
 	// the last password change is set when validating the user
-	if err := provider.updateUser(&user); err != nil {
+	if err := provider.updateUser(&user, user.UpdatedAt); err != nil {
 		return err
 	}
 	webDAVUsersCache.swap(&user, plainPwd)
@@ -2189,12 +2218,25 @@ func UpdateUser(user *User, executor, ipAddress, role string) error {
 	if user.groupSettingsApplied {
 		return errors.New("cannot save a user with group settings applied")
 	}
-	err := provider.updateUser(user)
+	err := provider.updateUser(user, selfUpdateGuard(executor, user.UpdatedAt))
 	if err == nil {
 		webDAVUsersCache.swap(user, "")
 		executeAction(operationUpdate, executor, ipAddress, actionObjectUser, user.Username, role, user)
 	}
 	return err
+}
+
+const updateUnconditionally int64 = -1
+
+func selfUpdateGuard(executor string, snapshotUpdatedAt int64) int64 {
+	if executor == ActionExecutorSelf {
+		return snapshotUpdatedAt
+	}
+	return updateUnconditionally
+}
+
+func nextUpdatedAt(storedUpdatedAt int64) int64 {
+	return max(util.GetTimeAsMsSinceEpoch(time.Now()), storedUpdatedAt+1)
 }
 
 // DeleteUser deletes an existing SFTPGo user.
@@ -2375,25 +2417,13 @@ func DeleteFolder(folderName, executor, ipAddress, role string) error {
 	if err != nil {
 		return err
 	}
+	if len(folder.Users) > 0 || len(folder.Groups) > 0 {
+		errorString := fmt.Sprintf("the folder %q is referenced, it cannot be removed", folder.Name)
+		return util.NewValidationError(errorString)
+	}
 	err = provider.deleteFolder(folder)
 	if err == nil {
 		executeAction(operationDelete, executor, ipAddress, actionObjectFolder, folder.Name, role, &wrappedFolder{Folder: folder})
-		users := folder.Users
-		usersInGroups, errGrp := provider.getUsersInGroups(folder.Groups)
-		if errGrp == nil {
-			users = append(users, usersInGroups...)
-			users = util.RemoveDuplicates(users, false)
-		} else {
-			providerLog(logger.LevelWarn, "unable to get users in groups %+v: %v", folder.Groups, errGrp)
-		}
-		for _, user := range users {
-			provider.setUpdatedAt(user)
-			u, err := provider.userExists(user, "")
-			if err == nil {
-				executeAction(operationUpdate, executor, ipAddress, actionObjectUser, u.Username, u.Role, &u)
-			}
-			RemoveCachedWebDAVUser(user)
-		}
 		delayedQuotaUpdater.resetFolderQuota(folderName)
 	}
 	return err
@@ -2711,11 +2741,7 @@ func buildUserHomeDir(user *User) {
 		}
 		switch user.FsConfig.Provider {
 		case sdk.SFTPFilesystemProvider, sdk.S3FilesystemProvider, sdk.AzureBlobFilesystemProvider, sdk.GCSFilesystemProvider, sdk.HTTPFilesystemProvider:
-			if tempPath != "" {
-				user.HomeDir = filepath.Join(tempPath, user.Username)
-			} else {
-				user.HomeDir = filepath.Join(os.TempDir(), user.Username)
-			}
+			user.HomeDir = filepath.Join(os.TempDir(), user.Username)
 		}
 	} else {
 		user.HomeDir = filepath.Clean(user.HomeDir)
@@ -2776,12 +2802,51 @@ func validateUserGroups(user *User) error {
 	return nil
 }
 
+// maxFolderSubpathLen matches the varchar(191) subpath column: the widest
+// utf8mb4 column whose unique index fits the 767-byte key limit of legacy
+// InnoDB row formats. The limit is enforced on every provider for uniform
+// semantics and portable dumps.
+const maxFolderSubpathLen = 191
+
+func validateFolderSubPathValue(value string) (string, error) {
+	cleaned := util.CleanPath(value)
+	if cleaned == "/" || cleaned != "/"+strings.TrimPrefix(strings.TrimSuffix(value, "/"), "/") {
+		return "", fmt.Errorf("invalid sub path %q", value)
+	}
+	return cleaned, nil
+}
+
+func validateFolderSubpath(vfolder *vfs.VirtualFolder) error {
+	if vfolder.Subpath == "" {
+		return nil
+	}
+	cleaned, err := validateFolderSubPathValue(vfolder.Subpath)
+	if err != nil || len(cleaned) > maxFolderSubpathLen {
+		return util.NewI18nError(
+			util.NewValidationError(fmt.Sprintf("invalid subpath %q for folder %q, it must be a canonical path of at most %d characters",
+				vfolder.Subpath, vfolder.Name, maxFolderSubpathLen)),
+			util.I18nErrorPathInvalid,
+		)
+	}
+	vfolder.Subpath = cleaned
+	return nil
+}
+
 func validateAssociatedVirtualFolders(vfolders []vfs.VirtualFolder) ([]vfs.VirtualFolder, error) {
 	if len(vfolders) == 0 {
 		return []vfs.VirtualFolder{}, nil
 	}
+	type folderMountKey struct {
+		name    string
+		subpath string
+	}
+	type folderQuotaLimits struct {
+		size  int64
+		files int
+	}
 	var virtualFolders []vfs.VirtualFolder
-	folderNames := make(map[string]bool)
+	folderMounts := make(map[folderMountKey]bool)
+	folderQuotas := make(map[string]folderQuotaLimits)
 
 	for _, v := range vfolders {
 		v.Name = config.convertName(v.Name)
@@ -2798,7 +2863,23 @@ func validateAssociatedVirtualFolders(vfolders []vfs.VirtualFolder) ([]vfs.Virtu
 		if v.Name == "" {
 			return nil, util.NewI18nError(util.NewValidationError("folder name is mandatory"), util.I18nErrorFolderNameRequired)
 		}
-		if folderNames[v.Name] {
+		if err := validateFolderSubpath(&v); err != nil {
+			return nil, err
+		}
+		// quota is folder-wide: every mount of the same folder must carry
+		// the same limits
+		if limits, ok := folderQuotas[v.Name]; ok {
+			if limits.size != v.QuotaSize || limits.files != v.QuotaFiles {
+				return nil, util.NewI18nError(
+					util.NewValidationError(fmt.Sprintf("quota limits for folder %q must be the same on all its mounts", v.Name)),
+					util.I18nErrorFolderQuotaMismatch,
+				)
+			}
+		} else {
+			folderQuotas[v.Name] = folderQuotaLimits{size: v.QuotaSize, files: v.QuotaFiles}
+		}
+		mountKey := folderMountKey{name: v.Name, subpath: v.Subpath}
+		if folderMounts[mountKey] {
 			return nil, util.NewI18nError(
 				util.NewValidationError(fmt.Sprintf("the folder %q is duplicated", v.Name)),
 				util.I18nErrorDuplicatedFolders,
@@ -2820,8 +2901,9 @@ func validateAssociatedVirtualFolders(vfolders []vfs.VirtualFolder) ([]vfs.Virtu
 			VirtualPath: cleanedVPath,
 			QuotaSize:   v.QuotaSize,
 			QuotaFiles:  v.QuotaFiles,
+			Subpath:     v.Subpath,
 		})
-		folderNames[v.Name] = true
+		folderMounts[mountKey] = true
 	}
 	return virtualFolders, nil
 }
@@ -2889,13 +2971,10 @@ func validateUserPermissions(permsToCheck map[string][]string) (map[string][]str
 				return permissions, util.NewValidationError(fmt.Sprintf("invalid permission: %q", p))
 			}
 		}
-		cleanedDir := filepath.ToSlash(path.Clean(dir))
-		if cleanedDir != "/" {
-			cleanedDir = strings.TrimSuffix(cleanedDir, "/")
-		}
-		if !path.IsAbs(cleanedDir) {
+		if !path.IsAbs(strings.ReplaceAll(dir, "\\", "/")) {
 			return permissions, util.NewValidationError(fmt.Sprintf("cannot set permissions for non absolute path: %q", dir))
 		}
+		cleanedDir := util.CleanPath(dir)
 		if dir != cleanedDir && cleanedDir == "/" {
 			return permissions, util.NewValidationError(fmt.Sprintf("cannot set permissions for invalid subdirectory: %q is an alias for \"/\"", dir))
 		}
@@ -2940,7 +3019,8 @@ func validatePublicKeys(user *User) error {
 				util.I18nErrorPubKeyInvalid,
 			)
 		}
-		if out.Type() == ssh.InsecureKeyAlgoDSA { //nolint:staticcheck
+		//lint:ignore SA1019 the check names DSA to reject it
+		if out.Type() == ssh.InsecureKeyAlgoDSA {
 			providerLog(logger.LevelError, "dsa public key not accepted, position: %d", idx)
 			return util.NewI18nError(
 				util.NewValidationError(fmt.Sprintf("DSA key format is insecure and it is not allowed for key at position %d", idx)),
@@ -2975,13 +3055,13 @@ func validateFiltersPatternExtensions(baseFilters *sdk.BaseUserFilters) error {
 	filteredPaths := []string{}
 	var filters []sdk.PatternsFilter
 	for _, f := range baseFilters.FilePatterns {
-		cleanedPath := filepath.ToSlash(path.Clean(f.Path))
-		if !path.IsAbs(cleanedPath) {
+		if !path.IsAbs(strings.ReplaceAll(f.Path, "\\", "/")) {
 			return util.NewI18nError(
 				util.NewValidationError(fmt.Sprintf("invalid path %q for file patterns filter", f.Path)),
 				util.I18nErrorFilePatternPathInvalid,
 			)
 		}
+		cleanedPath := util.CleanPath(f.Path)
 		if slices.Contains(filteredPaths, cleanedPath) {
 			return util.NewI18nError(
 				util.NewValidationError(fmt.Sprintf("duplicate file patterns filter for path %q", f.Path)),
@@ -3334,9 +3414,6 @@ func validateBaseParams(user *User) error {
 		user.UploadDataTransfer = 0
 		user.DownloadDataTransfer = 0
 	}
-	if user.Filters.IsAnonymous {
-		user.setAnonymousSettings()
-	}
 	err := user.FsConfig.Validate(user.GetEncryptionAdditionalData())
 	if err != nil {
 		return err
@@ -3571,7 +3648,6 @@ func checkUserAndPass(user *User, password, ip, protocol string) (User, error) {
 		return *user, errors.New("login not allowed, password change required")
 	}
 	if user.Filters.IsAnonymous {
-		user.setAnonymousSettings()
 		return *user, nil
 	}
 	password, err = checkUserPasscode(user, password, protocol)
@@ -3818,6 +3894,20 @@ func sendKeyboardAuthHTTPReq(url string, request *plugin.KeyboardAuthRequest) (*
 	return &response, err
 }
 
+type prefetchedChallenge struct {
+	client  ssh.KeyboardInteractiveChallenge
+	answers []string
+	used    bool
+}
+
+func (c *prefetchedChallenge) challenge(name, instruction string, questions []string, echos []bool) ([]string, error) {
+	if !c.used {
+		c.used = true
+		return c.answers, nil
+	}
+	return c.client(name, instruction, questions, echos)
+}
+
 func doBuiltinKeyboardInteractiveAuth(user *User, client ssh.KeyboardInteractiveChallenge,
 	ip, protocol string, isPartialAuth bool,
 ) (int, error) {
@@ -3826,7 +3916,7 @@ func doBuiltinKeyboardInteractiveAuth(user *User, client ssh.KeyboardInteractive
 	}
 	hasSecondFactor := user.Filters.TOTPConfig.Enabled && slices.Contains(user.Filters.TOTPConfig.Protocols, protocolSSH)
 	if !isPartialAuth || !hasSecondFactor {
-		answers, err := client("", "", []string{"Password: "}, []bool{false})
+		answers, err := client("", "", []string{passwordPrompt}, []bool{false})
 		if err != nil {
 			return 0, err
 		}
@@ -4082,7 +4172,7 @@ func executeKeyboardInteractiveProgram(user *User, authHook string, client ssh.K
 	return authResult, err
 }
 
-func doKeyboardInteractiveAuth(user *User, authHook string, client ssh.KeyboardInteractiveChallenge,
+func doKeyboardInteractiveAuth(user *User, usePlugin bool, authHook string, client ssh.KeyboardInteractiveChallenge,
 	ip, protocol string, isPartialAuth bool,
 ) (User, error) {
 	if err := user.LoadAndApplyGroupSettings(); err != nil {
@@ -4091,7 +4181,7 @@ func doKeyboardInteractiveAuth(user *User, authHook string, client ssh.KeyboardI
 	var authResult int
 	var err error
 	if !user.Filters.Hooks.ExternalAuthDisabled {
-		if plugin.Handler.HasAuthScope(plugin.AuthScopeKeyboardInteractive) {
+		if usePlugin {
 			authResult, err = executeKeyboardInteractivePlugin(user, client, ip, protocol)
 			if authResult == 1 && err == nil {
 				authResult, err = checkKeyboardInteractiveSecondFactor(user, client, protocol)
@@ -4268,6 +4358,12 @@ func executePreLoginHook(username, loginMethod, ip, protocol string, oidcTokenFi
 	if err != nil {
 		return u, fmt.Errorf("invalid pre-login hook response %q, error: %v", out, err)
 	}
+	// the returned user is saved and the login continues with it, so it must match
+	// the login username. Accounts are stored with the naming rules applied
+	user.Username = config.convertName(user.Username)
+	if user.Username != config.convertName(username) {
+		return u, fmt.Errorf("pre-login hook returned username %q for the login username %q", user.Username, username)
+	}
 	if u.ID > 0 {
 		user.ID = u.ID
 		user.UsedQuotaSize = u.UsedQuotaSize
@@ -4282,7 +4378,7 @@ func executePreLoginHook(username, loginMethod, ip, protocol string, oidcTokenFi
 		// preserve TOTP config and recovery codes
 		user.Filters.TOTPConfig = u.Filters.TOTPConfig
 		user.Filters.RecoveryCodes = u.Filters.RecoveryCodes
-		if err := provider.updateUser(&user); err != nil {
+		if err := provider.updateUser(&user, updateUnconditionally); err != nil {
 			return u, err
 		}
 	} else {
@@ -4523,6 +4619,7 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 		return user, ErrInvalidCredentials
 	}
 	updateUserFromExtAuthResponse(&user, password, pkey)
+	user.Username = config.convertName(user.Username)
 	// some users want to map multiple login usernames with a single SFTPGo account
 	// for example an SFTP user logins using "user1" or "user2" and the external auth
 	// returns "user" in both cases, so we use the username returned from
@@ -4603,6 +4700,12 @@ func doPluginAuth(username, password string, pubKey []byte, ip, protocol string,
 	if err != nil {
 		return user, fmt.Errorf("invalid plugin auth response: %v", err)
 	}
+	// the returned user is saved and the login continues with it, so it must match
+	// the login username. Accounts are stored with the naming rules applied
+	user.Username = config.convertName(user.Username)
+	if user.Username != config.convertName(username) {
+		return u, fmt.Errorf("plugin auth returned username %q for the login username %q", user.Username, username)
+	}
 	updateUserFromExtAuthResponse(&user, password, pkey)
 	if u.ID > 0 {
 		user.ID = u.ID
@@ -4635,7 +4738,7 @@ func doPluginAuth(username, password string, pubKey []byte, ip, protocol string,
 }
 
 func updateUserAfterExternalAuth(user *User) (User, error) {
-	if err := provider.updateUser(user); err != nil {
+	if err := provider.updateUser(user, updateUnconditionally); err != nil {
 		return *user, err
 	}
 	return provider.userExists(user.Username, "")

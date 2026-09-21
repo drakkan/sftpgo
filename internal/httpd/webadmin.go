@@ -1256,6 +1256,7 @@ func getVirtualFoldersFromPostFields(r *http.Request) []vfs.VirtualFolder {
 	folderNames := r.Form["vfolder_name"]
 	folderQuotaSizes := r.Form["vfolder_quota_size"]
 	folderQuotaFiles := r.Form["vfolder_quota_files"]
+	folderSubpaths := r.Form["vfolder_subpath"]
 	for idx, p := range folderPaths {
 		name := ""
 		if len(folderNames) > idx {
@@ -1281,6 +1282,9 @@ func getVirtualFoldersFromPostFields(r *http.Request) []vfs.VirtualFolder {
 				if err == nil {
 					vfolder.QuotaFiles = quotaFiles
 				}
+			}
+			if len(folderSubpaths) > idx {
+				vfolder.Subpath = folderSubpaths[idx]
 			}
 			virtualFolders = append(virtualFolders, vfolder)
 		}
@@ -1563,7 +1567,7 @@ func getS3Config(r *http.Request) (vfs.S3FsConfig, error) {
 	config.Endpoint = strings.TrimSpace(r.Form.Get("s3_endpoint"))
 	config.StorageClass = strings.TrimSpace(r.Form.Get("s3_storage_class"))
 	config.ACL = strings.TrimSpace(r.Form.Get("s3_acl"))
-	config.KeyPrefix = strings.TrimSpace(strings.TrimPrefix(r.Form.Get("s3_key_prefix"), "/"))
+	config.KeyPrefix = strings.TrimSpace(r.Form.Get("s3_key_prefix"))
 	config.UploadPartSize, err = strconv.ParseInt(r.Form.Get("s3_upload_part_size"), 10, 64)
 	if err != nil {
 		return config, fmt.Errorf("invalid s3 upload part size: %w", err)
@@ -1600,7 +1604,7 @@ func getGCSConfig(r *http.Request) (vfs.GCSFsConfig, error) {
 	config.Bucket = strings.TrimSpace(r.Form.Get("gcs_bucket"))
 	config.StorageClass = strings.TrimSpace(r.Form.Get("gcs_storage_class"))
 	config.ACL = strings.TrimSpace(r.Form.Get("gcs_acl"))
-	config.KeyPrefix = strings.TrimSpace(strings.TrimPrefix(r.Form.Get("gcs_key_prefix"), "/"))
+	config.KeyPrefix = strings.TrimSpace(r.Form.Get("gcs_key_prefix"))
 	uploadPartSize, err := strconv.ParseInt(r.Form.Get("gcs_upload_part_size"), 10, 64)
 	if err == nil {
 		config.UploadPartSize = uploadPartSize
@@ -1682,7 +1686,7 @@ func getAzureConfig(r *http.Request) (vfs.AzBlobFsConfig, error) {
 	config.AccountKey = getSecretFromFormField(r, "az_account_key")
 	config.SASURL = getSecretFromFormField(r, "az_sas_url")
 	config.Endpoint = strings.TrimSpace(r.Form.Get("az_endpoint"))
-	config.KeyPrefix = strings.TrimSpace(strings.TrimPrefix(r.Form.Get("az_key_prefix"), "/"))
+	config.KeyPrefix = strings.TrimSpace(r.Form.Get("az_key_prefix"))
 	config.AccessTier = strings.TrimSpace(r.Form.Get("az_access_tier"))
 	config.UseEmulator = r.Form.Get("az_use_emulator") != ""
 	config.UploadPartSize, err = strconv.ParseInt(r.Form.Get("az_upload_part_size"), 10, 64)
@@ -1939,6 +1943,7 @@ func getUserFromTemplate(user dataprovider.User, template userTemplateFields) da
 	for _, vfolder := range user.VirtualFolders {
 		vfolder.Name = replacePlaceholders(vfolder.Name, replacements)
 		vfolder.VirtualPath = replacePlaceholders(vfolder.VirtualPath, replacements)
+		vfolder.Subpath = replacePlaceholders(vfolder.Subpath, replacements)
 		vfolders = append(vfolders, vfolder)
 	}
 	user.VirtualFolders = vfolders
@@ -2021,6 +2026,7 @@ func updateRepeaterFormFields(r *http.Request) {
 			r.Form.Add("vfolder_name", strings.TrimSpace(r.Form.Get(base+"[vfolder_name]")))
 			r.Form.Add("vfolder_quota_files", strings.TrimSpace(r.Form.Get(base+"[vfolder_quota_files]")))
 			r.Form.Add("vfolder_quota_size", strings.TrimSpace(r.Form.Get(base+"[vfolder_quota_size]")))
+			r.Form.Add("vfolder_subpath", strings.TrimSpace(r.Form.Get(base+"[vfolder_subpath]")))
 			continue
 		}
 		if hasPrefixAndSuffix(k, "directory_permissions[", "][sub_perm_path]") {
@@ -2067,7 +2073,7 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 	if err != nil {
 		return user, util.NewI18nError(err, util.I18nErrorInvalidForm)
 	}
-	defer r.MultipartForm.RemoveAll() //nolint:errcheck
+	defer r.MultipartForm.RemoveAll()
 
 	updateRepeaterFormFields(r)
 
@@ -2163,7 +2169,7 @@ func getGroupFromPostFields(r *http.Request) (dataprovider.Group, error) {
 	if err != nil {
 		return group, util.NewI18nError(err, util.I18nErrorInvalidForm)
 	}
-	defer r.MultipartForm.RemoveAll() //nolint:errcheck
+	defer r.MultipartForm.RemoveAll()
 
 	updateRepeaterFormFields(r)
 
@@ -3017,7 +3023,7 @@ func (s *httpdServer) handleWebRestore(w http.ResponseWriter, r *http.Request) {
 		s.renderMaintenancePage(w, r, util.NewI18nError(err, util.I18nErrorInvalidForm))
 		return
 	}
-	defer r.MultipartForm.RemoveAll() //nolint:errcheck
+	defer r.MultipartForm.RemoveAll()
 
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := verifyCSRFToken(r, s.csrfTokenAuth); err != nil {
@@ -3183,7 +3189,10 @@ func (s *httpdServer) handleWebUpdateAdminPost(w http.ResponseWriter, r *http.Re
 		s.renderAddUpdateAdminPage(w, r, &updatedAdmin, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken), false)
 		return
 	}
+	executor := claims.Username
 	if username == claims.Username {
+		executor = dataprovider.ActionExecutorSelf
+		updatedAdmin.UpdatedAt = admin.UpdatedAt
 		if !util.SlicesEqual(admin.Permissions, updatedAdmin.Permissions) {
 			s.renderAddUpdateAdminPage(w, r, &updatedAdmin,
 				util.NewI18nError(errors.New("you cannot change your permissions"),
@@ -3209,7 +3218,7 @@ func (s *httpdServer) handleWebUpdateAdminPost(w http.ResponseWriter, r *http.Re
 		updatedAdmin.Filters.RequirePasswordChange = admin.Filters.RequirePasswordChange
 		updatedAdmin.Filters.RequireTwoFactor = admin.Filters.RequireTwoFactor
 	}
-	err = dataprovider.UpdateAdmin(&updatedAdmin, claims.Username, ipAddr, claims.Role)
+	err = dataprovider.UpdateAdmin(&updatedAdmin, executor, ipAddr, claims.Role)
 	if err != nil {
 		s.renderAddUpdateAdminPage(w, r, &updatedAdmin, err, false)
 		return
@@ -3290,7 +3299,7 @@ func (s *httpdServer) handleWebTemplateFolderPost(w http.ResponseWriter, r *http
 		s.renderMessagePage(w, r, util.I18nTemplateFolderTitle, http.StatusBadRequest, util.NewI18nError(err, util.I18nErrorInvalidForm), "")
 		return
 	}
-	defer r.MultipartForm.RemoveAll() //nolint:errcheck
+	defer r.MultipartForm.RemoveAll()
 
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := verifyCSRFToken(r, s.csrfTokenAuth); err != nil {
@@ -3595,7 +3604,7 @@ func (s *httpdServer) handleWebAddFolderPost(w http.ResponseWriter, r *http.Requ
 		s.renderFolderPage(w, r, folder, folderPageModeAdd, util.NewI18nError(err, util.I18nErrorInvalidForm))
 		return
 	}
-	defer r.MultipartForm.RemoveAll() //nolint:errcheck
+	defer r.MultipartForm.RemoveAll()
 
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := verifyCSRFToken(r, s.csrfTokenAuth); err != nil {
@@ -3656,7 +3665,7 @@ func (s *httpdServer) handleWebUpdateFolderPost(w http.ResponseWriter, r *http.R
 		s.renderFolderPage(w, r, folder, folderPageModeUpdate, util.NewI18nError(err, util.I18nErrorInvalidForm))
 		return
 	}
-	defer r.MultipartForm.RemoveAll() //nolint:errcheck
+	defer r.MultipartForm.RemoveAll()
 
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := verifyCSRFToken(r, s.csrfTokenAuth); err != nil {
@@ -4345,7 +4354,7 @@ func (s *httpdServer) handleWebConfigsPost(w http.ResponseWriter, r *http.Reques
 		s.renderBadRequestPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidForm))
 		return
 	}
-	defer r.MultipartForm.RemoveAll() //nolint:errcheck
+	defer r.MultipartForm.RemoveAll()
 
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := verifyCSRFToken(r, s.csrfTokenAuth); err != nil {
@@ -4425,6 +4434,12 @@ func (s *httpdServer) handleOAuth2TokenRedirect(w http.ResponseWriter, r *http.R
 		oauth2Mgr.removePendingAuth(state)
 		s.renderMessagePage(w, r, util.I18nOAuth2ErrorTitle, http.StatusInternalServerError,
 			util.NewI18nError(err, util.I18nOAuth2ErrorValidateState), "")
+		return
+	}
+	if !checkAuthBrowserID(r, oauth2BrowserCookieKey, pendingAuth.Browser) {
+		s.renderMessagePage(w, r, util.I18nOAuth2ErrorTitle, http.StatusBadRequest,
+			util.NewI18nError(errors.New("the authorization request was started by a different browser"),
+				util.I18nOAuth2InvalidState), "")
 		return
 	}
 	oauth2Mgr.removePendingAuth(state)

@@ -422,8 +422,8 @@ func newMockOsFs(err, statErr error, atomicUpload bool, connectionID, rootDir st
 }
 
 func TestInitialization(t *testing.T) {
-	oldMgr := certMgr
-	certMgr = nil
+	oldMgr := certMgr.Load()
+	certMgr.Store(nil)
 
 	binding := Binding{
 		Port: 2121,
@@ -503,8 +503,9 @@ func TestInitialization(t *testing.T) {
 			ID:   binding.GetAddress(),
 		},
 	}
-	certMgr, err = common.NewCertManager(keyPairs, configDir, "")
+	mgr, err := common.NewCertManager(keyPairs, configDir, "")
 	require.NoError(t, err)
+	certMgr.Store(mgr)
 
 	assert.Equal(t, util.I18nFTPTLSMixed, binding.GetTLSDescription())
 	server = NewServer(c, configDir, binding, 0)
@@ -512,12 +513,12 @@ func TestInitialization(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, tls.RequireAndVerifyClientCert, cfg.ClientAuth)
 
-	certMgr = oldMgr
+	certMgr.Store(oldMgr)
 }
 
 func TestServerGetSettings(t *testing.T) {
 	oldConfig := common.Config
-	oldMgr := certMgr
+	oldMgr := certMgr.Load()
 
 	binding := Binding{
 		Port:             2121,
@@ -581,8 +582,9 @@ func TestServerGetSettings(t *testing.T) {
 			ID:   common.DefaultTLSKeyPaidID,
 		},
 	}
-	certMgr, err = common.NewCertManager(keyPairs, configDir, "")
+	mgr, err := common.NewCertManager(keyPairs, configDir, "")
 	require.NoError(t, err)
+	certMgr.Store(mgr)
 	common.Config.ProxyAllowed = nil
 	c.CertificateFile = certPath
 	c.CertificateKeyFile = keyPath
@@ -601,7 +603,7 @@ func TestServerGetSettings(t *testing.T) {
 	assert.True(t, ok)
 
 	common.Config = oldConfig
-	certMgr = oldMgr
+	certMgr.Store(oldMgr)
 }
 
 func TestUserInvalidParams(t *testing.T) {
@@ -966,7 +968,7 @@ func TestTransferErrors(t *testing.T) {
 }
 
 func TestVerifyTLSConnection(t *testing.T) {
-	oldCertMgr := certMgr
+	oldCertMgr := certMgr.Load()
 
 	caCrlPath := filepath.Join(os.TempDir(), "testcrl.crt")
 	certPath := filepath.Join(os.TempDir(), "test.crt")
@@ -984,11 +986,12 @@ func TestVerifyTLSConnection(t *testing.T) {
 			ID:   common.DefaultTLSKeyPaidID,
 		},
 	}
-	certMgr, err = common.NewCertManager(keyPairs, "", "ftp_test")
+	mgr, err := common.NewCertManager(keyPairs, "", "ftp_test")
 	assert.NoError(t, err)
+	certMgr.Store(mgr)
 
-	certMgr.SetCARevocationLists([]string{caCrlPath})
-	err = certMgr.LoadCRLs()
+	certMgr.Load().SetCARevocationLists([]string{caCrlPath})
+	err = certMgr.Load().LoadCRLs()
 	assert.NoError(t, err)
 
 	crt, err := tls.X509KeyPair([]byte(client1Crt), []byte(client1Key))
@@ -1036,7 +1039,7 @@ func TestVerifyTLSConnection(t *testing.T) {
 	err = os.Remove(keyPath)
 	assert.NoError(t, err)
 
-	certMgr = oldCertMgr
+	certMgr.Store(oldCertMgr)
 }
 
 func TestCiphers(t *testing.T) {
@@ -1220,4 +1223,37 @@ func TestPassiveHost(t *testing.T) {
 	ip, err := b.getPassiveIP(nil)
 	assert.NoError(t, err, ip)
 	assert.Equal(t, "127.0.0.1", ip)
+}
+
+func TestLoginMetricsPlaceholderUnset(t *testing.T) {
+	oldConfig := common.Config
+	cfg := common.Config
+	cfg.DefenderConfig.Enabled = true
+	cfg.DefenderConfig.Driver = common.DefenderDriverMemory
+	cfg.DefenderConfig.Threshold = 100
+	cfg.DefenderConfig.ScoreInvalid = 2
+	cfg.DefenderConfig.ScoreValid = 2
+	err := common.Initialize(cfg, 0)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		err := common.Initialize(oldConfig, 0)
+		assert.NoError(t, err)
+	})
+
+	ip := "172.16.34.7"
+	user := dataprovider.User{}
+	user.Username = "ftp_metrics_user"
+	c := &Connection{BaseConnection: common.NewBaseConnection("", common.ProtocolFTP, "", "", user)}
+
+	updateLoginMetrics(&user, ip, dataprovider.LoginMethodPassword, dataprovider.ErrPlaceholderUnset, c)
+	hosts, err := common.GetDefenderHosts()
+	assert.NoError(t, err)
+	assert.Empty(t, hosts)
+
+	updateLoginMetrics(&user, ip, dataprovider.LoginMethodPassword, dataprovider.ErrInvalidCredentials, c)
+	hosts, err = common.GetDefenderHosts()
+	assert.NoError(t, err)
+	assert.Len(t, hosts, 1)
+	common.DeleteDefenderHost(ip)
 }

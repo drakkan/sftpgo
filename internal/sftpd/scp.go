@@ -26,11 +26,16 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sftpgo/sdk"
+
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
+	"github.com/drakkan/sftpgo/v2/internal/util"
 	"github.com/drakkan/sftpgo/v2/internal/vfs"
 )
+
+const maxSCPMessageSize = 8192
 
 var (
 	okMsg   = []byte{0x00}
@@ -51,7 +56,7 @@ func (c *scpCommand) handle() (err error) {
 		}
 	}()
 	if err := common.Connections.Add(c.connection); err != nil {
-		defer c.connection.CloseFS() //nolint:errcheck
+		defer c.connection.CloseFS()
 		logger.Info(logSender, "", "unable to add SCP connection: %v", err)
 		return c.sendErrorResponse(err)
 	}
@@ -76,7 +81,7 @@ func (c *scpCommand) handle() (err error) {
 		if err != nil {
 			return err
 		}
-		err = c.handleDownload(destPath)
+		err = c.handleDownload(destPath, 0)
 		if err != nil {
 			return err
 		}
@@ -152,12 +157,6 @@ func (c *scpCommand) handleRecursiveUpload() error {
 func (c *scpCommand) handleCreateDir(fs vfs.Fs, dirPath string) error {
 	c.connection.UpdateLastActivity()
 
-	p, err := fs.ResolvePath(dirPath)
-	if err != nil {
-		c.connection.Log(logger.LevelError, "error creating dir: %q, invalid file path, err: %v", dirPath, err)
-		c.sendErrorMessage(fs, err)
-		return err
-	}
 	if !c.connection.User.HasPerm(dataprovider.PermCreateDirs, path.Dir(dirPath)) {
 		c.connection.Log(logger.LevelError, "error creating dir: %q, permission denied", dirPath)
 		c.sendErrorMessage(fs, common.ErrPermissionDenied)
@@ -168,12 +167,11 @@ func (c *scpCommand) handleCreateDir(fs vfs.Fs, dirPath string) error {
 	if err == nil && info.IsDir() {
 		return nil
 	}
-
-	err = c.createDir(fs, p)
-	if err != nil {
+	if err := c.connection.CreateDir(dirPath); err != nil {
+		c.connection.Log(logger.LevelError, "error creating dir %q: %v", dirPath, err)
+		c.sendErrorMessage(fs, err)
 		return err
 	}
-	c.connection.Log(logger.LevelDebug, "created dir %q", dirPath)
 	return nil
 }
 
@@ -267,7 +265,7 @@ func (c *scpCommand) handleUploadFile(fs vfs.Fs, resolvedPath, filePath string, 
 			if err == nil {
 				dataprovider.UpdateUserFolderQuota(&vfolder, &c.connection.User, 0, -fileSize, false)
 			} else {
-				dataprovider.UpdateUserQuota(&c.connection.User, 0, -fileSize, false) //nolint:errcheck
+				_ = dataprovider.UpdateUserQuota(&c.connection.User, 0, -fileSize, false)
 			}
 		} else {
 			initialSize = fileSize
@@ -380,23 +378,28 @@ func (c *scpCommand) sendDownloadProtocolMessages(virtualDirPath string, stat os
 
 // We send first all the files in the root directory and then the directories.
 // For each directory we recursively call this method again
-func (c *scpCommand) handleRecursiveDownload(fs vfs.Fs, dirPath, virtualPath string, stat os.FileInfo) error {
+func (c *scpCommand) handleRecursiveDownload(fs vfs.Fs, dirPath, virtualPath string, stat os.FileInfo, recursion int) error {
 	var err error
 	if c.isRecursive() {
+		if recursion >= util.MaxRecursion {
+			c.connection.Log(logger.LevelError, "recursive download failed, recursion too deep: %d", recursion)
+			c.sendErrorMessage(fs, util.ErrRecursionTooDeep)
+			return util.ErrRecursionTooDeep
+		}
+		recursion++
 		c.connection.Log(logger.LevelDebug, "recursive download, dir path %q virtual path %q", dirPath, virtualPath)
 		err = c.sendDownloadProtocolMessages(virtualPath, stat)
 		if err != nil {
 			return err
 		}
-		// dirPath is a fs path, not a virtual path
-		lister, err := fs.ReadDir(dirPath)
+		// ListDir requires the list permission and merges the virtual folders and
+		// the file pattern filters, as the listing of any other protocol does.
+		lister, err := c.connection.ListDir(virtualPath)
 		if err != nil {
 			c.sendErrorMessage(fs, err)
 			return err
 		}
 		defer lister.Close()
-
-		vdirs := c.connection.User.GetVirtualFoldersInfo(virtualPath)
 
 		var dirs []string
 		for {
@@ -406,17 +409,10 @@ func (c *scpCommand) handleRecursiveDownload(fs vfs.Fs, dirPath, virtualPath str
 				c.sendErrorMessage(fs, err)
 				return err
 			}
-			files = c.connection.User.FilterListDir(files, fs.GetRelativePath(dirPath))
-			if len(vdirs) > 0 {
-				files = append(files, vdirs...)
-				vdirs = nil
-			}
 			for _, file := range files {
-				filePath := fs.GetRelativePath(fs.Join(dirPath, file.Name()))
+				filePath := path.Join(virtualPath, file.Name())
 				if file.Mode().IsRegular() || file.Mode()&os.ModeSymlink != 0 {
-					err = c.handleDownload(filePath)
-					if err != nil {
-						c.sendErrorMessage(fs, err)
+					if err := c.handleDownload(filePath, recursion); err != nil {
 						return err
 					}
 				} else if file.IsDir() {
@@ -429,17 +425,16 @@ func (c *scpCommand) handleRecursiveDownload(fs vfs.Fs, dirPath, virtualPath str
 		}
 		lister.Close()
 
-		return c.downloadDirs(fs, dirs)
+		return c.downloadDirs(dirs, recursion)
 	}
 	err = errors.New("unable to send directory for non recursive copy")
 	c.sendErrorMessage(nil, err)
 	return err
 }
 
-func (c *scpCommand) downloadDirs(fs vfs.Fs, dirs []string) error {
+func (c *scpCommand) downloadDirs(dirs []string, recursion int) error {
 	for _, dir := range dirs {
-		if err := c.handleDownload(dir); err != nil {
-			c.sendErrorMessage(fs, err)
+		if err := c.handleDownload(dir, recursion); err != nil {
 			return err
 		}
 	}
@@ -506,8 +501,11 @@ func (c *scpCommand) sendDownloadFileData(fs vfs.Fs, filePath string, stat os.Fi
 	return err
 }
 
-func (c *scpCommand) handleDownload(filePath string) error {
+// handleDownload sends filePath to the client. It reports its own errors to the
+// client, so callers must not send them again.
+func (c *scpCommand) handleDownload(filePath string, recursion int) error {
 	c.connection.UpdateLastActivity()
+	filePath = path.Clean(filePath)
 
 	if err := common.Connections.IsNewTransferAllowed(c.connection.BaseConnection); err != nil {
 		err := fmt.Errorf("denying file read due to transfer count limits")
@@ -543,7 +541,17 @@ func (c *scpCommand) handleDownload(filePath string) error {
 			c.sendErrorMessage(fs, common.ErrPermissionDenied)
 			return common.ErrPermissionDenied
 		}
-		err = c.handleRecursiveDownload(fs, p, filePath, stat)
+		// Only the hide policy applies to the directory being read: the entries it
+		// carries are filtered by the listing and checked one by one, so under the
+		// default policy refusing to read it would withhold nothing.
+		if filePath != "/" {
+			if ok, policy := c.connection.User.IsFileAllowed(filePath); !ok && policy == sdk.DenyPolicyHide {
+				c.connection.Log(logger.LevelWarn, "reading directory %q is not allowed", filePath)
+				c.sendErrorMessage(fs, c.connection.GetNotExistError())
+				return common.ErrPermissionDenied
+			}
+		}
+		err = c.handleRecursiveDownload(fs, p, filePath, stat, recursion)
 		return err
 	}
 
@@ -580,7 +588,9 @@ func (c *scpCommand) handleDownload(filePath string) error {
 	// we need to call Close anyway and return close error if any and
 	// if we have no previous error
 	if err == nil {
-		err = t.Close()
+		if err = t.Close(); err != nil {
+			c.sendErrorMessage(fs, err)
+		}
 	} else {
 		t.TransferError(err)
 		t.Close()
@@ -627,6 +637,10 @@ func (c *scpCommand) readConfirmationMessage() error {
 			if n > 0 {
 				msg.Write(readed)
 			}
+			if msg.Len() > maxSCPMessageSize {
+				c.connection.channel.Close()
+				return fmt.Errorf("scp error message too long, max size %d bytes", maxSCPMessageSize)
+			}
 		}
 		c.connection.Log(logger.LevelInfo, "scp error message received: %v is error: %v", msg.String(), isError)
 		err = fmt.Errorf("%v", msg.String())
@@ -652,6 +666,10 @@ func (c *scpCommand) readProtocolMessage() (string, error) {
 				break
 			}
 			command.Write(readed)
+			if command.Len() > maxSCPMessageSize {
+				err = fmt.Errorf("scp protocol message too long, max size %d bytes", maxSCPMessageSize)
+				break
+			}
 		}
 	}
 	if err != nil && !errors.Is(err, io.EOF) {
@@ -662,16 +680,14 @@ func (c *scpCommand) readProtocolMessage() (string, error) {
 
 // sendErrorMessage sends an error message and close the channel
 // we don't check write errors here, we have to close the channel anyway
-//
-//nolint:errcheck
 func (c *scpCommand) sendErrorMessage(fs vfs.Fs, err error) {
-	c.connection.channel.Write(errMsg)
+	_, _ = c.connection.channel.Write(errMsg)
 	if fs != nil {
-		c.connection.channel.Write([]byte(c.connection.GetFsError(fs, err).Error()))
+		_, _ = c.connection.channel.Write([]byte(c.connection.GetFsError(fs, err).Error()))
 	} else {
-		c.connection.channel.Write([]byte(err.Error()))
+		_, _ = c.connection.channel.Write([]byte(err.Error()))
 	}
-	c.connection.channel.Write(newLine)
+	_, _ = c.connection.channel.Write(newLine)
 	c.connection.channel.Close()
 }
 
@@ -715,17 +731,6 @@ func (c *scpCommand) getNextUploadProtocolMessage() (string, error) {
 	return command, err
 }
 
-func (c *scpCommand) createDir(fs vfs.Fs, dirPath string) error {
-	err := fs.Mkdir(dirPath)
-	if err != nil {
-		c.connection.Log(logger.LevelError, "error creating dir %q: %v", dirPath, err)
-		c.sendErrorMessage(fs, err)
-		return err
-	}
-	vfs.SetPathPermissions(fs, dirPath, c.connection.User.GetUID(), c.connection.User.GetGID())
-	return err
-}
-
 // parse protocol messages such as:
 // D0755 0 testdir
 // or:
@@ -751,8 +756,8 @@ func (c *scpCommand) parseUploadMessage(fs vfs.Fs, command string) (int64, strin
 			return size, name, err
 		}
 		name = parts[2]
-		if name == "" {
-			err = fmt.Errorf("error getting name from upload message, cannot be empty")
+		if !isValidSCPName(name) {
+			err = fmt.Errorf("invalid name in upload message: %q", name)
 			c.connection.Log(logger.LevelError, "error: %v", err)
 			c.sendErrorMessage(fs, err)
 			return size, name, err
@@ -764,6 +769,14 @@ func (c *scpCommand) parseUploadMessage(fs vfs.Fs, command string) (int64, strin
 		return size, name, err
 	}
 	return size, name, err
+}
+
+func isValidSCPName(name string) bool {
+	if name == "" || name == "." || name == ".." {
+		return false
+	}
+
+	return !strings.ContainsAny(name, `/\`)
 }
 
 func (c *scpCommand) getFileUploadDestPath(fs vfs.Fs, scpDestPath, fileName string) string {

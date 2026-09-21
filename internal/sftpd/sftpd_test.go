@@ -63,6 +63,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/config"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
+	"github.com/drakkan/sftpgo/v2/internal/httpd"
 	"github.com/drakkan/sftpgo/v2/internal/httpdtest"
 	"github.com/drakkan/sftpgo/v2/internal/kms"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
@@ -76,6 +77,7 @@ const (
 	logSender           = "sftpdTesting"
 	sftpServerAddr      = "127.0.0.1:2022"
 	sftpSrvAddr2222     = "127.0.0.1:2222"
+	sftpSrvAddr2228     = "127.0.0.1:2228"
 	defaultUsername     = "test_user_sftp"
 	defaultPassword     = "test_password"
 	defaultSFTPUsername = "test_sftpfs_user"
@@ -193,6 +195,7 @@ func TestMain(m *testing.M) {
 	os.Setenv("SFTPGO_COMMON__UPLOAD_MODE", "2")
 	os.Setenv("SFTPGO_DATA_PROVIDER__CREATE_DEFAULT_ADMIN", "1")
 	os.Setenv("SFTPGO_COMMON__ALLOW_SELF_CONNECTIONS", "1")
+	os.Setenv("SFTPGO_COMMON__SYMLINK_MODE", "3")
 	os.Setenv("SFTPGO_DEFAULT_ADMIN_USERNAME", "admin")
 	os.Setenv("SFTPGO_DEFAULT_ADMIN_PASSWORD", "password")
 	os.Setenv("SFTPGO_COMMON__SECRET_MIN_ENTROPY", "0")
@@ -236,7 +239,7 @@ func TestMain(m *testing.M) {
 	}
 
 	httpConfig := config.GetHTTPConfig()
-	httpConfig.Initialize(configDir) //nolint:errcheck
+	httpConfig.Initialize(configDir)
 	kmsConfig := config.GetKMSConfig()
 	err = kmsConfig.Initialize()
 	if err != nil {
@@ -255,7 +258,7 @@ func TestMain(m *testing.M) {
 	sftpdConf.Bindings = []sftpd.Binding{
 		{
 			Port:             2022,
-			ApplyProxyConfig: true,
+			ApplyProxyConfig: false,
 		},
 	}
 	sftpdConf.KexAlgorithms = []string{"curve25519-sha256@libssh.org", ssh.KeyExchangeECDHP256,
@@ -278,41 +281,60 @@ func TestMain(m *testing.M) {
 	createInitialFiles(scriptArgs)
 	sftpdConf.TrustedUserCAKeys = append(sftpdConf.TrustedUserCAKeys, trustedCAUserKey)
 	sftpdConf.RevokedUserCertsFile = revokeUserCerts
+	common.Config.ProxyProtocol = 2
 
 	go func(cfg sftpd.Configuration) {
-		logger.Debug(logSender, "", "initializing SFTP server with config %+v", sftpdConf)
+		logger.Debug(logSender, "", "initializing SFTP server with config %+v", cfg)
 		if err := cfg.Initialize(configDir); err != nil {
 			logger.ErrorToConsole("could not start SFTP server: %v", err)
 			os.Exit(1)
 		}
 	}(sftpdConf)
 
-	go func() {
-		if err := httpdConf.Initialize(configDir, 0); err != nil {
+	go func(cfg httpd.Conf) {
+		if err := cfg.Initialize(configDir, 0); err != nil {
 			logger.ErrorToConsole("could not start HTTP server: %v", err)
 			os.Exit(1)
 		}
-	}()
+	}(httpdConf)
 
 	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
 	waitTCPListening(httpdConf.Bindings[0].GetAddress())
 
+	// this instance has no keyboard interactive hook, so the builtin flow is used
+	sftpdConf.Bindings = []sftpd.Binding{
+		{
+			Port:             2228,
+			ApplyProxyConfig: false,
+		},
+	}
+	sftpdConf.KeyboardInteractiveHook = ""
+	go func(cfg sftpd.Configuration) {
+		logger.Debug(logSender, "", "initializing SFTP server with the builtin keyboard interactive auth")
+		if err := cfg.Initialize(configDir); err != nil {
+			logger.ErrorToConsole("could not start SFTP server with the builtin keyboard interactive auth: %v", err)
+			os.Exit(1)
+		}
+	}(sftpdConf)
+
+	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
+	sftpdConf.KeyboardInteractiveHook = keyIntAuthPath
+
 	sftpdConf.Bindings = []sftpd.Binding{
 		{
 			Port:             2222,
-			ApplyProxyConfig: true,
+			ApplyProxyConfig: false,
 		},
 	}
 	sftpdConf.PasswordAuthentication = false
-	common.Config.ProxyProtocol = 1
-	go func(cfg sftpd.Configuration) {
+	go func(cfg sftpd.Configuration, proxyProtocol int) {
 		logger.Debug(logSender, "", "initializing SFTP server with config %+v and proxy protocol %v",
-			sftpdConf, common.Config.ProxyProtocol)
+			cfg, proxyProtocol)
 		if err := cfg.Initialize(configDir); err != nil {
 			logger.ErrorToConsole("could not start SFTP server with proxy protocol 1: %v", err)
 			os.Exit(1)
 		}
-	}(sftpdConf)
+	}(sftpdConf, common.Config.ProxyProtocol)
 
 	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
 
@@ -323,14 +345,14 @@ func TestMain(m *testing.M) {
 		},
 	}
 	sftpdConf.PasswordAuthentication = true
-	go func(cfg sftpd.Configuration) {
+	go func(cfg sftpd.Configuration, proxyProtocol int) {
 		logger.Debug(logSender, "", "initializing SFTP server with config %+v and proxy protocol %v",
-			cfg, common.Config.ProxyProtocol)
+			cfg, proxyProtocol)
 		if err := cfg.Initialize(configDir); err != nil {
 			logger.ErrorToConsole("could not start SFTP server with proxy protocol 2: %v", err)
 			os.Exit(1)
 		}
-	}(sftpdConf)
+	}(sftpdConf, common.Config.ProxyProtocol)
 
 	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
 
@@ -341,18 +363,19 @@ func TestMain(m *testing.M) {
 		},
 	}
 	sftpdConf.PasswordAuthentication = true
-	common.Config.ProxyProtocol = 2
-	go func() {
+	go func(cfg sftpd.Configuration, proxyProtocol int) {
 		logger.Debug(logSender, "", "initializing SFTP server with config %+v and proxy protocol %v",
-			sftpdConf, common.Config.ProxyProtocol)
-		if err := sftpdConf.Initialize(configDir); err != nil {
+			cfg, proxyProtocol)
+		if err := cfg.Initialize(configDir); err != nil {
 			logger.ErrorToConsole("could not start SFTP server with proxy protocol 2: %v", err)
 			os.Exit(1)
 		}
-	}()
+	}(sftpdConf, common.Config.ProxyProtocol)
 
 	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
-	getHostKeysFingerprints(sftpdConf.HostKeys)
+	for _, k := range sftpd.GetStatus().HostKeys {
+		hostKeyFPs = append(hostKeyFPs, k.Fingerprint)
+	}
 	startHTTPFs()
 
 	exitCode := m.Run()
@@ -407,9 +430,7 @@ func TestInitialization(t *testing.T) {
 			ApplyProxyConfig: true,
 		},
 	}
-	common.Config.ProxyProtocol = 1
 	assert.True(t, sftpdConf.Bindings[0].HasProxy())
-	common.Config.ProxyProtocol = 0
 	sftpdConf.HostKeys = []string{"missing key"}
 	err = sftpdConf.Initialize(configDir)
 	assert.Error(t, err)
@@ -600,6 +621,159 @@ func TestBasicSFTPHandling(t *testing.T) {
 	assert.NotEmpty(t, status.GetKEXsAsString())
 	assert.NotEmpty(t, status.GetCiphersAsString())
 	assert.NotEmpty(t, status.GetPublicKeysAlgosAsString())
+}
+
+func TestMultipleSftpSessionsSameSSHConnection(t *testing.T) {
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	testFileSize := int64(65535)
+
+	conn, client1, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+
+		err = writeSFTPFile(testFileName, testFileSize, client1)
+		assert.NoError(t, err)
+		client2, err := sftp.NewClient(conn)
+		if assert.NoError(t, err) {
+			defer client2.Close()
+
+			matches, err := client2.Glob(testFileName)
+			assert.NoError(t, err)
+			assert.Len(t, matches, 1)
+			_, err = client2.Lstat(testFileName)
+			assert.NoError(t, err)
+			err = client1.Close()
+			assert.NoError(t, err)
+			assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 1 },
+				2*time.Second, 100*time.Millisecond)
+			f, err := client2.OpenFile(testFileName, os.O_RDONLY)
+			if assert.NoError(t, err) {
+				contents := make([]byte, testFileSize)
+				_, err = io.ReadFull(f, contents)
+				assert.NoError(t, err)
+				err = f.Close()
+				assert.NoError(t, err)
+			}
+		}
+		err = conn.Close()
+		assert.NoError(t, err)
+	}
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
+		2*time.Second, 100*time.Millisecond)
+
+	// update the user so the filesystem root checks run again on the next
+	// login: a recent login would skip them via the fast path
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+
+	// a new session opened on the same SSH connection after closing the
+	// previous one must work too
+	conn, client1, err = getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+
+		matches, err := client1.Glob(testFileName)
+		assert.NoError(t, err)
+		assert.Len(t, matches, 1)
+		_, err = client1.Lstat(testFileName)
+		assert.NoError(t, err)
+		err = client1.Close()
+		assert.NoError(t, err)
+		assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
+			2*time.Second, 100*time.Millisecond)
+		client2, err := sftp.NewClient(conn)
+		if assert.NoError(t, err) {
+			defer client2.Close()
+
+			f, err := client2.OpenFile(testFileName, os.O_RDONLY)
+			if assert.NoError(t, err) {
+				contents := make([]byte, testFileSize)
+				_, err = io.ReadFull(f, contents)
+				assert.NoError(t, err)
+				err = f.Close()
+				assert.NoError(t, err)
+			}
+		}
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestConcurrentSftpChannelsSameSSHConnection(t *testing.T) {
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	testFileSize := int64(65535)
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+
+	conn, client0, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+
+		const numChannels = 8
+		const iterations = 30
+		clients := []*sftp.Client{client0}
+		for range numChannels - 1 {
+			client, err := sftp.NewClient(conn)
+			require.NoError(t, err)
+			clients = append(clients, client)
+		}
+
+		var wg sync.WaitGroup
+		for idx, client := range clients {
+			wg.Add(1)
+			go func(channelIdx int, client *sftp.Client) {
+				defer wg.Done()
+
+				remoteName := fmt.Sprintf("file_%d.dat", channelIdx)
+				for range iterations {
+					if err := sftpUploadFile(testFilePath, remoteName, testFileSize, client); err != nil {
+						t.Errorf("channel %d upload: %v", channelIdx, err)
+						return
+					}
+					localDownloadPath := filepath.Join(homeBasePath, fmt.Sprintf("%s_%d", testDLFileName, channelIdx))
+					if err := sftpDownloadFile(remoteName, localDownloadPath, testFileSize, client); err != nil {
+						t.Errorf("channel %d download: %v", channelIdx, err)
+						return
+					}
+					if _, err := client.ReadDir("/"); err != nil {
+						t.Errorf("channel %d readdir: %v", channelIdx, err)
+						return
+					}
+				}
+			}(idx, client)
+		}
+		wg.Wait()
+
+		for i := range numChannels {
+			err = os.Remove(filepath.Join(homeBasePath, fmt.Sprintf("%s_%d", testDLFileName, i)))
+			assert.NoError(t, err)
+		}
+		for _, client := range clients {
+			err = client.Close()
+			assert.NoError(t, err)
+		}
+		err = conn.Close()
+		assert.NoError(t, err)
+	}
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
+		2*time.Second, 100*time.Millisecond)
+
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
 }
 
 func TestBasicSFTPFsHandling(t *testing.T) {
@@ -796,6 +970,69 @@ func TestSFTPFsEscapeHomeDir(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestSymlinkModeEnforcement(t *testing.T) {
+	oldMode := common.Config.SymlinkMode
+	defer func() { common.Config.SymlinkMode = oldMode }()
+
+	usePubKey := true
+	// the local user is also the backend target of the SFTP user below
+	localUser, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
+	require.NoError(t, err)
+	sftpUser, _, err := httpdtest.AddUser(getTestSFTPUser(usePubKey), http.StatusCreated)
+	require.NoError(t, err)
+
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	require.NoError(t, createTestFile(testFilePath, 4096))
+
+	t.Run("local", func(t *testing.T) {
+		conn, client, err := getSftpClient(localUser, usePubKey)
+		require.NoError(t, err)
+		defer conn.Close()
+		defer client.Close()
+		require.NoError(t, sftpUploadFile(testFilePath, testFileName, 4096, client))
+
+		common.Config.SymlinkMode = 0
+		assert.Error(t, client.Symlink(testFileName, testFileName+".l0"))
+
+		common.Config.SymlinkMode = common.SymlinkModeAllowSFTP
+		assert.Error(t, client.Symlink(testFileName, testFileName+".l1"))
+
+		common.Config.SymlinkMode = common.SymlinkModeAllowLocal
+		assert.NoError(t, client.Symlink(testFileName, testFileName+".l2"))
+
+		common.Config.SymlinkMode = common.SymlinkModeAllowLocal | common.SymlinkModeAllowSFTP
+		assert.NoError(t, client.Symlink(testFileName, testFileName+".l3"))
+	})
+
+	t.Run("sftp", func(t *testing.T) {
+		conn, client, err := getSftpClient(sftpUser, usePubKey)
+		require.NoError(t, err)
+		defer conn.Close()
+		defer client.Close()
+		require.NoError(t, sftpUploadFile(testFilePath, testFileName, 4096, client))
+
+		common.Config.SymlinkMode = 0
+		assert.Error(t, client.Symlink(testFileName, testFileName+".s0"))
+
+		common.Config.SymlinkMode = common.SymlinkModeAllowLocal
+		assert.Error(t, client.Symlink(testFileName, testFileName+".s1"))
+
+		common.Config.SymlinkMode = common.SymlinkModeAllowLocal | common.SymlinkModeAllowSFTP
+		assert.NoError(t, client.Symlink(testFileName, testFileName+".s2"))
+	})
+
+	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(localUser.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(sftpUser.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+}
+
 func TestReadDirLongNames(t *testing.T) {
 	usePubKey := true
 	user, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
@@ -807,7 +1044,7 @@ func TestReadDirLongNames(t *testing.T) {
 		defer client.Close()
 
 		numFiles := 1000
-		for i := 0; i < 1000; i++ {
+		for range 1000 {
 			fPath := filepath.Join(user.GetHomeDir(), hex.EncodeToString(util.GenerateRandomBytes(127)))
 			err = os.WriteFile(fPath, util.GenerateRandomBytes(30), 0666)
 			assert.NoError(t, err)
@@ -997,6 +1234,12 @@ func TestDefender(t *testing.T) {
 
 		err = checkBasicSFTP(client)
 		assert.NoError(t, err)
+		// close the connection before removing the home dir, the open
+		// fs root would prevent the removal on Windows
+		err = client.Close()
+		assert.NoError(t, err)
+		err = conn.Close()
+		assert.NoError(t, err)
 	}
 
 	user.Password = "wrong_pwd"
@@ -1010,7 +1253,7 @@ func TestDefender(t *testing.T) {
 		assert.Equal(t, 1, host.Score)
 	}
 
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		_, _, err = getSftpClient(user, usePubKey)
 		assert.Error(t, err)
 	}
@@ -1021,6 +1264,9 @@ func TestDefender(t *testing.T) {
 
 	err = dataprovider.DeleteUser(user.Username, "", "", "")
 	assert.NoError(t, err)
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
+		2*time.Second, 100*time.Millisecond)
+	waitNoActiveConnections(t)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 
@@ -1115,9 +1361,11 @@ func TestOpenReadWritePerm(t *testing.T) {
 				assert.NoError(t, err)
 			}
 			if user.Username == defaultUsername {
-				err = os.RemoveAll(user.GetHomeDir())
-				assert.NoError(t, err)
+				// remove the user before the home dir so the connection
+				// holding the fs root is closed
 				_, err = httpdtest.RemoveUser(user, http.StatusOK)
+				assert.NoError(t, err)
+				err = os.RemoveAll(user.GetHomeDir())
 				assert.NoError(t, err)
 				user.Password = defaultPassword
 				user.ID = 0
@@ -1152,7 +1400,7 @@ func TestConcurrency(t *testing.T) {
 	assert.NoError(t, err)
 
 	var closedConns atomic.Int32
-	for i := 0; i < numLogins; i++ {
+	for i := range numLogins {
 		wg.Add(1)
 		go func(counter int) {
 			defer wg.Done()
@@ -1169,10 +1417,7 @@ func TestConcurrency(t *testing.T) {
 		}(i)
 	}
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
+	wg.Go(func() {
 		maxConns := 0
 		maxSessions := 0
 		for {
@@ -1194,7 +1439,7 @@ func TestConcurrency(t *testing.T) {
 		}
 		assert.Greater(t, maxConns, 0)
 		assert.Greater(t, maxSessions, 0)
-	}()
+	})
 
 	wg.Wait()
 
@@ -1272,7 +1517,7 @@ func TestRealPath(t *testing.T) {
 			assert.NoError(t, err)
 			p, err = client.RealPath(path.Join(subdir, linkName))
 			assert.NoError(t, err)
-			assert.Equal(t, path.Join("/", testFileName), p)
+			assert.Equal(t, path.Join("/", subdir, linkName), p)
 			// an existing path
 			sftpFile, err := client.OpenFile(testFileName, os.O_RDWR|os.O_CREATE|os.O_TRUNC)
 			if assert.NoError(t, err) {
@@ -1283,12 +1528,17 @@ func TestRealPath(t *testing.T) {
 			}
 			p, err = client.RealPath(path.Join(subdir, linkName))
 			assert.NoError(t, err)
-			assert.Equal(t, path.Join("/", testFileName), p)
-			// now a link outside the home dir
+			assert.Equal(t, path.Join("/", subdir, linkName), p)
+			// now a link outside the home dir: realpath is lexical and advisory, so it
+			// returns the in-home virtual path without resolving the symlink; access
+			// through it is still blocked at operation time
 			err = os.Symlink(filepath.Clean(os.TempDir()), filepath.Join(localUser.GetHomeDir(), subdir, "temp"))
 			assert.NoError(t, err)
-			_, err = client.RealPath(path.Join(subdir, "temp"))
-			assert.ErrorIs(t, err, os.ErrPermission)
+			p, err = client.RealPath(path.Join(subdir, "temp"))
+			assert.NoError(t, err)
+			assert.Equal(t, path.Join("/", subdir, "temp"), p)
+			_, err = client.Stat(p)
+			assert.Error(t, err)
 
 			conn.Close()
 			client.Close()
@@ -1336,7 +1586,7 @@ func TestBufferedSFTP(t *testing.T) {
 		assert.NoError(t, err)
 		err = appendToTestFile(testFilePath, appendDataSize)
 		assert.NoError(t, err)
-		err = sftpUploadResumeFile(testFilePath, testFileName, testFileSize+appendDataSize, false, client)
+		err = sftpUploadResumeFile(testFilePath, testFileSize+appendDataSize, false, client)
 		if assert.Error(t, err) {
 			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
 		}
@@ -1451,7 +1701,7 @@ func TestUploadResume(t *testing.T) {
 			assert.NoError(t, err)
 			err = appendToTestFile(testFilePath, appendDataSize)
 			assert.NoError(t, err)
-			err = sftpUploadResumeFile(testFilePath, testFileName, testFileSize+appendDataSize, false, client)
+			err = sftpUploadResumeFile(testFilePath, testFileSize+appendDataSize, false, client)
 			assert.NoError(t, err)
 			localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
 			err = sftpDownloadFile(testFileName, localDownloadPath, testFileSize+appendDataSize, client)
@@ -1461,16 +1711,18 @@ func TestUploadResume(t *testing.T) {
 			downloadedFileHash, err := computeHashForFile(sha256.New(), localDownloadPath)
 			assert.NoError(t, err)
 			assert.Equal(t, initialHash, downloadedFileHash)
-			err = sftpUploadResumeFile(testFilePath, testFileName, testFileSize+appendDataSize, true, client)
+			err = sftpUploadResumeFile(testFilePath, testFileSize+appendDataSize, true, client)
 			assert.Error(t, err, "resume uploading file with invalid offset must fail")
 			err = os.Remove(testFilePath)
 			assert.NoError(t, err)
 			err = os.Remove(localDownloadPath)
 			assert.NoError(t, err)
 			if user.Username == defaultUsername {
-				err = os.RemoveAll(user.GetHomeDir())
-				assert.NoError(t, err)
+				// remove the user before the home dir so the connection
+				// holding the fs root is closed
 				_, err = httpdtest.RemoveUser(user, http.StatusOK)
+				assert.NoError(t, err)
+				err = os.RemoveAll(user.GetHomeDir())
 				assert.NoError(t, err)
 				user.Password = defaultPassword
 				user.ID = 0
@@ -1706,9 +1958,11 @@ func TestStat(t *testing.T) {
 			err = os.Remove(testFilePath)
 			assert.NoError(t, err)
 			if user.Username == defaultUsername {
-				err = os.RemoveAll(user.GetHomeDir())
-				assert.NoError(t, err)
+				// remove the user before the home dir so the connection
+				// holding the fs root is closed
 				_, err = httpdtest.RemoveUser(user, http.StatusOK)
+				assert.NoError(t, err)
+				err = os.RemoveAll(user.GetHomeDir())
 				assert.NoError(t, err)
 				user.Password = defaultPassword
 				user.ID = 0
@@ -1763,9 +2017,11 @@ func TestStatChownChmod(t *testing.T) {
 			err = os.Remove(testFilePath)
 			assert.NoError(t, err)
 			if user.Username == defaultUsername {
-				err = os.RemoveAll(user.GetHomeDir())
-				assert.NoError(t, err)
+				// remove the user before the home dir so the connection
+				// holding the fs root is closed
 				_, err = httpdtest.RemoveUser(user, http.StatusOK)
+				assert.NoError(t, err)
+				err = os.RemoveAll(user.GetHomeDir())
 				assert.NoError(t, err)
 				user.Password = defaultPassword
 				user.ID = 0
@@ -1843,7 +2099,7 @@ func TestChtimes(t *testing.T) {
 			defer client.Close()
 			testFilePath := filepath.Join(homeBasePath, testFileName)
 			testFileSize := int64(65535)
-			testDir := "test" //nolint:goconst
+			testDir := "test"
 			err = createTestFile(testFilePath, testFileSize)
 			assert.NoError(t, err)
 			err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
@@ -1868,9 +2124,11 @@ func TestChtimes(t *testing.T) {
 			err = os.Remove(testFilePath)
 			assert.NoError(t, err)
 			if user.Username == defaultUsername {
-				err = os.RemoveAll(user.GetHomeDir())
-				assert.NoError(t, err)
+				// remove the user before the home dir so the connection
+				// holding the fs root is closed
 				_, err = httpdtest.RemoveUser(user, http.StatusOK)
+				assert.NoError(t, err)
+				err = os.RemoveAll(user.GetHomeDir())
 				assert.NoError(t, err)
 				user.Password = defaultPassword
 				user.ID = 0
@@ -1890,6 +2148,13 @@ func TestChtimes(t *testing.T) {
 
 // basic tests to verify virtual chroot, should be improved to cover more cases ...
 func TestEscapeHomeDir(t *testing.T) {
+	// use direct (non-atomic) uploads so writes go through os.Root and an escaping
+	// symlink is blocked; with atomic uploads the temp file would replace the
+	// symlink in-home instead.
+	oldUploadMode := common.Config.UploadMode
+	common.Config.UploadMode = common.UploadModeStandard
+	defer func() { common.Config.UploadMode = oldUploadMode }()
+
 	usePubKey := true
 	user, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
@@ -1901,7 +2166,7 @@ func TestEscapeHomeDir(t *testing.T) {
 		defer conn.Close()
 		defer client.Close()
 		assert.NoError(t, checkBasicSFTP(client))
-		testDir := "testDir" //nolint:goconst
+		testDir := "testDir"
 		linkPath := filepath.Join(homeBasePath, defaultUsername, testDir)
 		err = os.Symlink(homeBasePath, linkPath)
 		assert.NoError(t, err)
@@ -1935,7 +2200,13 @@ func TestEscapeHomeDir(t *testing.T) {
 		err = sftpUploadFile(testFilePath, remoteDestPath, testFileSize, client)
 		assert.Error(t, err, "overwrite a file outside home dir must fail")
 		err = client.Chmod(remoteDestPath, 0644)
-		assert.Error(t, err, "setstat on a file outside home dir must fail")
+		if runtime.GOOS == osWindows {
+			// on Windows os.Root.Chmod acts on the symlink itself, like
+			// os.Chmod, so it succeeds without following the link target
+			assert.NoError(t, err)
+		} else {
+			assert.Error(t, err, "setstat on a file outside home dir must fail")
+		}
 		err = os.Remove(linkPath)
 		assert.NoError(t, err)
 		err = os.Remove(testFilePath)
@@ -2000,6 +2271,446 @@ func TestEscapeSFTPFsPrefix(t *testing.T) {
 	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(localUser.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestSymlinkWriteConfinementLocalFs(t *testing.T) {
+	// use direct (non-atomic) uploads: with atomic uploads the temp file is renamed
+	// onto the symlink, replacing it in-home instead of writing through it. Direct
+	// writes go through os.Root, which blocks an escaping symlink, so this confirms
+	// that writing to an escaping symlink fails.
+	oldUploadMode := common.Config.UploadMode
+	common.Config.UploadMode = common.UploadModeStandard
+	defer func() { common.Config.UploadMode = oldUploadMode }()
+
+	usePubKey := true
+	user, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
+	assert.NoError(t, err)
+	require.NoError(t, os.MkdirAll(user.GetHomeDir(), os.ModePerm))
+
+	escapeTarget := filepath.Join(homeBasePath, "escape_probe_local.txt")
+	intermediateTarget := filepath.Join(homeBasePath, "escape_probe_intermediate.txt")
+	_ = os.Remove(escapeTarget)
+	_ = os.Remove(intermediateTarget)
+
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	testFileSize := int64(4096)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+
+	conn, client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		// creating a relative symlink that escapes the root is allowed: link
+		// creation grants no access, the confinement is enforced at access time
+		err = client.Symlink("../escape_probe_local.txt", "evil_link")
+		assert.NoError(t, err)
+		// writing through that escaping dangling link is blocked by ResolvePath
+		err = sftpUploadFile(testFilePath, "evil_link", 0, client)
+		assert.Error(t, err)
+		_, statErr := os.Stat(escapeTarget)
+		assert.ErrorIs(t, statErr, os.ErrNotExist)
+
+		// the same holds for a link planted out-of-band on the storage
+		oob := filepath.Join(user.GetHomeDir(), "oob_link")
+		require.NoError(t, os.Symlink("../escape_probe_local.txt", oob))
+		err = sftpUploadFile(testFilePath, "oob_link", 0, client)
+		assert.Error(t, err)
+		_, statErr = os.Stat(escapeTarget)
+		assert.ErrorIs(t, statErr, os.ErrNotExist)
+
+		// an out-of-band dir symlink escaping the root cannot be written through
+		// either: here the escape is an intermediate path component, not the leaf,
+		// so it is caught by ResolvePath, not by the symlink creation guard. "oob_dir"
+		// resolves to the home's parent, outside the confined home directory.
+		require.NoError(t, os.Symlink("..", filepath.Join(user.GetHomeDir(), "oob_dir")))
+		err = sftpUploadFile(testFilePath, "oob_dir/escape_probe_intermediate.txt", 0, client)
+		assert.Error(t, err)
+		_, statErr = os.Stat(intermediateTarget)
+		assert.ErrorIs(t, statErr, os.ErrNotExist)
+
+		// a dangling symlink that stays inside the root keeps working: ResolvePath
+		// must not over-block in-root links (the on-disk destination depends on the
+		// upload mode, so only the success and the readable result are asserted)
+		require.NoError(t, os.Symlink("inside_target.txt", filepath.Join(user.GetHomeDir(), "ok_link")))
+		err = sftpUploadFile(testFilePath, "ok_link", testFileSize, client)
+		assert.NoError(t, err)
+		info, statErr := client.Stat("ok_link")
+		if assert.NoError(t, statErr) {
+			assert.Equal(t, testFileSize, info.Size())
+		}
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+	_ = os.Remove(escapeTarget)
+	_ = os.Remove(intermediateTarget)
+}
+
+func TestSymlinkAbsoluteTargetThroughDirLink(t *testing.T) {
+	oldMode := common.Config.SymlinkMode
+	common.Config.SymlinkMode = common.SymlinkModeAllowLocal
+	defer func() { common.Config.SymlinkMode = oldMode }()
+
+	usePubKey := true
+	user, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
+	assert.NoError(t, err)
+	require.NoError(t, os.MkdirAll(user.GetHomeDir(), os.ModePerm))
+
+	wantedPath := filepath.Join(homeBasePath, "wanted_src.txt")
+	require.NoError(t, os.WriteFile(wantedPath, []byte("wanted"), 0o644))
+	decoyPath := filepath.Join(homeBasePath, "decoy_src.txt")
+	require.NoError(t, os.WriteFile(decoyPath, []byte("decoy!"), 0o644))
+	downloadPath := filepath.Join(homeBasePath, "downloaded.txt")
+
+	conn, client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		require.NoError(t, client.Mkdir("/sub"))
+		require.NoError(t, client.Mkdir("/sub/deep"))
+		require.NoError(t, client.Symlink("sub/deep", "/dirlink"))
+		require.NoError(t, sftpUploadFile(wantedPath, "/wanted.txt", 6, client))
+		require.NoError(t, sftpUploadFile(decoyPath, "/sub/wanted.txt", 6, client))
+		require.NoError(t, client.Symlink("/wanted.txt", "/dirlink/link"))
+
+		target, err := client.ReadLink("/sub/deep/link")
+		if assert.NoError(t, err) {
+			assert.Equal(t, "/wanted.txt", target)
+		}
+		if assert.NoError(t, sftpDownloadFile("/sub/deep/link", downloadPath, 6, client)) {
+			content, err := os.ReadFile(downloadPath)
+			assert.NoError(t, err)
+			assert.Equal(t, "wanted", string(content), "the link resolved to the wrong file")
+		}
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_ = os.Remove(wantedPath)
+	_ = os.Remove(decoyPath)
+	_ = os.Remove(downloadPath)
+}
+
+func TestSymlinkToStorageRoot(t *testing.T) {
+	oldMode := common.Config.SymlinkMode
+	common.Config.SymlinkMode = common.SymlinkModeAllowLocal
+	defer func() { common.Config.SymlinkMode = oldMode }()
+
+	usePubKey := true
+	user, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
+	assert.NoError(t, err)
+	require.NoError(t, os.MkdirAll(user.GetHomeDir(), os.ModePerm))
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	require.NoError(t, createTestFile(testFilePath, 32))
+
+	conn, client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		require.NoError(t, client.Mkdir("/sub"))
+		require.NoError(t, sftpUploadFile(testFilePath, "/keep.txt", 32, client))
+
+		for _, tc := range []struct{ source, link string }{
+			{"..", "/sub/link1"},
+			{"/", "/sub/link2"},
+			{"sub/..", "/link3"},
+		} {
+			require.NoError(t, client.Symlink(tc.source, tc.link), "%q -> %q", tc.source, tc.link)
+			target, err := client.ReadLink(tc.link)
+			if assert.NoError(t, err) {
+				assert.Equal(t, "/", target, "%q -> %q", tc.source, tc.link)
+			}
+		}
+
+		info, err := client.Stat("/sub/link1/keep.txt")
+		if assert.NoError(t, err) {
+			assert.Equal(t, int64(32), info.Size())
+		}
+		deep := "/sub"
+		for range 12 {
+			deep = path.Join(deep, "link1", "sub")
+		}
+		_, err = client.Stat(path.Join(deep, "link1", "keep.txt"))
+		assert.Error(t, err)
+
+		_, err = runSSHCommand("sftpgo-remove /sub", user, usePubKey)
+		assert.NoError(t, err)
+		_, err = client.Stat("/keep.txt")
+		assert.NoError(t, err, "the recursive removal followed the link to the root")
+		_, err = client.Stat("/link3")
+		assert.NoError(t, err)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+}
+
+func TestCrossFolderRenameLeavesSymlinkBehind(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("symlink creation needs privileges on Windows")
+	}
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	mappedPath := filepath.Join(os.TempDir(), "vdirrename")
+	folderName := filepath.Base(mappedPath)
+	vdirPath := "/vdir"
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name: folderName,
+		},
+		VirtualPath: vdirPath,
+	})
+	_, _, err := httpdtest.AddFolder(vfs.BaseVirtualFolder{
+		Name:       folderName,
+		MappedPath: mappedPath,
+	}, http.StatusCreated)
+	assert.NoError(t, err)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	require.NoError(t, createTestFile(testFilePath, 32))
+
+	conn, client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		require.NoError(t, client.Mkdir("/d"))
+		require.NoError(t, sftpUploadFile(testFilePath, "/d/moved.txt", 32, client))
+		require.NoError(t, os.Symlink("moved.txt", filepath.Join(user.GetHomeDir(), "d", "link")))
+
+		require.NoError(t, client.Rename("/d", path.Join(vdirPath, "d")))
+
+		info, err := client.Stat(path.Join(vdirPath, "d", "moved.txt"))
+		if assert.NoError(t, err) {
+			assert.Equal(t, int64(32), info.Size())
+		}
+		fi, err := os.Lstat(filepath.Join(user.GetHomeDir(), "d", "link"))
+		if assert.NoError(t, err) {
+			assert.NotZero(t, fi.Mode()&os.ModeSymlink)
+		}
+		assert.NoFileExists(t, filepath.Join(user.GetHomeDir(), "d", "moved.txt"))
+		_, err = os.Lstat(filepath.Join(mappedPath, "d", "link"))
+		assert.True(t, os.IsNotExist(err))
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName}, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath)
+	assert.NoError(t, err)
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+}
+
+func TestSymlinkWriteConfinementSFTPFs(t *testing.T) {
+	usePubKey := true
+	baseUser, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
+	assert.NoError(t, err)
+	u := getTestSFTPUser(usePubKey)
+	sftpPrefix := "/prefix"
+	u.FsConfig.SFTPConfig.Prefix = sftpPrefix
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Join(baseUser.GetHomeDir(), sftpPrefix), os.ModePerm))
+
+	// dangling leaf link inside the prefix pointing outside the prefix (still
+	// inside the remote account home)
+	escapeTarget := filepath.Join(baseUser.GetHomeDir(), "escape_probe_sftpfs.txt")
+	intermediateTarget := filepath.Join(baseUser.GetHomeDir(), "escape_probe_intermediate.txt")
+	_ = os.Remove(escapeTarget)
+	_ = os.Remove(intermediateTarget)
+	require.NoError(t, os.Symlink("../escape_probe_sftpfs.txt",
+		filepath.Join(baseUser.GetHomeDir(), sftpPrefix, "oob_link")))
+	// intermediate dir symlink inside the prefix resolving to the account home
+	// root, outside the prefix: the escape is a path component, not the leaf
+	require.NoError(t, os.Symlink("..", filepath.Join(baseUser.GetHomeDir(), sftpPrefix, "oob_dir")))
+	dotdotTarget := filepath.Join(baseUser.GetHomeDir(), "escape_probe_dotdot.txt")
+	_ = os.Remove(dotdotTarget)
+	require.NoError(t, os.MkdirAll(filepath.Join(baseUser.GetHomeDir(), sftpPrefix, "sub"), os.ModePerm))
+	require.NoError(t, os.Symlink("..", filepath.Join(baseUser.GetHomeDir(), sftpPrefix, "sub", "q")))
+	require.NoError(t, os.Symlink("sub/q/..", filepath.Join(baseUser.GetHomeDir(), sftpPrefix, "dotdot_dir")))
+
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	testFileSize := int64(4096)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+
+	conn, client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		// write through the dangling leaf symlink is blocked
+		err = sftpUploadFile(testFilePath, "oob_link", 0, client)
+		assert.Error(t, err)
+		_, statErr := os.Stat(escapeTarget)
+		assert.ErrorIs(t, statErr, os.ErrNotExist)
+
+		// write through the intermediate dir symlink is blocked too: canonicalRealPath
+		// resolves the prefix-escaping component before the operation runs
+		err = sftpUploadFile(testFilePath, "oob_dir/escape_probe_intermediate.txt", 0, client)
+		assert.Error(t, err)
+		_, statErr = os.Stat(intermediateTarget)
+		assert.ErrorIs(t, statErr, os.ErrNotExist)
+
+		err = sftpUploadFile(testFilePath, "dotdot_dir/escape_probe_dotdot.txt", 0, client)
+		assert.Error(t, err)
+		_, statErr = os.Stat(dotdotTarget)
+		assert.ErrorIs(t, statErr, os.ErrNotExist)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(baseUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(baseUser.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+}
+
+func TestSFTPFsReadlinkConfinement(t *testing.T) {
+	usePubKey := true
+	baseUser, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
+	require.NoError(t, err)
+	u := getTestSFTPUser(usePubKey)
+	sftpPrefix := "/prefix"
+	u.FsConfig.SFTPConfig.Prefix = sftpPrefix
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	require.NoError(t, err)
+
+	bh := baseUser.GetHomeDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(bh, sftpPrefix, "sub"), os.ModePerm))
+	// in-prefix one-level link
+	require.NoError(t, os.Symlink("sub/target", filepath.Join(bh, sftpPrefix, "inlink")))
+	// dangling leaf escaping the prefix
+	require.NoError(t, os.Symlink("../escape", filepath.Join(bh, sftpPrefix, "escleaf")))
+	// embedded "symlink/.." escaping the prefix
+	require.NoError(t, os.Symlink("..", filepath.Join(bh, sftpPrefix, "sub", "q")))
+	require.NoError(t, os.Symlink("sub/q/../escape", filepath.Join(bh, sftpPrefix, "esc")))
+
+	conn, client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		// an in-prefix link resolves one-level
+		p, rerr := client.ReadLink("inlink")
+		assert.NoError(t, rerr)
+		assert.Equal(t, "/sub/target", p)
+		// a link whose target escapes the prefix is rejected at resolution time
+		// (ResolvePath follows the leaf and confines it before readlink replies)
+		for _, link := range []string{"escleaf", "esc"} {
+			_, rerr = client.ReadLink(link)
+			assert.Error(t, rerr, link)
+		}
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(baseUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(bh)
+	assert.NoError(t, err)
+}
+
+func TestRealPathVirtualFolders(t *testing.T) {
+	usePubKey := true
+	// base local user used as the SFTP backend for the SFTPFs virtual folder
+	baseUser, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
+	assert.NoError(t, err)
+
+	localFolderName := "vfolder_realpath_local"
+	localMappedPath := filepath.Join(os.TempDir(), localFolderName)
+	require.NoError(t, os.MkdirAll(localMappedPath, os.ModePerm))
+	_, _, err = httpdtest.AddFolder(vfs.BaseVirtualFolder{
+		Name:       localFolderName,
+		MappedPath: localMappedPath,
+	}, http.StatusCreated)
+	assert.NoError(t, err)
+
+	sftpFolderName := "vfolder_realpath_sftp"
+	sftpFolder := vfs.BaseVirtualFolder{
+		Name:       sftpFolderName,
+		MappedPath: filepath.Join(os.TempDir(), sftpFolderName),
+		FsConfig: vfs.Filesystem{
+			Provider: sdk.SFTPFilesystemProvider,
+			SFTPConfig: vfs.SFTPFsConfig{
+				BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
+					Endpoint:     sftpServerAddr,
+					Username:     baseUser.Username,
+					Fingerprints: hostKeyFPs,
+				},
+				PrivateKey: kms.NewPlainSecret(testPrivateKey),
+			},
+		},
+	}
+	_, _, err = httpdtest.AddFolder(sftpFolder, http.StatusCreated)
+	assert.NoError(t, err)
+
+	u := getTestUser(usePubKey)
+	u.Username = "vfolders_realpath_user"
+	u.VirtualFolders = []vfs.VirtualFolder{
+		{BaseVirtualFolder: vfs.BaseVirtualFolder{Name: localFolderName}, VirtualPath: "/vlocal"},
+		{BaseVirtualFolder: vfs.BaseVirtualFolder{Name: sftpFolderName}, VirtualPath: "/vsftp"},
+	}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	conn, client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		for _, vpath := range []string{"/vlocal", "/vsftp"} {
+			// realpath of the mount point returns the mount point itself
+			p, err := client.RealPath(vpath)
+			assert.NoError(t, err, vpath)
+			assert.Equal(t, vpath, p, vpath)
+			// a path inside the folder is prefixed with the mount path
+			require.NoError(t, client.Mkdir(path.Join(vpath, "sub")))
+			p, err = client.RealPath(path.Join(vpath, "sub"))
+			assert.NoError(t, err, vpath)
+			assert.Equal(t, path.Join(vpath, "sub"), p, vpath)
+			// a not-yet-existing path is canonicalized lexically, mount-prefixed
+			p, err = client.RealPath(path.Join(vpath, "sub", "newfile.txt"))
+			assert.NoError(t, err, vpath)
+			assert.Equal(t, path.Join(vpath, "sub", "newfile.txt"), p, vpath)
+		}
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: localFolderName}, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: sftpFolderName}, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(baseUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(baseUser.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(localMappedPath)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 
@@ -2656,17 +3367,13 @@ func TestLoginAnonymousUser(t *testing.T) {
 	u := getTestUser(usePubKey)
 	u.Password = ""
 	u.Filters.IsAnonymous = true
-	_, _, err := httpdtest.AddUser(u, http.StatusCreated)
-	assert.Error(t, err)
-	user, _, err := httpdtest.GetUserByUsername(u.Username, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	assert.True(t, user.Filters.IsAnonymous)
-	assert.Equal(t, []string{dataprovider.PermListItems, dataprovider.PermDownload}, user.Permissions["/"])
-	assert.Equal(t, []string{common.ProtocolSSH, common.ProtocolHTTP}, user.Filters.DeniedProtocols)
-	assert.Equal(t, []string{dataprovider.SSHLoginMethodPublicKey, dataprovider.SSHLoginMethodPassword,
-		dataprovider.SSHLoginMethodKeyboardInteractive, dataprovider.SSHLoginMethodKeyAndPassword,
-		dataprovider.SSHLoginMethodKeyAndKeyboardInt, dataprovider.LoginMethodTLSCertificate,
-		dataprovider.LoginMethodTLSCertificateAndPwd}, user.Filters.DeniedLoginMethods)
+	// the restrictions apply to the session, the stored account keeps its settings
+	assert.Equal(t, allPerms, user.Permissions["/"])
+	assert.Empty(t, user.Filters.DeniedProtocols)
+	assert.Empty(t, user.Filters.DeniedLoginMethods)
 	_, _, err = getSftpClient(user, usePubKey)
 	assert.Error(t, err)
 
@@ -2703,6 +3410,96 @@ func TestAnonymousGroupInheritance(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestAnonymousGroupInheritancePublicKey(t *testing.T) {
+	g := getTestGroup()
+	g.UserSettings.Filters.IsAnonymous = true
+	group, _, err := httpdtest.AddGroup(g, http.StatusCreated)
+	assert.NoError(t, err)
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	u.Groups = []sdk.GroupMapping{
+		{
+			Name: group.Name,
+			Type: sdk.GroupTypePrimary,
+		},
+	}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	_, _, err = getSftpClient(user, usePubKey)
+	assert.Error(t, err)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestAnonymousGroupInheritanceKeyboardInteractive(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
+	g := getTestGroup()
+	g.UserSettings.Filters.IsAnonymous = true
+	group, _, err := httpdtest.AddGroup(g, http.StatusCreated)
+	assert.NoError(t, err)
+	u := getTestUser(false)
+	u.Groups = []sdk.GroupMapping{
+		{
+			Name: group.Name,
+			Type: sdk.GroupTypePrimary,
+		},
+	}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	err = os.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptContent([]string{"1", "2"}, 0, false, 1), os.ModePerm)
+	assert.NoError(t, err)
+	_, _, err = getKeyboardInteractiveSftpClient(user, []string{"1", "2"})
+	assert.Error(t, err)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestAnonymousSettingsAreNotStored(t *testing.T) {
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	user.Filters.IsAnonymous = true
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	_, _, err = getSftpClient(user, usePubKey)
+	assert.Error(t, err)
+
+	user.Filters.IsAnonymous = false
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	assert.Equal(t, allPerms, user.Permissions["/"])
+	assert.Empty(t, user.Filters.DeniedProtocols)
+	assert.Empty(t, user.Filters.DeniedLoginMethods)
+
+	conn, client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		assert.NoError(t, checkBasicSFTP(client))
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestLoginAfterUserUpdateEmptyPwd(t *testing.T) {
 	usePubKey := false
 	user, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
@@ -2717,6 +3514,36 @@ func TestLoginAfterUserUpdateEmptyPwd(t *testing.T) {
 		defer client.Close()
 		assert.NoError(t, checkBasicSFTP(client))
 	}
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestInteractiveLoginMissingUser(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(false), http.StatusCreated)
+	assert.NoError(t, err)
+
+	questions, err := getKeyboardInteractiveQuestions(sftpSrvAddr2228, user.Username, []string{"wrong password"})
+	assert.Error(t, err)
+	assert.Equal(t, []string{"Password: "}, questions)
+	// the same questions are asked for an account that does not exist
+	missingQuestions, err := getKeyboardInteractiveQuestions(sftpSrvAddr2228, user.Username+"_missing",
+		[]string{"wrong password"})
+	assert.Error(t, err)
+	assert.Equal(t, questions, missingQuestions)
+
+	questions, err = getKeyboardInteractiveQuestions(sftpSrvAddr2228, user.Username, []string{defaultPassword})
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"Password: "}, questions)
+
+	// the keyboard interactive hook is not executed for accounts that cannot be resolved,
+	// the password is asked anyway so that clients get a challenge in any case
+	missingQuestions, err = getKeyboardInteractiveQuestions(sftpServerAddr, user.Username+"_missing",
+		[]string{"wrong password"})
+	assert.Error(t, err)
+	assert.Equal(t, []string{"Password: "}, missingQuestions)
+
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
@@ -3174,6 +4001,126 @@ func TestPreLoginUserCreation(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestPreLoginHookDifferentUsername(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	u1 := getTestUser(usePubKey)
+	u1.Username = defaultUsername + "_1"
+	u1.HomeDir = filepath.Join(homeBasePath, u1.Username)
+	u1.Description = "the account the hook tries to return"
+
+	hookUser := u1
+	hookUser.Description = "updated from the hook"
+	hookUser.Permissions = map[string][]string{
+		"/": {dataprovider.PermListItems},
+	}
+	err := dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	err = os.WriteFile(preLoginPath, getPreLoginScriptContent(hookUser, false), os.ModePerm)
+	assert.NoError(t, err)
+	providerConf.PreLoginHook = preLoginPath
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	user1, _, err := httpdtest.AddUser(u1, http.StatusCreated)
+	assert.NoError(t, err)
+	// the hook returns an account different from the login one, the login must fail
+	_, _, err = getSftpClient(u, usePubKey)
+	assert.Error(t, err)
+	// the returned account must be left untouched
+	user1, _, err = httpdtest.GetUserByUsername(user1.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, u1.Description, user1.Description)
+	assert.Equal(t, allPerms, user1.Permissions["/"])
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user1, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user1.GetHomeDir())
+	assert.NoError(t, err)
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf = config.GetProviderConf()
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+	err = os.Remove(preLoginPath)
+	assert.NoError(t, err)
+}
+
+func TestPreLoginHookNamingRules(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	u.Username = "PreLogin_NamingRules"
+	u.HomeDir = filepath.Join(homeBasePath, "prelogin_namingrules")
+	// the hook returns the account of the login username with a different spelling
+	hookUser := u
+	hookUser.Username = "preLOGIN_namingRULES"
+	err := dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	providerConf.NamingRules = 7
+	err = os.WriteFile(preLoginPath, getPreLoginScriptContent(hookUser, false), os.ModePerm)
+	assert.NoError(t, err)
+	providerConf.PreLoginHook = preLoginPath
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+
+	storedUsername := dataprovider.ConvertName(u.Username)
+	require.NotEqual(t, u.Username, storedUsername)
+
+	conn, client, err := getSftpClient(u, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		assert.NoError(t, checkBasicSFTP(client))
+	}
+	user, _, err := httpdtest.GetUserByUsername(storedUsername, http.StatusOK)
+	assert.NoError(t, err)
+	userID := user.ID
+	// the account exists now: it has to be updated, not added again
+	conn, client, err = getSftpClient(u, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		assert.NoError(t, checkBasicSFTP(client))
+	}
+	user, _, err = httpdtest.GetUserByUsername(storedUsername, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, userID, user.ID)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf = config.GetProviderConf()
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+	err = os.Remove(preLoginPath)
+	assert.NoError(t, err)
+}
+
 func TestPreLoginHookPreserveMFAConfig(t *testing.T) {
 	if runtime.GOOS == osWindows {
 		t.Skip("this test is not available on Windows")
@@ -3211,7 +4158,7 @@ func TestPreLoginHookPreserveMFAConfig(t *testing.T) {
 		Secret:     kms.NewPlainSecret(key.Secret()),
 		Protocols:  []string{common.ProtocolSSH},
 	}
-	for i := 0; i < 12; i++ {
+	for range 12 {
 		user.Filters.RecoveryCodes = append(user.Filters.RecoveryCodes, dataprovider.RecoveryCode{
 			Secret: kms.NewPlainSecret(fmt.Sprintf("RC-%v", strings.ToUpper(util.GenerateUniqueID()))),
 		})
@@ -3936,6 +4883,66 @@ func TestExternalAuthDifferentUsername(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestExternalAuthNamingRules(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
+	usePubKey := false
+	extAuthUsername := "Common_User_NamingRules"
+	u := getTestUser(usePubKey)
+	err := dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	providerConf.NamingRules = 7
+	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, false, extAuthUsername), os.ModePerm)
+	assert.NoError(t, err)
+	providerConf.ExternalAuthHook = extAuthPath
+	providerConf.ExternalAuthScope = 0
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+
+	storedUsername := dataprovider.ConvertName(extAuthUsername)
+	require.NotEqual(t, extAuthUsername, storedUsername)
+
+	conn, client, err := getSftpClient(u, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		assert.NoError(t, checkBasicSFTP(client))
+	}
+	user, _, err := httpdtest.GetUserByUsername(storedUsername, http.StatusOK)
+	assert.NoError(t, err)
+	userID := user.ID
+
+	// the account exists now: it has to be updated, not added again
+	conn, client, err = getSftpClient(u, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		assert.NoError(t, checkBasicSFTP(client))
+	}
+	user, _, err = httpdtest.GetUserByUsername(storedUsername, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, userID, user.ID)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf = config.GetProviderConf()
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+	err = os.Remove(extAuthPath)
+	assert.NoError(t, err)
+}
+
 func TestLoginExternalAuth(t *testing.T) {
 	if runtime.GOOS == osWindows {
 		t.Skip("this test is not available on Windows")
@@ -4217,12 +5224,10 @@ func TestExternalAuthReturningAnonymousUser(t *testing.T) {
 	user, _, err := httpdtest.GetUserByUsername(defaultUsername, http.StatusOK)
 	assert.NoError(t, err)
 	assert.True(t, user.Filters.IsAnonymous)
-	assert.Equal(t, []string{dataprovider.PermListItems, dataprovider.PermDownload}, user.Permissions["/"])
-	assert.Equal(t, []string{common.ProtocolSSH, common.ProtocolHTTP}, user.Filters.DeniedProtocols)
-	assert.Equal(t, []string{dataprovider.SSHLoginMethodPublicKey, dataprovider.SSHLoginMethodPassword,
-		dataprovider.SSHLoginMethodKeyboardInteractive, dataprovider.SSHLoginMethodKeyAndPassword,
-		dataprovider.SSHLoginMethodKeyAndKeyboardInt, dataprovider.LoginMethodTLSCertificate,
-		dataprovider.LoginMethodTLSCertificateAndPwd}, user.Filters.DeniedLoginMethods)
+	// the restrictions apply to the session, the stored account keeps the settings the hook returned
+	assert.Equal(t, allPerms, user.Permissions["/"])
+	assert.Empty(t, user.Filters.DeniedProtocols)
+	assert.Empty(t, user.Filters.DeniedLoginMethods)
 
 	// test again, the user now exists
 	_, _, err = getSftpClient(u, usePubKey)
@@ -4287,7 +5292,7 @@ func TestExternalAuthPreserveMFAConfig(t *testing.T) {
 		Secret:     kms.NewPlainSecret(key.Secret()),
 		Protocols:  []string{common.ProtocolSSH},
 	}
-	for i := 0; i < 12; i++ {
+	for range 12 {
 		user.Filters.RecoveryCodes = append(user.Filters.RecoveryCodes, dataprovider.RecoveryCode{
 			Secret: kms.NewPlainSecret(fmt.Sprintf("RC-%v", strings.ToUpper(util.GenerateUniqueID()))),
 		})
@@ -4370,7 +5375,7 @@ func TestQuotaDisabledError(t *testing.T) {
 		assert.NoError(t, err)
 		err = sftpUploadFile(testFilePath, testFileName+"1", testFileSize, client)
 		assert.NoError(t, err)
-		err = client.Rename(testFileName+"1", testFileName+".rename") //nolint:goconst
+		err = client.Rename(testFileName+"1", testFileName+".rename")
 		assert.NoError(t, err)
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
@@ -4389,7 +5394,6 @@ func TestQuotaDisabledError(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-//nolint:dupl
 func TestMaxConnections(t *testing.T) {
 	oldValue := common.Config.MaxTotalConnections
 	common.Config.MaxTotalConnections = 1
@@ -4418,13 +5422,13 @@ func TestMaxConnections(t *testing.T) {
 	}
 	err = dataprovider.DeleteUser(user.Username, "", "", "")
 	assert.NoError(t, err)
+	waitNoActiveConnections(t)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 
 	common.Config.MaxTotalConnections = oldValue
 }
 
-//nolint:dupl
 func TestMaxPerHostConnections(t *testing.T) {
 	oldValue := common.Config.MaxPerHostConnections
 	common.Config.MaxPerHostConnections = 1
@@ -4453,6 +5457,7 @@ func TestMaxPerHostConnections(t *testing.T) {
 	}
 	err = dataprovider.DeleteUser(user.Username, "", "", "")
 	assert.NoError(t, err)
+	waitNoActiveConnections(t)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 
@@ -4522,6 +5527,7 @@ func TestMaxTransfers(t *testing.T) {
 	}
 	err = dataprovider.DeleteUser(user.Username, "", "", "")
 	assert.NoError(t, err)
+	waitNoActiveConnections(t)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 	assert.Eventually(t, func() bool {
@@ -4548,6 +5554,14 @@ func TestMaxSessions(t *testing.T) {
 			c.Close()
 			s.Close()
 		}
+		c2, err := sftp.NewClient(conn)
+		if !assert.Error(t, err, "max sessions exceeded, new session on the same SSH connection should not succeed") {
+			c2.Close()
+		}
+		// The initial connection still works.
+		assert.NoError(t, checkBasicSFTP(client))
+		err = writeSFTPFile(testFileName, 4096, client)
+		assert.NoError(t, err)
 	}
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -4593,7 +5607,7 @@ func TestQuotaFileReplace(t *testing.T) {
 	testFilePath := filepath.Join(homeBasePath, testFileName)
 	for _, user := range []dataprovider.User{localUser, sftpUser} {
 		conn, client, err := getSftpClient(user, usePubKey)
-		if assert.NoError(t, err) { //nolint:dupl
+		if assert.NoError(t, err) {
 			defer conn.Close()
 			defer client.Close()
 			expectedQuotaSize := testFileSize
@@ -4640,9 +5654,11 @@ func TestQuotaFileReplace(t *testing.T) {
 			assert.NoError(t, err)
 		}
 		if user.Username == defaultUsername {
-			err = os.RemoveAll(user.GetHomeDir())
-			assert.NoError(t, err)
+			// remove the user before the home dir so the connection
+			// holding the fs root is closed
 			_, err = httpdtest.RemoveUser(user, http.StatusOK)
+			assert.NoError(t, err)
+			err = os.RemoveAll(user.GetHomeDir())
 			assert.NoError(t, err)
 			user.Password = defaultPassword
 			user.ID = 0
@@ -4674,7 +5690,7 @@ func TestQuotaRename(t *testing.T) {
 	assert.NoError(t, err)
 	testFileSize := int64(65535)
 	testFileSize1 := int64(65537)
-	testFileName1 := "test_file1.dat" //nolint:goconst
+	testFileName1 := "test_file1.dat"
 	testFilePath := filepath.Join(homeBasePath, testFileName)
 	testFilePath1 := filepath.Join(homeBasePath, testFileName1)
 	for _, user := range []dataprovider.User{localUser, sftpUser} {
@@ -4702,7 +5718,7 @@ func TestQuotaRename(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, 1, user.UsedQuotaFiles)
 			assert.Equal(t, testFileSize1, user.UsedQuotaSize)
-			err = client.Symlink(testFileName+".rename", testFileName+".symlink") //nolint:goconst
+			err = client.Symlink(testFileName+".rename", testFileName+".symlink")
 			assert.NoError(t, err)
 			err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
 			assert.NoError(t, err)
@@ -4739,9 +5755,11 @@ func TestQuotaRename(t *testing.T) {
 			assert.Equal(t, 4, user.UsedQuotaFiles)
 			assert.Equal(t, testFileSize*2+testFileSize1*2, user.UsedQuotaSize)
 			if user.Username == defaultUsername {
-				err = os.RemoveAll(user.GetHomeDir())
-				assert.NoError(t, err)
+				// remove the user before the home dir so the connection
+				// holding the fs root is closed
 				_, err = httpdtest.RemoveUser(user, http.StatusOK)
+				assert.NoError(t, err)
+				err = os.RemoveAll(user.GetHomeDir())
 				assert.NoError(t, err)
 				user.Password = defaultPassword
 				user.ID = 0
@@ -4837,7 +5855,7 @@ func TestQuotaLimits(t *testing.T) {
 	err = createTestFile(testFilePath1, testFileSize1)
 	assert.NoError(t, err)
 	testFileSize2 := int64(32768)
-	testFileName2 := "test_file2.dat" //nolint:goconst
+	testFileName2 := "test_file2.dat"
 	testFilePath2 := filepath.Join(homeBasePath, testFileName2)
 	err = createTestFile(testFilePath2, testFileSize2)
 	assert.NoError(t, err)
@@ -4847,7 +5865,7 @@ func TestQuotaLimits(t *testing.T) {
 		if assert.NoError(t, err) {
 			defer conn.Close()
 			defer client.Close()
-			err = sftpUploadFile(testFilePath, testFileName+".quota", testFileSize, client) //nolint:goconst
+			err = sftpUploadFile(testFilePath, testFileName+".quota", testFileSize, client)
 			assert.NoError(t, err)
 			err = sftpUploadFile(testFilePath, testFileName+".quota.1", testFileSize, client)
 			if assert.Error(t, err, "user is over quota files, upload must fail") {
@@ -4908,9 +5926,11 @@ func TestQuotaLimits(t *testing.T) {
 			assert.Error(t, err)
 		}
 		if user.Username == defaultUsername {
-			err = os.RemoveAll(user.GetHomeDir())
-			assert.NoError(t, err)
+			// remove the user before the home dir so the connection
+			// holding the fs root is closed
 			_, err = httpdtest.RemoveUser(user, http.StatusOK)
+			assert.NoError(t, err)
+			err = os.RemoveAll(user.GetHomeDir())
 			assert.NoError(t, err)
 			user.Password = defaultPassword
 			user.ID = 0
@@ -5261,16 +6281,377 @@ func TestVirtualFolders(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestVirtualFolderSubpath(t *testing.T) {
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	mappedPath := filepath.Join(os.TempDir(), "vdir-subpath")
+	folderName := filepath.Base(mappedPath)
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name: folderName,
+		},
+		VirtualPath: "/current",
+		Subpath:     "/tenant1",
+	})
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name: folderName,
+		},
+		VirtualPath: "/all",
+	})
+	f := vfs.BaseVirtualFolder{
+		Name:       folderName,
+		MappedPath: mappedPath,
+	}
+	_, _, err := httpdtest.AddFolder(f, http.StatusCreated)
+	assert.NoError(t, err)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		// the re-rooted mount dir is auto created inside the folder
+		_, err = os.Stat(filepath.Join(mappedPath, "tenant1"))
+		assert.NoError(t, err)
+		testFileSize := int64(65535)
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join("/current", testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		info, err := os.Stat(filepath.Join(mappedPath, "tenant1", testFileName))
+		if assert.NoError(t, err) {
+			assert.Equal(t, testFileSize, info.Size())
+		}
+		_, err = client.Stat(path.Join("/all", "tenant1", testFileName))
+		assert.NoError(t, err)
+		// the sub-path stays invisible in the re-rooted mount
+		_, err = client.Stat(path.Join("/current", "tenant1"))
+		assert.Error(t, err)
+		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
+		err = sftpDownloadFile(path.Join("/current", testFileName), localDownloadPath, testFileSize, client)
+		assert.NoError(t, err)
+		// the re-rooted mount root cannot be removed
+		err = client.RemoveDirectory("/current")
+		assert.Error(t, err)
+		// the backing dir is a mount root also through the plain mount
+		err = client.RemoveDirectory(path.Join("/all", "tenant1"))
+		assert.Error(t, err)
+		// renaming the backing dir through the plain mount is not allowed
+		err = client.Rename(path.Join("/all", "tenant1"), path.Join("/all", "renamed"))
+		assert.Error(t, err)
+		// a rename resolving to the same backend path through two mounts
+		// is rejected and leaves the quota untouched
+		err = client.Rename(path.Join("/all", "tenant1", testFileName), path.Join("/current", testFileName))
+		assert.Error(t, err)
+		_, err = client.Stat(path.Join("/current", testFileName))
+		assert.NoError(t, err)
+		folderGet, _, err := httpdtest.GetFolderByName(folderName, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, folderGet.UsedQuotaFiles)
+		assert.Equal(t, testFileSize, folderGet.UsedQuotaSize)
+		// a cross-mount rename to a different backend path works
+		err = client.Rename(path.Join("/all", "tenant1", testFileName), path.Join("/all", testFileName))
+		assert.NoError(t, err)
+		_, err = client.Stat(path.Join("/current", testFileName))
+		assert.Error(t, err)
+		err = client.Rename(path.Join("/all", testFileName), path.Join("/current", testFileName))
+		assert.NoError(t, err)
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+		err = os.Remove(localDownloadPath)
+		assert.NoError(t, err)
+		err = client.Close()
+		assert.NoError(t, err)
+		err = conn.Close()
+		assert.NoError(t, err)
+	}
+	// a duplicate (folder, subpath) mapping is rejected
+	u = getTestUser(usePubKey)
+	u.Username += "_dup"
+	for range 2 {
+		u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+			BaseVirtualFolder: vfs.BaseVirtualFolder{
+				Name: folderName,
+			},
+			VirtualPath: "/m" + strconv.Itoa(len(u.VirtualFolders)),
+			Subpath:     "/tenant1",
+		})
+	}
+	_, resp, err := httpdtest.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err, string(resp))
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(f, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
+		2*time.Second, 100*time.Millisecond)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath)
+	assert.NoError(t, err)
+}
+
+func TestVirtualFolderSubpathMountsQuota(t *testing.T) {
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	mappedPath := filepath.Join(os.TempDir(), "vdir-multimount-quota")
+	folderName := filepath.Base(mappedPath)
+	// quota is folder-wide: both mounts must carry the same limits and
+	// usage through one mount must count against the other
+	for idx, subPath := range []string{"/sub1", "/sub2"} {
+		u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+			BaseVirtualFolder: vfs.BaseVirtualFolder{Name: folderName},
+			VirtualPath:       fmt.Sprintf("/m%d", idx+1),
+			Subpath:           subPath,
+			QuotaFiles:        1,
+			QuotaSize:         0,
+		})
+	}
+	f := vfs.BaseVirtualFolder{
+		Name:       folderName,
+		MappedPath: mappedPath,
+	}
+	_, _, err := httpdtest.AddFolder(f, http.StatusCreated)
+	assert.NoError(t, err)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		testFileSize := int64(32768)
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join("/m1", testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		// the folder is at its files limit: denied through the other mount
+		err = sftpUploadFile(testFilePath, path.Join("/m2", testFileName), testFileSize, client)
+		assert.Error(t, err)
+		// usage is tracked once for the whole folder
+		folderGet, _, err := httpdtest.GetFolderByName(folderName, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, folderGet.UsedQuotaFiles)
+		assert.Equal(t, testFileSize, folderGet.UsedQuotaSize)
+		// removing through the other mount frees the quota
+		err = client.Remove(path.Join("/m1", testFileName))
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join("/m2", testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+		err = client.Close()
+		assert.NoError(t, err)
+		err = conn.Close()
+		assert.NoError(t, err)
+	}
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(f, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
+		2*time.Second, 100*time.Millisecond)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath)
+	assert.NoError(t, err)
+}
+
+func TestVirtualFolderSubpathGroupInherited(t *testing.T) {
+	usePubKey := true
+	mappedPath := filepath.Join(os.TempDir(), "vdir-group-subpath")
+	folderName := filepath.Base(mappedPath)
+	f := vfs.BaseVirtualFolder{
+		Name:       folderName,
+		MappedPath: mappedPath,
+	}
+	_, _, err := httpdtest.AddFolder(f, http.StatusCreated)
+	assert.NoError(t, err)
+	g := getTestGroup()
+	g.VirtualFolders = []vfs.VirtualFolder{
+		{
+			BaseVirtualFolder: vfs.BaseVirtualFolder{Name: folderName},
+			VirtualPath:       "/data",
+			Subpath:           "/tenants/%username%",
+		},
+		{
+			BaseVirtualFolder: vfs.BaseVirtualFolder{Name: folderName},
+			VirtualPath:       "/byrole",
+			Subpath:           "/roles/%role%",
+		},
+	}
+	group, _, err := httpdtest.AddGroup(g, http.StatusCreated)
+	assert.NoError(t, err)
+	u1 := getTestUser(usePubKey)
+	u1.Groups = []sdk.GroupMapping{{Name: group.Name, Type: sdk.GroupTypePrimary}}
+	user1, _, err := httpdtest.AddUser(u1, http.StatusCreated)
+	assert.NoError(t, err)
+	u2 := getTestUser(usePubKey)
+	u2.Username += "_2"
+	u2.Groups = []sdk.GroupMapping{{Name: group.Name, Type: sdk.GroupTypePrimary}}
+	user2, _, err := httpdtest.AddUser(u2, http.StatusCreated)
+	assert.NoError(t, err)
+
+	testFileSize := int64(32768)
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user1, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		_, err = os.Stat(filepath.Join(mappedPath, "tenants", user1.Username))
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join("/data", testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		info, err := os.Stat(filepath.Join(mappedPath, "tenants", user1.Username, testFileName))
+		if assert.NoError(t, err) {
+			assert.Equal(t, testFileSize, info.Size())
+		}
+		// the mount with an empty %role% render is dropped: the path is a
+		// regular directory of the user root filesystem
+		_, err = client.ReadDir("/byrole")
+		assert.Error(t, err)
+		err = client.Mkdir("/byrole")
+		assert.NoError(t, err)
+		_, err = os.Stat(filepath.Join(user1.GetHomeDir(), "byrole"))
+		assert.NoError(t, err)
+		err = client.Close()
+		assert.NoError(t, err)
+		err = conn.Close()
+		assert.NoError(t, err)
+	}
+	conn, client, err = getSftpClient(user2, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		// each member gets their own sub-tree: no cross-user visibility
+		_, err = client.Stat(path.Join("/data", testFileName))
+		assert.Error(t, err)
+		contents, err := client.ReadDir("/data")
+		assert.NoError(t, err)
+		assert.Len(t, contents, 0)
+		_, err = os.Stat(filepath.Join(mappedPath, "tenants", user2.Username))
+		assert.NoError(t, err)
+		err = client.Close()
+		assert.NoError(t, err)
+		err = conn.Close()
+		assert.NoError(t, err)
+	}
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user2, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(f, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
+		2*time.Second, 100*time.Millisecond)
+	err = os.RemoveAll(user1.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(user2.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath)
+	assert.NoError(t, err)
+}
+
+func TestVirtualFolderSubpathSFTPFs(t *testing.T) {
+	usePubKey := true
+	// the folder authenticates to the backing account with a password
+	baseUser, _, err := httpdtest.AddUser(getTestUser(false), http.StatusCreated)
+	assert.NoError(t, err)
+	folderName := "sftp-subpath-folder"
+	f := vfs.BaseVirtualFolder{
+		Name: folderName,
+		FsConfig: vfs.Filesystem{
+			Provider: sdk.SFTPFilesystemProvider,
+			SFTPConfig: vfs.SFTPFsConfig{
+				BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
+					Endpoint: sftpServerAddr,
+					Username: baseUser.Username,
+				},
+				Password: kms.NewPlainSecret(defaultPassword),
+			},
+		},
+	}
+	_, _, err = httpdtest.AddFolder(f, http.StatusCreated)
+	assert.NoError(t, err)
+	u := getTestUser(usePubKey)
+	u.Username += "_sub"
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{Name: folderName},
+		VirtualPath:       "/mnt",
+		Subpath:           "/tenant1",
+	})
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	// the backend directory served by the re-rooted mount
+	err = os.MkdirAll(filepath.Join(baseUser.GetHomeDir(), "tenant1"), os.ModePerm)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		testFileSize := int64(32768)
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join("/mnt", testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		// the file lands in the folder sub-path of the backing account
+		info, err := os.Stat(filepath.Join(baseUser.GetHomeDir(), "tenant1", testFileName))
+		if assert.NoError(t, err) {
+			assert.Equal(t, testFileSize, info.Size())
+		}
+		// the sub-path stays invisible in the mount
+		_, err = client.Stat(path.Join("/mnt", "tenant1"))
+		assert.Error(t, err)
+		contents, err := client.ReadDir("/mnt")
+		assert.NoError(t, err)
+		assert.Len(t, contents, 1)
+		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
+		err = sftpDownloadFile(path.Join("/mnt", testFileName), localDownloadPath, testFileSize, client)
+		assert.NoError(t, err)
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+		err = os.Remove(localDownloadPath)
+		assert.NoError(t, err)
+		err = client.Close()
+		assert.NoError(t, err)
+		err = conn.Close()
+		assert.NoError(t, err)
+	}
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(f, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(baseUser, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
+		2*time.Second, 100*time.Millisecond)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(baseUser.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestVirtualFoldersQuotaLimit(t *testing.T) {
 	usePubKey := false
 	u1 := getTestUser(usePubKey)
 	u1.QuotaFiles = 1
 	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
 	folderName1 := filepath.Base(mappedPath1)
-	vdirPath1 := "/vdir1" //nolint:goconst
+	vdirPath1 := "/vdir1"
 	mappedPath2 := filepath.Join(os.TempDir(), "vdir2")
 	folderName2 := filepath.Base(mappedPath2)
-	vdirPath2 := "/vdir2" //nolint:goconst
+	vdirPath2 := "/vdir2"
 	u1.VirtualFolders = append(u1.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
 			Name: folderName1,
@@ -6071,10 +7452,11 @@ func TestTruncateQuotaLimits(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Equal(t, int64(1), fold.UsedQuotaSize)
 				assert.Equal(t, 1, fold.UsedQuotaFiles)
-				// cleanup
-				err = os.RemoveAll(user.GetHomeDir())
-				assert.NoError(t, err)
+				// cleanup, remove the user before the home dir so the
+				// connection holding the fs root is closed
 				_, err = httpdtest.RemoveUser(user, http.StatusOK)
+				assert.NoError(t, err)
+				err = os.RemoveAll(user.GetHomeDir())
 				assert.NoError(t, err)
 				user.Password = defaultPassword
 				user.ID = 0
@@ -6269,10 +7651,10 @@ func TestVirtualFoldersQuotaValues(t *testing.T) {
 	u := getTestUser(usePubKey)
 	u.QuotaFiles = 100
 	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
-	vdirPath1 := "/vdir1" //nolint:goconst
+	vdirPath1 := "/vdir1"
 	folderName1 := filepath.Base(mappedPath1)
 	mappedPath2 := filepath.Join(os.TempDir(), "vdir2")
-	vdirPath2 := "/vdir2" //nolint:goconst
+	vdirPath2 := "/vdir2"
 	folderName2 := filepath.Base(mappedPath2)
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
@@ -6429,8 +7811,8 @@ func TestQuotaRenameInsideSameVirtualFolder(t *testing.T) {
 		testFileSize1 := int64(65535)
 		testFilePath := filepath.Join(homeBasePath, testFileName)
 		testFilePath1 := filepath.Join(homeBasePath, testFileName1)
-		dir1 := "dir1" //nolint:goconst
-		dir2 := "dir2" //nolint:goconst
+		dir1 := "dir1"
+		dir2 := "dir2"
 		err = createTestFile(testFilePath, testFileSize)
 		assert.NoError(t, err)
 		err = createTestFile(testFilePath1, testFileSize1)
@@ -7338,7 +8720,7 @@ func TestVirtualFoldersLink(t *testing.T) {
 		assert.NoError(t, err)
 		err = client.Symlink(path.Join(vdirPath2, testFileName), path.Join(vdirPath2, testDir, testFileName+".link"))
 		assert.NoError(t, err)
-		err = client.Symlink(path.Join("/", testFileName), path.Join(vdirPath1, testFileName+".link1")) //nolint:goconst
+		err = client.Symlink(path.Join("/", testFileName), path.Join(vdirPath1, testFileName+".link1"))
 		assert.Error(t, err)
 		err = client.Symlink(path.Join("/", testFileName), path.Join(vdirPath1, testDir, testFileName+".link1"))
 		assert.Error(t, err)
@@ -7581,6 +8963,13 @@ func TestOpenError(t *testing.T) {
 	if runtime.GOOS == osWindows {
 		t.Skip("this test is not available on Windows")
 	}
+	// use direct (non-atomic) uploads: with atomic uploads, overwriting an existing
+	// permission-denied file renames it to the temp path before opening the temp,
+	// which fails and leaves the source moved; direct writes keep the source in place.
+	oldUploadMode := common.Config.UploadMode
+	common.Config.UploadMode = common.UploadModeStandard
+	defer func() { common.Config.UploadMode = oldUploadMode }()
+
 	usePubKey := false
 	u := getTestUser(usePubKey)
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
@@ -7654,7 +9043,7 @@ func TestOverwriteDirWithFile(t *testing.T) {
 		defer conn.Close()
 		defer client.Close()
 		testFileSize := int64(65535)
-		testDirName := "test_dir" //nolint:goconst
+		testDirName := "test_dir"
 		testFilePath := filepath.Join(homeBasePath, testFileName)
 		err = createTestFile(testFilePath, testFileSize)
 		assert.NoError(t, err)
@@ -7945,7 +9334,6 @@ func TestPermDelete(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-//nolint:dupl
 func TestPermRename(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
@@ -7977,7 +9365,6 @@ func TestPermRename(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-//nolint:dupl
 func TestPermRenameOverwrite(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
@@ -8034,7 +9421,6 @@ func TestPermCreateDirs(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-//nolint:dupl
 func TestPermSymlink(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
@@ -8056,6 +9442,44 @@ func TestPermSymlink(t *testing.T) {
 		err = client.Symlink(testFilePath, testFilePath+".symlink")
 		assert.Error(t, err, "symlink without permission should not succeed")
 		err = client.Remove(testFileName)
+		assert.NoError(t, err)
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+	}
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestSymlinkPerDirPerms(t *testing.T) {
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	u.Permissions["/"] = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload,
+		dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks}
+	// a subdirectory where the user cannot create symbolic links
+	u.Permissions["/restricted"] = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFileSize := int64(8192)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		err = client.Mkdir("restricted")
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, "restricted/secret", testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, "allowed_file", testFileSize, client)
+		assert.NoError(t, err)
+		err = client.Symlink("/restricted/secret", "/link_to_restricted")
+		assert.Error(t, err, "linking into a dir without create_symlinks should fail")
+		err = client.Symlink("/allowed_file", "/restricted/link")
+		assert.Error(t, err, "creating a link in a dir without create_symlinks should fail")
+		err = client.Symlink("/allowed_file", "/allowed_link")
 		assert.NoError(t, err)
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
@@ -8097,7 +9521,6 @@ func TestPermChmod(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-//nolint:dupl
 func TestPermChown(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
@@ -8129,7 +9552,6 @@ func TestPermChown(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-//nolint:dupl
 func TestPermChtimes(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
@@ -8235,7 +9657,7 @@ func TestSubDirsOverwrite(t *testing.T) {
 	if assert.NoError(t, err) {
 		defer conn.Close()
 		defer client.Close()
-		testFileName := "/subdir/test_file.dat" //nolint:goconst
+		testFileName := "/subdir/test_file.dat"
 		testFilePath := filepath.Join(homeBasePath, "test_file.dat")
 		testFileSFTPPath := filepath.Join(u.GetHomeDir(), "subdir", "test_file.dat")
 		testFileSize := int64(65535)
@@ -8363,6 +9785,57 @@ func TestOpenUnhandledChannel(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestInvalidSubsystemRequest(t *testing.T) {
+	u := getTestUser(false)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	config := &ssh.ClientConfig{
+		User:            user.Username,
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Auth:            []ssh.AuthMethod{ssh.Password(defaultPassword)},
+		Timeout:         5 * time.Second,
+	}
+	conn, err := ssh.Dial("tcp", sftpServerAddr, config)
+	if assert.NoError(t, err) {
+		// malformed and short payloads, as well as any payload that is not the "sftp"
+		// wire string, must be rejected without affecting the server
+		payloads := [][]byte{
+			nil,
+			{},
+			{1, 2, 3},
+			{0, 0, 0, 3, 'f', 't', 'p'},
+			ssh.Marshal(struct{ Name string }{Name: "sftpa"}),
+			ssh.Marshal(struct{ Name string }{Name: "shell"}),
+		}
+		for _, payload := range payloads {
+			ch, reqs, err := conn.OpenChannel("session", nil)
+			if assert.NoError(t, err) {
+				go ssh.DiscardRequests(reqs)
+				accepted, err := ch.SendRequest("subsystem", true, payload)
+				assert.NoError(t, err)
+				assert.False(t, accepted, "subsystem request with payload %v must be rejected", payload)
+				err = ch.Close()
+				assert.NoError(t, err)
+			}
+		}
+		err = conn.Close()
+		assert.NoError(t, err)
+	}
+	// the server must still be alive and serve a regular SFTP session
+	conn, client, err := getSftpClient(user, false)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		assert.NoError(t, checkBasicSFTP(client))
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestAlgorithmNotNegotiated(t *testing.T) {
 	u := getTestUser(false)
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
@@ -8456,15 +9929,17 @@ func TestRootDirCommands(t *testing.T) {
 			defer client.Close()
 			err = client.Rename("/", "rootdir")
 			assert.True(t, errors.Is(err, fs.ErrPermission))
-			err = client.Symlink("/", "rootdir")
+			err = client.Symlink("rootdir", "/")
 			assert.True(t, errors.Is(err, fs.ErrPermission))
 			err = client.RemoveDirectory("/")
 			assert.True(t, errors.Is(err, fs.ErrPermission))
 		}
 		if user.Username == defaultUsername {
-			err = os.RemoveAll(user.GetHomeDir())
-			assert.NoError(t, err)
+			// remove the user before the home dir so the connection
+			// holding the fs root is closed
 			_, err = httpdtest.RemoveUser(user, http.StatusOK)
+			assert.NoError(t, err)
+			err = os.RemoveAll(user.GetHomeDir())
 			assert.NoError(t, err)
 			user.Password = defaultPassword
 			user.ID = 0
@@ -8599,7 +10074,7 @@ func TestResolvePaths(t *testing.T) {
 func TestVirtualRelativePaths(t *testing.T) {
 	user := getTestUser(true)
 	mappedPath := filepath.Join(os.TempDir(), "mdir")
-	vdirPath := "/vdir" //nolint:goconst
+	vdirPath := "/vdir"
 	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
 			MappedPath: mappedPath,
@@ -8623,6 +10098,12 @@ func TestVirtualRelativePaths(t *testing.T) {
 	assert.Equal(t, "/vdir/file.txt", rel)
 	rel = fsRoot.GetRelativePath(filepath.Join(user.HomeDir, "vdir1/file.txt"))
 	assert.Equal(t, "/vdir1/file.txt", rel)
+	// close the filesystems before removing the mapped path: on Windows the
+	// open root prevents the directory from being deleted
+	err = fsRoot.Close()
+	assert.NoError(t, err)
+	err = fsVdir.Close()
+	assert.NoError(t, err)
 	err = os.RemoveAll(mappedPath)
 	assert.NoError(t, err)
 }
@@ -9154,24 +10635,35 @@ func TestSSHFileHash(t *testing.T) {
 			assert.NoError(t, err)
 			err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
 			assert.NoError(t, err)
-			user.Permissions = make(map[string][]string)
-			user.Permissions["/"] = []string{dataprovider.PermUpload}
-			_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
-			assert.NoError(t, err)
-			_, err = runSSHCommand("sha512sum "+testFileName, user, usePubKey)
-			assert.Error(t, err, "hash command with no list permission must fail")
-
-			user.Permissions["/"] = []string{dataprovider.PermAny}
-			_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
-			assert.NoError(t, err)
-
 			initialHash, err := computeHashForFile(sha512.New(), testFilePath)
 			assert.NoError(t, err)
 
-			out, err := runSSHCommand("sha512sum "+testFileName, user, usePubKey)
-			if assert.NoError(t, err) {
-				assert.Contains(t, string(out), initialHash)
+			// computing a digest requires the same permission as reading the file
+			user.Permissions = make(map[string][]string)
+			for _, perms := range [][]string{
+				{dataprovider.PermUpload},
+				{dataprovider.PermListItems, dataprovider.PermUpload},
+			} {
+				user.Permissions["/"] = perms
+				_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+				assert.NoError(t, err)
+				_, err = runSSHCommand("sha512sum "+testFileName, user, usePubKey)
+				assert.Error(t, err, "hash command with no download permission must fail")
 			}
+			for _, perms := range [][]string{
+				{dataprovider.PermDownload},
+				{dataprovider.PermListItems, dataprovider.PermDownload},
+				{dataprovider.PermAny},
+			} {
+				user.Permissions["/"] = perms
+				_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+				assert.NoError(t, err)
+				out, err := runSSHCommand("sha512sum "+testFileName, user, usePubKey)
+				if assert.NoError(t, err) {
+					assert.Contains(t, string(out), initialHash)
+				}
+			}
+
 			_, err = runSSHCommand("sha512sum invalid_path", user, usePubKey)
 			assert.Error(t, err, "hash for an invalid path must fail")
 
@@ -9186,6 +10678,52 @@ func TestSSHFileHash(t *testing.T) {
 	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(localUser.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestSSHFileHashTransferQuota(t *testing.T) {
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	u.Username = "ssh_hash_quota_user"
+	u.DownloadDataTransfer = 1
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	testFileSize := int64(65535)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+	}
+	initialHash, err := computeHashForFile(sha256.New(), testFilePath)
+	assert.NoError(t, err)
+	// the file content is read, the digest is accounted as a download
+	out, err := runSSHCommand("sha256sum "+testFileName, user, usePubKey)
+	if assert.NoError(t, err) {
+		assert.Contains(t, string(out), initialHash)
+	}
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, testFileSize, user.UsedDownloadDataTransfer)
+	// exhaust the download allowance, reset mode sets the usage to the given
+	// values and 1 MB is the configured limit
+	user.UsedDownloadDataTransfer = 1048576
+	_, err = httpdtest.UpdateTransferQuotaUsage(user, "reset", http.StatusOK)
+	assert.NoError(t, err)
+	_, err = runSSHCommand("sha256sum "+testFileName, user, usePubKey)
+	assert.Error(t, err, "hash with no download allowance must fail")
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 
@@ -9317,11 +10855,11 @@ func TestSSHCopy(t *testing.T) {
 			assert.Equal(t, 6, user.UsedQuotaFiles)
 			assert.Equal(t, 3*testFileSize+3*testFileSize1, user.UsedQuotaSize)
 		}
-		out, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath2, testDir1, testFileName), testFileName+".copy"), //nolint:goconst
+		out, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath2, testDir1, testFileName), testFileName+".copy"),
 			user, usePubKey)
 		if assert.NoError(t, err) {
 			assert.Equal(t, "OK\n", string(out))
-			fi, err := client.Stat(testFileName + ".copy") //nolint:goconst
+			fi, err := client.Stat(testFileName + ".copy")
 			if assert.NoError(t, err) {
 				assert.True(t, fi.Mode().IsRegular())
 			}
@@ -9330,7 +10868,7 @@ func TestSSHCopy(t *testing.T) {
 			assert.Equal(t, 7, user.UsedQuotaFiles)
 			assert.Equal(t, 4*testFileSize+3*testFileSize1, user.UsedQuotaSize)
 		}
-		out, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath1, testDir1), path.Join(vdirPath2, testDir1+"copy")), //nolint:goconst
+		out, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath1, testDir1), path.Join(vdirPath2, testDir1+"copy")),
 			user, usePubKey)
 		if assert.NoError(t, err) {
 			assert.Equal(t, "OK\n", string(out))
@@ -9421,6 +10959,8 @@ func TestSSHCopyPermissions(t *testing.T) {
 		dataprovider.PermListItems, dataprovider.PermCopy}
 	u.Permissions["/dir3"] = []string{dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermDownload,
 		dataprovider.PermListItems}
+	u.Permissions["/dir4"] = []string{dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermDownload,
+		dataprovider.PermListItems, dataprovider.PermCopy}
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	conn, client, err := getSftpClient(user, usePubKey)
@@ -9464,8 +11004,12 @@ func TestSSHCopyPermissions(t *testing.T) {
 		// now delete the file and copy inside /dir3
 		err = client.Remove(path.Join("/", testDir, testFileName))
 		assert.NoError(t, err)
-		// the symlink will be skipped, so no errors
+		// the copy permission is required on the directory the entries are copied
+		// to, dir3 does not carry it
 		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join("/", testDir), "/dir3"), user, usePubKey)
+		assert.Error(t, err)
+		// dir4 carries it, and the symlink will be skipped, so no errors
+		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join("/", testDir), "/dir4"), user, usePubKey)
 		assert.NoError(t, err)
 
 		err = os.Remove(testFilePath)
@@ -9561,7 +11105,7 @@ func TestSSHCopyQuotaLimits(t *testing.T) {
 		assert.NoError(t, err)
 		// user quota: 2 files, size: 32768*2, folder2 quota: 2 files, size: 32768*2
 		// try to duplicate testDir, this will result in 4 file (over quota) and 32768*4 bytes (not over quota)
-		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", testDir, testDir+"_copy"), user, usePubKey) //nolint:goconst
+		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", testDir, testDir+"_copy"), user, usePubKey)
 		assert.Error(t, err)
 		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath2, testDir),
 			path.Join(vdirPath2, testDir+"_copy")), user, usePubKey)
@@ -9945,7 +11489,7 @@ func TestSSHCommandMaxTransfers(t *testing.T) {
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 
-	repoName := "testrepo" //nolint:goconst
+	repoName := "testrepo"
 	clonePath := filepath.Join(homeBasePath, repoName)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -10043,9 +11587,11 @@ func TestSCPBasicHandling(t *testing.T) {
 		assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
 		assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
 		if user.Username == defaultUsername {
-			err = os.RemoveAll(user.GetHomeDir())
-			assert.NoError(t, err)
+			// remove the user before the home dir so the connection
+			// holding the fs root is closed
 			_, err = httpdtest.RemoveUser(user, http.StatusOK)
+			assert.NoError(t, err)
+			err = os.RemoveAll(user.GetHomeDir())
 			assert.NoError(t, err)
 			user.Password = defaultPassword
 			user.ID = 0
@@ -10125,9 +11671,11 @@ func TestSCPUploadFileOverwrite(t *testing.T) {
 		err = os.Remove(localPath)
 		assert.NoError(t, err)
 		if user.Username == defaultUsername {
-			err = os.RemoveAll(user.GetHomeDir())
-			assert.NoError(t, err)
+			// remove the user before the home dir so the connection
+			// holding the fs root is closed
 			_, err = httpdtest.RemoveUser(user, http.StatusOK)
+			assert.NoError(t, err)
+			err = os.RemoveAll(user.GetHomeDir())
 			assert.NoError(t, err)
 			user.Password = defaultPassword
 			user.ID = 0
@@ -10140,9 +11688,9 @@ func TestSCPUploadFileOverwrite(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
 	assert.NoError(t, err)
-	err = os.RemoveAll(localUser.GetHomeDir())
-	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
 }
 
@@ -10157,7 +11705,7 @@ func TestSCPRecursive(t *testing.T) {
 	assert.NoError(t, err)
 	testBaseDirName := "test_dir"
 	testBaseDirPath := filepath.Join(homeBasePath, testBaseDirName)
-	testBaseDirDownName := "test_dir_down" //nolint:goconst
+	testBaseDirDownName := "test_dir_down"
 	testBaseDirDownPath := filepath.Join(homeBasePath, testBaseDirDownName)
 	testFilePath := filepath.Join(homeBasePath, testBaseDirName, testFileName)
 	testFilePath1 := filepath.Join(homeBasePath, testBaseDirName, testBaseDirName, testFileName)
@@ -10200,9 +11748,11 @@ func TestSCPRecursive(t *testing.T) {
 		err = os.RemoveAll(testBaseDirDownPath)
 		assert.NoError(t, err)
 		if user.Username == defaultUsername {
-			err = os.RemoveAll(user.GetHomeDir())
-			assert.NoError(t, err)
+			// remove the user before the home dir so the connection
+			// holding the fs root is closed
 			_, err = httpdtest.RemoveUser(user, http.StatusOK)
+			assert.NoError(t, err)
+			err = os.RemoveAll(user.GetHomeDir())
 			assert.NoError(t, err)
 			user.Password = defaultPassword
 			user.ID = 0
@@ -10216,9 +11766,9 @@ func TestSCPRecursive(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
 	assert.NoError(t, err)
-	err = os.RemoveAll(localUser.GetHomeDir())
-	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
 }
 
@@ -10252,6 +11802,173 @@ func TestSCPStartDirectory(t *testing.T) {
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestSCPRecursiveDownloadRequiresList(t *testing.T) {
+	if scpPath == "" {
+		t.Skip("scp command not found, unable to execute this test")
+	}
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	u.Permissions = map[string][]string{
+		"/":    {dataprovider.PermAny},
+		"/sub": {dataprovider.PermDownload},
+	}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	sub := filepath.Join(user.GetHomeDir(), "sub")
+	err = os.MkdirAll(sub, os.ModePerm)
+	assert.NoError(t, err)
+	err = os.WriteFile(filepath.Join(sub, "data.txt"), []byte("content"), 0o600)
+	assert.NoError(t, err)
+
+	localDir := filepath.Join(homeBasePath, "scpnolist")
+	err = os.RemoveAll(localDir)
+	assert.NoError(t, err)
+	err = os.MkdirAll(localDir, os.ModePerm)
+	assert.NoError(t, err)
+
+	err = scpDownload(localDir, fmt.Sprintf("%v@127.0.0.1:%v", user.Username, "/sub"), false, true)
+	assert.Error(t, err, "a recursive download without the list permission must fail")
+	assert.NoFileExists(t, filepath.Join(localDir, "sub", "data.txt"),
+		"the entries of a directory that cannot be listed must not be sent")
+
+	// naming the file works, it only needs the download permission
+	err = scpDownload(localDir, fmt.Sprintf("%v@127.0.0.1:%v", user.Username, "/sub/data.txt"), false, false)
+	assert.NoError(t, err)
+	assert.FileExists(t, filepath.Join(localDir, "data.txt"))
+
+	// the same download works once the permission is granted
+	user.Permissions["/sub"] = []string{dataprovider.PermListItems, dataprovider.PermDownload}
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	err = os.RemoveAll(localDir)
+	assert.NoError(t, err)
+	err = os.MkdirAll(localDir, os.ModePerm)
+	assert.NoError(t, err)
+	err = scpDownload(localDir, fmt.Sprintf("%v@127.0.0.1:%v", user.Username, "/sub"), false, true)
+	assert.NoError(t, err)
+	assert.FileExists(t, filepath.Join(localDir, "sub", "data.txt"))
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(localDir)
+	assert.NoError(t, err)
+}
+
+func TestSCPDeniedDirNames(t *testing.T) {
+	if scpPath == "" {
+		t.Skip("scp command not found, unable to execute this test")
+	}
+	usePubKey := true
+	user, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
+	assert.NoError(t, err)
+
+	beta := filepath.Join(user.GetHomeDir(), "beta")
+	err = os.MkdirAll(filepath.Join(beta, "sub"), os.ModePerm)
+	assert.NoError(t, err)
+	err = os.WriteFile(filepath.Join(beta, "a.txt"), []byte("content"), 0o600)
+	assert.NoError(t, err)
+	inner := filepath.Join(user.GetHomeDir(), "pub", "inner")
+	err = os.MkdirAll(inner, os.ModePerm)
+	assert.NoError(t, err)
+	err = os.WriteFile(filepath.Join(inner, "a.txt"), []byte("content"), 0o600)
+	assert.NoError(t, err)
+	plain := filepath.Join(user.GetHomeDir(), "plain", "deniedname")
+	err = os.MkdirAll(plain, os.ModePerm)
+	assert.NoError(t, err)
+	err = os.WriteFile(filepath.Join(plain, "a.txt"), []byte("content"), 0o600)
+	assert.NoError(t, err)
+
+	user.Filters.FilePatterns = []sdk.PatternsFilter{
+		{Path: "/", DeniedPatterns: []string{"beta*"}, DenyPolicy: sdk.DenyPolicyHide},
+		{Path: "/pub/inner", AllowedPatterns: []string{"*.txt"}, DenyPolicy: sdk.DenyPolicyHide},
+		{Path: "/plain", DeniedPatterns: []string{"denied*"}},
+	}
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+
+	localDir := filepath.Join(homeBasePath, "scpdenied")
+	err = os.MkdirAll(localDir, os.ModePerm)
+	assert.NoError(t, err)
+
+	// the hidden directory cannot be read, and nothing is written locally
+	err = scpDownload(localDir, fmt.Sprintf("%v@127.0.0.1:%v", user.Username, "/beta"), false, true)
+	assert.Error(t, err, "scp download of a hidden directory must fail")
+	entries, err := os.ReadDir(localDir)
+	assert.NoError(t, err)
+	assert.Empty(t, entries, "the hidden directory must not be recreated locally")
+
+	for _, remotePath := range []string{"/pub/inner", "/pub/inner/"} {
+		err = os.RemoveAll(localDir)
+		assert.NoError(t, err)
+		err = os.MkdirAll(localDir, os.ModePerm)
+		assert.NoError(t, err)
+		err = scpDownload(localDir, fmt.Sprintf("%v@127.0.0.1:%v", user.Username, remotePath), false, true)
+		assert.NoError(t, err, "scp download of %q must be allowed", remotePath)
+		assert.FileExists(t, filepath.Join(localDir, "inner", "a.txt"))
+	}
+	err = os.RemoveAll(localDir)
+	assert.NoError(t, err)
+	err = os.MkdirAll(localDir, os.ModePerm)
+	assert.NoError(t, err)
+
+	// under the default policy the directory is read and its entries are checked
+	// one by one, as the other protocols do: only the hide policy makes it missing
+	err = scpDownload(localDir, fmt.Sprintf("%v@127.0.0.1:%v", user.Username, "/plain/deniedname"), false, true)
+	assert.NoError(t, err, "the default policy must leave the directory readable")
+	assert.FileExists(t, filepath.Join(localDir, "deniedname", "a.txt"))
+	err = os.RemoveAll(localDir)
+	assert.NoError(t, err)
+	err = os.MkdirAll(localDir, os.ModePerm)
+	assert.NoError(t, err)
+
+	// the entries the same filter denies are still refused, one by one
+	err = os.WriteFile(filepath.Join(plain, "denied2.txt"), []byte("content"), 0o600)
+	assert.NoError(t, err)
+	err = scpDownload(localDir, fmt.Sprintf("%v@127.0.0.1:%v", user.Username, "/plain/deniedname"), false, true)
+	assert.Error(t, err, "a denied entry must not be sent")
+	assert.NoFileExists(t, filepath.Join(localDir, "deniedname", "denied2.txt"))
+	err = os.Remove(filepath.Join(plain, "denied2.txt"))
+	assert.NoError(t, err)
+	err = os.RemoveAll(localDir)
+	assert.NoError(t, err)
+	err = os.MkdirAll(localDir, os.ModePerm)
+	assert.NoError(t, err)
+
+	// a denied directory name cannot be created by a recursive upload
+	upDir := filepath.Join(homeBasePath, "betadir")
+	err = os.MkdirAll(upDir, os.ModePerm)
+	assert.NoError(t, err)
+	err = os.WriteFile(filepath.Join(upDir, "a.txt"), []byte("content"), 0o600)
+	assert.NoError(t, err)
+	err = scpUpload(upDir, fmt.Sprintf("%v@127.0.0.1:%v", user.Username, "/"), false, false)
+	assert.Error(t, err, "scp upload of a denied directory name must fail")
+	assert.NoDirExists(t, filepath.Join(user.GetHomeDir(), "betadir"))
+
+	// an allowed directory name still works
+	okDir := filepath.Join(homeBasePath, "gammadir")
+	err = os.MkdirAll(okDir, os.ModePerm)
+	assert.NoError(t, err)
+	err = os.WriteFile(filepath.Join(okDir, "a.txt"), []byte("content"), 0o600)
+	assert.NoError(t, err)
+	err = scpUpload(okDir, fmt.Sprintf("%v@127.0.0.1:%v", user.Username, "/"), false, false)
+	assert.NoError(t, err)
+	assert.DirExists(t, filepath.Join(user.GetHomeDir(), "gammadir"))
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(localDir)
+	assert.NoError(t, err)
+	err = os.RemoveAll(upDir)
+	assert.NoError(t, err)
+	err = os.RemoveAll(okDir)
 	assert.NoError(t, err)
 }
 
@@ -10721,9 +12438,9 @@ func TestSCPPermsSubDirs(t *testing.T) {
 	}
 	err = os.Remove(localPath)
 	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 
@@ -10755,9 +12472,9 @@ func TestSCPPermCreateDirs(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(testBaseDirPath)
 	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 
@@ -10779,9 +12496,9 @@ func TestSCPPermUpload(t *testing.T) {
 	assert.Error(t, err, "scp upload must fail, the user cannot upload")
 	err = os.Remove(testFilePath)
 	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 
@@ -10806,9 +12523,9 @@ func TestSCPPermOverwrite(t *testing.T) {
 
 	err = os.Remove(testFilePath)
 	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 
@@ -10835,9 +12552,9 @@ func TestSCPPermDownload(t *testing.T) {
 
 	err = os.Remove(testFilePath)
 	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 
@@ -10891,9 +12608,9 @@ func TestSCPQuotaSize(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.Remove(testFilePath2)
 	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 
@@ -10927,9 +12644,9 @@ func TestSCPEscapeHomeDir(t *testing.T) {
 
 	err = os.Remove(testFilePath)
 	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 
@@ -10960,11 +12677,11 @@ func TestSCPUploadPaths(t *testing.T) {
 	err = scpUpload(testFilePath, remoteUpPath, false, false)
 	assert.Error(t, err, "scp upload to a missing dir must fail")
 
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 	err = os.Remove(localPath)
-	assert.NoError(t, err)
-	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 }
 
@@ -10986,9 +12703,9 @@ func TestSCPOverwriteDirWithFile(t *testing.T) {
 	err = scpUpload(testFilePath, remoteUpPath, false, false)
 	assert.Error(t, err, "copying a file over an existing dir must fail")
 
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 
@@ -11017,13 +12734,13 @@ func TestSCPRemoteToRemote(t *testing.T) {
 	assert.NoError(t, err)
 	err = scpUpload(remoteUpPath, remote1UpPath, false, true)
 	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	err = os.RemoveAll(user1.GetHomeDir())
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user1, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user1.GetHomeDir())
 	assert.NoError(t, err)
 }
 
@@ -11076,9 +12793,9 @@ func TestSCPErrors(t *testing.T) {
 	err = os.Remove(testFilePath)
 	assert.NoError(t, err)
 	os.Remove(localPath)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 
@@ -11104,6 +12821,16 @@ func getTestGroup() dataprovider.Group {
 			Name:        "test_group",
 			Description: "test group description",
 		},
+	}
+}
+
+func waitNoActiveConnections(t *testing.T) {
+	t.Helper()
+	if !assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
+		2*time.Second, 100*time.Millisecond) {
+		for _, st := range common.Connections.GetStats("") {
+			t.Logf("leftover connection: user %q proto %q id %q", st.Username, st.Protocol, st.ConnectionID)
+		}
 	}
 }
 
@@ -11181,7 +12908,7 @@ func getSignerForUserCert(certBytes []byte) (ssh.Signer, error) {
 	if err != nil {
 		return nil, err
 	}
-	cert, _, _, _, err := ssh.ParseAuthorizedKey(certBytes) //nolint:dogsled
+	cert, _, _, _, err := ssh.ParseAuthorizedKey(certBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -11225,6 +12952,28 @@ func getSftpClientWithAddr(user dataprovider.User, usePubKey bool, addr string) 
 
 func getSftpClient(user dataprovider.User, usePubKey bool) (*ssh.Client, *sftp.Client, error) {
 	return getSftpClientWithAddr(user, usePubKey, sftpServerAddr)
+}
+
+// getKeyboardInteractiveQuestions returns the questions asked by the server instance
+// listening on the specified address.
+func getKeyboardInteractiveQuestions(addr, username string, answers []string) ([]string, error) {
+	var questions []string
+	config := &ssh.ClientConfig{
+		User:            username,
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Auth: []ssh.AuthMethod{
+			ssh.KeyboardInteractive(func(_, _ string, qs []string, _ []bool) ([]string, error) {
+				questions = append(questions, qs...)
+				return answers, nil
+			}),
+		},
+		Timeout: 5 * time.Second,
+	}
+	conn, err := ssh.Dial("tcp", addr, config)
+	if conn != nil {
+		conn.Close()
+	}
+	return questions, err
 }
 
 func getKeyboardInteractiveSftpClient(user dataprovider.User, answers []string) (*ssh.Client, *sftp.Client, error) {
@@ -11380,14 +13129,14 @@ func sftpUploadFile(localSourcePath string, remoteDestPath string, expectedSize 
 	return err
 }
 
-func sftpUploadResumeFile(localSourcePath string, remoteDestPath string, expectedSize int64, invalidOffset bool, //nolint:unparam
+func sftpUploadResumeFile(localSourcePath string, expectedSize int64, invalidOffset bool,
 	client *sftp.Client) error {
 	srcFile, err := os.Open(localSourcePath)
 	if err != nil {
 		return err
 	}
 	defer srcFile.Close()
-	fi, err := client.Lstat(remoteDestPath)
+	fi, err := client.Lstat(testFileName)
 	if err != nil {
 		return err
 	}
@@ -11397,7 +13146,7 @@ func sftpUploadResumeFile(localSourcePath string, remoteDestPath string, expecte
 			return err
 		}
 	}
-	destFile, err := client.OpenFile(remoteDestPath, os.O_WRONLY|os.O_APPEND)
+	destFile, err := client.OpenFile(testFileName, os.O_WRONLY|os.O_APPEND)
 	if err != nil {
 		return err
 	}
@@ -11416,7 +13165,7 @@ func sftpUploadResumeFile(localSourcePath string, remoteDestPath string, expecte
 	// we cannot defer closing otherwise Stat will fail for upload atomic mode
 	destFile.Close()
 	if expectedSize > 0 {
-		fi, err := client.Lstat(remoteDestPath)
+		fi, err := client.Lstat(testFileName)
 		if err != nil {
 			return err
 		}
@@ -11600,20 +13349,20 @@ func getKeyboardInteractiveScriptForBuiltinChecks(addPasscode bool, result int) 
 	echos := []bool{false}
 	q, _ := json.Marshal([]string{"Password: "})
 	e, _ := json.Marshal(echos)
-	content = append(content, []byte(fmt.Sprintf("echo '{\"questions\":%v,\"echos\":%v,\"check_password\":1}'\n", string(q), string(e)))...)
+	content = append(content, fmt.Appendf(nil, "echo '{\"questions\":%v,\"echos\":%v,\"check_password\":1}'\n", string(q), string(e))...)
 	content = append(content, []byte("read ANSWER\n\n")...)
 	content = append(content, []byte("if test \"$ANSWER\" != \"OK\"; then\n")...)
 	content = append(content, []byte("exit 1\n")...)
 	content = append(content, []byte("fi\n\n")...)
 	if addPasscode {
 		q, _ := json.Marshal([]string{"Passcode: "})
-		content = append(content, []byte(fmt.Sprintf("echo '{\"questions\":%v,\"echos\":%v,\"check_password\":2}'\n", string(q), string(e)))...)
+		content = append(content, fmt.Appendf(nil, "echo '{\"questions\":%v,\"echos\":%v,\"check_password\":2}'\n", string(q), string(e))...)
 		content = append(content, []byte("read ANSWER\n\n")...)
 		content = append(content, []byte("if test \"$ANSWER\" != \"OK\"; then\n")...)
 		content = append(content, []byte("exit 1\n")...)
 		content = append(content, []byte("fi\n\n")...)
 	}
-	content = append(content, []byte(fmt.Sprintf("echo '{\"auth_result\":%v}'\n", result))...)
+	content = append(content, fmt.Appendf(nil, "echo '{\"auth_result\":%v}'\n", result)...)
 	return content
 }
 
@@ -11626,17 +13375,17 @@ func getKeyboardInteractiveScriptContent(questions []string, sleepTime int, nonJ
 	}
 	e, _ := json.Marshal(echos)
 	if nonJSONResponse {
-		content = append(content, []byte(fmt.Sprintf("echo 'questions: %v echos: %v\n", string(q), string(e)))...)
+		content = append(content, fmt.Appendf(nil, "echo 'questions: %v echos: %v\n", string(q), string(e))...)
 	} else {
-		content = append(content, []byte(fmt.Sprintf("echo '{\"questions\":%v,\"echos\":%v}'\n", string(q), string(e)))...)
+		content = append(content, fmt.Appendf(nil, "echo '{\"questions\":%v,\"echos\":%v}'\n", string(q), string(e))...)
 	}
 	for index := range questions {
-		content = append(content, []byte(fmt.Sprintf("read ANSWER%v\n", index))...)
+		content = append(content, fmt.Appendf(nil, "read ANSWER%v\n", index)...)
 	}
 	if sleepTime > 0 {
-		content = append(content, []byte(fmt.Sprintf("sleep %v\n", sleepTime))...)
+		content = append(content, fmt.Appendf(nil, "sleep %v\n", sleepTime)...)
 	}
-	content = append(content, []byte(fmt.Sprintf("echo '{\"auth_result\":%v}'\n", result))...)
+	content = append(content, fmt.Appendf(nil, "echo '{\"auth_result\":%v}'\n", result)...)
 	return content
 }
 
@@ -11645,7 +13394,7 @@ func getExtAuthScriptContent(user dataprovider.User, nonJSONResponse, emptyRespo
 	if emptyResponse {
 		return extAuthContent
 	}
-	extAuthContent = append(extAuthContent, []byte(fmt.Sprintf("if test \"$SFTPGO_AUTHD_USERNAME\" = \"%v\"; then\n", user.Username))...)
+	extAuthContent = append(extAuthContent, fmt.Appendf(nil, "if test \"$SFTPGO_AUTHD_USERNAME\" = \"%v\"; then\n", user.Username)...)
 	if username != "" {
 		user.Username = username
 	}
@@ -11653,7 +13402,7 @@ func getExtAuthScriptContent(user dataprovider.User, nonJSONResponse, emptyRespo
 	if nonJSONResponse {
 		extAuthContent = append(extAuthContent, []byte("echo 'text response'\n")...)
 	} else {
-		extAuthContent = append(extAuthContent, []byte(fmt.Sprintf("echo '%v'\n", string(u)))...)
+		extAuthContent = append(extAuthContent, fmt.Appendf(nil, "echo '%v'\n", string(u))...)
 	}
 	extAuthContent = append(extAuthContent, []byte("else\n")...)
 	if nonJSONResponse {
@@ -11673,20 +13422,20 @@ func getPreLoginScriptContent(user dataprovider.User, nonJSONResponse bool) []by
 	}
 	if len(user.Username) > 0 {
 		u, _ := json.Marshal(user)
-		content = append(content, []byte(fmt.Sprintf("echo '%v'\n", string(u)))...)
+		content = append(content, fmt.Appendf(nil, "echo '%v'\n", string(u))...)
 	}
 	return content
 }
 
 func getExitCodeScriptContent(exitCode int) []byte {
 	content := []byte("#!/bin/sh\n\n")
-	content = append(content, []byte(fmt.Sprintf("exit %v", exitCode))...)
+	content = append(content, fmt.Appendf(nil, "exit %v", exitCode)...)
 	return content
 }
 
 func getCheckPwdScriptsContents(status int, toVerify string) []byte {
 	content := []byte("#!/bin/sh\n\n")
-	content = append(content, []byte(fmt.Sprintf("echo '{\"status\":%v,\"to_verify\":\"%v\"}'\n", status, toVerify))...)
+	content = append(content, fmt.Appendf(nil, "echo '{\"status\":%v,\"to_verify\":\"%v\"}'\n", status, toVerify)...)
 	if status > 0 {
 		content = append(content, []byte("exit 0")...)
 	} else {
@@ -11718,30 +13467,6 @@ func printLatestLogs(maxNumberOfLines int) {
 	}
 }
 
-func getHostKeyFingerprint(name string) (string, error) {
-	privateBytes, err := os.ReadFile(name)
-	if err != nil {
-		return "", err
-	}
-
-	private, err := ssh.ParsePrivateKey(privateBytes)
-	if err != nil {
-		return "", err
-	}
-	return ssh.FingerprintSHA256(private.PublicKey()), nil
-}
-
-func getHostKeysFingerprints(hostKeys []string) {
-	for _, k := range hostKeys {
-		fp, err := getHostKeyFingerprint(filepath.Join(configDir, k))
-		if err != nil {
-			logger.ErrorToConsole("unable to get fingerprint for host key %q: %v", k, err)
-			os.Exit(1)
-		}
-		hostKeyFPs = append(hostKeyFPs, fp)
-	}
-}
-
 func createInitialFiles(scriptArgs string) {
 	pubKeyPath = filepath.Join(homeBasePath, "ssh_key.pub")
 	privateKeyPath = filepath.Join(homeBasePath, "ssh_key")
@@ -11762,8 +13487,8 @@ func createInitialFiles(scriptArgs string) {
 	if err != nil {
 		logger.WarnToConsole("unable to save private key to file: %v", err)
 	}
-	err = os.WriteFile(gitWrapPath, []byte(fmt.Sprintf("%v -i %v -oStrictHostKeyChecking=no %v\n",
-		sshPath, privateKeyPath, scriptArgs)), os.ModePerm)
+	err = os.WriteFile(gitWrapPath, fmt.Appendf(nil, "%v -i %v -oStrictHostKeyChecking=no %v\n",
+		sshPath, privateKeyPath, scriptArgs), os.ModePerm)
 	if err != nil {
 		logger.WarnToConsole("unable to save gitwrap shell script: %v", err)
 	}

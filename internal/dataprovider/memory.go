@@ -404,7 +404,7 @@ func (p *MemoryProvider) addUser(user *User) error {
 	return nil
 }
 
-func (p *MemoryProvider) updateUser(user *User) error { //nolint:gocyclo
+func (p *MemoryProvider) updateUser(user *User, expectedUpdatedAt int64) error {
 	err := ValidateUser(user)
 	if err != nil {
 		return err
@@ -419,6 +419,9 @@ func (p *MemoryProvider) updateUser(user *User) error { //nolint:gocyclo
 	u, err := p.userExistsInternal(user.Username)
 	if err != nil {
 		return err
+	}
+	if expectedUpdatedAt >= 0 && u.UpdatedAt != expectedUpdatedAt {
+		return ErrConcurrentUpdate
 	}
 	p.removeUserFromRole(u.Username, u.Role)
 	if err := p.addUserToRole(user.Username, user.Role); err != nil {
@@ -468,7 +471,7 @@ func (p *MemoryProvider) updateUser(user *User) error { //nolint:gocyclo
 	user.FirstDownload = u.FirstDownload
 	user.FirstUpload = u.FirstUpload
 	user.CreatedAt = u.CreatedAt
-	user.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+	user.UpdatedAt = nextUpdatedAt(u.UpdatedAt)
 	user.ID = u.ID
 	// pre-login and external auth hook will use the passed *user so save a copy
 	p.dbHandle.users[user.Username] = user.getACopy()
@@ -653,12 +656,11 @@ func (p *MemoryProvider) getUsers(limit int, offset int, order, role string) ([]
 			}
 		}
 	} else {
-		for i := len(p.dbHandle.usernames) - 1; i >= 0; i-- {
+		for _, username := range slices.Backward(p.dbHandle.usernames) {
 			itNum++
 			if itNum <= offset {
 				continue
 			}
-			username := p.dbHandle.usernames[i]
 			u := p.dbHandle.users[username]
 			user := u.getACopy()
 			if !user.hasRole(role) {
@@ -775,7 +777,7 @@ func (p *MemoryProvider) addAdmin(admin *Admin) error {
 	return nil
 }
 
-func (p *MemoryProvider) updateAdmin(admin *Admin) error {
+func (p *MemoryProvider) updateAdmin(admin *Admin, expectedUpdatedAt int64) error {
 	p.dbHandle.Lock()
 	defer p.dbHandle.Unlock()
 	if p.dbHandle.isClosed {
@@ -788,6 +790,9 @@ func (p *MemoryProvider) updateAdmin(admin *Admin) error {
 	a, err := p.adminExistsInternal(admin.Username)
 	if err != nil {
 		return err
+	}
+	if expectedUpdatedAt >= 0 && a.UpdatedAt != expectedUpdatedAt {
+		return ErrConcurrentUpdate
 	}
 	p.removeAdminFromRole(a.Username, a.Role)
 	if err := p.addAdminToRole(admin.Username, admin.Role); err != nil {
@@ -816,7 +821,7 @@ func (p *MemoryProvider) updateAdmin(admin *Admin) error {
 	admin.ID = a.ID
 	admin.CreatedAt = a.CreatedAt
 	admin.LastLogin = a.LastLogin
-	admin.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+	admin.UpdatedAt = nextUpdatedAt(a.UpdatedAt)
 	p.dbHandle.admins[admin.Username] = admin.getACopy()
 	return nil
 }
@@ -905,12 +910,11 @@ func (p *MemoryProvider) getAdmins(limit int, offset int, order string) ([]Admin
 			}
 		}
 	} else {
-		for i := len(p.dbHandle.adminsUsernames) - 1; i >= 0; i-- {
+		for _, username := range slices.Backward(p.dbHandle.adminsUsernames) {
 			itNum++
 			if itNum <= offset {
 				continue
 			}
-			username := p.dbHandle.adminsUsernames[i]
 			a := p.dbHandle.admins[username]
 			admin := a.getACopy()
 			admin.HideConfidentialData()
@@ -974,12 +978,11 @@ func (p *MemoryProvider) getGroups(limit, offset int, order string, _ bool) ([]G
 			}
 		}
 	} else {
-		for i := len(p.dbHandle.groupnames) - 1; i >= 0; i-- {
+		for _, name := range slices.Backward(p.dbHandle.groupnames) {
 			itNum++
 			if itNum <= offset {
 				continue
 			}
-			name := p.dbHandle.groupnames[i]
 			g := p.dbHandle.groups[name]
 			group := g.getACopy()
 			p.addVirtualFoldersToGroup(&group)
@@ -1128,14 +1131,11 @@ func (p *MemoryProvider) deleteGroup(group Group) error {
 	if err != nil {
 		return err
 	}
-	if len(g.Users) > 0 {
+	if len(g.Users) > 0 || len(g.Admins) > 0 {
 		return util.NewValidationError(fmt.Sprintf("the group %q is referenced, it cannot be removed", group.Name))
 	}
 	for _, oldFolder := range g.VirtualFolders {
 		p.removeRelationFromFolderMapping(oldFolder.Name, "", g.Name)
-	}
-	for _, a := range g.Admins {
-		p.removeGroupFromAdminMapping(g.Name, a)
 	}
 	delete(p.dbHandle.groups, group.Name)
 	// this could be more efficient
@@ -1264,22 +1264,6 @@ func (p *MemoryProvider) removeAdminFromGroupMapping(username, groupname string)
 	}
 	g.Admins = admins
 	p.dbHandle.groups[groupname] = g
-}
-
-func (p *MemoryProvider) removeGroupFromAdminMapping(groupname, username string) {
-	admin, err := p.adminExistsInternal(username)
-	if err != nil {
-		// the admin does not exist so there is no associated group
-		return
-	}
-	var newGroups []AdminGroupMapping
-	for _, g := range admin.Groups {
-		if g.Name != groupname {
-			newGroups = append(newGroups, g)
-		}
-	}
-	admin.Groups = newGroups
-	p.dbHandle.admins[admin.Username] = admin
 }
 
 func (p *MemoryProvider) addUserToGroupMapping(username, groupname string) error {
@@ -1477,12 +1461,11 @@ func (p *MemoryProvider) getFolders(limit, offset int, order string, _ bool) ([]
 			}
 		}
 	} else {
-		for i := len(p.dbHandle.vfoldersNames) - 1; i >= 0; i-- {
+		for _, name := range slices.Backward(p.dbHandle.vfoldersNames) {
 			itNum++
 			if itNum <= offset {
 				continue
 			}
-			name := p.dbHandle.vfoldersNames[i]
 			f := p.dbHandle.vfolders[name]
 			folder := f.GetACopy()
 			folder.PrepareForRendering()
@@ -1588,33 +1571,8 @@ func (p *MemoryProvider) deleteFolder(f vfs.BaseVirtualFolder) error {
 	if err != nil {
 		return err
 	}
-	for _, username := range folder.Users {
-		user, err := p.userExistsInternal(username)
-		if err == nil {
-			var folders []vfs.VirtualFolder
-			for idx := range user.VirtualFolders {
-				userFolder := &user.VirtualFolders[idx]
-				if folder.Name != userFolder.Name {
-					folders = append(folders, *userFolder)
-				}
-			}
-			user.VirtualFolders = folders
-			p.dbHandle.users[user.Username] = user
-		}
-	}
-	for _, groupname := range folder.Groups {
-		group, err := p.groupExistsInternal(groupname)
-		if err == nil {
-			var folders []vfs.VirtualFolder
-			for idx := range group.VirtualFolders {
-				groupFolder := &group.VirtualFolders[idx]
-				if folder.Name != groupFolder.Name {
-					folders = append(folders, *groupFolder)
-				}
-			}
-			group.VirtualFolders = folders
-			p.dbHandle.groups[group.Name] = group
-		}
+	if len(folder.Users) > 0 || len(folder.Groups) > 0 {
+		return util.NewValidationError(fmt.Sprintf("the folder %q is referenced, it cannot be removed", folder.Name))
 	}
 	delete(p.dbHandle.vfolders, folder.Name)
 	p.dbHandle.vfoldersNames = []string{}
@@ -1742,12 +1700,11 @@ func (p *MemoryProvider) getAPIKeys(limit int, offset int, order string) ([]APIK
 	}
 	itNum := 0
 	if order == OrderDESC {
-		for i := len(p.dbHandle.apiKeysIDs) - 1; i >= 0; i-- {
+		for _, keyID := range slices.Backward(p.dbHandle.apiKeysIDs) {
 			itNum++
 			if itNum <= offset {
 				continue
 			}
-			keyID := p.dbHandle.apiKeysIDs[i]
 			k := p.dbHandle.apiKeys[keyID]
 			apiKey := k.getACopy()
 			apiKey.HideConfidentialData()
@@ -1968,8 +1925,7 @@ func (p *MemoryProvider) getShares(limit int, offset int, order, username string
 	shares := make([]Share, 0, limit)
 	itNum := 0
 	if order == OrderDESC {
-		for i := len(p.dbHandle.sharesIDs) - 1; i >= 0; i-- {
-			shareID := p.dbHandle.sharesIDs[i]
+		for _, shareID := range slices.Backward(p.dbHandle.sharesIDs) {
 			s := p.dbHandle.shares[shareID]
 			if s.Username != username {
 				continue
@@ -2134,12 +2090,11 @@ func (p *MemoryProvider) getEventActions(limit, offset int, order string, _ bool
 			}
 		}
 	} else {
-		for i := len(p.dbHandle.actionsNames) - 1; i >= 0; i-- {
+		for _, name := range slices.Backward(p.dbHandle.actionsNames) {
 			itNum++
 			if itNum <= offset {
 				continue
 			}
-			name := p.dbHandle.actionsNames[i]
 			a := p.dbHandle.actions[name]
 			action := a.getACopy()
 			action.PrepareForRendering()
@@ -2285,12 +2240,11 @@ func (p *MemoryProvider) getEventRules(limit, offset int, order string) ([]Event
 			}
 		}
 	} else {
-		for i := len(p.dbHandle.rulesNames) - 1; i >= 0; i-- {
+		for _, name := range slices.Backward(p.dbHandle.rulesNames) {
 			itNum++
 			if itNum <= offset {
 				continue
 			}
-			name := p.dbHandle.rulesNames[i]
 			r := p.dbHandle.rules[name]
 			rule := r.getACopy()
 			p.addActionsToRule(&rule)
@@ -2569,20 +2523,8 @@ func (p *MemoryProvider) deleteRole(role Role) error {
 	if err != nil {
 		return err
 	}
-	if len(oldRole.Admins) > 0 {
+	if len(oldRole.Admins) > 0 || len(oldRole.Users) > 0 {
 		return util.NewValidationError(fmt.Sprintf("the role %q is referenced, it cannot be removed", oldRole.Name))
-	}
-	for _, username := range oldRole.Users {
-		user, err := p.userExistsInternal(username)
-		if err != nil {
-			continue
-		}
-		if user.Role == role.Name {
-			user.Role = ""
-			p.dbHandle.users[username] = user
-		} else {
-			providerLog(logger.LevelError, "user %q does not have the expected role %q, actual %q", username, role.Name, user.Role)
-		}
 	}
 	delete(p.dbHandle.roles, role.Name)
 	p.dbHandle.roleNames = make([]string, 0, len(p.dbHandle.roles))
@@ -2619,12 +2561,11 @@ func (p *MemoryProvider) getRoles(limit int, offset int, order string, _ bool) (
 			}
 		}
 	} else {
-		for i := len(p.dbHandle.roleNames) - 1; i >= 0; i-- {
+		for _, name := range slices.Backward(p.dbHandle.roleNames) {
 			itNum++
 			if itNum <= offset {
 				continue
 			}
-			name := p.dbHandle.roleNames[i]
 			r := p.dbHandle.roles[name]
 			role := r.getACopy()
 			roles = append(roles, role)
@@ -2751,8 +2692,8 @@ func (p *MemoryProvider) getIPListEntries(listType IPListType, filter, from, ord
 			}
 		}
 	} else {
-		for i := len(p.dbHandle.ipListEntriesKeys) - 1; i >= 0; i-- {
-			e := p.dbHandle.ipListEntries[p.dbHandle.ipListEntriesKeys[i]]
+		for _, v := range slices.Backward(p.dbHandle.ipListEntriesKeys) {
+			e := p.dbHandle.ipListEntries[v]
 			if e.Type == listType && e.satisfySearchConstraints(filter, from, order) {
 				entry := e.getACopy()
 				entry.PrepareForRendering()
@@ -2778,9 +2719,8 @@ func (p *MemoryProvider) dumpIPListEntries() ([]IPListEntry, error) {
 	if p.dbHandle.isClosed {
 		return nil, errMemoryProviderClosed
 	}
-	if count := len(p.dbHandle.ipListEntriesKeys); count > ipListMemoryLimit {
-		providerLog(logger.LevelInfo, "IP lists excluded from dump, too many entries: %d", count)
-		return nil, nil
+	if count := len(p.dbHandle.ipListEntriesKeys); count > ipListDumpLimit {
+		return nil, errTooManyIPListEntries(int64(count))
 	}
 	entries := make([]IPListEntry, 0, len(p.dbHandle.ipListEntries))
 	for _, k := range p.dbHandle.ipListEntriesKeys {

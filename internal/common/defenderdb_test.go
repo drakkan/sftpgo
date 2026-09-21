@@ -167,7 +167,7 @@ func TestBasicDbDefender(t *testing.T) {
 	testIP1 := "123.45.67.90"
 	testIP2 := "123.45.67.91"
 	testIP3 := "123.45.67.92"
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		defender.AddEvent(testIP, ProtocolSSH, HostEventUserNotFound)
 		defender.AddEvent(testIP1, ProtocolSSH, HostEventNoLoginTried)
 		defender.AddEvent(testIP2, ProtocolSSH, HostEventUserNotFound)

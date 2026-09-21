@@ -17,6 +17,9 @@ package vfs
 import (
 	"errors"
 	"fmt"
+	"path"
+	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/rs/xid"
@@ -51,10 +54,6 @@ func (v *BaseVirtualFolder) GetEncryptionAdditionalData() string {
 
 // GetACopy returns a copy
 func (v *BaseVirtualFolder) GetACopy() BaseVirtualFolder {
-	users := make([]string, len(v.Users))
-	copy(users, v.Users)
-	groups := make([]string, len(v.Groups))
-	copy(groups, v.Groups)
 	return BaseVirtualFolder{
 		ID:              v.ID,
 		Name:            v.Name,
@@ -63,8 +62,8 @@ func (v *BaseVirtualFolder) GetACopy() BaseVirtualFolder {
 		UsedQuotaSize:   v.UsedQuotaSize,
 		UsedQuotaFiles:  v.UsedQuotaFiles,
 		LastQuotaUpdate: v.LastQuotaUpdate,
-		Users:           users,
-		Groups:          v.Groups,
+		Users:           slices.Clone(v.Users),
+		Groups:          slices.Clone(v.Groups),
 		FsConfig:        v.FsConfig.GetACopy(),
 	}
 }
@@ -142,6 +141,34 @@ type VirtualFolder struct {
 	QuotaSize int64 `json:"quota_size"`
 	// Maximum number of files allowed. 0 means unlimited, -1 included in user quota
 	QuotaFiles int `json:"quota_files"`
+	// Subpath re-roots the mapping: the mount at VirtualPath serves the folder
+	// starting from this sub-path. Supported for local, encrypted, S3, GCS,
+	// Azure Blob and SFTP folders.
+	Subpath string `json:"subpath,omitempty"`
+}
+
+// WithSubPath returns a copy of the folder re-rooted at the given canonical
+// sub-path and mounted at the given virtual path.
+func (v *VirtualFolder) WithSubPath(subPath, virtualPath string) VirtualFolder {
+	result := *v
+	result.VirtualPath = virtualPath
+	result.Subpath = ""
+	if subPath == "" || subPath == "/" {
+		return result
+	}
+	switch result.FsConfig.Provider {
+	case sdk.S3FilesystemProvider:
+		result.FsConfig.S3Config.KeyPrefix += strings.TrimPrefix(subPath, "/") + "/"
+	case sdk.GCSFilesystemProvider:
+		result.FsConfig.GCSConfig.KeyPrefix += strings.TrimPrefix(subPath, "/") + "/"
+	case sdk.AzureBlobFilesystemProvider:
+		result.FsConfig.AzBlobConfig.KeyPrefix += strings.TrimPrefix(subPath, "/") + "/"
+	case sdk.SFTPFilesystemProvider:
+		result.FsConfig.SFTPConfig.Prefix = path.Join(result.FsConfig.SFTPConfig.Prefix, subPath)
+	default:
+		result.MappedPath = filepath.Join(result.MappedPath, subPath)
+	}
+	return result
 }
 
 // GetFilesystem returns the filesystem for this folder
@@ -198,5 +225,6 @@ func (v *VirtualFolder) GetACopy() VirtualFolder {
 		VirtualPath:       v.VirtualPath,
 		QuotaSize:         v.QuotaSize,
 		QuotaFiles:        v.QuotaFiles,
+		Subpath:           v.Subpath,
 	}
 }

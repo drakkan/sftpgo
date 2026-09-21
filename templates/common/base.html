@@ -274,6 +274,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
     function setI18NData(el, value, options) {
         el.removeAttr("data-i18n-options");
+        el.removeData("i18n-options");
         el.attr("data-i18n", value);
         el.localize(options);
     }

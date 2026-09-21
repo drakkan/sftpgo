@@ -16,13 +16,17 @@
 package mfa
 
 import (
-	"bytes"
+	"encoding/base32"
 	"fmt"
-	"image/png"
+	"strings"
 	"time"
 
 	"github.com/pquerna/otp"
 )
+
+// minTOTPSecretSize is the minimum size, in bytes, of a TOTP secret. It matches
+// the size of the secrets we generate and the value recommended by RFC 6238.
+const minTOTPSecretSize = 20
 
 var (
 	totpConfigs   []*TOTPConfig
@@ -53,7 +57,6 @@ func (c *Config) Initialize() error {
 	serviceStatus.TOTPConfigs = nil
 	totp := make(map[string]bool)
 	for _, totpConfig := range c.TOTP {
-		totpConfig := totpConfig //pin
 		if err := totpConfig.validate(); err != nil {
 			totpConfigs = nil
 			return fmt.Errorf("invalid TOTP config %+v: %v", totpConfig, err)
@@ -109,19 +112,19 @@ func GenerateTOTPSecret(configName, username string) (string, *otp.Key, []byte, 
 	return "", nil, nil, fmt.Errorf("totp: no configuration %q", configName)
 }
 
-// GenerateQRCodeFromURL generates a QR code from a TOTP URL
-func GenerateQRCodeFromURL(url string, width, height int) ([]byte, error) {
-	key, err := otp.NewKeyFromURL(url)
+// ValidateTOTPSecret rejects a plain secret shorter than the 20 random bytes we
+// generate (the RFC 6238 recommended size), decoded as base32 without padding, as
+// we issue it. The length is all that can be checked here: a low-entropy secret of
+// the required size passes.
+func ValidateTOTPSecret(secret string) error {
+	decoded, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(strings.TrimSpace(secret))
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("totp: invalid secret encoding: %w", err)
 	}
-	var buf bytes.Buffer
-	img, err := key.Image(width, height)
-	if err != nil {
-		return nil, err
+	if len(decoded) < minTOTPSecretSize {
+		return fmt.Errorf("totp: secret must be at least %d bytes long", minTOTPSecretSize)
 	}
-	err = png.Encode(&buf, img)
-	return buf.Bytes(), err
+	return nil
 }
 
 // the ticker cannot be started/stopped from multiple goroutines

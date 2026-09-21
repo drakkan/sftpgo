@@ -281,7 +281,7 @@ func (c *RetentionCheck) checkEmptyDirRemoval(folderPath string, checkVal bool) 
 func (c *RetentionCheck) Start() error {
 	c.conn.Log(logger.LevelInfo, "retention check started")
 	defer RetentionChecks.remove(c.conn.User.Username)
-	defer c.conn.CloseFS() //nolint:errcheck
+	defer c.conn.CloseFS()
 
 	startTime := time.Now()
 	for _, folder := range c.Folders {

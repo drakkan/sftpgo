@@ -75,7 +75,7 @@ func (d *dbDefender) IsBanned(ip, protocol string) bool {
 	if increment == 0 {
 		increment++
 	}
-	dataprovider.UpdateDefenderBanTime(ip, increment) //nolint:errcheck
+	_ = dataprovider.UpdateDefenderBanTime(ip, increment)
 	return true
 }
 

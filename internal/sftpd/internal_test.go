@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -183,7 +184,7 @@ func TestGetOSOpenFlags(t *testing.T) {
 }
 
 func TestUploadResumeInvalidOffset(t *testing.T) {
-	testfile := "testfile" //nolint:goconst
+	testfile := "testfile"
 	file, err := os.Create(testfile)
 	assert.NoError(t, err)
 	user := dataprovider.User{
@@ -367,7 +368,7 @@ func TestUploadFiles(t *testing.T) {
 
 func TestWithInvalidHome(t *testing.T) {
 	u := dataprovider.User{}
-	u.HomeDir = "home_rel_path" //nolint:goconst
+	u.HomeDir = "home_rel_path"
 	_, err := loginUser(&u, dataprovider.LoginMethodPassword, "", nil)
 	assert.Error(t, err, "login a user with an invalid home_dir must fail")
 
@@ -577,6 +578,9 @@ func TestCommandsWithExtensionsFilter(t *testing.T) {
 			Status:   1,
 		},
 	}
+	user.Permissions = map[string][]string{
+		"/": {dataprovider.PermAny},
+	}
 	user.Filters.FilePatterns = []sdk.PatternsFilter{
 		{
 			Path:            "/subdir",
@@ -596,6 +600,65 @@ func TestCommandsWithExtensionsFilter(t *testing.T) {
 	}
 	err := cmd.handleHashCommands()
 	assert.EqualError(t, err, common.ErrPermissionDenied.Error())
+}
+
+func TestHashCommandPathPermissions(t *testing.T) {
+	buf := make([]byte, 65535)
+	stdErrBuf := make([]byte, 65535)
+	mockSSHChannel := MockChannel{
+		Buffer:       bytes.NewBuffer(buf),
+		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
+	}
+	homeDir := filepath.Join(os.TempDir(), "hash_path_perms")
+	err := os.MkdirAll(filepath.Join(homeDir, "data", "sub"), os.ModePerm)
+	assert.NoError(t, err)
+
+	defer os.RemoveAll(homeDir)
+
+	err = os.WriteFile(filepath.Join(homeDir, "data", "secret.txt"), []byte("secret"), 0o600)
+	assert.NoError(t, err)
+	err = os.WriteFile(filepath.Join(homeDir, "data", "sub", "file.txt"), []byte("sub"), 0o600)
+	assert.NoError(t, err)
+
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username: "test",
+			HomeDir:  homeDir,
+			Status:   1,
+		},
+	}
+	// the pattern matches the subdirectories of "/data", not "/data" itself, so the
+	// files directly inside it are governed by the root permissions
+	user.Permissions = map[string][]string{
+		"/":       {dataprovider.PermListItems},
+		"/data/*": {dataprovider.PermAny},
+	}
+	connection := &Connection{
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSSH, "", "", user),
+		channel:        &mockSSHChannel,
+	}
+	cmd := sshCommand{
+		command:    "md5sum",
+		connection: connection,
+		args:       []string{"/data/secret.txt"},
+	}
+	err = cmd.handleHashCommands()
+	assert.EqualError(t, err, common.ErrPermissionDenied.Error())
+	cmd = sshCommand{
+		command:    "md5sum",
+		connection: connection,
+		args:       []string{"/data/secret.txt/"},
+	}
+	err = cmd.handleHashCommands()
+	assert.ErrorContains(t, err, "directory")
+	// the pattern grants the permission where it is meant to
+	cmd = sshCommand{
+		command:    "md5sum",
+		connection: connection,
+		args:       []string{"/data/sub/file.txt"},
+	}
+	err = cmd.handleHashCommands()
+	assert.NoError(t, err)
 }
 
 func TestSSHCommandsRemoteFs(t *testing.T) {
@@ -703,7 +766,7 @@ func TestCommandGetFsError(t *testing.T) {
 
 	err := scpCommand.handleRecursiveUpload()
 	assert.Error(t, err)
-	err = scpCommand.handleDownload("")
+	err = scpCommand.handleDownload("", 0)
 	assert.Error(t, err)
 }
 
@@ -828,6 +891,43 @@ func TestSCPInvalidEndDir(t *testing.T) {
 	assert.EqualError(t, err, "unacceptable end dir command")
 }
 
+func TestSCPMessageSizeLimit(t *testing.T) {
+	stdErrBuf := make([]byte, 65535)
+	connection := &Connection{
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", "", dataprovider.User{
+			BaseUser: sdk.BaseUser{
+				HomeDir: os.TempDir(),
+			},
+		}),
+	}
+	scpCommand := scpCommand{
+		sshCommand: sshCommand{
+			command:    "scp",
+			connection: connection,
+			args:       []string{"-t", "/tmp"},
+		},
+	}
+
+	protocolMsg := bytes.Repeat([]byte("A"), maxSCPMessageSize+1)
+	connection.channel = &MockChannel{
+		Buffer:       bytes.NewBuffer(protocolMsg),
+		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
+	}
+	_, err := scpCommand.readProtocolMessage()
+	assert.ErrorContains(t, err, "scp protocol message too long")
+
+	confirmationMsg := append([]byte{warnMsg[0]}, bytes.Repeat([]byte("A"), maxSCPMessageSize+1)...)
+	connection.channel = &MockChannel{
+		Buffer:       bytes.NewBuffer(confirmationMsg),
+		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
+	}
+	err = scpCommand.readConfirmationMessage()
+	assert.ErrorContains(t, err, "scp error message too long")
+
+	assert.Len(t, common.Connections.GetStats(""), 0)
+	assert.Equal(t, int32(0), common.Connections.GetTotalTransfers())
+}
+
 func TestSCPParseUploadMessage(t *testing.T) {
 	buf := make([]byte, 65535)
 	stdErrBuf := make([]byte, 65535)
@@ -863,6 +963,93 @@ func TestSCPParseUploadMessage(t *testing.T) {
 
 	_, _, err = scpCommand.parseUploadMessage(fs, "D0755 0 ")
 	assert.Error(t, err, "parsing upload message with invalid name must fail")
+
+	for _, name := range []string{".", "..", "../name", "sub/name", `..\name`, `sub\name`, "/name"} {
+		_, _, err = scpCommand.parseUploadMessage(fs, "C0644 5 "+name)
+		assert.ErrorContains(t, err, "invalid name", "name %q must be rejected", name)
+
+		_, _, err = scpCommand.parseUploadMessage(fs, "D0755 0 "+name)
+		assert.ErrorContains(t, err, "invalid name", "name %q must be rejected", name)
+	}
+
+	for _, name := range []string{"file with spaces.txt", ".bashrc", "..foo", "a.b.c", "...", "-", "name ", "name."} {
+		size, parsed, err := scpCommand.parseUploadMessage(fs, "C0644 5 "+name)
+		assert.NoError(t, err, "name %q must be accepted", name)
+		assert.Equal(t, int64(5), size)
+		assert.Equal(t, name, parsed)
+	}
+}
+
+func TestSCPUploadDestinationScope(t *testing.T) {
+	runUpload := func(t *testing.T, stream string) (string, error) {
+		t.Helper()
+
+		homeDir := t.TempDir()
+		require.NoError(t, os.MkdirAll(filepath.Join(homeDir, "base", "sub"), os.ModePerm))
+
+		user := dataprovider.User{
+			BaseUser: sdk.BaseUser{
+				HomeDir:     homeDir,
+				Permissions: map[string][]string{"/": {dataprovider.PermAny}},
+			},
+		}
+		mockSSHChannel := MockChannel{
+			Buffer:       bytes.NewBuffer([]byte(stream)),
+			StdErrBuffer: bytes.NewBuffer(make([]byte, 65535)),
+		}
+		connection := &Connection{
+			BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", "", user),
+			channel:        &mockSSHChannel,
+		}
+		defer connection.CloseFS()
+		scpCommand := scpCommand{
+			sshCommand: sshCommand{
+				command:    "scp",
+				connection: connection,
+				args:       []string{"-r", "-t", "/base/sub"},
+			},
+		}
+		return homeDir, scpCommand.handleRecursiveUpload()
+	}
+
+	// The whole tree is compared, so a write nested anywhere is detected too.
+	treeOf := func(t *testing.T, homeDir string) []string {
+		t.Helper()
+
+		var entries []string
+		require.NoError(t, filepath.WalkDir(homeDir, func(p string, _ fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if rel, err := filepath.Rel(homeDir, p); err == nil && rel != "." {
+				entries = append(entries, filepath.ToSlash(rel))
+			}
+			return nil
+		}))
+		return entries
+	}
+
+	for _, stream := range []string{
+		"D0755 0 .\nE\nD0755 0 .\nE\nC0644 5 file1\nhello\x00",
+		"C0644 5 ../../file1\nhello\x00",
+		"C0644 5 ..\\..\\..\\file1\nhello\x00",
+		"D0755 0 ../../dir1\n",
+		"E\n",
+	} {
+		homeDir, err := runUpload(t, stream)
+		assert.Error(t, err, "stream %q must be rejected", stream)
+		assert.Equal(t, []string{"base", "base/sub"}, treeOf(t, homeDir),
+			"stream %q must not create anything", stream)
+	}
+
+	// A well formed recursive upload, as a control that the check does not
+	// reject the ordinary case.
+	homeDir, err := runUpload(t, "D0755 0 dir1\nC0644 5 file1\nhello\x00D0755 0 dir2\nC0644 5 file2\nhello\x00E\nE\n")
+	assert.NoError(t, err)
+	assert.Equal(t, []string{
+		"base", "base/sub", "base/sub/dir1", "base/sub/dir1/dir2",
+		"base/sub/dir1/dir2/file2", "base/sub/dir1/file1",
+	}, treeOf(t, homeDir))
 }
 
 func TestSCPProtocolMessages(t *testing.T) {
@@ -933,7 +1120,7 @@ func TestSCPProtocolMessages(t *testing.T) {
 	}
 	scpCommand.connection.channel = &mockSSHChannel
 
-	err = scpCommand.downloadDirs(nil, nil)
+	err = scpCommand.downloadDirs(nil, 0)
 	assert.ErrorIs(t, err, writeErr)
 }
 
@@ -1125,7 +1312,7 @@ func TestSCPRecursiveDownloadErrors(t *testing.T) {
 	assert.NoError(t, err)
 	stat, err := os.Stat(path)
 	assert.NoError(t, err)
-	err = scpCommand.handleRecursiveDownload(fs, "invalid_dir", "invalid_dir", stat)
+	err = scpCommand.handleRecursiveDownload(fs, "invalid_dir", "invalid_dir", stat, 0)
 	assert.EqualError(t, err, writeErr.Error())
 
 	mockSSHChannel = MockChannel{
@@ -1135,8 +1322,11 @@ func TestSCPRecursiveDownloadErrors(t *testing.T) {
 		WriteError:   nil,
 	}
 	scpCommand.connection.channel = &mockSSHChannel
-	err = scpCommand.handleRecursiveDownload(fs, "invalid_dir", "invalid_dir", stat)
+	err = scpCommand.handleRecursiveDownload(fs, "invalid_dir", "invalid_dir", stat, 0)
 	assert.Error(t, err, "recursive upload download must fail for a non existing dir")
+
+	err = scpCommand.handleRecursiveDownload(fs, "invalid_dir", "invalid_dir", stat, util.MaxRecursion)
+	assert.ErrorIs(t, err, util.ErrRecursionTooDeep)
 
 	err = os.Remove(path)
 	assert.NoError(t, err)
@@ -1379,8 +1569,8 @@ func TestUploadError(t *testing.T) {
 		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", "", user),
 	}
 
-	testfile := "testfile"
-	fileTempName := "temptestfile"
+	testfile := filepath.Join(os.TempDir(), "testfile")
+	fileTempName := filepath.Join(os.TempDir(), "temptestfile")
 	file, err := os.Create(fileTempName)
 	assert.NoError(t, err)
 	baseTransfer := common.NewBaseTransfer(file, connection.BaseConnection, nil, testfile, file.Name(),
@@ -1477,11 +1667,12 @@ func TestConfigsFromProvider(t *testing.T) {
 	assert.Len(t, c.PublicKeyAlgorithms, 0)
 	configs := dataprovider.Configs{
 		SFTPD: &dataprovider.SFTPDConfigs{
-			HostKeyAlgos:   []string{ssh.KeyAlgoRSA},
-			KexAlgorithms:  []string{ssh.InsecureKeyExchangeDHGEXSHA1},
-			Ciphers:        []string{ssh.InsecureCipherAES128CBC},
-			MACs:           []string{ssh.HMACSHA512ETM},
-			PublicKeyAlgos: []string{ssh.InsecureKeyAlgoDSA}, //nolint:staticcheck
+			HostKeyAlgos:  []string{ssh.KeyAlgoRSA},
+			KexAlgorithms: []string{ssh.InsecureKeyExchangeDHGEXSHA1},
+			Ciphers:       []string{ssh.InsecureCipherAES128CBC},
+			MACs:          []string{ssh.HMACSHA512ETM},
+			//lint:ignore SA1019 the test covers the DSA algorithm
+			PublicKeyAlgos: []string{ssh.InsecureKeyAlgoDSA},
 		},
 	}
 	err = dataprovider.UpdateConfigs(&configs, "", "", "")
@@ -1857,7 +2048,7 @@ func (f mockCommandExecutor) CombinedOutput(ctx context.Context, name string, ar
 
 func TestVerifyWithOPKSSH(t *testing.T) {
 	sshCert := []byte(`ssh-rsa-cert-v01@openssh.com AAAAHHNzaC1yc2EtY2VydC12MDFAb3BlbnNzaC5jb20AAAAg4+hKHVPKv183MU/Q7XD/mzDBFSc2YY3eraltxLMGJo0AAAADAQABAAABAQCe6jMoy1xCQgiZkZJ7gi6NLj4uRqz2OaUGK/OJYZTfBqK+SlS9iymAluHu9K+cc4+0qxx0gn7dRTJWINSgzvca6ayYe995EKgD1hE5krh9BH0bRrXB+hGqyslcZOgLNO+v8jYojClQbRtET2tS+xb4k33GCuL5wgla2790ZgOQgs7huQUjG0S8c1W+EYt6fI4cWE/DeEBnv9sqryS8rOb0PbM6WUd7XBadwySFWYQUX0ei56GNt12Z4gADEGlFQV/OnV0PvnTcAMGUl0rfToPgJ4jgogWKoTVWuZ9wyA/x+2LRLRvgm2a969ig937/AH0i0Wq+FzqfK7EXQ99Yf5K/AAAAAAAAAAAAAAACAAAAFGhvc3QuZXhhbXBsZS5jb20ta2V5AAAAFAAAABBob3N0LmV4YW1wbGUuY29tAAAAAGXEzYAAAAAAd8sP4wAAAAAAAAAAAAAAAAAAARcAAAAHc3NoLXJzYQAAAAMBAAEAAAEBAL4PXUPSERufZWCW/hhEnylk3IeMgaa+2HcNY5Cur77a8fYy6OYZAPF+vhJUT0akwGUpTeXAZumAgHECDrJlw1J+jo9ZVT0AKDo0wU77IzNzYxob7+dpB02NJ7DLAXmPauQ07Zc5pWJFVKtmuh7YH9pjYtNXSMOXye7k06PBGzX+ztIt7nPWvD9fR2mZeTSoljeBCGZHwdlnV2ESQlQbBoEI93RPxqxJh/UCDatQPhpDbyverr2ZvB9Y45rqsx6ZVmu5RXl3MfBU1U21W/4ia2di3PybyD4rSmVoam0efcqxo6cBKSHe26OFoTuS9zgdH0iCWL37vqOFmJ7eH91M3nMAAAEUAAAADHJzYS1zaGEyLTI1NgAAAQA/ByIegNZYJRRl413S/8LxGvTZnbxsPwaluoJ/54niGZV9P28THz7d9jXfSHPjalhH93jNPfTYXvI4opnDC37ua1Nu8KKfk40IWXnnDdZLWraUxEidIzhmfVtz8kGdGoFQ8H0EzubL7zKNOTlfSfOoDlmQVOuxT/+eh2mEp4ri0/+8J1mLfLBr8tREX0/iaNjK+RKdcyTMicKursAYMCDdu8vlaphxea+ocyHM9izSX/l33t44V13ueTqIOh2Zbl2UE2k+jk+0dc1CmV0SEoiWiIyt8TRM4yQry1vPlQLsrf28sYM/QMwnhCVhyZO3vs5F25aQWrB9d51VEzBW9/fd host.example.com`)
-	key, _, _, _, err := ssh.ParseAuthorizedKey(sshCert) //nolint:dogsled
+	key, _, _, _, err := ssh.ParseAuthorizedKey(sshCert)
 	require.NoError(t, err)
 	cert, ok := key.(*ssh.Certificate)
 	require.True(t, ok)
@@ -1883,4 +2074,281 @@ func TestVerifyWithOPKSSH(t *testing.T) {
 	}
 	err = c.verifyWithOPKSSH("", cert)
 	assert.NoError(t, err)
+}
+
+func TestOsFsRootEscapeMatrix(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip(`This test is POSIX-specific`)
+	}
+	base := t.TempDir()
+	realhome := filepath.Join(base, "realhome")
+	if err := os.MkdirAll(filepath.Join(base, "outside", "exdir"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(base, "realhome_evil"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(realhome, "a"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// rootDir is a symlink to the real home
+	if err := os.Symlink(realhome, filepath.Join(base, "homelink")); err != nil {
+		t.Fatal(err)
+	}
+
+	links := map[string]string{
+		"a/sub":         "..",                                // in-home: a/sub -> realhome
+		"dirlink_out":   "../outside",                        // existing dir symlink -> outside
+		"dirlink_in":    "a",                                 // existing dir symlink -> in-home
+		"danglingdir":   "../outside/nope",                   // dangling intermediate -> outside
+		"evil_rel":      "../outside/x",                      // dangling leaf, relative, escaping
+		"evil_abs":      filepath.Join(base, "outside", "x"), // dangling leaf, absolute, escaping
+		"evil_existing": "../outside",                        // existing leaf -> outside dir
+		"evil_sibling":  "../realhome_evil",                  // existing leaf -> prefix-sibling
+		"chain1":        "chain2",                            // in-home chain
+		"chain2":        "a",
+		"ok_leaf":       "a/missingfile", // in-home dangling
+	}
+	for link, target := range links {
+		if err := os.Symlink(target, filepath.Join(realhome, link)); err != nil {
+			t.Fatalf("symlink %s -> %s: %v", link, target, err)
+		}
+	}
+
+	fs := vfs.NewOsFs("conn", filepath.Join(base, "homelink"), "", nil).(*vfs.OsFs)
+
+	// sanity: confirm the negative cases genuinely escape.
+	if tgt, _ := filepath.EvalSymlinks(filepath.Join(realhome, "evil_existing")); tgt == "" || strings.HasPrefix(tgt, realhome+string(os.PathSeparator)) {
+		t.Fatalf("test setup error: evil_existing does not escape the home, resolved %q", tgt)
+	}
+
+	// ResolvePath is lexical so each escaping path resolves without error but
+	// every operation on it must be blocked, while in-home paths stay usable.
+	mustReject := []string{
+		"/evil_rel",                  // dangling leaf rel
+		"/evil_abs",                  // dangling leaf abs
+		"/evil_existing",             // existing leaf -> outside
+		"/evil_existing/sub",         // through existing escaping leaf
+		"/evil_sibling/file",         // prefix-sibling boundary
+		"/dirlink_out/exdir/newfile", // existing dir reached via escaping symlink
+		"/dirlink_out/newfile",       // escaping intermediate symlink (existing)
+		"/danglingdir/newfile",       // dangling intermediate
+		"/a/sub/evil_rel",            // nested in-home symlink + escaping dangling leaf
+		"/a/sub/evil_existing",       // nested in-home symlink + escaping existing leaf
+	}
+	for _, p := range mustReject {
+		r, err := fs.ResolvePath(p)
+		if err != nil {
+			t.Errorf("ResolvePath(%q) returned %v, want nil (confinement is enforced at operation time)", p, err)
+			continue
+		}
+		if _, statErr := fs.Stat(r); !fs.IsPermission(statErr) {
+			t.Errorf("ESCAPE: %q must be blocked at operation time, got %v", p, statErr)
+		}
+	}
+
+	mustAllow := []string{
+		"/ok_leaf",            // in-home dangling leaf
+		"/dirlink_in/newfile", // in-home dir symlink
+		"/dirlink_in",         // the in-home symlink itself
+		"/chain1/newfile",     // in-home chain
+		"/a/newfile",          // new file in existing dir
+		"/newfile",            // new file in home root
+		"/a/sub/newfile",      // new file reached via in-home symlink
+		"/a/b/c/deepnew",      // several new nested dirs
+	}
+	for _, p := range mustAllow {
+		r, err := fs.ResolvePath(p)
+		if err != nil {
+			t.Errorf("false denial: in-home path %q ResolvePath error: %v", p, err)
+			continue
+		}
+		// an in-home path is never a confinement error: it either exists or not
+		if _, statErr := fs.Stat(r); fs.IsPermission(statErr) {
+			t.Errorf("false denial: in-home path %q blocked: %v", p, statErr)
+		}
+	}
+
+	// end-to-end proof: drive the real create flow for an escaping dangling leaf and
+	// confirm nothing is written outside the home
+	probe := filepath.Join(base, "outside", "x")
+	if rp, err := fs.ResolvePath("/evil_rel"); err == nil {
+		if f, _, _, oerr := fs.Create(rp, 0, 0); oerr == nil {
+			f.Close()
+		}
+	}
+	if _, err := os.Stat(probe); !os.IsNotExist(err) {
+		t.Errorf("ESCAPE: a file was created outside the home at %q", probe)
+	}
+}
+
+func TestOsFsResolvePathDotDotThroughSymlink(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip(`This test is POSIX-specific`)
+	}
+	base := t.TempDir()
+	home := filepath.Join(base, "home")
+	if err := os.MkdirAll(filepath.Join(home, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(home, filepath.Join(home, "sub", "q")); err != nil {
+		t.Fatal(err)
+	}
+	pTarget := filepath.Join(home, "sub", "q") + string(os.PathSeparator) + ".." + string(os.PathSeparator) + "escape"
+	if err := os.Symlink(pTarget, filepath.Join(home, "p")); err != nil {
+		t.Fatal(err)
+	}
+
+	fs := vfs.NewOsFs("conn", home, "", nil).(*vfs.OsFs)
+	// ResolvePath is lexical; the escape is blocked when the path is used.
+	r, err := fs.ResolvePath("/p")
+	if err != nil {
+		t.Fatalf("ResolvePath(/p) returned %v, want nil", err)
+	}
+	if f, _, _, oerr := fs.Create(r, 0, 0); oerr == nil {
+		if f != nil {
+			f.Close()
+		}
+		t.Errorf("ESCAPE: /p resolves outside the home but the create was allowed (resolved=%q)", r)
+	}
+	if _, serr := os.Stat(filepath.Join(base, "escape")); !os.IsNotExist(serr) {
+		t.Errorf("ESCAPE: a file was created outside the home")
+	}
+}
+
+func TestOsFsReadlinkSymlinkedHome(t *testing.T) {
+	base := t.TempDir()
+	realhome := filepath.Join(base, "realhome")
+	if err := os.MkdirAll(filepath.Join(realhome, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(realhome, filepath.Join(base, "homelink")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("sub/target", filepath.Join(realhome, "link")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("../escape", filepath.Join(realhome, "esc")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("..", filepath.Join(realhome, "sub", "q")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("sub/q/../escape", filepath.Join(realhome, "esc2")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(realhome, "sub", "target"), filepath.Join(realhome, "abs_in")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(base, "outside"), filepath.Join(realhome, "abs_out")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("b", filepath.Join(realhome, "a")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("c", filepath.Join(realhome, "b")); err != nil {
+		t.Fatal(err)
+	}
+	fs := vfs.NewOsFs("c", filepath.Join(base, "homelink"), "", nil).(*vfs.OsFs)
+	// close the root so the TempDir cleanup works on Windows too
+	defer fs.Close()
+
+	inRoot := map[string]string{
+		"link": "/sub/target",
+		"a":    "/b", // one-level (not /c)
+	}
+	for link, want := range inRoot {
+		if got, err := fs.Readlink(filepath.Join(base, "homelink", link)); err != nil || got != want {
+			t.Errorf("Readlink(%s) = %q, %v; want %q", link, got, err, want)
+		}
+	}
+	// targets that escape the root are rejected, matching what an access through
+	// the link would do: "esc2" escapes through an intermediate symlink and must
+	// not be collapsed away lexically, an absolute target is reinterpreted by
+	// os.Root and rejected too
+	for _, link := range []string{"esc", "esc2", "abs_in", "abs_out"} {
+		if _, err := fs.Readlink(filepath.Join(base, "homelink", link)); err == nil {
+			t.Errorf("Readlink(%s) did not reject an escaping target", link)
+		}
+	}
+}
+
+func TestOsFsRelativeToRootUNCNoLoop(t *testing.T) {
+	fs := vfs.NewOsFs("c", `\\host\share`, "", nil).(*vfs.OsFs)
+	if got := fs.GetRelativePath(`\\host\share\`); got != "/" {
+		t.Errorf("GetRelativePath(UNC root) = %q, want /", got)
+	}
+}
+
+func TestOsFsResolvePathSymlinkLoops(t *testing.T) {
+	base := t.TempDir()
+	home := filepath.Join(base, "home")
+	if err := os.MkdirAll(home, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	fs := vfs.NewOsFs("conn", home, "", nil).(*vfs.OsFs)
+	// close the root so the TempDir cleanup works on Windows too
+	defer fs.Close()
+
+	mustSymlink := func(target, link string) {
+		t.Helper()
+		if err := os.Symlink(target, filepath.Join(home, link)); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	mustSymlink("loop_b", "loop_a") // mutual loop, caught by EvalSymlinks (ELOOP)
+	mustSymlink("loop_a", "loop_b")
+	mustSymlink("self", "self") // self loop, caught by EvalSymlinks
+	// self-reference through a missing component: the resolver detects the
+	// nonexistent component and returns instead of looping
+	mustSymlink("missing/../dangling_self", "dangling_self")
+
+	for _, p := range []string{"/loop_a", "/loop_b", "/self", "/dangling_self"} {
+		_, err := fs.ResolvePath(p)
+		t.Logf("loop case %q terminated, err=%v", p, err)
+	}
+}
+
+func TestCheckAuthErrorAccountConfig(t *testing.T) {
+	oldConfig := common.Config
+	cfg := common.Config
+	cfg.DefenderConfig.Enabled = true
+	cfg.DefenderConfig.Driver = common.DefenderDriverMemory
+	cfg.DefenderConfig.Threshold = 100
+	cfg.DefenderConfig.ScoreInvalid = 2
+	cfg.DefenderConfig.ScoreValid = 2
+	err := common.Initialize(cfg, 0)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		err := common.Initialize(oldConfig, 0)
+		assert.NoError(t, err)
+	})
+
+	newAuthError := func(err error, username string) error {
+		return &authenticationError{
+			err:         err,
+			loginMethod: dataprovider.SSHLoginMethodPublicKey,
+			username:    username,
+		}
+	}
+	ip := "172.16.44.9"
+	checkAuthError(ip, &ssh.ServerAuthError{
+		Errors: []error{newAuthError(dataprovider.ErrPlaceholderUnset, "misconfigured")},
+	})
+	hosts, err := common.GetDefenderHosts()
+	assert.NoError(t, err)
+	assert.Empty(t, hosts)
+
+	checkAuthError(ip, &ssh.ServerAuthError{
+		Errors: []error{
+			newAuthError(dataprovider.ErrPlaceholderUnset, "misconfigured"),
+			newAuthError(dataprovider.ErrInvalidCredentials, "guessed"),
+		},
+	})
+	hosts, err = common.GetDefenderHosts()
+	assert.NoError(t, err)
+	assert.Len(t, hosts, 1, "the guess following the misconfiguration is scored")
+	common.DeleteDefenderHost(ip)
 }

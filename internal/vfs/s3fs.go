@@ -244,7 +244,7 @@ func (fs *S3Fs) Open(name string, offset int64) (File, PipeReader, func(), error
 		defer cancelFn()
 
 		err := fs.handleDownload(ctx, name, offset, w, attrs)
-		w.CloseWithError(err) //nolint:errcheck
+		w.CloseWithError(err)
 		fsLog(fs, logger.LevelDebug, "download completed, path: %q size: %d, err: %+v", name, w.GetWrittenBytes(), err)
 		metric.S3TransferCompleted(w.GetWrittenBytes(), 1, err)
 	}()
@@ -282,7 +282,7 @@ func (fs *S3Fs) Create(name string, flag, checks int) (File, PipeWriter, func(),
 			contentType = mime.TypeByExtension(path.Ext(name))
 		}
 		err := fs.handleUpload(ctx, r, name, contentType)
-		r.CloseWithError(err) //nolint:errcheck
+		r.CloseWithError(err)
 		p.Done(err)
 		fsLog(fs, logger.LevelDebug, "upload completed, path: %q, acl: %q, readed bytes: %d, err: %+v",
 			name, fs.config.ACL, r.GetReadedBytes(), err)
@@ -317,6 +317,20 @@ func (fs *S3Fs) Create(name string, flag, checks int) (File, PipeWriter, func(),
 
 // Rename renames (moves) source to target.
 func (fs *S3Fs) Rename(source, target string, checks int) (int, int64, error) {
+	return fs.renameChecked(source, target, checks, nil)
+}
+
+// CanCheckRenamedEntries implements the FsCheckedRenamer interface
+func (*S3Fs) CanCheckRenamedEntries() bool {
+	return true
+}
+
+// RenameChecked implements the FsCheckedRenamer interface
+func (fs *S3Fs) RenameChecked(source, target string, checks int, onEntry EntryCheckFn) (int, int64, error) {
+	return fs.renameChecked(source, target, checks, onEntry)
+}
+
+func (fs *S3Fs) renameChecked(source, target string, checks int, onEntry EntryCheckFn) (int, int64, error) {
 	if source == target {
 		return -1, -1, nil
 	}
@@ -330,7 +344,7 @@ func (fs *S3Fs) Rename(source, target string, checks int) (int, int64, error) {
 	if err != nil {
 		return -1, -1, err
 	}
-	return fs.renameInternal(source, target, fi, 0, checks&CheckUpdateModTime != 0)
+	return fs.renameInternal(source, target, fi, onEntry, 0, checks&CheckUpdateModTime != 0)
 }
 
 // Remove removes the named file or (empty) directory.
@@ -445,8 +459,7 @@ func (*S3Fs) IsNotExist(err error) bool {
 		return false
 	}
 
-	var re *awshttp.ResponseError
-	if errors.As(err, &re) {
+	if re, ok := errors.AsType[*awshttp.ResponseError](err); ok {
 		if re.Response != nil {
 			return re.Response.StatusCode == http.StatusNotFound
 		}
@@ -461,8 +474,7 @@ func (*S3Fs) IsPermission(err error) bool {
 		return false
 	}
 
-	var re *awshttp.ResponseError
-	if errors.As(err, &re) {
+	if re, ok := errors.AsType[*awshttp.ResponseError](err); ok {
 		if re.Response != nil {
 			return re.Response.StatusCode == http.StatusForbidden ||
 				re.Response.StatusCode == http.StatusUnauthorized
@@ -483,6 +495,8 @@ func (*S3Fs) IsNotSupported(err error) bool {
 func (fs *S3Fs) CheckRootPath(username string, uid int, gid int) bool {
 	// we need a local directory for temporary files
 	osFs := NewOsFs(fs.ConnectionID(), fs.localTempDir, "", nil)
+	defer osFs.Close()
+
 	return osFs.CheckRootPath(username, uid, gid)
 }
 
@@ -576,7 +590,7 @@ func (fs *S3Fs) Walk(root string, walkFn filepath.WalkFunc) error {
 		page, err := paginator.NextPage(ctx)
 		if err != nil {
 			metric.S3ListObjectsCompleted(err)
-			walkFn(root, NewFileInfo(root, true, 0, time.Unix(0, 0), false), err) //nolint:errcheck
+			_ = walkFn(root, NewFileInfo(root, true, 0, time.Unix(0, 0), false), err)
 			return err
 		}
 		for _, fileObject := range page.Contents {
@@ -594,7 +608,7 @@ func (fs *S3Fs) Walk(root string, walkFn filepath.WalkFunc) error {
 	}
 
 	metric.S3ListObjectsCompleted(nil)
-	walkFn(root, NewFileInfo(root, true, 0, time.Unix(0, 0), false), nil) //nolint:errcheck
+	_ = walkFn(root, NewFileInfo(root, true, 0, time.Unix(0, 0), false), nil)
 	return nil
 }
 
@@ -708,8 +722,8 @@ func (fs *S3Fs) copyFileInternal(source, target string, srcInfo os.FileInfo) err
 	return err
 }
 
-func (fs *S3Fs) renameInternal(source, target string, srcInfo os.FileInfo, recursion int,
-	updateModTime bool,
+func (fs *S3Fs) renameInternal(source, target string, srcInfo os.FileInfo,
+	onEntry EntryCheckFn, recursion int, updateModTime bool,
 ) (int, int64, error) {
 	var numFiles int
 	var filesSize int64
@@ -728,7 +742,7 @@ func (fs *S3Fs) renameInternal(source, target string, srcInfo os.FileInfo, recur
 			return numFiles, filesSize, err
 		}
 		if renameMode == 1 {
-			files, size, err := doRecursiveRename(fs, source, target, fs.renameInternal, recursion, updateModTime)
+			files, size, err := doRecursiveRename(fs, source, target, fs.renameInternal, onEntry, recursion, updateModTime)
 			numFiles += files
 			filesSize += size
 			if err != nil {
@@ -745,6 +759,10 @@ func (fs *S3Fs) renameInternal(source, target string, srcInfo os.FileInfo, recur
 	err := fs.Remove(source, srcInfo.IsDir())
 	if fs.IsNotExist(err) {
 		err = nil
+	}
+	if err != nil && !srcInfo.IsDir() {
+		numFiles--
+		filesSize -= srcInfo.Size()
 	}
 	return numFiles, filesSize, err
 }

@@ -19,6 +19,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -392,6 +393,8 @@ func TestGetRespStatus(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, respStatus)
 	respStatus = getRespStatus(plugin.ErrNoSearcher)
 	assert.Equal(t, http.StatusNotImplemented, respStatus)
+	respStatus = getRespStatus(dataprovider.ErrConcurrentUpdate)
+	assert.Equal(t, http.StatusConflict, respStatus)
 }
 
 func TestMappedStatusCode(t *testing.T) {
@@ -447,10 +450,6 @@ func TestTokenDuration(t *testing.T) {
 	assert.Equal(t, 11*time.Hour, cookieTokenDuration)
 	assert.Equal(t, 11*time.Hour, csrfTokenDuration)
 	assert.Equal(t, 6*time.Hour, shareTokenDuration)
-	assert.Equal(t, 11*time.Hour, getMaxCookieDuration())
-
-	csrfTokenDuration = 1 * time.Hour
-	assert.Equal(t, 11*time.Hour, getMaxCookieDuration())
 }
 
 func TestVerifyCSRFToken(t *testing.T) {
@@ -1079,7 +1078,7 @@ func TestTokenSignatureValidation(t *testing.T) {
 	assert.NoError(t, err)
 
 	defer func() {
-		dataprovider.DeleteUser(defeaultUsername, "", "", "") //nolint:errcheck
+		dataprovider.DeleteUser(defeaultUsername, "", "", "")
 	}()
 
 	tokenValidationMode = 2
@@ -1088,7 +1087,7 @@ func TestTokenSignatureValidation(t *testing.T) {
 	rr = httptest.NewRecorder()
 	testServer.Config.Handler.ServeHTTP(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	loginCookie := strings.Split(rr.Header().Get("Set-Cookie"), ";")[0]
+	loginCookie, _, _ := strings.Cut(rr.Header().Get("Set-Cookie"), ";")
 	assert.NotEmpty(t, loginCookie)
 	csrfToken, err := getCSRFTokenFromBody(rr.Body)
 	assert.NoError(t, err)
@@ -1105,7 +1104,7 @@ func TestTokenSignatureValidation(t *testing.T) {
 	rr = httptest.NewRecorder()
 	testServer.Config.Handler.ServeHTTP(rr, req)
 	assert.Equal(t, http.StatusFound, rr.Code)
-	userCookie := strings.Split(rr.Header().Get("Set-Cookie"), ";")[0]
+	userCookie, _, _ := strings.Cut(rr.Header().Get("Set-Cookie"), ";")
 	assert.NotEmpty(t, userCookie)
 	// Test a WebClient page and a JSON API
 	rr = httptest.NewRecorder()
@@ -1254,12 +1253,55 @@ func TestOAuth2Redirect(t *testing.T) {
 	ip := "127.1.1.4"
 	tokenString := createOAuth2Token(server.csrfTokenAuth, xid.New().String(), ip)
 	rr = httptest.NewRecorder()
-	req, err = http.NewRequest(http.MethodGet, webOAuth2RedirectPath+"?state="+tokenString, nil) //nolint:goconst
+	req, err = http.NewRequest(http.MethodGet, webOAuth2RedirectPath+"?state="+tokenString, nil)
 	assert.NoError(t, err)
 	req.RemoteAddr = ip
 	server.handleOAuth2TokenRedirect(rr, req)
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), util.I18nOAuth2ErrorValidateState)
+}
+
+func TestOAuth2RedirectBoundToBrowser(t *testing.T) {
+	server := httpdServer{}
+	err := server.initializeRouter()
+	require.NoError(t, err)
+	if oauth2Mgr == nil {
+		oauth2Mgr = newOAuth2Manager(0)
+	}
+
+	ip := "127.1.1.5"
+	pendingAuth := newOAuth2PendingAuth(0, "http://127.0.0.1/web/oauth2/redirect", "clientID",
+		kms.NewPlainSecret("secret"))
+	pendingAuth.Browser = util.GenerateOpaqueString()
+	oauth2Mgr.addPendingAuth(pendingAuth)
+	tokenString := createOAuth2Token(server.csrfTokenAuth, pendingAuth.State, ip)
+	require.NotEmpty(t, tokenString)
+
+	for _, cookie := range []*http.Cookie{
+		nil,
+		{Name: oauth2BrowserCookieKey, Value: util.GenerateOpaqueString()},
+	} {
+		rr := httptest.NewRecorder()
+		req, err := http.NewRequest(http.MethodGet, webOAuth2RedirectPath+"?state="+tokenString, nil)
+		assert.NoError(t, err)
+		req.RemoteAddr = ip
+		if cookie != nil {
+			req.AddCookie(cookie)
+		}
+		server.handleOAuth2TokenRedirect(rr, req)
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+		assert.Contains(t, rr.Body.String(), util.I18nOAuth2InvalidState)
+		// the refused attempts must not discard the request
+		_, err = oauth2Mgr.getPendingAuth(pendingAuth.State)
+		assert.NoError(t, err)
+	}
+
+	req, err := http.NewRequest(http.MethodGet, webOAuth2RedirectPath+"?state="+tokenString, nil)
+	assert.NoError(t, err)
+	req.AddCookie(&http.Cookie{Name: oauth2BrowserCookieKey, Value: pendingAuth.Browser})
+	assert.True(t, checkAuthBrowserID(req, oauth2BrowserCookieKey, pendingAuth.Browser))
+
+	oauth2Mgr.removePendingAuth(pendingAuth.State)
 }
 
 func TestOAuth2Token(t *testing.T) {
@@ -1764,7 +1806,6 @@ func TestJWTTokenValidation(t *testing.T) {
 	claims := &jwt.Claims{
 		Username: defaultAdminUsername,
 	}
-	claims.SetExpiry(time.Now().UTC().Add(-1 * time.Hour))
 	_, err = tokenAuth.SignWithParams(claims, tokenAudienceWebAdmin, "", getTokenDuration(tokenAudienceWebAdmin))
 	require.NoError(t, err)
 
@@ -1788,14 +1829,6 @@ func TestJWTTokenValidation(t *testing.T) {
 	fn.ServeHTTP(rr, req.WithContext(ctx))
 	assert.Equal(t, http.StatusUnauthorized, rr.Code)
 
-	fn = jwtAuthenticatorWebAdmin(r)
-	rr = httptest.NewRecorder()
-	req, _ = http.NewRequest(http.MethodGet, webUserPath, nil)
-	ctx = jwt.NewContext(req.Context(), claims, nil)
-	fn.ServeHTTP(rr, req.WithContext(ctx))
-	assert.Equal(t, http.StatusFound, rr.Code)
-	assert.Equal(t, webAdminLoginPath, rr.Header().Get("Location"))
-
 	fn = jwtAuthenticatorWebClient(r)
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest(http.MethodGet, webClientFilesPath, nil)
@@ -1803,6 +1836,24 @@ func TestJWTTokenValidation(t *testing.T) {
 	fn.ServeHTTP(rr, req.WithContext(ctx))
 	assert.Equal(t, http.StatusFound, rr.Code)
 	assert.Equal(t, webClientLoginPath, rr.Header().Get("Location"))
+
+	okHandler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	fn = jwtAuthenticatorWebAdmin(okHandler)
+	rr = httptest.NewRecorder()
+	req, _ = http.NewRequest(http.MethodGet, webUserPath, nil)
+	ctx = jwt.NewContext(req.Context(), claims, nil)
+	fn.ServeHTTP(rr, req.WithContext(ctx))
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	require.NoError(t, invalidatedJWTTokens.Add(claims.ID, time.Now().Add(getTokenDuration(tokenAudienceWebAdmin)).UTC()))
+	rr = httptest.NewRecorder()
+	req, _ = http.NewRequest(http.MethodGet, webUserPath, nil)
+	ctx = jwt.NewContext(req.Context(), claims, nil)
+	fn.ServeHTTP(rr, req.WithContext(ctx))
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webAdminLoginPath, rr.Header().Get("Location"))
 
 	errTest := errors.New("test error")
 	permFn := server.checkPerms(dataprovider.PermAdminAny)
@@ -2184,7 +2235,7 @@ func TestQuotaScanInvalidFs(t *testing.T) {
 }
 
 func TestVerifyTLSConnection(t *testing.T) {
-	oldCertMgr := certMgr
+	oldCertMgr := certMgr.Load()
 
 	caCrlPath := filepath.Join(os.TempDir(), "testcrl.crt")
 	certPath := filepath.Join(os.TempDir(), "testh.crt")
@@ -2203,11 +2254,12 @@ func TestVerifyTLSConnection(t *testing.T) {
 			ID:   common.DefaultTLSKeyPaidID,
 		},
 	}
-	certMgr, err = common.NewCertManager(keyPairs, "", "httpd_test")
+	mgr, err := common.NewCertManager(keyPairs, "", "httpd_test")
 	assert.NoError(t, err)
+	certMgr.Store(mgr)
 
-	certMgr.SetCARevocationLists([]string{caCrlPath})
-	err = certMgr.LoadCRLs()
+	certMgr.Load().SetCARevocationLists([]string{caCrlPath})
+	err = certMgr.Load().LoadCRLs()
 	assert.NoError(t, err)
 
 	crt, err := tls.X509KeyPair([]byte(client1Crt), []byte(client1Key))
@@ -2250,7 +2302,7 @@ func TestVerifyTLSConnection(t *testing.T) {
 	err = os.Remove(keyPath)
 	assert.NoError(t, err)
 
-	certMgr = oldCertMgr
+	certMgr.Store(oldCertMgr)
 }
 
 func TestGetFolderFromTemplate(t *testing.T) {
@@ -2357,24 +2409,45 @@ func TestJWTTokenCleanup(t *testing.T) {
 	claims.Permissions = admin.Permissions
 	claims.Subject = admin.GetSignature()
 	claims.SetExpiry(time.Now().Add(1 * time.Minute))
-	token, err := server.tokenAuth.Sign(claims)
+	_, err = server.tokenAuth.Sign(claims)
 	assert.NoError(t, err)
 
 	req, _ := http.NewRequest(http.MethodGet, versionPath, nil)
 	assert.True(t, isTokenInvalidated(req))
 
-	fakeToken := "abc"
-	invalidateTokenString(req, fakeToken, -100*time.Millisecond)
-	assert.True(t, invalidatedJWTTokens.Get(fakeToken))
+	// claims without an identifier are fail closed
+	req = req.WithContext(jwt.NewContext(req.Context(), &jwt.Claims{Username: admin.Username}, nil))
+	assert.True(t, isTokenInvalidated(req))
 
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	req = req.WithContext(jwt.NewContext(req.Context(), claims, nil))
+	assert.False(t, isTokenInvalidated(req))
 
-	invalidatedJWTTokens.Add(token, time.Now().Add(-getTokenDuration(tokenAudienceWebAdmin)).UTC())
+	require.NoError(t, invalidatedJWTTokens.Add(claims.ID, time.Now().Add(-getTokenDuration(tokenAudienceWebAdmin)).UTC()))
 	require.True(t, isTokenInvalidated(req))
 	startCleanupTicker(100 * time.Millisecond)
 	assert.Eventually(t, func() bool { return !isTokenInvalidated(req) }, 1*time.Second, 200*time.Millisecond)
-	assert.False(t, invalidatedJWTTokens.Get(fakeToken))
 	stopCleanupTicker()
+}
+
+func TestInvalidateTokenErrors(t *testing.T) {
+	req, _ := http.NewRequest(http.MethodGet, versionPath, nil)
+	// there is no verified token to invalidate
+	assert.Error(t, invalidateToken(req))
+
+	// a verified token without an identifier cannot be added to the store
+	req = req.WithContext(jwt.NewContext(req.Context(), &jwt.Claims{Username: defaultAdminUsername}, nil))
+	assert.ErrorIs(t, invalidateToken(req), errInvalidToken)
+
+	claims := jwt.NewClaims(tokenAudienceAPI, "", getTokenDuration(tokenAudienceAPI))
+	claims.Username = defaultAdminUsername
+	claims.SetExpiry(time.Now().Add(1 * time.Minute))
+	tokenAuth, err := jwt.NewSigner(jose.HS256, util.GenerateRandomBytes(32))
+	require.NoError(t, err)
+	_, err = tokenAuth.Sign(claims)
+	require.NoError(t, err)
+	req = req.WithContext(jwt.NewContext(req.Context(), claims, nil))
+	assert.NoError(t, invalidateToken(req))
+	assert.True(t, isTokenInvalidated(req))
 }
 
 func TestDbTokenManager(t *testing.T) {
@@ -2383,23 +2456,125 @@ func TestDbTokenManager(t *testing.T) {
 	}
 	mgr := newTokenManager(1)
 	dbTokenManager := mgr.(*dbTokenManager)
-	testToken := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsiV2ViQWRtaW4iLCI6OjEiXSwiZXhwIjoxNjk4NjYwMDM4LCJqdGkiOiJja3ZuazVrYjF1aHUzZXRmZmhyZyIsIm5iZiI6MTY5ODY1ODgwOCwicGVybWlzc2lvbnMiOlsiKiJdLCJzdWIiOiIxNjk3ODIwNDM3NTMyIiwidXNlcm5hbWUiOiJhZG1pbiJ9.LXuFFksvnSuzHqHat6r70yR0jEulNRju7m7SaWrOfy8; csrftoken=mP0C7DqjwpAXsptO2gGCaYBkYw3oNMWB"
-	key := dbTokenManager.getKey(testToken)
-	require.Len(t, key, 64)
-	dbTokenManager.Add(testToken, time.Now().Add(-getTokenDuration(tokenAudienceWebClient)).UTC())
-	isInvalidated := dbTokenManager.Get(testToken)
+	tokenAuth, err := jwt.NewSigner(jose.HS256, util.GenerateRandomBytes(32))
+	require.NoError(t, err)
+	claims := jwt.NewClaims(tokenAudienceWebAdmin, "", getTokenDuration(tokenAudienceWebAdmin))
+	claims.Username = "admin"
+	claims.SetExpiry(time.Now().Add(1 * time.Minute))
+	_, err = tokenAuth.Sign(claims)
+	require.NoError(t, err)
+	require.NotEmpty(t, claims.ID)
+	require.NoError(t, dbTokenManager.Add(claims.ID, time.Now().Add(-getTokenDuration(tokenAudienceWebClient)).UTC()))
+	isInvalidated := dbTokenManager.Get(claims.ID)
 	assert.True(t, isInvalidated)
 	dbTokenManager.Cleanup()
-	isInvalidated = dbTokenManager.Get(testToken)
+	isInvalidated = dbTokenManager.Get(claims.ID)
 	assert.False(t, isInvalidated)
-	dbTokenManager.Add(testToken, time.Now().Add(getTokenDuration(tokenAudienceWebAdmin)).UTC())
-	isInvalidated = dbTokenManager.Get(testToken)
+	require.NoError(t, dbTokenManager.Add(claims.ID, time.Now().Add(getTokenDuration(tokenAudienceWebAdmin)).UTC()))
+	isInvalidated = dbTokenManager.Get(claims.ID)
 	assert.True(t, isInvalidated)
 	dbTokenManager.Cleanup()
-	isInvalidated = dbTokenManager.Get(testToken)
+	isInvalidated = dbTokenManager.Get(claims.ID)
 	assert.True(t, isInvalidated)
-	err := dataprovider.DeleteSharedSession(key, dataprovider.SessionTypeInvalidToken)
+
+	// a provider error is reported by Add and is fail closed on Get: any token
+	// reads as invalidated
+	providerConf := dataprovider.GetProviderConfig()
+	err = dataprovider.Close()
 	assert.NoError(t, err)
+	assert.Error(t, dbTokenManager.Add(claims.ID, time.Now().Add(1*time.Minute).UTC()))
+	assert.True(t, dbTokenManager.Get(claims.ID))
+	assert.True(t, dbTokenManager.Get("unknown-token-id"))
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+	assert.True(t, dbTokenManager.Get(claims.ID))
+	assert.False(t, dbTokenManager.Get("unknown-token-id"))
+
+	err = dataprovider.DeleteSharedSession(claims.ID, dataprovider.SessionTypeInvalidToken)
+	assert.NoError(t, err)
+}
+
+func TestTokenInvalidationIgnoresEncoding(t *testing.T) {
+	tokenAuth, err := jwt.NewSigner(jose.HS256, util.GenerateRandomBytes(32))
+	require.NoError(t, err)
+	claims := jwt.NewClaims(tokenAudienceWebAdmin, "", getTokenDuration(tokenAudienceWebAdmin))
+	claims.SetExpiry(time.Now().Add(1 * time.Minute))
+	token, err := tokenAuth.Sign(claims)
+	require.NoError(t, err)
+
+	// respell the signature: only the unused trailing bits of the final
+	// character differ, so it decodes to the same bytes
+	parts := strings.Split(token, ".")
+	require.Len(t, parts, 3)
+	sig := parts[2]
+	decoded, err := base64.RawURLEncoding.DecodeString(sig)
+	require.NoError(t, err)
+	const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+	respelled := ""
+	for i := range len(alphabet) {
+		c := alphabet[i]
+		if c == sig[len(sig)-1] {
+			continue
+		}
+		candidate := sig[:len(sig)-1] + string(c)
+		if alt, err := base64.RawURLEncoding.DecodeString(candidate); err == nil && bytes.Equal(alt, decoded) {
+			respelled = parts[0] + "." + parts[1] + "." + candidate
+			break
+		}
+	}
+	require.NotEmpty(t, respelled)
+	require.NotEqual(t, token, respelled)
+
+	// the re-encoded spelling verifies to the same identifier
+	verified, err := jwt.VerifyToken(tokenAuth, respelled)
+	require.NoError(t, err)
+	assert.Equal(t, claims.ID, verified.ID)
+
+	req, _ := http.NewRequest(http.MethodGet, versionPath, nil)
+	req = req.WithContext(jwt.NewContext(req.Context(), verified, nil))
+	assert.False(t, isTokenInvalidated(req))
+	require.NoError(t, invalidatedJWTTokens.Add(claims.ID, time.Now().Add(1*time.Minute).UTC()))
+	assert.True(t, isTokenInvalidated(req))
+}
+
+func TestShareTokenSignatureValidation(t *testing.T) {
+	oldMode := tokenValidationMode
+	defer func() { tokenValidationMode = oldMode }()
+
+	tokenAuth, err := jwt.NewSigner(jose.HS256, util.GenerateRandomBytes(32))
+	require.NoError(t, err)
+	server := httpdServer{tokenAuth: tokenAuth}
+
+	share := dataprovider.Share{ShareID: "testshareid", Username: "u", UpdatedAt: 12345}
+	ipAddr := "127.0.0.1"
+	c := &jwt.Claims{Username: share.ShareID}
+	c.Subject = share.GetSignature()
+	token, err := tokenAuth.SignWithParams(c, tokenAudienceWebShare, ipAddr, time.Minute)
+	require.NoError(t, err)
+
+	buildReq := func() *http.Request {
+		req, _ := http.NewRequest(http.MethodGet, "/", nil)
+		req.RemoteAddr = ipAddr + ":1234"
+		req.Header.Set("Cookie", fmt.Sprintf("%s=%s", jwt.CookieKey, token))
+		return req
+	}
+
+	tokenValidationMode = tokenValidationModeDefault
+	err = server.checkWebClientShareCredentials(httptest.NewRecorder(), buildReq(), &share)
+	require.NoError(t, err)
+
+	tokenValidationMode = tokenValidationModeUserSignature
+	err = server.checkWebClientShareCredentials(httptest.NewRecorder(), buildReq(), &share)
+	require.NoError(t, err)
+
+	updated := share
+	updated.UpdatedAt = 99999
+	err = server.checkWebClientShareCredentials(httptest.NewRecorder(), buildReq(), &updated)
+	require.ErrorIs(t, err, errInvalidToken)
+
+	tokenValidationMode = tokenValidationModeDefault
+	err = server.checkWebClientShareCredentials(httptest.NewRecorder(), buildReq(), &updated)
+	require.NoError(t, err)
 }
 
 func TestDatabaseSharedSessions(t *testing.T) {
@@ -2707,7 +2882,7 @@ func TestStreamJSONArray(t *testing.T) {
 	assert.Equal(t, `[]`, rr.Body.String())
 
 	data := []int{}
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		data = append(data, i)
 	}
 
@@ -4161,6 +4336,39 @@ func TestUserQuotaUsage(t *testing.T) {
 	assert.True(t, usage.IsTransferQuotaLow())
 }
 
+func TestSafeRedirectTarget(t *testing.T) {
+	base := webClientFilesPath
+	testCases := []struct {
+		name   string
+		next   string
+		want   string
+		wantOK bool
+	}{
+		{"files root", webClientFilesPath, webClientFilesPath, true},
+		{"subpath with query", webClientFilesPath + "/sub?path=/x", webClientFilesPath + "/sub?path=/x", true},
+		{"trailing slash normalized", webClientFilesPath + "/", webClientFilesPath, true},
+		{"dot segments normalized", "/.//web/client/files", webClientFilesPath, true},
+		{"literal traversal", webClientFilesPath + "/../web/admin", "", false},
+		{"encoded traversal", webClientFilesPath + "/%2e%2e/web/admin", "", false},
+		{"encoded slash traversal", webClientFilesPath + "%2f..%2f..%2fweb/admin", "", false},
+		{"off-origin host", "//evil.com" + webClientFilesPath, "", false},
+		{"absolute url", "http://evil.com" + webClientFilesPath, "", false},
+		{"scheme without authority", "https:" + webClientFilesPath, "", false},
+		{"backslash traversal", webClientFilesPath + `\..\..\evil`, "", false},
+		{"leading-space authority", " //evil.com", "", false},
+		{"control character", "\t//evil.com", "", false},
+		{"different prefix", webAdminLoginPath, "", false},
+		{"too long", webClientFilesPath + "/" + strings.Repeat("a", maxWebClientNextLength), "", false},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, ok := safeRedirectTarget(tc.next, base)
+			assert.Equal(t, tc.wantOK, ok)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
 func TestShareRedirectURL(t *testing.T) {
 	shareID := util.GenerateUniqueID()
 	base := path.Join(webClientPubSharesPath, shareID)
@@ -4500,4 +4708,104 @@ func TestEventsCSVFormulaInjection(t *testing.T) {
 	for _, c := range benign {
 		assert.False(t, strings.HasPrefix(c, "'"), "benign cell must not be modified: %q", c)
 	}
+}
+
+// fakeDirLister returns the configured batches in order, the last one with
+// io.EOF, and keeps reporting io.EOF once exhausted, as every DirLister
+// implementation does. The limit is ignored, batches are returned as
+// configured.
+type fakeDirLister struct {
+	batches [][]string
+	err     error
+	calls   int
+}
+
+func (l *fakeDirLister) Next(_ int) ([]os.FileInfo, error) {
+	l.calls++
+	if l.err != nil {
+		return nil, l.err
+	}
+	if len(l.batches) == 0 {
+		return nil, io.EOF
+	}
+	names := l.batches[0]
+	l.batches = l.batches[1:]
+	entries := make([]os.FileInfo, 0, len(names))
+	for _, name := range names {
+		entries = append(entries, vfs.NewFileInfo(name, false, 1, time.Unix(0, 0), true))
+	}
+	if len(l.batches) == 0 {
+		return entries, io.EOF
+	}
+	return entries, nil
+}
+
+func (*fakeDirLister) Close() error {
+	return nil
+}
+
+func keepNamed(wanted ...string) func(os.FileInfo) bool {
+	return func(info os.FileInfo) bool {
+		for _, name := range wanted {
+			if info.Name() == name {
+				return true
+			}
+		}
+		return false
+	}
+}
+
+func entryNames(entries []os.FileInfo) []string {
+	result := make([]string, 0, len(entries))
+	for idx := range entries {
+		result = append(result, entries[idx].Name())
+	}
+	return result
+}
+
+func TestNextRenderableEntries(t *testing.T) {
+	// a batch holding no wanted entry must not be reported as the end of the
+	// listing: the wanted name can be in any later batch
+	lister := &fakeDirLister{batches: [][]string{{"a", "b"}, {"c", "d"}, {"target", "e"}}}
+	entries, finished, err := nextRenderableEntries(lister, 2, keepNamed("target"))
+	require.NoError(t, err)
+	assert.True(t, finished)
+	assert.Equal(t, []string{"target"}, entryNames(entries))
+	assert.Equal(t, 3, lister.calls)
+
+	// a match in an intermediate batch is returned without draining the rest
+	lister = &fakeDirLister{batches: [][]string{{"a"}, {"target"}, {"z"}}}
+	entries, finished, err = nextRenderableEntries(lister, 1, keepNamed("target"))
+	require.NoError(t, err)
+	assert.False(t, finished)
+	assert.Equal(t, []string{"target"}, entryNames(entries))
+	assert.Equal(t, 2, lister.calls)
+
+	// nothing matches anywhere: the loop ends on io.EOF, it does not spin
+	lister = &fakeDirLister{batches: [][]string{{"a"}, {"b"}, {"c"}}}
+	entries, finished, err = nextRenderableEntries(lister, 1, keepNamed("target"))
+	require.NoError(t, err)
+	assert.True(t, finished)
+	assert.Empty(t, entries)
+	assert.Equal(t, 3, lister.calls)
+
+	// an exhausted lister keeps reporting the end, so asking again terminates
+	// too instead of spinning
+	entries, finished, err = nextRenderableEntries(lister, 1, keepNamed("target"))
+	require.NoError(t, err)
+	assert.True(t, finished)
+	assert.Empty(t, entries)
+
+	// a listing error is reported
+	lister = &fakeDirLister{err: errors.New("listing failed")}
+	_, _, err = nextRenderableEntries(lister, 1, keepNamed("target"))
+	require.ErrorContains(t, err, "listing failed")
+	assert.Equal(t, 1, lister.calls)
+
+	// an empty listing
+	lister = &fakeDirLister{}
+	entries, finished, err = nextRenderableEntries(lister, 1, keepNamed("target"))
+	require.NoError(t, err)
+	assert.True(t, finished)
+	assert.Empty(t, entries)
 }

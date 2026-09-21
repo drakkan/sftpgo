@@ -66,10 +66,10 @@ Source: "{#MyAppDir}\openapi\*"; DestDir: "{commonappdata}\{#MyAppName}\openapi"
 Source: "README.txt"; DestDir: "{app}"; Flags: ignoreversion isreadme
 
 [Dirs]
-Name: "{commonappdata}\{#MyAppName}\logs"; Permissions: everyone-full
-Name: "{commonappdata}\{#MyAppName}\backups"; Permissions: everyone-full
-Name: "{commonappdata}\{#MyAppName}\env.d"; Permissions: everyone-full
-Name: "{commonappdata}\{#MyAppName}\certs"; Permissions: everyone-full
+Name: "{commonappdata}\{#MyAppName}\logs"
+Name: "{commonappdata}\{#MyAppName}\backups"
+Name: "{commonappdata}\{#MyAppName}\env.d"
+Name: "{commonappdata}\{#MyAppName}\certs"
 
 [Icons]
 Name: "{group}\Web Admin"; Filename: "http://localhost:8080/web/admin";
@@ -84,6 +84,7 @@ Filename: "netsh"; Parameters: "advfirewall firewall delete rule name=""SFTPGo S
 Filename: "netsh"; Parameters: "advfirewall firewall add rule name=""SFTPGo Service"" dir=in action=allow program=""{app}\{#MyAppExeName}"""; Flags: runhidden
 Filename: "{app}\{#MyAppExeName}"; Parameters: "service stop"; Flags: runhidden
 Filename: "{app}\{#MyAppExeName}"; Parameters: "service uninstall"; Flags: runhidden
+Filename: "{sys}\icacls.exe"; Parameters: """{commonappdata}\{#MyAppName}"" /inheritance:r /grant:r ""*S-1-5-18:(OI)(CI)F"" ""*S-1-5-32-544:(OI)(CI)F"""; Flags: runhidden; Check: IsFirstInstallCheck
 Filename: "{app}\{#MyAppExeName}"; Parameters: "service install -c ""{commonappdata}\{#MyAppName}"" -l ""logs\sftpgo.log"""; Description: "Install SFTPGo Windows Service"; Flags: runhidden
 Filename: "{app}\{#MyAppExeName}"; Parameters: "service start";  Description: "Start SFTPGo Windows Service"; Flags: runhidden
 
@@ -97,12 +98,24 @@ FinishedLabel=Setup has finished installing SFTPGo on your computer. SFTPGo shou
 
 [Code]
 
+var
+  IsUpdate: Boolean;
+
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
   Code: Integer;
 begin
-  if (FileExists(ExpandConstant('{app}\{#MyAppExeName}'))) then
+  IsUpdate := FileExists(ExpandConstant('{app}\{#MyAppExeName}'));
+
+  if IsUpdate then
   begin
     Exec(ExpandConstant('{app}\{#MyAppExeName}'), 'service stop', '', SW_HIDE, ewWaitUntilTerminated, Code);
-  end
+  end;
+
+  Result := '';
+end;
+
+function IsFirstInstallCheck(): Boolean;
+begin
+  Result := not IsUpdate;
 end;

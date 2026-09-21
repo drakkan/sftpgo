@@ -36,7 +36,7 @@ import (
 )
 
 const (
-	sqlDatabaseVersion     = 34
+	sqlDatabaseVersion     = 36
 	defaultSQLQueryTimeout = 10 * time.Second
 	longSQLQueryTimeout    = 60 * time.Second
 )
@@ -86,6 +86,14 @@ func sqlReplaceAll(sql string) string {
 	sql = strings.ReplaceAll(sql, "{{configs}}", sqlTableConfigs)
 	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
 	return sql
+}
+
+func sqlReplaceAllList(statements []string) []string {
+	result := make([]string, 0, len(statements))
+	for _, q := range statements {
+		result = append(result, sqlReplaceAll(q))
+	}
+	return result
 }
 
 func sqlCommonGetShareByID(shareID, username string, dbHandle sqlQuerier) (Share, error) {
@@ -455,7 +463,8 @@ func sqlCommonAddAdmin(admin *Admin, dbHandle *sql.DB) error {
 	})
 }
 
-func sqlCommonUpdateAdmin(admin *Admin, dbHandle *sql.DB) error {
+func sqlCommonUpdateAdmin(admin *Admin, expectedUpdatedAt int64, dbHandle *sql.DB) error {
+	readUpdatedAt := admin.UpdatedAt
 	err := admin.validate()
 	if err != nil {
 		return err
@@ -475,13 +484,25 @@ func sqlCommonUpdateAdmin(admin *Admin, dbHandle *sql.DB) error {
 	defer cancel()
 
 	return sqlCommonExecuteTx(ctx, dbHandle, func(tx *sql.Tx) error {
-		q := getUpdateAdminQuery(admin.Role)
-		_, err = tx.ExecContext(ctx, q, admin.Password, admin.Status, admin.Email, perms, filters,
-			admin.AdditionalInfo, admin.Description, util.GetTimeAsMsSinceEpoch(time.Now()), admin.Role, admin.Username)
+		q := getUpdateAdminQuery(admin.Role, expectedUpdatedAt >= 0)
+		now := util.GetTimeAsMsSinceEpoch(time.Now())
+		args := []any{admin.Password, admin.Status, admin.Email, perms, filters,
+			admin.AdditionalInfo, admin.Description, now, now, admin.Role, admin.Username}
+		if expectedUpdatedAt >= 0 {
+			args = append(args, expectedUpdatedAt)
+		}
+		res, err := tx.ExecContext(ctx, q, args...)
 		if err != nil {
 			return err
 		}
-		return generateAdminGroupMapping(ctx, admin, tx)
+		if err := sqlCommonRequireGuardedRowAffected(res, expectedUpdatedAt); err != nil {
+			return err
+		}
+		if err := generateAdminGroupMapping(ctx, admin, tx); err != nil {
+			return err
+		}
+		admin.UpdatedAt = max(now, readUpdatedAt+1)
+		return nil
 	})
 }
 
@@ -564,9 +585,8 @@ func sqlCommonDumpIPListEntries(dbHandle *sql.DB) ([]IPListEntry, error) {
 	if err != nil {
 		return nil, err
 	}
-	if count > ipListMemoryLimit {
-		providerLog(logger.LevelInfo, "IP lists excluded from dump, too many entries: %d", count)
-		return nil, nil
+	if count > ipListDumpLimit {
+		return nil, errTooManyIPListEntries(count)
 	}
 	entries := make([]IPListEntry, 0, 100)
 	ctx, cancel := context.WithTimeout(context.Background(), longSQLQueryTimeout)
@@ -1461,7 +1481,8 @@ func sqlCommonUpdateUserPassword(username, password string, dbHandle *sql.DB) er
 	return sqlCommonRequireRowAffected(res)
 }
 
-func sqlCommonUpdateUser(user *User, dbHandle *sql.DB) error {
+func sqlCommonUpdateUser(user *User, expectedUpdatedAt int64, dbHandle *sql.DB) error {
+	readUpdatedAt := user.UpdatedAt
 	err := ValidateUser(user)
 	if err != nil {
 		return err
@@ -1487,22 +1508,31 @@ func sqlCommonUpdateUser(user *User, dbHandle *sql.DB) error {
 	defer cancel()
 
 	return sqlCommonExecuteTx(ctx, dbHandle, func(tx *sql.Tx) error {
-		q := getUpdateUserQuery(user.Role)
-		res, err := tx.ExecContext(ctx, q, user.Password, publicKeys, user.HomeDir, user.UID, user.GID, user.MaxSessions,
+		q := getUpdateUserQuery(user.Role, expectedUpdatedAt >= 0)
+		now := util.GetTimeAsMsSinceEpoch(time.Now())
+		args := []any{user.Password, publicKeys, user.HomeDir, user.UID, user.GID, user.MaxSessions,
 			user.QuotaSize, user.QuotaFiles, permissions, user.UploadBandwidth, user.DownloadBandwidth, user.Status,
 			user.ExpirationDate, filters, fsConfig, user.AdditionalInfo, user.Description, user.Email,
-			util.GetTimeAsMsSinceEpoch(time.Now()), user.UploadDataTransfer, user.DownloadDataTransfer, user.TotalDataTransfer,
-			user.Role, user.LastPasswordChange, user.Username)
+			now, now, user.UploadDataTransfer, user.DownloadDataTransfer, user.TotalDataTransfer,
+			user.Role, user.LastPasswordChange, user.Username}
+		if expectedUpdatedAt >= 0 {
+			args = append(args, expectedUpdatedAt)
+		}
+		res, err := tx.ExecContext(ctx, q, args...)
 		if err != nil {
 			return err
 		}
-		if err := sqlCommonRequireRowAffected(res); err != nil {
+		if err := sqlCommonRequireGuardedRowAffected(res, expectedUpdatedAt); err != nil {
 			return err
 		}
 		if err := generateUserVirtualFoldersMapping(ctx, user, tx); err != nil {
 			return err
 		}
-		return generateUserGroupMapping(ctx, user, tx)
+		if err := generateUserGroupMapping(ctx, user, tx); err != nil {
+			return err
+		}
+		user.UpdatedAt = max(now, readUpdatedAt+1)
+		return nil
 	})
 }
 
@@ -1625,10 +1655,7 @@ func sqlCommonGetRecentlyUpdatedUsers(after int64, dbHandle sqlQuerier) ([]User,
 }
 
 func sqlGetMaxUsersForQuotaCheckRange() int {
-	maxUsers := 50
-	if maxUsers > len(sqlPlaceholders) {
-		maxUsers = len(sqlPlaceholders)
-	}
+	maxUsers := min(50, len(sqlPlaceholders))
 	return maxUsers
 }
 
@@ -2543,7 +2570,8 @@ func sqlCommonClearUserGroupMapping(ctx context.Context, user *User, dbHandle sq
 
 func sqlCommonAddUserFolderMapping(ctx context.Context, user *User, folder *vfs.VirtualFolder, sortOrder int, dbHandle sqlQuerier) error {
 	q := getAddUserFolderMappingQuery()
-	_, err := dbHandle.ExecContext(ctx, q, folder.VirtualPath, folder.QuotaSize, folder.QuotaFiles, folder.Name, user.Username, sortOrder)
+	_, err := dbHandle.ExecContext(ctx, q, folder.VirtualPath, folder.QuotaSize, folder.QuotaFiles, folder.Subpath,
+		folder.Name, user.Username, sortOrder)
 	return err
 }
 
@@ -2557,7 +2585,8 @@ func sqlCommonAddGroupFolderMapping(ctx context.Context, group *Group, folder *v
 	dbHandle sqlQuerier,
 ) error {
 	q := getAddGroupFolderMappingQuery()
-	_, err := dbHandle.ExecContext(ctx, q, folder.VirtualPath, folder.QuotaSize, folder.QuotaFiles, folder.Name, group.Name, sortOrder)
+	_, err := dbHandle.ExecContext(ctx, q, folder.VirtualPath, folder.QuotaSize, folder.QuotaFiles, folder.Subpath,
+		folder.Name, group.Name, sortOrder)
 	return err
 }
 
@@ -2765,8 +2794,8 @@ func getUsersWithVirtualFolders(ctx context.Context, users []User, dbHandle sqlQ
 		var mappedPath, description sql.NullString
 		var fsConfig []byte
 		err = rows.Scan(&folder.ID, &folder.Name, &mappedPath, &folder.UsedQuotaSize, &folder.UsedQuotaFiles,
-			&folder.LastQuotaUpdate, &folder.VirtualPath, &folder.QuotaSize, &folder.QuotaFiles, &userID, &fsConfig,
-			&description)
+			&folder.LastQuotaUpdate, &folder.VirtualPath, &folder.QuotaSize, &folder.QuotaFiles, &folder.Subpath,
+			&userID, &fsConfig, &description)
 		if err != nil {
 			return users, err
 		}
@@ -2916,8 +2945,8 @@ func getGroupsWithVirtualFolders(ctx context.Context, groups []Group, dbHandle s
 		var mappedPath, description sql.NullString
 		var fsConfig []byte
 		err = rows.Scan(&folder.ID, &folder.Name, &mappedPath, &folder.UsedQuotaSize, &folder.UsedQuotaFiles,
-			&folder.LastQuotaUpdate, &folder.VirtualPath, &folder.QuotaSize, &folder.QuotaFiles, &groupID, &fsConfig,
-			&description)
+			&folder.LastQuotaUpdate, &folder.VirtualPath, &folder.QuotaSize, &folder.QuotaFiles, &folder.Subpath,
+			&groupID, &fsConfig, &description)
 		if err != nil {
 			return groups, err
 		}
@@ -3976,6 +4005,14 @@ func sqlCommonRequireRowAffected(res sql.Result) error {
 	return nil
 }
 
+func sqlCommonRequireGuardedRowAffected(res sql.Result, expectedUpdatedAt int64) error {
+	err := sqlCommonRequireRowAffected(res)
+	if err != nil && expectedUpdatedAt >= 0 {
+		return ErrConcurrentUpdate
+	}
+	return err
+}
+
 func sqlCommonUpdateDatabaseVersion(ctx context.Context, dbHandle sqlQuerier, version int) error {
 	q := getUpdateDBVersionQuery()
 	_, err := dbHandle.ExecContext(ctx, q, version)
@@ -3983,6 +4020,16 @@ func sqlCommonUpdateDatabaseVersion(ctx context.Context, dbHandle sqlQuerier, ve
 }
 
 func sqlCommonExecSQLAndUpdateDBVersion(dbHandle *sql.DB, sqlQueries []string, newVersion int, isUp bool) error {
+	return sqlCommonExecMigration(dbHandle, sqlQueries, newVersion, isUp, nil)
+}
+
+// sqlCommonExecMigration executes the given statements and records the new
+// schema version. isApplied, when set, reports whether a statement error means
+// that its effect is already in place: such statements are logged and skipped,
+// so a migration interrupted partway can be completed by running it again.
+func sqlCommonExecMigration(dbHandle *sql.DB, sqlQueries []string, newVersion int, isUp bool,
+	isApplied func(error) bool,
+) error {
 	ctx, cancel := context.WithTimeout(context.Background(), longSQLQueryTimeout)
 	defer cancel()
 
@@ -4015,7 +4062,10 @@ func sqlCommonExecSQLAndUpdateDBVersion(dbHandle *sql.DB, sqlQueries []string, n
 			}
 			_, err := tx.ExecContext(ctx, q)
 			if err != nil {
-				return err
+				if isApplied == nil || !isApplied(err) {
+					return err
+				}
+				providerLog(logger.LevelInfo, "skipping statement, already applied: %v", err)
 			}
 		}
 		if newVersion == 0 {
@@ -4084,7 +4134,7 @@ func sqlCommonExecuteTxOnConn(ctx context.Context, conn *sql.Conn, txFn func(*sq
 
 	err = txFn(tx)
 	if err != nil {
-		tx.Rollback() //nolint:errcheck
+		tx.Rollback()
 		return err
 	}
 	return tx.Commit()
@@ -4103,7 +4153,7 @@ func sqlCommonExecuteTx(ctx context.Context, dbHandle *sql.DB, txFn func(*sql.Tx
 	err = txFn(tx)
 	if err != nil {
 		// we don't change the returned error
-		tx.Rollback() //nolint:errcheck
+		tx.Rollback()
 		return err
 	}
 	return tx.Commit()

@@ -104,5 +104,5 @@ func (m *dbTaskManager) Get(ID string) (webTaskData, error) {
 }
 
 func (m *dbTaskManager) Cleanup() {
-	dataprovider.CleanupSharedSessions(dataprovider.SessionTypeWebTask, time.Now().Add(-5*time.Minute)) //nolint:errcheck
+	_ = dataprovider.CleanupSharedSessions(dataprovider.SessionTypeWebTask, time.Now().Add(-5*time.Minute))
 }

@@ -53,7 +53,7 @@ Your sponsorship helps cover maintenance, security updates and ongoing developme
 
 [<img src="./img/Aledade_logo.png" alt="Aledade logo" width="202" height="70">](https://www.aledade.com/)
 </br></br>
-[<img src="./img/jumptrading.png" alt="Jump Trading logo" width="362" height="63">](https://www.jumptrading.com/)
+[<img src="./img/jumptrading.png" alt="Jump Trading logo" width="198" height="85">](https://www.jumptrading.com/)
 </br></br>
 [<img src="./img/wpengine.png" alt="WP Engine logo" width="331" height="63">](https://wpengine.com/)
 
@@ -63,8 +63,6 @@ Your sponsorship helps cover maintenance, security updates and ongoing developme
 
 #### Bronze sponsors
 
-[<img src="./img/7digital.png" alt="7digital logo" width="178" height="56">](https://www.7digital.com/)
-</br></br>
 [<img src="./img/servinga.png" alt="servinga logo" width="258" height="56">](https://servinga.com/)
 </br></br>
 [<img src="./img/reui.png" alt="ReUI logo" width="151" height="56">](https://www.reui.io/)

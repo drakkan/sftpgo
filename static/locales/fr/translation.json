@@ -93,7 +93,6 @@
         "reset_submit": "Mettre à jour le mot de passe et se connecter",
         "confirm_code": "Code de confirmation",
         "reset_pwd_forbidden": "Vous n'êtes pas autorisé à réinitialiser votre mot de passe",
-        "reset_pwd_no_email": "Votre compte n'a pas d'adresse email, il est impossible de réinitialiser votre mot de passe en envoyant un code de vérification par email",
         "reset_pwd_send_email_err": "Impossible d'envoyer le code de confirmation par email",
         "reset_pwd_err_generic": "Erreur inattendue lors de la réinitialisation du mot de passe",
         "reset_ok_login_error": "La réinitialisation du mot de passe a été complétée avec succès, mais une erreur inattendue s'est produite lors de la connexion",
@@ -518,6 +517,7 @@
         "folder_path_required": "Le chemin de montage du dossier virtuel est requis",
         "folder_duplicated": "Dossiers virtuels en double détectés",
         "folder_overlapped": "Chevauchement des dossiers virtuels détecté",
+        "folder_quota_mismatch": "Les limites de quota s'appliquent à l'ensemble du dossier virtuel, tous les montages du même dossier doivent utiliser les mêmes valeurs",
         "folder_quota_size_invalid": "Le quota de taille des dossiers virtuels doit être supérieur ou égal à -1",
         "folder_quota_file_invalid": "Le quota de fichiers des dossiers virtuels doit être supérieur ou égal à -1",
         "folder_quota_invalid": "Les quotas de taille et de nombre de fichiers des dossiers virtuels doivent être tous deux à -1 ou supérieurs ou égaux à 0",
@@ -574,7 +574,9 @@
         "template_name_placeholder": "remplacé par le nom du dossier virtuel spécifié",
         "template_help": "Les dossiers virtuels générés peuvent être enregistrés ou exportés. Les dossiers exportés peuvent être importés depuis la section \"Maintenance\" de cette instance SFTPGo ou une autre.",
         "name": "Nom du dossier virtuel",
-        "template_no_folder": "Aucun dossier virtuel valide défini, impossible de compléter l'action demandée"
+        "template_no_folder": "Aucun dossier virtuel valide défini, impossible de compléter l'action demandée",
+        "subpath": "sous-chemin, p. ex. /subdir",
+        "subpath_help": "Monte le dossier avec la racine déplacée sur ce sous-chemin"
     },
     "storage": {
         "title": "Système de fichiers",
@@ -650,7 +652,7 @@
         "fs_error": "Erreur de configuration du système de fichiers",
         "bucket_required": "$t(storage.fs_error) : le bucket est requis",
         "region_required": "$t(storage.fs_error) : la région est requise",
-        "key_prefix_invalid": "$t(storage.fs_error) : préfixe de clé invalide, ne peut pas commencer par \"/\"",
+        "key_prefix_invalid": "$t(storage.fs_error) : préfixe de clé invalide, il ne peut pas pointer vers la racine du stockage",
         "ul_part_size_invalid": "$t(storage.fs_error) : taille de la partie de téléversement invalide",
         "ul_concurrency_invalid": "$t(storage.fs_error) : concurrence de téléversement invalide",
         "dl_part_size_invalid": "$t(storage.fs_error) : taille de la partie de téléchargement invalide",
@@ -674,7 +676,8 @@
         "token_invalid": "Jeton OpenID invalide",
         "role_admin_err": "Rôle OpenID incorrect, l'utilisateur connecté n'est pas un administrateur",
         "role_user_err": "Rôle OpenID incorrect, l'utilisateur connecté est un administrateur",
-        "get_user_err": "Échec de la récupération de l'utilisateur associé au jeton OpenID"
+        "get_user_err": "Échec de la récupération de l'utilisateur associé au jeton OpenID",
+        "email_not_verified": "L'adresse e-mail n'est pas vérifiée par le fournisseur d'identité"
     },
     "oauth2": {
         "auth_verify_error": "Impossible de vérifier le code OAuth2",

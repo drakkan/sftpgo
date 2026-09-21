@@ -36,11 +36,20 @@ const (
 	// if the list contains more elements than this limit a
 	// database query will be executed
 	ipListMemoryLimit = 15000
+	// maximum number of entries a dump can carry. The check is on the total
+	// across the four supported lists, each of which can match in memory up to
+	// ipListMemoryLimit entries
+	ipListDumpLimit = ipListMemoryLimit * 4
 )
 
 var (
 	inMemoryLists map[IPListType]*IPList
 )
+
+func errTooManyIPListEntries(count int64) error {
+	return fmt.Errorf("unable to dump the IP lists, entries: %d, limit: %d. Request the other scopes to obtain "+
+		"a dump without them", count, ipListDumpLimit)
+}
 
 func init() {
 	inMemoryLists = map[IPListType]*IPList{}
@@ -157,8 +166,14 @@ func (e *IPListEntry) RenderAsJSON(reload bool) ([]byte, error) {
 	return json.Marshal(e)
 }
 
+// keyPrefix returns the provider key prefix shared by all the entries
+// with this list type
+func (t IPListType) keyPrefix() string {
+	return strconv.Itoa(int(t)) + "_"
+}
+
 func (e *IPListEntry) getKey() string {
-	return fmt.Sprintf("%d_%s", e.Type, e.IPOrNet)
+	return e.Type.keyPrefix() + e.IPOrNet
 }
 
 func (e *IPListEntry) getName() string {
@@ -415,7 +430,7 @@ func (l *IPList) DisableMemoryMode() {
 // If multiple entries match, the most specific one (longest network prefix) wins.
 // Two distinct CIDRs containing the same IP have different prefix lengths, so the
 // winner is unambiguous.
-func (l *IPList) IsListed(ip, protocol string) (bool, int, error) { //nolint:gocyclo
+func (l *IPList) IsListed(ip, protocol string) (bool, int, error) {
 	if l.isInMemory.Load() {
 		l.mu.RLock()
 		defer l.mu.RUnlock()

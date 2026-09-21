@@ -12,33 +12,12 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//go:build linux
+//go:build unix
 
 package vfs
 
-import (
-	"os"
+import "syscall"
 
-	"github.com/pkg/sftp"
-	"golang.org/x/sys/unix"
-)
-
-func getStatFS(f *os.File, _ string) (*sftp.StatVFS, error) {
-	stat := unix.Statfs_t{}
-	err := unix.Fstatfs(int(f.Fd()), &stat)
-	if err != nil {
-		return nil, err
-	}
-	return &sftp.StatVFS{
-		Bsize:   uint64(stat.Bsize),
-		Frsize:  uint64(stat.Frsize),
-		Blocks:  stat.Blocks,
-		Bfree:   stat.Bfree,
-		Bavail:  stat.Bavail,
-		Files:   stat.Files,
-		Ffree:   stat.Ffree,
-		Favail:  stat.Ffree, // not sure how to calculate Favail
-		Flag:    uint64(stat.Flags),
-		Namemax: uint64(stat.Namelen),
-	}, nil
+func withNonBlock(flag int) int {
+	return flag | syscall.O_NONBLOCK
 }

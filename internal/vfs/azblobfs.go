@@ -37,7 +37,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blockblob"
@@ -236,7 +235,7 @@ func (fs *AzureBlobFs) Open(name string, offset int64) (File, PipeReader, func()
 
 		blockBlob := fs.containerClient.NewBlockBlobClient(name)
 		err := fs.handleMultipartDownload(ctx, blockBlob, offset, w, p)
-		w.CloseWithError(err) //nolint:errcheck
+		w.CloseWithError(err)
 		fsLog(fs, logger.LevelDebug, "download completed, path: %q size: %v, err: %+v", name, w.GetWrittenBytes(), err)
 		metric.AZTransferCompleted(w.GetWrittenBytes(), 1, err)
 	}()
@@ -284,7 +283,7 @@ func (fs *AzureBlobFs) Create(name string, flag, checks int) (File, PipeWriter, 
 
 		blockBlob := fs.containerClient.NewBlockBlobClient(name)
 		err := fs.handleMultipartUpload(ctx, r, blockBlob, &headers, metadata)
-		r.CloseWithError(err) //nolint:errcheck
+		r.CloseWithError(err)
 		p.Done(err)
 		fsLog(fs, logger.LevelDebug, "upload completed, path: %q, readed bytes: %v, err: %+v", name, r.GetReadedBytes(), err)
 		metric.AZTransferCompleted(r.GetReadedBytes(), 0, err)
@@ -318,6 +317,20 @@ func (fs *AzureBlobFs) Create(name string, flag, checks int) (File, PipeWriter, 
 
 // Rename renames (moves) source to target.
 func (fs *AzureBlobFs) Rename(source, target string, checks int) (int, int64, error) {
+	return fs.renameChecked(source, target, checks, nil)
+}
+
+// CanCheckRenamedEntries implements the FsCheckedRenamer interface
+func (*AzureBlobFs) CanCheckRenamedEntries() bool {
+	return true
+}
+
+// RenameChecked implements the FsCheckedRenamer interface
+func (fs *AzureBlobFs) RenameChecked(source, target string, checks int, onEntry EntryCheckFn) (int, int64, error) {
+	return fs.renameChecked(source, target, checks, onEntry)
+}
+
+func (fs *AzureBlobFs) renameChecked(source, target string, checks int, onEntry EntryCheckFn) (int, int64, error) {
 	if source == target {
 		return -1, -1, nil
 	}
@@ -331,7 +344,7 @@ func (fs *AzureBlobFs) Rename(source, target string, checks int) (int, int64, er
 	if err != nil {
 		return -1, -1, err
 	}
-	return fs.renameInternal(source, target, fi, 0, checks&CheckUpdateModTime != 0)
+	return fs.renameInternal(source, target, fi, onEntry, 0, checks&CheckUpdateModTime != 0)
 }
 
 // Remove removes the named file or (empty) directory.
@@ -414,13 +427,13 @@ func (fs *AzureBlobFs) Chtimes(name string, _, mtime time.Time, isUploading bool
 	found := false
 	for k := range metadata {
 		if strings.EqualFold(k, lastModifiedField) {
-			metadata[k] = to.Ptr(strconv.FormatInt(mtime.UnixMilli(), 10))
+			metadata[k] = new(strconv.FormatInt(mtime.UnixMilli(), 10))
 			found = true
 			break
 		}
 	}
 	if !found {
-		metadata[lastModifiedField] = to.Ptr(strconv.FormatInt(mtime.UnixMilli(), 10))
+		metadata[lastModifiedField] = new(strconv.FormatInt(mtime.UnixMilli(), 10))
 	}
 
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
@@ -483,8 +496,7 @@ func (*AzureBlobFs) IsNotExist(err error) bool {
 	if err == nil {
 		return false
 	}
-	var respErr *azcore.ResponseError
-	if errors.As(err, &respErr) {
+	if respErr, ok := errors.AsType[*azcore.ResponseError](err); ok {
 		return respErr.StatusCode == http.StatusNotFound
 	}
 	// os.ErrNotExist can be returned internally by fs.Stat
@@ -497,8 +509,7 @@ func (*AzureBlobFs) IsPermission(err error) bool {
 	if err == nil {
 		return false
 	}
-	var respErr *azcore.ResponseError
-	if errors.As(err, &respErr) {
+	if respErr, ok := errors.AsType[*azcore.ResponseError](err); ok {
 		return respErr.StatusCode == http.StatusForbidden || respErr.StatusCode == http.StatusUnauthorized
 	}
 	return false
@@ -516,8 +527,7 @@ func (*AzureBlobFs) isBadRequestError(err error) bool {
 	if err == nil {
 		return false
 	}
-	var respErr *azcore.ResponseError
-	if errors.As(err, &respErr) {
+	if respErr, ok := errors.AsType[*azcore.ResponseError](err); ok {
 		return respErr.StatusCode == http.StatusBadRequest
 	}
 	return false
@@ -527,6 +537,8 @@ func (*AzureBlobFs) isBadRequestError(err error) bool {
 func (fs *AzureBlobFs) CheckRootPath(username string, uid int, gid int) bool {
 	// we need a local directory for temporary files
 	osFs := NewOsFs(fs.ConnectionID(), fs.localTempDir, "", nil)
+	defer osFs.Close()
+
 	return osFs.CheckRootPath(username, uid, gid)
 }
 
@@ -784,6 +796,7 @@ func (fs *AzureBlobFs) copyFileInternal(source, target string, srcInfo os.FileIn
 		metric.AZCopyObjectCompleted(err)
 		return err
 	}
+	copyID := util.GetStringFromPointer(resp.CopyID)
 	copyStatus := blob.CopyStatusType(util.GetStringFromPointer((*string)(resp.CopyStatus)))
 	nErrors := 0
 	for copyStatus == blob.CopyStatusTypePending {
@@ -795,6 +808,7 @@ func (fs *AzureBlobFs) copyFileInternal(source, target string, srcInfo os.FileIn
 			// of them before giving up.
 			nErrors++
 			if ctx.Err() != nil || nErrors == 3 {
+				fs.abortCopy(dstBlob, target, copyID)
 				metric.AZCopyObjectCompleted(err)
 				return err
 			}
@@ -812,8 +826,20 @@ func (fs *AzureBlobFs) copyFileInternal(source, target string, srcInfo os.FileIn
 	return nil
 }
 
-func (fs *AzureBlobFs) renameInternal(source, target string, srcInfo os.FileInfo, recursion int,
-	updateModTime bool,
+func (fs *AzureBlobFs) abortCopy(dstBlob *blockblob.Client, target, copyID string) {
+	if copyID == "" {
+		return
+	}
+	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+	defer cancelFn()
+
+	if _, err := dstBlob.AbortCopyFromURL(ctx, copyID, nil); err != nil {
+		fsLog(fs, logger.LevelWarn, "unable to abort the copy to %q, id %q: %v", target, copyID, err)
+	}
+}
+
+func (fs *AzureBlobFs) renameInternal(source, target string, srcInfo os.FileInfo,
+	onEntry EntryCheckFn, recursion int, updateModTime bool,
 ) (int, int64, error) {
 	var numFiles int
 	var filesSize int64
@@ -832,7 +858,7 @@ func (fs *AzureBlobFs) renameInternal(source, target string, srcInfo os.FileInfo
 			return numFiles, filesSize, err
 		}
 		if renameMode == 1 {
-			files, size, err := doRecursiveRename(fs, source, target, fs.renameInternal, recursion, updateModTime)
+			files, size, err := doRecursiveRename(fs, source, target, fs.renameInternal, onEntry, recursion, updateModTime)
 			numFiles += files
 			filesSize += size
 			if err != nil {
@@ -847,6 +873,10 @@ func (fs *AzureBlobFs) renameInternal(source, target string, srcInfo os.FileInfo
 		filesSize += srcInfo.Size()
 	}
 	err := fs.skipNotExistErr(fs.Remove(source, srcInfo.IsDir()))
+	if err != nil && !srcInfo.IsDir() {
+		numFiles--
+		filesSize -= srcInfo.Size()
+	}
 	return numFiles, filesSize, err
 }
 
@@ -1125,9 +1155,9 @@ func (fs *AzureBlobFs) getCopyOptions(srcInfo os.FileInfo, updateModTime bool) *
 		for k, v := range getMetadata(srcInfo) {
 			if v != "" {
 				if strings.EqualFold(k, lastModifiedField) {
-					metadata[k] = to.Ptr("0")
+					metadata[k] = new("0")
 				} else {
-					metadata[k] = to.Ptr(v)
+					metadata[k] = new(v)
 				}
 			}
 		}
@@ -1225,6 +1255,9 @@ func (l *azureBlobDirLister) Next(limit int) ([]os.FileInfo, error) {
 	for _, blobItem := range page.Segment.BlobItems {
 		name := util.GetStringFromPointer(blobItem.Name)
 		name = strings.TrimPrefix(name, l.prefix)
+		if name == "" || name == "/" {
+			continue
+		}
 		size := int64(0)
 		isDir := false
 		var metadata map[string]*string

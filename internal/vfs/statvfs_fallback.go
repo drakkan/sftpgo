@@ -17,14 +17,16 @@
 package vfs
 
 import (
+	"os"
+
 	"github.com/pkg/sftp"
 	"github.com/shirou/gopsutil/v3/disk"
 )
 
 const bsize = uint64(4096)
 
-func getStatFS(path string) (*sftp.StatVFS, error) {
-	usage, err := disk.Usage(path)
+func getStatFS(_ *os.File, fallbackPath string) (*sftp.StatVFS, error) {
+	usage, err := disk.Usage(fallbackPath)
 	if err != nil {
 		return nil, err
 	}

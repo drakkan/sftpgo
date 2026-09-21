@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/sftpgo/sdk"
@@ -40,7 +41,7 @@ type GroupUserSettings struct {
 type Group struct {
 	sdk.BaseGroup
 	// settings to apply to users for whom this is a primary group
-	UserSettings GroupUserSettings `json:"user_settings,omitempty"`
+	UserSettings GroupUserSettings `json:"user_settings"`
 	// Mapping between virtual paths and virtual folders
 	VirtualFolders []vfs.VirtualFolder `json:"virtual_folders,omitempty"`
 }
@@ -213,9 +214,7 @@ func (g *Group) getACopy() Group {
 	}
 	permissions := make(map[string][]string)
 	for k, v := range g.UserSettings.Permissions {
-		perms := make([]string, len(v))
-		copy(perms, v)
-		permissions[k] = perms
+		permissions[k] = slices.Clone(v)
 	}
 
 	return Group{

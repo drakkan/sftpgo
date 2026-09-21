@@ -172,7 +172,7 @@ func searchFsEvents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(data) //nolint:errcheck
+	_, _ = w.Write(data)
 }
 
 func searchProviderEvents(w http.ResponseWriter, r *http.Request) {
@@ -207,7 +207,7 @@ func searchProviderEvents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(data) //nolint:errcheck
+	_, _ = w.Write(data)
 }
 
 func searchLogEvents(w http.ResponseWriter, r *http.Request) {
@@ -240,7 +240,7 @@ func searchLogEvents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(data) //nolint:errcheck
+	_, _ = w.Write(data)
 }
 
 func exportFsEvents(w http.ResponseWriter, filters *eventsearcher.FsEventSearch) error {

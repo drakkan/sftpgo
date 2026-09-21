@@ -31,8 +31,9 @@ import (
 
 // Supported values for host keys, KEXs, ciphers, MACs
 var (
-	supportedHostKeyAlgos   = []string{ssh.KeyAlgoRSA}
-	supportedPublicKeyAlgos = []string{ssh.KeyAlgoRSA, ssh.InsecureKeyAlgoDSA} //nolint:staticcheck
+	supportedHostKeyAlgos = []string{ssh.KeyAlgoRSA}
+	//lint:ignore SA1019 the allowlist names DSA so it can be enabled on purpose
+	supportedPublicKeyAlgos = []string{ssh.KeyAlgoRSA, ssh.InsecureKeyAlgoDSA}
 	supportedKexAlgos       = []string{
 		ssh.KeyExchangeDH16SHA512, ssh.InsecureKeyExchangeDH14SHA1, ssh.InsecureKeyExchangeDH1SHA1,
 		ssh.InsecureKeyExchangeDHGEXSHA1,

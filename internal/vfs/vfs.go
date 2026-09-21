@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/url"
 	"os"
 	"path"
@@ -64,9 +65,11 @@ var (
 	// ErrStorageSizeUnavailable is returned if the storage backend does not support getting the size
 	ErrStorageSizeUnavailable = errors.New("unable to get available size for this storage backend")
 	// ErrVfsUnsupported defines the error for an unsupported VFS operation
-	ErrVfsUnsupported        = errors.New("not supported")
+	ErrVfsUnsupported = errors.New("not supported")
+	// ErrCrossRename is returned by a backend when a rename cannot be performed as a
+	// single operation because source and target live in different confinement roots.
+	ErrCrossRename           = errors.New("cross-root rename")
 	errInvalidDirListerLimit = errors.New("dir lister: invalid limit, must be > 0")
-	tempPath                 string
 	sftpFingerprints         []string
 	allowSelfConnections     int
 	renameMode               int
@@ -85,16 +88,6 @@ var (
 // SetAllowSelfConnections sets the desired behaviour for self connections
 func SetAllowSelfConnections(value int) {
 	allowSelfConnections = value
-}
-
-// SetTempPath sets the path for temporary files
-func SetTempPath(fsPath string) {
-	tempPath = fsPath
-}
-
-// GetTempPath returns the path for temporary files
-func GetTempPath() string {
-	return tempPath
 }
 
 // SetSFTPFingerprints sets the SFTP host key fingerprints
@@ -189,6 +182,33 @@ type FsRealPather interface {
 	RealPath(p string) (string, error)
 }
 
+// EntryCheckFn validates a child entry immediately before a recursive rename
+// carries it to the destination.
+type EntryCheckFn func(source, target string, info os.FileInfo) error
+
+// FsCheckedRenamer is a Fs that can rename a directory by recursing into its
+// entries.
+type FsCheckedRenamer interface {
+	Fs
+	// CanCheckRenamedEntries reports whether this filesystem renames a directory by
+	// recursing into its entries.
+	CanCheckRenamedEntries() bool
+	// RenameChecked renames source to target, calling onEntry for every entry
+	// inside source immediately before that entry is moved.
+	RenameChecked(source, target string, checks int, onEntry EntryCheckFn) (int, int64, error)
+}
+
+// CheckedRenamer returns the filesystem as an FsCheckedRenamer when it renames a
+// directory by recursing into its entries, and nil when the rename is a single
+// operation that carries the whole tree.
+func CheckedRenamer(fs Fs) FsCheckedRenamer {
+	renamer, ok := fs.(FsCheckedRenamer)
+	if !ok || !renamer.CanCheckRenamedEntries() {
+		return nil
+	}
+	return renamer
+}
+
 // FsFileCopier is a Fs that implements the CopyFile method.
 type FsFileCopier interface {
 	Fs
@@ -252,6 +272,11 @@ type DirLister interface {
 // Metadater defines an interface to implement to return metadata for a file
 type Metadater interface {
 	Metadata() map[string]string
+}
+
+func addressesEntryInDir(name string) bool {
+	name = path.Base(name)
+	return name != "." && name != ".." && name != "/"
 }
 
 type baseDirLister struct {
@@ -437,9 +462,8 @@ func (c *S3FsConfig) checkCredentials() error {
 // ValidateAndEncryptCredentials validates the configuration and encrypts access secret if it is in plain text
 func (c *S3FsConfig) ValidateAndEncryptCredentials(additionalData string) error {
 	if err := c.validate(); err != nil {
-		var errI18n *util.I18nError
 		errValidation := util.NewValidationError(fmt.Sprintf("could not validate s3config: %v", err))
-		if errors.As(err, &errI18n) {
+		if errI18n, ok := errors.AsType[*util.I18nError](err); ok {
 			return util.NewI18nError(errValidation, errI18n.Message)
 		}
 		return util.NewI18nError(errValidation, util.I18nErrorFsValidation)
@@ -508,6 +532,20 @@ func (c *S3FsConfig) isSameResource(other S3FsConfig) bool {
 	return c.Region == other.Region
 }
 
+func normalizeKeyPrefix(keyPrefix string) (string, error) {
+	if keyPrefix == "" {
+		return "", nil
+	}
+	cleaned := strings.TrimPrefix(path.Clean("/"+keyPrefix), "/")
+	if cleaned == "" {
+		return "", util.NewI18nError(
+			errors.New("invalid key_prefix, it cannot point to the storage root"),
+			util.I18nErrorKeyPrefixInvalid,
+		)
+	}
+	return cleaned + "/", nil
+}
+
 // validate returns an error if the configuration is not valid
 func (c *S3FsConfig) validate() error {
 	if c.AccessSecret == nil {
@@ -527,15 +565,11 @@ func (c *S3FsConfig) validate() error {
 	if err := c.checkCredentials(); err != nil {
 		return err
 	}
-	if c.KeyPrefix != "" {
-		if strings.HasPrefix(c.KeyPrefix, "/") {
-			return util.NewI18nError(errors.New("key_prefix cannot start with /"), util.I18nErrorKeyPrefixInvalid)
-		}
-		c.KeyPrefix = path.Clean(c.KeyPrefix)
-		if !strings.HasSuffix(c.KeyPrefix, "/") {
-			c.KeyPrefix += "/"
-		}
+	keyPrefix, err := normalizeKeyPrefix(c.KeyPrefix)
+	if err != nil {
+		return err
 	}
+	c.KeyPrefix = keyPrefix
 	c.StorageClass = strings.TrimSpace(c.StorageClass)
 	c.ACL = strings.TrimSpace(c.ACL)
 	return c.checkPartSizeAndConcurrency()
@@ -557,9 +591,8 @@ func (c *GCSFsConfig) HideConfidentialData() {
 // ValidateAndEncryptCredentials validates the configuration and encrypts credentials if they are in plain text
 func (c *GCSFsConfig) ValidateAndEncryptCredentials(additionalData string) error {
 	if err := c.validate(); err != nil {
-		var errI18n *util.I18nError
 		errValidation := util.NewValidationError(fmt.Sprintf("could not validate GCS config: %v", err))
-		if errors.As(err, &errI18n) {
+		if errI18n, ok := errors.AsType[*util.I18nError](err); ok {
 			return util.NewI18nError(errValidation, errI18n.Message)
 		}
 		return util.NewI18nError(errValidation, util.I18nErrorFsValidation)
@@ -613,22 +646,18 @@ func (c *GCSFsConfig) isSameResource(other GCSFsConfig) bool {
 }
 
 // validate returns an error if the configuration is not valid
-func (c *GCSFsConfig) validate() error { //nolint:gocyclo
+func (c *GCSFsConfig) validate() error {
 	if c.Credentials == nil || c.AutomaticCredentials == 1 {
 		c.Credentials = kms.NewEmptySecret()
 	}
 	if c.Bucket == "" {
 		return util.NewI18nError(errors.New("bucket cannot be empty"), util.I18nErrorBucketRequired)
 	}
-	if c.KeyPrefix != "" {
-		if strings.HasPrefix(c.KeyPrefix, "/") {
-			return util.NewI18nError(errors.New("key_prefix cannot start with /"), util.I18nErrorKeyPrefixInvalid)
-		}
-		c.KeyPrefix = path.Clean(c.KeyPrefix)
-		if !strings.HasSuffix(c.KeyPrefix, "/") {
-			c.KeyPrefix += "/"
-		}
+	keyPrefix, err := normalizeKeyPrefix(c.KeyPrefix)
+	if err != nil {
+		return err
 	}
+	c.KeyPrefix = keyPrefix
 	if c.Credentials.IsEncrypted() && !c.Credentials.IsValid() {
 		return errors.New("invalid encrypted credentials")
 	}
@@ -722,9 +751,8 @@ func (c *AzBlobFsConfig) isSecretEqual(other AzBlobFsConfig) bool {
 // ValidateAndEncryptCredentials validates the configuration and  encrypts access secret if it is in plain text
 func (c *AzBlobFsConfig) ValidateAndEncryptCredentials(additionalData string) error {
 	if err := c.validate(); err != nil {
-		var errI18n *util.I18nError
 		errValidation := util.NewValidationError(fmt.Sprintf("could not validate Azure Blob config: %v", err))
-		if errors.As(err, &errI18n) {
+		if errI18n, ok := errors.AsType[*util.I18nError](err); ok {
 			return util.NewI18nError(errValidation, errI18n.Message)
 		}
 		return util.NewI18nError(errValidation, util.I18nErrorFsValidation)
@@ -815,6 +843,9 @@ func (c *AzBlobFsConfig) isSameResource(other AzBlobFsConfig) bool {
 	if c.AccountName != other.AccountName {
 		return false
 	}
+	if c.Container != other.Container {
+		return false
+	}
 	if c.Endpoint != other.Endpoint {
 		return false
 	}
@@ -842,15 +873,11 @@ func (c *AzBlobFsConfig) validate() error {
 	if err := c.checkCredentials(); err != nil {
 		return err
 	}
-	if c.KeyPrefix != "" {
-		if strings.HasPrefix(c.KeyPrefix, "/") {
-			return util.NewI18nError(errors.New("key_prefix cannot start with /"), util.I18nErrorKeyPrefixInvalid)
-		}
-		c.KeyPrefix = path.Clean(c.KeyPrefix)
-		if !strings.HasSuffix(c.KeyPrefix, "/") {
-			c.KeyPrefix += "/"
-		}
+	keyPrefix, err := normalizeKeyPrefix(c.KeyPrefix)
+	if err != nil {
+		return err
 	}
+	c.KeyPrefix = keyPrefix
 	if err := c.checkPartSizeAndConcurrency(); err != nil {
 		return err
 	}
@@ -886,9 +913,8 @@ func (c *CryptFsConfig) isEqual(other CryptFsConfig) bool {
 // ValidateAndEncryptCredentials validates the configuration and encrypts the passphrase if it is in plain text
 func (c *CryptFsConfig) ValidateAndEncryptCredentials(additionalData string) error {
 	if err := c.validate(); err != nil {
-		var errI18n *util.I18nError
 		errValidation := util.NewValidationError(fmt.Sprintf("could not validate crypt fs config: %v", err))
-		if errors.As(err, &errI18n) {
+		if errI18n, ok := errors.AsType[*util.I18nError](err); ok {
 			return util.NewI18nError(errValidation, errI18n.Message)
 		}
 		return util.NewI18nError(errValidation, util.I18nErrorFsValidation)
@@ -944,7 +970,7 @@ func NewPipeWriter(w pipeWriterAt) PipeWriter {
 
 // Close waits for the upload to end, closes the pipeWriterAt and returns an error if any.
 func (p *pipeWriter) Close() error {
-	p.pipeWriterAt.Close() //nolint:errcheck // the returned error is always null
+	p.pipeWriterAt.Close() // the returned error is always null
 	<-p.done
 	return p.err
 }
@@ -1035,9 +1061,7 @@ func (p *pipeReader) Metadata() map[string]string {
 		return nil
 	}
 	result := make(map[string]string)
-	for k, v := range p.metadata {
-		result[k] = v
-	}
+	maps.Copy(result, p.metadata)
 	return result
 }
 
@@ -1108,16 +1132,7 @@ func HasTruncateSupport(fs Fs) bool {
 
 // IsRenameAtomic returns true if renaming a directory is supposed to be atomic
 func IsRenameAtomic(fs Fs) bool {
-	if strings.HasPrefix(fs.Name(), s3fsName) {
-		return false
-	}
-	if strings.HasPrefix(fs.Name(), gcsfsName) {
-		return false
-	}
-	if strings.HasPrefix(fs.Name(), azBlobFsName) {
-		return false
-	}
-	return true
+	return CheckedRenamer(fs) == nil
 }
 
 // HasImplicitAtomicUploads returns true if the fs don't persists partial files on error
@@ -1157,7 +1172,7 @@ func SetPathPermissions(fs Fs, path string, uid int, gid int) {
 	if uid == -1 && gid == -1 {
 		return
 	}
-	if IsLocalOsFs(fs) {
+	if IsLocalOrCryptoFs(fs) {
 		if runtime.GOOS == "windows" {
 			return
 		}
@@ -1252,15 +1267,19 @@ func getMountPath(mountPath string) string {
 }
 
 func getLocalTempDir() string {
-	if tempPath != "" {
-		return tempPath
-	}
 	return filepath.Clean(os.TempDir())
 }
 
+// isRootEscapeError reports whether err is the os.Root boundary violation
+// ("path escapes from parent"). The os package does not export the sentinel
+// (errPathEscapes), so it is matched by message.
+func isRootEscapeError(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "path escapes from parent")
+}
+
 func doRecursiveRename(fs Fs, source, target string,
-	renameFn func(string, string, os.FileInfo, int, bool) (int, int64, error),
-	recursion int, updateModTime bool,
+	renameFn func(string, string, os.FileInfo, EntryCheckFn, int, bool) (int, int64, error),
+	onEntry EntryCheckFn, recursion int, updateModTime bool,
 ) (int, int64, error) {
 	var numFiles int
 	var filesSize int64
@@ -1285,7 +1304,14 @@ func doRecursiveRename(fs Fs, source, target string,
 		for _, info := range entries {
 			sourceEntry := fs.Join(source, info.Name())
 			targetEntry := fs.Join(target, info.Name())
-			files, size, err := renameFn(sourceEntry, targetEntry, info, recursion, updateModTime)
+			if onEntry != nil {
+				if err := onEntry(sourceEntry, targetEntry, info); err != nil {
+					return numFiles, filesSize, err
+				}
+			}
+			files, size, err := renameFn(sourceEntry, targetEntry, info, onEntry, recursion, updateModTime)
+			numFiles += files
+			filesSize += size
 			if err != nil {
 				if fs.IsNotExist(err) {
 					fsLog(fs, logger.LevelInfo, "skipping rename for %q: %v", sourceEntry, err)
@@ -1293,13 +1319,178 @@ func doRecursiveRename(fs Fs, source, target string,
 				}
 				return numFiles, filesSize, err
 			}
-			numFiles += files
-			filesSize += size
 		}
 		if finished {
 			return numFiles, filesSize, nil
 		}
 	}
+}
+
+// RenameAcrossRoots moves source on fsSrc to target on fsDst. It is the
+// fallback for ErrCrossRename. Each regular file is moved by copying it to the
+// destination and then removing it from the source, mirroring the cloud rename;
+// the move is not atomic. A symbolic link, or any other non-regular entry, is
+// never carried across: renaming one on its own fails with ErrVfsUnsupported, and
+// one found inside a moved tree is left at the source, which then keeps the source
+// directory in place with what could not be moved.
+func RenameAcrossRoots(fsSrc, fsDst Fs, source, target string, srcInfo os.FileInfo, checks, uid, gid int) (int, int64, error) {
+	numFiles, filesSize, _, err := moveAcrossRoots(fsSrc, fsDst, source, target, srcInfo, checks, uid, gid, 0)
+	return numFiles, filesSize, err
+}
+
+func moveAcrossRoots(fsSrc, fsDst Fs, source, target string, info os.FileInfo, checks, uid, gid, recursion int) (int, int64, bool, error) {
+	var numFiles int
+	var filesSize int64
+	var keptAtSource bool
+	if info.IsDir() {
+		if recursion > util.MaxRecursion {
+			return numFiles, filesSize, keptAtSource, util.ErrRecursionTooDeep
+		}
+		recursion++
+		if err := fsDst.Mkdir(target); err != nil {
+			return numFiles, filesSize, keptAtSource, err
+		}
+		SetPathPermissions(fsDst, target, uid, gid)
+		lister, err := fsSrc.ReadDir(source)
+		if err != nil {
+			return numFiles, filesSize, keptAtSource, err
+		}
+		defer lister.Close()
+		for {
+			entries, err := lister.Next(ListerBatchSize)
+			finished := errors.Is(err, io.EOF)
+			if err != nil && !finished {
+				return numFiles, filesSize, keptAtSource, err
+			}
+			for _, entry := range entries {
+				files, size, kept, err := moveAcrossRoots(fsSrc, fsDst, fsSrc.Join(source, entry.Name()),
+					fsDst.Join(target, entry.Name()), entry, checks, uid, gid, recursion)
+				numFiles += files
+				filesSize += size
+				keptAtSource = keptAtSource || kept
+				if err != nil {
+					return numFiles, filesSize, keptAtSource, err
+				}
+			}
+			if finished {
+				// the mode is restored only now: Mkdir created the destination with the
+				// default permissions so a restrictive source mode could not block the
+				// writes above. A failure leaves those default permissions, setuid, setgid
+				// and sticky are dropped as for files.
+				_ = fsDst.Chmod(target, info.Mode().Perm())
+				// the contents are moved, remove the now-empty source directory
+				lister.Close()
+				if keptAtSource {
+					// the source directory still holds what could not be moved
+					return numFiles, filesSize, true, nil
+				}
+				return numFiles, filesSize, false, fsSrc.Remove(source, info.IsDir())
+			}
+		}
+	}
+	if !info.Mode().IsRegular() {
+		if recursion == 0 {
+			fsLog(fsSrc, logger.LevelWarn, "cannot move %q (mode %s) across roots: non-regular entries are not supported",
+				source, info.Mode().String())
+			return numFiles, filesSize, false, ErrVfsUnsupported
+		}
+		fsLog(fsSrc, logger.LevelWarn, "%q (mode %s) is left at the source: non-regular entries are not moved across roots",
+			source, info.Mode().String())
+		return numFiles, filesSize, true, nil
+	}
+	if err := copyFileAcrossRoots(fsSrc, fsDst, source, target, recursion == 0); err != nil {
+		return numFiles, filesSize, false, err
+	}
+	SetPathPermissions(fsDst, target, uid, gid)
+	_ = fsDst.Chmod(target, info.Mode().Perm())
+	if checks&CheckUpdateModTime == 0 {
+		// directory mtimes are not restored, they would have to be set after their
+		// contents to survive the child writes
+		if mtime := info.ModTime(); !mtime.IsZero() {
+			_ = fsDst.Chtimes(target, mtime, mtime, false)
+		}
+	}
+	// account the on-disk size actually written under the destination root, not
+	// info.Size(): quota is tracked as the stored size (uploads use fs.Stat, quota
+	// scans use GetDirSize) but info may carry a converted size. In particular
+	// CryptFs.ReadDir reports the decrypted size.
+	size := info.Size()
+	if fi, statErr := fsDst.Stat(target); statErr == nil {
+		size = fi.Size()
+	}
+	if err := fsSrc.Remove(source, info.IsDir()); err != nil {
+		return numFiles, filesSize, false, err
+	}
+	return numFiles + 1, filesSize + size, false, nil
+}
+
+func copyFileAcrossRoots(fsSrc, fsDst Fs, source, target string, replaceTarget bool) error {
+	f, r, cancelR, err := fsSrc.Open(source, 0)
+	if err != nil {
+		return err
+	}
+	var reader io.Reader
+	var readCloser io.Closer
+	if r != nil {
+		reader, readCloser = r, r
+	} else {
+		reader, readCloser = f, f
+	}
+	if replaceTarget {
+		if fi, err := fsDst.Lstat(target); err == nil && !fi.IsDir() {
+			if err := fsDst.Remove(target, false); err != nil {
+				readCloser.Close()
+				if cancelR != nil {
+					cancelR()
+				}
+				return err
+			}
+		}
+	}
+	wf, w, cancelW, err := fsDst.Create(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0)
+	if err != nil {
+		readCloser.Close()
+		if cancelR != nil {
+			cancelR()
+		}
+		return err
+	}
+	var writer io.Writer
+	var writeCloser io.Closer
+	if w != nil {
+		writer, writeCloser = w, w
+	} else {
+		writer, writeCloser = wf, wf
+	}
+	_, copyErr := doCopy(writer, reader, nil)
+	if copyErr != nil {
+		if cancelR != nil {
+			cancelR()
+		}
+		if cancelW != nil {
+			cancelW()
+		}
+		readCloser.Close()
+		writeCloser.Close()
+		// Create succeeded, so target is the partial copy we just wrote: drop it. If the
+		// removal fails too, the partial file is left at the destination and the caller
+		// reports the copy error.
+		_ = fsDst.Remove(target, false)
+		return copyErr
+	}
+	closeErr := writeCloser.Close()
+	readCloser.Close()
+	if cancelR != nil {
+		cancelR()
+	}
+	if cancelW != nil {
+		cancelW()
+	}
+	if closeErr != nil {
+		_ = fsDst.Remove(target, false)
+		return closeErr
+	}
+	return nil
 }
 
 // copied from rclone

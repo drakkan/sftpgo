@@ -70,7 +70,7 @@ If the SMTP configuration is correct you should receive this email.`,
 func init() {
 	addConfigFlags(smtpTestCmd)
 	smtpTestCmd.Flags().StringVar(&smtpTestRecipient, "recipient", "", `email address to send the test e-mail to`)
-	smtpTestCmd.MarkFlagRequired("recipient") //nolint:errcheck
+	_ = smtpTestCmd.MarkFlagRequired("recipient")
 
 	rootCmd.AddCommand(smtpTestCmd)
 }

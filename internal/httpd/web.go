@@ -143,8 +143,7 @@ func i18nFsMsg(status int) string {
 }
 
 func getI18NErrorString(err error, fallback string) string {
-	var errI18n *util.I18nError
-	if errors.As(err, &errI18n) {
+	if errI18n, ok := errors.AsType[*util.I18nError](err); ok {
 		return errI18n.Message
 	}
 	return fallback

@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"path"
 	"runtime/debug"
 	"slices"
 	"strings"
@@ -36,7 +37,6 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/metric"
 	"github.com/drakkan/sftpgo/v2/internal/util"
-	"github.com/drakkan/sftpgo/v2/internal/vfs"
 )
 
 const (
@@ -68,7 +68,7 @@ func processSSHCommand(payload []byte, connection *Connection, enabledSSHCommand
 						startTime:  time.Now(),
 						args:       args},
 				}
-				go scpCommand.handle() //nolint:errcheck
+				go func() { _ = scpCommand.handle() }()
 				return true
 			}
 			if name != scpCmdName {
@@ -79,7 +79,7 @@ func processSSHCommand(payload []byte, connection *Connection, enabledSSHCommand
 					startTime:  time.Now(),
 					args:       args,
 				}
-				go sshCommand.handle() //nolint:errcheck
+				go func() { _ = sshCommand.handle() }()
 				return true
 			}
 		} else {
@@ -99,7 +99,7 @@ func (c *sshCommand) handle() (err error) {
 		}
 	}()
 	if err := common.Connections.Add(c.connection); err != nil {
-		defer c.connection.CloseFS() //nolint:errcheck
+		defer c.connection.CloseFS()
 		logger.Info(logSender, "", "unable to add SSH command connection: %v", err)
 		return c.sendErrorResponse(err)
 	}
@@ -112,7 +112,7 @@ func (c *sshCommand) handle() (err error) {
 		c.sendExitStatus(nil)
 	} else if c.command == "pwd" {
 		// hard coded response to the start directory
-		c.connection.channel.Write([]byte(util.CleanPath(c.connection.User.Filters.StartDirectory) + "\n")) //nolint:errcheck
+		_, _ = c.connection.channel.Write([]byte(util.CleanPath(c.connection.User.Filters.StartDirectory) + "\n"))
 		c.sendExitStatus(nil)
 	} else if c.command == "sftpgo-copy" {
 		return c.handleSFTPGoCopy()
@@ -132,7 +132,7 @@ func (c *sshCommand) handleSFTPGoCopy() error {
 	if err := c.connection.Copy(sshSourcePath, sshDestPath); err != nil {
 		return c.sendErrorResponse(err)
 	}
-	c.connection.channel.Write([]byte("OK\n")) //nolint:errcheck
+	_, _ = c.connection.channel.Write([]byte("OK\n"))
 	c.sendExitStatus(nil)
 	return nil
 }
@@ -145,7 +145,7 @@ func (c *sshCommand) handleSFTPGoRemove() error {
 	if err := c.connection.RemoveAll(sshDestPath); err != nil {
 		return c.sendErrorResponse(err)
 	}
-	c.connection.channel.Write([]byte("OK\n")) //nolint:errcheck
+	_, _ = c.connection.channel.Write([]byte("OK\n"))
 	c.sendExitStatus(nil)
 	return nil
 }
@@ -172,28 +172,20 @@ func (c *sshCommand) handleHashCommands() error {
 		if err != nil && err != io.EOF {
 			return c.sendErrorResponse(err)
 		}
-		h.Write(buf[:n]) //nolint:errcheck
+		h.Write(buf[:n])
 		response = fmt.Sprintf("%x  -\n", h.Sum(nil))
 	} else {
 		sshPath := c.getDestPath()
-		if ok, policy := c.connection.User.IsFileAllowed(sshPath); !ok {
-			c.connection.Log(logger.LevelInfo, "hash not allowed for file %q", sshPath)
-			return c.sendErrorResponse(c.connection.GetErrorForDeniedFile(policy))
+		if strings.HasSuffix(sshPath, "/") {
+			return c.sendErrorResponse(errors.New("a path ending with \"/\" refers to a directory"))
 		}
-		fs, fsPath, err := c.connection.GetFsAndResolvedPath(sshPath)
+		hash, err := c.computeHashForFile(h, sshPath)
 		if err != nil {
 			return c.sendErrorResponse(err)
 		}
-		if !c.connection.User.HasPerm(dataprovider.PermListItems, sshPath) {
-			return c.sendErrorResponse(c.connection.GetPermissionDeniedError())
-		}
-		hash, err := c.computeHashForFile(fs, h, fsPath)
-		if err != nil {
-			return c.sendErrorResponse(c.connection.GetFsError(fs, err))
-		}
 		response = fmt.Sprintf("%v  %v\n", hash, sshPath)
 	}
-	c.connection.channel.Write([]byte(response)) //nolint:errcheck
+	_, _ = c.connection.channel.Write([]byte(response))
 	c.sendExitStatus(nil)
 	return nil
 }
@@ -238,7 +230,7 @@ func (c *sshCommand) getRemovePath() (string, error) {
 
 func (c *sshCommand) sendErrorResponse(err error) error {
 	errorString := fmt.Sprintf("%v: %v %v\n", c.command, c.getDestPath(), err)
-	c.connection.channel.Write([]byte(errorString)) //nolint:errcheck
+	_, _ = c.connection.channel.Write([]byte(errorString))
 	c.sendExitStatus(err)
 	return err
 }
@@ -280,7 +272,7 @@ func (c *sshCommand) sendExitStatus(err error) {
 				targetPath = p
 			}
 		}
-		common.ExecuteActionNotification(c.connection.BaseConnection, common.OperationSSHCmd, cmdPath, vCmdPath, //nolint:errcheck
+		_ = common.ExecuteActionNotification(c.connection.BaseConnection, common.OperationSSHCmd, cmdPath, vCmdPath,
 			targetPath, vTargetPath, c.command, 0, err, elapsed, nil)
 		if err == nil {
 			logger.CommandLog(sshCommandLogSender, cmdPath, targetPath, vCmdPath, vTargetPath,
@@ -290,24 +282,58 @@ func (c *sshCommand) sendExitStatus(err error) {
 	}
 }
 
-func (c *sshCommand) computeHashForFile(fs vfs.Fs, hasher hash.Hash, path string) (string, error) {
-	hash := ""
-	f, r, _, err := fs.Open(path, 0)
+// computeHashForFile reads the file content to compute its digest. The read is a
+// download: it requires the same access, it is accounted against the data transfer
+// quota and it is registered among the active transfers, so it is throttled, it is
+// visible to the admins and it can be aborted.
+func (c *sshCommand) computeHashForFile(hasher hash.Hash, virtualPath string) (string, error) {
+	c.connection.UpdateLastActivity()
+
+	if !c.connection.User.HasPerm(dataprovider.PermDownload, path.Dir(virtualPath)) {
+		return "", c.connection.GetPermissionDeniedError()
+	}
+	if err := common.Connections.IsNewTransferAllowed(c.connection.BaseConnection); err != nil {
+		c.connection.Log(logger.LevelInfo, "denying file read due to transfer count limits")
+		return "", c.connection.GetPermissionDeniedError()
+	}
+	transferQuota := c.connection.GetTransferQuota()
+	if !transferQuota.HasDownloadSpace() {
+		c.connection.Log(logger.LevelInfo, "denying file read due to quota limits")
+		return "", c.connection.GetReadQuotaExceededError()
+	}
+	if ok, policy := c.connection.User.IsFileAllowed(virtualPath); !ok {
+		c.connection.Log(logger.LevelInfo, "reading file %q is not allowed", virtualPath)
+		return "", c.connection.GetErrorForDeniedFile(policy)
+	}
+	fs, fsPath, err := c.connection.GetFsAndResolvedPath(virtualPath)
 	if err != nil {
-		return hash, err
+		return "", err
 	}
-	var reader io.ReadCloser
-	if f != nil {
-		reader = f
-	} else {
-		reader = r
+	if _, err := common.ExecutePreAction(c.connection.BaseConnection, common.OperationPreDownload, fsPath,
+		virtualPath, 0, 0); err != nil {
+		c.connection.Log(logger.LevelDebug, "download for file %q denied by pre action: %v", virtualPath, err)
+		return "", c.connection.GetPermissionDeniedError()
 	}
-	defer reader.Close()
-	_, err = io.Copy(hasher, reader)
+	file, r, cancelFn, err := fs.Open(fsPath, 0)
+	if err != nil {
+		c.connection.Log(logger.LevelError, "could not open file %q for reading: %v", fsPath, err)
+		return "", c.connection.GetFsError(fs, err)
+	}
+	baseTransfer := common.NewBaseTransfer(file, c.connection.BaseConnection, cancelFn, fsPath, fsPath,
+		virtualPath, common.TransferDownload, 0, 0, 0, 0, false, fs, transferQuota)
+	t := newTransfer(baseTransfer, nil, r, nil)
+
+	_, err = io.Copy(hasher, &transferReader{transfer: t})
 	if err == nil {
-		hash = fmt.Sprintf("%x", hasher.Sum(nil))
+		err = t.Close()
+	} else {
+		t.TransferError(err)
+		t.Close()
 	}
-	return hash, err
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", hasher.Sum(nil)), nil
 }
 
 func parseCommandPayload(command string) (string, []string, error) {

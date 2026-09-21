@@ -119,6 +119,19 @@ func (t *transfer) ReadAt(p []byte, off int64) (n int, err error) {
 	return
 }
 
+// transferReader adapts a transfer to a sequential reader. The transfer
+// implements io.ReaderAt to serve SFTP, so the offset is tracked here.
+type transferReader struct {
+	transfer *transfer
+	offset   int64
+}
+
+func (r *transferReader) Read(p []byte) (int, error) {
+	n, err := r.transfer.ReadAt(p, r.offset)
+	r.offset += int64(n)
+	return n, err
+}
+
 // WriteAt writes len(p) bytes to the uploaded file starting at byte offset off and updates the bytes received.
 // It handles upload bandwidth throttling too
 func (t *transfer) WriteAt(p []byte, off int64) (n int, err error) {

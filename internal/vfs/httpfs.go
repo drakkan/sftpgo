@@ -165,9 +165,8 @@ func (c *HTTPFsConfig) validate() error {
 func (c *HTTPFsConfig) ValidateAndEncryptCredentials(additionalData string) error {
 	err := c.validate()
 	if err != nil {
-		var errI18n *util.I18nError
 		errValidation := util.NewValidationError(fmt.Sprintf("could not validate HTTP fs config: %v", err))
-		if errors.As(err, &errI18n) {
+		if errI18n, ok := errors.AsType[*util.I18nError](err); ok {
 			return util.NewI18nError(errValidation, errI18n.Message)
 		}
 		return util.NewI18nError(errValidation, util.I18nErrorFsValidation)
@@ -334,13 +333,13 @@ func (fs *HTTPFs) Open(name string, offset int64) (File, PipeReader, func(), err
 		resp, err := fs.sendHTTPRequest(ctx, http.MethodGet, "open", name, queryString, "", nil)
 		if err != nil {
 			fsLog(fs, logger.LevelError, "download error, path %q, err: %v", name, err)
-			w.CloseWithError(err) //nolint:errcheck
+			w.CloseWithError(err)
 			metric.HTTPFsTransferCompleted(0, 1, err)
 			return
 		}
 		defer resp.Body.Close()
 		n, err := io.Copy(w, resp.Body)
-		w.CloseWithError(err) //nolint:errcheck
+		w.CloseWithError(err)
 		fsLog(fs, logger.LevelDebug, "download completed, path %q size: %v, err: %+v", name, n, err)
 		metric.HTTPFsTransferCompleted(n, 1, err)
 	}()
@@ -366,14 +365,14 @@ func (fs *HTTPFs) Create(name string, flag, checks int) (File, PipeWriter, func(
 			&wrapReader{reader: r})
 		if err != nil {
 			fsLog(fs, logger.LevelError, "upload error, path %q, err: %v", name, err)
-			r.CloseWithError(err) //nolint:errcheck
+			r.CloseWithError(err)
 			p.Done(err)
 			metric.HTTPFsTransferCompleted(0, 0, err)
 			return
 		}
 		defer resp.Body.Close()
 
-		r.CloseWithError(err) //nolint:errcheck
+		r.CloseWithError(err)
 		p.Done(err)
 		fsLog(fs, logger.LevelDebug, "upload completed, path: %q, readed bytes: %d", name, r.GetReadedBytes())
 		metric.HTTPFsTransferCompleted(r.GetReadedBytes(), 0, err)
@@ -397,7 +396,7 @@ func (fs *HTTPFs) Rename(source, target string, checks int) (int, int64, error) 
 	}
 	defer resp.Body.Close()
 	if checks&CheckUpdateModTime != 0 {
-		fs.Chtimes(target, time.Now(), time.Now(), false) //nolint:errcheck
+		_ = fs.Chtimes(target, time.Now(), time.Now(), false)
 	}
 	return -1, -1, nil
 }
@@ -511,6 +510,9 @@ func (fs *HTTPFs) ReadDir(dirname string) (DirLister, error) {
 	}
 	result := make([]os.FileInfo, 0, len(response))
 	for _, stat := range response {
+		if !addressesEntryInDir(stat.Name) {
+			continue
+		}
 		result = append(result, stat.getFileInfo())
 	}
 	return &baseDirLister{result}, nil
@@ -556,6 +558,8 @@ func (*HTTPFs) IsNotSupported(err error) bool {
 func (fs *HTTPFs) CheckRootPath(username string, uid int, gid int) bool {
 	// we need a local directory for temporary files
 	osFs := NewOsFs(fs.ConnectionID(), fs.localTempDir, "", nil)
+	defer osFs.Close()
+
 	return osFs.CheckRootPath(username, uid, gid)
 }
 

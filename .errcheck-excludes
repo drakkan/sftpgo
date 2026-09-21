@@ -1,0 +1,58 @@
+# Functions whose returned error carries no decision: writes to an in-memory
+# buffer, which cannot fail, and resource teardown, where the caller has
+# already given up the resource. Every other discarded error is written as an
+# explicit blank assignment at the call site.
+
+# writes that cannot fail
+(bytes.Buffer).WriteString
+(hash.Hash).Write
+(strings.Builder).Write
+(strings.Builder).WriteByte
+(strings.Builder).WriteString
+fmt.Fprintf
+fmt.Printf
+fmt.Println
+
+# resource teardown
+(*cloud.google.com/go/storage.Reader).Close
+(*database/sql.Conn).Close
+(*database/sql.Rows).Close
+(*database/sql.Stmt).Close
+(*database/sql.Tx).Rollback
+(*github.com/drakkan/sftpgo/v2/internal/common.BaseConnection).CloseFS
+(*github.com/drakkan/sftpgo/v2/internal/common.DirListerAt).Close
+(*github.com/drakkan/sftpgo/v2/internal/dataprovider.User).CloseFs
+(*github.com/drakkan/sftpgo/v2/internal/httpd.Connection).CloseFS
+(*github.com/drakkan/sftpgo/v2/internal/sftpd.Connection).CloseFS
+(*github.com/drakkan/sftpgo/v2/internal/sftpd.transfer).Close
+(*github.com/drakkan/sftpgo/v2/internal/vfs.SFTPFs).Close
+(*github.com/pkg/sftp.File).Close
+(*github.com/pkg/sftp.RequestServer).Close
+(*gocloud.dev/secrets.Keeper).Close
+(*golang.org/x/crypto/ssh.Client).Close
+(*golang.org/x/crypto/ssh.ServerConn).Close
+(*golang.org/x/sys/windows/svc/mgr.Mgr).Disconnect
+(*golang.org/x/sys/windows/svc/mgr.Service).Close
+(*io.PipeWriter).Close
+(*mime/multipart.Form).RemoveAll
+(*mime/multipart.Writer).Close
+(*os.File).Close
+(github.com/drakkan/sftpgo/v2/internal/dataprovider.User).CloseFs
+(github.com/drakkan/sftpgo/v2/internal/vfs.DirLister).Close
+(github.com/drakkan/sftpgo/v2/internal/vfs.Fs).Close
+(github.com/drakkan/sftpgo/v2/internal/vfs.PipeWriter).Close
+(github.com/drakkan/sftpgo/v2/internal/vfs.pipeReaderAt).Close
+(github.com/drakkan/sftpgo/v2/internal/vfs.pipeReaderAt).CloseWithError
+(github.com/drakkan/sftpgo/v2/internal/vfs.pipeWriterAt).Close
+(github.com/drakkan/sftpgo/v2/internal/vfs.pipeWriterAt).CloseWithError
+(io.Closer).Close
+(io.ReadCloser).Close
+(io.ReadWriteCloser).Close
+(io.WriteCloser).Close
+(mime/multipart.File).Close
+(net.Conn).Close
+(net.Listener).Close
+(net/http.File).Close
+
+# Close promoted from an embedded type: errcheck names the declaring type
+(golang.org/x/crypto/ssh.Conn).Close

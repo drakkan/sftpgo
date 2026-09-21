@@ -15,7 +15,6 @@
 package common
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -39,16 +38,11 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/vfs"
 )
 
-var (
-	errWalkDir = errors.New("err walk dir")
-)
-
 // MockOsFs mockable OsFs
 type MockOsFs struct {
 	vfs.Fs
 	hasVirtualFolders bool
 	name              string
-	err               error
 }
 
 // Name returns the name for the Fs implementation
@@ -72,29 +66,29 @@ func (fs *MockOsFs) Chtimes(_ string, _, _ time.Time, _ bool) error {
 	return vfs.ErrVfsUnsupported
 }
 
-func (fs *MockOsFs) Lstat(name string) (os.FileInfo, error) {
-	if fs.err != nil {
-		return nil, fs.err
-	}
-	return fs.Fs.Lstat(name)
+func (*MockOsFs) Walk(_ string, walkFn filepath.WalkFunc) error {
+	return walkFn("fsfpath", vfs.NewFileInfo("fpath", false, 0, time.Now(), false), nil)
 }
 
-// Walk returns a duplicate path for testing
-func (fs *MockOsFs) Walk(_ string, walkFn filepath.WalkFunc) error {
-	if fs.err == errWalkDir {
-		walkFn("fsdpath", vfs.NewFileInfo("dpath", true, 0, time.Now(), false), nil)        //nolint:errcheck
-		return walkFn("fsdpath", vfs.NewFileInfo("dpath", true, 0, time.Now(), false), nil) //nolint:errcheck
-	}
-	walkFn("fsfpath", vfs.NewFileInfo("fpath", false, 0, time.Now(), false), nil) //nolint:errcheck
-	return fs.err
+func (*MockOsFs) CanCheckRenamedEntries() bool {
+	return true
 }
 
-func newMockOsFs(hasVirtualFolders bool, connectionID, rootDir, name string, err error) vfs.Fs {
+func (*MockOsFs) RenameChecked(source, target string, _ int, onEntry vfs.EntryCheckFn) (int, int64, error) {
+	if onEntry != nil {
+		if err := onEntry(filepath.Join(source, "f.txt"), filepath.Join(target, "f.txt"),
+			vfs.NewFileInfo("f.txt", false, 0, time.Now(), false)); err != nil {
+			return 0, 0, err
+		}
+	}
+	return 0, 0, vfs.ErrVfsUnsupported
+}
+
+func newMockOsFs(hasVirtualFolders bool, connectionID, rootDir, name string) vfs.Fs {
 	return &MockOsFs{
 		Fs:                vfs.NewOsFs(connectionID, rootDir, "", nil),
 		name:              name,
 		hasVirtualFolders: hasVirtualFolders,
-		err:               err,
 	}
 }
 
@@ -142,7 +136,7 @@ func TestSetStatMode(t *testing.T) {
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
-	fs := newMockOsFs(true, "", user.GetHomeDir(), "", nil)
+	fs := newMockOsFs(true, "", user.GetHomeDir(), "")
 	conn := NewBaseConnection("", ProtocolWebDAV, "", "", user)
 	err := conn.handleChmod(fs, fakePath, fakePath, fakePath, nil)
 	assert.NoError(t, err)
@@ -163,37 +157,209 @@ func TestSetStatMode(t *testing.T) {
 	Config.SetstatMode = oldSetStatMode
 }
 
-func TestRecursiveRenameWalkError(t *testing.T) {
-	fs := vfs.NewOsFs("", filepath.Clean(os.TempDir()), "", nil)
+func TestSymlinkCreationMode(t *testing.T) {
+	oldSymlinkMode := Config.SymlinkMode
+	defer func() { Config.SymlinkMode = oldSymlinkMode }()
+
+	localFs := vfs.NewOsFs("", filepath.Clean(os.TempDir()), "", nil)
+
+	// the zero value disables creation on every backend
+	Config.SymlinkMode = 0
+	assert.False(t, Config.IsSymlinkCreationAllowed(localFs))
+
+	// the local bit enables creation on the local filesystem only
+	Config.SymlinkMode = SymlinkModeAllowLocal
+	assert.True(t, Config.IsSymlinkCreationAllowed(localFs))
+
+	// the SFTP bit alone does not enable the local backend
+	Config.SymlinkMode = SymlinkModeAllowSFTP
+	assert.False(t, Config.IsSymlinkCreationAllowed(localFs))
+
+	// with creation disabled the local backend rejects it at the handler
+	Config.SymlinkMode = 0
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			HomeDir: filepath.Clean(os.TempDir()),
+		},
+	}
+	user.Permissions = map[string][]string{
+		"/": {dataprovider.PermAny},
+	}
+	conn := NewBaseConnection("", ProtocolWebDAV, "", "", user)
+	err := conn.CreateSymlink("/target.txt", "/link.txt")
+	assert.ErrorIs(t, err, ErrOpUnsupported)
+}
+
+func TestRenameEntryChecks(t *testing.T) {
 	conn := NewBaseConnection("", ProtocolWebDAV, "", "", dataprovider.User{
 		BaseUser: sdk.BaseUser{
 			Permissions: map[string][]string{
-				"/": {dataprovider.PermListItems, dataprovider.PermUpload,
-					dataprovider.PermDownload, dataprovider.PermRenameDirs},
+				"/":       {dataprovider.PermAny},
+				"/target": {dataprovider.PermListItems, dataprovider.PermRenameDirs},
 			},
 		},
 	})
-	err := conn.checkRecursiveRenameDirPermissions(fs, fs, filepath.Join(os.TempDir(), "/source"),
-		filepath.Join(os.TempDir(), "/target"), "/source", "/target",
-		vfs.NewFileInfo("source", true, 0, time.Now(), false))
-	assert.ErrorIs(t, err, os.ErrNotExist)
-
-	fs = newMockOsFs(false, "mockID", filepath.Clean(os.TempDir()), "S3Fs", errWalkDir)
-	err = conn.checkRecursiveRenameDirPermissions(fs, fs, filepath.Join(os.TempDir(), "/source"),
-		filepath.Join(os.TempDir(), "/target"), "/source", "/target",
-		vfs.NewFileInfo("source", true, 0, time.Now(), false))
-	if assert.Error(t, err) {
-		assert.Equal(t, err.Error(), conn.GetOpUnsupportedError().Error())
-	}
-
-	conn.User.Permissions["/"] = []string{dataprovider.PermListItems, dataprovider.PermUpload,
-		dataprovider.PermDownload, dataprovider.PermRenameFiles}
-	// no dir rename permission, the quick check path returns permission error without walking
-	err = conn.checkRecursiveRenameDirPermissions(fs, fs, filepath.Join(os.TempDir(), "/source"),
-		filepath.Join(os.TempDir(), "/target"), "/source", "/target",
-		vfs.NewFileInfo("source", true, 0, time.Now(), false))
+	fs := vfs.NewOsFs("", filepath.Clean(os.TempDir()), "", nil)
+	defer fs.Close()
+	sourcePath := filepath.Join(os.TempDir(), "source")
+	targetPath := filepath.Join(os.TempDir(), "target")
+	// the rename permissions are partial, the entries must be checked one by one
+	assert.True(t, conn.renameNeedsEntryChecks("/source", "/target"))
+	onEntry := conn.getRenameEntryCheckFn(fs, fs)
+	err := onEntry(filepath.Join(sourcePath, "sub"), filepath.Join(targetPath, "sub"),
+		vfs.NewFileInfo("sub", true, 0, time.Now(), false))
+	assert.NoError(t, err)
+	// renaming a file requires a permission the user does not have
+	err = onEntry(filepath.Join(sourcePath, "f.txt"), filepath.Join(targetPath, "f.txt"),
+		vfs.NewFileInfo("f.txt", false, 0, time.Now(), false))
 	if assert.Error(t, err) {
 		assert.EqualError(t, err, conn.GetPermissionDeniedError().Error())
+	}
+	// a filesystem that renames a directory in a single operation cannot check the
+	// entries that rename carries, so the rename is refused
+	err = conn.checkFolderRename(fs, fs, sourcePath, targetPath, "/source", "/target")
+	assert.ErrorIs(t, err, os.ErrPermission)
+	// a filesystem that recurses walks the tree first
+	mockFs := newMockOsFs(false, "mockID", filepath.Clean(os.TempDir()), "S3Fs")
+	defer mockFs.Close()
+	err = conn.checkFolderRename(mockFs, mockFs, sourcePath, targetPath, "/source", "/target")
+	if assert.Error(t, err) {
+		assert.EqualError(t, err, conn.GetOpUnsupportedError().Error())
+	}
+	// all the rename permissions are granted and no filter is defined: the tree is
+	// renamed as a single entry
+	conn.User.Permissions = map[string][]string{"/": {dataprovider.PermAny}}
+	assert.False(t, conn.renameNeedsEntryChecks("/source", "/target"))
+	err = conn.checkFolderRename(fs, fs, sourcePath, targetPath, "/source", "/target")
+	assert.NoError(t, err)
+	// a permission that restricts renaming inside either tree turns the checks on,
+	// wherever the tree is going
+	for _, permPath := range []string{"/source/sub", "/target/sub", "/*/sub"} {
+		conn.User.Permissions = map[string][]string{
+			"/":      {dataprovider.PermAny},
+			permPath: {dataprovider.PermListItems, dataprovider.PermDownload},
+		}
+		assert.True(t, conn.renameNeedsEntryChecks("/source", "/target"), permPath)
+	}
+	// a permission that allows renaming both files and directories inside the tree
+	// changes nothing, and neither does one on a path that only shares a prefix
+	conn.User.Permissions = map[string][]string{
+		"/":            {dataprovider.PermAny},
+		"/source/sub":  {dataprovider.PermRename, dataprovider.PermListItems},
+		"/target/sub2": {dataprovider.PermRenameFiles, dataprovider.PermRenameDirs},
+		"/sourceother": {dataprovider.PermListItems},
+	}
+	assert.False(t, conn.renameNeedsEntryChecks("/source", "/target"))
+	conn.User.Permissions = map[string][]string{"/": {dataprovider.PermAny}}
+	// a filter defined on the target tree changes the scope
+	conn.User.Filters.FilePatterns = []sdk.PatternsFilter{
+		{
+			Path:           "/target",
+			DeniedPatterns: []string{"*.php"},
+		},
+	}
+	assert.True(t, conn.renameNeedsEntryChecks("/source", "/target"))
+	onEntry = conn.getRenameEntryCheckFn(fs, fs)
+	err = onEntry(filepath.Join(sourcePath, "shell.php"), filepath.Join(targetPath, "shell.php"),
+		vfs.NewFileInfo("shell.php", false, 0, time.Now(), false))
+	if assert.Error(t, err) {
+		assert.EqualError(t, err, conn.GetPermissionDeniedError().Error())
+	}
+	// renaming files and directories granted separately is not a restriction
+	// attached to a location: the walk decides, so an empty directory is renamed
+	conn.User.Filters.FilePatterns = nil
+	conn.User.Permissions = map[string][]string{"/": {
+		dataprovider.PermListItems, dataprovider.PermUpload, dataprovider.PermRenameDirs,
+	}}
+	assert.True(t, conn.renameNeedsEntryChecks("/source", "/target"))
+	assert.False(t, conn.renameCrossesEntryRestrictions("/source", "/target"))
+	assert.NoError(t, os.MkdirAll(sourcePath, os.ModePerm))
+	assert.NoError(t, conn.checkFolderRename(fs, fs, sourcePath, targetPath, "/source", "/target"))
+	// a file inside it requires a permission the user does not have
+	assert.NoError(t, os.WriteFile(filepath.Join(sourcePath, "f.txt"), []byte("f"), 0o600))
+	err = conn.checkFolderRename(fs, fs, sourcePath, targetPath, "/source", "/target")
+	assert.ErrorIs(t, err, os.ErrPermission)
+	assert.NoError(t, os.RemoveAll(sourcePath))
+	conn.User.Permissions = map[string][]string{"/": {dataprovider.PermAny}}
+
+	// a permission defined below the renamed name selects the checks whether or not
+	// the path is a directory now: a change of type would activate it
+	conn.User.Filters.FilePatterns = nil
+	conn.User.Permissions = map[string][]string{
+		"/":                   {dataprovider.PermAny},
+		"/data/dir/sub/inner": {dataprovider.PermListItems},
+	}
+	assert.True(t, conn.renameNeedsEntryChecks("/data/dir/sub", "/elsewhere/sub"))
+	// a permission on the parent selects the checks through the parent clause
+	conn.User.Permissions = map[string][]string{
+		"/":         {dataprovider.PermAny},
+		"/data/dir": {dataprovider.PermListItems, dataprovider.PermRenameFiles},
+	}
+	assert.True(t, conn.renameNeedsEntryChecks("/data/dir/sub", "/elsewhere/sub"))
+	// nothing defined at or below either path and both parents granting renaming in
+	// full: whatever the path becomes, its entries resolve to those same permissions
+	conn.User.Permissions = map[string][]string{
+		"/":          {dataprovider.PermAny},
+		"/data/dir":  {dataprovider.PermRename, dataprovider.PermListItems},
+		"/elsewhere": {dataprovider.PermRename},
+	}
+	assert.False(t, conn.renameNeedsEntryChecks("/data/dir/sub", "/elsewhere/sub"))
+	conn.User.Permissions = map[string][]string{"/": {dataprovider.PermAny}}
+
+	// an entry hidden where it is now is denied, it must not report the tree as missing
+	conn.User.Filters.FilePatterns = []sdk.PatternsFilter{
+		{
+			Path:           "/source",
+			DeniedPatterns: []string{"*.php"},
+			DenyPolicy:     sdk.DenyPolicyHide,
+		},
+	}
+	assert.True(t, conn.renameNeedsEntryChecks("/source", "/target"))
+	onEntry = conn.getRenameEntryCheckFn(fs, fs)
+	err = onEntry(filepath.Join(sourcePath, "hidden.php"), filepath.Join(targetPath, "hidden.php"),
+		vfs.NewFileInfo("hidden.php", false, 0, time.Now(), false))
+	if assert.Error(t, err) {
+		assert.EqualError(t, err, conn.GetPermissionDeniedError().Error())
+	}
+}
+
+func TestRenameSourceTypeChanged(t *testing.T) {
+	root := filepath.Join(os.TempDir(), "renametype")
+	require.NoError(t, os.RemoveAll(root))
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "adir"), os.ModePerm))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "afile"), []byte("f"), 0o600))
+	defer os.RemoveAll(root)
+
+	conn := NewBaseConnection("", ProtocolWebDAV, "", "", dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Permissions: map[string][]string{"/": {dataprovider.PermAny}},
+		},
+	})
+	fs := vfs.NewOsFs("", root, "", nil)
+	defer fs.Close()
+	dirInfo := vfs.NewFileInfo("x", true, 0, time.Now(), false)
+	fileInfo := vfs.NewFileInfo("x", false, 0, time.Now(), false)
+
+	for _, test := range []struct {
+		name     string
+		fsPath   string
+		srcInfo  os.FileInfo
+		expected error
+	}{
+		{"a directory that is still a directory", "adir", dirInfo, nil},
+		{"a file that is still a file", "afile", fileInfo, nil},
+		{"a file replaced by a directory", "adir", fileInfo, os.ErrPermission},
+		{"a directory replaced by a file", "afile", dirInfo, os.ErrPermission},
+		{"a source that disappeared", "missing", fileInfo, os.ErrNotExist},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			err := conn.checkRenameSourceType(fs, filepath.Join(root, test.fsPath), "/"+test.fsPath, test.srcInfo)
+			if test.expected == nil {
+				assert.NoError(t, err)
+			} else {
+				assert.ErrorIs(t, err, test.expected)
+			}
+		})
 	}
 }
 
@@ -230,8 +396,48 @@ func TestRenameVirtualFolders(t *testing.T) {
 	})
 	fs := vfs.NewOsFs("", os.TempDir(), "", nil)
 	conn := NewBaseConnection("", ProtocolFTP, "", "", u)
-	res := conn.isRenamePermitted(fs, fs, "source", "target", vdir, "vdirtarget", nil)
-	assert.False(t, res)
+	err := conn.checkRenamePermissions(fs, fs, "source", "target", vdir, "vdirtarget", nil)
+	assert.ErrorIs(t, err, os.ErrPermission)
+}
+
+func TestRenameDeniedSourcePolicy(t *testing.T) {
+	fs := vfs.NewOsFs("", os.TempDir(), "", nil)
+
+	for _, tc := range []struct {
+		name     string
+		policy   int
+		expected error
+	}{
+		{name: "default policy", policy: sdk.DenyPolicyDefault, expected: os.ErrPermission},
+		{name: "hide policy", policy: sdk.DenyPolicyHide, expected: os.ErrNotExist},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			u := dataprovider.User{
+				BaseUser: sdk.BaseUser{
+					Username:    "user",
+					HomeDir:     filepath.Clean(os.TempDir()),
+					Permissions: map[string][]string{"/": {dataprovider.PermAny}},
+				},
+			}
+			u.Filters.FilePatterns = []sdk.PatternsFilter{
+				{Path: "/", DeniedPatterns: []string{"*.dat"}, DenyPolicy: tc.policy},
+			}
+			conn := NewBaseConnection("", ProtocolHTTP, "", "", u)
+			srcInfo := vfs.NewFileInfo("report.dat", false, 123, time.Now(), false)
+			// a denied source reports the configured policy
+			err := conn.checkRenamePermissions(fs, fs, filepath.Join(os.TempDir(), "report.dat"),
+				filepath.Join(os.TempDir(), "report.txt"), "/report.dat", "/report.txt", srcInfo)
+			assert.ErrorIs(t, err, tc.expected)
+			// a denied target is always a permission error, it is a path being written
+			err = conn.checkRenamePermissions(fs, fs, filepath.Join(os.TempDir(), "doc.txt"),
+				filepath.Join(os.TempDir(), "doc.dat"), "/doc.txt", "/doc.dat", srcInfo)
+			assert.ErrorIs(t, err, os.ErrPermission)
+			// an allowed rename is permitted
+			err = conn.checkRenamePermissions(fs, fs, filepath.Join(os.TempDir(), "doc.txt"),
+				filepath.Join(os.TempDir(), "doc2.txt"), "/doc.txt", "/doc2.txt", srcInfo)
+			assert.NoError(t, err)
+		})
+	}
 }
 
 func TestRenamePerms(t *testing.T) {
@@ -292,13 +498,13 @@ func TestRenameNestedFolders(t *testing.T) {
 		VirtualPath: "/vdirs/f",
 	})
 	conn := NewBaseConnection("", ProtocolSFTP, "", "", u)
-	err := conn.checkFolderRename(nil, nil, filepath.Clean(os.TempDir()), filepath.Join(os.TempDir(), "subdir"), "/src", "/dst", nil)
+	err := conn.checkFolderRename(nil, nil, filepath.Clean(os.TempDir()), filepath.Join(os.TempDir(), "subdir"), "/src", "/dst")
 	assert.Error(t, err)
-	err = conn.checkFolderRename(nil, nil, filepath.Join(os.TempDir(), "subdir"), filepath.Clean(os.TempDir()), "/src", "/dst", nil)
+	err = conn.checkFolderRename(nil, nil, filepath.Join(os.TempDir(), "subdir"), filepath.Clean(os.TempDir()), "/src", "/dst")
 	assert.Error(t, err)
-	err = conn.checkFolderRename(nil, nil, "", "", "/src/sub", "/src", nil)
+	err = conn.checkFolderRename(nil, nil, "", "", "/src/sub", "/src")
 	assert.Error(t, err)
-	err = conn.checkFolderRename(nil, nil, filepath.Join(os.TempDir(), "src"), filepath.Join(os.TempDir(), "vdirs"), "/src", "/vdirs", nil)
+	err = conn.checkFolderRename(nil, nil, filepath.Join(os.TempDir(), "src"), filepath.Join(os.TempDir(), "vdirs"), "/src", "/vdirs")
 	assert.Error(t, err)
 }
 
@@ -332,7 +538,7 @@ func TestUpdateQuotaAfterRename(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.MkdirAll(mappedPath, os.ModePerm)
 	assert.NoError(t, err)
-	fs, err := user.GetFilesystem("id")
+	fs, err := user.GetFilesystemForPath("/vdir/file", "id")
 	assert.NoError(t, err)
 	c := NewBaseConnection("", ProtocolSFTP, "", "", user)
 	request := sftp.NewRequest("Rename", "/testfile")
@@ -373,6 +579,8 @@ func TestUpdateQuotaAfterRename(t *testing.T) {
 	err = c.updateQuotaAfterRename(fs, request.Filepath, request.Target, filepath.Join(mappedPath, "file"), 12, 1, 100)
 	assert.NoError(t, err)
 
+	err = user.CloseFs()
+	assert.NoError(t, err)
 	err = os.RemoveAll(mappedPath)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
@@ -500,7 +708,7 @@ func TestMaxWriteSize(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, int64(90), size)
 
-	fs = newMockOsFs(true, fs.ConnectionID(), user.GetHomeDir(), "", nil)
+	fs = newMockOsFs(true, fs.ConnectionID(), user.GetHomeDir(), "")
 	size, err = conn.GetMaxWriteSize(quotaResult, true, 100, fs.IsUploadResumeSupported())
 	assert.EqualError(t, err, ErrOpUnsupported.Error())
 	assert.Equal(t, int64(0), size)
@@ -607,7 +815,7 @@ func TestErrorResolvePath(t *testing.T) {
 	assert.Error(t, err)
 	err = conn.doRecursiveRemove(nil, "/fspath", "/vpath", vfs.NewFileInfo("vpath", true, 0, time.Now(), false), 2000)
 	assert.Error(t, err, util.ErrRecursionTooDeep)
-	err = conn.doRecursiveCopy("/src", "/dst", vfs.NewFileInfo("src", true, 0, time.Now(), false), false, 2000)
+	err = conn.doRecursiveCopy("/src", "/dst", vfs.NewFileInfo("src", true, 0, time.Now(), false), nil, false, 2000)
 	assert.Error(t, err, util.ErrRecursionTooDeep)
 	err = conn.checkCopy(vfs.NewFileInfo("name", true, 0, time.Unix(0, 0), false), nil, "/source", "/target")
 	assert.Error(t, err)
@@ -620,6 +828,8 @@ func TestErrorResolvePath(t *testing.T) {
 	assert.Error(t, err)
 	err = conn.checkCopy(vfs.NewFileInfo("source", false, 0, time.Unix(0, 0), false), vfs.NewFileInfo("target", true, 0, time.Unix(0, 0), false), "/f/source", "/f/target")
 	assert.Error(t, err)
+	err = conn.CloseFS()
+	assert.NoError(t, err)
 	err = os.RemoveAll(filepath.Dir(sourceFile))
 	assert.NoError(t, err)
 }
@@ -651,6 +861,25 @@ func TestFsFileCopier(t *testing.T) {
 	fs = vfs.Fs(&vfs.S3Fs{})
 	_, ok = fs.(vfs.FsFileCopier)
 	assert.True(t, ok)
+}
+
+func TestFsCheckedRenamer(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		fs       vfs.Fs
+		expected bool
+	}{
+		{"S3Fs", &vfs.S3Fs{}, true},
+		{"GCSFs", &vfs.GCSFs{}, true},
+		{"AzureBlobFs", &vfs.AzureBlobFs{}, true},
+		{"OsFs", &vfs.OsFs{}, false},
+		{"CryptFs", &vfs.CryptFs{}, false},
+		{"SFTPFs", &vfs.SFTPFs{}, false},
+		{"HTTPFs", &vfs.HTTPFs{}, false},
+	} {
+		_, ok := test.fs.(vfs.FsCheckedRenamer)
+		assert.Equal(t, test.expected, ok, test.name)
+	}
 }
 
 func TestFilePatterns(t *testing.T) {
@@ -881,7 +1110,7 @@ func TestFilePatterns(t *testing.T) {
 	assert.Len(t, filtered, 0)
 
 	dirContents = nil
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		dirContents = append(dirContents, vfs.NewFileInfo(fmt.Sprintf("ic%02d", i), i%2 == 0, int64(i), time.Now(), false))
 	}
 	dirContents = append(dirContents, vfs.NewFileInfo("ic350", false, 123, time.Now(), false))
@@ -1046,6 +1275,446 @@ func TestFilePatterns(t *testing.T) {
 	require.Len(t, filtered, 1)
 }
 
+func TestCheckCopyPermissions(t *testing.T) {
+	allPerms := []string{dataprovider.PermAny}
+	noDownload := []string{dataprovider.PermListItems, dataprovider.PermUpload, dataprovider.PermCopy}
+	noCopy := []string{dataprovider.PermListItems, dataprovider.PermUpload, dataprovider.PermDownload}
+
+	testCases := []struct {
+		name        string
+		permissions map[string][]string
+		patterns    []sdk.PatternsFilter
+		source      string
+		target      string
+		expected    error
+	}{
+		{
+			name:        "all permissions, no patterns",
+			permissions: map[string][]string{"/": allPerms},
+			source:      "/src/file.txt",
+			target:      "/dst/file.txt",
+		},
+		{
+			name:        "no copy permission on the source dir",
+			permissions: map[string][]string{"/": allPerms, "/src": noCopy},
+			source:      "/src/file.txt",
+			target:      "/dst/file.txt",
+			expected:    os.ErrPermission,
+		},
+		{
+			name:        "no copy permission on the target dir",
+			permissions: map[string][]string{"/": allPerms, "/dst": noCopy},
+			source:      "/src/file.txt",
+			target:      "/dst/file.txt",
+			expected:    os.ErrPermission,
+		},
+		{
+			name:        "no download permission on the source dir",
+			permissions: map[string][]string{"/": allPerms, "/src": noDownload},
+			source:      "/src/file.txt",
+			target:      "/dst/file.txt",
+			expected:    os.ErrPermission,
+		},
+		{
+			name:        "glob permission key matching the file only",
+			permissions: map[string][]string{"/": allPerms, "/src/*": noCopy},
+			source:      "/src/file.txt",
+			target:      "/dst/file.txt",
+		},
+		{
+			name:        "glob permission key matching the source dir",
+			permissions: map[string][]string{"/": allPerms, "/sr*": noCopy},
+			source:      "/src/file.txt",
+			target:      "/dst/file.txt",
+			expected:    os.ErrPermission,
+		},
+		{
+			name:        "download permission is not required on the target dir",
+			permissions: map[string][]string{"/": allPerms, "/dst": noDownload},
+			source:      "/src/file.txt",
+			target:      "/dst/file.txt",
+		},
+		{
+			name:        "denied source, default policy",
+			permissions: map[string][]string{"/": allPerms},
+			patterns: []sdk.PatternsFilter{
+				{Path: "/", DeniedPatterns: []string{"*.dat"}, DenyPolicy: sdk.DenyPolicyDefault},
+			},
+			source:   "/src/report.dat",
+			target:   "/dst/report.txt",
+			expected: os.ErrPermission,
+		},
+		{
+			name:        "denied source, hide policy",
+			permissions: map[string][]string{"/": allPerms},
+			patterns: []sdk.PatternsFilter{
+				{Path: "/", DeniedPatterns: []string{"*.dat"}, DenyPolicy: sdk.DenyPolicyHide},
+			},
+			source:   "/src/report.dat",
+			target:   "/dst/report.txt",
+			expected: os.ErrNotExist,
+		},
+		{
+			name:        "hidden source parent dir",
+			permissions: map[string][]string{"/": allPerms},
+			patterns: []sdk.PatternsFilter{
+				{Path: "/", DeniedPatterns: []string{"hidden"}, DenyPolicy: sdk.DenyPolicyHide},
+			},
+			source:   "/hidden/file.txt",
+			target:   "/dst/file.txt",
+			expected: os.ErrNotExist,
+		},
+		{
+			// the hide policy is not forwarded for a path being written
+			name:        "denied target, hide policy",
+			permissions: map[string][]string{"/": allPerms},
+			patterns: []sdk.PatternsFilter{
+				{Path: "/", DeniedPatterns: []string{"*.dat"}, DenyPolicy: sdk.DenyPolicyHide},
+			},
+			source:   "/src/file.txt",
+			target:   "/dst/report.dat",
+			expected: os.ErrPermission,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			user := dataprovider.User{
+				BaseUser: sdk.BaseUser{
+					Username:    "user",
+					HomeDir:     filepath.Clean(os.TempDir()),
+					Permissions: tc.permissions,
+				},
+			}
+			user.Filters.FilePatterns = tc.patterns
+			conn := NewBaseConnection("", ProtocolHTTP, "", "", user)
+			err := conn.checkCopyPermissions(tc.source, tc.target)
+			if tc.expected == nil {
+				assert.NoError(t, err)
+			} else {
+				assert.ErrorIs(t, err, tc.expected)
+			}
+		})
+	}
+}
+
+func TestFilePatternsDirNameScope(t *testing.T) {
+	newUser := func(patterns []sdk.PatternsFilter) dataprovider.User {
+		user := dataprovider.User{
+			BaseUser: sdk.BaseUser{
+				Username:    userTestUsername,
+				Permissions: map[string][]string{"/": {dataprovider.PermAny}},
+			},
+		}
+		user.Filters.FilePatterns = patterns
+		return user
+	}
+
+	user := newUser([]sdk.PatternsFilter{
+		{Path: "/", DeniedPatterns: []string{"reports"}, DenyPolicy: sdk.DenyPolicyHide},
+		{Path: "/reports", DeniedPatterns: []string{"*.exe"}, DenyPolicy: sdk.DenyPolicyHide},
+	})
+	// the filter on /reports describes its entries, the name is denied by the one on /
+	ok, policy := user.IsFileAllowed("/reports/a.txt")
+	assert.False(t, ok)
+	assert.Equal(t, sdk.DenyPolicyHide, policy)
+	ok, _ = user.IsFileAllowed("/reports/sub/a.txt")
+	assert.False(t, ok)
+	ok, _ = user.IsFileAllowed("/other/a.txt")
+	assert.True(t, ok)
+
+	// the same holds for an allowed list: the subdirectory name must match the
+	// patterns of its parent to stay reachable
+	user = newUser([]sdk.PatternsFilter{
+		{Path: "/", AllowedPatterns: []string{"*.txt"}, DenyPolicy: sdk.DenyPolicyHide},
+		{Path: "/docs", AllowedPatterns: []string{"*.pdf"}, DenyPolicy: sdk.DenyPolicyHide},
+	})
+	ok, _ = user.IsFileAllowed("/docs/a.pdf")
+	assert.False(t, ok, "the name docs does not match the patterns defined on /")
+	ok, _ = user.IsFileAllowed("/a.txt")
+	assert.True(t, ok)
+
+	// listing the name of docs on / follows the same rule
+	user = newUser([]sdk.PatternsFilter{
+		{Path: "/", AllowedPatterns: []string{"*.txt", "docs"}, DenyPolicy: sdk.DenyPolicyHide},
+		{Path: "/docs", AllowedPatterns: []string{"*.pdf"}, DenyPolicy: sdk.DenyPolicyHide},
+	})
+	ok, _ = user.IsFileAllowed("/docs/a.pdf")
+	assert.True(t, ok)
+	ok, _ = user.IsFileAllowed("/docs/a.txt")
+	assert.False(t, ok)
+}
+
+func TestSymlinkDeniedSourcePolicy(t *testing.T) {
+	oldConfig := Config
+	Config.SymlinkMode = 1
+	defer func() {
+		Config = oldConfig
+	}()
+
+	homeDir := filepath.Join(os.TempDir(), "symlinkpolicy")
+	err := os.MkdirAll(homeDir, os.ModePerm)
+	assert.NoError(t, err)
+
+	for _, tc := range []struct {
+		name     string
+		policy   int
+		expected error
+	}{
+		{name: "default policy", policy: sdk.DenyPolicyDefault, expected: os.ErrPermission},
+		{name: "hide policy", policy: sdk.DenyPolicyHide, expected: os.ErrNotExist},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			user := dataprovider.User{
+				BaseUser: sdk.BaseUser{
+					Username:    userTestUsername,
+					HomeDir:     homeDir,
+					Permissions: map[string][]string{"/": {dataprovider.PermAny}},
+				},
+			}
+			user.Filters.FilePatterns = []sdk.PatternsFilter{
+				{Path: "/", DeniedPatterns: []string{"*.dat"}, DenyPolicy: tc.policy},
+			}
+			conn := NewBaseConnection("", ProtocolHTTP, "", "", user)
+			defer conn.CloseFS()
+			assert.ErrorIs(t, conn.CreateSymlink("/report.dat", "/link.txt"), tc.expected)
+			// a denied target is a path being written, it always reports permission denied
+			assert.ErrorIs(t, conn.CreateSymlink("/doc.txt", "/link.dat"), os.ErrPermission)
+		})
+	}
+
+	err = os.RemoveAll(homeDir)
+	assert.NoError(t, err)
+}
+
+func TestRenameFilePatternsScope(t *testing.T) {
+	homeDir := filepath.Join(os.TempDir(), "renamescope")
+
+	var conn *BaseConnection
+	setup := func(patterns []sdk.PatternsFilter) *BaseConnection {
+		if conn != nil {
+			assert.NoError(t, conn.CloseFS())
+		}
+		err := os.RemoveAll(homeDir)
+		assert.NoError(t, err)
+		err = os.MkdirAll(filepath.Join(homeDir, "alpha", "sub"), os.ModePerm)
+		assert.NoError(t, err)
+		err = os.WriteFile(filepath.Join(homeDir, "alpha", "report.dat"), []byte("k"), 0o600)
+		assert.NoError(t, err)
+		err = os.WriteFile(filepath.Join(homeDir, "alpha", "doc.txt"), []byte("d"), 0o600)
+		assert.NoError(t, err)
+
+		user := dataprovider.User{
+			BaseUser: sdk.BaseUser{
+				Username:    userTestUsername,
+				HomeDir:     homeDir,
+				Permissions: map[string][]string{"/": {dataprovider.PermAny}},
+			},
+		}
+		user.Filters.FilePatterns = patterns
+		conn = NewBaseConnection("", ProtocolHTTP, "", "", user)
+		return conn
+	}
+	scoped := []sdk.PatternsFilter{
+		{Path: "/alpha", DeniedPatterns: []string{"*.dat"}},
+	}
+
+	// the denied file cannot be moved out directly
+	conn = setup(scoped)
+	assert.ErrorIs(t, conn.Rename("/alpha/report.dat", "/report.dat"), os.ErrPermission)
+	assert.ErrorIs(t, conn.Rename("/alpha", "/beta"), os.ErrPermission)
+	_, err := os.Stat(filepath.Join(homeDir, "beta"))
+	assert.True(t, os.IsNotExist(err), "a refused rename moves nothing")
+	assert.ErrorIs(t, conn.Rename("/alpha", "/alpha2"), os.ErrPermission)
+	// a rename that keeps the same filter in scope is still allowed
+	assert.NoError(t, conn.Rename("/alpha/doc.txt", "/alpha/doc2.txt"))
+	assert.NoError(t, conn.Rename("/alpha/sub", "/alpha/sub2"))
+
+	conn = setup([]sdk.PatternsFilter{
+		{Path: "/", DeniedPatterns: []string{"*.dat"}},
+		{Path: "/alpha", AllowedPatterns: []string{"*"}},
+	})
+	assert.ErrorIs(t, conn.Rename("/alpha", "/beta"), os.ErrPermission)
+
+	conn = setup([]sdk.PatternsFilter{
+		{Path: "/alpha", DeniedPatterns: []string{"*.bin"}},
+	})
+	assert.ErrorIs(t, conn.Rename("/alpha", "/beta"), os.ErrPermission)
+	_, err = os.Stat(filepath.Join(homeDir, "beta"))
+	assert.True(t, os.IsNotExist(err), "a refused rename moves nothing")
+	// the entries stay reachable where they are
+	for _, name := range []string{"report.dat", "doc.txt"} {
+		_, err = os.Stat(filepath.Join(homeDir, "alpha", name))
+		assert.NoError(t, err, name)
+	}
+
+	conn = setup(nil)
+	assert.NoError(t, conn.Rename("/alpha", "/beta"))
+	conn = setup([]sdk.PatternsFilter{{Path: "/", DeniedPatterns: []string{"*.dat"}}})
+	assert.NoError(t, conn.Rename("/alpha", "/beta"))
+	// a filter defined below both paths governs neither of them
+	conn = setup([]sdk.PatternsFilter{{Path: "/other/sub", DeniedPatterns: []string{"*.dat"}}})
+	assert.NoError(t, conn.Rename("/alpha", "/beta"))
+
+	assert.NoError(t, conn.CloseFS())
+	err = os.RemoveAll(homeDir)
+	assert.NoError(t, err)
+}
+
+func TestHiddenVirtualFolderStat(t *testing.T) {
+	mappedPath := filepath.Join(os.TempDir(), "vdirhidden")
+	homeDir := filepath.Join(os.TempDir(), "homehidden")
+	err := os.MkdirAll(mappedPath, os.ModePerm)
+	assert.NoError(t, err)
+	err = os.MkdirAll(homeDir, os.ModePerm)
+	assert.NoError(t, err)
+
+	var conn *BaseConnection
+	newConn := func(patterns []sdk.PatternsFilter) *BaseConnection {
+		if conn != nil {
+			assert.NoError(t, conn.CloseFS())
+		}
+		user := dataprovider.User{
+			BaseUser: sdk.BaseUser{
+				Username:    userTestUsername,
+				HomeDir:     homeDir,
+				Permissions: map[string][]string{"/": {dataprovider.PermAny}},
+			},
+		}
+		user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
+			BaseVirtualFolder: vfs.BaseVirtualFolder{MappedPath: mappedPath},
+			VirtualPath:       "/1/2/vdir",
+			QuotaFiles:        -1,
+			QuotaSize:         -1,
+		})
+		user.Filters.FilePatterns = patterns
+		conn = NewBaseConnection("", ProtocolHTTP, "", "", user)
+		return conn
+	}
+	statErr := func(conn *BaseConnection, virtualPath string) error {
+		_, err := conn.DoStat(virtualPath, 0, true)
+		return err
+	}
+	listErr := func(conn *BaseConnection, virtualPath string) error {
+		lister, err := conn.ListDir(virtualPath)
+		if lister != nil {
+			lister.Close()
+		}
+		return err
+	}
+
+	// no filters: every mount path segment resolves even if it does not exist
+	// on the filesystem, this is why the shortcut exists
+	conn = newConn(nil)
+	for _, p := range []string{"/1", "/1/2", "/1/2/vdir"} {
+		assert.NoError(t, statErr(conn, p), p)
+	}
+	assert.NoError(t, listErr(conn, "/1/2/vdir"))
+
+	// the mount point is hidden: stat and list report it as missing, the
+	// segments above it are unaffected
+	conn = newConn([]sdk.PatternsFilter{
+		{Path: "/1/2", DeniedPatterns: []string{"vdir"}, DenyPolicy: sdk.DenyPolicyHide},
+	})
+	assert.ErrorIs(t, statErr(conn, "/1/2/vdir"), os.ErrNotExist)
+	assert.ErrorIs(t, listErr(conn, "/1/2/vdir"), os.ErrNotExist)
+	assert.NoError(t, statErr(conn, "/1"))
+	assert.NoError(t, statErr(conn, "/1/2"))
+
+	// an outer segment is hidden: the whole mount path is missing
+	conn = newConn([]sdk.PatternsFilter{
+		{Path: "/", DeniedPatterns: []string{"1"}, DenyPolicy: sdk.DenyPolicyHide},
+	})
+	for _, p := range []string{"/1", "/1/2", "/1/2/vdir"} {
+		assert.ErrorIs(t, statErr(conn, p), os.ErrNotExist, p)
+		assert.ErrorIs(t, listErr(conn, p), os.ErrNotExist, p)
+	}
+
+	// the default policy does not hide anything: the mount stays reachable
+	conn = newConn([]sdk.PatternsFilter{
+		{Path: "/1/2", DeniedPatterns: []string{"vdir"}, DenyPolicy: sdk.DenyPolicyDefault},
+	})
+	assert.NoError(t, statErr(conn, "/1/2/vdir"))
+	assert.NoError(t, listErr(conn, "/1/2/vdir"))
+
+	assert.NoError(t, conn.CloseFS())
+	err = os.RemoveAll(mappedPath)
+	assert.NoError(t, err)
+	err = os.RemoveAll(homeDir)
+	assert.NoError(t, err)
+}
+
+func TestServerSideCopyWriteChecks(t *testing.T) {
+	newConn := func(perms []string) *BaseConnection {
+		user := dataprovider.User{
+			BaseUser: sdk.BaseUser{
+				Username:    userTestUsername,
+				HomeDir:     filepath.Clean(os.TempDir()),
+				Permissions: map[string][]string{"/": perms},
+			},
+			FsConfig: vfs.Filesystem{
+				Provider: sdk.S3FilesystemProvider,
+				S3Config: vfs.S3FsConfig{
+					BaseS3FsConfig: sdk.BaseS3FsConfig{
+						Bucket:    "buck",
+						Region:    "us-east-1",
+						AccessKey: "key",
+					},
+					AccessSecret: kms.NewPlainSecret("s3secret"),
+				},
+			},
+		}
+		return NewBaseConnection(xid.New().String(), ProtocolHTTP, "", "", user)
+	}
+	srcInfo := vfs.NewFileInfo("a.txt", false, 100, time.Now(), false)
+	dstInfo := vfs.NewFileInfo("b.txt", false, 10, time.Now(), false)
+
+	// the target exists: the overwrite permission is required, upload is not enough
+	conn := newConn([]string{dataprovider.PermListItems, dataprovider.PermDownload,
+		dataprovider.PermUpload, dataprovider.PermCopy})
+	assert.ErrorIs(t, conn.copyFile("/a.txt", "/b.txt", srcInfo, dstInfo), os.ErrPermission)
+
+	// the target does not exist: the upload permission is required, overwrite is not enough
+	conn = newConn([]string{dataprovider.PermListItems, dataprovider.PermDownload,
+		dataprovider.PermOverwrite, dataprovider.PermCopy})
+	assert.ErrorIs(t, conn.copyFile("/a.txt", "/b.txt", srcInfo, nil), os.ErrPermission)
+}
+
+func TestRecursiveRenameHiddenEntry(t *testing.T) {
+	homeDir := filepath.Join(os.TempDir(), "renamewalk")
+	err := os.RemoveAll(homeDir)
+	assert.NoError(t, err)
+	err = os.MkdirAll(filepath.Join(homeDir, "alpha"), os.ModePerm)
+	assert.NoError(t, err)
+	err = os.WriteFile(filepath.Join(homeDir, "alpha", "a.dat"), []byte("a"), 0o600)
+	assert.NoError(t, err)
+
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username: userTestUsername,
+			HomeDir:  homeDir,
+			Permissions: map[string][]string{"/": {
+				dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload,
+				dataprovider.PermRenameDirs, dataprovider.PermCreateDirs, dataprovider.PermDelete,
+			}},
+		},
+	}
+	user.Filters.FilePatterns = []sdk.PatternsFilter{
+		{Path: "/", DeniedPatterns: []string{"*.dat"}, DenyPolicy: sdk.DenyPolicyHide},
+	}
+	conn := NewBaseConnection("", ProtocolHTTP, "", "", user)
+	assert.ErrorIs(t, conn.Rename("/alpha", "/gamma"), os.ErrPermission)
+	_, err = os.Stat(filepath.Join(homeDir, "alpha", "a.dat"))
+	assert.NoError(t, err)
+	_, err = os.Stat(filepath.Join(homeDir, "gamma"))
+	assert.True(t, os.IsNotExist(err), "nothing is moved")
+
+	// the filesystem holds the home dir open until it is closed
+	assert.NoError(t, conn.CloseFS())
+	err = os.RemoveAll(homeDir)
+	assert.NoError(t, err)
+}
+
 func TestStatForOngoingTransfers(t *testing.T) {
 	user := dataprovider.User{
 		BaseUser: sdk.BaseUser{
@@ -1058,18 +1727,18 @@ func TestStatForOngoingTransfers(t *testing.T) {
 			},
 		},
 	}
-	fileName := "file.txt"
+	fileName := xid.New().String() + ".txt"
 	conn := NewBaseConnection(xid.New().String(), ProtocolSFTP, "", "", user)
 	fs := vfs.NewOsFs("", os.TempDir(), "", nil)
 	tr := NewBaseTransfer(nil, conn, nil, filepath.Join(os.TempDir(), fileName), filepath.Join(os.TempDir(), fileName),
 		fileName, TransferUpload, 0, 0, 0, 0, true, fs, dataprovider.TransferQuota{})
-	_, err := conn.DoStat("/file.txt", 0, false)
+	_, err := conn.DoStat("/"+fileName, 0, false)
 	assert.NoError(t, err)
 	err = tr.Close()
 	assert.NoError(t, err)
 	tr = NewBaseTransfer(nil, conn, nil, filepath.Join(os.TempDir(), fileName), filepath.Join(os.TempDir(), fileName),
 		fileName, TransferDownload, 0, 0, 0, 0, true, fs, dataprovider.TransferQuota{})
-	_, err = conn.DoStat("/file.txt", 0, false)
+	_, err = conn.DoStat("/"+fileName, 0, false)
 	assert.Error(t, err)
 	err = tr.Close()
 	assert.NoError(t, err)
@@ -1131,7 +1800,7 @@ func TestListerAt(t *testing.T) {
 	err = lister.Close()
 	require.NoError(t, err)
 
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		f, err := os.Create(filepath.Join(dir, strconv.Itoa(i)))
 		require.NoError(t, err)
 		err = f.Close()
@@ -1187,6 +1856,9 @@ func TestListerAt(t *testing.T) {
 	assert.Contains(t, vfolders, "p2")
 	assert.Contains(t, vfolders, "p3")
 	err = lister.Close()
+	require.NoError(t, err)
+	// on Windows the open root would prevent the TempDir cleanup
+	err = conn.CloseFS()
 	require.NoError(t, err)
 }
 
@@ -1532,5 +2204,26 @@ func TestOsFsGetRelativePath(t *testing.T) {
 			assert.Equal(t, tc.expectedRel, actualRel,
 				"Failed mapping physical path %q on FS %q", tc.inputPath, tc.fs.Name())
 		})
+	}
+}
+
+func TestOsFsLinkTargetEscapes(t *testing.T) {
+	linkTargetEscapes := func(target string) bool {
+		return filepath.IsAbs(target) || filepath.VolumeName(target) != "" ||
+			(len(target) > 0 && os.IsPathSeparator(target[0]))
+	}
+
+	assert.True(t, linkTargetEscapes("/etc/passwd"))
+	assert.False(t, linkTargetEscapes("target"))
+	assert.False(t, linkTargetEscapes("sub/target"))
+	assert.False(t, linkTargetEscapes("../sibling/target"))
+	assert.False(t, linkTargetEscapes(""))
+	if runtime.GOOS == osWindows {
+		for _, target := range []string{`\foo`, `/foo`, `C:foo`, `C:\foo`, `\\server\share\foo`} {
+			assert.True(t, linkTargetEscapes(target), "target %q must be treated as an escape", target)
+		}
+		for _, target := range []string{`sub\target`, `..\sibling\target`, "target"} {
+			assert.False(t, linkTargetEscapes(target), "relative target %q must not be treated as an escape", target)
+		}
 	}
 }

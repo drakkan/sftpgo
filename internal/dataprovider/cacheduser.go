@@ -171,10 +171,10 @@ func CacheWebDAVUser(cachedUser *CachedUser) {
 
 // GetCachedWebDAVUser returns a previously cached WebDAV user
 func GetCachedWebDAVUser(username string) (*CachedUser, bool) {
-	return webDAVUsersCache.get(username)
+	return webDAVUsersCache.get(config.convertName(username))
 }
 
 // RemoveCachedWebDAVUser removes a cached WebDAV user
 func RemoveCachedWebDAVUser(username string) {
-	webDAVUsersCache.remove(username)
+	webDAVUsersCache.remove(config.convertName(username))
 }

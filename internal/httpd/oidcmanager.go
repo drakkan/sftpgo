@@ -163,11 +163,11 @@ func (o *dbOIDCManager) addPendingAuth(pendingAuth oidcPendingAuth) {
 		Type:      dataprovider.SessionTypeOIDCAuth,
 		Timestamp: pendingAuth.IssuedAt + authStateValidity,
 	}
-	dataprovider.AddSharedSession(session) //nolint:errcheck
+	_ = dataprovider.AddSharedSession(session)
 }
 
 func (o *dbOIDCManager) removePendingAuth(state string) {
-	dataprovider.DeleteSharedSession(state, dataprovider.SessionTypeOIDCAuth) //nolint:errcheck
+	_ = dataprovider.DeleteSharedSession(state, dataprovider.SessionTypeOIDCAuth)
 }
 
 func (o *dbOIDCManager) getPendingAuth(state string) (oidcPendingAuth, error) {
@@ -200,11 +200,11 @@ func (o *dbOIDCManager) addToken(token oidcToken) {
 		Type:      dataprovider.SessionTypeOIDCToken,
 		Timestamp: token.UsedAt + tokenDeleteInterval,
 	}
-	dataprovider.AddSharedSession(session) //nolint:errcheck
+	_ = dataprovider.AddSharedSession(session)
 }
 
 func (o *dbOIDCManager) removeToken(cookie string) {
-	dataprovider.DeleteSharedSession(cookie, dataprovider.SessionTypeOIDCToken) //nolint:errcheck
+	_ = dataprovider.DeleteSharedSession(cookie, dataprovider.SessionTypeOIDCToken)
 }
 
 func (o *dbOIDCManager) updateTokenUsage(token oidcToken) {
@@ -237,6 +237,6 @@ func (o *dbOIDCManager) decodeTokenData(data any) (oidcToken, error) {
 }
 
 func (o *dbOIDCManager) cleanup() {
-	dataprovider.CleanupSharedSessions(dataprovider.SessionTypeOIDCAuth, time.Now())  //nolint:errcheck
-	dataprovider.CleanupSharedSessions(dataprovider.SessionTypeOIDCToken, time.Now()) //nolint:errcheck
+	_ = dataprovider.CleanupSharedSessions(dataprovider.SessionTypeOIDCAuth, time.Now())
+	_ = dataprovider.CleanupSharedSessions(dataprovider.SessionTypeOIDCToken, time.Now())
 }

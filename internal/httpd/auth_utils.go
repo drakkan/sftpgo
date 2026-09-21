@@ -104,17 +104,6 @@ func getTokenDuration(audience tokenAudience) time.Duration {
 	}
 }
 
-func getMaxCookieDuration() time.Duration {
-	result := csrfTokenDuration
-	if shareTokenDuration > result {
-		result = shareTokenDuration
-	}
-	if cookieTokenDuration > result {
-		result = cookieTokenDuration
-	}
-	return result
-}
-
 func hasUserAudience(claims *jwt.Claims) bool {
 	return claims.HasAnyAudience([]string{tokenAudienceWebClient, tokenAudienceAPIUser})
 }
@@ -153,7 +142,7 @@ func setCookie(w http.ResponseWriter, r *http.Request, cookiePath, cookieValue s
 }
 
 func removeCookie(w http.ResponseWriter, r *http.Request, cookiePath string) {
-	invalidateToken(r)
+	_ = invalidateToken(r)
 	http.SetCookie(w, &http.Cookie{
 		Name:     jwt.CookieKey,
 		Value:    "",
@@ -179,49 +168,28 @@ func isTLS(r *http.Request) bool {
 		return true
 	}
 	if proto, ok := r.Context().Value(forwardedProtoKey).(string); ok {
-		return proto == "https" //nolint:goconst
+		return proto == "https"
 	}
 	return false
 }
 
 func isTokenInvalidated(r *http.Request) bool {
-	var findTokenFns []func(r *http.Request) string
-	findTokenFns = append(findTokenFns, jwt.TokenFromHeader)
-	findTokenFns = append(findTokenFns, jwt.TokenFromCookie)
-	findTokenFns = append(findTokenFns, oidcTokenFromContext)
-
-	isTokenFound := false
-	for _, fn := range findTokenFns {
-		token := fn(r)
-		if token != "" {
-			isTokenFound = true
-			if invalidatedJWTTokens.Get(token) {
-				return true
-			}
-		}
+	token, err := jwt.FromContext(r.Context())
+	if err != nil || token.ID == "" {
+		return true
 	}
-
-	return !isTokenFound
+	return invalidatedJWTTokens.Get(token.ID)
 }
 
-func invalidateToken(r *http.Request) {
-	tokenString := jwt.TokenFromHeader(r)
-	if tokenString != "" {
-		invalidateTokenString(r, tokenString, apiTokenDuration)
-	}
-	tokenString = jwt.TokenFromCookie(r)
-	if tokenString != "" {
-		invalidateTokenString(r, tokenString, getMaxCookieDuration())
-	}
-}
-
-func invalidateTokenString(r *http.Request, tokenString string, fallbackDuration time.Duration) {
+func invalidateToken(r *http.Request) error {
 	token, err := jwt.FromContext(r.Context())
 	if err != nil {
-		invalidatedJWTTokens.Add(tokenString, time.Now().Add(fallbackDuration).UTC())
-		return
+		return err
 	}
-	invalidatedJWTTokens.Add(tokenString, token.Expiry.Time().Add(1*time.Minute).UTC())
+	if token.ID == "" {
+		return errInvalidToken
+	}
+	return invalidatedJWTTokens.Add(token.ID, token.Expiry.Time().Add(1*time.Minute).UTC())
 }
 
 func getUserFromToken(r *http.Request) *dataprovider.User {
@@ -391,6 +359,39 @@ func verifyOAuth2Token(csrfTokenAuth *jwt.Signer, tokenString, ip string) (strin
 	return "", util.NewI18nError(errors.New("invalid OAuth2 state"), util.I18nOAuth2InvalidState)
 }
 
+func setAuthBrowserID(w http.ResponseWriter, r *http.Request, cookieName string) string {
+	browserID := util.GenerateOpaqueString()
+	http.SetCookie(w, &http.Cookie{
+		Name:     cookieName,
+		Value:    browserID,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   isTLS(r),
+		SameSite: http.SameSiteLaxMode,
+	})
+	w.Header().Add("Cache-Control", `no-cache="Set-Cookie"`)
+
+	return browserID
+}
+
+func checkAuthBrowserID(r *http.Request, cookieName, expected string) bool {
+	if expected == "" {
+		logger.Debug(logSender, "", "the authorization request has no %q identifier", cookieName)
+		return false
+	}
+	cookie, err := r.Cookie(cookieName)
+	if err != nil {
+		logger.Debug(logSender, "", "no %q cookie for the request to host %q", cookieName, r.Host)
+		return false
+	}
+	if cookie.Value != expected {
+		logger.Debug(logSender, "", "the %q cookie does not match the authorization request", cookieName)
+		return false
+	}
+
+	return true
+}
+
 func validateIPForToken(token *jwt.Claims, ip string) error {
 	if tokenValidationMode&tokenValidationModeNoIPMatch == 0 {
 		if !token.Audience.Contains(ip) {
@@ -416,7 +417,7 @@ func checkTokenSignature(r *http.Request, token *jwt.Claims) error {
 		}
 	}
 	if err != nil {
-		invalidateToken(r)
+		_ = invalidateToken(r) // best effort: the request is rejected regardless
 	}
 	return err
 }

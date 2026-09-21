@@ -110,13 +110,13 @@ func (s *httpdServer) listenAndServe() error {
 		MaxHeaderBytes:    1 << 16, // 64KB
 		ErrorLog:          log.New(&logger.StdLoggerWrapper{Sender: logSender}, "", 0),
 	}
-	if certMgr != nil && s.binding.EnableHTTPS {
+	if mgr := certMgr.Load(); mgr != nil && s.binding.EnableHTTPS {
 		certID := common.DefaultTLSKeyPaidID
 		if getConfigPath(s.binding.CertificateFile, "") != "" && getConfigPath(s.binding.CertificateKeyFile, "") != "" {
 			certID = s.binding.GetAddress()
 		}
 		config := &tls.Config{
-			GetCertificate: certMgr.GetCertificateFunc(certID),
+			GetCertificate: mgr.GetCertificateFunc(certID),
 			MinVersion:     util.GetTLSVersion(s.binding.MinTLSVersion),
 			NextProtos:     util.GetALPNProtocols(s.binding.Protocols),
 			CipherSuites:   util.GetTLSCiphersFromNames(s.binding.TLSCipherSuites),
@@ -125,7 +125,7 @@ func (s *httpdServer) listenAndServe() error {
 		logger.Debug(logSender, "", "configured TLS cipher suites for binding %q: %v, certID: %v",
 			s.binding.GetAddress(), httpServer.TLSConfig.CipherSuites, certID)
 		if s.binding.isMutualTLSEnabled() {
-			httpServer.TLSConfig.ClientCAs = certMgr.GetRootCAs()
+			httpServer.TLSConfig.ClientCAs = mgr.GetRootCAs()
 			httpServer.TLSConfig.ClientAuth = tls.RequireAndVerifyClientCert
 			httpServer.TLSConfig.VerifyConnection = s.verifyTLSConnection
 		}
@@ -137,7 +137,7 @@ func (s *httpdServer) listenAndServe() error {
 }
 
 func (s *httpdServer) verifyTLSConnection(state tls.ConnectionState) error {
-	if certMgr != nil {
+	if mgr := certMgr.Load(); mgr != nil {
 		var clientCrt *x509.Certificate
 		var clientCrtName string
 		if len(state.PeerCertificates) > 0 {
@@ -153,7 +153,7 @@ func (s *httpdServer) verifyTLSConnection(state tls.ConnectionState) error {
 			if len(verifiedChain) > 0 {
 				caCrt = verifiedChain[len(verifiedChain)-1]
 			}
-			if certMgr.IsRevoked(clientCrt, caCrt) {
+			if mgr.IsRevoked(clientCrt, caCrt) {
 				logger.Debug(logSender, "", "tls handshake error, client certificate %q has been revoked", clientCrtName)
 				return common.ErrCrtRevoked
 			}
@@ -182,8 +182,8 @@ func (s *httpdServer) renderClientLoginPage(w http.ResponseWriter, r *http.Reque
 		FormDisabled:   s.binding.isWebClientLoginFormDisabled(),
 		CheckRedirect:  true,
 	}
-	if next := r.URL.Query().Get("next"); strings.HasPrefix(next, webClientFilesPath) {
-		data.CurrentURL += "?next=" + url.QueryEscape(next)
+	if target, ok := safeRedirectTarget(r.URL.Query().Get("next"), webClientFilesPath); ok {
+		data.CurrentURL += "?next=" + url.QueryEscape(target)
 	}
 	if s.binding.showAdminLoginURL() {
 		data.AltLoginURL = webAdminLoginPath
@@ -194,6 +194,9 @@ func (s *httpdServer) renderClientLoginPage(w http.ResponseWriter, r *http.Reque
 	}
 	if s.binding.OIDC.isEnabled() && !s.binding.isWebClientOIDCLoginDisabled() {
 		data.OpenIDLoginURL = webClientOIDCLoginPath
+		if target, ok := safeRedirectTarget(r.URL.Query().Get("next"), webClientFilesPath); ok {
+			data.OpenIDLoginURL += "?next=" + url.QueryEscape(target)
+		}
 	}
 	renderClientTemplate(w, templateCommonLogin, data)
 }
@@ -257,6 +260,7 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}},
 			dataprovider.LoginMethodPassword, ipAddr, err, r)
 		s.renderClientLoginPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
+		return
 	}
 
 	if err := common.Config.ExecutePostConnectHook(ipAddr, protocol); err != nil {
@@ -280,7 +284,7 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	defer user.CloseFs() //nolint:errcheck
+	defer user.CloseFs()
 	err = user.CheckFsRoot(connectionID)
 	if err != nil {
 		logger.Warn(logSender, connectionID, "unable to check fs root: %v", err)
@@ -318,7 +322,7 @@ func (s *httpdServer) handleWebClientPasswordResetPost(w http.ResponseWriter, r 
 		return
 	}
 
-	defer user.CloseFs() //nolint:errcheck
+	defer user.CloseFs()
 	err = user.CheckFsRoot(connectionID)
 	if err != nil {
 		logger.Warn(logSender, connectionID, "unable to check fs root: %v", err)
@@ -354,7 +358,7 @@ func (s *httpdServer) handleWebClientTwoFactorRecoveryPost(w http.ResponseWriter
 	user, userMerged, err := dataprovider.GetUserVariants(username, "")
 	if err != nil {
 		if errors.Is(err, util.ErrNotFound) {
-			handleDefenderEventLoginFailed(ipAddr, err) //nolint:errcheck
+			_ = handleDefenderEventLoginFailed(ipAddr, err)
 		}
 		s.renderClientTwoFactorRecoveryPage(w, r,
 			util.NewI18nError(dataprovider.ErrInvalidCredentials, util.I18nErrorInvalidCredentials))
@@ -379,7 +383,7 @@ func (s *httpdServer) handleWebClientTwoFactorRecoveryPost(w http.ResponseWriter
 			user.Filters.RecoveryCodes[idx].Used = true
 			err = dataprovider.UpdateUser(&user, dataprovider.ActionExecutorSelf, ipAddr, user.Role)
 			if err != nil {
-				logger.Warn(logSender, "", "unable to set the recovery code %q as used: %v", recoveryCode, err)
+				logger.Warn(logSender, "", "unable to set the recovery code as used for %q: %v", username, err)
 				s.renderClientInternalServerErrorPage(w, r, errors.New("unable to set the recovery code as used"))
 				return
 			}
@@ -389,7 +393,7 @@ func (s *httpdServer) handleWebClientTwoFactorRecoveryPost(w http.ResponseWriter
 			return
 		}
 	}
-	handleDefenderEventLoginFailed(ipAddr, dataprovider.ErrInvalidCredentials) //nolint:errcheck
+	_ = handleDefenderEventLoginFailed(ipAddr, dataprovider.ErrInvalidCredentials)
 	s.renderClientTwoFactorRecoveryPage(w, r,
 		util.NewI18nError(dataprovider.ErrInvalidCredentials, util.I18nErrorInvalidCredentials))
 }
@@ -477,7 +481,7 @@ func (s *httpdServer) handleWebAdminTwoFactorRecoveryPost(w http.ResponseWriter,
 	admin, err := dataprovider.AdminExists(username)
 	if err != nil {
 		if errors.Is(err, util.ErrNotFound) {
-			handleDefenderEventLoginFailed(ipAddr, err) //nolint:errcheck
+			_ = handleDefenderEventLoginFailed(ipAddr, err)
 		}
 		s.renderTwoFactorRecoveryPage(w, r, util.NewI18nError(dataprovider.ErrInvalidCredentials, util.I18nErrorInvalidCredentials))
 		return
@@ -500,7 +504,7 @@ func (s *httpdServer) handleWebAdminTwoFactorRecoveryPost(w http.ResponseWriter,
 			admin.Filters.RecoveryCodes[idx].Used = true
 			err = dataprovider.UpdateAdmin(&admin, dataprovider.ActionExecutorSelf, ipAddr, admin.Role)
 			if err != nil {
-				logger.Warn(logSender, "", "unable to set the recovery code %q as used: %v", recoveryCode, err)
+				logger.Warn(logSender, "", "unable to set the recovery code as used for %q: %v", username, err)
 				s.renderInternalServerErrorPage(w, r, errors.New("unable to set the recovery code as used"))
 				return
 			}
@@ -508,7 +512,7 @@ func (s *httpdServer) handleWebAdminTwoFactorRecoveryPost(w http.ResponseWriter,
 			return
 		}
 	}
-	handleDefenderEventLoginFailed(ipAddr, dataprovider.ErrInvalidCredentials) //nolint:errcheck
+	_ = handleDefenderEventLoginFailed(ipAddr, dataprovider.ErrInvalidCredentials)
 	s.renderTwoFactorRecoveryPage(w, r, util.NewI18nError(dataprovider.ErrInvalidCredentials, util.I18nErrorInvalidCredentials))
 }
 
@@ -531,14 +535,14 @@ func (s *httpdServer) handleWebAdminTwoFactorPost(w http.ResponseWriter, r *http
 		return
 	}
 	if err := verifyCSRFToken(r, s.csrfTokenAuth); err != nil {
-		handleDefenderEventLoginFailed(ipAddr, err) //nolint:errcheck
+		_ = handleDefenderEventLoginFailed(ipAddr, err)
 		s.renderTwoFactorPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
 	admin, err := dataprovider.AdminExists(username)
 	if err != nil {
 		if errors.Is(err, util.ErrNotFound) {
-			handleDefenderEventLoginFailed(ipAddr, err) //nolint:errcheck
+			_ = handleDefenderEventLoginFailed(ipAddr, err)
 		}
 		s.renderTwoFactorPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCredentials))
 		return
@@ -555,7 +559,7 @@ func (s *httpdServer) handleWebAdminTwoFactorPost(w http.ResponseWriter, r *http
 	match, err := mfa.ValidateTOTPPasscode(admin.Filters.TOTPConfig.ConfigName, passcode,
 		admin.Filters.TOTPConfig.Secret.GetPayload())
 	if !match || err != nil {
-		handleDefenderEventLoginFailed(ipAddr, dataprovider.ErrInvalidCredentials) //nolint:errcheck
+		_ = handleDefenderEventLoginFailed(ipAddr, dataprovider.ErrInvalidCredentials)
 		s.renderTwoFactorPage(w, r, util.NewI18nError(dataprovider.ErrInvalidCredentials, util.I18nErrorInvalidCredentials))
 		return
 	}
@@ -582,7 +586,7 @@ func (s *httpdServer) handleWebAdminLoginPost(w http.ResponseWriter, r *http.Req
 	}
 	admin, err := dataprovider.CheckAdminAndPass(username, password, ipAddr)
 	if err != nil {
-		handleDefenderEventLoginFailed(ipAddr, err) //nolint:errcheck
+		_ = handleDefenderEventLoginFailed(ipAddr, err)
 		s.renderAdminLoginPage(w, r, util.NewI18nError(dataprovider.ErrInvalidCredentials, util.I18nErrorInvalidCredentials))
 		return
 	}
@@ -761,19 +765,19 @@ func (s *httpdServer) loginUser(
 		errorFunc(w, r, util.NewI18nError(err, util.I18nError500Message))
 		return
 	}
-	invalidateToken(r)
+	_ = invalidateToken(r) // best effort: invalidates the pre-login token
 	if audience == tokenAudienceWebClientPartial {
 		redirectPath := webClientTwoFactorPath
-		if next := r.URL.Query().Get("next"); strings.HasPrefix(next, webClientFilesPath) {
-			redirectPath += "?next=" + url.QueryEscape(next)
+		if target, ok := safeRedirectTarget(r.URL.Query().Get("next"), webClientFilesPath); ok {
+			redirectPath += "?next=" + url.QueryEscape(target)
 		}
 		http.Redirect(w, r, redirectPath, http.StatusFound)
 		return
 	}
 	updateLoginMetrics(user, dataprovider.LoginMethodPassword, ipAddr, err, r)
 	dataprovider.UpdateLastLogin(user)
-	if next := r.URL.Query().Get("next"); strings.HasPrefix(next, webClientFilesPath) {
-		http.Redirect(w, r, next, http.StatusFound)
+	if target, ok := safeRedirectTarget(r.URL.Query().Get("next"), webClientFilesPath); ok {
+		http.Redirect(w, r, target, http.StatusFound)
 		return
 	}
 	http.Redirect(w, r, webClientFilesPath, http.StatusFound)
@@ -809,7 +813,7 @@ func (s *httpdServer) loginAdmin(
 		errorFunc(w, r, util.NewI18nError(err, util.I18nError500Message))
 		return
 	}
-	invalidateToken(r)
+	_ = invalidateToken(r) // best effort: invalidates the pre-login token
 	if audience == tokenAudienceWebAdminPartial {
 		http.Redirect(w, r, webAdminTwoFactorPath, http.StatusFound)
 		return
@@ -825,7 +829,10 @@ func (s *httpdServer) loginAdmin(
 
 func (s *httpdServer) logout(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
-	invalidateToken(r)
+	if err := invalidateToken(r); err != nil {
+		sendAPIResponse(w, r, errors.New("unable to invalidate the token"), "", http.StatusInternalServerError)
+		return
+	}
 	sendAPIResponse(w, r, nil, "Your token has been invalidated", http.StatusOK)
 }
 
@@ -897,7 +904,7 @@ func (s *httpdServer) getUserToken(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	defer user.CloseFs() //nolint:errcheck
+	defer user.CloseFs()
 	err = user.CheckFsRoot(connectionID)
 	if err != nil {
 		logger.Warn(logSender, connectionID, "unable to check fs root: %v", err)
@@ -942,7 +949,7 @@ func (s *httpdServer) getToken(w http.ResponseWriter, r *http.Request) {
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	admin, err := dataprovider.CheckAdminAndPass(username, password, ipAddr)
 	if err != nil {
-		handleDefenderEventLoginFailed(ipAddr, err) //nolint:errcheck
+		_ = handleDefenderEventLoginFailed(ipAddr, err)
 		w.Header().Set(common.HTTPAuthenticationHeader, basicRealm)
 		sendAPIResponse(w, r, dataprovider.ErrInvalidCredentials, http.StatusText(http.StatusUnauthorized),
 			http.StatusUnauthorized)
@@ -1044,7 +1051,7 @@ func (s *httpdServer) refreshClientToken(w http.ResponseWriter, r *http.Request,
 	tokenClaims.Permissions = user.Filters.WebClient
 	tokenClaims.Role = user.Role
 	logger.Debug(logSender, "", "cookie refreshed for user %q", user.Username)
-	createAndSetCookie(w, r, tokenClaims, s.tokenAuth, tokenAudienceWebClient, util.GetIPFromRemoteAddress(r.RemoteAddr)) //nolint:errcheck
+	_ = createAndSetCookie(w, r, tokenClaims, s.tokenAuth, tokenAudienceWebClient, util.GetIPFromRemoteAddress(r.RemoteAddr))
 }
 
 func (s *httpdServer) refreshAdminToken(w http.ResponseWriter, r *http.Request, tokenClaims *jwt.Claims) {
@@ -1065,7 +1072,7 @@ func (s *httpdServer) refreshAdminToken(w http.ResponseWriter, r *http.Request, 
 	tokenClaims.Role = admin.Role
 	tokenClaims.HideUserPageSections = admin.Filters.Preferences.HideUserPageSections
 	logger.Debug(logSender, "", "cookie refreshed for admin %q", admin.Username)
-	createAndSetCookie(w, r, tokenClaims, s.tokenAuth, tokenAudienceWebAdmin, ipAddr) //nolint:errcheck
+	_ = createAndSetCookie(w, r, tokenClaims, s.tokenAuth, tokenAudienceWebAdmin, ipAddr)
 }
 
 func (s *httpdServer) updateContextFromCookie(r *http.Request) *http.Request {
@@ -1281,10 +1288,10 @@ func (s *httpdServer) initializeRouter() error {
 	}
 	if s.cors.Enabled {
 		c := cors.New(cors.Options{
-			AllowedOrigins:       util.RemoveDuplicates(s.cors.AllowedOrigins, true),
-			AllowedMethods:       util.RemoveDuplicates(s.cors.AllowedMethods, true),
-			AllowedHeaders:       util.RemoveDuplicates(s.cors.AllowedHeaders, true),
-			ExposedHeaders:       util.RemoveDuplicates(s.cors.ExposedHeaders, true),
+			AllowedOrigins:       util.RemoveDuplicates(slices.Clone(s.cors.AllowedOrigins), true),
+			AllowedMethods:       util.RemoveDuplicates(slices.Clone(s.cors.AllowedMethods), true),
+			AllowedHeaders:       util.RemoveDuplicates(slices.Clone(s.cors.AllowedHeaders), true),
+			ExposedHeaders:       util.RemoveDuplicates(slices.Clone(s.cors.ExposedHeaders), true),
 			MaxAge:               s.cors.MaxAge,
 			AllowCredentials:     s.cors.AllowCredentials,
 			OptionsPassthrough:   s.cors.OptionsPassthrough,
@@ -1408,12 +1415,12 @@ func (s *httpdServer) setupRESTAPIRoutes() {
 				router.With(s.checkPerms(dataprovider.PermAdminQuotaScans)).Post(quotasBasePath+"/folders/{name}/scan", startFolderQuotaScan)
 				router.With(s.checkPerms(dataprovider.PermAdminViewUsers)).Get(userPath, getUsers)
 				router.With(s.checkPerms(dataprovider.PermAdminAddUsers)).Post(userPath, addUser)
-				router.With(s.checkPerms(dataprovider.PermAdminViewUsers)).Get(userPath+"/{username}", getUserByUsername) //nolint:goconst
+				router.With(s.checkPerms(dataprovider.PermAdminViewUsers)).Get(userPath+"/{username}", getUserByUsername)
 				router.With(s.checkPerms(dataprovider.PermAdminChangeUsers)).Put(userPath+"/{username}", updateUser)
 				router.With(s.checkPerms(dataprovider.PermAdminDeleteUsers)).Delete(userPath+"/{username}", deleteUser)
-				router.With(s.checkPerms(dataprovider.PermAdminDisableMFA)).Put(userPath+"/{username}/2fa/disable", disableUser2FA) //nolint:goconst
+				router.With(s.checkPerms(dataprovider.PermAdminDisableMFA)).Put(userPath+"/{username}/2fa/disable", disableUser2FA)
 				router.With(s.checkPerms(dataprovider.PermAdminManageFolders)).Get(folderPath, getFolders)
-				router.With(s.checkPerms(dataprovider.PermAdminManageFolders)).Get(folderPath+"/{name}", getFolderByName) //nolint:goconst
+				router.With(s.checkPerms(dataprovider.PermAdminManageFolders)).Get(folderPath+"/{name}", getFolderByName)
 				router.With(s.checkPerms(dataprovider.PermAdminManageFolders)).Post(folderPath, addFolder)
 				router.With(s.checkPerms(dataprovider.PermAdminManageFolders)).Put(folderPath+"/{name}", updateFolder)
 				router.With(s.checkPerms(dataprovider.PermAdminManageFolders)).Delete(folderPath+"/{name}", deleteFolder)
@@ -1463,9 +1470,9 @@ func (s *httpdServer) setupRESTAPIRoutes() {
 				router.With(s.checkPerms(dataprovider.PermAdminAny)).Get(rolesPath+"/{name}", getRoleByName)
 				router.With(s.checkPerms(dataprovider.PermAdminAny)).Put(rolesPath+"/{name}", updateRole)
 				router.With(s.checkPerms(dataprovider.PermAdminAny)).Delete(rolesPath+"/{name}", deleteRole)
-				router.With(s.checkPerms(dataprovider.PermAdminAny), compressor.Handler).Get(ipListsPath+"/{type}", getIPListEntries) //nolint:goconst
+				router.With(s.checkPerms(dataprovider.PermAdminAny), compressor.Handler).Get(ipListsPath+"/{type}", getIPListEntries)
 				router.With(s.checkPerms(dataprovider.PermAdminAny)).Post(ipListsPath+"/{type}", addIPListEntry)
-				router.With(s.checkPerms(dataprovider.PermAdminAny)).Get(ipListsPath+"/{type}/{ipornet}", getIPListEntry) //nolint:goconst
+				router.With(s.checkPerms(dataprovider.PermAdminAny)).Get(ipListsPath+"/{type}/{ipornet}", getIPListEntry)
 				router.With(s.checkPerms(dataprovider.PermAdminAny)).Put(ipListsPath+"/{type}/{ipornet}", updateIPListEntry)
 				router.With(s.checkPerms(dataprovider.PermAdminAny)).Delete(ipListsPath+"/{type}/{ipornet}", deleteIPListEntry)
 			})
@@ -1658,8 +1665,6 @@ func (s *httpdServer) setupWebClientRoutes() {
 				Post(webChangeClientPwdPath, s.handleWebClientChangePwdPost)
 			router.With(s.checkHTTPUserPerm(sdk.WebClientMFADisabled), s.refreshCookie).
 				Get(webClientMFAPath, s.handleWebClientMFA)
-			router.With(s.checkHTTPUserPerm(sdk.WebClientMFADisabled), s.refreshCookie).
-				Get(webClientMFAPath+"/qrcode", getQRCode)
 			router.With(s.checkHTTPUserPerm(sdk.WebClientMFADisabled), s.verifyCSRFHeader).
 				Post(webClientTOTPGeneratePath, generateTOTPSecret)
 			router.With(s.checkHTTPUserPerm(sdk.WebClientMFADisabled), s.verifyCSRFHeader).
@@ -1751,7 +1756,6 @@ func (s *httpdServer) setupWebAdminRoutes() {
 			router.With(s.requireBuiltinLogin).Post(webChangeAdminPwdPath, s.handleWebAdminChangePwdPost)
 
 			router.With(s.refreshCookie, s.requireBuiltinLogin).Get(webAdminMFAPath, s.handleWebAdminMFA)
-			router.With(s.refreshCookie, s.requireBuiltinLogin).Get(webAdminMFAPath+"/qrcode", getQRCode)
 			router.With(s.verifyCSRFHeader, s.requireBuiltinLogin).Post(webAdminTOTPGeneratePath, generateTOTPSecret)
 			router.With(s.verifyCSRFHeader, s.requireBuiltinLogin).Post(webAdminTOTPValidatePath, validateTOTPPasscode)
 			router.With(s.verifyCSRFHeader, s.requireBuiltinLogin).Post(webAdminTOTPSavePath, saveTOTPConfig)

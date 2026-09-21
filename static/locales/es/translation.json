@@ -93,7 +93,6 @@
         "reset_submit": "Actualizar contraseña e Iniciar sesión",
         "confirm_code": "Código de confirmación",
         "reset_pwd_forbidden": "No tienes permiso para restablecer tu contraseña",
-        "reset_pwd_no_email": "Tu cuenta no tiene una dirección de correo electrónico, no es posible restablecer tu contraseña enviando un código de verificación por correo",
         "reset_pwd_send_email_err": "No se puede enviar el código de confirmación por correo electrónico",
         "reset_pwd_err_generic": "Error inesperado al restablecer la contraseña",
         "reset_ok_login_error": "El restablecimiento de contraseña se completó con éxito pero ocurrió un error inesperado al iniciar sesión",
@@ -518,6 +517,7 @@
         "folder_path_required": "La ruta de montaje de la carpeta virtual es obligatoria",
         "folder_duplicated": "Carpetas virtuales duplicadas detectadas",
         "folder_overlapped": "Carpetas virtuales superpuestas detectadas",
+        "folder_quota_mismatch": "Los límites de cuota se aplican a toda la carpeta virtual, todos los montajes de la misma carpeta deben usar los mismos valores",
         "folder_quota_size_invalid": "La cuota como tamaño de carpetas virtuales debe ser mayor o igual a -1",
         "folder_quota_file_invalid": "La cuota como archivos de carpetas virtuales debe ser mayor o igual a -1",
         "folder_quota_invalid": "Las cuotas como tamaño y como número de archivos de carpetas virtuales deben ser ambas -1 o mayor o igual a 0",
@@ -574,7 +574,9 @@
         "template_name_placeholder": "reemplazado con el nombre de la carpeta virtual especificada",
         "template_help": "Las carpetas virtuales generadas pueden ser guardadas o exportadas. Las carpetas exportadas pueden ser importadas desde la sección \"Mantenimiento\" de esta instancia de SFTPGo u otra.",
         "name": "Nombre de carpeta virtual",
-        "template_no_folder": "Ninguna carpeta virtual válida definida, no se puede completar la acción solicitada"
+        "template_no_folder": "Ninguna carpeta virtual válida definida, no se puede completar la acción solicitada",
+        "subpath": "subruta, p. ej. /subdir",
+        "subpath_help": "Monta la carpeta con la raíz desplazada a esta subruta"
     },
     "storage": {
         "title": "Sistema de archivos",
@@ -650,7 +652,7 @@
         "fs_error": "Error de configuración del sistema de archivos",
         "bucket_required": "$t(storage.fs_error): se requiere bucket",
         "region_required": "$t(storage.fs_error): se requiere región",
-        "key_prefix_invalid": "$t(storage.fs_error): prefijo de clave inválido, no puede empezar con \"/\"",
+        "key_prefix_invalid": "$t(storage.fs_error): prefijo de clave inválido, no puede apuntar a la raíz del almacenamiento",
         "ul_part_size_invalid": "$t(storage.fs_error): tamaño de parte de subida inválido",
         "ul_concurrency_invalid": "$t(storage.fs_error): concurrencia de subida inválida",
         "dl_part_size_invalid": "$t(storage.fs_error): tamaño de parte de descarga inválido",
@@ -674,7 +676,8 @@
         "token_invalid": "Token OpenID inválido",
         "role_admin_err": "Rol OpenID incorrecto, el usuario conectado no es un administrador",
         "role_user_err": "Rol OpenID incorrecto, el usuario conectado es un administrador",
-        "get_user_err": "Error al obtener el usuario asociado con el token OpenID"
+        "get_user_err": "Error al obtener el usuario asociado con el token OpenID",
+        "email_not_verified": "La dirección de correo electrónico no está verificada por el proveedor de identidad"
     },
     "oauth2": {
         "auth_verify_error": "No se puede verificar el código OAuth2",

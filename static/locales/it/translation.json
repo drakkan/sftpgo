@@ -93,7 +93,6 @@
         "reset_submit": "Aggiorna password e accedi",
         "confirm_code": "Codice di conferma",
         "reset_pwd_forbidden": "Non ti è consentito reimpostare la password",
-        "reset_pwd_no_email": "Il tuo account non ha un indirizzo e-mail, non è possibile reimpostare la password inviando un codice di verifica via e-mail",
         "reset_pwd_send_email_err": "Errore nell'invio del codice di conferma via e-mail",
         "reset_pwd_err_generic": "Errore imprevisto durante la reimpostazione della password",
         "reset_ok_login_error": "La reimpostazione della password è stata completata correttamente ma si è verificato un errore imprevisto durante l'accesso",
@@ -518,6 +517,7 @@
         "folder_path_required": "Il percorso di montaggio delle cartelle virtuali è obbligatorio",
         "folder_duplicated": "Rilevate cartelle virtuali duplicate",
         "folder_overlapped": "Rilevate cartelle virtuali sovrapposte",
+        "folder_quota_mismatch": "I limiti di quota si applicano all'intera cartella virtuale, tutti i mount della stessa cartella devono usare gli stessi valori",
         "folder_quota_size_invalid": "La quota come dimensione delle cartelle virtuali deve essere maggiore o uguale a -1",
         "folder_quota_file_invalid": "La quota come numero di file delle cartelle virtuali deve essere maggiore o uguale a -1",
         "folder_quota_invalid": "Le quote come dimensione e numero di file delle cartelle virtuali devono essere entrambe -1 o maggiore o uguale di 0",
@@ -574,7 +574,9 @@
         "template_name_placeholder": "sostituito con il nome della cartella virtuale specificata",
         "template_help": "Le cartelle virtuali generate possono essere salvate o esportate. Le cartelle esportate possono essere importate dalla sezione \"Manutenzione\" di questa istanza SFTPGo o di un'altra.",
         "name": "Nome cartella virtuale",
-        "template_no_folder": "Nessuna cartella virtuale valida definita. Impossibile completare l'azione richiesta"
+        "template_no_folder": "Nessuna cartella virtuale valida definita. Impossibile completare l'azione richiesta",
+        "subpath": "sottopercorso, es. /subdir",
+        "subpath_help": "Monta la cartella con radice spostata su questo sottopercorso"
     },
     "storage": {
         "title": "File System",
@@ -650,7 +652,7 @@
         "fs_error": "Errore configurazione filesystem",
         "bucket_required": "$t(storage.fs_error): il bucket è obbligatorio",
         "region_required": "$t(storage.fs_error): la regione è obbligatoria",
-        "key_prefix_invalid": "$t(storage.fs_error): prefisso chiave non valido, non può iniziare con \"/\"",
+        "key_prefix_invalid": "$t(storage.fs_error): prefisso chiave non valido, non può puntare alla radice dello storage",
         "ul_part_size_invalid": "$t(storage.fs_error): dimensione parte per upload non valida",
         "ul_concurrency_invalid": "$t(storage.fs_error): concorrenza upload non valida",
         "dl_part_size_invalid": "$t(storage.fs_error): dimensione parte per download non valida",
@@ -674,7 +676,8 @@
         "token_invalid": "Token OpenID non valido",
         "role_admin_err": "Ruolo OpenID errato, l'utente che ha effettuato l'accesso non è un amministratore",
         "role_user_err": "Ruolo OpenID errato, l'utente che ha effettuato l'accesso è un amministratore",
-        "get_user_err": "Impossibile ottenere l'utente associato al token OpenID"
+        "get_user_err": "Impossibile ottenere l'utente associato al token OpenID",
+        "email_not_verified": "L'indirizzo email non è verificato dall'identity provider"
     },
     "oauth2": {
         "auth_verify_error": "Impossibile verificare il codice OAuth2",

@@ -28,6 +28,10 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/util"
 )
 
+const (
+	oauth2BrowserCookieKey = "oauth2_browser"
+)
+
 var (
 	oauth2Mgr oauth2Manager
 )
@@ -51,6 +55,7 @@ type oauth2PendingAuth struct {
 	RedirectURL  string      `json:"redirect_url"`
 	IssuedAt     int64       `json:"issued_at"`
 	Verifier     string      `json:"verifier"`
+	Browser      string      `json:"browser,omitempty"`
 }
 
 func newOAuth2PendingAuth(provider int, redirectURL, clientID string, clientSecret *kms.Secret) oauth2PendingAuth {
@@ -132,11 +137,11 @@ func (o *dbOAuth2Manager) addPendingAuth(pendingAuth oauth2PendingAuth) {
 		Type:      dataprovider.SessionTypeOAuth2Auth,
 		Timestamp: pendingAuth.IssuedAt + authStateValidity,
 	}
-	dataprovider.AddSharedSession(session) //nolint:errcheck
+	_ = dataprovider.AddSharedSession(session)
 }
 
 func (o *dbOAuth2Manager) removePendingAuth(state string) {
-	dataprovider.DeleteSharedSession(state, dataprovider.SessionTypeOAuth2Auth) //nolint:errcheck
+	_ = dataprovider.DeleteSharedSession(state, dataprovider.SessionTypeOAuth2Auth)
 }
 
 func (o *dbOAuth2Manager) getPendingAuth(state string) (oauth2PendingAuth, error) {
@@ -166,5 +171,5 @@ func (o *dbOAuth2Manager) decodePendingAuthData(data any) (oauth2PendingAuth, er
 }
 
 func (o *dbOAuth2Manager) cleanup() {
-	dataprovider.CleanupSharedSessions(dataprovider.SessionTypeOAuth2Auth, time.Now()) //nolint:errcheck
+	_ = dataprovider.CleanupSharedSessions(dataprovider.SessionTypeOAuth2Auth, time.Now())
 }

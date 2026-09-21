@@ -63,7 +63,7 @@ func TestLoadConfigTest(t *testing.T) {
 	assert.NotEqual(t, sftpd.Configuration{}, config.GetSFTPDConfig())
 	assert.NotEqual(t, httpclient.Config{}, config.GetHTTPConfig())
 	assert.NotEqual(t, smtp.Config{}, config.GetSMTPConfig())
-	confName := tempConfigName + ".json" //nolint:goconst
+	confName := tempConfigName + ".json"
 	configFilePath := filepath.Join(configDir, confName)
 	err = config.LoadConfig(configDir, confName)
 	assert.Error(t, err)
@@ -422,6 +422,40 @@ func TestSMTPFromEnv(t *testing.T) {
 	smtpConfig := config.GetSMTPConfig()
 	assert.Equal(t, "smtp.example.com", smtpConfig.Host)
 	assert.Equal(t, 587, smtpConfig.Port)
+}
+
+func TestSMTPOAuth2FromEnv(t *testing.T) {
+	reset()
+
+	os.Setenv("SFTPGO_SMTP__HOST", "smtp.example.com")
+	os.Setenv("SFTPGO_SMTP__USER", "sftpgo@example.com")
+	os.Setenv("SFTPGO_SMTP__AUTH_TYPE", "3")
+	os.Setenv("SFTPGO_SMTP__OAUTH2__PROVIDER", "1")
+	os.Setenv("SFTPGO_SMTP__OAUTH2__TENANT", "a-tenant-id")
+	os.Setenv("SFTPGO_SMTP__OAUTH2__CLIENT_ID", "client id")
+	os.Setenv("SFTPGO_SMTP__OAUTH2__CLIENT_SECRET", "client secret")
+	os.Setenv("SFTPGO_SMTP__OAUTH2__REFRESH_TOKEN", "refresh token")
+	t.Cleanup(func() {
+		os.Unsetenv("SFTPGO_SMTP__HOST")
+		os.Unsetenv("SFTPGO_SMTP__USER")
+		os.Unsetenv("SFTPGO_SMTP__AUTH_TYPE")
+		os.Unsetenv("SFTPGO_SMTP__OAUTH2__PROVIDER")
+		os.Unsetenv("SFTPGO_SMTP__OAUTH2__TENANT")
+		os.Unsetenv("SFTPGO_SMTP__OAUTH2__CLIENT_ID")
+		os.Unsetenv("SFTPGO_SMTP__OAUTH2__CLIENT_SECRET")
+		os.Unsetenv("SFTPGO_SMTP__OAUTH2__REFRESH_TOKEN")
+	})
+
+	// the environment is the only source, no config file is present
+	err := config.LoadConfig(t.TempDir(), "")
+	assert.NoError(t, err)
+	smtpConfig := config.GetSMTPConfig()
+	assert.Equal(t, 3, smtpConfig.AuthType)
+	assert.Equal(t, 1, smtpConfig.OAuth2.Provider)
+	assert.Equal(t, "a-tenant-id", smtpConfig.OAuth2.Tenant)
+	assert.Equal(t, "client id", smtpConfig.OAuth2.ClientID)
+	assert.Equal(t, "client secret", smtpConfig.OAuth2.ClientSecret)
+	assert.Equal(t, "refresh token", smtpConfig.OAuth2.RefreshToken)
 }
 
 func TestMFAFromEnv(t *testing.T) {
@@ -1222,6 +1256,8 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__OIDC__IMPLICIT_ROLES", "1")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__OIDC__CUSTOM_FIELDS", "field1,field2")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__OIDC__INSECURE_SKIP_SIGNATURE_CHECK", "1")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__OIDC__QUERY_USERINFO", "1")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__OIDC__REQUIRE_VERIFIED_EMAIL", "1")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__OIDC__DEBUG", "1")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__SECURITY__ENABLED", "true")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__SECURITY__ALLOWED_HOSTS", "*.example.com,*.example.net")
@@ -1294,6 +1330,8 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__OIDC__IMPLICIT_ROLES")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__OIDC__CUSTOM_FIELDS")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__OIDC__INSECURE_SKIP_SIGNATURE_CHECK")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__OIDC__QUERY_USERINFO")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__OIDC__REQUIRE_VERIFIED_EMAIL")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__OIDC__DEBUG")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__SECURITY__ENABLED")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__SECURITY__ALLOWED_HOSTS")
@@ -1353,6 +1391,8 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 	require.Equal(t, 0, bindings[0].ClientIPHeaderDepth)
 	require.Len(t, bindings[0].OIDC.Scopes, 3)
 	require.False(t, bindings[0].OIDC.InsecureSkipSignatureCheck)
+	require.False(t, bindings[0].OIDC.QueryUserInfo)
+	require.False(t, bindings[0].OIDC.RequireVerifiedEmail)
 	require.False(t, bindings[0].OIDC.Debug)
 	require.Empty(t, bindings[0].Security.ReferrerPolicy)
 	require.Equal(t, 8000, bindings[1].Port)
@@ -1373,6 +1413,8 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 	require.Empty(t, bindings[1].OIDC.ClientID)
 	require.Len(t, bindings[1].OIDC.Scopes, 3)
 	require.False(t, bindings[1].OIDC.InsecureSkipSignatureCheck)
+	require.False(t, bindings[1].OIDC.QueryUserInfo)
+	require.False(t, bindings[1].OIDC.RequireVerifiedEmail)
 	require.False(t, bindings[1].OIDC.Debug)
 	require.False(t, bindings[1].Security.Enabled)
 	require.Equal(t, "Web Admin", bindings[1].Branding.WebAdmin.Name)
@@ -1420,6 +1462,8 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 	require.Equal(t, "field1", bindings[2].OIDC.CustomFields[0])
 	require.Equal(t, "field2", bindings[2].OIDC.CustomFields[1])
 	require.True(t, bindings[2].OIDC.InsecureSkipSignatureCheck)
+	require.True(t, bindings[2].OIDC.QueryUserInfo)
+	require.True(t, bindings[2].OIDC.RequireVerifiedEmail)
 	require.True(t, bindings[2].OIDC.Debug)
 	require.True(t, bindings[2].Security.Enabled)
 	require.Len(t, bindings[2].Security.AllowedHosts, 2)

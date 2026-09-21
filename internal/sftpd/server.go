@@ -360,32 +360,43 @@ func (c *Configuration) loadFromProvider() error {
 
 // Initialize the SFTP server and add a persistent listener to handle inbound SFTP connections.
 func (c *Configuration) Initialize(configDir string) error {
+	exitChannel, err := c.startServing(configDir)
+	if err != nil {
+		return err
+	}
+	return <-exitChannel
+}
+
+func (c *Configuration) startServing(configDir string) (chan error, error) {
+	serviceStatusMu.Lock()
+	defer serviceStatusMu.Unlock()
+
 	c.executor = defaultExecutor{}
 	if err := c.loadFromProvider(); err != nil {
-		return fmt.Errorf("unable to load configs from provider: %w", err)
+		return nil, fmt.Errorf("unable to load configs from provider: %w", err)
 	}
 	serviceStatus = ServiceStatus{}
 	serverConfig := c.getServerConfig()
 
 	if !c.ShouldBind() {
-		return common.ErrNoBinding
+		return nil, common.ErrNoBinding
 	}
 
-	sftp.SetSFTPExtensions(sftpExtensions...) //nolint:errcheck // we configure valid SFTP Extensions so we cannot get an error
+	_ = sftp.SetSFTPExtensions(sftpExtensions...) // we configure valid SFTP Extensions so we cannot get an error
 	sftp.MaxFilelist = 250
 
 	if err := c.configureSecurityOptions(serverConfig); err != nil {
-		return err
+		return nil, err
 	}
 	if err := c.checkAndLoadHostKeys(configDir, serverConfig); err != nil {
 		serviceStatus.HostKeys = nil
-		return err
+		return nil, err
 	}
 	if err := c.initializeCertChecker(configDir); err != nil {
-		return err
+		return nil, err
 	}
 	if err := c.initializeOPKSSH(); err != nil {
-		return err
+		return nil, err
 	}
 	c.configureKeyboardInteractiveAuth(serverConfig)
 	c.configureLoginBanner(serverConfig, configDir)
@@ -427,8 +438,7 @@ func (c *Configuration) Initialize(configDir string) error {
 	serviceStatus.IsActive = true
 	serviceStatus.SSHCommands = c.EnabledSSHCommands
 	c.updateSupportedAuthentications()
-
-	return <-exitChannel
+	return exitChannel, nil
 }
 
 func (c *Configuration) serve(listener net.Listener, serverConfig *ssh.ServerConfig) error {
@@ -439,7 +449,8 @@ func (c *Configuration) serve(listener net.Listener, serverConfig *ssh.ServerCon
 		conn, err := listener.Accept()
 		if err != nil {
 			// see https://github.com/golang/go/blob/4aa1efed4853ea067d665a952eee77c52faac774/src/net/http/server.go#L3046
-			if ne, ok := err.(net.Error); ok && ne.Temporary() { //nolint:staticcheck
+			//lint:ignore SA1019 net/http backs off on Accept errors the same way
+			if ne, ok := err.(net.Error); ok && ne.Temporary() {
 				if tempDelay == 0 {
 					tempDelay = 5 * time.Millisecond
 				} else {
@@ -465,7 +476,7 @@ func (c *Configuration) configureKeyAlgos(serverConfig *ssh.ServerConfig) error 
 	if len(c.HostKeyAlgorithms) == 0 {
 		c.HostKeyAlgorithms = preferredHostKeyAlgos
 	} else {
-		c.HostKeyAlgorithms = util.RemoveDuplicates(c.HostKeyAlgorithms, true)
+		c.HostKeyAlgorithms = util.RemoveDuplicates(slices.Clone(c.HostKeyAlgorithms), true)
 	}
 	for _, hostKeyAlgo := range c.HostKeyAlgorithms {
 		if !slices.Contains(supportedHostKeyAlgos, hostKeyAlgo) {
@@ -474,7 +485,7 @@ func (c *Configuration) configureKeyAlgos(serverConfig *ssh.ServerConfig) error 
 	}
 
 	if len(c.PublicKeyAlgorithms) > 0 {
-		c.PublicKeyAlgorithms = util.RemoveDuplicates(c.PublicKeyAlgorithms, true)
+		c.PublicKeyAlgorithms = util.RemoveDuplicates(slices.Clone(c.PublicKeyAlgorithms), true)
 		for _, algo := range c.PublicKeyAlgorithms {
 			if !slices.Contains(supportedPublicKeyAlgos, algo) {
 				return fmt.Errorf("unsupported public key authentication algorithm %q", algo)
@@ -530,7 +541,7 @@ func (c *Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig)
 	serviceStatus.KexAlgorithms = c.KexAlgorithms
 
 	if len(c.Ciphers) > 0 {
-		c.Ciphers = util.RemoveDuplicates(c.Ciphers, true)
+		c.Ciphers = util.RemoveDuplicates(slices.Clone(c.Ciphers), true)
 		for _, cipher := range c.Ciphers {
 			if slices.Contains([]string{"aes192-cbc", "aes256-cbc"}, cipher) {
 				continue
@@ -546,7 +557,7 @@ func (c *Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig)
 	serviceStatus.Ciphers = c.Ciphers
 
 	if len(c.MACs) > 0 {
-		c.MACs = util.RemoveDuplicates(c.MACs, true)
+		c.MACs = util.RemoveDuplicates(slices.Clone(c.MACs), true)
 		for _, mac := range c.MACs {
 			if !slices.Contains(supportedMACs, mac) {
 				return fmt.Errorf("unsupported MAC algorithm %q", mac)
@@ -611,10 +622,13 @@ func (c *Configuration) configureKeyboardInteractiveAuth(serverConfig *ssh.Serve
 }
 
 // AcceptInboundConnection handles an inbound connection to the server instance and determines if the request should be served or not.
-func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.ServerConfig) { //nolint:gocyclo
+func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.ServerConfig) {
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Error(logSender, "", "panic in AcceptInboundConnection: %q stack trace: %v", r, string(debug.Stack()))
+			if conn != nil {
+				conn.Close()
+			}
 		}
 	}()
 
@@ -628,7 +642,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 	}
 	// Before beginning a handshake must be performed on the incoming net.Conn
 	// we'll set a Deadline for handshake to complete, the default is 2 minutes as OpenSSH
-	conn.SetDeadline(time.Now().Add(handshakeTimeout)) //nolint:errcheck
+	_ = conn.SetDeadline(time.Now().Add(handshakeTimeout))
 
 	sconn, chans, reqs, err := ssh.NewServerConn(conn, config)
 	if err != nil {
@@ -637,7 +651,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 		return
 	}
 	// handshake completed so remove the deadline, we'll use IdleTimeout configuration from now on
-	conn.SetDeadline(time.Time{}) //nolint:errcheck
+	_ = conn.SetDeadline(time.Time{})
 	go ssh.DiscardRequests(reqs)
 
 	defer sconn.Close()
@@ -646,12 +660,13 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 	loginType := sconn.Permissions.ExtraData[extraDataLoginMethodKey].(string)
 	connectionID := hex.EncodeToString(sconn.SessionID())
 
-	defer user.CloseFs() //nolint:errcheck
+	defer user.CloseFs()
 	if err = user.CheckFsRoot(connectionID); err != nil {
 		logger.Warn(logSender, connectionID, "unable to check fs root for user %q: %v", user.Username, err)
 		go discardAllChannels(chans, "invalid root fs", connectionID)
 		return
 	}
+	user.CloseFs()
 
 	logger.LoginLog(user.Username, ipAddr, loginType, common.ProtocolSSH, connectionID,
 		string(sconn.ClientVersion()), true,
@@ -671,7 +686,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 		if newChannel.ChannelType() != "session" {
 			logger.Log(logger.LevelDebug, common.ProtocolSSH, connectionID, "received an unknown channel type: %v",
 				newChannel.ChannelType())
-			newChannel.Reject(ssh.UnknownChannelType, "unknown channel type") //nolint:errcheck
+			_ = newChannel.Reject(ssh.UnknownChannelType, "unknown channel type")
 			continue
 		}
 
@@ -691,7 +706,8 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 
 				switch req.Type {
 				case "subsystem":
-					if bytes.Equal(req.Payload[4:], []byte("sftp")) {
+					var msg sshSubsystemMsg
+					if err := ssh.Unmarshal(req.Payload, &msg); err == nil && msg.Name == "sftp" {
 						ok = true
 						sshConnection.UpdateLastActivity()
 						connection := &Connection{
@@ -702,6 +718,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 							LocalAddr:     conn.LocalAddr(),
 							channel:       channel,
 						}
+						connection.User.ResetFsCache()
 						go c.handleSftpConnection(channel, connection)
 					}
 				case "exec":
@@ -714,13 +731,14 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 						LocalAddr:     conn.LocalAddr(),
 						channel:       channel,
 					}
+					connection.User.ResetFsCache()
 					ok = processSSHCommand(req.Payload, &connection, c.EnabledSSHCommands)
 					if ok {
 						sshConnection.UpdateLastActivity()
 					}
 				}
 				if req.WantReply {
-					req.Reply(ok, nil) //nolint:errcheck
+					_ = req.Reply(ok, nil)
 				}
 			}
 		}(requests, channelCounter)
@@ -734,7 +752,7 @@ func (c *Configuration) handleSftpConnection(channel ssh.Channel, connection *Co
 		}
 	}()
 	if err := common.Connections.Add(connection); err != nil {
-		defer connection.CloseFS() //nolint:errcheck
+		defer connection.CloseFS()
 		errClose := connection.Disconnect()
 		logger.Info(logSender, "", "unable to add connection: %v, close err: %v", err, errClose)
 		return
@@ -791,12 +809,13 @@ func discardAllChannels(in <-chan ssh.NewChannel, message, connectionID string) 
 }
 
 func checkAuthError(ip string, err error) {
-	var authErrors *ssh.ServerAuthError
-	if errors.As(err, &authErrors) {
+	if authErrors, ok := errors.AsType[*ssh.ServerAuthError](err); ok {
 		// check public key auth errors here
 		for _, err := range authErrors.Errors {
-			var sftpAuthErr *authenticationError
-			if errors.As(err, &sftpAuthErr) {
+			if sftpAuthErr, ok := errors.AsType[*authenticationError](err); ok {
+				if errors.Is(err, dataprovider.ErrPlaceholderUnset) {
+					continue
+				}
 				if sftpAuthErr.getLoginMethod() == dataprovider.SSHLoginMethodPublicKey {
 					event := common.HostEventLoginFailed
 					logEv := notifier.LogEventTypeLoginFailed
@@ -816,8 +835,7 @@ func checkAuthError(ip string, err error) {
 		common.AddDefenderEvent(ip, common.ProtocolSSH, common.HostEventNoLoginTried)
 		dataprovider.ExecutePostLoginHook(&dataprovider.User{}, dataprovider.LoginMethodNoAuthTried, ip, common.ProtocolSSH, err)
 		logEv := notifier.LogEventTypeNoLoginTried
-		var negotiationError *ssh.AlgorithmNegotiationError
-		if errors.As(err, &negotiationError) {
+		if _, ok := errors.AsType[*ssh.AlgorithmNegotiationError](err); ok {
 			logEv = notifier.LogEventTypeNotNegotiated
 		}
 		plugin.Handler.NotifyLogEvent(logEv, common.ProtocolSSH, "", ip, "", err)
@@ -1123,7 +1141,7 @@ func (c *Configuration) verifyWithOPKSSH(username string, cert *ssh.Certificate)
 		logger.Debug(logSender, "", "unable to execute opk verifier: %s", string(out))
 		return fmt.Errorf("unable to execute opk verifier: %w", err)
 	}
-	pubKey, _, _, _, err := ssh.ParseAuthorizedKey(out) //nolint:dogsled
+	pubKey, _, _, _, err := ssh.ParseAuthorizedKey(out)
 	if err != nil {
 		logger.Debug(logSender, "", "unable to validate the opk verifier output: %s", string(out))
 		return fmt.Errorf("unable to validate the opk verifier output: %w", err)
@@ -1315,7 +1333,7 @@ func updateLoginMetrics(user *dataprovider.User, ip, method string, err error) {
 		common.DelayLogin(nil)
 	} else {
 		logger.ConnectionFailedLog(user.Username, ip, method, common.ProtocolSSH, err.Error())
-		if method != dataprovider.SSHLoginMethodPublicKey {
+		if method != dataprovider.SSHLoginMethodPublicKey && !errors.Is(err, dataprovider.ErrPlaceholderUnset) {
 			// some clients try all available public keys for a user, we
 			// record failed login key auth only once for session if the
 			// authentication fails in checkAuthError

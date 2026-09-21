@@ -93,7 +93,6 @@
         "reset_submit": "更新密码并登录",
         "confirm_code": "确认码",
         "reset_pwd_forbidden": "您无权重置密码",
-        "reset_pwd_no_email": "您的账户没有电子邮件地址，无法通过发送电子邮件验证码重置您的密码",
         "reset_pwd_send_email_err": "无法通过电子邮件发送确认码",
         "reset_pwd_err_generic": "重置密码时发生意外错误",
         "reset_ok_login_error": "密码重置成功完成，但在登录时发生异常错误",
@@ -518,6 +517,7 @@
         "folder_path_required": "虚拟文件夹挂载路径是必需的",
         "folder_duplicated": "检测到重复的虚拟文件夹",
         "folder_overlapped": "检测到的虚拟文件夹重叠",
+        "folder_quota_mismatch": "配额限制适用于整个虚拟文件夹，同一文件夹的所有挂载必须使用相同的值",
         "folder_quota_size_invalid": "虚拟文件夹的容量大小配额必须大于或等于 -1",
         "folder_quota_file_invalid": "虚拟文件夹的文件个数配额必须大于或等于 -1",
         "folder_quota_invalid": "虚拟文件夹的大小和文件数量必须是 -1 或大于或等于 0",
@@ -574,7 +574,9 @@
         "template_name_placeholder": "替换为指定虚拟文件夹的名称",
         "template_help": "生成的虚拟文件夹可以保存或导出。导出的文件夹可以从此 SFTPGo 实例的 “维护” 部分或其他部分导入。",
         "name": "虚拟文件夹名称",
-        "template_no_folder": "未定义有效的虚拟文件夹，无法完成请求的操作"
+        "template_no_folder": "未定义有效的虚拟文件夹，无法完成请求的操作",
+        "subpath": "子路径，例如 /subdir",
+        "subpath_help": "以该子路径为根挂载文件夹"
     },
     "storage": {
         "title": "文件系统",
@@ -650,7 +652,7 @@
         "fs_error": "文件系统配置错误",
         "bucket_required": "$t(storage.fs_error)：需要存储桶",
         "region_required": "$t(storage.fs_error): 需要区域",
-        "key_prefix_invalid": "$t(storage.fs_error): 无效的密钥前缀，不能以 “/” 开头",
+        "key_prefix_invalid": "$t(storage.fs_error): 无效的密钥前缀，不能指向存储根目录",
         "ul_part_size_invalid": "$t(storage.fs_error): 无效的上传部分尺寸",
         "ul_concurrency_invalid": "$t(storage.fs_error): 并行上传无效",
         "dl_part_size_invalid": "$t(storage.fs_error): 无效下载部分大小",
@@ -674,7 +676,8 @@
         "token_invalid": "无效的 OpenID 令牌",
         "role_admin_err": "OpenID 角色不正确，登录用户不是管理员",
         "role_user_err": "OpenID 角色不正确，登录用户是管理员",
-        "get_user_err": "无法获取与 OpenID 令牌关联的用户"
+        "get_user_err": "无法获取与 OpenID 令牌关联的用户",
+        "email_not_verified": "身份提供程序未验证该电子邮件地址"
     },
     "oauth2": {
         "auth_verify_error": "无法验证 OAuth2 代码",

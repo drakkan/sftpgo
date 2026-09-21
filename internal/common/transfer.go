@@ -59,6 +59,7 @@ type BaseTransfer struct {
 	mTime           time.Time
 	transferQuota   dataprovider.TransferQuota
 	metadata        map[string]string
+	finalInfo       fs.FileInfo
 	sync.Mutex
 	errAbort    error
 	ErrTransfer error
@@ -223,8 +224,7 @@ func (t *BaseTransfer) SetCancelFn(cancelFn func()) {
 // converts it into a more understandable form for the client if it is a
 // well-known type of error
 func (t *BaseTransfer) ConvertError(err error) error {
-	var pathError *fs.PathError
-	if errors.As(err, &pathError) {
+	if pathError, ok := errors.AsType[*fs.PathError](err); ok {
 		return fmt.Errorf("%s %s: %s", pathError.Op, t.GetVirtualPath(), pathError.Err.Error())
 	}
 	return t.Connection.GetFsError(t.Fs, err)
@@ -284,7 +284,7 @@ func (t *BaseTransfer) Truncate(fsPath string, size int64) (int64, error) {
 						t.transferType, t.ErrTransfer, vfs.IsSFTPFs(t.Fs))
 					if t.transferQuota.HasSizeLimits() {
 						go func(ulSize, dlSize int64, user dataprovider.User) {
-							dataprovider.UpdateUserTransferQuota(&user, ulSize, dlSize, false) //nolint:errcheck
+							_ = dataprovider.UpdateUserTransferQuota(&user, ulSize, dlSize, false)
 						}(t.BytesReceived.Load(), t.BytesSent.Load(), t.Connection.User)
 					}
 					t.BytesReceived.Store(0)
@@ -347,6 +347,7 @@ func (t *BaseTransfer) getUploadFileSize() (int64, int, error) {
 	info, err := t.Fs.Stat(t.fsPath)
 	if err == nil {
 		fileSize = info.Size()
+		t.finalInfo = info
 	}
 	if t.ErrTransfer != nil && vfs.IsCryptOsFs(t.Fs) {
 		errDelete := t.Fs.Remove(t.fsPath, false)
@@ -362,26 +363,6 @@ func (t *BaseTransfer) getUploadFileSize() (int64, int, error) {
 	return fileSize, deletedFiles, err
 }
 
-// return 1 if the file is outside the user home dir
-func (t *BaseTransfer) checkUploadOutsideHomeDir(err error) int {
-	if err == nil {
-		return 0
-	}
-	if t.ErrTransfer == nil {
-		t.ErrTransfer = err
-	}
-	if Config.TempPath == "" {
-		return 0
-	}
-	err = t.Fs.Remove(t.effectiveFsPath, false)
-	t.Connection.Log(logger.LevelWarn, "upload in temp path cannot be renamed, delete temporary file: %q, deletion error: %v",
-		t.effectiveFsPath, err)
-	// the file is outside the home dir so don't update the quota
-	t.BytesReceived.Store(0)
-	t.MinWriteOffset = 0
-	return 1
-}
-
 // Close it is called when the transfer is completed.
 // It logs the transfer info, updates the user quota (for uploads)
 // and executes any defined action.
@@ -395,7 +376,7 @@ func (t *BaseTransfer) Close() error {
 	metric.TransferCompleted(t.BytesSent.Load(), t.BytesReceived.Load(),
 		t.transferType, t.ErrTransfer, vfs.IsSFTPFs(t.Fs))
 	if t.transferQuota.HasSizeLimits() {
-		dataprovider.UpdateUserTransferQuota(&t.Connection.User, t.BytesReceived.Load(), //nolint:errcheck
+		_ = dataprovider.UpdateUserTransferQuota(&t.Connection.User, t.BytesReceived.Load(),
 			t.BytesSent.Load(), false)
 	}
 	if (t.File != nil || vfs.IsLocalOsFs(t.Fs)) && t.Connection.IsQuotaExceededError(t.ErrTransfer) {
@@ -412,8 +393,9 @@ func (t *BaseTransfer) Close() error {
 			_, _, err = t.Fs.Rename(t.effectiveFsPath, t.fsPath, 0)
 			t.Connection.Log(logger.LevelDebug, "atomic upload completed, rename: %q -> %q, error: %v",
 				t.effectiveFsPath, t.fsPath, err)
-			// the file must be removed if it is uploaded to a path outside the home dir and cannot be renamed
-			t.checkUploadOutsideHomeDir(err)
+			if err != nil && t.ErrTransfer == nil {
+				t.ErrTransfer = err
+			}
 		} else {
 			err = t.Fs.Remove(t.effectiveFsPath, false)
 			t.Connection.Log(logger.LevelWarn, "atomic upload completed with error: \"%v\", delete temporary file: %q, deletion error: %v",
@@ -430,7 +412,7 @@ func (t *BaseTransfer) Close() error {
 		logger.TransferLog(downloadLogSender, t.fsPath, t.requestPath, elapsed, t.BytesSent.Load(), t.Connection.User.Username,
 			t.Connection.ID, t.Connection.protocol, t.Connection.localAddr, t.Connection.remoteAddr, t.ftpMode,
 			t.ErrTransfer)
-		ExecuteActionNotification(t.Connection, operationDownload, t.fsPath, t.requestPath, "", "", "", //nolint:errcheck
+		_ = ExecuteActionNotification(t.Connection, operationDownload, t.fsPath, t.requestPath, "", "", "",
 			t.BytesSent.Load(), t.ErrTransfer, elapsed, t.metadata)
 	} else {
 		statSize, deletedFiles, errStat := t.getUploadFileSize()
@@ -454,6 +436,7 @@ func (t *BaseTransfer) Close() error {
 			t.ErrTransfer)
 	}
 	if t.ErrTransfer != nil {
+		t.finalInfo = nil
 		t.Connection.Log(logger.LevelError, "transfer error: %v, path: %q", t.ErrTransfer, t.fsPath)
 		if err == nil {
 			err = t.ErrTransfer
@@ -475,7 +458,7 @@ func (t *BaseTransfer) updateTransferTimestamps(uploadFileSize, elapsed int64) {
 		if t.Connection.User.FirstUpload == 0 && !t.Connection.uploadDone.Load() {
 			if err := dataprovider.UpdateUserTransferTimestamps(t.Connection.User.Username, true); err == nil {
 				t.Connection.uploadDone.Store(true)
-				ExecuteActionNotification(t.Connection, operationFirstUpload, t.fsPath, t.requestPath, "", //nolint:errcheck
+				_ = ExecuteActionNotification(t.Connection, operationFirstUpload, t.fsPath, t.requestPath, "",
 					"", "", uploadFileSize, t.ErrTransfer, elapsed, t.metadata)
 			}
 		}
@@ -484,7 +467,7 @@ func (t *BaseTransfer) updateTransferTimestamps(uploadFileSize, elapsed int64) {
 	if t.Connection.User.FirstDownload == 0 && !t.Connection.downloadDone.Load() && t.BytesSent.Load() > 0 {
 		if err := dataprovider.UpdateUserTransferTimestamps(t.Connection.User.Username, false); err == nil {
 			t.Connection.downloadDone.Store(true)
-			ExecuteActionNotification(t.Connection, operationFirstDownload, t.fsPath, t.requestPath, "", //nolint:errcheck
+			_ = ExecuteActionNotification(t.Connection, operationFirstDownload, t.fsPath, t.requestPath, "",
 				"", "", t.BytesSent.Load(), t.ErrTransfer, elapsed, t.metadata)
 		}
 	}
@@ -524,7 +507,16 @@ func (t *BaseTransfer) updateTimes() {
 		err := t.Fs.Chtimes(t.fsPath, t.aTime, t.mTime, false)
 		t.Connection.Log(logger.LevelDebug, "set times for file %q, atime: %v, mtime: %v, err: %v",
 			t.fsPath, t.aTime, t.mTime, err)
+		if err == nil && t.finalInfo != nil {
+			t.finalInfo = vfs.NewFileInfo(t.finalInfo.Name(), false, t.finalInfo.Size(), t.mTime, true)
+		}
 	}
+}
+
+// GetFinalInfo returns information about the uploaded file, or nil if
+// unavailable
+func (t *BaseTransfer) GetFinalInfo() fs.FileInfo {
+	return t.finalInfo
 }
 
 func (t *BaseTransfer) updateQuota(numFiles int, fileSize int64) bool {
@@ -539,7 +531,7 @@ func (t *BaseTransfer) updateQuota(numFiles int, fileSize int64) bool {
 			dataprovider.UpdateUserFolderQuota(&vfolder, &t.Connection.User, numFiles,
 				sizeDiff, false)
 		} else {
-			dataprovider.UpdateUserQuota(&t.Connection.User, numFiles, sizeDiff, false) //nolint:errcheck
+			_ = dataprovider.UpdateUserQuota(&t.Connection.User, numFiles, sizeDiff, false)
 		}
 		return true
 	}

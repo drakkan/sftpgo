@@ -112,7 +112,8 @@ func getRespStatus(err error) int {
 	if errors.Is(err, plugin.ErrNoSearcher) || errors.Is(err, dataprovider.ErrNotImplemented) {
 		return http.StatusNotImplemented
 	}
-	if errors.Is(err, dataprovider.ErrDuplicatedKey) || errors.Is(err, dataprovider.ErrForeignKeyViolated) {
+	if errors.Is(err, dataprovider.ErrDuplicatedKey) || errors.Is(err, dataprovider.ErrForeignKeyViolated) ||
+		errors.Is(err, dataprovider.ErrConcurrentUpdate) {
 		return http.StatusConflict
 	}
 	return http.StatusInternalServerError
@@ -302,18 +303,14 @@ func renderAPIDirContents(w http.ResponseWriter, lister vfs.DirLister, omitNonRe
 	defer lister.Close()
 
 	dataGetter := func(limit, _ int) ([]byte, int, error) {
-		contents, err := lister.Next(limit)
-		if errors.Is(err, io.EOF) {
-			err = nil
-		}
+		contents, finished, err := nextRenderableEntries(lister, limit, func(info os.FileInfo) bool {
+			return !omitNonRegularFiles || info.Mode().IsDir() || info.Mode().IsRegular()
+		})
 		if err != nil {
 			return nil, 0, err
 		}
 		results := make([]map[string]any, 0, len(contents))
 		for _, info := range contents {
-			if omitNonRegularFiles && !info.Mode().IsDir() && !info.Mode().IsRegular() {
-				continue
-			}
 			res := make(map[string]any)
 			res["name"] = info.Name()
 			if info.Mode().IsRegular() {
@@ -325,8 +322,8 @@ func renderAPIDirContents(w http.ResponseWriter, lister vfs.DirLister, omitNonRe
 		}
 		data, err := json.Marshal(results)
 		count := limit
-		if len(results) == 0 {
-			count = 0
+		if finished {
+			count = len(results)
 		}
 		return data, count, err
 	}
@@ -342,6 +339,25 @@ func streamData(w io.Writer, data []byte) {
 	}
 }
 
+func nextRenderableEntries(lister vfs.DirLister, limit int, keep func(os.FileInfo) bool) ([]os.FileInfo, bool, error) {
+	for {
+		contents, err := lister.Next(limit)
+		finished := errors.Is(err, io.EOF)
+		if err != nil && !finished {
+			return nil, false, err
+		}
+		kept := make([]os.FileInfo, 0, len(contents))
+		for _, info := range contents {
+			if keep(info) {
+				kept = append(kept, info)
+			}
+		}
+		if len(kept) > 0 || finished {
+			return kept, finished, nil
+		}
+	}
+}
+
 func streamJSONArray(w http.ResponseWriter, chunkSize int, dataGetter func(limit, offset int) ([]byte, int, error)) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Accept-Ranges", "none")
@@ -349,18 +365,23 @@ func streamJSONArray(w http.ResponseWriter, chunkSize int, dataGetter func(limit
 
 	streamData(w, []byte("["))
 	offset := 0
+	rendered := false
 	for {
 		data, count, err := dataGetter(chunkSize, offset)
 		if err != nil {
+			logger.Error(logSender, "", "unable to stream JSON array, aborting at offset %d: %v", offset, err)
 			panic(http.ErrAbortHandler)
 		}
 		if count == 0 {
 			break
 		}
-		if offset > 0 {
-			streamData(w, []byte(","))
+		if len(data) > 2 {
+			if rendered {
+				streamData(w, []byte(","))
+			}
+			streamData(w, data[1:len(data)-1])
+			rendered = true
 		}
-		streamData(w, data[1:len(data)-1])
 		if count < chunkSize {
 			break
 		}
@@ -390,7 +411,7 @@ func getCompressedFileName(username string, files []string) string {
 func renderCompressedFiles(w http.ResponseWriter, conn *Connection, baseDir string, files []string,
 	share *dataprovider.Share,
 ) {
-	conn.User.CheckFsRoot(conn.ID) //nolint:errcheck
+	_ = conn.User.CheckFsRoot(conn.ID)
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Accept-Ranges", "none")
 	w.Header().Set("Content-Transfer-Encoding", "binary")
@@ -402,7 +423,7 @@ func renderCompressedFiles(w http.ResponseWriter, conn *Connection, baseDir stri
 		fullPath := util.CleanPath(path.Join(baseDir, file))
 		if err := addZipEntry(wr, conn, fullPath, baseDir, nil, 0); err != nil {
 			if share != nil {
-				dataprovider.UpdateShareLastUse(share, -1) //nolint:errcheck
+				_ = dataprovider.UpdateShareLastUse(share, -1)
 			}
 			panic(http.ErrAbortHandler)
 		}
@@ -410,7 +431,7 @@ func renderCompressedFiles(w http.ResponseWriter, conn *Connection, baseDir stri
 	if err := wr.Close(); err != nil {
 		conn.Log(logger.LevelError, "unable to close zip file: %v", err)
 		if share != nil {
-			dataprovider.UpdateShareLastUse(share, -1) //nolint:errcheck
+			_ = dataprovider.UpdateShareLastUse(share, -1)
 		}
 		panic(http.ErrAbortHandler)
 	}
@@ -516,7 +537,7 @@ func checkDownloadFileFromShare(share *dataprovider.Share, info os.FileInfo) err
 func downloadFile(w http.ResponseWriter, r *http.Request, connection *Connection, name string,
 	info os.FileInfo, inline bool, share *dataprovider.Share,
 ) (int, error) {
-	connection.User.CheckFsRoot(connection.ID) //nolint:errcheck
+	_ = connection.User.CheckFsRoot(connection.ID)
 	err := checkDownloadFileFromShare(share, info)
 	if err != nil {
 		return http.StatusBadRequest, err
@@ -573,7 +594,7 @@ func downloadFile(w http.ResponseWriter, r *http.Request, connection *Connection
 		_, err = io.CopyN(w, reader, size)
 		if err != nil {
 			if share != nil {
-				dataprovider.UpdateShareLastUse(share, -1) //nolint:errcheck
+				_ = dataprovider.UpdateShareLastUse(share, -1)
 			}
 			connection.Log(logger.LevelDebug, "error reading file to download: %v", err)
 			panic(http.ErrAbortHandler)
@@ -730,7 +751,8 @@ func updateLoginMetrics(user *dataprovider.User, loginMethod, ip string, err err
 		logger.LoginLog(user.Username, ip, loginMethod, protocol, "", r.UserAgent(), r.TLS != nil, "")
 		plugin.Handler.NotifyLogEvent(notifier.LogEventTypeLoginOK, protocol, user.Username, ip, "", nil)
 		common.DelayLogin(nil)
-	} else if err != common.ErrInternalFailure && err != common.ErrNoCredentials {
+	} else if err != common.ErrInternalFailure && err != common.ErrNoCredentials &&
+		!errors.Is(err, dataprovider.ErrPlaceholderUnset) {
 		logger.ConnectionFailedLog(user.Username, ip, loginMethod, protocol, err.Error())
 		err = handleDefenderEventLoginFailed(ip, err)
 		logEv := notifier.LogEventTypeLoginFailed
@@ -744,6 +766,10 @@ func updateLoginMetrics(user *dataprovider.User, loginMethod, ip string, err err
 }
 
 func checkHTTPClientUser(user *dataprovider.User, r *http.Request, connectionID string, checkSessions, isOIDCLogin bool) error {
+	if err := user.CheckLoginConditions(); err != nil {
+		logger.Info(logSender, connectionID, "cannot login user %q: %v", user.Username, err)
+		return util.NewI18nError(fmt.Errorf("%w: %w", os.ErrPermission, err), util.I18nError403Message)
+	}
 	if slices.Contains(user.Filters.DeniedProtocols, common.ProtocolHTTP) {
 		logger.Info(logSender, connectionID, "cannot login user %q, protocol HTTP is not allowed", user.Username)
 		return util.NewI18nError(
@@ -801,50 +827,55 @@ func getActiveUser(username string, r *http.Request) (dataprovider.User, error) 
 	return user, nil
 }
 
+func ignoreForgotPasswordRequest(r *http.Request, username string, isAdmin bool, err error) error {
+	logger.Debug(logSender, middleware.GetReqID(r.Context()),
+		"reset password request for username %q silently ignored, is admin? %t, err: %v", username, isAdmin, err)
+	return nil
+}
+
 func handleForgotPassword(r *http.Request, username string, isAdmin bool) error {
 	var emails []string
 	var subject string
 	var err error
 	var admin dataprovider.Admin
 	var user dataprovider.User
+	var canReset bool
 
 	if username == "" {
 		return util.NewI18nError(util.NewValidationError("username is mandatory"), util.I18nErrorUsernameRequired)
 	}
 	if isAdmin {
 		admin, err = getActiveAdmin(username, util.GetIPFromRemoteAddress(r.RemoteAddr))
-		if admin.Email != "" {
-			emails = []string{admin.Email}
+		if err == nil {
+			if admin.Email != "" {
+				emails = []string{admin.Email}
+			}
+			canReset = true
 		}
 		subject = fmt.Sprintf("Email Verification Code for admin %q", username)
 	} else {
 		user, err = getActiveUser(username, r)
-		emails = user.GetEmailAddresses()
 		subject = fmt.Sprintf("Email Verification Code for user %q", username)
 		if err == nil {
-			if !isUserAllowedToResetPassword(r, &user) {
-				return util.NewI18nError(
-					util.NewValidationError("you are not allowed to reset your password"),
-					util.I18nErrorPwdResetForbidded,
-				)
-			}
+			emails = user.GetEmailAddresses()
+			canReset = isUserAllowedToResetPassword(r, &user)
 		}
 	}
 	if err != nil {
 		if errors.Is(err, util.ErrNotFound) {
-			handleDefenderEventLoginFailed(util.GetIPFromRemoteAddress(r.RemoteAddr), err) //nolint:errcheck
-			logger.Debug(logSender, middleware.GetReqID(r.Context()),
-				"username %q does not exists or cannot login, reset password request silently ignored, is admin? %t, err: %v",
-				username, isAdmin, err)
-			return nil
+			common.AddDefenderEvent(util.GetIPFromRemoteAddress(r.RemoteAddr), common.ProtocolHTTP,
+				common.HostEventUserNotFound)
+			return ignoreForgotPasswordRequest(r, username, isAdmin, err)
 		}
 		return util.NewI18nError(util.NewGenericError("Error retrieving your account, please try again later"), util.I18nErrorGetUser)
 	}
+	if !canReset {
+		return ignoreForgotPasswordRequest(r, username, isAdmin,
+			errors.New("password reset is not allowed for this account"))
+	}
 	if len(emails) == 0 {
-		return util.NewI18nError(
-			util.NewValidationError("Your account does not have an email address, it is not possible to reset your password by sending an email verification code"),
-			util.I18nErrorPwdResetNoEmail,
-		)
+		return ignoreForgotPasswordRequest(r, username, isAdmin,
+			errors.New("the account does not have an email address"))
 	}
 	c := newResetCode(username, isAdmin)
 	body := new(bytes.Buffer)
@@ -888,7 +919,7 @@ func handleResetPassword(r *http.Request, code, newPassword, confirmPassword str
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	resetCode, err := resetCodesMgr.Get(code)
 	if err != nil {
-		handleDefenderEventLoginFailed(ipAddr, dataprovider.ErrInvalidCredentials) //nolint:errcheck
+		_ = handleDefenderEventLoginFailed(ipAddr, dataprovider.ErrInvalidCredentials)
 		return &admin, &user, util.NewValidationError("confirmation code not found")
 	}
 	if resetCode.IsAdmin != isAdmin {

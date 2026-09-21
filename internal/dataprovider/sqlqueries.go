@@ -371,7 +371,7 @@ func getGroupsQuery(order string, minimal bool) string {
 
 func getGroupsWithNamesQuery(numArgs int) string {
 	var sb strings.Builder
-	for idx := 0; idx < numArgs; idx++ {
+	for idx := range numArgs {
 		if sb.Len() == 0 {
 			sb.WriteString("(")
 		} else {
@@ -389,7 +389,7 @@ func getGroupsWithNamesQuery(numArgs int) string {
 
 func getUsersInGroupsQuery(numArgs int) string {
 	var sb strings.Builder
-	for idx := 0; idx < numArgs; idx++ {
+	for idx := range numArgs {
 		if sb.Len() == 0 {
 			sb.WriteString("(")
 		} else {
@@ -449,11 +449,20 @@ func getAddAdminQuery(role string) string {
 		sqlTableRoles, sqlPlaceholders[10], getCoalesceDefaultForRole(role))
 }
 
-func getUpdateAdminQuery(role string) string {
-	return fmt.Sprintf(`UPDATE %s SET password=%s,status=%s,email=%s,permissions=%s,filters=%s,additional_info=%s,description=%s,updated_at=%s,
+func updatedAtAssignment(newValue1, newValue2 string) string {
+	return fmt.Sprintf(`updated_at=CASE WHEN updated_at >= %s THEN updated_at + 1 ELSE %s END`, newValue1, newValue2)
+}
+
+func getUpdateAdminQuery(role string, guarded bool) string {
+	q := fmt.Sprintf(`UPDATE %s SET password=%s,status=%s,email=%s,permissions=%s,filters=%s,additional_info=%s,description=%s,%s,
 		role_id=COALESCE((SELECT id from %s WHERE name = %s),%s) WHERE username = %s`, sqlTableAdmins, sqlPlaceholders[0],
 		sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3], sqlPlaceholders[4], sqlPlaceholders[5], sqlPlaceholders[6],
-		sqlPlaceholders[7], sqlTableRoles, sqlPlaceholders[8], getCoalesceDefaultForRole(role), sqlPlaceholders[9])
+		updatedAtAssignment(sqlPlaceholders[7], sqlPlaceholders[8]), sqlTableRoles, sqlPlaceholders[9],
+		getCoalesceDefaultForRole(role), sqlPlaceholders[10])
+	if guarded {
+		q += fmt.Sprintf(` AND updated_at = %s`, sqlPlaceholders[11])
+	}
+	return q
 }
 
 func getDeleteAdminQuery() string {
@@ -603,7 +612,7 @@ func getUsersQuery(order, role string) string {
 
 func getUsersForQuotaCheckQuery(numArgs int) string {
 	var sb strings.Builder
-	for idx := 0; idx < numArgs; idx++ {
+	for idx := range numArgs {
 		if sb.Len() == 0 {
 			sb.WriteString("(")
 		} else {
@@ -718,17 +727,21 @@ func getAddUserQuery(role string) string {
 		sqlPlaceholders[24], getCoalesceDefaultForRole(role), sqlPlaceholders[25])
 }
 
-func getUpdateUserQuery(role string) string {
-	return fmt.Sprintf(`UPDATE %s SET password=%s,public_keys=%s,home_dir=%s,uid=%s,gid=%s,max_sessions=%s,quota_size=%s,
+func getUpdateUserQuery(role string, guarded bool) string {
+	q := fmt.Sprintf(`UPDATE %s SET password=%s,public_keys=%s,home_dir=%s,uid=%s,gid=%s,max_sessions=%s,quota_size=%s,
 		quota_files=%s,permissions=%s,upload_bandwidth=%s,download_bandwidth=%s,status=%s,expiration_date=%s,filters=%s,filesystem=%s,
-		additional_info=%s,description=%s,email=%s,updated_at=%s,upload_data_transfer=%s,download_data_transfer=%s,
-		total_data_transfer=%s,role_id=COALESCE((SELECT id from %s WHERE name=%s),%s),last_password_change=%s WHERE username = %s`,
+		additional_info=%s,description=%s,email=%s,%s,upload_data_transfer=%s,download_data_transfer=%s,total_data_transfer=%s,
+		role_id=COALESCE((SELECT id from %s WHERE name=%s),%s),last_password_change=%s WHERE username = %s`,
 		sqlTableUsers, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3], sqlPlaceholders[4],
 		sqlPlaceholders[5], sqlPlaceholders[6], sqlPlaceholders[7], sqlPlaceholders[8], sqlPlaceholders[9],
 		sqlPlaceholders[10], sqlPlaceholders[11], sqlPlaceholders[12], sqlPlaceholders[13], sqlPlaceholders[14],
-		sqlPlaceholders[15], sqlPlaceholders[16], sqlPlaceholders[17], sqlPlaceholders[18], sqlPlaceholders[19],
-		sqlPlaceholders[20], sqlPlaceholders[21], sqlTableRoles, sqlPlaceholders[22], getCoalesceDefaultForRole(role),
-		sqlPlaceholders[23], sqlPlaceholders[24])
+		sqlPlaceholders[15], sqlPlaceholders[16], sqlPlaceholders[17], updatedAtAssignment(sqlPlaceholders[18], sqlPlaceholders[19]),
+		sqlPlaceholders[20], sqlPlaceholders[21], sqlPlaceholders[22], sqlTableRoles, sqlPlaceholders[23],
+		getCoalesceDefaultForRole(role), sqlPlaceholders[24], sqlPlaceholders[25])
+	if guarded {
+		q += fmt.Sprintf(` AND updated_at = %s`, sqlPlaceholders[26])
+	}
+	return q
 }
 
 func getUpdateUserPasswordQuery() string {
@@ -797,10 +810,10 @@ func getClearGroupFolderMappingQuery() string {
 }
 
 func getAddGroupFolderMappingQuery() string {
-	return fmt.Sprintf(`INSERT INTO %s (virtual_path,quota_size,quota_files,folder_id,group_id,sort_order)
-		VALUES (%s,%s,%s,(SELECT id FROM %s WHERE name = %s),(SELECT id FROM %s WHERE name = %s),%s)`,
-		sqlTableGroupsFoldersMapping, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlTableFolders,
-		sqlPlaceholders[3], getSQLQuotedName(sqlTableGroups), sqlPlaceholders[4], sqlPlaceholders[5])
+	return fmt.Sprintf(`INSERT INTO %s (virtual_path,quota_size,quota_files,subpath,folder_id,group_id,sort_order)
+		VALUES (%s,%s,%s,%s,(SELECT id FROM %s WHERE name = %s),(SELECT id FROM %s WHERE name = %s),%s)`,
+		sqlTableGroupsFoldersMapping, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3],
+		sqlTableFolders, sqlPlaceholders[4], getSQLQuotedName(sqlTableGroups), sqlPlaceholders[5], sqlPlaceholders[6])
 }
 
 func getClearUserFolderMappingQuery() string {
@@ -809,10 +822,10 @@ func getClearUserFolderMappingQuery() string {
 }
 
 func getAddUserFolderMappingQuery() string {
-	return fmt.Sprintf(`INSERT INTO %s (virtual_path,quota_size,quota_files,folder_id,user_id,sort_order)
-		VALUES (%s,%s,%s,(SELECT id FROM %s WHERE name = %s),(SELECT id FROM %s WHERE username = %s),%s)`,
-		sqlTableUsersFoldersMapping, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlTableFolders,
-		sqlPlaceholders[3], sqlTableUsers, sqlPlaceholders[4], sqlPlaceholders[5])
+	return fmt.Sprintf(`INSERT INTO %s (virtual_path,quota_size,quota_files,subpath,folder_id,user_id,sort_order)
+		VALUES (%s,%s,%s,%s,(SELECT id FROM %s WHERE name = %s),(SELECT id FROM %s WHERE username = %s),%s)`,
+		sqlTableUsersFoldersMapping, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3],
+		sqlTableFolders, sqlPlaceholders[4], sqlTableUsers, sqlPlaceholders[5], sqlPlaceholders[6])
 }
 
 func getFoldersQuery(order string, minimal bool) string {
@@ -888,7 +901,8 @@ func getRelatedFoldersForUsersQuery(users []User) string {
 		sb.WriteString(")")
 	}
 	return fmt.Sprintf(`SELECT f.id,f.name,f.path,f.used_quota_size,f.used_quota_files,f.last_quota_update,fm.virtual_path,
-		fm.quota_size,fm.quota_files,fm.user_id,f.filesystem,f.description FROM %s f INNER JOIN %s fm ON f.id = fm.folder_id WHERE
+		fm.quota_size,fm.quota_files,fm.subpath,fm.user_id,f.filesystem,f.description
+		FROM %s f INNER JOIN %s fm ON f.id = fm.folder_id WHERE
 		fm.user_id IN %s ORDER BY fm.sort_order`, sqlTableFolders, sqlTableUsersFoldersMapping, sb.String())
 }
 
@@ -905,7 +919,7 @@ func getRelatedUsersForFoldersQuery(folders []vfs.BaseVirtualFolder) string {
 	if sb.Len() > 0 {
 		sb.WriteString(")")
 	}
-	return fmt.Sprintf(`SELECT fm.folder_id,u.username FROM %s fm INNER JOIN %s u ON fm.user_id = u.id
+	return fmt.Sprintf(`SELECT DISTINCT fm.folder_id,u.username FROM %s fm INNER JOIN %s u ON fm.user_id = u.id
 		WHERE fm.folder_id IN %s ORDER BY u.username`, sqlTableUsersFoldersMapping, sqlTableUsers, sb.String())
 }
 
@@ -922,7 +936,7 @@ func getRelatedGroupsForFoldersQuery(folders []vfs.BaseVirtualFolder) string {
 	if sb.Len() > 0 {
 		sb.WriteString(")")
 	}
-	return fmt.Sprintf(`SELECT fm.folder_id,g.name FROM %s fm INNER JOIN %s g ON fm.group_id = g.id
+	return fmt.Sprintf(`SELECT DISTINCT fm.folder_id,g.name FROM %s fm INNER JOIN %s g ON fm.group_id = g.id
 		WHERE fm.folder_id IN %s ORDER BY g.name`, sqlTableGroupsFoldersMapping, getSQLQuotedName(sqlTableGroups),
 		sb.String())
 }
@@ -975,7 +989,8 @@ func getRelatedFoldersForGroupsQuery(groups []Group) string {
 		sb.WriteString(")")
 	}
 	return fmt.Sprintf(`SELECT f.id,f.name,f.path,f.used_quota_size,f.used_quota_files,f.last_quota_update,fm.virtual_path,
-		fm.quota_size,fm.quota_files,fm.group_id,f.filesystem,f.description FROM %s f INNER JOIN %s fm ON f.id = fm.folder_id WHERE
+		fm.quota_size,fm.quota_files,fm.subpath,fm.group_id,f.filesystem,f.description
+		FROM %s f INNER JOIN %s fm ON f.id = fm.folder_id WHERE
 		fm.group_id IN %s ORDER BY fm.sort_order`, sqlTableFolders, sqlTableGroupsFoldersMapping, sb.String())
 }
 

@@ -122,6 +122,14 @@ const (
 	UploadModeAzureBlobStoreOnError = 16
 )
 
+const (
+	// SymlinkModeAllowLocal allows symbolic link creation on the local filesystem
+	// backend, including its encrypted variant.
+	SymlinkModeAllowLocal = 1
+	// SymlinkModeAllowSFTP allows symbolic link creation on the SFTP backend.
+	SymlinkModeAllowSFTP = 2
+)
+
 func init() {
 	Connections.clients = clientsMap{
 		clients: make(map[string]int),
@@ -135,6 +143,7 @@ func init() {
 	Connections.perUserConns = make(map[string]int)
 	Connections.mapping = make(map[string]int)
 	Connections.sshMapping = make(map[string]int)
+	proxyproto.V1AcceptIPv4InTCP6 = true
 }
 
 // errors definitions
@@ -246,8 +255,6 @@ func Initialize(c Configuration, isShared int) error {
 	if err := c.EventManager.validate(); err != nil {
 		return err
 	}
-	vfs.SetTempPath(c.TempPath)
-	dataprovider.SetTempPath(c.TempPath)
 	vfs.SetAllowSelfConnections(c.AllowSelfConnections)
 	vfs.SetRenameMode(c.RenameMode)
 	vfs.SetReadMetadataMode(c.Metadata.Read)
@@ -577,18 +584,17 @@ type Configuration struct {
 	// renames for these providers, they may be slow, there is no atomic rename API like for local
 	// filesystem, so SFTPGo will recursively list the directory contents and do a rename for each entry
 	RenameMode int `json:"rename_mode" mapstructure:"rename_mode"`
+	// SymlinkMode is a bit mask that selects the backends on which clients holding the
+	// create_symlinks permission may create symbolic links. 0 (default) disables creation
+	// on every backend; add 1 to allow it on the local filesystem (including its encrypted
+	// variant), 2 to allow it on the SFTP backend, 3 for both.
+	SymlinkMode int `json:"symlink_mode" mapstructure:"symlink_mode"`
 	// ResumeMaxSize defines the maximum size allowed, in bytes, to resume uploads on storage backends
 	// with immutable objects. By default, resuming uploads is not allowed for cloud storage providers
 	// (S3, GCS, Azure Blob) because SFTPGo must rewrite the entire file.
 	// Set to a value greater than 0 to allow resuming uploads of files smaller than or equal to the
 	// defined size.
 	ResumeMaxSize int64 `json:"resume_max_size" mapstructure:"resume_max_size"`
-	// TempPath defines the path for temporary files such as those used for atomic uploads or file pipes.
-	// If you set this option you must make sure that the defined path exists, is accessible for writing
-	// by the user running SFTPGo, and is on the same filesystem as the users home directories otherwise
-	// the renaming for atomic uploads will become a copy and therefore may take a long time.
-	// The temporary files are not namespaced. The default is generally fine. Leave empty for the default.
-	TempPath string `json:"temp_path" mapstructure:"temp_path"`
 	// SecretMinEntropy defines the minimum entropy required for plain-text
 	// data-encryption secrets: the CryptFs passphrase and the S3 SSE-C key. These
 	// secrets must be random key material rather than a memorable password. The
@@ -666,6 +672,19 @@ type Configuration struct {
 // IsAtomicUploadEnabled returns true if atomic upload is enabled
 func (c *Configuration) IsAtomicUploadEnabled() bool {
 	return c.UploadMode&UploadModeAtomic != 0 || c.UploadMode&UploadModeAtomicWithResume != 0
+}
+
+// IsSymlinkCreationAllowed returns true if clients are allowed to create symbolic links
+// on the given filesystem backend.
+func (c *Configuration) IsSymlinkCreationAllowed(fs vfs.Fs) bool {
+	switch {
+	case vfs.IsLocalOrCryptoFs(fs):
+		return c.SymlinkMode&SymlinkModeAllowLocal != 0
+	case vfs.IsSFTPFs(fs):
+		return c.SymlinkMode&SymlinkModeAllowSFTP != 0
+	default:
+		return false
+	}
 }
 
 func (c *Configuration) initializeProxyProtocol() error {
@@ -1184,11 +1203,10 @@ func (conns *ActiveConnections) checkIdles() {
 }
 
 func (conns *ActiveConnections) checkTransfers() {
-	if conns.transfersCheckStatus.Load() {
+	if !conns.transfersCheckStatus.CompareAndSwap(false, true) {
 		logger.Warn(logSender, "", "the previous transfer check is still running, skipping execution")
 		return
 	}
-	conns.transfersCheckStatus.Store(true)
 	defer conns.transfersCheckStatus.Store(false)
 
 	conns.RLock()
