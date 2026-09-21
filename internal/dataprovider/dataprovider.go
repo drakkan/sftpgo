@@ -118,8 +118,9 @@ const (
 // Supported algorithms for hashing passwords.
 // These algorithms can be used when SFTPGo hashes a plain text password
 const (
-	HashingAlgoBcrypt   = "bcrypt"
-	HashingAlgoArgon2ID = "argon2id"
+	HashingAlgoBcrypt       = "bcrypt"
+	HashingAlgoArgon2ID     = "argon2id"
+	HashingAlgoPBKDF2SHA256 = "pbkdf2-sha256"
 )
 
 // ordering constants
@@ -309,11 +310,21 @@ type Argon2Options struct {
 	Parallelism uint8  `json:"parallelism" mapstructure:"parallelism"`
 }
 
+// Pbkdf2Options defines the options for PBKDF2-HMAC-SHA256 password hashing.
+// Unlike bcrypt and argon2id, PBKDF2-HMAC-SHA256 is a NIST/FIPS 140 approved
+// algorithm (NIST SP 800-132) and so it can be used to build FIPS compliant images
+type Pbkdf2Options struct {
+	Iterations int `json:"iterations" mapstructure:"iterations"`
+}
+
 // PasswordHashing defines the configuration for password hashing
 type PasswordHashing struct {
 	BcryptOptions BcryptOptions `json:"bcrypt_options" mapstructure:"bcrypt_options"`
 	Argon2Options Argon2Options `json:"argon2_options" mapstructure:"argon2_options"`
-	// Algorithm to use for hashing passwords. Available algorithms: argon2id, bcrypt. Default: bcrypt
+	Pbkdf2Options Pbkdf2Options `json:"pbkdf2_options" mapstructure:"pbkdf2_options"`
+	// Algorithm to use for hashing passwords. Available algorithms: argon2id, bcrypt, pbkdf2-sha256.
+	// Default: bcrypt. Use pbkdf2-sha256 to build FIPS 140 compliant images, since neither bcrypt
+	// nor argon2id are NIST/FIPS approved password hashing algorithms
 	Algo string `json:"algo" mapstructure:"algo"`
 }
 
@@ -1053,9 +1064,19 @@ func initializeHashingAlgo(cnf *Config) error {
 		KeyLength:   32,
 	}
 
-	if config.PasswordHashing.Algo == HashingAlgoBcrypt {
+	switch config.PasswordHashing.Algo {
+	case HashingAlgoBcrypt:
 		if config.PasswordHashing.BcryptOptions.Cost > bcrypt.MaxCost {
 			err := fmt.Errorf("invalid bcrypt cost %v, max allowed %v", config.PasswordHashing.BcryptOptions.Cost, bcrypt.MaxCost)
+			logger.WarnToConsole("Unable to initialize data provider: %v", err)
+			providerLog(logger.LevelError, "Unable to initialize data provider: %v", err)
+			return err
+		}
+	case HashingAlgoPBKDF2SHA256:
+		// NIST SP 800-132 recommends at least 10000 iterations
+		if config.PasswordHashing.Pbkdf2Options.Iterations < 10000 {
+			err := fmt.Errorf("invalid pbkdf2 iterations %v, minimum allowed 10000",
+				config.PasswordHashing.Pbkdf2Options.Iterations)
 			logger.WarnToConsole("Unable to initialize data provider: %v", err)
 			providerLog(logger.LevelError, "Unable to initialize data provider: %v", err)
 			return err
@@ -3422,18 +3443,26 @@ func validateBaseParams(user *User) error {
 }
 
 func hashPlainPassword(plainPwd string) (string, error) {
-	if config.PasswordHashing.Algo == HashingAlgoBcrypt {
+	switch config.PasswordHashing.Algo {
+	case HashingAlgoBcrypt:
 		pwd, err := bcrypt.GenerateFromPassword([]byte(plainPwd), config.PasswordHashing.BcryptOptions.Cost)
 		if err != nil {
 			return "", fmt.Errorf("bcrypt hashing error: %w", err)
 		}
 		return string(pwd), nil
+	case HashingAlgoPBKDF2SHA256:
+		iterations := config.PasswordHashing.Pbkdf2Options.Iterations
+		salt := util.GenerateRandomBytes(16)
+		derivedKey := pbkdf2.Key([]byte(plainPwd), salt, iterations, sha256.Size, sha256.New)
+		return fmt.Sprintf("%s%d$%s$%s", pbkdf2SHA256B64SaltPrefix, iterations,
+			base64.StdEncoding.EncodeToString(salt), base64.StdEncoding.EncodeToString(derivedKey)), nil
+	default:
+		pwd, err := argon2id.CreateHash(plainPwd, argon2Params)
+		if err != nil {
+			return "", fmt.Errorf("argon2ID hashing error: %w", err)
+		}
+		return pwd, nil
 	}
-	pwd, err := argon2id.CreateHash(plainPwd, argon2Params)
-	if err != nil {
-		return "", fmt.Errorf("argon2ID hashing error: %w", err)
-	}
-	return pwd, nil
 }
 
 func createUserPasswordHash(user *User) error {
@@ -3581,6 +3610,8 @@ func isPasswordOK(user *User, password string) (bool, error) {
 		if err != nil {
 			return match, err
 		}
+		updatePwd = config.PasswordHashing.Algo != HashingAlgoPBKDF2SHA256 ||
+			!strings.HasPrefix(user.Password, pbkdf2SHA256B64SaltPrefix)
 	case util.IsStringPrefixInSlice(user.Password, digestPwdPrefixes):
 		match = compareDigestPasswordAndHash(user, password)
 	}

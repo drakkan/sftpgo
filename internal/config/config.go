@@ -377,6 +377,9 @@ func Init() {
 				BcryptOptions: dataprovider.BcryptOptions{
 					Cost: 10,
 				},
+				Pbkdf2Options: dataprovider.Pbkdf2Options{
+					Iterations: 600000,
+				},
 				Algo: dataprovider.HashingAlgoBcrypt,
 			},
 			PasswordValidation: dataprovider.PasswordValidation{
@@ -2197,6 +2200,7 @@ func setViperDefaults() {
 	viper.SetDefault("data_provider.password_hashing.argon2_options.memory", globalConf.ProviderConf.PasswordHashing.Argon2Options.Memory)
 	viper.SetDefault("data_provider.password_hashing.argon2_options.iterations", globalConf.ProviderConf.PasswordHashing.Argon2Options.Iterations)
 	viper.SetDefault("data_provider.password_hashing.argon2_options.parallelism", globalConf.ProviderConf.PasswordHashing.Argon2Options.Parallelism)
+	viper.SetDefault("data_provider.password_hashing.pbkdf2_options.iterations", globalConf.ProviderConf.PasswordHashing.Pbkdf2Options.Iterations)
 	viper.SetDefault("data_provider.password_hashing.algo", globalConf.ProviderConf.PasswordHashing.Algo)
 	viper.SetDefault("data_provider.password_validation.admins.min_entropy", globalConf.ProviderConf.PasswordValidation.Admins.MinEntropy)
 	viper.SetDefault("data_provider.password_validation.users.min_entropy", globalConf.ProviderConf.PasswordValidation.Users.MinEntropy)

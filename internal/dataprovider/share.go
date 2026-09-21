@@ -159,19 +159,11 @@ func (s *Share) hashPassword() error {
 				return util.NewI18nError(util.NewValidationError(err.Error()), util.I18nErrorPasswordComplexity)
 			}
 		}
-		if config.PasswordHashing.Algo == HashingAlgoBcrypt {
-			hashed, err := bcrypt.GenerateFromPassword([]byte(s.Password), config.PasswordHashing.BcryptOptions.Cost)
-			if err != nil {
-				return err
-			}
-			s.Password = string(hashed)
-		} else {
-			hashed, err := argon2id.CreateHash(s.Password, argon2Params)
-			if err != nil {
-				return err
-			}
-			s.Password = hashed
+		hashed, err := hashPlainPassword(s.Password)
+		if err != nil {
+			return err
 		}
+		s.Password = hashed
 	}
 	return nil
 }
@@ -272,7 +264,13 @@ func (s *Share) CheckCredentials(password string) (bool, error) {
 		}
 		return true, nil
 	}
-	match, err := argon2id.ComparePasswordAndHash(password, s.Password)
+	var match bool
+	var err error
+	if util.IsStringPrefixInSlice(s.Password, pbkdfPwdPrefixes) {
+		match, err = comparePbkdf2PasswordAndHash(password, s.Password)
+	} else {
+		match, err = argon2id.ComparePasswordAndHash(password, s.Password)
+	}
 	if !match || err != nil {
 		return false, ErrInvalidCredentials
 	}

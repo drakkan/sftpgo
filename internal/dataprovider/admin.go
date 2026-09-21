@@ -278,19 +278,11 @@ func (a *Admin) hashPassword() error {
 				return util.NewI18nError(util.NewValidationError(err.Error()), util.I18nErrorPasswordComplexity)
 			}
 		}
-		if config.PasswordHashing.Algo == HashingAlgoBcrypt {
-			pwd, err := bcrypt.GenerateFromPassword([]byte(a.Password), config.PasswordHashing.BcryptOptions.Cost)
-			if err != nil {
-				return err
-			}
-			a.Password = string(pwd)
-		} else {
-			pwd, err := argon2id.CreateHash(a.Password, argon2Params)
-			if err != nil {
-				return err
-			}
-			a.Password = pwd
+		pwd, err := hashPlainPassword(a.Password)
+		if err != nil {
+			return err
 		}
+		a.Password = pwd
 	}
 	return nil
 }
@@ -447,7 +439,13 @@ func (a *Admin) CheckPassword(password string) (bool, error) {
 		cachedAdminPasswords.Add(a.Username, password, a.Password)
 		return true, nil
 	}
-	match, err := argon2id.ComparePasswordAndHash(password, a.Password)
+	var match bool
+	var err error
+	if util.IsStringPrefixInSlice(a.Password, pbkdfPwdPrefixes) {
+		match, err = comparePbkdf2PasswordAndHash(password, a.Password)
+	} else {
+		match, err = argon2id.ComparePasswordAndHash(password, a.Password)
+	}
 	if !match || err != nil {
 		return false, ErrInvalidCredentials
 	}

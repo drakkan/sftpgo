@@ -113,19 +113,11 @@ func (k *APIKey) HideConfidentialData() {
 
 func (k *APIKey) hashKey() error {
 	if k.Key != "" && !util.IsStringPrefixInSlice(k.Key, internalHashPwdPrefixes) {
-		if config.PasswordHashing.Algo == HashingAlgoBcrypt {
-			hashed, err := bcrypt.GenerateFromPassword([]byte(k.Key), config.PasswordHashing.BcryptOptions.Cost)
-			if err != nil {
-				return err
-			}
-			k.Key = string(hashed)
-		} else {
-			hashed, err := argon2id.CreateHash(k.Key, argon2Params)
-			if err != nil {
-				return err
-			}
-			k.Key = hashed
+		hashed, err := hashPlainPassword(k.Key)
+		if err != nil {
+			return err
 		}
+		k.Key = hashed
 	}
 	return nil
 }
@@ -203,6 +195,11 @@ func (k *APIKey) Authenticate(plainKey string) error {
 		}
 	} else if strings.HasPrefix(k.Key, argonPwdPrefix) {
 		match, err := argon2id.ComparePasswordAndHash(plainKey, k.Key)
+		if err != nil || !match {
+			return ErrInvalidCredentials
+		}
+	} else if util.IsStringPrefixInSlice(k.Key, pbkdfPwdPrefixes) {
+		match, err := comparePbkdf2PasswordAndHash(plainKey, k.Key)
 		if err != nil || !match {
 			return ErrInvalidCredentials
 		}
