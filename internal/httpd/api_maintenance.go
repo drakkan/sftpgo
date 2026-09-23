@@ -419,6 +419,12 @@ func RestoreAdmins(admins []dataprovider.Admin, inputFile string, mode int, exec
 			err = dataprovider.UpdateAdmin(&admin, executor, ipAddress, role)
 			logger.Debug(logSender, "", "restoring existing admin %q, dump file: %q, error: %v", admin.Username, inputFile, err)
 		} else {
+			if admin.Password == "" {
+				// Administrators can be used with OpenID Connect or for authentication
+				// via API key, in these cases the password is not necessary, we create
+				// a non-usable one.
+				admin.Password = util.GenerateUniqueID()
+			}
 			err = dataprovider.AddAdmin(&admin, executor, ipAddress, role)
 			logger.Debug(logSender, "", "adding new admin %q, dump file: %q, error: %v", admin.Username, inputFile, err)
 		}
