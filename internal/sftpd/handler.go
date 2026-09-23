@@ -472,7 +472,10 @@ func (c *Connection) handleSFTPUploadToExistingFile(fs vfs.Fs, pflags sftp.FileO
 		return nil, c.GetPermissionDeniedError()
 	}
 
-	if common.Config.IsAtomicUploadEnabled() && fs.IsAtomicUploadSupported() {
+	// only a resume/non-truncating open needs the existing file at the temp path.
+	// A truncating overwrite uploads into a fresh file record so NTFS hardlinks of the
+	// target (shared game-content store) are never written through.
+	if isResume && common.Config.IsAtomicUploadEnabled() && fs.IsAtomicUploadSupported() {
 		_, _, err = fs.Rename(resolvedPath, filePath, 0)
 		if err != nil {
 			c.Log(logger.LevelError, "error renaming existing file for atomic upload, source: %q, dest: %q, err: %+v",

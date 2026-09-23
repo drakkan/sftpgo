@@ -334,15 +334,9 @@ func (c *scpCommand) handleUpload(uploadFilePath string, sizeToRead int64) error
 		return common.ErrPermissionDenied
 	}
 
-	if common.Config.IsAtomicUploadEnabled() && fs.IsAtomicUploadSupported() {
-		_, _, err = fs.Rename(p, filePath, 0)
-		if err != nil {
-			c.connection.Log(logger.LevelError, "error renaming existing file for atomic upload, source: %q, dest: %q, err: %v",
-				p, filePath, err)
-			c.sendErrorMessage(fs, err)
-			return err
-		}
-	}
+	// scp overwrites are always full uploads — upload into a fresh file record
+	// instead of renaming the target aside, so NTFS hardlinks of the target (shared
+	// game-content store) are never written through.
 
 	return c.handleUploadFile(fs, p, filePath, sizeToRead, false, stat.Size(), uploadFilePath)
 }
