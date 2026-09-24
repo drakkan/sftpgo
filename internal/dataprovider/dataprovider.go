@@ -348,8 +348,9 @@ func (w *wrappedFolder) RenderAsJSON(reload bool) ([]byte, error) {
 		folder.PrepareForRendering()
 		return json.Marshal(folder)
 	}
-	w.Folder.PrepareForRendering()
-	return json.Marshal(w.Folder)
+	folder := w.Folder.GetACopy()
+	folder.PrepareForRendering()
+	return json.Marshal(folder)
 }
 
 // ObjectsActions defines the action to execute on user create, update, delete for the specified objects
@@ -4408,8 +4409,7 @@ func ExecutePostLoginHook(user *User, loginMethod, ip, protocol string, err erro
 	if config.PostLoginScope == 2 && err != nil {
 		return
 	}
-
-	go func() {
+	go func(user User) {
 		actionsConcurrencyGuard <- struct{}{}
 		defer func() {
 			<-actionsConcurrencyGuard
@@ -4466,7 +4466,7 @@ func ExecutePostLoginHook(user *User, loginMethod, ip, protocol string, err erro
 		err = cmd.Run()
 		providerLog(logger.LevelDebug, "post login hook executed for user %q, ip %v, protocol %v, elapsed %v err: %v",
 			user.Username, ip, protocol, time.Since(startTime), err)
-	}()
+	}(user.getACopy())
 }
 
 func getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, protocol string, cert *x509.Certificate,

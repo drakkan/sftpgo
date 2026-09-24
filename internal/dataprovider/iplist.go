@@ -162,8 +162,9 @@ func (e *IPListEntry) RenderAsJSON(reload bool) ([]byte, error) {
 		entry.PrepareForRendering()
 		return json.Marshal(entry)
 	}
-	e.PrepareForRendering()
-	return json.Marshal(e)
+	entry := e.getACopy()
+	entry.PrepareForRendering()
+	return json.Marshal(entry)
 }
 
 // keyPrefix returns the provider key prefix shared by all the entries

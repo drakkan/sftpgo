@@ -1239,8 +1239,9 @@ func (a *BaseEventAction) RenderAsJSON(reload bool) ([]byte, error) {
 		action.PrepareForRendering()
 		return json.Marshal(action)
 	}
-	a.PrepareForRendering()
-	return json.Marshal(a)
+	action := a.getACopy()
+	action.PrepareForRendering()
+	return json.Marshal(action)
 }
 
 func (a *BaseEventAction) validate() error {
@@ -1885,8 +1886,9 @@ func (r *EventRule) RenderAsJSON(reload bool) ([]byte, error) {
 		rule.PrepareForRendering()
 		return json.Marshal(rule)
 	}
-	r.PrepareForRendering()
-	return json.Marshal(r)
+	rule := r.getACopy()
+	rule.PrepareForRendering()
+	return json.Marshal(rule)
 }
 
 func cloneRenameConfigs(renames []RenameConfig) []RenameConfig {

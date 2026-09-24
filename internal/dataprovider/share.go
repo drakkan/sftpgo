@@ -132,8 +132,9 @@ func (s *Share) RenderAsJSON(reload bool) ([]byte, error) {
 		share.HideConfidentialData()
 		return json.Marshal(share)
 	}
-	s.HideConfidentialData()
-	return json.Marshal(s)
+	share := s.getACopy()
+	share.HideConfidentialData()
+	return json.Marshal(share)
 }
 
 // HideConfidentialData hides share confidential data

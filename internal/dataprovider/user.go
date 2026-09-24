@@ -487,8 +487,9 @@ func (u *User) RenderAsJSON(reload bool) ([]byte, error) {
 		user.PrepareForRendering()
 		return json.Marshal(user)
 	}
-	u.PrepareForRendering()
-	return json.Marshal(u)
+	user := u.getACopy()
+	user.PrepareForRendering()
+	return json.Marshal(user)
 }
 
 // PrepareForRendering prepares a user for rendering.

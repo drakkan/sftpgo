@@ -630,8 +630,9 @@ func (c *Configs) RenderAsJSON(reload bool) ([]byte, error) {
 		config.PrepareForRendering()
 		return json.Marshal(config)
 	}
-	c.PrepareForRendering()
-	return json.Marshal(c)
+	configs := c.getACopy()
+	configs.PrepareForRendering()
+	return json.Marshal(configs)
 }
 
 func (c *Configs) getACopy() Configs {
