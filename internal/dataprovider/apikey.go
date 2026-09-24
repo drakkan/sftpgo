@@ -102,8 +102,9 @@ func (k *APIKey) RenderAsJSON(reload bool) ([]byte, error) {
 		apiKey.HideConfidentialData()
 		return json.Marshal(apiKey)
 	}
-	k.HideConfidentialData()
-	return json.Marshal(k)
+	apiKey := k.getACopy()
+	apiKey.HideConfidentialData()
+	return json.Marshal(apiKey)
 }
 
 // HideConfidentialData hides API key confidential data

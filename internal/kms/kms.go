@@ -402,6 +402,10 @@ func (s *Secret) Hide() {
 	s.Lock()
 	defer s.Unlock()
 
+	if s.provider.GetStatus() == sdkkms.SecretStatusPlain {
+		s.provider = NewSecret(sdkkms.SecretStatusRedacted, "", "", "").provider
+		return
+	}
 	s.provider.SetKey("")
 	s.provider.SetAdditionalData("")
 }

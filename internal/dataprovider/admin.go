@@ -518,8 +518,9 @@ func (a *Admin) RenderAsJSON(reload bool) ([]byte, error) {
 		admin.HideConfidentialData()
 		return json.Marshal(admin)
 	}
-	a.HideConfidentialData()
-	return json.Marshal(a)
+	admin := a.getACopy()
+	admin.HideConfidentialData()
+	return json.Marshal(admin)
 }
 
 // HideConfidentialData hides admin confidential data

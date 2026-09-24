@@ -33,6 +33,7 @@ import (
 	"math"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path"
@@ -4237,6 +4238,59 @@ func TestPostConnectHook(t *testing.T) {
 	assert.NoError(t, err)
 
 	common.Config.PostConnectHook = ""
+}
+
+func TestPostLoginHookFsWithSecrets(t *testing.T) {
+	hookBodies := make(chan []byte, 10)
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		hookBodies <- body
+	}))
+	defer server.Close()
+
+	err := dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	providerConf.PostLoginHook = server.URL
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+
+	usePubKey := false
+	u := getTestUserWithCryptFs(usePubKey)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	for range 3 {
+		conn, client, err := getSftpClient(u, usePubKey)
+		if assert.NoError(t, err) {
+			assert.NoError(t, checkBasicSFTP(client))
+			client.Close()
+			conn.Close()
+		}
+		select {
+		case body := <-hookBodies:
+			assert.Contains(t, string(body), user.Username)
+			assert.NotContains(t, string(body), testPassphrase)
+		case <-time.After(5 * time.Second):
+			assert.Fail(t, "post-login hook not executed")
+		}
+		// re-arm the filesystem root check skipped after a recent login
+		user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+		assert.NoError(t, err)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf = config.GetProviderConf()
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
 }
 
 func TestCheckPwdHook(t *testing.T) {

@@ -111,8 +111,9 @@ func (g *Group) RenderAsJSON(reload bool) ([]byte, error) {
 		group.PrepareForRendering()
 		return json.Marshal(group)
 	}
-	g.PrepareForRendering()
-	return json.Marshal(g)
+	group := g.getACopy()
+	group.PrepareForRendering()
+	return json.Marshal(group)
 }
 
 // GetEncryptionAdditionalData returns the additional data to use for AEAD
