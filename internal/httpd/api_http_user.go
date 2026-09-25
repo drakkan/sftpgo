@@ -72,6 +72,15 @@ func readUserFolder(w http.ResponseWriter, r *http.Request) {
 	defer common.Connections.Remove(connection.GetID())
 
 	name := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
+	info, err := connection.Stat(name, 0)
+	if err != nil {
+		sendAPIResponse(w, r, err, "Unable to get directory lister", getMappedStatusCode(err))
+		return
+	}
+	if !info.IsDir() {
+		sendAPIResponse(w, r, nil, fmt.Sprintf("Please set the path to a valid directory, %q is not a directory", name), http.StatusBadRequest)
+		return
+	}
 	lister, err := connection.ReadDir(name)
 	if err != nil {
 		sendAPIResponse(w, r, err, "Unable to get directory lister", getMappedStatusCode(err))
