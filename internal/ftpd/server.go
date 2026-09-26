@@ -124,21 +124,22 @@ func (s *Server) GetSettings() (*ftpserver.Settings, error) {
 	}
 
 	settings := &ftpserver.Settings{
-		Listener:                ftpListener,
-		ListenAddr:              s.binding.GetAddress(),
-		PublicIPResolver:        s.binding.passiveIPResolver,
-		ActiveTransferPortNon20: s.config.ActiveTransfersPortNon20,
-		IdleTimeout:             -1,
-		ConnectionTimeout:       20,
-		Banner:                  s.statusBanner,
-		TLSRequired:             ftpserver.TLSRequirement(s.binding.TLSMode),
-		DisableSite:             !s.config.EnableSite,
-		DisableActiveMode:       s.config.DisableActiveMode,
-		EnableHASH:              s.config.HASHSupport > 0,
-		EnableCOMB:              s.config.CombineSupport > 0,
-		DefaultTransferType:     ftpserver.TransferTypeBinary,
-		ActiveConnectionsCheck:  ftpserver.DataConnectionRequirement(s.binding.ActiveConnectionsSecurity),
-		PasvConnectionsCheck:    ftpserver.DataConnectionRequirement(s.binding.PassiveConnectionsSecurity),
+		Listener:                        ftpListener,
+		ListenAddr:                      s.binding.GetAddress(),
+		PublicIPResolver:                s.binding.passiveIPResolver,
+		ActiveTransferPortNon20:         s.config.ActiveTransfersPortNon20,
+		IdleTimeout:                     -1,
+		ConnectionTimeout:               20,
+		Banner:                          s.statusBanner,
+		TLSRequired:                     ftpserver.TLSRequirement(s.binding.TLSMode),
+		DisableSite:                     !s.config.EnableSite,
+		DisableActiveMode:               s.config.DisableActiveMode,
+		EnableHASH:                      s.config.HASHSupport > 0,
+		EnableCOMB:                      s.config.CombineSupport > 0,
+		DefaultTransferType:             ftpserver.TransferTypeBinary,
+		ActiveConnectionsCheck:          ftpserver.DataConnectionRequirement(s.binding.ActiveConnectionsSecurity),
+		PasvConnectionsCheck:            ftpserver.DataConnectionRequirement(s.binding.PassiveConnectionsSecurity),
+		PassiveTransferPortMultiplexing: s.config.PassivePortMultiplexing,
 	}
 	if portRange != nil {
 		settings.PassiveTransferPortRange = portRange
