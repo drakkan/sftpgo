@@ -20,7 +20,7 @@ import (
 	"os"
 
 	"github.com/pkg/sftp"
-	"github.com/shirou/gopsutil/v3/disk"
+	"github.com/shirou/gopsutil/v4/disk"
 )
 
 const bsize = uint64(4096)
