@@ -1373,7 +1373,7 @@ func (l *s3DirLister) Next(limit int) ([]os.FileInfo, error) {
 	for _, p := range page.CommonPrefixes {
 		// prefixes have a trailing slash
 		name, _ := l.resolve(p.Prefix)
-		if name == "" {
+		if !addressesEntry(name) {
 			continue
 		}
 		if _, ok := l.prefixes[name]; ok {
@@ -1386,7 +1386,7 @@ func (l *s3DirLister) Next(limit int) ([]os.FileInfo, error) {
 		objectModTime := util.GetTimeFromPointer(fileObject.LastModified)
 		objectSize := util.GetIntFromPointer(fileObject.Size)
 		name, isDir := l.resolve(fileObject.Key)
-		if name == "" || name == "/" {
+		if !addressesEntry(name) {
 			continue
 		}
 		if isDir {

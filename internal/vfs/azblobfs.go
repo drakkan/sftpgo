@@ -1239,12 +1239,11 @@ func (l *azureBlobDirLister) Next(limit int) ([]os.FileInfo, error) {
 
 	for _, blobPrefix := range page.Segment.BlobPrefixes {
 		name := util.GetStringFromPointer(blobPrefix.Name)
-		// we don't support prefixes == "/" this will be sent if a key starts with "/"
-		if name == "" || name == "/" {
+		name = strings.TrimPrefix(name, l.prefix)
+		if !addressesEntry(name) {
 			continue
 		}
 		// sometime we have duplicate prefixes, maybe an Azurite bug
-		name = strings.TrimPrefix(name, l.prefix)
 		if _, ok := l.prefixes[strings.TrimSuffix(name, "/")]; ok {
 			continue
 		}
@@ -1255,7 +1254,7 @@ func (l *azureBlobDirLister) Next(limit int) ([]os.FileInfo, error) {
 	for _, blobItem := range page.Segment.BlobItems {
 		name := util.GetStringFromPointer(blobItem.Name)
 		name = strings.TrimPrefix(name, l.prefix)
-		if name == "" || name == "/" {
+		if !addressesEntry(name) {
 			continue
 		}
 		size := int64(0)

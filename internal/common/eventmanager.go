@@ -1969,8 +1969,13 @@ func getArchiveBaseDir(paths []string) string {
 	return baseDir
 }
 
-func getSizeForPath(conn *BaseConnection, p string, info os.FileInfo) (int64, error) {
+func getSizeForPath(conn *BaseConnection, p string, info os.FileInfo, recursion int) (int64, error) {
 	if info.IsDir() {
+		if recursion >= util.MaxRecursion {
+			eventManagerLog(logger.LevelError, "unable to get size for %q, recursion too deep: %v", p, recursion)
+			return 0, util.ErrRecursionTooDeep
+		}
+		recursion++
 		var dirSize int64
 		lister, err := conn.ListDir(p)
 		if err != nil {
@@ -1984,7 +1989,7 @@ func getSizeForPath(conn *BaseConnection, p string, info os.FileInfo) (int64, er
 				return 0, err
 			}
 			for _, entry := range entries {
-				size, err := getSizeForPath(conn, path.Join(p, entry.Name()), entry)
+				size, err := getSizeForPath(conn, path.Join(p, entry.Name()), entry, recursion)
 				if err != nil {
 					return 0, err
 				}
@@ -2010,7 +2015,7 @@ func estimateZipSize(conn *BaseConnection, zipPath string, paths []string) (int6
 			if err != nil {
 				return size, err
 			}
-			itemSize, err := getSizeForPath(conn, item, info)
+			itemSize, err := getSizeForPath(conn, item, info, 0)
 			if err != nil {
 				return size, err
 			}

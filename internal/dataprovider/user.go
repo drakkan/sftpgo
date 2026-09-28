@@ -853,7 +853,7 @@ func (u *User) GetVirtualFoldersInfo(virtualPath string) []os.FileInfo {
 func (u *User) FilterListDir(dirContents []os.FileInfo, virtualPath string) []os.FileInfo {
 	filter := u.getPatternsFilterForPath(virtualPath)
 	if !u.hasVirtualDirs() && filter.DenyPolicy != sdk.DenyPolicyHide {
-		return dirContents
+		return removeUnreachableNames(dirContents)
 	}
 	vdirs := make(map[string]bool)
 	for dir := range u.GetVirtualFoldersInPath(virtualPath) {
@@ -869,15 +869,17 @@ func (u *User) FilterListDir(dirContents []os.FileInfo, virtualPath string) []os
 	validIdx := 0
 	for idx := range dirContents {
 		fi := dirContents[idx]
+		name := fi.Name()
 
-		if fi.Name() != "." && fi.Name() != ".." {
-			if _, ok := vdirs[fi.Name()]; ok {
+		if !isReachableName(name) {
+			continue
+		}
+		if _, ok := vdirs[name]; ok {
+			continue
+		}
+		if filter.DenyPolicy == sdk.DenyPolicyHide {
+			if !filter.CheckAllowed(name) {
 				continue
-			}
-			if filter.DenyPolicy == sdk.DenyPolicyHide {
-				if !filter.CheckAllowed(fi.Name()) {
-					continue
-				}
 			}
 		}
 		dirContents[validIdx] = fi
@@ -885,6 +887,27 @@ func (u *User) FilterListDir(dirContents []os.FileInfo, virtualPath string) []os
 	}
 
 	return dirContents[:validIdx]
+}
+
+func isReachableName(name string) bool {
+	return strings.IndexByte(name, '\\') < 0
+}
+
+func removeUnreachableNames(dirContents []os.FileInfo) []os.FileInfo {
+	for idx, fi := range dirContents {
+		if isReachableName(fi.Name()) {
+			continue
+		}
+		validIdx := idx
+		for _, entry := range dirContents[idx+1:] {
+			if isReachableName(entry.Name()) {
+				dirContents[validIdx] = entry
+				validIdx++
+			}
+		}
+		return dirContents[:validIdx]
+	}
+	return dirContents
 }
 
 // IsMappedPath returns true if the specified filesystem path has a virtual folder mapping.

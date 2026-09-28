@@ -597,7 +597,14 @@ func (fs *SFTPFs) ReadDir(dirname string) (DirLister, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &baseDirLister{files}, nil
+	validIdx := 0
+	for _, fi := range files {
+		if addressesEntry(fi.Name()) {
+			files[validIdx] = fi
+			validIdx++
+		}
+	}
+	return &baseDirLister{files[:validIdx]}, nil
 }
 
 // IsUploadResumeSupported returns true if resuming uploads is supported.
@@ -713,22 +720,11 @@ func (fs *SFTPFs) GetRelativePath(name string) string {
 // Walk walks the file tree rooted at root, calling walkFn for each file or
 // directory in the tree, including root
 func (fs *SFTPFs) Walk(root string, walkFn filepath.WalkFunc) error {
-	client, err := fs.conn.getClient()
+	info, err := fs.Lstat(root)
 	if err != nil {
-		return err
+		return walkFn(root, nil, err)
 	}
-	walker := client.Walk(root)
-	for walker.Step() {
-		err := walker.Err()
-		if err != nil {
-			return err
-		}
-		err = walkFn(walker.Path(), walker.Stat(), err)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return walkDirEntries(fs, root, info, walkFn, 0)
 }
 
 // Join joins any number of path elements into a single path
@@ -788,11 +784,15 @@ func (fs *SFTPFs) RealPath(p string) (string, error) {
 }
 
 func (fs *SFTPFs) canonicalRealPath(name string) (string, error) {
+	if strings.Contains(name, "\\") {
+		fsLog(fs, logger.LevelError, "unable to get real path, %q contains a backslash", name)
+		return "", &pathResolutionError{err: "path with a backslash"}
+	}
 	client, err := fs.conn.getClient()
 	if err != nil {
 		return "", err
 	}
-	name = path.Clean("/" + strings.ReplaceAll(name, "\\", "/"))
+	name = path.Clean("/" + name)
 	resolved := "/"
 	var rest []string
 	if prefix := fs.config.Prefix; prefix != "" && prefix != "/" {
@@ -839,10 +839,14 @@ func (fs *SFTPFs) canonicalRealPath(name string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("unable to resolve link to %q: %w", candidate, err)
 		}
+		if strings.Contains(target, "\\") {
+			fsLog(fs, logger.LevelError, "unable to get real path, link %q has a target with a backslash: %q",
+				candidate, target)
+			return "", &pathResolutionError{err: "link target with a backslash"}
+		}
 		// do not path.Clean the target: collapsing ".." lexically here would drop a
 		// preceding symlink component ("symlink/..") and let it escape the prefix;
 		// "." and ".." below are resolved by the walker against the resolved path
-		target = strings.ReplaceAll(target, "\\", "/")
 		if path.IsAbs(target) {
 			resolved = "/"
 		}
@@ -871,26 +875,21 @@ func (fs *SFTPFs) isSubDir(name string) error {
 func (fs *SFTPFs) GetDirSize(dirname string) (int, int64, error) {
 	numFiles := 0
 	size := int64(0)
-	client, err := fs.conn.getClient()
-	if err != nil {
-		return numFiles, size, err
-	}
 	isDir, err := isDirectory(fs, dirname)
 	if err == nil && isDir {
-		walker := client.Walk(dirname)
-		for walker.Step() {
-			err := walker.Err()
+		err = fs.Walk(dirname, func(_ string, info os.FileInfo, err error) error {
 			if err != nil {
-				return numFiles, size, err
+				return err
 			}
-			if walker.Stat().Mode().IsRegular() {
-				size += walker.Stat().Size()
+			if info.Mode().IsRegular() {
+				size += info.Size()
 				numFiles++
 				if numFiles%1000 == 0 {
 					fsLog(fs, logger.LevelDebug, "dirname %q scan in progress, files: %d, size: %d", dirname, numFiles, size)
 				}
 			}
-		}
+			return nil
+		})
 	}
 	return numFiles, size, err
 }

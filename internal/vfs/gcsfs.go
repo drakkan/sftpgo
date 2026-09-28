@@ -958,9 +958,9 @@ func (*GCSFs) GetAvailableDiskSize(_ string) (*sftp.StatVFS, error) {
 }
 
 func (*GCSFs) getTempObject(name string) string {
-	dir := filepath.Dir(name)
+	dir := path.Dir(name)
 	guid := xid.New().String()
-	return filepath.Join(dir, ".sftpgo-partial."+guid+"."+filepath.Base(name))
+	return path.Join(dir, ".sftpgo-partial."+guid+"."+path.Base(name))
 }
 
 type gcsDirLister struct {
@@ -1019,7 +1019,7 @@ func (l *gcsDirLister) Next(limit int) ([]os.FileInfo, error) {
 	for _, attrs := range objects {
 		if attrs.Prefix != "" {
 			name, _ := l.resolve(attrs.Prefix, attrs.ContentType)
-			if name == "" {
+			if !addressesEntry(name) {
 				continue
 			}
 			if _, ok := l.prefixes[name]; ok {
@@ -1029,7 +1029,7 @@ func (l *gcsDirLister) Next(limit int) ([]os.FileInfo, error) {
 			l.prefixes[name] = true
 		} else {
 			name, isDir := l.resolve(attrs.Name, attrs.ContentType)
-			if name == "" {
+			if !addressesEntry(name) {
 				continue
 			}
 			if !attrs.Deleted.IsZero() {

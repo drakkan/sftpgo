@@ -510,7 +510,7 @@ func (fs *HTTPFs) ReadDir(dirname string) (DirLister, error) {
 	}
 	result := make([]os.FileInfo, 0, len(response))
 	for _, stat := range response {
-		if !addressesEntryInDir(stat.Name) {
+		if !addressesEntry(stat.Name) {
 			continue
 		}
 		result = append(result, stat.getFileInfo())
@@ -626,7 +626,7 @@ func (fs *HTTPFs) Walk(root string, walkFn filepath.WalkFunc) error {
 	if err != nil {
 		return walkFn(root, nil, err)
 	}
-	return fs.walk(root, info, walkFn)
+	return walkDirEntries(fs, root, info, walkFn, 0)
 }
 
 // Join joins any number of path elements into a single path
@@ -729,40 +729,6 @@ func (fs *HTTPFs) sendHTTPRequest(ctx context.Context, method, base, name, query
 		return nil, err
 	}
 	return resp, nil
-}
-
-// walk recursively descends path, calling walkFn.
-func (fs *HTTPFs) walk(filePath string, info fs.FileInfo, walkFn filepath.WalkFunc) error {
-	if !info.IsDir() {
-		return walkFn(filePath, info, nil)
-	}
-	lister, err := fs.ReadDir(filePath)
-	err1 := walkFn(filePath, info, err)
-	if err != nil || err1 != nil {
-		if err == nil {
-			lister.Close()
-		}
-		return err1
-	}
-	defer lister.Close()
-
-	for {
-		files, err := lister.Next(ListerBatchSize)
-		finished := errors.Is(err, io.EOF)
-		if err != nil && !finished {
-			return err
-		}
-		for _, fi := range files {
-			objName := path.Join(filePath, fi.Name())
-			err = fs.walk(objName, fi, walkFn)
-			if err != nil {
-				return err
-			}
-		}
-		if finished {
-			return nil
-		}
-	}
 }
 
 func getErrorFromResponseCode(code int) error {

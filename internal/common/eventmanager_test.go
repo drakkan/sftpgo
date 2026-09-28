@@ -2191,8 +2191,10 @@ func TestEstimateZipSizeErrors(t *testing.T) {
 	conn := NewBaseConnection("", ProtocolFTP, "", "", u)
 	_, _, _, _, err = getFileWriter(conn, "/missing/path/file.txt", -1)
 	assert.Error(t, err)
-	_, err = getSizeForPath(conn, "/missing", vfs.NewFileInfo("missing", true, 0, time.Now(), false))
+	_, err = getSizeForPath(conn, "/missing", vfs.NewFileInfo("missing", true, 0, time.Now(), false), 0)
 	assert.True(t, conn.IsNotExistError(err))
+	_, err = getSizeForPath(conn, "/", vfs.NewFileInfo("/", true, 0, time.Now(), false), util.MaxRecursion)
+	assert.ErrorIs(t, err, util.ErrRecursionTooDeep)
 	if runtime.GOOS != osWindows {
 		err = os.MkdirAll(filepath.Join(u.HomeDir, "d1", "d2", "sub"), os.ModePerm)
 		assert.NoError(t, err)

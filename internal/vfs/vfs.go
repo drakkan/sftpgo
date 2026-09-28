@@ -274,7 +274,45 @@ type Metadater interface {
 	Metadata() map[string]string
 }
 
-func addressesEntryInDir(name string) bool {
+func walkDirEntries(fs Fs, name string, info os.FileInfo, walkFn filepath.WalkFunc, recursion int) error {
+	if !info.IsDir() {
+		return walkFn(name, info, nil)
+	}
+	if recursion > util.MaxRecursion {
+		return util.ErrRecursionTooDeep
+	}
+	recursion++
+
+	lister, err := fs.ReadDir(name)
+	if errFn := walkFn(name, info, err); err != nil || errFn != nil {
+		if err == nil {
+			lister.Close()
+		}
+		return errFn
+	}
+	defer lister.Close()
+
+	for {
+		entries, err := lister.Next(ListerBatchSize)
+		finished := errors.Is(err, io.EOF)
+		if err != nil && !finished {
+			return err
+		}
+		for _, entry := range entries {
+			if !addressesEntry(entry.Name()) {
+				continue
+			}
+			if err := walkDirEntries(fs, path.Join(name, entry.Name()), entry, walkFn, recursion); err != nil {
+				return err
+			}
+		}
+		if finished {
+			return nil
+		}
+	}
+}
+
+func addressesEntry(name string) bool {
 	name = path.Base(name)
 	return name != "." && name != ".." && name != "/"
 }
@@ -1302,6 +1340,9 @@ func doRecursiveRename(fs Fs, source, target string,
 			return numFiles, filesSize, err
 		}
 		for _, info := range entries {
+			if !addressesEntry(info.Name()) {
+				continue
+			}
 			sourceEntry := fs.Join(source, info.Name())
 			targetEntry := fs.Join(target, info.Name())
 			if onEntry != nil {
@@ -1363,6 +1404,9 @@ func moveAcrossRoots(fsSrc, fsDst Fs, source, target string, info os.FileInfo, c
 				return numFiles, filesSize, keptAtSource, err
 			}
 			for _, entry := range entries {
+				if !addressesEntry(entry.Name()) {
+					continue
+				}
 				files, size, kept, err := moveAcrossRoots(fsSrc, fsDst, fsSrc.Join(source, entry.Name()),
 					fsDst.Join(target, entry.Name()), entry, checks, uid, gid, recursion)
 				numFiles += files
