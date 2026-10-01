@@ -206,7 +206,7 @@ func IsNameValid(name string) bool {
 		switch r {
 		case '/', '\\':
 			return false
-		case ':', '*', '?', '"', '<', '>', '|':
+		case ':', '*', '?', '"', '<', '>':
 			return false
 		}
 	}
