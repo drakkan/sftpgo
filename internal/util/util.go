@@ -37,6 +37,7 @@ import (
 	"math"
 	"net"
 	"net/http"
+	"net/mail"
 	"net/netip"
 	"net/url"
 	"os"
@@ -891,7 +892,11 @@ func GetTLSVersion(val int) uint16 {
 
 // IsEmailValid returns true if the specified email address is valid
 func IsEmailValid(email string) bool {
-	return emailRegex.MatchString(email)
+	if !emailRegex.MatchString(email) {
+		return false
+	}
+	_, err := mail.ParseAddress(email)
+	return err == nil
 }
 
 // SanitizeDomain return the specified domain name in a form suitable to save as file
