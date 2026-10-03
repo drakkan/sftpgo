@@ -4187,6 +4187,14 @@ func TestAdminMustChangePasswordRequirement(t *testing.T) {
 	assert.NoError(t, err)
 	_, _, err = httpdtest.GetStatus(http.StatusForbidden)
 	assert.NoError(t, err)
+	_, _, err = httpdtest.AddAPIKey(dataprovider.APIKey{
+		Name:  xid.New().String(),
+		Scope: dataprovider.APIKeyScopeAdmin,
+		Admin: altAdminUsername,
+	}, http.StatusForbidden)
+	assert.NoError(t, err)
+	_, _, err = httpdtest.GetAPIKeys(0, 0, http.StatusForbidden)
+	assert.NoError(t, err)
 
 	_, err = httpdtest.ChangeAdminPassword(altAdminPassword, defaultTokenAuthPass, http.StatusOK)
 	assert.NoError(t, err)
@@ -4290,6 +4298,18 @@ func TestAdminTwoFactorRequirements(t *testing.T) {
 	assert.NoError(t, err)
 	setBearerForReq(req, token)
 	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "Two-factor authentication requirements not met")
+	apiKeyJSON, err := json.Marshal(dataprovider.APIKey{
+		Name:  xid.New().String(),
+		Scope: dataprovider.APIKeyScopeAdmin,
+		Admin: altAdminUsername,
+	})
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, apiKeysPath, bytes.NewBuffer(apiKeyJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
 	assert.Contains(t, rr.Body.String(), "Two-factor authentication requirements not met")
 

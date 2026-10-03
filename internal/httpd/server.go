@@ -1386,15 +1386,15 @@ func (s *httpdServer) setupRESTAPIRoutes() {
 			router.With(forbidAPIKeyAuthentication).Get(admin2FARecoveryCodesPath, getRecoveryCodes)
 			router.With(forbidAPIKeyAuthentication).Post(admin2FARecoveryCodesPath, generateRecoveryCodes)
 
-			router.With(forbidAPIKeyAuthentication, s.checkPerms(dataprovider.PermAdminAny)).
+			router.With(forbidAPIKeyAuthentication, s.checkAuthRequirements, s.checkPerms(dataprovider.PermAdminAny)).
 				Get(apiKeysPath, getAPIKeys)
-			router.With(forbidAPIKeyAuthentication, s.checkPerms(dataprovider.PermAdminAny)).
+			router.With(forbidAPIKeyAuthentication, s.checkAuthRequirements, s.checkPerms(dataprovider.PermAdminAny)).
 				Post(apiKeysPath, addAPIKey)
-			router.With(forbidAPIKeyAuthentication, s.checkPerms(dataprovider.PermAdminAny)).
+			router.With(forbidAPIKeyAuthentication, s.checkAuthRequirements, s.checkPerms(dataprovider.PermAdminAny)).
 				Get(apiKeysPath+"/{id}", getAPIKeyByID)
-			router.With(forbidAPIKeyAuthentication, s.checkPerms(dataprovider.PermAdminAny)).
+			router.With(forbidAPIKeyAuthentication, s.checkAuthRequirements, s.checkPerms(dataprovider.PermAdminAny)).
 				Put(apiKeysPath+"/{id}", updateAPIKey)
-			router.With(forbidAPIKeyAuthentication, s.checkPerms(dataprovider.PermAdminAny)).
+			router.With(forbidAPIKeyAuthentication, s.checkAuthRequirements, s.checkPerms(dataprovider.PermAdminAny)).
 				Delete(apiKeysPath+"/{id}", deleteAPIKey)
 
 			router.Group(func(router chi.Router) {
