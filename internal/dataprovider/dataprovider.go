@@ -2689,8 +2689,12 @@ func copyBaseUserFilters(in sdk.BaseUserFilters) sdk.BaseUserFilters {
 	copy(filters.DeniedIP, in.DeniedIP)
 	filters.DeniedLoginMethods = make([]string, len(in.DeniedLoginMethods))
 	copy(filters.DeniedLoginMethods, in.DeniedLoginMethods)
-	filters.FilePatterns = make([]sdk.PatternsFilter, len(in.FilePatterns))
-	copy(filters.FilePatterns, in.FilePatterns)
+	filters.FilePatterns = make([]sdk.PatternsFilter, 0, len(in.FilePatterns))
+	for _, pattern := range in.FilePatterns {
+		pattern.AllowedPatterns = slices.Clone(pattern.AllowedPatterns)
+		pattern.DeniedPatterns = slices.Clone(pattern.DeniedPatterns)
+		filters.FilePatterns = append(filters.FilePatterns, pattern)
+	}
 	filters.DeniedProtocols = make([]string, len(in.DeniedProtocols))
 	copy(filters.DeniedProtocols, in.DeniedProtocols)
 	filters.TwoFactorAuthProtocols = make([]string, len(in.TwoFactorAuthProtocols))
