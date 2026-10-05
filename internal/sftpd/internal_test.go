@@ -427,6 +427,29 @@ func TestSupportedSSHCommands(t *testing.T) {
 	}
 }
 
+func TestMaxTxPacketSize(t *testing.T) {
+	for _, test := range []struct {
+		configured int
+		expected   int
+	}{
+		{configured: 0, expected: defaultMaxTxPacketSize},
+		{configured: -1, expected: defaultMaxTxPacketSize},
+		{configured: 1024, expected: defaultMaxTxPacketSize},
+		{configured: defaultMaxTxPacketSize, expected: defaultMaxTxPacketSize},
+		{configured: 65536, expected: 65536},
+		{configured: 131072, expected: 131072},
+		{configured: maxTxPacketSizeLimit, expected: maxTxPacketSizeLimit},
+		{configured: maxTxPacketSizeLimit + 1, expected: maxTxPacketSizeLimit},
+		// the payload plus the SSH_FXP_DATA header must fit in a message
+		// clients accept, so a full 256KB payload is not allowed
+		{configured: 256 * 1024, expected: maxTxPacketSizeLimit},
+	} {
+		c := &Configuration{MaxTxPacketSize: test.configured}
+		c.checkMaxTxPacketSize()
+		assert.Equal(t, test.expected, c.MaxTxPacketSize, "configured %d", test.configured)
+	}
+}
+
 func TestSSHCommandPath(t *testing.T) {
 	buf := make([]byte, 65535)
 	stdErrBuf := make([]byte, 65535)

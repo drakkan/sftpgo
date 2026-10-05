@@ -59,6 +59,23 @@ const (
 	extraDataUserKey                  = "user"
 	extraDataKeyIDKey                 = "keyID"
 	extraDataLoginMethodKey           = "login_method"
+	// the SFTP protocol mandates support for at least 32KB payloads, this is
+	// also the default and the minimum we allow
+	defaultMaxTxPacketSize = 32768
+	// clients such as OpenSSH, and pkg/sftp itself, refuse to read messages
+	// longer than 256KB
+	maxRxMsgLength = 256 * 1024
+	// an SSH_FXP_DATA message adds a 9 byte header to the payload: the packet
+	// type, the request id and the payload length. The payload must leave room
+	// for it, otherwise the message we send is rejected by the client
+	dataMsgHeaderLen = 1 + 4 + 4
+	// the biggest payload that still fits in a message clients accept.
+	// Subtracting the header here does not change what we used to send: the
+	// header is not new, every data message carries it and always has, a 32KB
+	// payload travels as a 32777 byte message. We account for it only to pick
+	// this upper bound, the default payload size is not reduced, so a server
+	// that does not configure the setting behaves exactly as before
+	maxTxPacketSizeLimit = maxRxMsgLength - dataMsgHeaderLen
 )
 
 var (
@@ -200,9 +217,22 @@ type Configuration struct {
 	KeyboardInteractiveHook string `json:"keyboard_interactive_auth_hook" mapstructure:"keyboard_interactive_auth_hook"`
 	// PasswordAuthentication specifies whether password authentication is allowed.
 	PasswordAuthentication bool `json:"password_authentication" mapstructure:"password_authentication"`
-	certChecker            *ssh.CertChecker
-	parsedUserCAKeys       []ssh.PublicKey
-	executor               commandExecutor
+	// MaxTxPacketSize defines the maximum size, in bytes, of the payload returned to
+	// the client for a single read request.
+	// The SFTP protocol mandates support for at least 32768 bytes, which is the default
+	// and the minimum accepted value. Bigger values can improve download throughput for
+	// clients that ask for bigger payloads, and are ignored by the other ones, since the
+	// client decides the size of each read request.
+	// The maximum accepted value is 262135: clients refuse messages longer than 256KB and
+	// the SSH_FXP_DATA header takes 9 bytes of that budget.
+	// Values outside the allowed range are forced to the nearest bound.
+	// Raising this value also raises memory usage: a read buffer is allocated per
+	// request, sized to the payload we return, and each session serves several read
+	// requests concurrently, so the worst case per session grows with it.
+	MaxTxPacketSize  int `json:"max_tx_packet_size" mapstructure:"max_tx_packet_size"`
+	certChecker      *ssh.CertChecker
+	parsedUserCAKeys []ssh.PublicKey
+	executor         commandExecutor
 }
 
 type authenticationError struct {
@@ -401,6 +431,7 @@ func (c *Configuration) startServing(configDir string) (chan error, error) {
 	c.configureKeyboardInteractiveAuth(serverConfig)
 	c.configureLoginBanner(serverConfig, configDir)
 	c.checkSSHCommands()
+	c.checkMaxTxPacketSize()
 
 	exitChannel := make(chan error, 1)
 	serviceStatus.Bindings = nil
@@ -761,7 +792,8 @@ func (c *Configuration) handleSftpConnection(channel ssh.Channel, connection *Co
 
 	// Create the server instance for the channel using the handler we created above.
 	server := sftp.NewRequestServer(channel, c.createHandlers(connection),
-		sftp.WithStartDirectory(connection.User.Filters.StartDirectory))
+		sftp.WithStartDirectory(connection.User.Filters.StartDirectory),
+		sftp.WithRSMaxTxPacket(uint32(c.MaxTxPacketSize))) //nolint:gosec // checked in checkMaxTxPacketSize
 
 	defer server.Close()
 	if err := server.Serve(); errors.Is(err, io.EOF) {
@@ -908,6 +940,25 @@ func (c *Configuration) checkSSHCommands() {
 	}
 	c.EnabledSSHCommands = sshCommands
 	logger.Debug(logSender, "", "enabled SSH commands %v", c.EnabledSSHCommands)
+}
+
+func (c *Configuration) checkMaxTxPacketSize() {
+	if c.MaxTxPacketSize < defaultMaxTxPacketSize {
+		if c.MaxTxPacketSize != 0 {
+			logger.Warn(logSender, "", "max tx packet size %d is too small, forced to %d",
+				c.MaxTxPacketSize, defaultMaxTxPacketSize)
+			logger.WarnToConsole("max tx packet size %d is too small, forced to %d",
+				c.MaxTxPacketSize, defaultMaxTxPacketSize)
+		}
+		c.MaxTxPacketSize = defaultMaxTxPacketSize
+	} else if c.MaxTxPacketSize > maxTxPacketSizeLimit {
+		logger.Warn(logSender, "", "max tx packet size %d is too big, forced to %d",
+			c.MaxTxPacketSize, maxTxPacketSizeLimit)
+		logger.WarnToConsole("max tx packet size %d is too big, forced to %d",
+			c.MaxTxPacketSize, maxTxPacketSizeLimit)
+		c.MaxTxPacketSize = maxTxPacketSizeLimit
+	}
+	logger.Debug(logSender, "", "max tx packet size %d", c.MaxTxPacketSize)
 }
 
 func (c *Configuration) generateDefaultHostKeys(configDir string) error {
