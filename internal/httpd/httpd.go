@@ -19,6 +19,7 @@ package httpd
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net"
@@ -48,6 +49,7 @@ import (
 
 const (
 	logSender                             = "httpd"
+	signingKeyFileName                    = "httpd_signing_key"
 	tokenPath                             = "/api/v2/token"
 	logoutPath                            = "/api/v2/logout"
 	userTokenPath                         = "/api/v2/user/token"
@@ -1160,6 +1162,9 @@ func (c *Conf) Initialize(configDir string, isShared int) error {
 	if err != nil {
 		return err
 	}
+	if passphrase == "" {
+		passphrase = loadOrCreateSigningPassphrase(configDir)
+	}
 	c.SigningPassphrase = passphrase
 
 	hideSupportLink = c.HideSupportLink
@@ -1415,6 +1420,31 @@ func stopCleanupTicker() {
 		cleanupDone <- true
 		cleanupTicker = nil
 	}
+}
+
+// loadOrCreateSigningPassphrase returns a signing passphrase persisted inside the
+// config dir, generating it on first use. Without a stable passphrase a random key
+// is used and every restart invalidates the existing web sessions.
+// An empty string is returned, and so a random key is used, if the file cannot be
+// read or written
+func loadOrCreateSigningPassphrase(configDir string) string {
+	if configDir == "" {
+		return ""
+	}
+	keyPath := filepath.Join(configDir, signingKeyFileName)
+	if content, err := os.ReadFile(keyPath); err == nil {
+		if passphrase := strings.TrimSpace(string(content)); passphrase != "" {
+			return passphrase
+		}
+	}
+	passphrase := hex.EncodeToString(util.GenerateRandomBytes(32))
+	if err := os.WriteFile(keyPath, []byte(passphrase), 0600); err != nil {
+		logger.Warn(logSender, "", "unable to persist the signing key to %q, web sessions will not survive restarts: %v",
+			keyPath, err)
+		return ""
+	}
+	logger.Info(logSender, "", "signing key generated and saved to %q", keyPath)
+	return passphrase
 }
 
 func getSigningKey(signingPassphrase string) []byte {

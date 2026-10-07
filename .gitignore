@@ -1,3 +1,6 @@
 # compilation output
 sftpgo
 sftpgo.exe
+
+# signing key generated at runtime
+httpd_signing_key
