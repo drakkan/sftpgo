@@ -505,6 +505,7 @@
         "bulk_done": "已为 {{count}} 个用户完成操作",
         "bulk_partial": "已为 {{succeeded}} 个用户完成操作，{{failed}} 个失败：{{- names}}",
         "bulk_error": "无法完成请求的操作",
+        "select_all": "选择全部 {{count}} 个用户",
         "username_reserved": "指定的用户名被保留",
         "username_invalid": "指定名称无效，允许以下字符：a-zA-Z0-9 - _ . ~",
         "home_required": "主目录是必填项",

@@ -505,6 +505,7 @@
         "bulk_done": "Vorgang für {{count}} Benutzer abgeschlossen",
         "bulk_partial": "Vorgang für {{succeeded}} Benutzer abgeschlossen, fehlgeschlagen für {{failed}}: {{- names}}",
         "bulk_error": "Der angeforderte Vorgang konnte nicht abgeschlossen werden",
+        "select_all": "Alle {{count}} Benutzer auswählen",
         "username_reserved": "Der angegebene Benutzername ist reserviert",
         "username_invalid": "Der angegebene Name ist ungültig. Die folgenden Zeichen sind zulässig: a-z A-Z 0-9 - _ . ~",
         "home_required": "Das Home-Verzeichnis ist obligatorisch",

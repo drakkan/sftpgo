@@ -47,6 +47,15 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     </button>
                 </div>
 
+                <div class="d-flex justify-content-end align-items-center flex-wrap">
+                <button type="button" class="btn btn-light-primary me-5 my-2 d-none" data-table-select="select_all">
+                    <i class="ki-duotone ki-check-square fs-2">
+                        <span class="path1"></span>
+                        <span class="path2"></span>
+                    </i>
+                    <span data-table-select="select_all_text"></span>
+                </button>
+
                 <div class="d-flex justify-content-end my-2" data-table-toolbar="base">
                     <button type="button" class="btn btn-light-primary rotate" data-kt-menu-trigger="click" data-kt-menu-placement="bottom" data-kt-menu-permanent="true">
                         <span data-i18n="general.colvis">Column visibility</span>
@@ -120,7 +129,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     <div class="fw-bold me-5">
                         <span data-table-select="selected_count"></span>
                     </div>
-                    <button type="button" class="btn btn-light-primary rotate" data-kt-menu-trigger="click" data-kt-menu-placement="bottom-end">
+                    <button type="button" class="btn btn-primary rotate" data-kt-menu-trigger="click" data-kt-menu-placement="bottom-end">
                         <span data-i18n="general.actions">Actions</span>
                         <i class="ki-duotone ki-down fs-3 rotate-180 ms-3 me-0"></i>
                     </button>
@@ -145,6 +154,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                             <span class="path2"></span>
                         </i>
                     </button>
+                </div>
                 </div>
             </div>
 
@@ -811,6 +821,14 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             $('#select_checkbox').prop('checked', pageSelected > 0 && pageSelected === pageRows.count());
 
             let totalSelected = dt.rows({ selected: true }).count();
+            let filteredTotal = dt.rows({ search: 'applied' }).count();
+            const selectAll = $('[data-table-select="select_all"]');
+            if (canBulkEdit && dt.rows({ selected: true, search: 'applied' }).count() < filteredTotal) {
+                $('[data-table-select="select_all_text"]').text($.t('user.select_all', { count: filteredTotal }));
+                selectAll.removeClass('d-none');
+            } else {
+                selectAll.addClass('d-none');
+            }
             const toolbarBase = $('[data-table-toolbar="base"]');
             const toolbarSelected = $('[data-table-toolbar="selected"]');
             if (totalSelected > 0) {
@@ -830,6 +848,11 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 } else {
                     dt.rows({ page: 'current' }).deselect();
                 }
+            });
+
+            $('[data-table-select="select_all"]').off("click").on("click", function(e){
+                e.preventDefault();
+                dt.rows({ search: 'applied' }).select();
             });
 
             $('[data-table-bulk-action]').off("click").on("click", function(e){

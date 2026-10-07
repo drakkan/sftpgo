@@ -505,6 +505,7 @@
         "bulk_done": "Operazione completata per {{count}} utente/i",
         "bulk_partial": "Operazione completata per {{succeeded}} utente/i, fallita per {{failed}}: {{- names}}",
         "bulk_error": "Impossibile completare l'operazione richiesta",
+        "select_all": "Seleziona tutti i {{count}} utenti",
         "username_reserved": "Il nome utente specificato è riservato",
         "username_invalid": "Il nome specificato non è valido. Sono consentiti i seguenti caratteri: a-z A-Z 0-9 - _ . ~",
         "home_required": "La directory principale è obbligatoria",

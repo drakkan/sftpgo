@@ -505,6 +505,7 @@
         "bulk_done": "Operación completada para {{count}} usuario(s)",
         "bulk_partial": "Operación completada para {{succeeded}} usuario(s), fallida para {{failed}}: {{- names}}",
         "bulk_error": "No se pudo completar la operación solicitada",
+        "select_all": "Seleccionar los {{count}} usuarios",
         "username_reserved": "El nombre de usuario especificado está reservado",
         "username_invalid": "El nombre especificado no es válido, se permiten los siguientes caracteres: a-z A-Z 0-9 - _ . ~",
         "home_required": "El directorio de inicio es obligatorio",
