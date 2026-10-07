@@ -499,6 +499,12 @@
     },
     "user": {
         "view_manage": "Visualizza e gestisci utenti",
+        "bulk_enable_confirm": "Vuoi abilitare i {{count}} utenti selezionati?",
+        "bulk_disable_confirm": "Vuoi disabilitare i {{count}} utenti selezionati? Le loro sessioni attive verranno chiuse",
+        "bulk_delete_confirm": "Vuoi eliminare i {{count}} utenti selezionati? Questa azione è irreversibile",
+        "bulk_done": "Operazione completata per {{count}} utente/i",
+        "bulk_partial": "Operazione completata per {{succeeded}} utente/i, fallita per {{failed}}: {{- names}}",
+        "bulk_error": "Impossibile completare l'operazione richiesta",
         "username_reserved": "Il nome utente specificato è riservato",
         "username_invalid": "Il nome specificato non è valido. Sono consentiti i seguenti caratteri: a-z A-Z 0-9 - _ . ~",
         "home_required": "La directory principale è obbligatoria",

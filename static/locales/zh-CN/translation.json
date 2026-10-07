@@ -499,6 +499,12 @@
     },
     "user": {
         "view_manage": "查看和管理用户",
+        "bulk_enable_confirm": "是否启用所选的 {{count}} 个用户？",
+        "bulk_disable_confirm": "是否禁用所选的 {{count}} 个用户？其活动会话将被关闭",
+        "bulk_delete_confirm": "是否删除所选的 {{count}} 个用户？此操作不可撤销",
+        "bulk_done": "已为 {{count}} 个用户完成操作",
+        "bulk_partial": "已为 {{succeeded}} 个用户完成操作，{{failed}} 个失败：{{- names}}",
+        "bulk_error": "无法完成请求的操作",
         "username_reserved": "指定的用户名被保留",
         "username_invalid": "指定名称无效，允许以下字符：a-zA-Z0-9 - _ . ~",
         "home_required": "主目录是必填项",

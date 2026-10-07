@@ -1846,6 +1846,10 @@ func (s *httpdServer) setupWebAdminRoutes() {
 					Post(webScanVFolderPath+"/{name}", startFolderQuotaScan)
 				router.With(s.checkPerms(dataprovider.PermAdminDeleteUsers), s.verifyCSRFHeader).
 					Delete(webUserPath+"/{username}", deleteUser)
+				router.With(s.checkPerms(dataprovider.PermAdminDeleteUsers), s.verifyCSRFHeader).
+					Post(webUsersPath+"/bulk/delete", bulkDeleteUsers)
+				router.With(s.checkPerms(dataprovider.PermAdminChangeUsers), s.verifyCSRFHeader).
+					Post(webUsersPath+"/bulk/status", bulkUpdateUsersStatus)
 				router.With(s.checkPerms(dataprovider.PermAdminDisableMFA), s.verifyCSRFHeader).
 					Put(webUserPath+"/{username}/2fa/disable", disableUser2FA)
 				router.With(s.checkPerms(dataprovider.PermAdminQuotaScans), s.verifyCSRFHeader).

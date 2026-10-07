@@ -218,6 +218,105 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 	disconnectUser(dataprovider.ConvertName(username), claims.Username, claims.Role)
 }
 
+type bulkUsersRequest struct {
+	Usernames []string `json:"usernames"`
+	// Status is only used for status updates: 1 enabled, 0 disabled
+	Status int `json:"status"`
+}
+
+type bulkUsersFailure struct {
+	Username string `json:"username"`
+	Error    string `json:"error"`
+}
+
+type bulkUsersResponse struct {
+	Succeeded []string           `json:"succeeded"`
+	Failed    []bulkUsersFailure `json:"failed"`
+}
+
+func (r *bulkUsersResponse) addFailure(username string, err error) {
+	r.Failed = append(r.Failed, bulkUsersFailure{
+		Username: username,
+		Error:    err.Error(),
+	})
+}
+
+func decodeBulkUsersRequest(w http.ResponseWriter, r *http.Request) (bulkUsersRequest, bool) {
+	var req bulkUsersRequest
+	if err := render.DecodeJSON(r.Body, &req); err != nil {
+		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
+		return req, false
+	}
+	req.Usernames = util.RemoveDuplicates(req.Usernames, true)
+	if len(req.Usernames) == 0 {
+		sendAPIResponse(w, r, nil, "No users selected", http.StatusBadRequest)
+		return req, false
+	}
+	return req, true
+}
+
+func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := jwt.FromContext(r.Context())
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
+	req, ok := decodeBulkUsersRequest(w, r)
+	if !ok {
+		return
+	}
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	resp := bulkUsersResponse{Succeeded: []string{}, Failed: []bulkUsersFailure{}}
+	for _, username := range req.Usernames {
+		if err := dataprovider.DeleteUser(username, claims.Username, ipAddr, claims.Role); err != nil {
+			resp.addFailure(username, err)
+			continue
+		}
+		resp.Succeeded = append(resp.Succeeded, username)
+		disconnectUser(dataprovider.ConvertName(username), claims.Username, claims.Role)
+	}
+	render.JSON(w, r, resp)
+}
+
+func bulkUpdateUsersStatus(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := jwt.FromContext(r.Context())
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
+	req, ok := decodeBulkUsersRequest(w, r)
+	if !ok {
+		return
+	}
+	if req.Status != 0 && req.Status != 1 {
+		sendAPIResponse(w, r, nil, fmt.Sprintf("invalid status: %d", req.Status), http.StatusBadRequest)
+		return
+	}
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	resp := bulkUsersResponse{Succeeded: []string{}, Failed: []bulkUsersFailure{}}
+	for _, username := range req.Usernames {
+		user, err := dataprovider.UserExists(username, claims.Role)
+		if err != nil {
+			resp.addFailure(username, err)
+			continue
+		}
+		if user.Status != req.Status {
+			user.Status = req.Status
+			if err := dataprovider.UpdateUser(&user, claims.Username, ipAddr, claims.Role); err != nil {
+				resp.addFailure(username, err)
+				continue
+			}
+		}
+		resp.Succeeded = append(resp.Succeeded, username)
+		if req.Status == 0 {
+			disconnectUser(user.Username, claims.Username, claims.Role)
+		}
+	}
+	render.JSON(w, r, resp)
+}
+
 func forgotUserPassword(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 

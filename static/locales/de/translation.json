@@ -499,6 +499,12 @@
     },
     "user": {
         "view_manage": "Benutzer anzeigen und verwalten",
+        "bulk_enable_confirm": "Möchten Sie die {{count}} ausgewählten Benutzer aktivieren?",
+        "bulk_disable_confirm": "Möchten Sie die {{count}} ausgewählten Benutzer deaktivieren? Ihre aktiven Sitzungen werden geschlossen",
+        "bulk_delete_confirm": "Möchten Sie die {{count}} ausgewählten Benutzer löschen? Diese Aktion ist unwiderruflich",
+        "bulk_done": "Vorgang für {{count}} Benutzer abgeschlossen",
+        "bulk_partial": "Vorgang für {{succeeded}} Benutzer abgeschlossen, fehlgeschlagen für {{failed}}: {{- names}}",
+        "bulk_error": "Der angeforderte Vorgang konnte nicht abgeschlossen werden",
         "username_reserved": "Der angegebene Benutzername ist reserviert",
         "username_invalid": "Der angegebene Name ist ungültig. Die folgenden Zeichen sind zulässig: a-z A-Z 0-9 - _ . ~",
         "home_required": "Das Home-Verzeichnis ist obligatorisch",

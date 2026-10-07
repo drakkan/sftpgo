@@ -115,11 +115,47 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     </a>
                     {{- end}}
                 </div>
+
+                <div class="d-flex justify-content-end align-items-center d-none my-2" data-table-toolbar="selected">
+                    <div class="fw-bold me-5">
+                        <span data-table-select="selected_count"></span>
+                    </div>
+                    <button type="button" class="btn btn-light-primary rotate" data-kt-menu-trigger="click" data-kt-menu-placement="bottom-end">
+                        <span data-i18n="general.actions">Actions</span>
+                        <i class="ki-duotone ki-down fs-3 rotate-180 ms-3 me-0"></i>
+                    </button>
+                    <div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-800 menu-state-bg-light-primary fw-semibold w-auto min-w-200 mw-300px py-4" data-kt-menu="true">
+                        {{- if .LoggedUser.HasPermission "edit_users"}}
+                        <div class="menu-item px-3">
+                            <a data-i18n="general.enable" href="#" class="menu-link px-3 fs-6" data-table-bulk-action="enable">Enable</a>
+                        </div>
+                        <div class="menu-item px-3">
+                            <a data-i18n="general.disable" href="#" class="menu-link px-3 fs-6" data-table-bulk-action="disable">Disable</a>
+                        </div>
+                        {{- end}}
+                        {{- if .LoggedUser.HasPermission "del_users"}}
+                        <div class="menu-item px-3">
+                            <a data-i18n="general.delete" href="#" class="menu-link text-danger px-3 fs-6" data-table-bulk-action="delete">Delete</a>
+                        </div>
+                        {{- end}}
+                    </div>
+                    <button type="button" class="btn btn-icon btn-light ms-3" data-table-bulk-action="clear">
+                        <i class="ki-duotone ki-cross fs-2">
+                            <span class="path1"></span>
+                            <span class="path2"></span>
+                        </i>
+                    </button>
+                </div>
             </div>
 
             <table id="dataTable" class="table align-middle table-row-dashed fs-6 gy-5">
                 <thead>
                     <tr class="text-start text-muted fw-bold fs-6 gs-0">
+                        <th class="w-10px pe-2">
+                            <div class="form-check form-check-sm form-check-custom form-check-solid me-3">
+                                <input id="select_checkbox" class="form-check-input" type="checkbox" />
+                            </div>
+                        </th>
                         <th data-i18n="login.username">Username</th>
                         <th data-i18n="general.status">Status</th>
                         <th data-i18n="general.last_login">Last login</th>
@@ -279,6 +315,101 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         });
     }
 
+    function bulkAction(action, usernames, onDone) {
+        let path;
+        let payload = { usernames: usernames };
+        let confirmText;
+        let confirmBtn;
+        let confirmClass = "btn btn-danger";
+        switch (action) {
+            case "delete":
+                path = '{{.UsersURL}}/bulk/delete';
+                confirmText = $.t('user.bulk_delete_confirm', { count: usernames.length });
+                confirmBtn = $.t('general.delete_confirm_btn');
+                break;
+            case "disable":
+                path = '{{.UsersURL}}/bulk/status';
+                payload.status = 0;
+                confirmText = $.t('user.bulk_disable_confirm', { count: usernames.length });
+                confirmBtn = $.t('general.disable_confirm_btn');
+                break;
+            case "enable":
+                path = '{{.UsersURL}}/bulk/status';
+                payload.status = 1;
+                confirmText = $.t('user.bulk_enable_confirm', { count: usernames.length });
+                confirmBtn = $.t('general.confirm');
+                confirmClass = "btn btn-primary";
+                break;
+            default:
+                return;
+        }
+        ModalAlert.fire({
+            text: confirmText,
+            icon: "warning",
+            confirmButtonText: confirmBtn,
+            cancelButtonText: $.t('general.cancel'),
+            customClass: {
+                confirmButton: confirmClass,
+                cancelButton: 'btn btn-secondary'
+            }
+        }).then((result) => {
+            if (!result.isConfirmed){
+                return;
+            }
+            clearLoading();
+            KTApp.showPageLoading();
+            axios.post(path, payload, {
+                timeout: 60000,
+                headers: {
+                    'X-CSRF-TOKEN': '{{.CSRFToken}}'
+                },
+                validateStatus: function (status) {
+                    return status == 200;
+                }
+            }).then(function(response){
+                KTApp.hidePageLoading();
+                let failed = response.data.failed || [];
+                let succeeded = response.data.succeeded || [];
+                onDone();
+                if (failed.length == 0){
+                    showToast(1, 'user.bulk_done', { count: succeeded.length });
+                    return;
+                }
+                ModalAlert.fire({
+                    text: $.t('user.bulk_partial', {
+                        succeeded: succeeded.length,
+                        failed: failed.length,
+                        names: failed.map(f => f.username).join(", ")
+                    }),
+                    icon: "warning",
+                    confirmButtonText: $.t('general.ok'),
+                    customClass: {
+                        confirmButton: "btn btn-primary"
+                    }
+                });
+            }).catch(function(error){
+                KTApp.hidePageLoading();
+                let errorMessage = "user.bulk_error";
+                if (error && error.response && error.response.status == 403) {
+                    errorMessage = "general.error403";
+                }
+                ModalAlert.fire({
+                    text: $.t(errorMessage),
+                    icon: "warning",
+                    confirmButtonText: $.t('general.ok'),
+                    customClass: {
+                        confirmButton: "btn btn-primary"
+                    }
+                });
+            });
+        });
+    }
+
+    var canBulkEdit = false;
+    //{{- if or (.LoggedUser.HasPermission "edit_users") (.LoggedUser.HasPermission "del_users")}}
+    canBulkEdit = true;
+    //{{- end}}
+
     var datatable = function(){
         var dt;
 
@@ -308,6 +439,21 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     }
                 },
                 columns: [
+                    {
+                        data: null,
+                        searchable: false,
+                        orderable: false,
+                        visible: canBulkEdit,
+                        defaultContent: "",
+                        render: function (data, type, row) {
+                            if (type === 'display') {
+                                return `<div class="form-check form-check-sm form-check-custom form-check-solid">
+                                            <input class="form-check-input" type="checkbox" />
+                                        </div>`;
+                            }
+                            return "";
+                        }
+                    },
                     {
                         data: "username",
                         render: function(data, type, row) {
@@ -592,11 +738,21 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     },
                 ],
                 deferRender: true,
+                select: {
+                    style: 'multi',
+                    selector: 'td:first-child input[type="checkbox"]',
+                    className: 'row-selected',
+                    info: false
+                },
                 stateSave: true,
                 stateDuration: 0,
+                stateSaveParams: function (settings, data) {
+                    // never restore a stale selection, the selected users may no longer exist
+                    delete data.select;
+                },
                 colReorder: {
                     enable: true,
-                    fixedColumnsLeft: 1
+                    fixedColumnsLeft: 2
                 },
                 stateLoadParams: function (settings, data) {
                         if (data.search.search){
@@ -613,7 +769,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     zeroRecords: "",
                     emptyTable: $.t('datatable.no_records')
                 },
-                order: [[0, 'asc']],
+                order: [[1, 'asc']],
                 initComplete: function(settings, json) {
                     $('#loader').addClass("d-none");
                     $('#card_content').removeClass("d-none");
@@ -626,12 +782,72 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             dt.on('columns-reordered', function(e, settings, details){
                 drawAction();
             });
+            dt.on('select.dt deselect.dt', function(){
+                syncSelection();
+            });
         }
 
         function drawAction() {
             KTMenu.createInstances();
             handleRowActions();
+            syncSelection();
             $('#table_body').localize();
+        }
+
+        function getSelectedUsernames() {
+            let usernames = [];
+            dt.rows({ selected: true }).every(function (rowIdx, tableLoop, rowLoop){
+                usernames.push(this.data()['username']);
+            });
+            return usernames;
+        }
+
+        function syncSelection() {
+            let pageRows = dt.rows({ page: 'current' });
+            pageRows.every(function (rowIdx, tableLoop, rowLoop){
+                $(this.node()).find('td:first-child .form-check-input').prop('checked', this.node().classList.contains('row-selected'));
+            });
+            let pageSelected = dt.rows({ selected: true, page: 'current' }).count();
+            $('#select_checkbox').prop('checked', pageSelected > 0 && pageSelected === pageRows.count());
+
+            let totalSelected = dt.rows({ selected: true }).count();
+            const toolbarBase = $('[data-table-toolbar="base"]');
+            const toolbarSelected = $('[data-table-toolbar="selected"]');
+            if (totalSelected > 0) {
+                $('[data-table-select="selected_count"]').text($.t('general.selected_items', { count: totalSelected }));
+                toolbarBase.addClass('d-none');
+                toolbarSelected.removeClass('d-none');
+            } else {
+                toolbarSelected.addClass('d-none');
+                toolbarBase.removeClass('d-none');
+            }
+        }
+
+        function handleBulkActions() {
+            $('#select_checkbox').off("click").on("click", function(){
+                if ($(this).is(':checked')){
+                    dt.rows({ page: 'current' }).select();
+                } else {
+                    dt.rows({ page: 'current' }).deselect();
+                }
+            });
+
+            $('[data-table-bulk-action]').off("click").on("click", function(e){
+                e.preventDefault();
+                let action = $(this).data('table-bulk-action');
+                if (action === "clear") {
+                    dt.rows().deselect();
+                    return;
+                }
+                let usernames = getSelectedUsernames();
+                if (usernames.length === 0) {
+                    return;
+                }
+                bulkAction(action, usernames, function(){
+                    dt.rows().deselect();
+                    dt.ajax.reload(null, false);
+                });
+            });
         }
 
         function handleColVisibilityCheckbox(el, selector) {
@@ -988,6 +1204,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             init: function () {
                 initDatatable();
                 handleDatatableActions();
+                handleBulkActions();
             }
         }
     }();

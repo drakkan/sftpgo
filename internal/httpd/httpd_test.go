@@ -22753,6 +22753,85 @@ func TestBasicWebUsersMock(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 }
 
+func TestWebUsersBulkActionsMock(t *testing.T) {
+	user1, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	u := getTestUser()
+	u.Username += "_bulk"
+	user2, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webUserPath, webToken)
+	assert.NoError(t, err)
+
+	type bulkResponse struct {
+		Succeeded []string `json:"succeeded"`
+		Failed    []struct {
+			Username string `json:"username"`
+			Error    string `json:"error"`
+		} `json:"failed"`
+	}
+	doBulk := func(action string, body any, withCSRF bool) *httptest.ResponseRecorder {
+		asJSON, err := json.Marshal(body)
+		assert.NoError(t, err)
+		req, _ := http.NewRequest(http.MethodPost, path.Join(webUsersPath, "bulk", action), bytes.NewBuffer(asJSON))
+		setJWTCookieForReq(req, webToken)
+		if withCSRF {
+			setCSRFHeaderForReq(req, csrfToken)
+		}
+		return executeRequest(req)
+	}
+	usernames := []string{user1.Username, user2.Username}
+
+	rr := doBulk("status", map[string]any{"usernames": usernames, "status": 0}, false)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	rr = doBulk("status", map[string]any{"usernames": []string{}, "status": 0}, true)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	rr = doBulk("status", map[string]any{"usernames": usernames, "status": 2}, true)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	rr = doBulk("status", map[string]any{"usernames": usernames, "status": 0}, true)
+	checkResponseCode(t, http.StatusOK, rr)
+	var resp bulkResponse
+	err = json.Unmarshal(rr.Body.Bytes(), &resp)
+	assert.NoError(t, err)
+	assert.ElementsMatch(t, usernames, resp.Succeeded)
+	assert.Len(t, resp.Failed, 0)
+	for _, username := range usernames {
+		user, _, err := httpdtest.GetUserByUsername(username, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 0, user.Status)
+	}
+
+	rr = doBulk("status", map[string]any{"usernames": usernames, "status": 1}, true)
+	checkResponseCode(t, http.StatusOK, rr)
+	for _, username := range usernames {
+		user, _, err := httpdtest.GetUserByUsername(username, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, user.Status)
+	}
+
+	rr = doBulk("delete", map[string]any{"usernames": append(usernames, "missing_user")}, true)
+	checkResponseCode(t, http.StatusOK, rr)
+	resp = bulkResponse{}
+	err = json.Unmarshal(rr.Body.Bytes(), &resp)
+	assert.NoError(t, err)
+	assert.ElementsMatch(t, usernames, resp.Succeeded)
+	if assert.Len(t, resp.Failed, 1) {
+		assert.Equal(t, "missing_user", resp.Failed[0].Username)
+	}
+	for _, username := range usernames {
+		_, _, err = httpdtest.GetUserByUsername(username, http.StatusNotFound)
+		assert.NoError(t, err)
+	}
+	err = os.RemoveAll(user1.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(user2.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestRenderDefenderPageMock(t *testing.T) {
 	token, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
