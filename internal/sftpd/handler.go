@@ -472,7 +472,9 @@ func (c *Connection) handleSFTPUploadToExistingFile(fs vfs.Fs, pflags sftp.FileO
 		return nil, c.GetPermissionDeniedError()
 	}
 
-	if common.Config.IsAtomicUploadEnabled() && fs.IsAtomicUploadSupported() {
+	// only a resume continues on the existing file, an overwrite goes to a new file
+	// so other hard links to the target are left untouched
+	if isResume && common.Config.IsAtomicUploadEnabled() && fs.IsAtomicUploadSupported() {
 		_, _, err = fs.Rename(resolvedPath, filePath, 0)
 		if err != nil {
 			c.Log(logger.LevelError, "error renaming existing file for atomic upload, source: %q, dest: %q, err: %+v",
