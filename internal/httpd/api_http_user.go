@@ -37,6 +37,14 @@ import (
 )
 
 func getUserConnection(w http.ResponseWriter, r *http.Request) (*Connection, error) {
+	return addUserConnection(w, r, true)
+}
+
+func getUserTaskConnection(w http.ResponseWriter, r *http.Request) (*Connection, error) {
+	return addUserConnection(w, r, false)
+}
+
+func addUserConnection(w http.ResponseWriter, r *http.Request, withResponseController bool) (*Connection, error) {
 	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
@@ -55,7 +63,15 @@ func getUserConnection(w http.ResponseWriter, r *http.Request) (*Connection, err
 		return nil, err
 	}
 	baseConn := common.NewBaseConnection(connID, protocol, util.GetHTTPLocalAddress(r), r.RemoteAddr, user)
-	connection := newConnection(baseConn, w, r)
+	var connection *Connection
+	if withResponseController {
+		connection = newConnection(baseConn, w, r)
+	} else {
+		connection = &Connection{
+			BaseConnection: baseConn,
+			request:        r,
+		}
+	}
 	if err = common.Connections.Add(connection); err != nil {
 		sendAPIResponse(w, r, err, "Unable to add connection", http.StatusTooManyRequests)
 		return connection, err

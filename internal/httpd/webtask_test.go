@@ -22,6 +22,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/drakkan/sftpgo/v2/internal/common"
+	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 )
 
@@ -64,14 +66,19 @@ func TestMemoryWebTaskManager(t *testing.T) {
 	oldMgr := webTaskMgr
 	webTaskMgr = mgr
 
+	conn := &Connection{
+		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, "", "", dataprovider.User{}),
+	}
+	lastActivity := conn.GetLastActivity()
 	done := make(chan bool)
-	go keepAliveTask(task, done, 50*time.Millisecond)
+	go keepAliveTask(task, conn, done, 50*time.Millisecond)
 
 	time.Sleep(120 * time.Millisecond)
 	close(done)
 	taskGet, err = m.Get(task.ID)
 	require.NoError(t, err)
 	assert.Greater(t, taskGet.Timestamp, task.Timestamp)
+	assert.Greater(t, conn.GetLastActivity(), lastActivity)
 	m.Cleanup()
 	_, err = m.Get(task.ID)
 	require.NoError(t, err)
@@ -112,14 +119,19 @@ func TestDbWebTaskManager(t *testing.T) {
 	oldMgr := webTaskMgr
 	webTaskMgr = mgr
 
+	conn := &Connection{
+		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, "", "", dataprovider.User{}),
+	}
+	lastActivity := conn.GetLastActivity()
 	done := make(chan bool)
-	go keepAliveTask(task, done, 50*time.Millisecond)
+	go keepAliveTask(task, conn, done, 50*time.Millisecond)
 
 	time.Sleep(120 * time.Millisecond)
 	close(done)
 	taskGet, err = m.Get(task.ID)
 	require.NoError(t, err)
 	assert.Greater(t, taskGet.Timestamp, task.Timestamp)
+	assert.Greater(t, conn.GetLastActivity(), lastActivity)
 	m.Cleanup()
 	_, err = m.Get(task.ID)
 	require.NoError(t, err)

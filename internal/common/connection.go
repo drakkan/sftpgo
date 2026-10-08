@@ -614,6 +614,9 @@ func (c *BaseConnection) RemoveAll(virtualPath string) error {
 		if err := c.IsRemoveDirAllowed(fs, fsPath, virtualPath); err != nil {
 			return err
 		}
+		stopKeepAlive := keepConnectionAlive(c, 2*time.Minute)
+		defer stopKeepAlive()
+
 		return c.doRecursiveRemove(fs, fsPath, virtualPath, fi, 0)
 	}
 	return c.RemoveFile(fs, fsPath, virtualPath, fi)

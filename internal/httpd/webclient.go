@@ -2140,7 +2140,7 @@ func getWebTask(w http.ResponseWriter, r *http.Request) {
 
 func taskDeleteDir(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	connection, err := getUserConnection(w, r)
+	connection, err := getUserTaskConnection(w, r)
 	if err != nil {
 		return
 	}
@@ -2164,7 +2164,7 @@ func taskDeleteDir(w http.ResponseWriter, r *http.Request) {
 
 func taskRenameFsEntry(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	connection, err := getUserConnection(w, r)
+	connection, err := getUserTaskConnection(w, r)
 	if err != nil {
 		return
 	}
@@ -2189,7 +2189,7 @@ func taskRenameFsEntry(w http.ResponseWriter, r *http.Request) {
 
 func taskCopyFsEntry(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	connection, err := getUserConnection(w, r)
+	connection, err := getUserTaskConnection(w, r)
 	if err != nil {
 		return
 	}
@@ -2230,7 +2230,7 @@ func executeDeleteTask(conn *Connection, task webTaskData) {
 		common.Connections.Remove(conn.GetID())
 	}()
 
-	go keepAliveTask(task, done, 2*time.Minute)
+	go keepAliveTask(task, conn, done, 2*time.Minute)
 
 	status := http.StatusOK
 	if err := conn.RemoveAll(task.Path); err != nil {
@@ -2251,7 +2251,7 @@ func executeRenameTask(conn *Connection, task webTaskData) {
 		common.Connections.Remove(conn.GetID())
 	}()
 
-	go keepAliveTask(task, done, 2*time.Minute)
+	go keepAliveTask(task, conn, done, 2*time.Minute)
 
 	status := http.StatusOK
 
@@ -2287,7 +2287,7 @@ func executeCopyTask(conn *Connection, task webTaskData) {
 		common.Connections.Remove(conn.GetID())
 	}()
 
-	go keepAliveTask(task, done, 2*time.Minute)
+	go keepAliveTask(task, conn, done, 2*time.Minute)
 
 	status := http.StatusOK
 	if err := conn.Copy(task.Path, task.Target); err != nil {
@@ -2300,7 +2300,9 @@ func executeCopyTask(conn *Connection, task webTaskData) {
 	conn.Log(logger.LevelDebug, "copy task finished, status: %d, update task err: %v", status, err)
 }
 
-func keepAliveTask(task webTaskData, done chan bool, interval time.Duration) {
+// keepAliveTask refreshes the task timestamp and the connection activity until
+// done is closed.
+func keepAliveTask(task webTaskData, conn *Connection, done chan bool, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer func() {
 		ticker.Stop()
@@ -2311,6 +2313,7 @@ func keepAliveTask(task webTaskData, done chan bool, interval time.Duration) {
 		case <-done:
 			return
 		case <-ticker.C:
+			conn.UpdateLastActivity()
 			task.Timestamp = util.GetTimeAsMsSinceEpoch(time.Now())
 			err := webTaskMgr.Add(task)
 			logger.Debug(logSender, task.ID, "task timestamp updated, err: %v", err)

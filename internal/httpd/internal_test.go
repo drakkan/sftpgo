@@ -4809,3 +4809,52 @@ func TestNextRenderableEntries(t *testing.T) {
 	assert.True(t, finished)
 	assert.Empty(t, entries)
 }
+
+func TestTaskConnectionDisconnectAfterResponse(t *testing.T) {
+	username := "task_connection_user"
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username: username,
+			Password: "pwd",
+			HomeDir:  filepath.Join(os.TempDir(), username),
+			Status:   1,
+		},
+	}
+	user.Permissions = map[string][]string{"/": {dataprovider.PermAny}}
+	err := dataprovider.AddUser(&user, "", "", "")
+	require.NoError(t, err)
+	defer func() {
+		_ = dataprovider.DeleteUser(username, "", "", "")
+	}()
+
+	conns := make(chan *Connection, 1)
+	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r = r.WithContext(jwt.NewContext(r.Context(), &jwt.Claims{Username: username}, nil))
+		conn, err := getUserTaskConnection(w, r)
+		if err != nil {
+			conns <- nil
+			return
+		}
+		conns <- conn
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	srv.EnableHTTP2 = true
+	srv.StartTLS()
+	defer srv.Close()
+
+	resp, err := srv.Client().Get(srv.URL)
+	require.NoError(t, err)
+	err = resp.Body.Close()
+	require.NoError(t, err)
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+	require.Equal(t, 2, resp.ProtoMajor)
+	conn := <-conns
+	require.NotNil(t, conn)
+	defer common.Connections.Remove(conn.GetID())
+	// the task outlives the request: closing its connection must not touch the
+	// completed HTTP/2 stream
+	assert.NotPanics(t, func() {
+		err = conn.Disconnect()
+	})
+	assert.Error(t, err)
+}
