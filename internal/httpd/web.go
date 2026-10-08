@@ -55,18 +55,19 @@ type commonBasePage struct {
 
 type loginPage struct {
 	commonBasePage
-	CurrentURL     string
-	Error          *util.I18nError
-	CSRFToken      string
-	AltLoginURL    string
-	AltLoginName   string
-	ForgotPwdURL   string
-	OpenIDLoginURL string
-	Title          string
-	Branding       UIBranding
-	Languages      []string
-	FormDisabled   bool
-	CheckRedirect  bool
+	CurrentURL        string
+	Error             *util.I18nError
+	CSRFToken         string
+	AltLoginURL       string
+	AltLoginName      string
+	ForgotPwdURL      string
+	OpenIDLoginURL    string
+	OpenIDDisplayName string
+	Title             string
+	Branding          UIBranding
+	Languages         []string
+	FormDisabled      bool
+	CheckRedirect     bool
 }
 
 type twoFactorPage struct {
