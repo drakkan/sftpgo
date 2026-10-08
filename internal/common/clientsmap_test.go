@@ -15,6 +15,8 @@
 package common
 
 import (
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -70,4 +72,39 @@ func TestClientsMap(t *testing.T) {
 	assert.Equal(t, int32(0), m.getTotal())
 	assert.Equal(t, 0, m.getTotalFrom(ip1))
 	assert.Equal(t, 0, m.getTotalFrom(ip2))
+}
+
+func TestClientsMapTryAdd(t *testing.T) {
+	m := clientsMap{
+		clients: make(map[string]int),
+	}
+	ip1 := "192.168.1.1"
+	ip2 := "192.168.1.2"
+	assert.True(t, m.tryAdd(ip1, 2))
+	assert.True(t, m.tryAdd(ip1, 2))
+	assert.False(t, m.tryAdd(ip1, 2))
+	assert.True(t, m.tryAdd(ip2, 2))
+	assert.Equal(t, int32(3), m.getTotal())
+	assert.Equal(t, 2, m.getTotalFrom(ip1))
+	// 0 means no limit
+	assert.True(t, m.tryAdd(ip1, 0))
+	assert.Equal(t, 3, m.getTotalFrom(ip1))
+	m.remove(ip1)
+	m.remove(ip1)
+	assert.True(t, m.tryAdd(ip1, 2))
+
+	// concurrent additions never exceed the limit
+	const limit = 10
+	var wg sync.WaitGroup
+	var added atomic.Int32
+	for range 100 {
+		wg.Go(func() {
+			if m.tryAdd("concurrent", limit) {
+				added.Add(1)
+			}
+		})
+	}
+	wg.Wait()
+	assert.Equal(t, int32(limit), added.Load())
+	assert.Equal(t, limit, m.getTotalFrom("concurrent"))
 }

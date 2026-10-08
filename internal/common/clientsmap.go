@@ -37,6 +37,18 @@ func (c *clientsMap) add(source string) {
 	c.clients[source]++
 }
 
+func (c *clientsMap) tryAdd(source string, maxPerSource int) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if maxPerSource > 0 && c.clients[source] >= maxPerSource {
+		return false
+	}
+	c.totalConnections.Add(1)
+	c.clients[source]++
+	return true
+}
+
 func (c *clientsMap) remove(source string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()

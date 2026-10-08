@@ -15,11 +15,13 @@
 package sftpd
 
 import (
+	"errors"
 	"io"
 	"net"
 	"os"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pkg/sftp"
@@ -42,6 +44,31 @@ type Connection struct {
 	LocalAddr  net.Addr
 	channel    io.ReadWriteCloser
 	command    string
+}
+
+var errTooManyOpenDirs = errors.New("too many open directories")
+
+func (c *Connection) reserveOpenDir() (func(), error) {
+	ipAddr := c.GetRemoteIP()
+	if !common.Connections.TryAddOpenDir(ipAddr) {
+		c.Log(logger.LevelInfo, "open directory denied, IP %q holds the maximum of %d open directories",
+			ipAddr, common.Config.MaxPerHostConnections)
+		return nil, errTooManyOpenDirs
+	}
+	var once sync.Once
+	return func() {
+		once.Do(func() { common.Connections.RemoveOpenDir(ipAddr) })
+	}, nil
+}
+
+type openDirLister struct {
+	*common.DirListerAt
+	release func()
+}
+
+func (l *openDirLister) Close() error {
+	l.release()
+	return l.DirListerAt.Close()
 }
 
 // GetClientVersion returns the connected client's version
@@ -229,8 +256,13 @@ func (c *Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 
 	switch request.Method {
 	case "List":
+		release, err := c.reserveOpenDir()
+		if err != nil {
+			return nil, err
+		}
 		lister, err := c.ListDir(request.Filepath)
 		if err != nil {
+			release()
 			return nil, err
 		}
 		modTime := time.Unix(0, 0)
@@ -238,7 +270,7 @@ func (c *Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 			lister.Prepend(vfs.NewFileInfo("..", true, 0, modTime, false))
 		}
 		lister.Prepend(vfs.NewFileInfo(".", true, 0, modTime, false))
-		return lister, nil
+		return &openDirLister{DirListerAt: lister, release: release}, nil
 	case "Stat":
 		if !c.User.HasPerm(dataprovider.PermListItems, path.Dir(request.Filepath)) {
 			return nil, sftp.ErrSSHFxPermissionDenied

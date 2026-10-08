@@ -13555,3 +13555,422 @@ func createInitialFiles(scriptArgs string) {
 		logger.WarnToConsole("unable to save revoked user certs: %v", err)
 	}
 }
+
+const (
+	sshFxpInit    = 1
+	sshFxpVersion = 2
+	sshFxpOpendir = 11
+	sshFxpClose   = 4
+	sshFxpStatus  = 101
+	sshFxpHandle  = 102
+)
+
+// rawSFTPSession speaks the SFTP protocol directly, so directory handles can
+// be opened and kept without reading them.
+type rawSFTPSession struct {
+	session *ssh.Session
+	in      io.WriteCloser
+	out     io.Reader
+	id      uint32
+}
+
+func newRawSFTPSession(t *testing.T, conn *ssh.Client) *rawSFTPSession {
+	t.Helper()
+
+	session, err := conn.NewSession()
+	require.NoError(t, err)
+	in, err := session.StdinPipe()
+	require.NoError(t, err)
+	out, err := session.StdoutPipe()
+	require.NoError(t, err)
+	require.NoError(t, session.RequestSubsystem("sftp"))
+	s := &rawSFTPSession{session: session, in: in, out: out}
+	s.send(t, sshFxpInit, binary.BigEndian.AppendUint32(nil, 3))
+	typ, _ := s.recv(t)
+	require.Equal(t, byte(sshFxpVersion), typ)
+	return s
+}
+
+func (s *rawSFTPSession) send(t *testing.T, typ byte, payload []byte) {
+	t.Helper()
+
+	packet := binary.BigEndian.AppendUint32(nil, uint32(1+len(payload)))
+	packet = append(packet, typ)
+	packet = append(packet, payload...)
+	_, err := s.in.Write(packet)
+	require.NoError(t, err)
+}
+
+func (s *rawSFTPSession) recv(t *testing.T) (byte, []byte) {
+	t.Helper()
+
+	var length uint32
+	require.NoError(t, binary.Read(s.out, binary.BigEndian, &length))
+	data := make([]byte, length)
+	_, err := io.ReadFull(s.out, data)
+	require.NoError(t, err)
+	return data[0], data[1:]
+}
+
+func appendSFTPString(b []byte, s string) []byte {
+	b = binary.BigEndian.AppendUint32(b, uint32(len(s)))
+	return append(b, s...)
+}
+
+// opendir returns the handle, or an error with the status the server sent.
+func (s *rawSFTPSession) opendir(t *testing.T, dir string) (string, error) {
+	t.Helper()
+
+	s.id++
+	s.send(t, sshFxpOpendir, appendSFTPString(binary.BigEndian.AppendUint32(nil, s.id), dir))
+	typ, data := s.recv(t)
+	require.Equal(t, s.id, binary.BigEndian.Uint32(data))
+	data = data[4:]
+	switch typ {
+	case sshFxpHandle:
+		size := binary.BigEndian.Uint32(data)
+		return string(data[4 : 4+size]), nil
+	case sshFxpStatus:
+		code := binary.BigEndian.Uint32(data)
+		size := binary.BigEndian.Uint32(data[4:])
+		return "", fmt.Errorf("status %d: %s", code, data[8:8+size])
+	default:
+		return "", fmt.Errorf("unexpected packet type %d", typ)
+	}
+}
+
+func (s *rawSFTPSession) closeHandle(t *testing.T, handle string) {
+	t.Helper()
+
+	s.id++
+	s.send(t, sshFxpClose, appendSFTPString(binary.BigEndian.AppendUint32(nil, s.id), handle))
+	typ, data := s.recv(t)
+	require.Equal(t, byte(sshFxpStatus), typ)
+	assert.Equal(t, uint32(0), binary.BigEndian.Uint32(data[4:]))
+}
+
+func (s *rawSFTPSession) close() {
+	s.in.Close()
+	s.session.Close()
+}
+
+func TestMaxOpenDirsPerHost(t *testing.T) {
+	const maxOpenDirs = 6
+	usePubKey := true
+	user, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
+	require.NoError(t, err)
+	defer func() {
+		_, err := httpdtest.RemoveUser(user, http.StatusOK)
+		assert.NoError(t, err)
+		assert.NoError(t, os.RemoveAll(user.GetHomeDir()))
+	}()
+	// lowered after the user is created and restored before it is removed:
+	// the REST API is subject to the same limit
+	oldValue := common.Config.MaxPerHostConnections
+	common.Config.MaxPerHostConnections = maxOpenDirs
+	defer func() {
+		common.Config.MaxPerHostConnections = oldValue
+	}()
+	conn, client, err := getSftpClient(user, usePubKey)
+	require.NoError(t, err)
+	defer conn.Close()
+	defer client.Close()
+	conn2, client2, err := getSftpClient(user, usePubKey)
+	require.NoError(t, err)
+	defer conn2.Close()
+	defer client2.Close()
+
+	// the limit is shared by the sessions and the connections of the host
+	first := newRawSFTPSession(t, conn)
+	defer first.close()
+	second := newRawSFTPSession(t, conn2)
+	var handles []string
+	for i := range maxOpenDirs {
+		s := first
+		if i%2 == 1 {
+			s = second
+		}
+		handle, err := s.opendir(t, "/")
+		require.NoError(t, err, "open directory %d", i)
+		if s == first {
+			handles = append(handles, handle)
+		}
+	}
+	_, err = first.opendir(t, "/")
+	assert.ErrorContains(t, err, "too many open directories")
+	_, err = second.opendir(t, "/")
+	assert.ErrorContains(t, err, "too many open directories")
+	// at the limit a listing fails on any connection of the host
+	_, err = client.ReadDir("/")
+	assert.Error(t, err)
+	_, err = client2.ReadDir("/")
+	assert.Error(t, err)
+	// stat requests use no slot
+	_, err = client2.Stat("/")
+	assert.NoError(t, err)
+	// a closed handle frees its slot
+	first.closeHandle(t, handles[0])
+	handle, err := first.opendir(t, "/")
+	require.NoError(t, err)
+	_, err = first.opendir(t, "/")
+	assert.Error(t, err)
+	first.closeHandle(t, handle)
+	// a failed open frees its slot
+	_, err = first.opendir(t, "/missing")
+	assert.Error(t, err)
+	assert.NotContains(t, err.Error(), "too many open directories")
+	_, err = first.opendir(t, "/")
+	require.NoError(t, err)
+	// a closed session frees the slots of all its handles
+	second.close()
+	require.Eventually(t, func() bool {
+		handle, err := first.opendir(t, "/")
+		if err != nil {
+			return false
+		}
+		first.closeHandle(t, handle)
+		return true
+	}, 2*time.Second, 50*time.Millisecond)
+	for i := range maxOpenDirs / 2 {
+		_, err := first.opendir(t, "/")
+		require.NoError(t, err, "open directory %d", i)
+	}
+	_, err = first.opendir(t, "/")
+	assert.ErrorContains(t, err, "too many open directories")
+	// a closed connection frees its slots for the other connections
+	first.close()
+	require.NoError(t, client.Close())
+	require.NoError(t, conn.Close())
+	assert.Eventually(t, func() bool {
+		_, err := client2.ReadDir("/")
+		return err == nil
+	}, 2*time.Second, 50*time.Millisecond)
+	// 0 means unlimited
+	common.Config.MaxPerHostConnections = 0
+	third := newRawSFTPSession(t, conn2)
+	defer third.close()
+	for i := range maxOpenDirs + 1 {
+		_, err := third.opendir(t, "/")
+		require.NoError(t, err, "open directory %d", i)
+	}
+}
+
+func TestMaxSessionsPerSSHConnection(t *testing.T) {
+	const maxSessions = 4
+	usePubKey := true
+	user, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
+	require.NoError(t, err)
+	defer func() {
+		_, err := httpdtest.RemoveUser(user, http.StatusOK)
+		assert.NoError(t, err)
+		assert.NoError(t, os.RemoveAll(user.GetHomeDir()))
+	}()
+	// lowered after the user is created and restored before it is removed:
+	// the REST API is subject to the same limit
+	oldValue := common.Config.MaxPerHostConnections
+	common.Config.MaxPerHostConnections = maxSessions
+	defer func() {
+		common.Config.MaxPerHostConnections = oldValue
+	}()
+	conn, client, err := getSftpClient(user, usePubKey)
+	require.NoError(t, err)
+	defer conn.Close()
+	defer client.Close()
+
+	clients := []*sftp.Client{client}
+	for len(clients) < maxSessions {
+		c, err := sftp.NewClient(conn)
+		require.NoError(t, err, "session %d", len(clients))
+		clients = append(clients, c)
+	}
+	_, err = sftp.NewClient(conn)
+	var openErr *ssh.OpenChannelError
+	if assert.True(t, errors.As(err, &openErr), "unexpected error: %v", err) {
+		assert.Equal(t, ssh.ResourceShortage, openErr.Reason)
+	}
+	// a session that was never used counts too
+	require.NoError(t, clients[1].Close())
+	session, err := conn.NewSession()
+	require.Eventually(t, func() bool {
+		if err == nil {
+			return true
+		}
+		session, err = conn.NewSession()
+		return err == nil
+	}, 2*time.Second, 50*time.Millisecond)
+	_, err = conn.NewSession()
+	assert.Error(t, err)
+	// closing sessions frees their slots, the connection keeps working
+	require.NoError(t, session.Close())
+	for _, c := range clients[2:] {
+		require.NoError(t, c.Close())
+	}
+	assert.Eventually(t, func() bool {
+		c, err := sftp.NewClient(conn)
+		if err != nil {
+			return false
+		}
+		defer c.Close()
+
+		_, err = c.ReadDir("/")
+		return err == nil
+	}, 2*time.Second, 50*time.Millisecond)
+	_, err = client.ReadDir("/")
+	assert.NoError(t, err)
+	// 0 means unlimited
+	common.Config.MaxPerHostConnections = 0
+	for i := range maxSessions + 1 {
+		c, err := sftp.NewClient(conn)
+		require.NoError(t, err, "session %d", i)
+		defer c.Close()
+	}
+}
+
+func TestSSHChannelSingleHandler(t *testing.T) {
+	usePubKey := true
+	user, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
+	require.NoError(t, err)
+	defer func() {
+		_, err := httpdtest.RemoveUser(user, http.StatusOK)
+		assert.NoError(t, err)
+		assert.NoError(t, os.RemoveAll(user.GetHomeDir()))
+	}()
+	conn, client, err := getSftpClient(user, usePubKey)
+	require.NoError(t, err)
+	defer conn.Close()
+	defer client.Close()
+
+	ch, reqs, err := conn.OpenChannel("session", nil)
+	require.NoError(t, err)
+	defer ch.Close()
+	go ssh.DiscardRequests(reqs)
+	sftpPayload := ssh.Marshal(struct{ Name string }{Name: "sftp"})
+	execPayload := ssh.Marshal(struct{ Command string }{Command: "pwd"})
+	// a rejected request does not use the channel
+	accepted, err := ch.SendRequest("subsystem", true, ssh.Marshal(struct{ Name string }{Name: "invalid"}))
+	require.NoError(t, err)
+	assert.False(t, accepted)
+	accepted, err = ch.SendRequest("exec", true, ssh.Marshal(struct{ Command string }{Command: "unsupported"}))
+	require.NoError(t, err)
+	assert.False(t, accepted)
+	accepted, err = ch.SendRequest("subsystem", true, sftpPayload)
+	require.NoError(t, err)
+	assert.True(t, accepted)
+	// then further subsystems and commands are rejected
+	accepted, err = ch.SendRequest("subsystem", true, sftpPayload)
+	require.NoError(t, err)
+	assert.False(t, accepted)
+	accepted, err = ch.SendRequest("exec", true, execPayload)
+	require.NoError(t, err)
+	assert.False(t, accepted)
+	// the started subsystem works
+	chClient, err := sftp.NewClientPipe(ch, ch)
+	require.NoError(t, err)
+	defer chClient.Close()
+	_, err = chClient.ReadDir("/")
+	assert.NoError(t, err)
+	// the same holds for a command, scp waits for the data to upload
+	ch2, reqs2, err := conn.OpenChannel("session", nil)
+	require.NoError(t, err)
+	defer ch2.Close()
+	go ssh.DiscardRequests(reqs2)
+	accepted, err = ch2.SendRequest("exec", true, ssh.Marshal(struct{ Command string }{Command: "scp -t /"}))
+	require.NoError(t, err)
+	assert.True(t, accepted)
+	accepted, err = ch2.SendRequest("exec", true, execPayload)
+	require.NoError(t, err)
+	assert.False(t, accepted)
+	accepted, err = ch2.SendRequest("subsystem", true, sftpPayload)
+	require.NoError(t, err)
+	assert.False(t, accepted)
+}
+
+func TestSSHSessionSlotsAfterRejectedSession(t *testing.T) {
+	// sessions refused by the user's session limit release their slots
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	u.MaxSessions = 1
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	require.NoError(t, err)
+	defer func() {
+		_, err := httpdtest.RemoveUser(user, http.StatusOK)
+		assert.NoError(t, err)
+		assert.NoError(t, os.RemoveAll(user.GetHomeDir()))
+	}()
+	conn, client, err := getSftpClient(user, usePubKey)
+	require.NoError(t, err)
+	defer conn.Close()
+
+	for i := range 15 {
+		c, err := sftp.NewClient(conn)
+		if !assert.Error(t, err, "attempt %d", i) {
+			c.Close()
+		}
+		var openErr *ssh.OpenChannelError
+		assert.False(t, errors.As(err, &openErr), "attempt %d: the session slot is still held: %v", i, err)
+	}
+	require.NoError(t, client.Close())
+	assert.Eventually(t, func() bool {
+		c, err := sftp.NewClient(conn)
+		if err != nil {
+			return false
+		}
+		defer c.Close()
+
+		_, err = c.ReadDir("/")
+		return err == nil
+	}, 2*time.Second, 50*time.Millisecond)
+}
+
+func TestSSHCommandSessionSlots(t *testing.T) {
+	const maxSessions = 4
+	usePubKey := true
+	user, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
+	require.NoError(t, err)
+	defer func() {
+		_, err := httpdtest.RemoveUser(user, http.StatusOK)
+		assert.NoError(t, err)
+		assert.NoError(t, os.RemoveAll(user.GetHomeDir()))
+	}()
+	// lowered after the user is created and restored before it is removed:
+	// the REST API is subject to the same limit
+	oldValue := common.Config.MaxPerHostConnections
+	common.Config.MaxPerHostConnections = maxSessions
+	defer func() {
+		common.Config.MaxPerHostConnections = oldValue
+	}()
+	conn, client, err := getSftpClient(user, usePubKey)
+	require.NoError(t, err)
+	defer conn.Close()
+	defer client.Close()
+
+	newSession := func() *ssh.Session {
+		var session *ssh.Session
+		require.Eventually(t, func() bool {
+			var err error
+			session, err = conn.NewSession()
+			return err == nil
+		}, 2*time.Second, 50*time.Millisecond)
+		return session
+	}
+	// ended commands free their slots
+	for i := range maxSessions + 2 {
+		session := newSession()
+		out, err := session.Output("pwd")
+		assert.NoError(t, err, "command %d", i)
+		assert.Equal(t, "/\n", string(out), "command %d", i)
+		session.Close()
+	}
+	// a command ended by the client frees its slot, scp waits for the data to upload
+	for range maxSessions + 2 {
+		session := newSession()
+		require.NoError(t, session.Start("scp -t /"))
+		session.Close()
+	}
+	// the sftp client holds one slot
+	for range maxSessions - 1 {
+		defer newSession().Close()
+	}
+	_, err = conn.NewSession()
+	assert.Error(t, err)
+}

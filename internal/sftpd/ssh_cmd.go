@@ -51,7 +51,9 @@ type sshCommand struct {
 	startTime  time.Time
 }
 
-func processSSHCommand(payload []byte, connection *Connection, enabledSSHCommands []string) bool {
+// newSSHCommandHandler returns the handler of the command in payload, nil if
+// the command is invalid or not enabled.
+func newSSHCommandHandler(payload []byte, connection *Connection, enabledSSHCommands []string) func() {
 	var msg sshSubsystemExecMsg
 	if err := ssh.Unmarshal(payload, &msg); err == nil {
 		name, args, err := parseCommandPayload(msg.Command)
@@ -68,8 +70,7 @@ func processSSHCommand(payload []byte, connection *Connection, enabledSSHCommand
 						startTime:  time.Now(),
 						args:       args},
 				}
-				go func() { _ = scpCommand.handle() }()
-				return true
+				return func() { _ = scpCommand.handle() }
 			}
 			if name != scpCmdName {
 				connection.SetProtocol(common.ProtocolSSH)
@@ -79,8 +80,7 @@ func processSSHCommand(payload []byte, connection *Connection, enabledSSHCommand
 					startTime:  time.Now(),
 					args:       args,
 				}
-				go func() { _ = sshCommand.handle() }()
-				return true
+				return func() { _ = sshCommand.handle() }
 			}
 		} else {
 			connection.Log(logger.LevelInfo, "ssh command not enabled/supported: %q", name)
@@ -88,7 +88,7 @@ func processSSHCommand(payload []byte, connection *Connection, enabledSSHCommand
 	}
 	err := connection.CloseFS()
 	connection.Log(logger.LevelError, "unable to unmarshal ssh command, close fs, err: %v", err)
-	return false
+	return nil
 }
 
 func (c *sshCommand) handle() (err error) {

@@ -27,6 +27,7 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -2351,4 +2352,74 @@ func TestCheckAuthErrorAccountConfig(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, hosts, 1, "the guess following the misconfiguration is scored")
 	common.DeleteDefenderHost(ip)
+}
+
+func TestReserveOpenDir(t *testing.T) {
+	oldValue := common.Config.MaxPerHostConnections
+	t.Cleanup(func() { common.Config.MaxPerHostConnections = oldValue })
+	const maxOpenDirs = 4
+	common.Config.MaxPerHostConnections = maxOpenDirs
+
+	newConn := func(remoteAddr string) *Connection {
+		return &Connection{
+			BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolSFTP, "", remoteAddr,
+				dataprovider.User{}),
+		}
+	}
+	// the connections of one IP share the limit
+	c1 := newConn("192.0.2.1:1234")
+	c2 := newConn("192.0.2.1:5678")
+	releases := make([]func(), 0, maxOpenDirs)
+	for i := range maxOpenDirs {
+		c := c1
+		if i%2 == 1 {
+			c = c2
+		}
+		release, err := c.reserveOpenDir()
+		require.NoError(t, err)
+		releases = append(releases, release)
+	}
+	_, err := c1.reserveOpenDir()
+	assert.ErrorIs(t, err, errTooManyOpenDirs)
+	_, err = c2.reserveOpenDir()
+	assert.ErrorIs(t, err, errTooManyOpenDirs)
+	// another IP has its own limit
+	release, err := newConn("192.0.2.2:1234").reserveOpenDir()
+	require.NoError(t, err)
+	release()
+	// releasing twice frees one slot
+	releases[0]()
+	releases[0]()
+	release, err = c2.reserveOpenDir()
+	require.NoError(t, err)
+	_, err = c1.reserveOpenDir()
+	assert.ErrorIs(t, err, errTooManyOpenDirs)
+	release()
+	for _, release := range releases[1:] {
+		release()
+	}
+	// 0 means unlimited
+	common.Config.MaxPerHostConnections = 0
+	for range maxOpenDirs + 1 {
+		release, err := c1.reserveOpenDir()
+		require.NoError(t, err)
+		defer release()
+	}
+}
+
+func TestSessionSlot(t *testing.T) {
+	var open atomic.Int32
+	// a channel without handler
+	open.Add(1)
+	s := newSessionSlot(&open)
+	s.release()
+	assert.Zero(t, open.Load())
+	// the last of the channel and the handler frees the slot, in either order
+	open.Add(1)
+	s = newSessionSlot(&open)
+	s.acquire()
+	s.release()
+	assert.Equal(t, int32(1), open.Load())
+	s.release()
+	assert.Zero(t, open.Load())
 }

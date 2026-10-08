@@ -33,6 +33,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/sftp"
@@ -680,6 +681,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 	defer common.Connections.RemoveSSHConnection(connectionID)
 
 	channelCounter := int64(0)
+	var openSessions atomic.Int32
 	for newChannel := range chans {
 		// If its not a session channel we just move on because its not something we
 		// know how to handle at this point.
@@ -690,25 +692,44 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 			continue
 		}
 
+		if maxSessions := common.Config.MaxPerHostConnections; maxSessions > 0 {
+			if open := int(openSessions.Load()); open >= maxSessions {
+				logger.Log(logger.LevelInfo, common.ProtocolSSH, connectionID, "session channel rejected, open sessions: %d/%d",
+					open, maxSessions)
+				_ = newChannel.Reject(ssh.ResourceShortage, "too many open sessions")
+				continue
+			}
+		}
 		channel, requests, err := newChannel.Accept()
 		if err != nil {
 			logger.Log(logger.LevelWarn, common.ProtocolSSH, connectionID, "could not accept a channel: %v", err)
 			continue
 		}
 
+		openSessions.Add(1)
+		session := newSessionSlot(&openSessions)
 		channelCounter++
 		// Channels have a type that is dependent on the protocol. For SFTP this is "subsystem"
 		// with a payload that (should) be "sftp". Discard anything else we receive ("pty", "shell", etc)
 		go func(in <-chan *ssh.Request, counter int64) {
+			// the requests end when the channel is closed, releasing its reference
+			defer session.release()
+
+			started := false
 			for req := range in {
 				ok := false
 				connID := fmt.Sprintf("%s_%d", connectionID, counter)
 
 				switch req.Type {
 				case "subsystem":
+					if started {
+						logger.Log(logger.LevelInfo, common.ProtocolSSH, connID, "subsystem rejected, the channel is already in use")
+						break
+					}
 					var msg sshSubsystemMsg
 					if err := ssh.Unmarshal(req.Payload, &msg); err == nil && msg.Name == "sftp" {
 						ok = true
+						started = true
 						sshConnection.UpdateLastActivity()
 						connection := &Connection{
 							BaseConnection: common.NewBaseConnection(connID, common.ProtocolSFTP, conn.LocalAddr().String(),
@@ -719,10 +740,19 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 							channel:       channel,
 						}
 						connection.User.ResetFsCache()
-						go c.handleSftpConnection(channel, connection)
+						session.acquire()
+						go func() {
+							defer session.release()
+
+							c.handleSftpConnection(channel, connection)
+						}()
 					}
 				case "exec":
-					// protocol will be set later inside processSSHCommand it could be SSH or SCP
+					if started {
+						logger.Log(logger.LevelInfo, common.ProtocolSSH, connID, "command rejected, the channel is already in use")
+						break
+					}
+					// protocol will be set later inside newSSHCommandHandler it could be SSH or SCP
 					connection := Connection{
 						BaseConnection: common.NewBaseConnection(connID, "sshd_exec", conn.LocalAddr().String(),
 							conn.RemoteAddr().String(), user),
@@ -732,9 +762,16 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 						channel:       channel,
 					}
 					connection.User.ResetFsCache()
-					ok = processSSHCommand(req.Payload, &connection, c.EnabledSSHCommands)
-					if ok {
+					if handler := newSSHCommandHandler(req.Payload, &connection, c.EnabledSSHCommands); handler != nil {
+						ok = true
+						started = true
 						sshConnection.UpdateLastActivity()
+						session.acquire()
+						go func() {
+							defer session.release()
+
+							handler()
+						}()
 					}
 				}
 				if req.WantReply {
@@ -742,6 +779,27 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 				}
 			}
 		}(requests, channelCounter)
+	}
+}
+
+type sessionSlot struct {
+	refs atomic.Int32
+	open *atomic.Int32
+}
+
+func newSessionSlot(open *atomic.Int32) *sessionSlot {
+	s := &sessionSlot{open: open}
+	s.refs.Store(1)
+	return s
+}
+
+func (s *sessionSlot) acquire() {
+	s.refs.Add(1)
+}
+
+func (s *sessionSlot) release() {
+	if s.refs.Add(-1) == 0 {
+		s.open.Add(-1)
 	}
 }
 

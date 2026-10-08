@@ -140,6 +140,9 @@ func init() {
 	Connections.transfersPerIP = clientsMap{
 		clients: make(map[string]int),
 	}
+	Connections.openDirsPerIP = clientsMap{
+		clients: make(map[string]int),
+	}
 	Connections.perUserConns = make(map[string]int)
 	Connections.mapping = make(map[string]int)
 	Connections.sshMapping = make(map[string]int)
@@ -970,6 +973,7 @@ type ActiveConnections struct {
 	transfers clientsMap
 	// transfersPerIP contains active transfers per client IP, used to enforce MaxPerHostConnections
 	transfersPerIP       clientsMap
+	openDirsPerIP        clientsMap
 	transfersCheckStatus atomic.Bool
 	sync.RWMutex
 	connections    []ActiveConnection
@@ -1323,6 +1327,14 @@ func (conns *ActiveConnections) IsNewTransferAllowed(c *BaseConnection) error {
 		}
 	}
 	return nil
+}
+
+func (conns *ActiveConnections) TryAddOpenDir(ipAddr string) bool {
+	return conns.openDirsPerIP.tryAdd(ipAddr, Config.MaxPerHostConnections)
+}
+
+func (conns *ActiveConnections) RemoveOpenDir(ipAddr string) {
+	conns.openDirsPerIP.remove(ipAddr)
 }
 
 // IsNewConnectionAllowed returns an error if the maximum number of concurrent allowed
