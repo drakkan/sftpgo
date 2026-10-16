@@ -204,7 +204,7 @@ func (s *httpdServer) renderClientLoginPage(w http.ResponseWriter, r *http.Reque
 func (s *httpdServer) handleWebClientLogout(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
 	removeCookie(w, r, webBaseClientPath)
-	s.logoutOIDCUser(w, r)
+	s.logoutOIDCUser(w, r, webBaseClientPath)
 
 	http.Redirect(w, r, webClientLoginPath, http.StatusFound)
 }
@@ -631,7 +631,7 @@ func (s *httpdServer) handleWebAdminLogin(w http.ResponseWriter, r *http.Request
 func (s *httpdServer) handleWebAdminLogout(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	removeCookie(w, r, webBaseAdminPath)
-	s.logoutOIDCUser(w, r)
+	s.logoutOIDCUser(w, r, webBaseAdminPath)
 
 	http.Redirect(w, r, webAdminLoginPath, http.StatusFound)
 }
