@@ -102,7 +102,7 @@ func (d *dbDefender) AddEvent(ip, protocol string, event HostEvent) bool {
 		return false
 	}
 	d.logEvent(ip, protocol, event, host.Score)
-	if host.Score > d.config.Threshold {
+	if host.Score >= d.config.Threshold {
 		d.logBan(ip, protocol)
 		banTime := time.Now().Add(time.Duration(d.config.BanTime) * time.Minute)
 		err = dataprovider.SetDefenderBanTime(ip, util.GetTimeAsMsSinceEpoch(banTime))

@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/util"
@@ -316,5 +317,42 @@ func isDbDefenderSupported() bool {
 		return true
 	default:
 		return false
+	}
+}
+
+func TestDefenderBansAtThreshold(t *testing.T) {
+	config := &DefenderConfig{
+		Enabled:            true,
+		BanTime:            10,
+		BanTimeIncrement:   2,
+		Threshold:          5,
+		ScoreInvalid:       2,
+		ScoreValid:         1,
+		ScoreLimitExceeded: 3,
+		ObservationTime:    15,
+		EntriesSoftLimit:   10,
+		EntriesHardLimit:   20,
+	}
+	memDefender, err := newInMemoryDefender(config)
+	require.NoError(t, err)
+	defenders := map[string]Defender{
+		DefenderDriverMemory: memDefender,
+	}
+	if isDbDefenderSupported() {
+		dbDefender, err := newDBDefender(config)
+		require.NoError(t, err)
+		defenders[DefenderDriverProvider] = dbDefender
+	}
+	testIP := "123.45.68.1"
+	for driver, defender := range defenders {
+		t.Run(driver, func(t *testing.T) {
+			for range config.Threshold - 1 {
+				defender.AddEvent(testIP, ProtocolSSH, HostEventLoginFailed)
+			}
+			assert.False(t, defender.IsBanned(testIP, ProtocolSSH))
+			defender.AddEvent(testIP, ProtocolSSH, HostEventLoginFailed)
+			assert.True(t, defender.IsBanned(testIP, ProtocolSSH))
+			assert.True(t, defender.DeleteHost(testIP))
+		})
 	}
 }
