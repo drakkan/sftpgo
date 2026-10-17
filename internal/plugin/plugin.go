@@ -341,14 +341,14 @@ func (m *Manager) NotifyLogEvent(event notifier.LogEventType, protocol, username
 			if e == nil {
 				message := ""
 				if err != nil {
-					message = strings.Trim(err.Error(), "\x00")
+					message = sanitizeLogText(err.Error())
 				}
 
 				e = &notifier.LogEvent{
 					Timestamp: time.Now().UnixNano(),
 					Event:     event,
 					Protocol:  protocol,
-					Username:  username,
+					Username:  sanitizeLogText(username),
 					IP:        ip,
 					Message:   message,
 					Role:      role,
@@ -357,6 +357,10 @@ func (m *Manager) NotifyLogEvent(event notifier.LogEventType, protocol, username
 			n.notifyLogEvent(e)
 		}
 	}
+}
+
+func sanitizeLogText(s string) string {
+	return strings.ReplaceAll(strings.ToValidUTF8(s, "\uFFFD"), "\x00", "\uFFFD")
 }
 
 // HasSearcher returns true if an event searcher plugin is defined
