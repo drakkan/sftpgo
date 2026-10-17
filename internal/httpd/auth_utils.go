@@ -96,8 +96,10 @@ func getTokenDuration(audience tokenAudience) time.Duration {
 		return apiTokenDuration
 	case tokenAudienceWebAdmin, tokenAudienceWebClient:
 		return cookieTokenDuration
-	case tokenAudienceWebAdminPartial, tokenAudienceWebClientPartial, tokenAudienceOAuth2:
+	case tokenAudienceWebAdminPartial, tokenAudienceWebClientPartial:
 		return 5 * time.Minute
+	case tokenAudienceOAuth2:
+		return 10 * time.Minute
 	default:
 		logger.Error(logSender, "", "token duration not handled for audience: %q", audience)
 		return 20 * time.Minute

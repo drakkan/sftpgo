@@ -638,7 +638,7 @@ func TestOIDCLoginLogout(t *testing.T) {
 		State:    util.GenerateOpaqueString(),
 		Nonce:    util.GenerateOpaqueString(),
 		Audience: tokenAudienceWebClient,
-		IssuedAt: util.GetTimeAsMsSinceEpoch(time.Now().Add(-10 * time.Minute)),
+		IssuedAt: util.GetTimeAsMsSinceEpoch(time.Now().Add(-15 * time.Minute)),
 	}
 	oidcMgr.addPendingAuth(expiredAuthReq)
 	rr = httptest.NewRecorder()
@@ -1820,7 +1820,7 @@ func TestMemoryOIDCManager(t *testing.T) {
 	assert.NoError(t, err)
 	oidcMgr.removePendingAuth(authReq.State)
 	require.Len(t, oidcMgr.pendingAuths, 0)
-	authReq.IssuedAt = util.GetTimeAsMsSinceEpoch(time.Now().Add(-600 * time.Second))
+	authReq.IssuedAt = util.GetTimeAsMsSinceEpoch(time.Now().Add(-900 * time.Second))
 	oidcMgr.addPendingAuth(authReq)
 	require.Len(t, oidcMgr.pendingAuths, 1)
 	_, err = oidcMgr.getPendingAuth(authReq.State)

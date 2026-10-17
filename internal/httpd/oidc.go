@@ -41,7 +41,7 @@ const (
 	oidcCookieKey          = "oidc"
 	oidcBrowserCookieKey   = "oidc_browser"
 	adminRoleFieldValue    = "admin"
-	authStateValidity      = 2 * 60 * 1000 // 2 minutes
+	authStateValidity      = 10 * 60 * 1000 // 10 minutes
 	maxWebClientNextLength = 4096
 	emailVerifiedClaim     = "email_verified"
 	tokenUpdateInterval    = 3 * 60 * 1000   // 3 minutes

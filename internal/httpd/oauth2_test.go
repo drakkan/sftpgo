@@ -59,7 +59,7 @@ func TestMemoryOAuth2Manager(t *testing.T) {
 	auth = oauth2PendingAuth{
 		State:    xid.New().String(),
 		Provider: 1,
-		IssuedAt: util.GetTimeAsMsSinceEpoch(time.Now().Add(-10 * time.Minute)),
+		IssuedAt: util.GetTimeAsMsSinceEpoch(time.Now().Add(-15 * time.Minute)),
 	}
 	m.addPendingAuth(auth)
 	require.Len(t, m.pendingAuths, 2)
@@ -101,7 +101,7 @@ func TestDbOAuth2Manager(t *testing.T) {
 	auth = oauth2PendingAuth{
 		State:        xid.New().String(),
 		Provider:     1,
-		IssuedAt:     util.GetTimeAsMsSinceEpoch(time.Now().Add(-10 * time.Minute)),
+		IssuedAt:     util.GetTimeAsMsSinceEpoch(time.Now().Add(-15 * time.Minute)),
 		ClientSecret: kms.NewPlainSecret("db secret"),
 	}
 	m.addPendingAuth(auth)
