@@ -470,3 +470,36 @@ func TestUploadAtomicRenameError(t *testing.T) {
 	assert.Greater(t, transfer.BytesReceived.Load(), int64(0))
 	assert.Len(t, conn.GetTransfers(), 0)
 }
+
+func TestTransferAbortSignalGates(t *testing.T) {
+	testFile := filepath.Join(os.TempDir(), "transfer_abort_gate")
+	fs := vfs.NewOsFs("id", os.TempDir(), "", nil)
+	u := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username: "test",
+			HomeDir:  os.TempDir(),
+		},
+	}
+	conn := NewBaseConnection("id", ProtocolSFTP, "", "", u)
+	upload := NewBaseTransfer(nil, conn, nil, testFile, testFile, "/transfer_abort_gate", TransferUpload,
+		0, 0, 1<<30, 0, true, fs, dataprovider.TransferQuota{})
+	upload.BytesReceived.Store(40000)
+	assert.NoError(t, upload.CheckWrite())
+	errAbort := errors.New("checker abort")
+	upload.SignalClose(errAbort)
+	assert.True(t, upload.abortTransfer.Load())
+	assert.ErrorIs(t, upload.CheckWrite(), errAbort)
+	assert.ErrorIs(t, upload.CheckRead(), errAbort)
+	conn.RemoveTransfer(upload)
+
+	download := NewBaseTransfer(nil, conn, nil, testFile, testFile, "/transfer_abort_gate", TransferDownload,
+		0, 0, 0, 0, true, fs, dataprovider.TransferQuota{})
+	download.BytesSent.Store(40000)
+	assert.NoError(t, download.CheckRead())
+	download.SignalClose(nil)
+	assert.True(t, download.abortTransfer.Load())
+	// a signal without an explicit error maps to the protocol quota error
+	assert.True(t, conn.IsQuotaExceededError(download.CheckRead()))
+	assert.True(t, conn.IsQuotaExceededError(download.CheckWrite()))
+	conn.RemoveTransfer(download)
+}

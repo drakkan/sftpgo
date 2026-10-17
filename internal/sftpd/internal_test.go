@@ -2423,3 +2423,53 @@ func TestSessionSlot(t *testing.T) {
 	s.release()
 	assert.Zero(t, open.Load())
 }
+
+func TestTransferAbortSignal(t *testing.T) {
+	testfile := "testfile_abort"
+	file, err := os.Create(testfile)
+	assert.NoError(t, err)
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username: "testuser",
+		},
+	}
+	fs := vfs.NewOsFs("", os.TempDir(), "", nil)
+	conn := common.NewBaseConnection("", common.ProtocolSFTP, "", "", user)
+	baseTransfer := common.NewBaseTransfer(file, conn, nil, file.Name(), file.Name(), testfile,
+		common.TransferUpload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
+	transfer := newTransfer(baseTransfer, nil, nil, nil)
+	n, err := transfer.WriteAt([]byte("test"), 0)
+	assert.NoError(t, err)
+	assert.Equal(t, 4, n)
+	transfer.SignalClose(common.ErrQuotaExceeded)
+	_, err = transfer.WriteAt([]byte("test"), 4)
+	if assert.Error(t, err) {
+		assert.ErrorIs(t, err, sftp.ErrSSHFxFailure)
+	}
+	assert.ErrorIs(t, transfer.ErrTransfer, common.ErrQuotaExceeded)
+	_, err = transfer.ReadAt(make([]byte, 4), 0)
+	assert.Error(t, err)
+	err = transfer.Close()
+	assert.Error(t, err)
+
+	// the quota error removed the partial upload, recreate the file for the download
+	err = os.WriteFile(testfile, []byte("test data"), 0666)
+	assert.NoError(t, err)
+	file, err = os.Open(testfile)
+	require.NoError(t, err)
+	baseTransfer = common.NewBaseTransfer(file, conn, nil, file.Name(), file.Name(), testfile,
+		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
+	transfer = newTransfer(baseTransfer, nil, nil, nil)
+	n, err = transfer.ReadAt(make([]byte, 4), 0)
+	assert.NoError(t, err)
+	assert.Equal(t, 4, n)
+	transfer.SignalClose(common.ErrReadQuotaExceeded)
+	_, err = transfer.ReadAt(make([]byte, 4), 0)
+	assert.Error(t, err)
+	assert.ErrorIs(t, transfer.ErrTransfer, common.ErrReadQuotaExceeded)
+	err = transfer.Close()
+	assert.Error(t, err)
+
+	err = os.Remove(testfile)
+	assert.NoError(t, err)
+}

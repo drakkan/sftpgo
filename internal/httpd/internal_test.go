@@ -3272,9 +3272,19 @@ func TestHTTPDFile(t *testing.T) {
 	assert.Error(t, err)
 	assert.Error(t, httpdFile.ErrTransfer)
 	assert.Equal(t, err, httpdFile.ErrTransfer)
+	// an abort signal without an explicit error maps to the quota error after the next write
+	abortFile, err := os.CreateTemp("", "abort")
+	assert.NoError(t, err)
+	httpdFile.writer = abortFile
+	httpdFile.ErrTransfer = nil
 	httpdFile.SignalClose(nil)
-	_, err = httpdFile.Write(nil)
+	_, err = httpdFile.Write([]byte("a"))
 	assert.ErrorIs(t, err, common.ErrQuotaExceeded)
+	assert.ErrorIs(t, httpdFile.ErrTransfer, common.ErrQuotaExceeded)
+	err = abortFile.Close()
+	assert.NoError(t, err)
+	err = os.Remove(abortFile.Name())
+	assert.NoError(t, err)
 }
 
 func TestChangeUserPwd(t *testing.T) {

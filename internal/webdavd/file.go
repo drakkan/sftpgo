@@ -35,10 +35,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/vfs"
 )
 
-var (
-	errTransferAborted = errors.New("transfer aborted")
-	lastModifiedProps  = []string{"Win32LastModifiedTime", "getlastmodified"}
-)
+var lastModifiedProps = []string{"Win32LastModifiedTime", "getlastmodified"}
 
 var _ webdav.TransferErrorHandler = (*webDavFile)(nil)
 
@@ -213,9 +210,6 @@ func (f *webDavFile) checkFirstRead() error {
 
 // Read reads the contents to downloads.
 func (f *webDavFile) Read(p []byte) (n int, err error) {
-	if f.AbortTransfer.Load() {
-		return 0, errTransferAborted
-	}
 	if !f.readTried.Load() {
 		if err := f.checkFirstRead(); err != nil {
 			return 0, err
@@ -266,10 +260,6 @@ func (f *webDavFile) Read(p []byte) (n int, err error) {
 
 // Write writes the uploaded contents.
 func (f *webDavFile) Write(p []byte) (n int, err error) {
-	if f.AbortTransfer.Load() {
-		return 0, errTransferAborted
-	}
-
 	f.Connection.UpdateLastActivity()
 
 	n, err = f.writer.Write(p)

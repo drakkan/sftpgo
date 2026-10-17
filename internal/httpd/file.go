@@ -49,12 +49,6 @@ func newHTTPDFile(baseTransfer *common.BaseTransfer, pipeWriter vfs.PipeWriter, 
 
 // Read reads the contents to downloads.
 func (f *httpdFile) Read(p []byte) (n int, err error) {
-	if f.AbortTransfer.Load() {
-		err := f.GetAbortError()
-		f.TransferError(err)
-		return 0, err
-	}
-
 	f.Connection.UpdateLastActivity()
 
 	n, err = f.reader.Read(p)
@@ -74,12 +68,6 @@ func (f *httpdFile) Read(p []byte) (n int, err error) {
 
 // Write writes the contents to upload
 func (f *httpdFile) Write(p []byte) (n int, err error) {
-	if f.AbortTransfer.Load() {
-		err := f.GetAbortError()
-		f.TransferError(err)
-		return 0, err
-	}
-
 	f.Connection.UpdateLastActivity()
 
 	n, err = f.writer.Write(p)

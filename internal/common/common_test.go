@@ -1105,7 +1105,7 @@ func TestConnectionStatus(t *testing.T) {
 
 	err = fakeConn3.SignalTransfersAbort()
 	assert.NoError(t, err)
-	assert.True(t, t3.AbortTransfer.Load())
+	assert.True(t, t3.abortTransfer.Load())
 	err = t3.Close()
 	assert.NoError(t, err)
 	err = fakeConn3.SignalTransfersAbort()

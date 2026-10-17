@@ -54,7 +54,7 @@ type BaseTransfer struct {
 	truncatedSize   int64
 	isNewFile       bool
 	transferType    int
-	AbortTransfer   atomic.Bool
+	abortTransfer   atomic.Bool
 	aTime           time.Time
 	mTime           time.Time
 	transferQuota   dataprovider.TransferQuota
@@ -88,7 +88,7 @@ func NewBaseTransfer(file vfs.File, conn *BaseConnection, cancelFn func(), fsPat
 		transferQuota:   transferQuota,
 		Fs:              fs,
 	}
-	t.AbortTransfer.Store(false)
+	t.abortTransfer.Store(false)
 	t.BytesSent.Store(0)
 	t.BytesReceived.Store(0)
 
@@ -157,7 +157,7 @@ func (t *BaseTransfer) SignalClose(err error) {
 	t.Lock()
 	t.errAbort = err
 	t.Unlock()
-	t.AbortTransfer.Store(true)
+	t.abortTransfer.Store(true)
 }
 
 // GetTruncatedSize returns the truncated sized if this is an upload overwriting
@@ -232,6 +232,9 @@ func (t *BaseTransfer) ConvertError(err error) error {
 
 // CheckRead returns an error if read if not allowed
 func (t *BaseTransfer) CheckRead() error {
+	if t.abortTransfer.Load() {
+		return t.GetAbortError()
+	}
 	if t.transferQuota.AllowedDLSize == 0 && t.transferQuota.AllowedTotalSize == 0 {
 		return nil
 	}
@@ -249,6 +252,9 @@ func (t *BaseTransfer) CheckRead() error {
 
 // CheckWrite returns an error if write if not allowed
 func (t *BaseTransfer) CheckWrite() error {
+	if t.abortTransfer.Load() {
+		return t.GetAbortError()
+	}
 	if t.MaxWriteSize > 0 && t.BytesReceived.Load() > t.MaxWriteSize {
 		return t.Connection.GetQuotaExceededError()
 	}

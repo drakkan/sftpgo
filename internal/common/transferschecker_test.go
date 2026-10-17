@@ -160,6 +160,10 @@ func TestTransfersCheckerDiskQuota(t *testing.T) {
 	assert.True(t, conn1.IsQuotaExceededError(transfer1.GetAbortError()))
 	assert.Nil(t, transfer3.errAbort)
 	assert.True(t, conn3.IsQuotaExceededError(transfer3.GetAbortError()))
+	// the signalled transfers refuse further writes, the download is unaffected
+	assert.True(t, conn1.IsQuotaExceededError(transfer1.CheckWrite()))
+	assert.True(t, conn2.IsQuotaExceededError(transfer2.CheckWrite()))
+	assert.NoError(t, transfer3.CheckRead())
 	// update the user quota size
 	group.UserSettings.QuotaSize = 1000
 	err = dataprovider.UpdateGroup(&group, []string{username}, "", "", "")
