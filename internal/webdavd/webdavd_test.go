@@ -965,6 +965,36 @@ func TestMtimeHeader(t *testing.T) {
 		assert.Equal(t, time.Unix(1666779480, 0).UTC(), info.ModTime().UTC())
 	}
 
+	// the header is ignored without the chtimes permission
+	u1 := getTestUser()
+	u1.Username += "_nochtimes"
+	u1.Permissions["/"] = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload,
+		dataprovider.PermOverwrite, dataprovider.PermCreateDirs}
+	userNoChtimes, _, err := httpdtest.AddUser(u1, http.StatusCreated)
+	assert.NoError(t, err)
+	clientNoChtimes := getWebDavClient(userNoChtimes, false, nil)
+	err = uploadFileWithRawClient(testFilePath, testFileName, userNoChtimes.Username, defaultPassword,
+		false, testFileSize, clientNoChtimes, dataprovider.KeyValue{Key: ocMtimeHeader, Value: "1668879480"})
+	assert.NoError(t, err)
+	info, err = clientNoChtimes.Stat(testFileName)
+	if assert.NoError(t, err) {
+		assert.NotEqual(t, time.Unix(1668879480, 0).UTC(), info.ModTime().UTC())
+		assert.WithinDuration(t, time.Now(), info.ModTime(), 2*time.Minute)
+	}
+	// the same on overwrite
+	err = uploadFileWithRawClient(testFilePath, testFileName, userNoChtimes.Username, defaultPassword,
+		false, testFileSize, clientNoChtimes, dataprovider.KeyValue{Key: ocMtimeHeader, Value: "1667879480"})
+	assert.NoError(t, err)
+	info, err = clientNoChtimes.Stat(testFileName)
+	if assert.NoError(t, err) {
+		assert.NotEqual(t, time.Unix(1667879480, 0).UTC(), info.ModTime().UTC())
+		assert.WithinDuration(t, time.Now(), info.ModTime(), 2*time.Minute)
+	}
+	_, err = httpdtest.RemoveUser(userNoChtimes, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(userNoChtimes.GetHomeDir())
+	assert.NoError(t, err)
+
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())

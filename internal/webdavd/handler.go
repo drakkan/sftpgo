@@ -61,6 +61,20 @@ func (c *Connection) getModificationTime() time.Time {
 	return time.Time{}
 }
 
+func (c *Connection) setModificationTimeFromHeader(virtualPath string) {
+	mtime := c.getModificationTime()
+	if mtime.IsZero() {
+		return
+	}
+	attrs := &common.StatAttributes{
+		Flags: common.StatAttrTimes,
+		Atime: mtime,
+		Mtime: mtime,
+	}
+	err := c.SetStat(virtualPath, attrs)
+	c.Log(logger.LevelDebug, "mtime header found for %q, value: %s, err: %v", virtualPath, mtime, err)
+}
+
 // GetClientVersion returns the connected client's version.
 func (c *Connection) GetClientVersion() string {
 	if c.request != nil {
@@ -115,15 +129,7 @@ func (c *Connection) Rename(_ context.Context, oldName, newName string) error {
 
 	err := c.BaseConnection.Rename(oldName, newName)
 	if err == nil {
-		if mtime := c.getModificationTime(); !mtime.IsZero() {
-			attrs := &common.StatAttributes{
-				Flags: common.StatAttrTimes,
-				Atime: mtime,
-				Mtime: mtime,
-			}
-			setStatErr := c.SetStat(newName, attrs)
-			c.Log(logger.LevelDebug, "mtime header found for %q, value: %s, err: %v", newName, mtime, setStatErr)
-		}
+		c.setModificationTimeFromHeader(newName)
 	}
 	return err
 }
@@ -247,8 +253,7 @@ func (c *Connection) handleUploadToNewFile(fs vfs.Fs, resolvedPath, filePath, re
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, filePath, requestPath,
 		common.TransferUpload, 0, 0, maxWriteSize, 0, true, fs, transferQuota)
-	mtime := c.getModificationTime()
-	baseTransfer.SetTimes(resolvedPath, mtime, mtime)
+	c.setModificationTimeFromHeader(requestPath)
 
 	return newWebDavFile(baseTransfer, w, nil), nil
 }
@@ -304,8 +309,7 @@ func (c *Connection) handleUploadToExistingFile(fs vfs.Fs, resolvedPath, filePat
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, filePath, requestPath,
 		common.TransferUpload, 0, initialSize, maxWriteSize, truncatedSize, false, fs, transferQuota)
-	mtime := c.getModificationTime()
-	baseTransfer.SetTimes(resolvedPath, mtime, mtime)
+	c.setModificationTimeFromHeader(requestPath)
 
 	return newWebDavFile(baseTransfer, w, nil), nil
 }
