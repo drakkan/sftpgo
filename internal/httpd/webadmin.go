@@ -3093,7 +3093,12 @@ func (s *httpdServer) handleGetWebAdmins(w http.ResponseWriter, r *http.Request)
 
 func (s *httpdServer) handleWebAdminSetupGet(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
-	if dataprovider.HasAdmin() {
+	hasAdmin, err := dataprovider.HasAdmin()
+	if err != nil {
+		s.renderInternalServerErrorPage(w, r, err)
+		return
+	}
+	if hasAdmin {
 		http.Redirect(w, r, webAdminLoginPath, http.StatusFound)
 		return
 	}

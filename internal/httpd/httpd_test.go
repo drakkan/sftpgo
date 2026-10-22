@@ -21299,7 +21299,14 @@ func TestWebAdminSetupMock(t *testing.T) {
 	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr)
+	switch dataprovider.GetProviderStatus().Driver {
+	case dataprovider.MySQLDataProviderName, dataprovider.PGSQLDataProviderName,
+		dataprovider.CockroachDataProviderName:
+		// shared providers query the admins before accepting the setup
+		checkResponseCode(t, http.StatusInternalServerError, rr)
+	default:
+		checkResponseCode(t, http.StatusOK, rr)
+	}
 	// finally initialize the provider and create the default admin
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)

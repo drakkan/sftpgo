@@ -200,7 +200,6 @@ var (
 	errInvalidInput         = util.NewValidationError("Invalid input. Slashes (/ ), colons (:), control characters, and reserved system names are not allowed")
 	tz                      = ""
 	isAdminCreated          atomic.Bool
-	lastAdminCheck          atomic.Int64
 	validTLSUsernames       = []string{string(sdk.TLSUsernameNone), string(sdk.TLSUsernameCN)}
 	config                  Config
 	provider                Provider
@@ -242,7 +241,6 @@ var (
 	sqlTableSchemaVersion        string
 	argon2Params                 *argon2id.Params
 	lastLoginMinDelay            = 10 * time.Minute
-	adminCheckMinDelay           = int64(time.Second / time.Millisecond)
 	usernameRegex                = regexp.MustCompile("^[a-zA-Z0-9-_.~]+$")
 	allowSelfConnections         int
 	fnReloadRules                FnReloadRules
@@ -951,7 +949,6 @@ func Initialize(cnf Config, basePath string, checkAdmins bool) error {
 		return err
 	}
 	isAdminCreated.Store(len(admins) > 0)
-	lastAdminCheck.Store(util.GetTimeAsMsSinceEpoch(time.Now()))
 	if err := config.Node.validate(); err != nil {
 		return err
 	}
@@ -2062,32 +2059,30 @@ func GetNodeByName(name string) (Node, error) {
 
 // HasAdmin returns true if the first admin has been created
 // and so SFTPGo is ready to be used
-func HasAdmin() bool {
+func HasAdmin() (bool, error) {
 	if isAdminCreated.Load() {
-		return true
+		return true, nil
 	}
 	return checkAdminCreated()
 }
 
-func checkAdminCreated() bool {
+// checkAdminCreated queries a shared data provider for an admin created by another
+// instance. Non-shared providers are written by this process only, so the cached
+// state is authoritative for them.
+func checkAdminCreated() (bool, error) {
 	if !slices.Contains(sharedProviders, config.Driver) {
-		return false
-	}
-	now := util.GetTimeAsMsSinceEpoch(time.Now())
-	lastCheck := lastAdminCheck.Load()
-	if now < lastCheck+adminCheckMinDelay || !lastAdminCheck.CompareAndSwap(lastCheck, now) {
-		return false
+		return false, nil
 	}
 	admins, err := provider.getAdmins(1, 0, OrderASC)
 	if err != nil {
 		providerLog(logger.LevelError, "unable to check if an admin exists: %v", err)
-		return false
+		return false, err
 	}
 	if len(admins) == 0 {
-		return false
+		return false, nil
 	}
 	isAdminCreated.Store(true)
-	return true
+	return true, nil
 }
 
 // AddAdmin adds a new SFTPGo admin

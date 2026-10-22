@@ -97,7 +97,11 @@ func getAWSConfig(ctx context.Context) (aws.Config, error) {
 }
 
 func setInstallationCode(cfg aws.Config) error {
-	if dataprovider.HasAdmin() {
+	hasAdmin, err := dataprovider.HasAdmin()
+	if err != nil {
+		return fmt.Errorf("unable to check if an admin exists: %w", err)
+	}
+	if hasAdmin {
 		return nil
 	}
 	installationCode := util.GenerateUniqueID()

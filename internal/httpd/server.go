@@ -230,7 +230,12 @@ func (s *httpdServer) handleWebClientChangePwdPost(w http.ResponseWriter, r *htt
 
 func (s *httpdServer) handleClientWebLogin(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
-	if !dataprovider.HasAdmin() {
+	hasAdmin, err := dataprovider.HasAdmin()
+	if err != nil {
+		s.renderClientInternalServerErrorPage(w, r, err)
+		return
+	}
+	if !hasAdmin {
 		http.Redirect(w, r, webAdminSetupPath, http.StatusFound)
 		return
 	}
@@ -620,7 +625,12 @@ func (s *httpdServer) renderAdminLoginPage(w http.ResponseWriter, r *http.Reques
 
 func (s *httpdServer) handleWebAdminLogin(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
-	if !dataprovider.HasAdmin() {
+	hasAdmin, err := dataprovider.HasAdmin()
+	if err != nil {
+		s.renderInternalServerErrorPage(w, r, err)
+		return
+	}
+	if !hasAdmin {
 		http.Redirect(w, r, webAdminSetupPath, http.StatusFound)
 		return
 	}
@@ -683,12 +693,17 @@ func (s *httpdServer) handleWebAdminPasswordResetPost(w http.ResponseWriter, r *
 
 func (s *httpdServer) handleWebAdminSetupPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
-	if dataprovider.HasAdmin() {
+	hasAdmin, err := dataprovider.HasAdmin()
+	if err != nil {
+		s.renderInternalServerErrorPage(w, r, err)
+		return
+	}
+	if hasAdmin {
 		s.renderBadRequestPage(w, r, errors.New("an admin user already exists"))
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
-	err := r.ParseForm()
+	err = r.ParseForm()
 	if err != nil {
 		s.renderAdminSetupPage(w, r, "", util.NewI18nError(err, util.I18nErrorInvalidForm))
 		return
@@ -1219,7 +1234,8 @@ func (s *httpdServer) notFoundHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *httpdServer) redirectToWebPath(w http.ResponseWriter, r *http.Request, webPath string) {
-	if dataprovider.HasAdmin() {
+	// on a provider error the target page reports it
+	if hasAdmin, err := dataprovider.HasAdmin(); hasAdmin || err != nil {
 		http.Redirect(w, r, webPath, http.StatusFound)
 		return
 	}
