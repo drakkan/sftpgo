@@ -562,9 +562,9 @@ jobs:
       - name: Lint
         run: |
           export PATH="$(go env GOPATH)/bin:$PATH"
-          go install honnef.co/go/tools/cmd/staticcheck@v0.8.1
-          go install github.com/kisielk/errcheck@v1.20.0
-          go install mvdan.cc/unparam@v0.0.0-20260823230713-2fa3d841b0c8
+          go install honnef.co/go/tools/cmd/staticcheck@v0.8.2
+          go install github.com/kisielk/errcheck@v1.30.0
+          go install mvdan.cc/unparam@v0.0.0-20261011093844-7a2c2c0b7aa6
 
           set +e
           rc=0
