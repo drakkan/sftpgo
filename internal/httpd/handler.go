@@ -194,15 +194,7 @@ func (c *Connection) getFileWriter(name string) (io.WriteCloser, error) {
 		return nil, c.GetPermissionDeniedError()
 	}
 
-	if common.Config.IsAtomicUploadEnabled() && fs.IsAtomicUploadSupported() {
-		_, _, err = fs.Rename(p, filePath, 0)
-		if err != nil {
-			c.Log(logger.LevelError, "error renaming existing file for atomic upload, source: %q, dest: %q, err: %+v",
-				p, filePath, err)
-			return nil, c.GetFsError(fs, err)
-		}
-	}
-
+	// overwrites go to a new file so other hard links to the target are left untouched
 	return c.handleUploadFile(fs, p, filePath, name, false, stat.Size())
 }
 
