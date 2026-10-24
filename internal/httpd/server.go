@@ -205,6 +205,7 @@ func (s *httpdServer) handleWebClientLogout(w http.ResponseWriter, r *http.Reque
 	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
 	removeCookie(w, r, webBaseClientPath)
 	s.logoutOIDCUser(w, r)
+	setNoAutoLoginCookie(w, r, webBaseClientPath)
 
 	http.Redirect(w, r, webClientLoginPath, http.StatusFound)
 }
@@ -240,6 +241,11 @@ func (s *httpdServer) handleClientWebLogin(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	msg := getFlashMessage(w, r)
+	if msg.getI18nError() == nil && s.binding.isWebClientAutoLoginEnabled() &&
+		!consumeNoAutoLoginCookie(w, r, webBaseClientPath) {
+		s.oidcLoginRedirect(w, r, tokenAudienceWebClient)
+		return
+	}
 	s.renderClientLoginPage(w, r, msg.getI18nError())
 }
 
@@ -635,6 +641,11 @@ func (s *httpdServer) handleWebAdminLogin(w http.ResponseWriter, r *http.Request
 		return
 	}
 	msg := getFlashMessage(w, r)
+	if msg.getI18nError() == nil && s.binding.isWebAdminAutoLoginEnabled() &&
+		!consumeNoAutoLoginCookie(w, r, webBaseAdminPath) {
+		s.oidcLoginRedirect(w, r, tokenAudienceWebAdmin)
+		return
+	}
 	s.renderAdminLoginPage(w, r, msg.getI18nError())
 }
 
@@ -642,6 +653,7 @@ func (s *httpdServer) handleWebAdminLogout(w http.ResponseWriter, r *http.Reques
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	removeCookie(w, r, webBaseAdminPath)
 	s.logoutOIDCUser(w, r)
+	setNoAutoLoginCookie(w, r, webBaseAdminPath)
 
 	http.Redirect(w, r, webAdminLoginPath, http.StatusFound)
 }
