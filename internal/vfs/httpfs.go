@@ -109,7 +109,7 @@ func (c *HTTPFsConfig) isEqual(other HTTPFsConfig) bool {
 }
 
 func (c *HTTPFsConfig) isSameResource(other HTTPFsConfig) bool {
-	if c.EqualityCheckMode > 0 || other.EqualityCheckMode > 0 {
+	if c.EqualityCheckMode != 1 || other.EqualityCheckMode != 1 {
 		if c.Username != other.Username {
 			return false
 		}

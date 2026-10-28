@@ -2877,8 +2877,21 @@ func TestCrossFolderRename(t *testing.T) {
 	folder5 := "folder5"
 	folder6 := "folder6"
 	folder7 := "folder7"
+	folder8 := "folder8"
+	folder9 := "folder9"
+	folder10 := "folder10"
 
 	baseUser, resp, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	u2 := getTestUser()
+	u2.Username += "_2"
+	u2.HomeDir += "_2"
+	baseUser2, resp, err := httpdtest.AddUser(u2, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	// another account sharing the home directory of baseUser
+	u3 := getTestUser()
+	u3.Username += "_3"
+	baseUser3, resp, err := httpdtest.AddUser(u3, http.StatusCreated)
 	assert.NoError(t, err, string(resp))
 
 	f1 := vfs.BaseVirtualFolder{
@@ -2985,6 +2998,36 @@ func TestCrossFolderRename(t *testing.T) {
 	}
 	_, _, err = httpdtest.AddFolder(f7, http.StatusCreated)
 	assert.NoError(t, err)
+	// folder8 uses an account of the same SFTP server with its own home directory,
+	// folder9 and folder10 two accounts sharing the home directory of folder4 with
+	// the relaxed equality check
+	for _, cfg := range []struct {
+		name     string
+		username string
+		mode     int
+	}{
+		{folder8, baseUser2.Username, 0},
+		{folder9, baseUser3.Username, 1},
+		{folder10, baseUser.Username, 1},
+	} {
+		f := vfs.BaseVirtualFolder{
+			Name: cfg.name,
+			FsConfig: vfs.Filesystem{
+				Provider: sdk.SFTPFilesystemProvider,
+				SFTPConfig: vfs.SFTPFsConfig{
+					BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
+						Endpoint:          sftpServerAddr,
+						Username:          cfg.username,
+						Prefix:            path.Join("/", cfg.name),
+						EqualityCheckMode: cfg.mode,
+					},
+					Password: kms.NewPlainSecret(defaultPassword),
+				},
+			},
+		}
+		_, _, err = httpdtest.AddFolder(f, http.StatusCreated)
+		assert.NoError(t, err)
+	}
 
 	u := getCryptFsUser()
 	u.VirtualFolders = []vfs.VirtualFolder{
@@ -3044,6 +3087,16 @@ func TestCrossFolderRename(t *testing.T) {
 			QuotaSize:   -1,
 			QuotaFiles:  -1,
 		},
+	}
+	for _, folderName := range []string{folder8, folder9, folder10} {
+		u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+			BaseVirtualFolder: vfs.BaseVirtualFolder{
+				Name: folderName,
+			},
+			VirtualPath: path.Join("/", folderName),
+			QuotaSize:   -1,
+			QuotaFiles:  -1,
+		})
 	}
 
 	user, resp, err := httpdtest.AddUser(u, http.StatusCreated)
@@ -3105,18 +3158,51 @@ func TestCrossFolderRename(t *testing.T) {
 		assert.NoError(t, err)
 		_, err = client.Stat(path.Join("/", folder7, "afile.bin"))
 		assert.NoError(t, err)
+		// the source path is resolved by the account of folder4 and the rename is
+		// executed by the account of the target: a file at the same path of the
+		// other account must not be moved in place of the authorized one
+		otherFile := filepath.Join(baseUser2.GetHomeDir(), folder4, "afile.bin")
+		err = os.MkdirAll(filepath.Dir(otherFile), 0777)
+		assert.NoError(t, err)
+		err = os.WriteFile(otherFile, []byte("other account"), 0666)
+		assert.NoError(t, err)
+		err = client.Rename(path.Join("/", folder4, "afile.bin"), path.Join("/", folder8, "afile.bin"))
+		assert.ErrorIs(t, err, os.ErrPermission)
+		_, err = client.Stat(path.Join("/", folder8, "afile.bin"))
+		assert.ErrorIs(t, err, os.ErrNotExist)
+		assert.FileExists(t, otherFile)
+		_, err = client.Stat(path.Join("/", folder4, "afile.bin"))
+		assert.NoError(t, err)
+		// the relaxed equality check is applied only if both folders enable it
+		err = client.Rename(path.Join("/", folder4, "afile.bin"), path.Join("/", folder9, "afile.bin"))
+		assert.ErrorIs(t, err, os.ErrPermission)
+		err = writeSFTPFile(path.Join("/", folder10, "afile.bin"), 64, client)
+		assert.NoError(t, err)
+		err = client.Rename(path.Join("/", folder10, "afile.bin"), path.Join("/", folder8, "afile.bin"))
+		assert.ErrorIs(t, err, os.ErrPermission)
+		err = client.Rename(path.Join("/", folder10, "afile.bin"), path.Join("/", folder9, "afile.bin"))
+		assert.NoError(t, err)
+		_, err = client.Stat(path.Join("/", folder9, "afile.bin"))
+		assert.NoError(t, err)
+		assert.FileExists(t, filepath.Join(baseUser.GetHomeDir(), folder9, "afile.bin"))
 	}
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(baseUser, http.StatusOK)
 	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(baseUser2, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(baseUser3, http.StatusOK)
+	assert.NoError(t, err)
 	waitNoActiveConnections(t)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 	err = os.RemoveAll(baseUser.GetHomeDir())
 	assert.NoError(t, err)
-	for _, folderName := range []string{folder1, folder2, folder3, folder4, folder5, folder6, folder7} {
+	err = os.RemoveAll(baseUser2.GetHomeDir())
+	assert.NoError(t, err)
+	for _, folderName := range []string{folder1, folder2, folder3, folder4, folder5, folder6, folder7, folder8, folder9, folder10} {
 		_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName}, http.StatusOK)
 		assert.NoError(t, err)
 		err = os.RemoveAll(filepath.Join(os.TempDir(), folderName))
