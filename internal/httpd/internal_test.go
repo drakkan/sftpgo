@@ -26,6 +26,7 @@ import (
 	"html/template"
 	"io"
 	"io/fs"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -5013,4 +5014,50 @@ func TestTaskConnectionDisconnectAfterResponse(t *testing.T) {
 		err = conn.Disconnect()
 	})
 	assert.Error(t, err)
+}
+
+func TestRenameCopyFieldsOrder(t *testing.T) {
+	const rows = 12
+	form := url.Values{}
+	// set in reverse to also cover the lexicographic order of "10" < "2"
+	for i := rows - 1; i >= 0; i-- {
+		base := fmt.Sprintf("fs_rename[%d]", i)
+		form.Set(base+"[fs_rename_source]", fmt.Sprintf("/src%d", i))
+		form.Set(base+"[fs_rename_target]", fmt.Sprintf("/dst%d", i))
+		if i%2 == 0 {
+			form[base+"[fs_rename_options][]"] = []string{"1"}
+		}
+		base = fmt.Sprintf("fs_copy[%d]", i)
+		form.Set(base+"[fs_copy_source]", fmt.Sprintf("/csrc%d", i))
+		form.Set(base+"[fs_copy_target]", fmt.Sprintf("/cdst%d", i))
+	}
+	r := &http.Request{Form: form}
+	updateRepeaterFormActionFields(r)
+
+	renames := getRenameConfigsFromPostFields(r)
+	copies := getKeyValsFromPostFields(r, "fs_copy_source", "fs_copy_target")
+	require.Len(t, renames, rows)
+	require.Len(t, copies, rows)
+	for i := range rows {
+		assert.Equal(t, fmt.Sprintf("/src%d", i), renames[i].Key)
+		assert.Equal(t, fmt.Sprintf("/dst%d", i), renames[i].Value)
+		assert.Equal(t, i%2 == 0, renames[i].UpdateModTime)
+		assert.Equal(t, fmt.Sprintf("/csrc%d", i), copies[i].Key)
+		assert.Equal(t, fmt.Sprintf("/cdst%d", i), copies[i].Value)
+	}
+
+	for key, expected := range map[string]struct {
+		list string
+		idx  int
+	}{
+		"fs_rename[3][fs_rename_source]": {"fs_rename", 3},
+		"fs_rename[a][fs_rename_source]": {"fs_rename", math.MaxInt},
+		"fs_rename[-1][x]":               {"fs_rename", math.MaxInt},
+		"fs_rename[":                     {"fs_rename", math.MaxInt},
+		"username":                       {"username", math.MaxInt},
+	} {
+		list, idx := splitRepeaterKey(key)
+		assert.Equal(t, expected.list, list, key)
+		assert.Equal(t, expected.idx, idx, key)
+	}
 }

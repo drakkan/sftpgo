@@ -15,8 +15,14 @@
 package httpd
 
 import (
+	"cmp"
 	"errors"
+	"maps"
+	"math"
 	"net/http"
+	"net/url"
+	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/go-chi/render"
@@ -118,6 +124,33 @@ func getSliceFromDelimitedValues(values, delimiter string) []string {
 
 func hasPrefixAndSuffix(key, prefix, suffix string) bool {
 	return strings.HasPrefix(key, prefix) && strings.HasSuffix(key, suffix)
+}
+
+func splitRepeaterKey(key string) (string, int) {
+	list, rest, ok := strings.Cut(key, "[")
+	if !ok {
+		return key, math.MaxInt
+	}
+	idx, _, _ := strings.Cut(rest, "]")
+	n, err := strconv.Atoi(idx)
+	if err != nil || n < 0 {
+		return list, math.MaxInt
+	}
+	return list, n
+}
+
+func sortedRepeaterKeys(form url.Values) []string {
+	return slices.SortedFunc(maps.Keys(form), func(a, b string) int {
+		listA, idxA := splitRepeaterKey(a)
+		listB, idxB := splitRepeaterKey(b)
+		if c := strings.Compare(listA, listB); c != 0 {
+			return c
+		}
+		if c := cmp.Compare(idxA, idxB); c != 0 {
+			return c
+		}
+		return strings.Compare(a, b)
+	})
 }
 
 func getCommonBasePage(r *http.Request) commonBasePage {
