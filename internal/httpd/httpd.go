@@ -1129,6 +1129,7 @@ func (c *Conf) Initialize(configDir string, isShared int) error {
 	configurationDir = configDir
 	invalidatedJWTTokens = newTokenManager(isShared)
 	resetCodesMgr = newResetCodeManager(isShared)
+	codeSendMarkersMgr = newCodeSendMarkerManager(isShared)
 	oidcMgr = newOIDCManager(isShared)
 	oauth2Mgr = newOAuth2Manager(isShared)
 	webTaskMgr = newWebTaskManager(isShared)
@@ -1399,6 +1400,7 @@ func startCleanupTicker(duration time.Duration) {
 				counter++
 				invalidatedJWTTokens.Cleanup()
 				resetCodesMgr.Cleanup()
+				codeSendMarkersMgr.Cleanup()
 				webTaskMgr.Cleanup()
 				if counter%2 == 0 {
 					oidcMgr.cleanup()

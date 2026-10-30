@@ -845,6 +845,7 @@ type Provider interface {
 	cleanupActiveTransfers(before time.Time) error
 	getActiveTransfers(from time.Time) ([]ActiveTransfer, error)
 	addSharedSession(session Session) error
+	addUniqueSharedSession(session Session) error
 	deleteSharedSession(key string, sessionType SessionType) error
 	getSharedSession(key string, sessionType SessionType) (Session, error)
 	cleanupSharedSessions(sessionType SessionType, before int64) error
@@ -2302,11 +2303,24 @@ func AddSharedSession(session Session) error {
 	return err
 }
 
+// AddUniqueSharedSession stores a new session within the data provider unless
+// a not expired session with the same key and type already exists, in this case
+// ErrDuplicatedKey is returned. An expired session is replaced
+func AddUniqueSharedSession(session Session) error {
+	err := provider.addUniqueSharedSession(session)
+	if err != nil && !errors.Is(err, ErrDuplicatedKey) {
+		providerLog(logger.LevelError, "unable to add unique shared session, key %q, type: %v, err: %v",
+			session.Key, session.Type, err)
+	}
+	return err
+}
+
 // DeleteSharedSession deletes the session with the specified key
 func DeleteSharedSession(key string, sessionType SessionType) error {
 	err := provider.deleteSharedSession(key, sessionType)
-	if err != nil {
-		providerLog(logger.LevelError, "unable to add shared session, key %q, err: %v", key, err)
+	if err != nil && !errors.Is(err, util.ErrNotFound) {
+		providerLog(logger.LevelError, "unable to delete shared session, key %q, type: %v, err: %v",
+			key, sessionType, err)
 	}
 	return err
 }

@@ -280,7 +280,7 @@ var (
 	testServer      *httptest.Server
 	postConnectPath string
 	preActionPath   string
-	lastResetCode   string
+	lastResetCode   resetCodeCapture
 )
 
 type fakeConnection struct {
@@ -7584,7 +7584,7 @@ func TestNamingRules(t *testing.T) {
 	form = make(url.Values)
 	form.Set("username", user.Username)
 	form.Set(csrfFormToken, csrfToken)
-	lastResetCode = ""
+	lastResetCode.reset()
 	req, err = http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
@@ -7592,10 +7592,10 @@ func TestNamingRules(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
-	assert.GreaterOrEqual(t, len(lastResetCode), 20)
+	assert.GreaterOrEqual(t, len(lastResetCode.wait()), 20)
 	form = make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
-	form.Set("code", lastResetCode)
+	form.Set("code", lastResetCode.get())
 	form.Set("password", defaultPassword)
 	form.Set("confirm_password", defaultPassword)
 	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
@@ -7679,7 +7679,7 @@ func TestNamingRules(t *testing.T) {
 	form = make(url.Values)
 	form.Set("username", admin.Username)
 	form.Set(csrfFormToken, csrfToken)
-	lastResetCode = ""
+	lastResetCode.reset()
 	req, err = http.NewRequest(http.MethodPost, webAdminForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
@@ -7687,12 +7687,12 @@ func TestNamingRules(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
-	assert.GreaterOrEqual(t, len(lastResetCode), 20)
+	assert.GreaterOrEqual(t, len(lastResetCode.wait()), 20)
 	loginCookie, csrfToken, err = getCSRFTokenMock(webLoginPath, defaultRemoteAddr)
 	assert.NoError(t, err)
 	form = make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
-	form.Set("code", lastResetCode)
+	form.Set("code", lastResetCode.get())
 	form.Set("password", defaultPassword)
 	form.Set("confirm_password", defaultPassword)
 	req, err = http.NewRequest(http.MethodPost, webAdminResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
@@ -8003,6 +8003,15 @@ func TestProviderErrors(t *testing.T) {
 	testServerToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
 	httpdtest.SetJWTToken(token)
+	// the password reset requests need SMTP, its configuration is loaded from the provider
+	smtpCfg := smtp.Config{
+		Host:          "127.0.0.1",
+		Port:          3525,
+		From:          "notification@example.com",
+		TemplatesPath: "templates",
+	}
+	err = smtpCfg.Initialize(configDir, true)
+	require.NoError(t, err)
 	err = dataprovider.Close()
 	assert.NoError(t, err)
 	_, _, err = httpdtest.GetUserByUsername("na", http.StatusInternalServerError)
@@ -8347,6 +8356,9 @@ func TestProviderErrors(t *testing.T) {
 	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 	httpdtest.SetJWTToken("")
+	smtpCfg = smtp.Config{}
+	err = smtpCfg.Initialize(configDir, true)
+	require.NoError(t, err)
 }
 
 func TestFolders(t *testing.T) {
@@ -14142,7 +14154,7 @@ func TestMaxSessions(t *testing.T) {
 	form = make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("username", user.Username)
-	lastResetCode = ""
+	lastResetCode.reset()
 	req, err = http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
@@ -14150,7 +14162,7 @@ func TestMaxSessions(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
-	assert.GreaterOrEqual(t, len(lastResetCode), 20)
+	assert.GreaterOrEqual(t, len(lastResetCode.wait()), 20)
 
 	loginCookie, csrfToken, err = getCSRFTokenMock(webLoginPath, defaultRemoteAddr)
 	assert.NoError(t, err)
@@ -14158,7 +14170,7 @@ func TestMaxSessions(t *testing.T) {
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("password", defaultPassword)
 	form.Set("confirm_password", defaultPassword)
-	form.Set("code", lastResetCode)
+	form.Set("code", lastResetCode.get())
 	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
@@ -14807,7 +14819,7 @@ func TestSFTPLoopError(t *testing.T) {
 	form := make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("username", user1.Username)
-	lastResetCode = ""
+	lastResetCode.reset()
 	req, err := http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
@@ -14815,7 +14827,7 @@ func TestSFTPLoopError(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr := executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
-	assert.GreaterOrEqual(t, len(lastResetCode), 20)
+	assert.GreaterOrEqual(t, len(lastResetCode.wait()), 20)
 
 	loginCookie, csrfToken, err = getCSRFTokenMock(webLoginPath, defaultRemoteAddr)
 	assert.NoError(t, err)
@@ -14823,7 +14835,7 @@ func TestSFTPLoopError(t *testing.T) {
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("password", defaultPassword)
 	form.Set("confirm_password", defaultPassword)
-	form.Set("code", lastResetCode)
+	form.Set("code", lastResetCode.get())
 	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
@@ -27799,7 +27811,7 @@ func TestAdminForgotPassword(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), util.I18nErrorUsernameRequired)
 
-	lastResetCode = ""
+	lastResetCode.reset()
 	form.Set("username", altAdminUsername)
 	// disable the admin
 	admin.Status = 0
@@ -27813,7 +27825,7 @@ func TestAdminForgotPassword(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
-	assert.Len(t, lastResetCode, 0)
+	assert.Len(t, lastResetCode.get(), 0)
 
 	admin.Status = 1
 	admin, _, err = httpdtest.UpdateAdmin(admin, http.StatusOK)
@@ -27826,7 +27838,7 @@ func TestAdminForgotPassword(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
-	assert.GreaterOrEqual(t, len(lastResetCode), 20)
+	assert.GreaterOrEqual(t, len(lastResetCode.wait()), 20)
 
 	form = make(url.Values)
 	req, err = http.NewRequest(http.MethodPost, webAdminResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
@@ -27861,7 +27873,7 @@ func TestAdminForgotPassword(t *testing.T) {
 	admin.Status = 0
 	admin, _, err = httpdtest.UpdateAdmin(admin, http.StatusOK)
 	assert.NoError(t, err)
-	form.Set("code", lastResetCode)
+	form.Set("code", lastResetCode.get())
 	req, err = http.NewRequest(http.MethodPost, webAdminResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
@@ -27883,6 +27895,7 @@ func TestAdminForgotPassword(t *testing.T) {
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
 
+	lastResetCode.reset()
 	loginCookie, csrfToken, err = getCSRFTokenMock(webLoginPath, defaultRemoteAddr)
 	assert.NoError(t, err)
 	form.Set(csrfFormToken, csrfToken)
@@ -27894,7 +27907,7 @@ func TestAdminForgotPassword(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
-	assert.GreaterOrEqual(t, len(lastResetCode), 20)
+	assert.GreaterOrEqual(t, len(lastResetCode.wait()), 20)
 
 	// not working smtp server
 	smtpCfg = smtp.Config{
@@ -27915,8 +27928,8 @@ func TestAdminForgotPassword(t *testing.T) {
 	setLoginCookie(req, loginCookie)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
-	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), util.I18nErrorPwdResetSendEmail)
+	// the email is delivered in the background, a delivery failure is only logged
+	assert.Equal(t, http.StatusFound, rr.Code)
 
 	smtpCfg = smtp.Config{}
 	err = smtpCfg.Initialize(configDir, true)
@@ -28006,7 +28019,7 @@ func TestUserForgotPassword(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), util.I18nErrorUsernameRequired)
 	// user cannot reset the password
-	lastResetCode = ""
+	lastResetCode.reset()
 	form.Set("username", user.Username)
 	req, err = http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
@@ -28015,13 +28028,13 @@ func TestUserForgotPassword(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
-	assert.Len(t, lastResetCode, 0)
+	assert.Len(t, lastResetCode.get(), 0)
 	user.ExpirationDate = util.GetTimeAsMsSinceEpoch(time.Now().Add(-1 * time.Hour))
 	user.Filters.WebClient = []string{sdk.WebClientAPIKeyAuthChangeDisabled}
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	// user is expired
-	lastResetCode = ""
+	lastResetCode.reset()
 	req, err = http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
@@ -28029,7 +28042,7 @@ func TestUserForgotPassword(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
-	assert.Len(t, lastResetCode, 0)
+	assert.Len(t, lastResetCode.get(), 0)
 
 	user.ExpirationDate = util.GetTimeAsMsSinceEpoch(time.Now().Add(24 * time.Hour))
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
@@ -28041,7 +28054,7 @@ func TestUserForgotPassword(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
-	assert.GreaterOrEqual(t, len(lastResetCode), 20)
+	assert.GreaterOrEqual(t, len(lastResetCode.wait()), 20)
 	// no login token
 	form = make(url.Values)
 	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
@@ -28064,7 +28077,7 @@ func TestUserForgotPassword(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), util.I18nErrorChangePwdGeneric)
 	// passwords mismatch
 	form.Set("password", altAdminPassword)
-	form.Set("code", lastResetCode)
+	form.Set("code", lastResetCode.get())
 	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
@@ -28085,7 +28098,7 @@ func TestUserForgotPassword(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), util.I18nErrorChangePwdGeneric)
 	// Invalid login condition
-	form.Set("code", lastResetCode)
+	form.Set("code", lastResetCode.get())
 	user.Filters.DeniedProtocols = []string{common.ProtocolHTTP}
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
@@ -28114,7 +28127,7 @@ func TestUserForgotPassword(t *testing.T) {
 	form = make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("username", user.Username)
-	lastResetCode = ""
+	lastResetCode.reset()
 	req, err = http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
@@ -28122,7 +28135,7 @@ func TestUserForgotPassword(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
-	assert.GreaterOrEqual(t, len(lastResetCode), 20)
+	assert.GreaterOrEqual(t, len(lastResetCode.wait()), 20)
 
 	smtpCfg = smtp.Config{}
 	err = smtpCfg.Initialize(configDir, true)
@@ -28145,7 +28158,7 @@ func TestUserForgotPassword(t *testing.T) {
 	// user does not exist anymore
 	form = make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
-	form.Set("code", lastResetCode)
+	form.Set("code", lastResetCode.get())
 	form.Set("password", "pwd")
 	form.Set("confirm_password", "pwd")
 	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
@@ -28175,12 +28188,12 @@ func TestAPIForgotPassword(t *testing.T) {
 	admin, _, err := httpdtest.AddAdmin(a, http.StatusCreated)
 	assert.NoError(t, err)
 	// no email, the request is silently ignored
-	lastResetCode = ""
+	lastResetCode.reset()
 	req, err := http.NewRequest(http.MethodPost, path.Join(adminPath, altAdminUsername, "/forgot-password"), nil)
 	assert.NoError(t, err)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Empty(t, lastResetCode)
+	assert.Empty(t, lastResetCode.get())
 
 	admin.Email = "admin@test.com"
 	admin, _, err = httpdtest.UpdateAdmin(admin, http.StatusOK)
@@ -28190,7 +28203,7 @@ func TestAPIForgotPassword(t *testing.T) {
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.GreaterOrEqual(t, len(lastResetCode), 20)
+	assert.GreaterOrEqual(t, len(lastResetCode.wait()), 20)
 
 	// invalid JSON
 	req, err = http.NewRequest(http.MethodPost, path.Join(adminPath, altAdminUsername, "/reset-password"), bytes.NewBuffer([]byte(`{`)))
@@ -28199,7 +28212,7 @@ func TestAPIForgotPassword(t *testing.T) {
 	checkResponseCode(t, http.StatusBadRequest, rr)
 
 	resetReq := make(map[string]string)
-	resetReq["code"] = lastResetCode
+	resetReq["code"] = lastResetCode.get()
 	resetReq["password"] = defaultPassword
 	asJSON, err := json.Marshal(resetReq)
 	assert.NoError(t, err)
@@ -28229,7 +28242,7 @@ func TestAPIForgotPassword(t *testing.T) {
 	match, err := admin.CheckPassword(defaultPassword)
 	assert.NoError(t, err)
 	assert.True(t, match)
-	lastResetCode = ""
+	lastResetCode.reset()
 	// now the same for a user
 	u := getTestUser()
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
@@ -28238,7 +28251,7 @@ func TestAPIForgotPassword(t *testing.T) {
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Empty(t, lastResetCode)
+	assert.Empty(t, lastResetCode.get())
 
 	user.Email = "user@test.com"
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
@@ -28247,7 +28260,7 @@ func TestAPIForgotPassword(t *testing.T) {
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.GreaterOrEqual(t, len(lastResetCode), 20)
+	assert.GreaterOrEqual(t, len(lastResetCode.wait()), 20)
 
 	// invalid JSON
 	req, err = http.NewRequest(http.MethodPost, path.Join(userPath, defaultUsername, "/reset-password"), bytes.NewBuffer([]byte(`{`)))
@@ -28259,7 +28272,7 @@ func TestAPIForgotPassword(t *testing.T) {
 	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 
-	resetReq["code"] = lastResetCode
+	resetReq["code"] = lastResetCode.get()
 	resetReq["password"] = altAdminPassword
 	asJSON, err = json.Marshal(resetReq)
 	assert.NoError(t, err)
@@ -28288,26 +28301,31 @@ func TestAPIForgotPassword(t *testing.T) {
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(altAdminPassword))
 	assert.NoError(t, err)
 
-	lastResetCode = ""
-	// a request for a missing admin/user will be silently ignored
+	lastResetCode.reset()
+	// a request for a missing admin/user will be silently ignored, after the
+	// same minimum time as a request that sends a code
 	req, err = http.NewRequest(http.MethodPost, path.Join(adminPath, "missing-admin", "/forgot-password"), nil)
 	assert.NoError(t, err)
+	startTime := time.Now()
 	rr = executeRequest(req)
+	assert.GreaterOrEqual(t, time.Since(startTime), 500*time.Millisecond)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Empty(t, lastResetCode)
+	assert.Empty(t, lastResetCode.get())
 
 	req, err = http.NewRequest(http.MethodPost, path.Join(userPath, "missing-user", "/forgot-password"), nil)
 	assert.NoError(t, err)
+	startTime = time.Now()
 	rr = executeRequest(req)
+	assert.GreaterOrEqual(t, time.Since(startTime), 500*time.Millisecond)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Empty(t, lastResetCode)
+	assert.Empty(t, lastResetCode.get())
 
-	lastResetCode = ""
+	lastResetCode.reset()
 	req, err = http.NewRequest(http.MethodPost, path.Join(adminPath, altAdminUsername, "/forgot-password"), nil)
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.GreaterOrEqual(t, len(lastResetCode), 20)
+	assert.GreaterOrEqual(t, len(lastResetCode.wait()), 20)
 
 	smtpCfg = smtp.Config{}
 	err = smtpCfg.Initialize(configDir, true)
@@ -28329,7 +28347,7 @@ func TestAPIForgotPassword(t *testing.T) {
 	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
 	assert.NoError(t, err)
 	// the admin does not exist anymore
-	resetReq["code"] = lastResetCode
+	resetReq["code"] = lastResetCode.get()
 	resetReq["password"] = altAdminPassword
 	asJSON, err = json.Marshal(resetReq)
 	assert.NoError(t, err)
@@ -28827,12 +28845,45 @@ func waitTCPListening(address string) {
 	}
 }
 
+type resetCodeCapture struct {
+	sync.RWMutex
+	code string
+}
+
+func (c *resetCodeCapture) set(code string) {
+	c.Lock()
+	defer c.Unlock()
+
+	c.code = code
+}
+
+func (c *resetCodeCapture) reset() {
+	c.set("")
+}
+
+func (c *resetCodeCapture) get() string {
+	c.RLock()
+	defer c.RUnlock()
+
+	return c.code
+}
+
+func (c *resetCodeCapture) wait() string {
+	for range 50 {
+		if code := c.get(); code != "" {
+			return code
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	return c.get()
+}
+
 func startSMTPServer() {
 	go func() {
 		if err := smtpd.ListenAndServe(smtpServerAddr, func(_ net.Addr, _ string, _ []string, data []byte) error {
 			re := regexp.MustCompile(`code is ".*?"`)
 			code := strings.TrimPrefix(string(re.Find(data)), "code is ")
-			lastResetCode = strings.ReplaceAll(code, "\"", "")
+			lastResetCode.set(strings.ReplaceAll(code, "\"", ""))
 			return nil
 		}, "SFTPGo test", "localhost"); err != nil {
 			logger.ErrorToConsole("could not start SMTP server: %v", err)

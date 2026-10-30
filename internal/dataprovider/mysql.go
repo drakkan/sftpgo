@@ -653,6 +653,10 @@ func (p *MySQLProvider) addSharedSession(session Session) error {
 	return sqlCommonAddSession(session, p.dbHandle)
 }
 
+func (p *MySQLProvider) addUniqueSharedSession(session Session) error {
+	return p.normalizeError(sqlCommonAddUniqueSession(session, p.dbHandle), -1)
+}
+
 func (p *MySQLProvider) deleteSharedSession(key string, sessionType SessionType) error {
 	return sqlCommonDeleteSession(key, sessionType, p.dbHandle)
 }

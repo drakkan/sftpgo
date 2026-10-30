@@ -34,6 +34,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -56,6 +58,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/jwt"
 	"github.com/drakkan/sftpgo/v2/internal/kms"
 	"github.com/drakkan/sftpgo/v2/internal/plugin"
+	"github.com/drakkan/sftpgo/v2/internal/smtp"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 	"github.com/drakkan/sftpgo/v2/internal/vfs"
 )
@@ -316,6 +319,149 @@ func (s *failingJoseSigner) Sign(payload []byte) (*jose.JSONWebSignature, error)
 
 func (s *failingJoseSigner) Options() jose.SignerOptions {
 	return jose.SignerOptions{}
+}
+
+func init() {
+	resetCodeSendWindow = 0
+}
+
+func TestResetCodeSendThrottle(t *testing.T) {
+	if resetCodesMgr == nil {
+		resetCodesMgr = newResetCodeManager(0)
+	}
+	if codeSendMarkersMgr == nil {
+		codeSendMarkersMgr = newCodeSendMarkerManager(0)
+	}
+	oldWindow := resetCodeSendWindow
+	resetCodeSendWindow = time.Minute
+	username := "Throttle_User"
+	defer func() {
+		resetCodeSendWindow = oldWindow
+		clearCodeSent(false, username)
+	}()
+
+	clearCodeSent(false, username)
+	require.NoError(t, markCodeSent(false, username))
+	// further sends within the window are throttled
+	require.ErrorIs(t, markCodeSent(false, username), dataprovider.ErrDuplicatedKey)
+	// markers live in their own store, they are not visible as reset codes
+	_, err := resetCodesMgr.Get(codeSendMarkerKey(false, username))
+	require.Error(t, err)
+	// the case variants of a username share the send window
+	require.ErrorIs(t, markCodeSent(false, strings.ToLower(username)), dataprovider.ErrDuplicatedKey)
+	require.ErrorIs(t, markCodeSent(false, strings.ToUpper(username)), dataprovider.ErrDuplicatedKey)
+	// another account or an admin with the same name are not affected
+	require.NoError(t, markCodeSent(false, "another_user"))
+	clearCodeSent(false, "another_user")
+	require.NoError(t, markCodeSent(true, username))
+	clearCodeSent(true, username)
+	// clearing the marker (used on delivery failure and code consumption)
+	// allows a new send
+	clearCodeSent(false, username)
+	require.NoError(t, markCodeSent(false, username))
+	clearCodeSent(false, username)
+	// a disabled window never throttles and records nothing
+	resetCodeSendWindow = 0
+	require.NoError(t, markCodeSent(false, username))
+	require.NoError(t, markCodeSent(false, username))
+	resetCodeSendWindow = time.Minute
+	require.NoError(t, markCodeSent(false, username))
+}
+
+func TestCodeSendMarkerManagers(t *testing.T) {
+	managers := map[string]codeSendMarkerManager{
+		"memory": newCodeSendMarkerManager(0),
+	}
+	if isSharedProviderSupported() {
+		managers["database"] = newCodeSendMarkerManager(1)
+	}
+	for name, mgr := range managers {
+		t.Run(name, func(t *testing.T) {
+			key := codeSendMarkerKey(false, "marker_user_"+name)
+			mgr.Clear(key)
+			defer mgr.Clear(key)
+
+			require.NoError(t, mgr.Mark(key, time.Now().Add(time.Minute).UTC()))
+			require.ErrorIs(t, mgr.Mark(key, time.Now().Add(time.Minute).UTC()), dataprovider.ErrDuplicatedKey)
+			mgr.Clear(key)
+			// an expired marker is replaced
+			require.NoError(t, mgr.Mark(key, time.Now().Add(-time.Minute).UTC()))
+			require.NoError(t, mgr.Mark(key, time.Now().Add(time.Minute).UTC()))
+			require.ErrorIs(t, mgr.Mark(key, time.Now().Add(time.Minute).UTC()), dataprovider.ErrDuplicatedKey)
+			// Cleanup removes expired markers only
+			mgr.Cleanup()
+			require.ErrorIs(t, mgr.Mark(key, time.Now().Add(time.Minute).UTC()), dataprovider.ErrDuplicatedKey)
+			mgr.Clear(key)
+			require.NoError(t, mgr.Mark(key, time.Now().Add(-time.Minute).UTC()))
+			mgr.Cleanup()
+			require.NoError(t, mgr.Mark(key, time.Now().Add(time.Minute).UTC()))
+			mgr.Clear(key)
+			// concurrent marks for the same key: exactly one wins
+			const workers = 20
+			var wg sync.WaitGroup
+			var marked, duplicated atomic.Int32
+			start := make(chan struct{})
+			for range workers {
+				wg.Go(func() {
+					<-start
+					err := mgr.Mark(key, time.Now().Add(time.Minute).UTC())
+					if err == nil {
+						marked.Add(1)
+					} else if errors.Is(err, dataprovider.ErrDuplicatedKey) {
+						duplicated.Add(1)
+					}
+				})
+			}
+			close(start)
+			wg.Wait()
+			require.Equal(t, int32(1), marked.Load())
+			require.Equal(t, int32(workers-1), duplicated.Load())
+		})
+	}
+}
+
+func TestSendCodeEmailInBackgroundFailure(t *testing.T) {
+	if resetCodesMgr == nil {
+		resetCodesMgr = newResetCodeManager(0)
+	}
+	if codeSendMarkersMgr == nil {
+		codeSendMarkersMgr = newCodeSendMarkerManager(0)
+	}
+	smtpCfg := smtp.Config{
+		Host: "127.0.0.1",
+		Port: 3526,
+		From: "notification@example.com",
+	}
+	err := smtpCfg.Initialize(configDir, true)
+	require.NoError(t, err)
+	oldWindow := resetCodeSendWindow
+	resetCodeSendWindow = time.Minute
+	defer func() {
+		resetCodeSendWindow = oldWindow
+		smtpCfg = smtp.Config{}
+		require.NoError(t, smtpCfg.Initialize(configDir, true))
+	}()
+
+	c := newResetCode("background_user", false)
+	require.True(t, sendCodeEmailInBackground(c, "", []string{"user@example.com"}, "subject", "body"))
+	// the failed delivery removes the code and allows a new send right away
+	assert.Eventually(t, func() bool {
+		if _, err := resetCodesMgr.Get(c.Code); err == nil {
+			return false
+		}
+		if err := markCodeSent(c.IsAdmin, c.Username); err != nil {
+			return false
+		}
+		clearCodeSent(c.IsAdmin, c.Username)
+		return true
+	}, 5*time.Second, 50*time.Millisecond)
+	// within the send window a new email is suppressed and no code is stored
+	require.NoError(t, markCodeSent(c.IsAdmin, c.Username))
+	defer clearCodeSent(c.IsAdmin, c.Username)
+	c1 := newResetCode(c.Username, c.IsAdmin)
+	require.False(t, sendCodeEmailInBackground(c1, "", []string{"user@example.com"}, "subject", "body"))
+	_, err = resetCodesMgr.Get(c1.Code)
+	require.Error(t, err)
 }
 
 func TestShouldBind(t *testing.T) {

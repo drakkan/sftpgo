@@ -761,6 +761,10 @@ func (p *SQLiteProvider) addSharedSession(session Session) error {
 	return sqlCommonAddSession(session, p.dbHandle)
 }
 
+func (p *SQLiteProvider) addUniqueSharedSession(session Session) error {
+	return p.normalizeError(sqlCommonAddUniqueSession(session, p.dbHandle), -1)
+}
+
 func (p *SQLiteProvider) deleteSharedSession(key string, sessionType SessionType) error {
 	return sqlCommonDeleteSession(key, sessionType, p.dbHandle)
 }

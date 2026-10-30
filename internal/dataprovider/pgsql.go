@@ -745,6 +745,10 @@ func (p *PGSQLProvider) addSharedSession(session Session) error {
 	return sqlCommonAddSession(session, p.dbHandle)
 }
 
+func (p *PGSQLProvider) addUniqueSharedSession(session Session) error {
+	return p.normalizeError(sqlCommonAddUniqueSession(session, p.dbHandle), -1)
+}
+
 func (p *PGSQLProvider) deleteSharedSession(key string, sessionType SessionType) error {
 	return sqlCommonDeleteSession(key, sessionType, p.dbHandle)
 }

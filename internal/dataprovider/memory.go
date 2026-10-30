@@ -2052,6 +2052,10 @@ func (p *MemoryProvider) addSharedSession(_ Session) error {
 	return ErrNotImplemented
 }
 
+func (p *MemoryProvider) addUniqueSharedSession(_ Session) error {
+	return ErrNotImplemented
+}
+
 func (p *MemoryProvider) deleteSharedSession(_ string, _ SessionType) error {
 	return ErrNotImplemented
 }
