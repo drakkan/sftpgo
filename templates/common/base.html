@@ -79,7 +79,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     function fileSizeIEC(bytes){
         const thresh = 1024;
         if (bytes < thresh){
-            return bytes + ' Bytes';
+            return bytes + ' B';
         }
 
         const units = ['KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB'];
@@ -91,7 +91,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
     function humanizeSpeed(a,b,c,d,e){
         return (b=Math,c=b.log,d=1024,e=c(a)/c(d)|0,a/b.pow(d,e)).toFixed(1)
-            +' '+(e?'KMGTPEZY'[--e]+'B/s':'Bytes/s')
+            +' '+(e?'KMGTPEZY'[--e]:'')+'B/s'
     }
 
     function initRepeaterItems() {
