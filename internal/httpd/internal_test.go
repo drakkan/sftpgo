@@ -3482,6 +3482,23 @@ func TestTLSReq(t *testing.T) {
 	assert.Equal(t, "context value forwarded proto", forwardedProtoKey.String())
 }
 
+func TestLoadOrCreateSigningPassphrase(t *testing.T) {
+	assert.Empty(t, loadOrCreateSigningPassphrase(""))
+
+	configDir := t.TempDir()
+	passphrase := loadOrCreateSigningPassphrase(configDir)
+	assert.Len(t, passphrase, 64)
+	info, err := os.Stat(filepath.Join(configDir, signingKeyFileName))
+	if assert.NoError(t, err) && runtime.GOOS != osWindows {
+		assert.Equal(t, os.FileMode(0600), info.Mode().Perm())
+	}
+	// the same passphrase must be returned after a restart
+	assert.Equal(t, passphrase, loadOrCreateSigningPassphrase(configDir))
+
+	// a missing config dir must fallback to a random key
+	assert.Empty(t, loadOrCreateSigningPassphrase(filepath.Join(configDir, "missing")))
+}
+
 func TestSigningKey(t *testing.T) {
 	signingPassphrase := "test"
 	server1 := httpdServer{
