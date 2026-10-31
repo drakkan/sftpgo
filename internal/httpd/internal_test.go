@@ -342,16 +342,21 @@ func TestResetCodeSendThrottle(t *testing.T) {
 	}()
 
 	clearCodeSent(false, username)
+	require.False(t, hasRecentCodeSend(false, username))
 	require.NoError(t, markCodeSent(false, username))
 	// further sends within the window are throttled
+	require.True(t, hasRecentCodeSend(false, username))
 	require.ErrorIs(t, markCodeSent(false, username), dataprovider.ErrDuplicatedKey)
 	// markers live in their own store, they are not visible as reset codes
 	_, err := resetCodesMgr.Get(codeSendMarkerKey(false, username))
 	require.Error(t, err)
 	// the case variants of a username share the send window
+	require.True(t, hasRecentCodeSend(false, strings.ToLower(username)))
 	require.ErrorIs(t, markCodeSent(false, strings.ToLower(username)), dataprovider.ErrDuplicatedKey)
 	require.ErrorIs(t, markCodeSent(false, strings.ToUpper(username)), dataprovider.ErrDuplicatedKey)
 	// another account or an admin with the same name are not affected
+	require.False(t, hasRecentCodeSend(false, "another_user"))
+	require.False(t, hasRecentCodeSend(true, username))
 	require.NoError(t, markCodeSent(false, "another_user"))
 	clearCodeSent(false, "another_user")
 	require.NoError(t, markCodeSent(true, username))
@@ -359,12 +364,14 @@ func TestResetCodeSendThrottle(t *testing.T) {
 	// clearing the marker (used on delivery failure and code consumption)
 	// allows a new send
 	clearCodeSent(false, username)
+	require.False(t, hasRecentCodeSend(false, username))
 	require.NoError(t, markCodeSent(false, username))
 	clearCodeSent(false, username)
 	// a disabled window never throttles and records nothing
 	resetCodeSendWindow = 0
 	require.NoError(t, markCodeSent(false, username))
 	require.NoError(t, markCodeSent(false, username))
+	require.False(t, hasRecentCodeSend(false, username))
 	resetCodeSendWindow = time.Minute
 	require.NoError(t, markCodeSent(false, username))
 }
@@ -382,15 +389,20 @@ func TestCodeSendMarkerManagers(t *testing.T) {
 			mgr.Clear(key)
 			defer mgr.Clear(key)
 
+			require.False(t, mgr.Has(key))
 			require.NoError(t, mgr.Mark(key, time.Now().Add(time.Minute).UTC()))
+			require.True(t, mgr.Has(key))
 			require.ErrorIs(t, mgr.Mark(key, time.Now().Add(time.Minute).UTC()), dataprovider.ErrDuplicatedKey)
 			mgr.Clear(key)
-			// an expired marker is replaced
+			require.False(t, mgr.Has(key))
+			// an expired marker does not throttle and is replaced
 			require.NoError(t, mgr.Mark(key, time.Now().Add(-time.Minute).UTC()))
+			require.False(t, mgr.Has(key))
 			require.NoError(t, mgr.Mark(key, time.Now().Add(time.Minute).UTC()))
 			require.ErrorIs(t, mgr.Mark(key, time.Now().Add(time.Minute).UTC()), dataprovider.ErrDuplicatedKey)
 			// Cleanup removes expired markers only
 			mgr.Cleanup()
+			require.True(t, mgr.Has(key))
 			require.ErrorIs(t, mgr.Mark(key, time.Now().Add(time.Minute).UTC()), dataprovider.ErrDuplicatedKey)
 			mgr.Clear(key)
 			require.NoError(t, mgr.Mark(key, time.Now().Add(-time.Minute).UTC()))
@@ -447,14 +459,8 @@ func TestSendCodeEmailInBackgroundFailure(t *testing.T) {
 	require.True(t, sendCodeEmailInBackground(c, "", []string{"user@example.com"}, "subject", "body"))
 	// the failed delivery removes the code and allows a new send right away
 	assert.Eventually(t, func() bool {
-		if _, err := resetCodesMgr.Get(c.Code); err == nil {
-			return false
-		}
-		if err := markCodeSent(c.IsAdmin, c.Username); err != nil {
-			return false
-		}
-		clearCodeSent(c.IsAdmin, c.Username)
-		return true
+		_, err := resetCodesMgr.Get(c.Code)
+		return err != nil && !hasRecentCodeSend(c.IsAdmin, c.Username)
 	}, 5*time.Second, 50*time.Millisecond)
 	// within the send window a new email is suppressed and no code is stored
 	require.NoError(t, markCodeSent(c.IsAdmin, c.Username))

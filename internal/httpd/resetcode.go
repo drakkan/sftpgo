@@ -155,6 +155,9 @@ func (m *dbResetCodeManager) Cleanup() {
 // codeSendMarkerManager tracks, per account, that a code email was recently
 // sent, so further emails within the send window can be suppressed.
 type codeSendMarkerManager interface {
+	// Has reports whether an unexpired marker exists. It is not atomic: use
+	// it only to skip work early
+	Has(key string) bool
 	// Mark atomically adds a marker for the given key, unless a not expired one
 	// already exists, in this case dataprovider.ErrDuplicatedKey is returned
 	Mark(key string, expiresAt time.Time) error
@@ -174,6 +177,14 @@ func newCodeSendMarkerManager(isShared int) codeSendMarkerManager {
 type memoryCodeSendMarkerManager struct {
 	mu      sync.Mutex
 	markers map[string]time.Time
+}
+
+func (m *memoryCodeSendMarkerManager) Has(key string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	expiresAt, ok := m.markers[key]
+	return ok && !expiresAt.Before(time.Now().UTC())
 }
 
 func (m *memoryCodeSendMarkerManager) Mark(key string, expiresAt time.Time) error {
@@ -208,6 +219,14 @@ func (m *memoryCodeSendMarkerManager) Cleanup() {
 
 type dbCodeSendMarkerManager struct{}
 
+func (m *dbCodeSendMarkerManager) Has(key string) bool {
+	session, err := dataprovider.GetSharedSession(key, dataprovider.SessionTypeCodeSendMarker)
+	if err != nil {
+		return false
+	}
+	return session.Timestamp >= util.GetTimeAsMsSinceEpoch(time.Now())
+}
+
 func (m *dbCodeSendMarkerManager) Mark(key string, expiresAt time.Time) error {
 	session := dataprovider.Session{
 		Key:       key,
@@ -231,6 +250,13 @@ func codeSendMarkerKey(isAdmin bool, username string) string {
 	return hex.EncodeToString(digest[:])
 }
 
+func hasRecentCodeSend(isAdmin bool, username string) bool {
+	if resetCodeSendWindow <= 0 {
+		return false
+	}
+	return codeSendMarkersMgr.Has(codeSendMarkerKey(isAdmin, username))
+}
+
 func markCodeSent(isAdmin bool, username string) error {
 	if resetCodeSendWindow <= 0 {
 		return nil
@@ -244,6 +270,10 @@ func clearCodeSent(isAdmin bool, username string) {
 }
 
 func sendCodeEmailInBackground(c *resetCode, reqID string, recipients []string, subject, body string) bool {
+	if hasRecentCodeSend(c.IsAdmin, c.Username) {
+		logger.Debug(logSender, reqID, "a code email was recently sent to %+v, new email suppressed", recipients)
+		return false
+	}
 	if err := markCodeSent(c.IsAdmin, c.Username); err != nil {
 		if errors.Is(err, dataprovider.ErrDuplicatedKey) {
 			logger.Debug(logSender, reqID, "a code email was recently sent to %+v, new email suppressed", recipients)
