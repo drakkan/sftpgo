@@ -161,7 +161,7 @@
         "selected_items_few": "Zaznaczono {{count}} elementy",
         "selected_items_many": "Zaznaczono {{count}} elementów",
         "selected_items_other": "Zaznaczono {{count}} elementu",
-        "selected_with_placeholder": "Zaznaczone elementy: %d",
+        "selected_with_placeholder": "Zaznaczono: %d",
         "name_required": "Nazwa jest wymagana",
         "name_different": "Nowa nazwa musi różnić się od obecnej",
         "html5_media_not_supported": "Twoja przeglądarka nie obsługuje dźwięku i wideo HTML5.",
@@ -398,7 +398,7 @@
         }
     },
     "datatable": {
-        "info": "Pozycje od _START_ do _END_ z _TOTAL_ łącznie",
+        "info": "Pozycje _START_-_END_ z _TOTAL_",
         "info_empty": "Brak pozycji do wyświetlenia",
         "info_filtered": "(filtrowanie spośród _MAX_ dostępnych pozycji)",
         "processing": "Przetwarzanie...",
