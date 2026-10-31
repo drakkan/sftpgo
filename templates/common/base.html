@@ -220,6 +220,11 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 debug: false,
                 supportedLngs: Object.keys(lngs),
                 fallbackLng: Object.keys(lngs)[0],
+                // Not htmlTag: the pages are always lang="en", which would beat a
+                // browser that only reports a regional code such as pl-PL.
+                detection: {
+                    order: ['querystring', 'cookie', 'localStorage', 'sessionStorage', 'navigator']
+                },
                 backend: {
                     backends: [
                         i18nextLocalStorageBackend,
