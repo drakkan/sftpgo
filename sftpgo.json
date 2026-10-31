@@ -287,7 +287,8 @@
         "render_openapi": true,
         "base_url": "",
         "languages": [
-          "en"
+          "en",
+          "pl"
         ],
         "oidc": {
           "client_id": "",
