@@ -1519,6 +1519,13 @@ func (s *httpdServer) setupRESTAPIRoutes() {
 				Put(userPwdPath, changeUserPassword)
 			router.With(forbidAPIKeyAuthentication).Get(userProfilePath, getUserProfile)
 			router.With(forbidAPIKeyAuthentication, s.checkAuthRequirements).Put(userProfilePath, updateUserProfile)
+			if !s.binding.isUserAPIKeyAuthDisabled() {
+				// A key must not create keys, or a stolen one could outlive its own revocation.
+				router.With(forbidAPIKeyAuthentication, s.checkAuthRequirements,
+					s.checkHTTPUserPerm(sdk.WebClientAPIKeyAuthChangeDisabled)).Post(userAPIKeysPath, addUserAPIKey)
+				router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientAPIKeyAuthChangeDisabled)).
+					Delete(userAPIKeysPath+"/{id}", deleteUserAPIKey)
+			}
 			// user TOTP APIs
 			router.With(forbidAPIKeyAuthentication, s.checkHTTPUserPerm(sdk.WebClientMFADisabled)).
 				Get(userTOTPConfigsPath, getTOTPConfigs)

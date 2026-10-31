@@ -3829,6 +3829,101 @@ paths:
           $ref: '#/components/responses/InternalServerError'
         default:
           $ref: '#/components/responses/DefaultResponse'
+  /user/apikeys:
+    post:
+      security:
+        - BearerAuth: []
+      tags:
+        - user APIs
+      summary: Create an API key for the logged in user
+      description: 'Creates an API key bound to the logged in user. The user must have API key authentication enabled and must not have the "api_key_auth_change_disabled" web client restriction. An API key cannot be used to call this endpoint. API keys authenticate REST API requests only, they do not open a WebClient session.'
+      operationId: add_user_api_key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  description: Name of the key, for example the device that will use it
+                description:
+                  type: string
+                expires_at:
+                  type: integer
+                  format: int64
+                  description: 'Expiration as unix timestamp in milliseconds. It must be in the future. 0 or missing means no expiration'
+      responses:
+        '201':
+          description: successful operation
+          headers:
+            X-Object-ID:
+              schema:
+                type: string
+              description: ID for the new created API key
+            Location:
+              schema:
+                type: string
+              description: URI to delete the new created API key
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  key:
+                    type: string
+                    description: 'The generated key, in the format "key_id.secret". It is not possible to retrieve it later'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  '/user/apikeys/{id}':
+    parameters:
+      - name: id
+        in: path
+        description: the key id
+        required: true
+        schema:
+          type: string
+    delete:
+      security:
+        - BearerAuth: []
+        - APIKeyAuth: []
+      tags:
+        - user APIs
+      summary: Revoke an API key of the logged in user
+      description: 'Revokes a key bound to the logged in user. When authenticating with an API key, a key can only revoke itself.'
+      operationId: delete_user_api_key
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
   /user/profile:
     get:
       security:

@@ -84,6 +84,7 @@ const (
 	userTOTPSavePath                      = "/api/v2/user/totp/save"
 	user2FARecoveryCodesPath              = "/api/v2/user/2fa/recoverycodes"
 	userProfilePath                       = "/api/v2/user/profile"
+	userAPIKeysPath                       = "/api/v2/user/apikeys"
 	userSharesPath                        = "/api/v2/user/shares"
 	retentionChecksPath                   = "/api/v2/retention/users/checks"
 	fsEventsPath                          = "/api/v2/events/fs"

@@ -1,0 +1,118 @@
+// Copyright (C) 2019 Nicola Murino
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published
+// by the Free Software Foundation, version 3.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+package httpd
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"net/http"
+	"net/url"
+	"time"
+
+	"github.com/go-chi/render"
+
+	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
+	"github.com/drakkan/sftpgo/v2/internal/jwt"
+	"github.com/drakkan/sftpgo/v2/internal/util"
+)
+
+// userAPIKeyRequest lists the only fields a user can set on their own key.
+// Scope and owner come from the token, so they are not read from the request.
+type userAPIKeyRequest struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	// Milliseconds since the epoch, 0 means the key never expires
+	ExpiresAt int64 `json:"expires_at"`
+}
+
+func addUserAPIKey(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := jwt.FromContext(r.Context())
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
+	user, err := dataprovider.GetUserWithGroupSettings(claims.Username, "")
+	if err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
+	if !user.Filters.AllowAPIKeyAuth {
+		sendAPIResponse(w, r, nil, "API key authentication is disabled for this user", http.StatusForbidden)
+		return
+	}
+	var req userAPIKeyRequest
+	if err := render.DecodeJSON(r.Body, &req); err != nil {
+		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
+		return
+	}
+	if req.ExpiresAt != 0 && req.ExpiresAt <= util.GetTimeAsMsSinceEpoch(time.Now()) {
+		sendAPIResponse(w, r, nil, "expires_at must be in the future", http.StatusBadRequest)
+		return
+	}
+	apiKey := dataprovider.APIKey{
+		Name:        req.Name,
+		Description: req.Description,
+		ExpiresAt:   req.ExpiresAt,
+		Scope:       dataprovider.APIKeyScopeUser,
+		User:        claims.Username,
+	}
+	err = dataprovider.AddAPIKey(&apiKey, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
+	response := map[string]string{
+		"message": "API key created. This is the only time the API key is visible, please save it.",
+		"key":     apiKey.DisplayKey(),
+	}
+	w.Header().Add("Location", fmt.Sprintf("%s/%s", userAPIKeysPath, url.PathEscape(apiKey.KeyID)))
+	w.Header().Add("X-Object-ID", apiKey.KeyID)
+	ctx := context.WithValue(r.Context(), render.StatusCtxKey, http.StatusCreated)
+	render.JSON(w, r.WithContext(ctx), response)
+}
+
+func deleteUserAPIKey(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := jwt.FromContext(r.Context())
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
+	keyID := getURLParam(r, "id")
+	apiKey, err := dataprovider.APIKeyExists(keyID)
+	if err != nil && !errors.Is(err, util.ErrNotFound) {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
+	// Keys of others get the same answer as unknown keys, so IDs cannot be probed.
+	if err != nil || apiKey.Scope != dataprovider.APIKeyScopeUser || apiKey.User != claims.Username {
+		sendAPIResponse(w, r, nil, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
+	}
+	// A key can revoke itself, so that an app can sign out without the password,
+	// but it cannot revoke the keys of other devices.
+	if claims.APIKeyID != "" && claims.APIKeyID != keyID {
+		sendAPIResponse(w, r, nil, "An API key can only revoke itself", http.StatusForbidden)
+		return
+	}
+	err = dataprovider.DeleteAPIKey(keyID, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
+	sendAPIResponse(w, r, nil, "API key deleted", http.StatusOK)
+}
