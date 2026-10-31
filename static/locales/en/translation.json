@@ -328,8 +328,8 @@
         },
         "save": {
             "err_generic": "Error saving file",
-            "err_403": "$t(fs.create_dir.err_generic). $t(fs.err_403)",
-            "err_429": "$t(fs.create_dir.err_generic). $t(fs.err_429)"
+            "err_403": "$t(fs.save.err_generic). $t(fs.err_403)",
+            "err_429": "$t(fs.save.err_generic). $t(fs.err_429)"
         },
         "delete": {
             "err_generic": "Unable to delete \"{{- name}}\"",
@@ -814,7 +814,8 @@
         "download": "DL: \"{{- path}}\"",
         "upload_info": "$t(connections.upload). Size: {{- size}}. Speed: {{- speed}}",
         "download_info": "$t(connections.download). Size: {{- size}}. Speed: {{- speed}}",
-        "client": "Client: {{- val}}"
+        "client": "Client: {{- val}}",
+        "node": "Node"
     },
     "role": {
         "view_manage": "View and manage roles",

@@ -323,8 +323,8 @@
         },
         "save": {
             "err_generic": "保存文件时出错",
-            "err_403": "$t(fs.create_dir.err_generic). $t(fs.err_403)",
-            "err_429": "$t(fs.create_dir.err_generic). $t(fs.err_429)"
+            "err_403": "$t(fs.save.err_generic). $t(fs.err_403)",
+            "err_429": "$t(fs.save.err_generic). $t(fs.err_429)"
         },
         "delete": {
             "err_generic": "无法删除 \"{{- name}}\"",

@@ -323,8 +323,8 @@
         },
         "save": {
             "err_generic": "Error guardando archivo",
-            "err_403": "$t(fs.create_dir.err_generic). $t(fs.err_403)",
-            "err_429": "$t(fs.create_dir.err_generic). $t(fs.err_429)"
+            "err_403": "$t(fs.save.err_generic). $t(fs.err_403)",
+            "err_429": "$t(fs.save.err_generic). $t(fs.err_429)"
         },
         "delete": {
             "err_generic": "No se puede eliminar \"{{- name}}\"",
