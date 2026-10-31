@@ -22,6 +22,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -39,8 +40,9 @@ import (
 )
 
 const (
-	userAPIKeysPath    = "/api/v2/user/apikeys"
-	userWebSessionPath = "/api/v2/user/websession"
+	userAPIKeysPath      = "/api/v2/user/apikeys"
+	userWebSessionPath   = "/api/v2/user/websession"
+	webClientAPIKeysPath = "/web/client/api-keys"
 )
 
 func addSelfServiceUser(t *testing.T, username string) dataprovider.User {
@@ -402,7 +404,7 @@ func TestWebSessionCannotChangeTheAccount(t *testing.T) {
 	// A valid CSRF token rules out the CSRF check, and the HTML page rules out the
 	// handlers, which answer 403 in JSON when the account has no second factor.
 	refusedByGuard := func(rr *httptest.ResponseRecorder) bool {
-		return rr.Code == http.StatusForbidden && strings.Contains(rr.Body.String(), "<!DOCTYPE html>")
+		return rr.Code == http.StatusForbidden && strings.Contains(strings.ToLower(rr.Body.String()), "<!doctype html>")
 	}
 	for _, route := range guarded {
 		assert.True(t, refusedByGuard(webClientFormRequest(t, route.method, route.path, cookie)),
@@ -550,4 +552,152 @@ func TestWebAdminKeepsWebSessionScope(t *testing.T) {
 
 	_, err = httpdtest.RemoveAPIKey(stored, http.StatusOK)
 	assert.NoError(t, err)
+}
+
+func webClientKeyRequest(t *testing.T, method, path, cookie, csrfToken string, body map[string]any) *httptest.ResponseRecorder {
+	asJSON, err := json.Marshal(body)
+	require.NoError(t, err)
+	req, err := http.NewRequest(method, path, bytes.NewBuffer(asJSON))
+	require.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	setCSRFHeaderForReq(req, csrfToken)
+	return executeRequest(req)
+}
+
+func TestWebClientAPIKeys(t *testing.T) {
+	user := addSelfServiceUser(t, "webclient_keys")
+	other := addSelfServiceUser(t, "webclient_keys_other")
+	_, otherKeyID := createUserAPIKey(t, userTokenFor(t, other), "not yours")
+
+	cookie, err := getJWTWebClientTokenFromTestServer(user.Username, user.Password)
+	require.NoError(t, err)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webClientProfilePath, cookie)
+	require.NoError(t, err)
+
+	rr := webClientRequest(t, http.MethodGet, webClientAPIKeysPath, cookie)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), `id="add-key"`)
+
+	body := map[string]any{"name": "from the web", "web_session": true}
+	// A form token is what stops another site from creating a key with the user's cookie.
+	checkResponseCode(t, http.StatusForbidden, webClientKeyRequest(t, http.MethodPost, webClientAPIKeysPath, cookie, "", body))
+
+	rr = webClientKeyRequest(t, http.MethodPost, webClientAPIKeysPath, cookie, csrfToken, body)
+	checkResponseCode(t, http.StatusCreated, rr)
+	var created map[string]string
+	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &created))
+	keyID, _, ok := strings.Cut(created["key"], ".")
+	require.True(t, ok)
+	checkResponseCode(t, http.StatusOK, listUserDirsWithKey(t, created["key"]))
+	checkResponseCode(t, http.StatusOK, openWebSession(t, created["key"]))
+
+	rr = webClientRequest(t, http.MethodGet, webClientAPIKeysPath+"/json", cookie)
+	checkResponseCode(t, http.StatusOK, rr)
+	var keys []dataprovider.APIKey
+	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &keys))
+	require.Len(t, keys, 1, "only the user's own keys")
+	assert.Equal(t, keyID, keys[0].KeyID)
+	assert.Equal(t, dataprovider.APIKeyScopeUserWebSession, keys[0].Scope)
+	assert.Empty(t, keys[0].Key, "the stored hash stays on the server")
+
+	checkResponseCode(t, http.StatusNotFound, webClientKeyRequest(t, http.MethodDelete,
+		webClientAPIKeysPath+"/"+otherKeyID, cookie, csrfToken, nil))
+	checkResponseCode(t, http.StatusForbidden, webClientKeyRequest(t, http.MethodDelete,
+		webClientAPIKeysPath+"/"+keyID, cookie, "", nil))
+	checkResponseCode(t, http.StatusOK, webClientKeyRequest(t, http.MethodDelete,
+		webClientAPIKeysPath+"/"+keyID, cookie, csrfToken, nil))
+	assert.NotEqual(t, http.StatusOK, listUserDirsWithKey(t, created["key"]).Code)
+}
+
+func TestWebClientAPIKeysAreClosedToKeySessions(t *testing.T) {
+	user := addSelfServiceUser(t, "webclient_keys_session")
+	token := userTokenFor(t, user)
+	key, keyID := createWebSessionKey(t, token, "session")
+	_, otherID := createUserAPIKey(t, token, "other")
+	cookie := webSessionCookie(t, key)
+	// A real form token, so that only the session check can refuse these requests.
+	page := webClientRequest(t, http.MethodGet, webClientFilesPath, cookie)
+	checkResponseCode(t, http.StatusOK, page)
+	match := regexp.MustCompile(`name="csrf-token" content="([^"]+)"`).FindStringSubmatch(page.Body.String())
+	require.Len(t, match, 2)
+	csrfToken := match[1]
+
+	// A stolen key must not be able to create the next one, or revoke the owner's.
+	checkResponseCode(t, http.StatusForbidden, webClientRequest(t, http.MethodGet, webClientAPIKeysPath, cookie))
+	checkResponseCode(t, http.StatusForbidden, webClientRequest(t, http.MethodGet, webClientAPIKeysPath+"/json", cookie))
+	checkResponseCode(t, http.StatusForbidden, webClientFormRequest(t, http.MethodPost, webClientAPIKeysPath, cookie))
+	checkResponseCode(t, http.StatusForbidden, webClientKeyRequest(t, http.MethodDelete,
+		webClientAPIKeysPath+"/"+otherID, cookie, csrfToken, nil))
+
+	rr := webClientRequest(t, http.MethodGet, webClientFilesPath, cookie)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.NotContains(t, rr.Body.String(), webClientAPIKeysPath, "the page must not offer them either")
+
+	checkResponseCode(t, http.StatusOK, deleteUserAPIKeyAs(t, keyID, token, ""))
+	checkResponseCode(t, http.StatusOK, deleteUserAPIKeyAs(t, otherID, token, ""))
+}
+
+func TestWebClientAPIKeysPermission(t *testing.T) {
+	user := addSelfServiceUser(t, "webclient_keys_denied")
+	user.Filters.WebClient = []string{sdk.WebClientAPIKeyAuthChangeDisabled}
+	_, _, err := httpdtest.UpdateUser(user, http.StatusOK, "")
+	require.NoError(t, err)
+
+	cookie, err := getJWTWebClientTokenFromTestServer(user.Username, user.Password)
+	require.NoError(t, err)
+	checkResponseCode(t, http.StatusForbidden, webClientRequest(t, http.MethodGet, webClientAPIKeysPath, cookie))
+	checkResponseCode(t, http.StatusForbidden, webClientFormRequest(t, http.MethodPost, webClientAPIKeysPath, cookie))
+	rr := webClientRequest(t, http.MethodGet, webClientFilesPath, cookie)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.NotContains(t, rr.Body.String(), webClientAPIKeysPath)
+}
+
+func TestWebClientDirPermissionsHeader(t *testing.T) {
+	user := addSelfServiceUser(t, "webclient_dir_perms")
+	user.Permissions["/readonly"] = []string{dataprovider.PermListItems, dataprovider.PermDownload}
+	_, _, err := httpdtest.UpdateUser(user, http.StatusOK, "")
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Join(user.GetHomeDir(), "readonly"), os.ModePerm))
+
+	cookie, err := getJWTWebClientTokenFromTestServer(user.Username, user.Password)
+	require.NoError(t, err)
+	rr := webClientRequest(t, http.MethodGet, webClientDirsPath+"?path=%2F", cookie)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Equal(t, "add,mkdir,rename,delete,download,copy", rr.Header().Get("X-SFTPGO-DIR-PERMISSIONS"))
+	rr = webClientRequest(t, http.MethodGet, webClientDirsPath+"?path=%2Freadonly", cookie)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Equal(t, "download", rr.Header().Get("X-SFTPGO-DIR-PERMISSIONS"))
+}
+
+// The WebClient was rewritten so that it no longer depends on the proprietary theme in
+// static/assets, which only WebAdmin may use. This keeps it that way.
+func TestWebClientStaysFreeOfTheTheme(t *testing.T) {
+	forbidden := []string{"/assets/", "ki-duotone", "ki-outline", "data-kt", "keenthemes", "bootstrap", "KTThemeMode",
+		"jquery", "{{template \"base\"", "{{template \"baselogin\""}
+	for _, root := range []string{filepath.Join("..", "..", "templates", "webclient"), filepath.Join("..", "..", "static", "webclient")} {
+		err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			extension := filepath.Ext(path)
+			if entry.IsDir() || (extension != ".html" && extension != ".js" && extension != ".css") {
+				return nil
+			}
+			content, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			for _, text := range forbidden {
+				assert.NotContains(t, strings.ToLower(string(content)), strings.ToLower(text), path)
+			}
+			return nil
+		})
+		require.NoError(t, err)
+	}
+	user := addSelfServiceUser(t, "webclient_theme")
+	cookie, err := getJWTWebClientTokenFromTestServer(user.Username, user.Password)
+	require.NoError(t, err)
+	for _, page := range []string{webClientLoginPath, webClientFilesPath, webClientSharesPath, webClientProfilePath, webClientMFAPath} {
+		assert.NotContains(t, webClientRequest(t, http.MethodGet, page, cookie).Body.String(), "/static/assets/", page)
+	}
 }

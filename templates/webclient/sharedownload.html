@@ -1,52 +1,18 @@
-<!--
-Copyright (C) 2023 Nicola Murino
+{{template "public" .}}
 
-This WebUI uses the KeenThemes Bootstrap Templates:
-
-https://keenthemes.com/bootstrap-templates
-
-KeenThemes HTML/CSS/JS components are allowed for use only within the
-SFTPGo product and restricted to be used in a resealable HTML template
-that can compete with KeenThemes products anyhow.
-
-This WebUI is allowed for use only within the SFTPGo product and
-therefore cannot be used in derivative works/products without an
-explicit grant from the SFTPGo Team (support@sftpgo.com).
--->
-{{template "base" .}}
-
-{{- define "page_body"}}
-<div class="d-flex flex-center flex-column flex-column-fluid p-10 pb-lg-20">
-    <div class="mb-12">
-        <span>
-            <img alt="Logo" src="{{.StaticURL}}{{.Branding.LogoPath}}" class="h-80px h-md-90px h-lg-100px" />
-        </span>
-        <span class="text-gray-900 fs-1 fw-bold ms-3 ps-5">
-		    {{.Branding.ShortName}}
-        </span>
-    </div>
-    <div class="card shadow-sm w-lg-600px w-md-450px">
-        <div class="card-header bg-light">
-            <h3 data-i18n="fs.download_ready" class="card-title section-title">Your download is ready</h3>
-            {{- if .LogoutURL}}
-            <div class="card-toolbar">
-                <a id="id_logout_link" href="#" class="btn btn-light-primary">
-                    <span data-i18n="login.signout">Sign out</span>
-                </a>
-            </div>
-            {{- end}}
-        </div>
-        <div class="card-body">
-            <div>
-                <a href="{{.DownloadLink}}" class="btn btn-primary btn-block">
-                    <i class="ki-duotone ki-folder-down fs-2">
-                        <span class="path1"></span>
-                        <span class="path2"></span>
-                    </i>
-                    <span data-i18n="fs.download">Download</span>
-                </a>
-            </div>
-        </div>
-    </div>
+{{- define "main"}}
+<h1 class="auth-title" data-i18n="title.download_shared_file">Download shared file</h1>
+<div class="stack">
+    <p class="auth-lead" data-i18n="fs.download_ready">Your download is ready</p>
+    <a class="button button-primary button-wide" href="{{.DownloadLink}}">
+        <svg class="icon" aria-hidden="true"><use data-sprite="download"></use></svg>
+        <span data-i18n="fs.download">Download</span>
+    </a>
 </div>
+{{- end}}
+
+{{- define "deskfoot"}}
+{{- if .LogoutURL}}
+<a href="{{.LogoutURL}}" data-i18n="login.signout">Sign out</a>
+{{- end}}
 {{- end}}

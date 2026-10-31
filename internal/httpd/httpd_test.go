@@ -21328,7 +21328,7 @@ func TestGetFilesSFTPBackend(t *testing.T) {
 		rr = executeRequest(req)
 		checkResponseCode(t, http.StatusOK, rr)
 
-		htmlErrFrag := `div id="errorMsg" class="rounded border-warning border border-dashed bg-light-warning`
+		htmlErrFrag := `class="notice notice-error"`
 		req, _ = http.NewRequest(http.MethodGet, webClientFilesPath+"?path="+path.Join(testDir, "missing"), nil)
 		setJWTCookieForReq(req, webToken)
 		rr = executeRequest(req)

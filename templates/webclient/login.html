@@ -1,0 +1,37 @@
+{{template "public" .}}
+
+{{- define "main"}}
+<h1 class="auth-title" data-i18n="login.signin">Sign in</h1>
+{{- template "notice" .Error}}
+<div class="stack">
+    {{- if not .FormDisabled}}
+    <form class="stack" id="sign_in_form" action="{{.CurrentURL}}" method="POST" data-busy{{if .CheckRedirect}} data-check-redirect{{end}}>
+        <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
+        <label class="field">
+            <span class="field-label" data-i18n="login.username">Username</span>
+            <input class="input" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
+        </label>
+        <label class="field">
+            <span class="field-label" data-i18n="login.password">Password</span>
+            <input class="input" name="password" type="password" autocomplete="current-password" required>
+        </label>
+        <button class="button button-primary button-wide" id="sign_in_submit" type="submit" data-i18n="login.signin">Sign in</button>
+    </form>
+    {{- end}}
+    {{- if .OpenIDLoginURL}}
+    <a class="button button-wide" href="{{.OpenIDLoginURL}}" data-i18n="login.signin_openid">Sign in with OpenID</a>
+    {{- end}}
+    {{- if .ForgotPwdURL}}
+    <a href="{{.ForgotPwdURL}}" data-i18n="login.forgot_password">Forgot password?</a>
+    {{- end}}
+</div>
+{{- end}}
+
+{{- define "deskfoot"}}
+{{- if .AltLoginURL}}
+<a href="{{.AltLoginURL}}" data-i18n="login.link" data-i18n-options="{{printf `{"link":%q}` .AltLoginName}}">{{.AltLoginName}}</a>
+{{- end}}
+{{- if and .Branding.DisclaimerName .Branding.DisclaimerPath}}
+<a href="{{.Branding.DisclaimerPath}}" target="_blank" rel="noopener noreferrer">{{.Branding.DisclaimerName}}</a>
+{{- end}}
+{{- end}}

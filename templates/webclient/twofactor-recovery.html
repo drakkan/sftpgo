@@ -1,0 +1,15 @@
+{{template "public" .}}
+
+{{- define "main"}}
+<h1 class="auth-title" data-i18n="login.recovery_code">Recovery code</h1>
+{{- template "notice" .Error}}
+<form class="stack" id="sign_in_form" action="{{.CurrentURL}}" method="POST" data-busy>
+    <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
+    <p class="auth-lead" data-i18n="login.recovery_code_msg"></p>
+    <label class="field">
+        <span class="field-label" data-i18n="login.recovery_code">Recovery code</span>
+        <input class="input" name="recovery_code" type="text" autocomplete="off" spellcheck="false" required autofocus>
+    </label>
+    <button class="button button-primary button-wide" id="sign_in_submit" type="submit" data-i18n="general.verify">Verify</button>
+</form>
+{{- end}}
