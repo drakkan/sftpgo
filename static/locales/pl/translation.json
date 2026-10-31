@@ -330,8 +330,8 @@
         },
         "save": {
             "err_generic": "Błąd podczas zapisywania pliku",
-            "err_403": "$t(fs.create_dir.err_generic). $t(fs.err_403)",
-            "err_429": "$t(fs.create_dir.err_generic). $t(fs.err_429)"
+            "err_403": "$t(fs.save.err_generic). $t(fs.err_403)",
+            "err_429": "$t(fs.save.err_generic). $t(fs.err_429)"
         },
         "delete": {
             "err_generic": "Nie można usunąć \"{{- name}}\"",
@@ -816,7 +816,8 @@
         "download": "Pobieranie: \"{{- path}}\"",
         "upload_info": "$t(connections.upload). Rozmiar: {{- size}}. Prędkość: {{- speed}}",
         "download_info": "$t(connections.download). Rozmiar: {{- size}}. Prędkość: {{- speed}}",
-        "client": "Klient: {{- val}}"
+        "client": "Klient: {{- val}}",
+        "node": "Węzeł"
     },
     "role": {
         "view_manage": "Przeglądaj role i zarządzaj nimi",

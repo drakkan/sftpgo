@@ -61,7 +61,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
 
             <div class="form-group row trigger trigger-fs mt-10">
-                <label for="idFsEvents" data-i18n="rules.triggers.fs_events" class="col-md-3 col-form-label">Fs events</label>
+                <label for="idFsEvents" data-i18n="rules.triggers.fs_event" class="col-md-3 col-form-label">Fs events</label>
                 <div class="col-md-9">
                     <select id="idFsEvents" name="fs_events" class="form-select" data-control="i18n-select2" data-hide-search="true" data-close-on-select="false" multiple>
                         {{- range $event := .FsEvents}}
@@ -72,7 +72,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
 
             <div class="form-group row trigger trigger-provider mt-10">
-                <label for="idProviderEvents" data-i18n="rules.triggers.provider_events" class="col-md-3 col-form-label">Provider events</label>
+                <label for="idProviderEvents" data-i18n="rules.triggers.provider_event" class="col-md-3 col-form-label">Provider events</label>
                 <div class="col-md-9">
                     <select id="idProviderEvents" name="provider_events" class="form-select" data-control="i18n-select2" data-hide-search="true" data-close-on-select="false" multiple>
                         {{- range $event := .ProviderEvents}}
