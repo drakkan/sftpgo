@@ -1,3 +1,35 @@
+# New WebClient (fork)
+
+The WebClient was rewritten for this fork. Every page lives in `templates/webclient`
+and `static/webclient`, and none of them loads the proprietary theme in `static/assets`:
+no KeenThemes markup, CSS, icons or bundles, and no jQuery or Bootstrap.
+`TestWebClientStaysFreeOfTheTheme` fails if that changes.
+
+**WebAdmin is unchanged and still uses the theme**, through `templates/webadmin`,
+`templates/common` and `static/assets`. Until it is replaced too, or the SFTPGo Team
+grants otherwise, the fork as a whole still contains the restricted UI.
+
+- Scripts are plain files with no build step, so that each one can carry the nonce of a
+  strict Content-Security-Policy.
+- Atkinson Hyperlegible Next (`static/webclient/fonts`, OFL) keeps `l`, `I`, `1`, `O`
+  and `0` apart in file names. The icons are from Lucide (`ICONS-LICENSE.txt`, ISC).
+- New strings are in the `client` section of the locale files.
+
+The Android wrapper depends on this behaviour, so keep it: `sign_in_form` and
+`sign_in_submit` on the sign-in pages, one `XMLHttpRequest` per upload with the `File` as
+its body, and zip downloads as a post form with `target="_blank"`.
+
+## Language dropdown
+
+Every page has one, listing the languages in the binding's `languages` setting. It
+applies without a reload and is remembered in the browser.
+
+## API keys
+
+`/web/client/api-keys` lets users create, list and revoke their own keys. It reuses the
+REST handlers behind routes that need a form token, and sessions opened with a key
+cannot reach it. Users need `allow_api_key_auth` turned on in their profile.
+
 # WebClient enhancements (fork)
 
 This fork adds three **additive, backward-compatible** features to the end-user
@@ -36,7 +68,7 @@ beneath it**.
 
 Image and (when ffmpeg is available) video files show small cached thumbnails in
 the listing, and a toolbar toggle switches to a gallery/grid view. Clicking a
-photo in the grid opens the existing lightbox.
+photo in the grid opens the viewer.
 
 - New endpoint: `GET /web/client/thumbnail?path=<file>` returns a ~200px JPEG.
 - Files are always opened **through the user's connection**, so the storage

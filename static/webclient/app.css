@@ -1516,6 +1516,16 @@ button.empty {
 
   .selectionbar {
     bottom: calc(4.25rem + env(safe-area-inset-bottom));
+    gap: 0;
+    padding-left: 0.625rem;
+  }
+
+  .selectionbar .count {
+    min-width: 0;
+    margin-right: 0.25rem;
+    font-size: 0.9375rem;
+    line-height: 1.2;
+    white-space: normal;
   }
 
   .dock {
