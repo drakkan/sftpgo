@@ -35,9 +35,16 @@ FROM debian:trixie-slim
 # Set to "true" to install jq
 ARG INSTALL_OPTIONAL_PACKAGES=false
 
+# Fork: install ffmpeg so the WebClient can generate video thumbnails
+# (see FORK_FEATURES.md). Set to "false" to skip it and save image size; image
+# thumbnails still work and videos fall back to a generic icon.
+ARG INSTALL_FFMPEG=true
+
 RUN apt-get update && apt-get -y upgrade && apt-get install --no-install-recommends -y ca-certificates media-types && rm -rf /var/lib/apt/lists/*
 
 RUN if [ "${INSTALL_OPTIONAL_PACKAGES}" = "true" ]; then apt-get update && apt-get install --no-install-recommends -y jq && rm -rf /var/lib/apt/lists/*; fi
+
+RUN if [ "${INSTALL_FFMPEG}" = "true" ]; then apt-get update && apt-get install --no-install-recommends -y ffmpeg && rm -rf /var/lib/apt/lists/*; fi
 
 RUN mkdir -p /etc/sftpgo /var/lib/sftpgo /usr/share/sftpgo /srv/sftpgo/data /srv/sftpgo/backups
 

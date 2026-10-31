@@ -278,6 +278,12 @@
         "expired_session": "Tu sesión ha expirado. Por favor, inicia sesión de nuevo"
     },
     "fs": {
+        "search": {
+            "location": "Ubicación"
+        },
+        "view": {
+            "toggle": "Alternar vista de cuadrícula"
+        },
         "view_file": "Ver archivo \"{{- path}}\"",
         "edit_file": "Editar archivo \"{{- path}}\"",
         "new_folder": "Nueva carpeta",

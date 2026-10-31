@@ -166,6 +166,8 @@ const (
 	webClientSharePathDefault             = "/web/client/share"
 	webClientEditFilePathDefault          = "/web/client/editfile"
 	webClientDirsPathDefault              = "/web/client/dirs"
+	webClientSearchPathDefault            = "/web/client/search"
+	webClientThumbnailPathDefault         = "/web/client/thumbnail"
 	webClientDownloadZipPathDefault       = "/web/client/downloadzip"
 	webClientProfilePathDefault           = "/web/client/profile"
 	webClientPingPathDefault              = "/web/client/ping"
@@ -270,6 +272,8 @@ var (
 	webClientSharePath             string
 	webClientEditFilePath          string
 	webClientDirsPath              string
+	webClientSearchPath            string
+	webClientThumbnailPath         string
 	webClientDownloadZipPath       string
 	webClientProfilePath           string
 	webClientPingPath              string
@@ -976,9 +980,35 @@ type Conf struct {
 	Cors CorsConfig `json:"cors" mapstructure:"cors"`
 	// Initial setup configuration
 	Setup SetupConfig `json:"setup" mapstructure:"setup"`
+	// Thumbnails configuration for the WebClient file browser
+	Thumbnails ThumbnailsConfig `json:"thumbnails" mapstructure:"thumbnails"`
 	// If enabled, the link to the sponsors section will not appear on the setup screen page
 	HideSupportLink bool `json:"hide_support_link" mapstructure:"hide_support_link"`
 	acmeDomain      string
+}
+
+// ThumbnailsConfig defines the configuration for the WebClient photo/video
+// thumbnail feature. All keys are optional; thumbnails are enabled by default.
+type ThumbnailsConfig struct {
+	// Enabled allows to globally enable/disable thumbnail generation. Default true.
+	Enabled bool `json:"enabled" mapstructure:"enabled"`
+	// CacheDir is the directory used to cache generated thumbnails. It can be an
+	// absolute path or a path relative to the config dir. If empty a directory
+	// named "thumbnails" inside the config dir is used. Thumbnails show the content
+	// of the files, also of the ones stored encrypted or on a cloud backend.
+	CacheDir string `json:"cache_dir" mapstructure:"cache_dir"`
+	// CacheMaxSize is the maximum total size of the thumbnails cache, in MB. When
+	// the cache grows past this size the oldest thumbnails are evicted. 0 disables
+	// the limit. Default 512.
+	CacheMaxSize int `json:"cache_max_size" mapstructure:"cache_max_size"`
+	// MaxSourceSize is the maximum size, in MB, of a source file for which a
+	// thumbnail will be generated. Larger files fall back to a generic icon.
+	// Default 100.
+	MaxSourceSize int `json:"max_source_size" mapstructure:"max_source_size"`
+	// FFmpegPath is the path to the ffmpeg binary used to generate video
+	// thumbnails. If empty ffmpeg is looked up in the PATH; if it cannot be found
+	// video thumbnails are disabled and videos fall back to a generic icon.
+	FFmpegPath string `json:"ffmpeg_path" mapstructure:"ffmpeg_path"`
 }
 
 type apiResponse struct {
@@ -1146,6 +1176,7 @@ func (c *Conf) Initialize(configDir string, isShared int) error {
 	if err := c.checkRequiredDirs(staticFilesPath, templatesPath); err != nil {
 		return err
 	}
+	initThumbnailer(c.Thumbnails, configDir)
 	c.loadTemplates(templatesPath)
 	keyPairs := c.getKeyPairs(configDir)
 	if len(keyPairs) > 0 {
@@ -1304,6 +1335,8 @@ func updateWebClientURLs(baseURL string) {
 	webClientSharePath = path.Join(baseURL, webClientSharePathDefault)
 	webClientEditFilePath = path.Join(baseURL, webClientEditFilePathDefault)
 	webClientDirsPath = path.Join(baseURL, webClientDirsPathDefault)
+	webClientSearchPath = path.Join(baseURL, webClientSearchPathDefault)
+	webClientThumbnailPath = path.Join(baseURL, webClientThumbnailPathDefault)
 	webClientDownloadZipPath = path.Join(baseURL, webClientDownloadZipPathDefault)
 	webClientProfilePath = path.Join(baseURL, webClientProfilePathDefault)
 	webClientPingPath = path.Join(baseURL, webClientPingPathDefault)

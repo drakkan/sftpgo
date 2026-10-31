@@ -278,6 +278,12 @@
         "expired_session": "Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an"
     },
     "fs": {
+        "search": {
+            "location": "Speicherort"
+        },
+        "view": {
+            "toggle": "Rasteransicht umschalten"
+        },
         "view_file": "Datei \"{{- path}} \" anzeigen",
         "edit_file": "Datei \"{{- path}} \" bearbeiten",
         "new_folder": "Neuer Ordner",

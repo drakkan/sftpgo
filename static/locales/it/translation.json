@@ -278,6 +278,12 @@
         "expired_session": "La tua sessione è scaduta. Effettua nuovamente l'accesso"
     },
     "fs": {
+        "search": {
+            "location": "Posizione"
+        },
+        "view": {
+            "toggle": "Attiva/disattiva vista griglia"
+        },
         "view_file": "Visualizza file \"{{- path}}\"",
         "edit_file": "Modifica file \"{{- path}}\"",
         "new_folder": "Nuova cartella",

@@ -283,6 +283,12 @@
         "copy": "Copy"
     },
     "fs": {
+        "search": {
+            "location": "Location"
+        },
+        "view": {
+            "toggle": "Toggle grid view"
+        },
         "view_file": "View file \"{{- path}}\"",
         "edit_file": "Edit file \"{{- path}}\"",
         "new_folder": "New Folder",

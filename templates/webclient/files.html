@@ -41,6 +41,17 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         </div>
         <div class="card-toolbar">
             <div class="d-flex justify-content-end" data-kt-filemanager-table-toolbar="base">
+                {{- if .ThumbnailURL}}
+                <button id="id_view_toggle_button" type="button" class="btn btn-flex btn-light me-3"
+                        title="Toggle grid view" data-i18n="[title]fs.view.toggle">
+                    <i id="id_view_toggle_icon" class="ki-duotone ki-element-11 fs-2">
+                        <span class="path1"></span>
+                        <span class="path2"></span>
+                        <span class="path3"></span>
+                        <span class="path4"></span>
+                    </i>
+                </button>
+                {{- end}}
                 {{- if .CanCreateDirs}}
                 <button id="id_create_dir_button" type="button" class="btn btn-flex btn-light-primary me-3">
                     <i class="ki-duotone ki-add-folder fs-2">
@@ -194,12 +205,16 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         <th data-i18n="general.name" class="min-w-250px">Name</th>
                         <th data-i18n="general.size" class="min-w-10px">Size</th>
                         <th data-i18n="general.last_modified" class="min-w-125px">Last Modified</th>
+                        <th data-i18n="fs.search.location" class="min-w-150px">Location</th>
                         <th class="w-125px"></th>
                     </tr>
                 </thead>
                 <tbody id="file_manager_list_body" class="text-gray-700 fw-semibold">
                 </tbody>
             </table>
+            <!-- Feature: grid/gallery view. Populated from the DataTable's current
+                 page when grid mode is active; the table above is hidden then. -->
+            <div id="file_manager_grid" class="dt-grid d-none"></div>
         </div>
     </div>
 </div>
@@ -209,6 +224,78 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 {{- define "extra_css"}}
 <link href="{{.StaticURL}}/assets/plugins/custom/datatables/datatables.bundle.css" rel="stylesheet" type="text/css"/>
 <link href="{{.StaticURL}}/vendor/imageviewer/imageviewer.css" rel="stylesheet" type="text/css"/>
+<style {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
+    /* Feature: drag-and-drop move */
+    #file_manager_list_body tr[draggable="true"] { cursor: grab; }
+    #file_manager_list_body tr.dnd-dragging { opacity: 0.4; }
+    #file_manager_list_body tr.dnd-drop-over > td {
+        background-color: var(--bs-primary-light, #e9f3ff) !important;
+        box-shadow: inset 0 0 0 2px var(--bs-primary, #009ef7);
+    }
+    [data-kt-filemanager-table-nav-bar="base"].dnd-breadcrumb-target { transition: box-shadow .1s ease-in-out; }
+    [data-kt-filemanager-table-nav-bar="base"].dnd-drop-over {
+        box-shadow: 0 0 0 2px var(--bs-primary, #009ef7);
+    }
+
+    /* Feature: thumbnails + grid view */
+    #file_manager_list_body img.dt-thumb {
+        width: 40px;
+        height: 40px;
+        object-fit: cover;
+        border-radius: 4px;
+        background-color: var(--bs-gray-100, #f5f8fa);
+        flex: 0 0 auto;
+    }
+    #id_view_toggle_button.active {
+        background-color: var(--bs-primary, #009ef7);
+        color: #fff;
+    }
+    .dt-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 1rem;
+        padding: 0.5rem 0;
+    }
+    .dt-grid-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 0.75rem;
+        border: 1px solid var(--bs-gray-200, #eff2f5);
+        border-radius: 0.65rem;
+        cursor: pointer;
+        transition: box-shadow .1s ease-in-out, border-color .1s ease-in-out;
+    }
+    .dt-grid-card:hover {
+        border-color: var(--bs-primary, #009ef7);
+        box-shadow: 0 0 0 1px var(--bs-primary, #009ef7);
+    }
+    .dt-grid-thumb {
+        width: 100%;
+        height: 130px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+    .dt-grid-thumb img.dt-thumb-lg {
+        max-width: 100%;
+        max-height: 130px;
+        object-fit: cover;
+        border-radius: 4px;
+    }
+    .dt-grid-thumb .dt-grid-icon { font-size: 3.5rem; }
+    .dt-grid-name {
+        margin-top: 0.5rem;
+        width: 100%;
+        text-align: center;
+        font-size: 0.85rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: var(--bs-gray-800, #3f4254);
+    }
+</style>
 {{- end}}
 
 {{- define "extra_js"}}
@@ -558,6 +645,184 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     var KTDatatablesServerSide = function () {
         // Shared variables
         var dt;
+        // True while recursive search results are shown (see handleSearchDatatable).
+        // Drag-and-drop move is disabled in this mode because results span folders
+        // and the move endpoint assumes sources live in the current directory.
+        var searchMode = false;
+
+        // ---- Feature: thumbnails + grid view --------------------------------
+        // THUMBNAIL_URL is empty when thumbnails are disabled or on share pages,
+        // in which case we simply keep the existing icons.
+        var THUMBNAIL_URL = '{{.ThumbnailURL}}';
+        // Source extensions the backend can produce a thumbnail for. Videos are
+        // included optimistically; if ffmpeg is unavailable the request 404s and
+        // the icon fallback kicks in.
+        var thumbImageExts = ["jpg", "jpeg", "png", "gif", "webp", "bmp"];
+        var thumbVideoExts = ["mp4", "mov", "mkv", "webm", "avi", "m4v"];
+        // In-memory (per session) grid/table view preference; not persisted.
+        var gridMode = false;
+
+        function fileExtOf(name) {
+            let i = name.lastIndexOf(".");
+            if (i < 0) {
+                return "";
+            }
+            return name.slice(i + 1).toLowerCase();
+        }
+
+        function thumbKind(row) {
+            if (!THUMBNAIL_URL || row["type"] != "2") {
+                return null;
+            }
+            let ext = fileExtOf(row["name"]);
+            if (thumbImageExts.includes(ext)) {
+                return "image";
+            }
+            if (thumbVideoExts.includes(ext)) {
+                return "video";
+            }
+            return null;
+        }
+
+        function thumbnailSrc(row) {
+            // row['url'] points at the file via the files endpoint; swap the base
+            // path for the thumbnail endpoint to get its thumbnail URL.
+            return attrEscape(row["url"].replace('{{.FilesURL}}', THUMBNAIL_URL));
+        }
+
+        // mediaIcon returns either a lazy <img> thumbnail (for media files) or the
+        // regular duotone icon markup. The fallback icon class is stashed on the img
+        // so the capturing error handler can restore it if the thumbnail fails.
+        function mediaIcon(row, iconName) {
+            let iconHTML = `<i class="ki-duotone ${iconName} fs-2x text-primary me-4">
+                                <i class="path1"></i>
+                                <i class="path2"></i>
+                            </i>`;
+            if (!thumbKind(row)) {
+                return iconHTML;
+            }
+            return `<img src="${thumbnailSrc(row)}" loading="lazy" class="dt-thumb me-4"
+                         data-fallback-icon="${iconName}" alt="">`;
+        }
+
+        // initThumbErrorHandler installs a single capturing 'error' listener (error
+        // events don't bubble) that swaps a failed thumbnail back to its icon. This
+        // keeps us CSP-safe (no inline onerror attributes).
+        function initThumbErrorHandler(container) {
+            if (!container || container.dataset.thumbErrBound) {
+                return;
+            }
+            container.dataset.thumbErrBound = "1";
+            container.addEventListener('error', function (e) {
+                let img = e.target;
+                if (!img || img.tagName !== 'IMG' || !img.classList.contains('dt-thumb')) {
+                    return;
+                }
+                let icon = img.dataset.fallbackIcon || 'ki-file';
+                let holder = document.createElement('span');
+                holder.innerHTML = `<i class="ki-duotone ${icon} fs-2x text-primary me-4"><i class="path1"></i><i class="path2"></i></i>`;
+                if (holder.firstElementChild) {
+                    img.replaceWith(holder.firstElementChild);
+                }
+            }, true);
+        }
+
+        function attrEscape(s) {
+            return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+        }
+
+        // renderGrid rebuilds the gallery cards from the DataTable's current page,
+        // so search, paging and ordering all keep working in grid mode.
+        function renderGrid() {
+            let grid = document.getElementById('file_manager_grid');
+            if (!grid) {
+                return;
+            }
+            let rows = dt.rows({ page: 'current', search: 'applied' }).data();
+            let html = "";
+            for (let i = 0; i < rows.length; i++) {
+                let row = rows[i];
+                let isFolder = row["type"] == "1";
+                let kind = thumbKind(row);
+                let cardKind = kind || (isFolder ? "folder" : "other");
+                let thumbInner;
+                if (kind) {
+                    let fallbackIcon = isFolder ? "ki-folder" : "ki-file";
+                    thumbInner = `<img src="${thumbnailSrc(row)}" loading="lazy" class="dt-thumb-lg" data-fallback-icon="${fallbackIcon}" alt="">`;
+                } else {
+                    let icon = isFolder ? "ki-folder" : (row["size"] === "" ? "ki-file-right" : "ki-file");
+                    thumbInner = `<i class="ki-duotone ${icon} dt-grid-icon text-primary"><i class="path1"></i><i class="path2"></i></i>`;
+                }
+                html += `<div class="dt-grid-card" data-url="${attrEscape(row["url"])}" data-kind="${cardKind}" data-name="${attrEscape(row["name"])}">
+                            <div class="dt-grid-thumb">${thumbInner}</div>
+                            <div class="dt-grid-name" title="${attrEscape(row["name"])}">${escapeHTML(row["name"])}</div>
+                        </div>`;
+            }
+            grid.innerHTML = html;
+        }
+
+        function applyViewMode() {
+            let table = document.getElementById('file_manager_list');
+            let grid = document.getElementById('file_manager_grid');
+            if (!table || !grid) {
+                return;
+            }
+            if (gridMode) {
+                renderGrid();
+                table.classList.add('d-none');
+                grid.classList.remove('d-none');
+            } else {
+                grid.classList.add('d-none');
+                table.classList.remove('d-none');
+            }
+        }
+
+        function openGridLightbox(clickedCard) {
+            let grid = document.getElementById('file_manager_grid');
+            let cards = grid.querySelectorAll('.dt-grid-card[data-kind="image"]');
+            let items = [];
+            let idx = 0;
+            cards.forEach(function (c, i) {
+                items.push({ src: c.dataset.url, name: c.dataset.name || '' });
+                if (c === clickedCard) {
+                    idx = i;
+                }
+            });
+            if (items.length) {
+                ImageViewer.open(items, idx);
+            }
+        }
+
+        var initGridView = function () {
+            let btn = document.getElementById('id_view_toggle_button');
+            if (!btn) {
+                return;
+            }
+            let grid = document.getElementById('file_manager_grid');
+            initThumbErrorHandler(grid);
+
+            grid.addEventListener('click', function (e) {
+                let card = e.target.closest('.dt-grid-card');
+                if (!card) {
+                    return;
+                }
+                let kind = card.dataset.kind;
+                if (kind === "image") {
+                    openGridLightbox(card);
+                } else if (kind === "video") {
+                    openMediaPlayer(card.dataset.name, card.dataset.url);
+                } else {
+                    // Folders navigate in; other files download/preview.
+                    window.location.href = card.dataset.url;
+                }
+            });
+
+            $(btn).off('click').on('click', function () {
+                gridMode = !gridMode;
+                btn.classList.toggle('active', gridMode);
+                applyViewMode();
+            });
+        }
 
 
         // Private functions
@@ -587,6 +852,19 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 },
                 deferRender: true,
                 processing: true,
+                //{{- if .CanRename}}
+                createdRow: function (row, data) {
+                    // Feature: drag-and-drop move. Tag every row with its metadata so the
+                    // delegated drag handlers (see initDragAndDrop) can act without extra lookups.
+                    row.setAttribute('draggable', 'true');
+                    row.dataset.meta = data['meta'];
+                    row.dataset.type = data['type'];
+                    if (data['type'] == '1' && data['dir_path']) {
+                        row.dataset.dirPath = data['dir_path'];
+                        row.classList.add('dnd-folder');
+                    }
+                },
+                //{{- end}}
                 lengthMenu: [ 10, 25, 50, 100, 250, 500 ],
                 select: {
                     style: 'multi',
@@ -601,12 +879,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 stateLoadParams: function (settings, data) {
                     if (!data.sftpgo_dir || data.sftpgo_dir != '{{.CurrentDir}}'){
                         data.start = 0;
-                        data.search.search = "";
                     }
-                    if (data.search.search){
-                        const filterSearch = document.querySelector('[data-kt-filemanager-table-filter="search"]');
-                        filterSearch.value = data.search.search;
-                    }
+                    // Recursive search is server-side and per-session; never restore a
+                    // stale client-side filter from saved state.
+                    data.search.search = "";
                 },
                 columns: [
                     {
@@ -635,11 +911,13 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                     icon_name = "ki-file-right"
                                 }
 
+                                // Show a lazy thumbnail for image/video files, falling back
+                                // to the icon if generation fails (handled in a CSP-safe
+                                // capturing 'error' listener, see initThumbErrorHandler).
+                                let media = mediaIcon(row, icon_name);
+
                                 return `<div class="d-flex align-items-center">
-                                            <i class="ki-duotone ${icon_name} fs-2x text-primary me-4">
-                                                <i class="path1"></i>
-                                                <i class="path2"></i>
-                                            </i>
+                                            ${media}
                                             <a href="${row['url']}" class="text-gray-800 text-hover-primary">${data}</a>
                                         </div>`
                             }
@@ -673,6 +951,21 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 return ""
                             }
                             return data;
+                        }
+                    },
+                    {
+                        // Location column: populated only by recursive search results
+                        // (the "path" field). Hidden in normal listings, shown while searching.
+                        data: "path",
+                        defaultContent: '',
+                        render: function (data, type) {
+                            if (type === 'display') {
+                                if (!data) {
+                                    return "";
+                                }
+                                return `<a href="{{.FilesURL}}?path=${encodeURIComponent(data)}" class="text-gray-600 text-hover-primary">${escapeHTML(data)}</a>`;
+                            }
+                            return data || "";
                         }
                     },
                     {
@@ -820,7 +1113,14 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         searchable: false
                     },
                     {
+                        // Location column: hidden by default, revealed during search.
                         targets: 5,
+                        visible: false,
+                        orderable: true,
+                        searchable: false
+                    },
+                    {
+                        targets: 6,
                         orderable: false,
                         searchable: false
                     }
@@ -885,6 +1185,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 toggleToolbars();
                 handleRowActions();
                 $('#file_manager_list_body').localize();
+                // Keep the grid (if visible) in sync with the current page.
+                applyViewMode();
             }
 
             dt.on('user-select', function(e, dt, type, cell, originalEvent){
@@ -1024,12 +1326,66 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             });
         }
 
+        // ---- Feature: recursive search --------------------------------------
+        // The toolbar search box performs a recursive, wildcard/partial search of
+        // the current directory and everything beneath it via the /web/client/search
+        // endpoint. When the box is cleared we switch the table's ajax source back to
+        // the normal /dirs listing. The extra "Location" column (index 5) is revealed
+        // while search results are shown so each hit's folder is visible.
+        var PATH_COLUMN_INDEX = 5;
+
+        function setPathColumnVisible(visible) {
+            dt.column(PATH_COLUMN_INDEX).visible(visible, false);
+        }
+
+        function applySearch(q) {
+            dt.rows().deselect();
+            if (q === "") {
+                if (!searchMode) {
+                    return;
+                }
+                searchMode = false;
+                setPathColumnVisible(false);
+                dt.ajax.url('{{.DirsURL}}?path={{.CurrentDir}}').load();
+            } else {
+                searchMode = true;
+                setPathColumnVisible(true);
+                let url = '{{.SearchURL}}?path={{.CurrentDir}}&q=' + encodeURIComponent(q);
+                dt.ajax.url(url).load();
+            }
+        }
+
         var handleSearchDatatable = function () {
-            const filterSearch = $(document.querySelector('[data-kt-filemanager-table-filter="search"]'));
-            filterSearch.off("keyup");
-            filterSearch.on('keyup', function (e) {
-                dt.rows().deselect();
-                dt.search(e.target.value).draw();
+            const filterSearch = document.querySelector('[data-kt-filemanager-table-filter="search"]');
+            if (!filterSearch) {
+                return;
+            }
+            let searchTimer = null;
+            let lastQuery = "";
+            const trigger = function (immediate) {
+                let q = filterSearch.value.trim();
+                clearTimeout(searchTimer);
+                const run = function () {
+                    if (q === lastQuery) {
+                        return;
+                    }
+                    lastQuery = q;
+                    applySearch(q);
+                };
+                if (immediate) {
+                    run();
+                } else {
+                    // Debounce so we don't launch a recursive walk on every keystroke.
+                    searchTimer = setTimeout(run, 400);
+                }
+            };
+            $(filterSearch).off("keyup input keydown");
+            filterSearch.addEventListener('input', function () { trigger(false); });
+            filterSearch.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    trigger(true);
+                }
             });
         }
 
@@ -1288,12 +1644,225 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             handleToogleToolbar(pageSelected, totalSelected);
         }
 
+        //{{- if .CanRename}}
+        // ---- Feature: drag-and-drop move -------------------------------------
+        // Reuses the existing /file-actions/move endpoint (same request the "Move
+        // or copy" dialog issues). No backend changes. Source items always live in
+        // the current directory (that's what the listing shows); the drop target is
+        // either a folder row or the breadcrumb (move up one level).
+        var draggedMeta = null;
+        var draggedType = null;
+
+        // dir_path values from the backend are url.QueryEscape'd (space -> '+',
+        // '/' -> '%2F'); turn one back into a plain absolute path.
+        function decodeDirPath(s) {
+            return decodeURIComponent(String(s).replace(/\+/g, '%20'));
+        }
+
+        function clearDropHighlights() {
+            document.querySelectorAll('.dnd-drop-over').forEach(function (el) {
+                el.classList.remove('dnd-drop-over');
+            });
+        }
+
+        function showDragMoveError(status) {
+            let errorMessage;
+            switch (status) {
+                case 400: errorMessage = "fs.move.err_unsupported"; break;
+                case 403: errorMessage = "fs.move.err_403"; break;
+                case 429: errorMessage = "fs.move.err_429"; break;
+                default:  errorMessage = "fs.move.err_generic";
+            }
+            ModalAlert.fire({
+                text: $.t(errorMessage),
+                icon: "warning",
+                confirmButtonText: $.t('general.ok'),
+                customClass: { confirmButton: "btn btn-primary" }
+            });
+        }
+
+        // Move the dragged item (from the current dir) into targetDirDecoded.
+        function dragMoveItem(sourceMeta, targetDirDecoded) {
+            let sourceName = getNameFromMeta(sourceMeta);
+            let sourceType = getTypeFromMeta(sourceMeta);
+
+            let curDecoded = decodeURIComponent('{{.CurrentDir}}');
+            let normCur = (curDecoded !== "/" && curDecoded.endsWith('/')) ? curDecoded.slice(0, -1) : curDecoded;
+            let normTgt = (targetDirDecoded !== "/" && targetDirDecoded.endsWith('/')) ? targetDirDecoded.slice(0, -1) : targetDirDecoded;
+
+            // No-op: dropping back into the folder the item already lives in.
+            if (normTgt === normCur) {
+                return;
+            }
+            // Guard: never move a folder into itself or one of its descendants.
+            if (sourceType === "1") {
+                let sourceFull = (normCur === "/" ? "" : normCur) + "/" + sourceName;
+                if (normTgt === sourceFull || normTgt.startsWith(sourceFull + "/")) {
+                    showDragMoveError(400);
+                    return;
+                }
+            }
+
+            let targetDirEnc = encodeURIComponent(targetDirDecoded);
+            let reqPath = '{{.FileActionsURL}}/move';
+            reqPath += '?path={{.CurrentDir}}' + encodeURIComponent("/" + sourceName) +
+                       '&target=' + targetDirEnc + encodeURIComponent("/" + sourceName);
+
+            KTApp.showPageLoading();
+            axios.post(reqPath, null, {
+                timeout: 15000,
+                headers: { 'X-CSRF-TOKEN': '{{.CSRFToken}}' },
+                validateStatus: function (status) { return status == 202; }
+            }).then(function (response) {
+                taskStatusWaiter.wait({
+                    taskID: response.data.message,
+                    delay: 500
+                }).then((result) => {
+                    KTApp.hidePageLoading();
+                    if (result.status != 200) {
+                        showDragMoveError(result.status);
+                        return;
+                    }
+                    dt.ajax.reload(null, false);
+                });
+            }).catch(function (error) {
+                KTApp.hidePageLoading();
+                let status = 0;
+                if (error && error.response) {
+                    status = error.response.status;
+                }
+                showDragMoveError(status);
+            });
+        }
+
+        var initDragAndDrop = function () {
+            let body = document.getElementById('file_manager_list_body');
+            if (!body || body.dataset.dndBound) {
+                return;
+            }
+            body.dataset.dndBound = "1";
+
+            body.addEventListener('dragstart', function (e) {
+                if (searchMode) {
+                    // Sources in search results may live in other folders; the move
+                    // endpoint expects them in the current dir, so disable DnD here.
+                    e.preventDefault();
+                    return;
+                }
+                let tr = e.target.closest('tr');
+                if (!tr || !tr.dataset.meta) {
+                    return;
+                }
+                draggedMeta = tr.dataset.meta;
+                draggedType = tr.dataset.type;
+                tr.classList.add('dnd-dragging');
+                if (e.dataTransfer) {
+                    e.dataTransfer.effectAllowed = 'move';
+                    // Firefox requires data to be set for the drag to start.
+                    e.dataTransfer.setData('text/plain', draggedMeta);
+                }
+            });
+
+            body.addEventListener('dragend', function (e) {
+                let tr = e.target.closest('tr');
+                if (tr) {
+                    tr.classList.remove('dnd-dragging');
+                }
+                draggedMeta = null;
+                draggedType = null;
+                clearDropHighlights();
+            });
+
+            body.addEventListener('dragover', function (e) {
+                if (!draggedMeta) {
+                    return;
+                }
+                let tr = e.target.closest('tr.dnd-folder');
+                if (!tr || tr.dataset.meta === draggedMeta) {
+                    return;
+                }
+                e.preventDefault();
+                if (e.dataTransfer) {
+                    e.dataTransfer.dropEffect = 'move';
+                }
+                if (!tr.classList.contains('dnd-drop-over')) {
+                    clearDropHighlights();
+                    tr.classList.add('dnd-drop-over');
+                }
+            });
+
+            body.addEventListener('dragleave', function (e) {
+                let tr = e.target.closest('tr.dnd-folder');
+                if (tr && !tr.contains(e.relatedTarget)) {
+                    tr.classList.remove('dnd-drop-over');
+                }
+            });
+
+            body.addEventListener('drop', function (e) {
+                if (!draggedMeta) {
+                    return;
+                }
+                let tr = e.target.closest('tr.dnd-folder');
+                if (!tr || tr.dataset.meta === draggedMeta || !tr.dataset.dirPath) {
+                    return;
+                }
+                e.preventDefault();
+                let meta = draggedMeta;
+                clearDropHighlights();
+                dragMoveItem(meta, decodeDirPath(tr.dataset.dirPath));
+            });
+
+            // Breadcrumb becomes a "move up one level" drop target (skipped at root).
+            let navBar = document.querySelector('[data-kt-filemanager-table-nav-bar="base"]');
+            let curDecoded = decodeURIComponent('{{.CurrentDir}}');
+            if (navBar && curDecoded !== "/" && curDecoded !== "") {
+                let normCur = curDecoded.endsWith('/') ? curDecoded.slice(0, -1) : curDecoded;
+                let parentDir = normCur.substring(0, normCur.lastIndexOf('/'));
+                if (parentDir === "") {
+                    parentDir = "/";
+                }
+                navBar.classList.add('dnd-breadcrumb-target');
+                navBar.addEventListener('dragover', function (e) {
+                    if (!draggedMeta) {
+                        return;
+                    }
+                    e.preventDefault();
+                    if (e.dataTransfer) {
+                        e.dataTransfer.dropEffect = 'move';
+                    }
+                    navBar.classList.add('dnd-drop-over');
+                });
+                navBar.addEventListener('dragleave', function (e) {
+                    if (!navBar.contains(e.relatedTarget)) {
+                        navBar.classList.remove('dnd-drop-over');
+                    }
+                });
+                navBar.addEventListener('drop', function (e) {
+                    if (!draggedMeta) {
+                        return;
+                    }
+                    e.preventDefault();
+                    let meta = draggedMeta;
+                    navBar.classList.remove('dnd-drop-over');
+                    dragMoveItem(meta, parentDir);
+                });
+            }
+        }
+        //{{- end}}
+
         return {
             init: function () {
                 initLightbox();
                 initDatatable();
                 handleSearchDatatable();
                 initToggleToolbar();
+                //{{- if .CanRename}}
+                initDragAndDrop();
+                //{{- end}}
+                //{{- if .ThumbnailURL}}
+                initThumbErrorHandler(document.getElementById('file_manager_list_body'));
+                initGridView();
+                //{{- end}}
             }
         }
     }();

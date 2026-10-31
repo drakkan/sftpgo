@@ -4885,3 +4885,67 @@ func TestTaskConnectionDisconnectAfterResponse(t *testing.T) {
 	})
 	assert.Error(t, err)
 }
+
+func TestThumbnailFFmpegArguments(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test uses a shell script")
+	}
+	dir := t.TempDir()
+	argsFile := filepath.Join(dir, "args")
+	script := filepath.Join(dir, "ffmpeg")
+	err := os.WriteFile(script, []byte("#!/bin/sh\necho \"$@\" > \""+argsFile+"\"\nexit 1\n"), 0700)
+	require.NoError(t, err)
+	th := &thumbnailer{enabled: true, cacheDir: dir, ffmpegPath: script}
+
+	for ext, demuxer := range videoThumbExtensions {
+		assert.Contains(t, strings.Split(thumbnailFFmpegDemuxers, ","), demuxer)
+		_, err := th.generateFromVideo(context.Background(), strings.NewReader("video"), ext)
+		require.Error(t, err)
+		args, err := os.ReadFile(argsFile)
+		require.NoError(t, err)
+		// The input options must come before the input to apply to it.
+		input := strings.Index(string(args), " -i ")
+		require.Positive(t, input)
+		for _, option := range []string{"-protocol_whitelist file", "-format_whitelist " + thumbnailFFmpegDemuxers, "-f " + demuxer} {
+			assert.Contains(t, string(args)[:input], option)
+		}
+	}
+	_, err = th.generateFromVideo(context.Background(), strings.NewReader("video"), ".m3u8")
+	assert.ErrorContains(t, err, "unsupported video extension")
+	left, err := filepath.Glob(filepath.Join(dir, "thumbsrc-*"))
+	require.NoError(t, err)
+	assert.Empty(t, left)
+}
+
+func TestThumbnailFFmpegIsStopped(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test uses a shell script")
+	}
+	dir := t.TempDir()
+	script := filepath.Join(dir, "ffmpeg")
+	require.NoError(t, os.WriteFile(script, []byte("#!/bin/sh\nexec sleep 60\n"), 0700))
+	th := &thumbnailer{enabled: true, cacheDir: dir, ffmpegPath: script}
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	start := time.Now()
+	_, err := th.generateFromVideo(ctx, strings.NewReader("video"), ".mp4")
+	assert.Error(t, err)
+	assert.Less(t, time.Since(start), 10*time.Second)
+}
+
+func TestThumbnailLeftoversAreRemoved(t *testing.T) {
+	dir := t.TempDir()
+	for _, name := range []string{"thumbsrc-1.mp4", "thumbsrc-1.mp4.jpg", "thumb-1.tmp"} {
+		require.NoError(t, os.WriteFile(filepath.Join(dir, name), nil, 0600))
+	}
+	cached := filepath.Join(dir, "0123.jpg")
+	require.NoError(t, os.WriteFile(cached, nil, 0600))
+	previous := thumbs
+	defer func() { thumbs = previous }()
+	initThumbnailer(ThumbnailsConfig{Enabled: true, CacheDir: dir}, "")
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+	if assert.Len(t, entries, 1) {
+		assert.Equal(t, filepath.Base(cached), entries[0].Name())
+	}
+}

@@ -4,3 +4,6 @@ sftpgo.exe
 
 # signing key generated at runtime
 httpd_signing_key
+
+# thumbnails cache, created at runtime in the config dir
+/thumbnails/

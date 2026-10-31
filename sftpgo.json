@@ -384,6 +384,13 @@
       "installation_code": "",
       "installation_code_hint": "Installation code"
     },
+    "thumbnails": {
+      "enabled": true,
+      "cache_dir": "",
+      "cache_max_size": 512,
+      "max_source_size": 100,
+      "ffmpeg_path": ""
+    },
     "hide_support_link": false
   },
   "telemetry": {
