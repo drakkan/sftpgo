@@ -32,12 +32,12 @@ theme in static/assets, which WebAdmin still depends on. */ -}}
 {{- end}}
 
 {{- define "language"}}
-<label class="language" hidden>
+<button class="language" type="button" data-language-picker aria-haspopup="menu" aria-expanded="false" hidden>
     <svg class="icon" aria-hidden="true"><use data-sprite="languages"></use></svg>
     <span class="sr" data-i18n="client.language">Language</span>
-    <select data-language-picker></select>
+    <span data-language-name></span>
     <svg class="icon language-caret" aria-hidden="true"><use data-sprite="chevron-down"></use></svg>
-</label>
+</button>
 {{- end}}
 
 {{- define "notice"}}
