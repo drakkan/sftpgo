@@ -40,7 +40,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/bmatcuk/doublestar/v4"
 	"github.com/klauspost/compress/zip"
 	"github.com/robfig/cron/v3"
 	"github.com/rs/xid"
@@ -347,7 +346,7 @@ func (*eventRulesContainer) checkFsEventMatch(conditions *dataprovider.EventCond
 	if !checkEventGroupConditionPatterns(params.Groups, conditions.Options.GroupNames) {
 		return false
 	}
-	if !checkEventConditionPatterns(params.VirtualPath, conditions.Options.FsPaths) {
+	if !checkFsPathConditionPatterns(params.VirtualPath, conditions.Options.FsPaths, params.foldNames) {
 		return false
 	}
 	if len(conditions.Options.Protocols) > 0 && !slices.Contains(conditions.Options.Protocols, params.Protocol) {
@@ -576,6 +575,9 @@ type EventParams struct {
 	updateStatusFromError bool
 	errors                []string
 	retentionChecks       []executedRetentionCheck
+	// foldNames is set for files on Windows and macOS local storage: path conditions
+	// are matched in lowercase ASCII
+	foldNames bool
 }
 
 func (p *EventParams) getACopy() *EventParams {
@@ -1087,6 +1089,16 @@ func addZipEntry(wr *zipWriterWrapper, conn *BaseConnection, entryPath, baseDir 
 		eventManagerLog(logger.LevelInfo, "skipping zip entry for non regular file %q", entryPath)
 		return nil
 	}
+	// the archive itself under another name, such as a hard link
+	isArchive, err := conn.isSameVirtualFile(entryPath, wr.Name)
+	if err != nil {
+		eventManagerLog(logger.LevelError, "unable to add zip entry %q: %v", entryPath, err)
+		return fmt.Errorf("unable to add zip entry %q: %w", entryPath, err)
+	}
+	if isArchive {
+		eventManagerLog(logger.LevelDebug, "skipping zip entry %q, it is the archive %q", entryPath, wr.Name)
+		return nil
+	}
 
 	return addFileToZip(wr, conn, entryPath, entryName, info.ModTime())
 }
@@ -1203,13 +1215,11 @@ func replaceWithReplacer(input string, replacer *strings.Replacer) string {
 }
 
 func checkEventConditionPattern(p dataprovider.ConditionPattern, name string) bool {
-	var matched bool
-	var err error
-	if strings.Contains(p.Pattern, "**") {
-		matched, err = doublestar.Match(p.Pattern, name)
-	} else {
-		matched, err = path.Match(p.Pattern, name)
-	}
+	return checkConditionPattern(p, name, false)
+}
+
+func checkConditionPattern(p dataprovider.ConditionPattern, name string, foldNames bool) bool {
+	matched, err := dataprovider.MatchConditionPattern(p.Pattern, name, foldNames)
 	if err != nil {
 		eventManagerLog(logger.LevelError, "pattern matching error %q, err: %v", p.Pattern, err)
 		return false
@@ -1235,6 +1245,14 @@ func checkUserConditionOptions(user *dataprovider.User, conditions *dataprovider
 
 // checkEventConditionPatterns returns false if patterns are defined and no match is found
 func checkEventConditionPatterns(name string, patterns []dataprovider.ConditionPattern) bool {
+	return checkConditionPatterns(name, patterns, false)
+}
+
+func checkFsPathConditionPatterns(virtualPath string, patterns []dataprovider.ConditionPattern, foldNames bool) bool {
+	return checkConditionPatterns(virtualPath, patterns, foldNames)
+}
+
+func checkConditionPatterns(name string, patterns []dataprovider.ConditionPattern, foldNames bool) bool {
 	if len(patterns) == 0 {
 		return true
 	}
@@ -1242,12 +1260,12 @@ func checkEventConditionPatterns(name string, patterns []dataprovider.ConditionP
 	for _, p := range patterns {
 		// assume, that multiple InverseMatches are set
 		if p.InverseMatch {
-			if checkEventConditionPattern(p, name) {
+			if checkConditionPattern(p, name, foldNames) {
 				matches = true
 			} else {
 				return false
 			}
-		} else if checkEventConditionPattern(p, name) {
+		} else if checkConditionPattern(p, name, foldNames) {
 			return true
 		}
 	}
@@ -2048,8 +2066,8 @@ func executeCompressFsActionForUser(c dataprovider.EventActionFsCompress, replac
 	paths := make([]string, 0, len(c.Paths))
 	for idx := range c.Paths {
 		p := util.CleanPath(replaceWithReplacer(c.Paths[idx], replacer))
-		if p == name {
-			return fmt.Errorf("cannot compress the archive to create: %q", name)
+		if err := conn.checkSamePath(p, name); err != nil {
+			return fmt.Errorf("cannot compress the archive to create %q: %w", name, err)
 		}
 		paths = append(paths, p)
 	}

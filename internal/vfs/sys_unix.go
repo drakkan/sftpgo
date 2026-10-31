@@ -18,6 +18,7 @@ package vfs
 
 import (
 	"errors"
+	iofs "io/fs"
 
 	"golang.org/x/sys/unix"
 )
@@ -28,4 +29,8 @@ func isCrossDeviceError(err error) bool {
 
 func isInvalidNameError(_ error) bool {
 	return false
+}
+
+func isMissingName(err error) bool {
+	return errors.Is(err, iofs.ErrNotExist) || errors.Is(err, unix.ENOTDIR) || errors.Is(err, unix.ENAMETOOLONG)
 }

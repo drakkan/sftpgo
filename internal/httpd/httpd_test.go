@@ -7917,6 +7917,135 @@ func TestSaveErrors(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestGroupPlaceholderValue(t *testing.T) {
+	// a "~" brought by a placeholder value into a local path fails the account, one
+	// written in the setting is kept
+	base := filepath.Join(os.TempDir(), util.GenerateUniqueID())
+	folder, _, err := httpdtest.AddFolder(vfs.BaseVirtualFolder{
+		Name:       "tpl_folder",
+		MappedPath: filepath.Join(base, "folders", "%username%"),
+	}, http.StatusCreated)
+	assert.NoError(t, err)
+	g := getTestGroup()
+	g.UserSettings.HomeDir = filepath.Join(base, "~%username%")
+	group, _, err := httpdtest.AddGroup(g, http.StatusCreated)
+	assert.NoError(t, err)
+	u := getTestUser()
+	u.Groups = []sdk.GroupMapping{{Name: group.Name, Type: sdk.GroupTypePrimary}}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	u.Username = "user~1"
+	tildeUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	merged, err := dataprovider.CheckUserAndPass(defaultUsername, defaultPassword, "", common.ProtocolHTTP)
+	assert.NoError(t, err)
+	assert.Equal(t, filepath.Join(base, "~"+defaultUsername), merged.HomeDir)
+	_, err = dataprovider.CheckUserAndPass(tildeUser.Username, defaultPassword, "", common.ProtocolHTTP)
+	assert.ErrorIs(t, err, dataprovider.ErrPlaceholderValue)
+	assert.True(t, dataprovider.IsAccountConfigError(err))
+	// the mapped path of a folder
+	group.UserSettings.HomeDir = ""
+	group.VirtualFolders = []vfs.VirtualFolder{{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{Name: folder.Name},
+		VirtualPath:       "/vdir",
+	}}
+	group, _, err = httpdtest.UpdateGroup(group, http.StatusOK)
+	assert.NoError(t, err)
+	merged, err = dataprovider.GetUserWithGroupSettings(defaultUsername, "")
+	assert.NoError(t, err)
+	if assert.Len(t, merged.VirtualFolders, 1) {
+		assert.Equal(t, filepath.Join(base, "folders", defaultUsername), merged.VirtualFolders[0].MappedPath)
+	}
+	_, err = dataprovider.GetUserWithGroupSettings(tildeUser.Username, "")
+	assert.ErrorIs(t, err, dataprovider.ErrPlaceholderValue)
+	// a sub-path drops the mapping, the login is unaffected
+	subFolder, _, err := httpdtest.AddFolder(vfs.BaseVirtualFolder{
+		Name:       "tpl_sub_folder",
+		MappedPath: filepath.Join(base, "folders"),
+	}, http.StatusCreated)
+	assert.NoError(t, err)
+	group.VirtualFolders = []vfs.VirtualFolder{{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{Name: subFolder.Name},
+		VirtualPath:       "/vdir",
+		Subpath:           "/%username%",
+	}}
+	group, _, err = httpdtest.UpdateGroup(group, http.StatusOK)
+	assert.NoError(t, err)
+	merged, err = dataprovider.GetUserWithGroupSettings(defaultUsername, "")
+	assert.NoError(t, err)
+	if assert.Len(t, merged.VirtualFolders, 1) {
+		assert.Equal(t, "/"+defaultUsername, merged.VirtualFolders[0].Subpath)
+	}
+	merged, err = dataprovider.GetUserWithGroupSettings(tildeUser.Username, "")
+	assert.NoError(t, err)
+	assert.Empty(t, merged.VirtualFolders)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(tildeUser, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(folder, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(subFolder, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(base)
+	assert.NoError(t, err)
+}
+
+func TestGroupPlaceholderValueInPermissionKey(t *testing.T) {
+	err := dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	providerConf.NamingRules = 1
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+
+	// a bracket brought by a placeholder value would make the key a pattern
+	g := getTestGroup()
+	g.UserSettings.Permissions = map[string][]string{
+		"/%username%": {dataprovider.PermListItems},
+	}
+	group, _, err := httpdtest.AddGroup(g, http.StatusCreated)
+	assert.NoError(t, err)
+	u := getTestUser()
+	u.Groups = []sdk.GroupMapping{{Name: group.Name, Type: sdk.GroupTypePrimary}}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	u.Username = "user[1]"
+	u.HomeDir = filepath.Join(homeBasePath, "user_bracket")
+	bracketUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	merged, err := dataprovider.GetUserWithGroupSettings(defaultUsername, "")
+	assert.NoError(t, err)
+	assert.Equal(t, []string{dataprovider.PermListItems}, merged.Permissions["/"+defaultUsername])
+	_, err = dataprovider.CheckUserAndPass(bracketUser.Username, defaultPassword, "", common.ProtocolHTTP)
+	assert.ErrorIs(t, err, dataprovider.ErrPlaceholderValue)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(bracketUser, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(bracketUser.GetHomeDir())
+	assert.NoError(t, err)
+
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf = config.GetProviderConf()
+	providerConf.BackupsPath = backupsPath
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+}
+
 func TestUserBaseDir(t *testing.T) {
 	err := dataprovider.Close()
 	assert.NoError(t, err)
@@ -7934,6 +8063,16 @@ func TestUserBaseDir(t *testing.T) {
 	}
 	assert.Equal(t, filepath.Join(providerConf.UsersBaseDir, u.Username), user.HomeDir)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	// a "~" in the username can be a short name of another account's home
+	u.Username = "user~1"
+	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err)
+	u.HomeDir = filepath.Join(homeBasePath, "user_tilde")
+	tildeUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	assert.Equal(t, u.HomeDir, tildeUser.HomeDir)
+	_, err = httpdtest.RemoveUser(tildeUser, http.StatusOK)
 	assert.NoError(t, err)
 	err = dataprovider.Close()
 	assert.NoError(t, err)

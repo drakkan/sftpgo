@@ -579,6 +579,10 @@ func (u *User) GetPermissionsForPath(p string) []string {
 		// fallback permissions
 		permissions = perms
 	}
+	p, ok := u.keyPath(p)
+	if !ok {
+		return []string{}
+	}
 	dirsForPath := util.GetDirsForVirtualPath(p)
 	// dirsForPath contains all the dirs for a given path in reverse order
 	// for example if the path is: /1/2/3/4 it contains:
@@ -588,8 +592,13 @@ func (u *User) GetPermissionsForPath(p string) []string {
 		if perms, ok := u.Permissions[dirsForPath[idx]]; ok {
 			return perms
 		}
+		// wildcard keys are matched in lowercase ASCII on Windows and macOS local storage
+		fold, foldChecked := false, false
 		for dir, perms := range u.Permissions {
-			if match, err := path.Match(dir, dirsForPath[idx]); err == nil && match {
+			if namesFoldPlatform && !foldChecked && strings.ContainsAny(dir, `*?[\`) {
+				fold, foldChecked = u.FoldsNamesAt(dirsForPath[idx]), true
+			}
+			if match, err := matchPermissionKey(dir, dirsForPath[idx], fold); err == nil && match {
 				return perms
 			}
 		}
@@ -960,24 +969,32 @@ func (u *User) HasVirtualFoldersInside(virtualPath string) bool {
 // HasRenameRestrictionsInside returns true if permissions that do not allow
 // renaming both files and directories are defined for the specified virtualPath
 func (u *User) HasRenameRestrictionsInside(virtualPath string) bool {
+	virtualPath, ok := u.keyPath(virtualPath)
+	if !ok {
+		return true
+	}
+	fold := u.FoldsNamesAt(virtualPath)
 	for dir, perms := range u.Permissions {
 		if permsAllowRenameAll(perms) {
 			continue
 		}
-		if isPermissionPathInside(dir, virtualPath) {
+		if isPermissionPathInside(dir, virtualPath, fold) {
 			return true
 		}
 	}
 	return false
 }
 
-func isPermissionPathInside(key, virtualPath string) bool {
+func isPermissionPathInside(key, virtualPath string, fold bool) bool {
 	if virtualPath == "/" {
 		return true
 	}
 	prefix := virtualPath + "/"
 	if strings.ContainsAny(key, `[\`) {
 		literal := key[:strings.IndexAny(key, `*?[\`)]
+		if fold {
+			prefix, literal = foldASCII(prefix), foldASCII(literal)
+		}
 		return strings.HasPrefix(prefix, literal) || strings.HasPrefix(literal, prefix)
 	}
 	keyDirs := util.GetDirsForVirtualPath(key)
@@ -985,7 +1002,11 @@ func isPermissionPathInside(key, virtualPath string) bool {
 	if len(keyDirs) < len(dirs) {
 		return false
 	}
-	match, err := path.Match(keyDirs[len(keyDirs)-len(dirs)], virtualPath)
+	ancestor := keyDirs[len(keyDirs)-len(dirs)]
+	if fold && !strings.ContainsAny(ancestor, `*?[\`) {
+		return util.EqualFoldASCII(ancestor, virtualPath)
+	}
+	match, err := matchPermissionKey(ancestor, virtualPath, fold)
 	return err == nil && match
 }
 
@@ -1145,6 +1166,21 @@ func (u *User) GetAllowedLoginMethods() []string {
 }
 
 func (u *User) getPatternsFilterForPath(virtualPath string) sdk.PatternsFilter {
+	if len(u.Filters.FilePatterns) == 0 {
+		return sdk.PatternsFilter{}
+	}
+	keyPath, ok := u.keyPath(virtualPath)
+	if !ok {
+		return denyAllPatternsFilter(virtualPath)
+	}
+	return u.getPatternsFilterForKeyPath(keyPath)
+}
+
+func denyAllPatternsFilter(virtualPath string) sdk.PatternsFilter {
+	return sdk.PatternsFilter{Path: virtualPath, DeniedPatterns: []string{"*"}, DenyPolicy: sdk.DenyPolicyHide}
+}
+
+func (u *User) getPatternsFilterForKeyPath(virtualPath string) sdk.PatternsFilter {
 	var filter sdk.PatternsFilter
 	if len(u.Filters.FilePatterns) == 0 {
 		return filter
@@ -1176,6 +1212,11 @@ func (u *User) FilePatternsScopeChanges(virtualSourcePath, virtualTargetPath str
 	if len(u.Filters.FilePatterns) == 0 {
 		return false
 	}
+	virtualSourcePath, okSource := u.keyPath(virtualSourcePath)
+	virtualTargetPath, okTarget := u.keyPath(virtualTargetPath)
+	if !okSource || !okTarget {
+		return true
+	}
 	for idx := range u.Filters.FilePatterns {
 		p := u.Filters.FilePatterns[idx].Path
 		// a filter defined on the moved tree stays behind, one defined on the
@@ -1186,8 +1227,8 @@ func (u *User) FilePatternsScopeChanges(virtualSourcePath, virtualTargetPath str
 		}
 	}
 	// the inherited filter must be the same on both sides
-	return u.getPatternsFilterForPath(virtualSourcePath).Path !=
-		u.getPatternsFilterForPath(virtualTargetPath).Path
+	return u.getPatternsFilterForKeyPath(virtualSourcePath).Path !=
+		u.getPatternsFilterForKeyPath(virtualTargetPath).Path
 }
 
 func (u *User) isDirHidden(virtualPath string) bool {
@@ -1201,7 +1242,7 @@ func (u *User) isDirHidden(virtualPath string) bool {
 		// The name of a directory is governed by the filter defined for its
 		// parent: the filter defined for the directory itself describes the
 		// entries it carries, not its own name.
-		filter := u.getPatternsFilterForPath(path.Dir(dirPath))
+		filter := u.getPatternsFilterForKeyPath(path.Dir(dirPath))
 		if filter.DenyPolicy == sdk.DenyPolicyHide {
 			if !filter.CheckAllowed(path.Base(dirPath)) {
 				return true
@@ -1221,11 +1262,17 @@ func (u *User) getMinPasswordEntropy() float64 {
 // IsFileAllowed returns true if the specified file is allowed by the file restrictions filters.
 // The second parameter returned is the deny policy
 func (u *User) IsFileAllowed(virtualPath string) (bool, int) {
-	dirPath := path.Dir(virtualPath)
+	if len(u.Filters.FilePatterns) == 0 {
+		return true, sdk.DenyPolicyDefault
+	}
+	dirPath, ok := u.keyPath(path.Dir(virtualPath))
+	if !ok {
+		return false, sdk.DenyPolicyDefault
+	}
 	if u.isDirHidden(dirPath) {
 		return false, sdk.DenyPolicyHide
 	}
-	filter := u.getPatternsFilterForPath(dirPath)
+	filter := u.getPatternsFilterForKeyPath(dirPath)
 	return filter.CheckAllowed(path.Base(virtualPath)), filter.DenyPolicy
 }
 
@@ -1744,8 +1791,21 @@ func (r *groupRenderer) render(value string) string {
 }
 
 func (r *groupRenderer) fail(value string) {
+	r.failWith(value, ErrPlaceholderUnset)
+}
+
+func (r *groupRenderer) renderLocalPath(value string) string {
+	rendered := r.render(value)
+	if strings.Count(rendered, "~") != strings.Count(value, "~") {
+		r.failWith(value, ErrPlaceholderValue)
+		return value
+	}
+	return rendered
+}
+
+func (r *groupRenderer) failWith(value string, err error) {
 	if r.err == nil {
-		r.err = fmt.Errorf("%w: %q", ErrPlaceholderUnset, value)
+		r.err = fmt.Errorf("%w: %q", err, value)
 	}
 }
 
@@ -1790,7 +1850,7 @@ func (u *User) mergeCryptFsConfig(group *Group) {
 
 func (u *User) mergeWithPrimaryGroup(group *Group, replacer *groupRenderer) {
 	if group.UserSettings.HomeDir != "" {
-		u.HomeDir = filepath.Clean(u.replacePlaceholder(group.UserSettings.HomeDir, replacer))
+		u.HomeDir = filepath.Clean(replacer.renderLocalPath(group.UserSettings.HomeDir))
 	}
 	if group.UserSettings.FsConfig.Provider != 0 {
 		u.FsConfig = u.replaceFsConfigPlaceholders(group.UserSettings.FsConfig, replacer)
@@ -1904,11 +1964,11 @@ func (u *User) mergeVirtualFolders(group *Group, groupType int, replacer *groupR
 			}
 			folder.VirtualPath = u.replacePlaceholder(folder.VirtualPath, replacer)
 			if _, ok := folderPaths[folder.VirtualPath]; !ok {
-				folder.MappedPath = u.replacePlaceholder(folder.MappedPath, replacer)
+				folder.MappedPath = replacer.renderLocalPath(folder.MappedPath)
 				folder.FsConfig = u.replaceFsConfigPlaceholders(folder.FsConfig, replacer)
 				subpath, ok := u.renderSubPathValue(folder.Subpath, replacer)
 				if !ok {
-					logger.Warn(logSender, "", "user %q: dropping folder mount %q from group %q, subpath %q renders empty or collapses",
+					logger.Warn(logSender, "", "user %q: dropping folder mount %q from group %q, subpath %q renders empty, collapses or gets a \"~\" from a placeholder value",
 						u.Username, folder.VirtualPath, group.Name, folder.Subpath)
 					continue
 				}
@@ -1935,7 +1995,8 @@ func (u *User) renderSubPathValue(value string, replacer *groupRenderer) (string
 		return "", false
 	}
 	rendered := util.CleanPath(replacer.render(value))
-	if countPathSegments(rendered) < countPathSegments(value) {
+	if countPathSegments(rendered) < countPathSegments(value) ||
+		strings.Count(rendered, "~") != strings.Count(value, "~") {
 		return "", false
 	}
 	return rendered, true
@@ -1953,9 +2014,14 @@ func (u *User) mergePermissions(group *Group, groupType int, replacer *groupRend
 				continue
 			}
 		}
-		k = u.replacePlaceholder(k, replacer)
-		if _, ok := u.Permissions[k]; !ok {
-			u.Permissions[k] = v
+		rendered := u.replacePlaceholder(k, replacer)
+		// a placeholder value is a literal name: a bracket it adds would make the key a pattern
+		if strings.Count(rendered, "[") != strings.Count(k, "[") || strings.Count(rendered, "]") != strings.Count(k, "]") {
+			replacer.failWith(k, ErrPlaceholderValue)
+			continue
+		}
+		if _, ok := u.Permissions[rendered]; !ok {
+			u.Permissions[rendered] = v
 		}
 	}
 }

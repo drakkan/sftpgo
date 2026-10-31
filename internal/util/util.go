@@ -186,6 +186,37 @@ func RemoveDuplicates(obj []string, trim bool) []string {
 	return obj[:validIdx]
 }
 
+// IsASCII reports whether s holds only ASCII characters.
+func IsASCII(s string) bool {
+	for i := range len(s) {
+		if s[i] >= 0x80 {
+			return false
+		}
+	}
+	return true
+}
+
+// EqualFoldASCII reports whether a and b are equal ignoring the letter case of
+// ASCII letters only: other characters must be equal as written.
+func EqualFoldASCII(a, b string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range len(a) {
+		ca, cb := a[i], b[i]
+		if ca >= 'A' && ca <= 'Z' {
+			ca += 'a' - 'A'
+		}
+		if cb >= 'A' && cb <= 'Z' {
+			cb += 'a' - 'A'
+		}
+		if ca != cb {
+			return false
+		}
+	}
+	return true
+}
+
 // IsNameValid validates that a name/username contains only safe characters.
 // Since names can be used within filesystem paths, only a restricted character
 // set is permitted. Unicode control (Cc), format (Cf) and line/paragraph

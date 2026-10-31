@@ -871,7 +871,7 @@ func checkAuthError(ip string, err error) {
 		// check public key auth errors here
 		for _, err := range authErrors.Errors {
 			if sftpAuthErr, ok := errors.AsType[*authenticationError](err); ok {
-				if errors.Is(err, dataprovider.ErrPlaceholderUnset) {
+				if dataprovider.IsAccountConfigError(err) {
 					continue
 				}
 				if sftpAuthErr.getLoginMethod() == dataprovider.SSHLoginMethodPublicKey {
@@ -1391,7 +1391,7 @@ func updateLoginMetrics(user *dataprovider.User, ip, method string, err error) {
 		common.DelayLogin(nil)
 	} else {
 		logger.ConnectionFailedLog(user.Username, ip, method, common.ProtocolSSH, err.Error())
-		if method != dataprovider.SSHLoginMethodPublicKey && !errors.Is(err, dataprovider.ErrPlaceholderUnset) {
+		if method != dataprovider.SSHLoginMethodPublicKey && !dataprovider.IsAccountConfigError(err) {
 			// some clients try all available public keys for a user, we
 			// record failed login key auth only once for session if the
 			// authentication fails in checkAuthError

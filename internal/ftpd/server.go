@@ -464,7 +464,7 @@ func updateLoginMetrics(user *dataprovider.User, ip, loginMethod string, err err
 			c.clientContext.HasTLSForControl(), info)
 		plugin.Handler.NotifyLogEvent(notifier.LogEventTypeLoginOK, common.ProtocolFTP, user.Username, ip, "", nil)
 		common.DelayLogin(nil)
-	} else if err != common.ErrInternalFailure && !errors.Is(err, dataprovider.ErrPlaceholderUnset) {
+	} else if err != common.ErrInternalFailure && !dataprovider.IsAccountConfigError(err) {
 		logger.ConnectionFailedLog(user.Username, ip, loginMethod, common.ProtocolFTP, err.Error())
 		event := common.HostEventLoginFailed
 		logEv := notifier.LogEventTypeLoginFailed

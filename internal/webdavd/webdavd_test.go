@@ -39,6 +39,7 @@ import (
 
 	"github.com/minio/sio"
 	"github.com/pkg/sftp"
+	"github.com/rs/xid"
 	"github.com/rs/zerolog"
 	"github.com/sftpgo/sdk"
 	sdkkms "github.com/sftpgo/sdk/kms"
@@ -645,6 +646,118 @@ func TestBasicHandling(t *testing.T) {
 	assert.Equal(t, int32(0), common.Connections.GetTotalTransfers())
 	status := webdavd.GetStatus()
 	assert.True(t, status.IsActive)
+}
+
+func TestCopyMoveOverlap(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	client := getWebDavClient(user, false, nil)
+	dir := "overlap"
+	filePath := path.Join(dir, testFileName)
+	assert.NoError(t, client.Mkdir(dir, os.ModePerm))
+	assert.NoError(t, client.Write(filePath, []byte("content"), os.ModePerm))
+	// replacing the parent with one of its files would remove the source
+	err = client.Copy(filePath, dir, true)
+	assert.True(t, gowebdav.IsErrCode(err, http.StatusForbidden), "unexpected error: %v", err)
+	err = client.Rename(filePath, dir, true)
+	assert.True(t, gowebdav.IsErrCode(err, http.StatusForbidden), "unexpected error: %v", err)
+	data, err := os.ReadFile(filepath.Join(user.GetHomeDir(), dir, testFileName))
+	assert.NoError(t, err)
+	assert.Equal(t, []byte("content"), data)
+	// a directory copied below itself would copy its own copy
+	err = client.Copy(dir, path.Join(dir, "sub"), false)
+	assert.True(t, gowebdav.IsErrCode(err, http.StatusForbidden), "unexpected error: %v", err)
+	_, err = os.Stat(filepath.Join(user.GetHomeDir(), dir, "sub"))
+	assert.True(t, os.IsNotExist(err))
+	// distinct paths are copied and moved
+	assert.NoError(t, client.Copy(filePath, dir+"_copy", true))
+	assert.NoError(t, client.Rename(dir+"_copy", dir+"_moved", true))
+	if _, err := os.Stat(filepath.Join(user.GetHomeDir(), strings.ToUpper(dir))); err == nil {
+		// case-insensitive storage: an ancestor spelled with a different case is the same directory
+		err = client.Copy(filePath, strings.ToUpper(dir), true)
+		assert.True(t, gowebdav.IsErrCode(err, http.StatusForbidden), "unexpected error: %v", err)
+	} else {
+		// case-sensitive storage: case variants are distinct entries
+		assert.NoError(t, client.Copy(filePath, strings.ToUpper(dir), true))
+		assert.NoError(t, client.Rename(dir+"_moved", strings.ToUpper(dir)+"_MOVED", false))
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestCopyLinks(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	client := getWebDavClient(user, false, nil)
+	homeDir := user.GetHomeDir()
+	assert.NoError(t, os.MkdirAll(filepath.Join(homeDir, "dir"), os.ModePerm))
+	assert.NoError(t, os.WriteFile(filepath.Join(homeDir, "dir", "f"), []byte("content"), 0o666))
+	if err := os.Symlink("f", filepath.Join(homeDir, "dir", "lnk")); err != nil {
+		t.Skipf("unable to create a symlink: %v", err)
+	}
+	// a link inside the copied directory is skipped, as by the other protocols
+	assert.NoError(t, client.Copy("dir", "dir_copy", false))
+	data, err := os.ReadFile(filepath.Join(homeDir, "dir_copy", "f"))
+	assert.NoError(t, err)
+	assert.Equal(t, []byte("content"), data)
+	_, err = os.Lstat(filepath.Join(homeDir, "dir_copy", "lnk"))
+	assert.True(t, os.IsNotExist(err), "unexpected error: %v", err)
+	// a link as the source of a copy is refused, a move renames the link
+	err = client.Copy(path.Join("dir", "lnk"), "lnk_copy", false)
+	assert.True(t, gowebdav.IsErrCode(err, http.StatusForbidden), "unexpected error: %v", err)
+	assert.NoError(t, client.Rename(path.Join("dir", "lnk"), path.Join("dir", "lnk_moved"), false))
+	info, err := os.Lstat(filepath.Join(homeDir, "dir", "lnk_moved"))
+	if assert.NoError(t, err) {
+		assert.NotZero(t, info.Mode()&os.ModeSymlink)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(homeDir)
+	assert.NoError(t, err)
+}
+
+func TestCopyIntoItselfThroughFolder(t *testing.T) {
+	u := getTestUser()
+	mappedPath := filepath.Join(os.TempDir(), "alias_"+xid.New().String())
+	assert.NoError(t, os.MkdirAll(filepath.Join(u.GetHomeDir(), "dst"), os.ModePerm))
+	assert.NoError(t, os.MkdirAll(filepath.Join(u.GetHomeDir(), "src"), os.ModePerm))
+	assert.NoError(t, os.WriteFile(filepath.Join(u.GetHomeDir(), "src", "f.txt"), []byte("content"), 0o666))
+	// a folder mounted inside the source reaches the parent of the target through a link
+	if err := os.Symlink(filepath.Join(u.GetHomeDir(), "dst"), mappedPath); err != nil {
+		t.Skipf("unable to create a symlink: %v", err)
+	}
+	folder, _, err := httpdtest.AddFolder(vfs.BaseVirtualFolder{
+		Name:       filepath.Base(mappedPath),
+		MappedPath: mappedPath,
+	}, http.StatusCreated)
+	assert.NoError(t, err)
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name: folder.Name,
+		},
+		VirtualPath: "/src/m",
+	})
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	client := getWebDavClient(user, false, nil)
+
+	err = client.Copy("src", "dst/sub", false)
+	assert.True(t, gowebdav.IsErrCode(err, http.StatusForbidden), "unexpected error: %v", err)
+	// the copy stops at the target, after creating the directory it would copy into
+	entries, err := os.ReadDir(filepath.Join(user.GetHomeDir(), "dst", "sub", "m", "sub"))
+	assert.NoError(t, err)
+	assert.Empty(t, entries)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(folder, http.StatusOK)
+	assert.NoError(t, err)
+	assert.NoError(t, os.Remove(mappedPath))
+	assert.NoError(t, os.RemoveAll(user.GetHomeDir()))
 }
 
 func TestBasicHandlingCryptFs(t *testing.T) {

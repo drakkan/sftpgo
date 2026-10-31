@@ -328,7 +328,7 @@ func (c *scpCommand) handleUpload(uploadFilePath string, sizeToRead int64) error
 		return err
 	}
 
-	if !c.connection.User.HasPerm(dataprovider.PermOverwrite, uploadFilePath) {
+	if !c.connection.User.HasPerm(dataprovider.PermOverwrite, path.Dir(uploadFilePath)) {
 		c.connection.Log(logger.LevelWarn, "cannot overwrite file: %q, permission denied", uploadFilePath)
 		c.sendErrorMessage(fs, common.ErrPermissionDenied)
 		return common.ErrPermissionDenied

@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bmatcuk/doublestar/v4"
 	"github.com/robfig/cron/v3"
 
 	"github.com/drakkan/sftpgo/v2/internal/kms"
@@ -1324,6 +1325,19 @@ func (a *EventAction) validateAssociation(trigger int, fsEvents []string) error 
 type ConditionPattern struct {
 	Pattern      string `json:"pattern,omitempty"`
 	InverseMatch bool   `json:"inverse_match,omitempty"`
+}
+
+// MatchConditionPattern matches name against an event condition pattern: with the
+// doublestar syntax if the pattern holds "**", as path.Match otherwise. If fold is
+// set, pattern and name are compared in lowercase ASCII.
+func MatchConditionPattern(pattern, name string, fold bool) (bool, error) {
+	if fold {
+		pattern, name = foldASCII(pattern), foldASCII(name)
+	}
+	if strings.Contains(pattern, "**") {
+		return doublestar.Match(pattern, name)
+	}
+	return path.Match(pattern, name)
 }
 
 func (p *ConditionPattern) validate() error {

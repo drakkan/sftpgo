@@ -623,11 +623,11 @@ func (c *BaseConnection) RemoveAll(virtualPath string) error {
 }
 
 func (c *BaseConnection) checkCopy(srcInfo, dstInfo os.FileInfo, virtualSource, virtualTarget string) error {
-	_, fsSourcePath, err := c.GetFsAndResolvedPath(virtualSource)
+	fsSrc, fsSourcePath, err := c.GetFsAndResolvedPath(virtualSource)
 	if err != nil {
 		return err
 	}
-	_, fsTargetPath, err := c.GetFsAndResolvedPath(virtualTarget)
+	fsDst, fsTargetPath, err := c.GetFsAndResolvedPath(virtualTarget)
 	if err != nil {
 		return err
 	}
@@ -650,9 +650,181 @@ func (c *BaseConnection) checkCopy(srcInfo, dstInfo os.FileInfo, virtualSource, 
 			}
 		} else if fsSourcePath == fsTargetPath {
 			return fmt.Errorf("the copy source and target cannot be the same: %w", c.GetOpUnsupportedError())
+		} else if dstInfo != nil && srcInfo.Mode().IsRegular() {
+			same, err := c.isSameFile(fsSrc, fsSourcePath, fsDst, fsTargetPath)
+			if err != nil {
+				return err
+			}
+			if same {
+				c.Log(logger.LevelDebug, "the copy source %q and target %q are the same file", fsSourcePath, fsTargetPath)
+				return fmt.Errorf("the copy source and target cannot be the same: %w", c.GetOpUnsupportedError())
+			}
 		}
 	}
 	return nil
+}
+
+func (c *BaseConnection) isSameFile(fsSrc vfs.Fs, fsSourcePath string, fsDst vfs.Fs, fsTargetPath string) (bool, error) {
+	same, err := vfs.SameFile(fsSrc, fsSourcePath, fsDst, fsTargetPath)
+	if err != nil {
+		if errors.Is(err, vfs.ErrVfsUnsupported) || fsSrc.IsNotExist(err) {
+			return false, nil
+		}
+		c.Log(logger.LevelDebug, "unable to compare the identity of %q and %q: %v", fsSourcePath, fsTargetPath, err)
+		return false, c.GetFsError(fsSrc, err)
+	}
+	return same, nil
+}
+
+func (c *BaseConnection) isRenameOntoItself(fsSrc vfs.Fs, fsSourcePath string, fsDst vfs.Fs, fsTargetPath string) bool {
+	same, err := vfs.SameEntry(fsSrc, fsSourcePath, fsDst, fsTargetPath)
+	if err != nil {
+		if !errors.Is(err, vfs.ErrVfsUnsupported) {
+			c.Log(logger.LevelDebug, "unable to compare the rename source %q with the existing target %q: %v",
+				fsSourcePath, fsTargetPath, err)
+		}
+		return false
+	}
+	return same
+}
+
+func (c *BaseConnection) isSameVirtualFile(virtualSourcePath, virtualTargetPath string) (bool, error) {
+	fsSrc, fsSourcePath, err := c.GetFsAndResolvedPath(virtualSourcePath)
+	if err != nil {
+		return false, err
+	}
+	fsDst, fsTargetPath, err := c.GetFsAndResolvedPath(virtualTargetPath)
+	if err != nil {
+		return false, err
+	}
+	return c.isSameFile(fsSrc, fsSourcePath, fsDst, fsTargetPath)
+}
+
+func (c *BaseConnection) CreateCopyTargetDir(sourceRoot, virtualSourceDir, virtualTargetDir string) error {
+	probe, err := c.copyIntoItselfProbe(sourceRoot, virtualSourceDir)
+	if err != nil {
+		return err
+	}
+	if err := c.CreateDir(virtualTargetDir); err != nil {
+		return fmt.Errorf("unable to create directory %q: %w", virtualTargetDir, err)
+	}
+	if probe != "" {
+		if _, err := c.DoStat(probe, 1, false); err == nil {
+			c.Log(logger.LevelDebug, "the copy target dir %q appeared in the source as %q", virtualTargetDir, probe)
+			return fmt.Errorf("the copy target %q is inside the source %q: %w", virtualTargetDir, sourceRoot,
+				c.GetOpUnsupportedError())
+		}
+	}
+	return nil
+}
+
+func (c *BaseConnection) copyIntoItselfProbe(sourceRoot, virtualSourceDir string) (string, error) {
+	rel, ok := strings.CutPrefix(virtualSourceDir, strings.TrimSuffix(sourceRoot, "/")+"/")
+	if !ok || rel == "" {
+		return "", nil
+	}
+	fs, _, err := c.GetFsAndResolvedPath(virtualSourceDir)
+	if err != nil {
+		return "", err
+	}
+	if !vfs.IsLocalOrCryptoFs(fs) && !vfs.IsSFTPFs(fs) && !vfs.IsHTTPFs(fs) {
+		return "", nil
+	}
+	probe := path.Join(virtualSourceDir, rel)
+	if _, err := c.DoStat(probe, 1, false); !c.IsNotExistError(err) {
+		return "", nil
+	}
+	return probe, nil
+}
+
+func (c *BaseConnection) checkSamePath(virtualSourcePath, virtualTargetPath string) error {
+	if virtualSourcePath == virtualTargetPath {
+		return fmt.Errorf("virtual source and target path are the same: %w", c.GetOpUnsupportedError())
+	}
+	if !c.hasSamePathNamespace(virtualSourcePath, virtualTargetPath) {
+		return nil
+	}
+	fsSrc, fsSourcePath, err := c.GetFsAndResolvedPath(virtualSourcePath)
+	if err != nil {
+		return err
+	}
+	fsDst, fsTargetPath, err := c.GetFsAndResolvedPath(virtualTargetPath)
+	if err != nil {
+		return err
+	}
+	if fsSourcePath == fsTargetPath {
+		return fmt.Errorf("fs source and target path are the same: %w", c.GetOpUnsupportedError())
+	}
+	same, err := c.isSameFile(fsSrc, fsSourcePath, fsDst, fsTargetPath)
+	if err != nil {
+		return err
+	}
+	if same {
+		return fmt.Errorf("fs source and target path are the same file: %w", c.GetOpUnsupportedError())
+	}
+	return nil
+}
+
+// CheckCopyMoveOverlap refuses a copy or a move whose source and target overlap as
+// virtual or storage paths.
+func (c *BaseConnection) CheckCopyMoveOverlap(virtualSourcePath, virtualTargetPath string) error {
+	if virtualSourcePath == "/" || util.IsDirOverlapped(virtualSourcePath, virtualTargetPath, true, "/") {
+		c.Log(logger.LevelDebug, "overlapping copy or move source %q and target %q", virtualSourcePath, virtualTargetPath)
+		return fmt.Errorf("overlapping source %q and target %q: %w", virtualSourcePath, virtualTargetPath,
+			c.GetOpUnsupportedError())
+	}
+	if !c.hasSamePathNamespace(virtualSourcePath, virtualTargetPath) {
+		return nil
+	}
+	fsSrc, fsSourcePath, err := c.GetFsAndResolvedPath(virtualSourcePath)
+	if err != nil {
+		return err
+	}
+	fsDst, fsTargetPath, err := c.GetFsAndResolvedPath(virtualTargetPath)
+	if err != nil {
+		return err
+	}
+	srcFsConfig := c.User.GetFsConfigForPath(virtualSourcePath)
+	overlapped := util.IsDirOverlapped(fsSourcePath, fsTargetPath, true, srcFsConfig.GetPathSeparator())
+	if !overlapped && vfs.IsLocalOrCryptoFs(fsSrc) && vfs.IsLocalOrCryptoFs(fsDst) {
+		overlapped, err = c.overlapsByIdentity(fsDst, fsTargetPath, virtualSourcePath, virtualTargetPath)
+		if err != nil {
+			return err
+		}
+	}
+	if overlapped {
+		c.Log(logger.LevelDebug, "overlapping copy or move fs source %q and target %q", fsSourcePath, fsTargetPath)
+		return fmt.Errorf("overlapping fs source and target: %w", c.GetOpUnsupportedError())
+	}
+	return nil
+}
+
+func (c *BaseConnection) overlapsByIdentity(fsDst vfs.Fs, fsTargetPath, virtualSourcePath, virtualTargetPath string) (bool, error) {
+	sourceDirs := util.GetDirsForVirtualPath(virtualSourcePath)
+	targetDirs := util.GetDirsForVirtualPath(virtualTargetPath)
+	info, err := fsDst.Lstat(fsTargetPath)
+	if err != nil && !fsDst.IsNotExist(err) {
+		return false, c.GetFsError(fsDst, err)
+	}
+	if err == nil && info.Mode()&os.ModeSymlink == 0 {
+		for _, p := range sourceDirs {
+			if slices.Contains(targetDirs, p) {
+				continue
+			}
+			if same, err := c.isSameVirtualFile(p, virtualTargetPath); err != nil || same {
+				return same, err
+			}
+		}
+	}
+	for _, p := range targetDirs[1:] {
+		if slices.Contains(sourceDirs, p) {
+			continue
+		}
+		if same, err := c.isSameVirtualFile(virtualSourcePath, p); err != nil || same {
+			return same, err
+		}
+	}
+	return false, nil
 }
 
 func (c *BaseConnection) hasSamePathNamespace(virtualSourcePath, virtualTargetPath string) bool {
@@ -758,8 +930,8 @@ func (c *BaseConnection) copyFile(virtualSourcePath, virtualTargetPath string, s
 		err, operationCopy, startTime)
 }
 
-func (c *BaseConnection) doRecursiveCopy(virtualSourcePath, virtualTargetPath string, srcInfo, dstInfo os.FileInfo,
-	createTargetDir bool, recursion int,
+func (c *BaseConnection) doRecursiveCopy(sourceRoot, virtualSourcePath, virtualTargetPath string, srcInfo,
+	dstInfo os.FileInfo, createTargetDir bool, recursion int,
 ) error {
 	if srcInfo.IsDir() {
 		if recursion >= util.MaxRecursion {
@@ -768,8 +940,8 @@ func (c *BaseConnection) doRecursiveCopy(virtualSourcePath, virtualTargetPath st
 		}
 		recursion++
 		if createTargetDir {
-			if err := c.CreateDir(virtualTargetPath); err != nil {
-				return fmt.Errorf("unable to create directory %q: %w", virtualTargetPath, err)
+			if err := c.CreateCopyTargetDir(sourceRoot, virtualSourcePath, virtualTargetPath); err != nil {
+				return err
 			}
 		}
 		lister, err := c.ListDir(virtualSourcePath)
@@ -784,7 +956,7 @@ func (c *BaseConnection) doRecursiveCopy(virtualSourcePath, virtualTargetPath st
 			if err != nil && !finished {
 				return fmt.Errorf("unable to get contents for dir %q: %w", virtualSourcePath, err)
 			}
-			if err := c.recursiveCopyEntries(virtualSourcePath, virtualTargetPath, entries, recursion); err != nil {
+			if err := c.recursiveCopyEntries(sourceRoot, virtualSourcePath, virtualTargetPath, entries, recursion); err != nil {
 				return err
 			}
 			if finished {
@@ -800,7 +972,9 @@ func (c *BaseConnection) doRecursiveCopy(virtualSourcePath, virtualTargetPath st
 	return c.copyFile(virtualSourcePath, virtualTargetPath, srcInfo, dstInfo)
 }
 
-func (c *BaseConnection) recursiveCopyEntries(virtualSourcePath, virtualTargetPath string, entries []os.FileInfo, recursion int) error {
+func (c *BaseConnection) recursiveCopyEntries(sourceRoot, virtualSourcePath, virtualTargetPath string,
+	entries []os.FileInfo, recursion int,
+) error {
 	for _, info := range entries {
 		sourcePath := path.Join(virtualSourcePath, info.Name())
 		targetPath := path.Join(virtualTargetPath, info.Name())
@@ -817,7 +991,7 @@ func (c *BaseConnection) recursiveCopyEntries(virtualSourcePath, virtualTargetPa
 		if err := c.checkCopy(info, targetInfo, sourcePath, targetPath); err != nil {
 			return err
 		}
-		if err := c.doRecursiveCopy(sourcePath, targetPath, info, targetInfo, true, recursion); err != nil {
+		if err := c.doRecursiveCopy(sourceRoot, sourcePath, targetPath, info, targetInfo, true, recursion); err != nil {
 			if c.IsNotExistError(err) {
 				c.Log(logger.LevelInfo, "skipping copy for source path %q: %v", sourcePath, err)
 				continue
@@ -890,7 +1064,7 @@ func (c *BaseConnection) Copy(virtualSourcePath, virtualTargetPath string) error
 	stopKeepAlive := keepConnectionAlive(c, 2*time.Minute)
 	defer stopKeepAlive()
 
-	return c.doRecursiveCopy(virtualSourcePath, destPath, srcInfo, dstInfo, createTargetDir, 0)
+	return c.doRecursiveCopy(virtualSourcePath, virtualSourcePath, destPath, srcInfo, dstInfo, createTargetDir, 0)
 }
 
 // Rename renames (moves) virtualSourcePath to virtualTargetPath
@@ -931,6 +1105,12 @@ func (c *BaseConnection) renameInternal(virtualSourcePath, virtualTargetPath str
 	}
 	if err == nil {
 		checkParentDestination = false
+		if c.isRenameOntoItself(fsSrc, fsSourcePath, fsDst, fsTargetPath) {
+			// the target is the source entry: the rename replaces nothing
+			dstInfo = nil
+		}
+	}
+	if dstInfo != nil {
 		if dstInfo.IsDir() {
 			c.Log(logger.LevelWarn, "attempted to rename %q overwriting an existing directory %q",
 				fsSourcePath, fsTargetPath)
@@ -1282,7 +1462,8 @@ func (c *BaseConnection) truncateFile(fs vfs.Fs, fsPath, virtualPath string, siz
 
 func (c *BaseConnection) renameCrossesEntryRestrictions(virtualSourcePath, virtualTargetPath string) bool {
 	if c.User.HasRenameRestrictionsInside(virtualSourcePath) ||
-		c.User.HasRenameRestrictionsInside(virtualTargetPath) {
+		c.User.HasRenameRestrictionsInside(virtualTargetPath) ||
+		c.User.RenameTargetUndecided(virtualTargetPath) {
 		return true
 	}
 	return c.User.FilePatternsScopeChanges(virtualSourcePath, virtualTargetPath)

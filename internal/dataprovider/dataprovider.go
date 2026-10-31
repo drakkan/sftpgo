@@ -181,6 +181,9 @@ var (
 	// ErrPlaceholderUnset is returned when a group setting uses a placeholder
 	// the account has no value for. The login is refused
 	ErrPlaceholderUnset = errors.New("a group setting uses a placeholder the account has no value for")
+	// ErrPlaceholderValue is returned when a placeholder value adds a bracket to a
+	// permission key or a "~" to a local path. The login is refused
+	ErrPlaceholderValue = errors.New("a group setting uses a placeholder whose value contains a character not allowed there")
 	// ErrNoInitRequired defines the error returned by InitProvider if no inizialization/update is required
 	ErrNoInitRequired = errors.New("the data provider is up to date")
 	// ErrInvalidCredentials defines the error to return if the supplied credentials are invalid
@@ -2747,11 +2750,24 @@ func copyBaseUserFilters(in sdk.BaseUserFilters) sdk.BaseUserFilters {
 	return filters
 }
 
-func buildUserHomeDir(user *User) {
+// IsAccountConfigError reports whether err refuses a login because of how the
+// account is configured rather than a wrong credential: the defender does not
+// score it
+func IsAccountConfigError(err error) bool {
+	return errors.Is(err, ErrPlaceholderUnset) || errors.Is(err, ErrPlaceholderValue)
+}
+
+func buildUserHomeDir(user *User) error {
 	if user.HomeDir == "" {
 		if config.UsersBaseDir != "" {
+			if strings.Contains(user.Username, "~") {
+				return util.NewI18nError(
+					util.NewValidationError(fmt.Sprintf("home_dir is mandatory for the username %q: it contains \"~\"", user.Username)),
+					util.I18nErrorHomeRequired,
+				)
+			}
 			user.HomeDir = filepath.Join(config.UsersBaseDir, user.Username)
-			return
+			return nil
 		}
 		switch user.FsConfig.Provider {
 		case sdk.SFTPFilesystemProvider, sdk.S3FilesystemProvider, sdk.AzureBlobFilesystemProvider, sdk.GCSFilesystemProvider, sdk.HTTPFilesystemProvider:
@@ -2760,6 +2776,7 @@ func buildUserHomeDir(user *User) {
 	} else {
 		user.HomeDir = filepath.Clean(user.HomeDir)
 	}
+	return nil
 }
 
 func validateFolderQuotaLimits(folder vfs.VirtualFolder) error {
@@ -3520,7 +3537,9 @@ func ValidateUser(user *User) error {
 	user.HasPassword = false
 	user.SetEmptySecretsIfNil()
 	user.applyNamingRules()
-	buildUserHomeDir(user)
+	if err := buildUserHomeDir(user); err != nil {
+		return err
+	}
 	if err := validateBaseParams(user); err != nil {
 		return err
 	}

@@ -815,7 +815,7 @@ func TestErrorResolvePath(t *testing.T) {
 	assert.Error(t, err)
 	err = conn.doRecursiveRemove(nil, "/fspath", "/vpath", vfs.NewFileInfo("vpath", true, 0, time.Now(), false), 2000)
 	assert.Error(t, err, util.ErrRecursionTooDeep)
-	err = conn.doRecursiveCopy("/src", "/dst", vfs.NewFileInfo("src", true, 0, time.Now(), false), nil, false, 2000)
+	err = conn.doRecursiveCopy("/src", "/src", "/dst", vfs.NewFileInfo("src", true, 0, time.Now(), false), nil, false, 2000)
 	assert.Error(t, err, util.ErrRecursionTooDeep)
 	err = conn.checkCopy(vfs.NewFileInfo("name", true, 0, time.Unix(0, 0), false), nil, "/source", "/target")
 	assert.Error(t, err)
@@ -2226,4 +2226,234 @@ func TestOsFsLinkTargetEscapes(t *testing.T) {
 			assert.False(t, linkTargetEscapes(target), "relative target %q must not be treated as an escape", target)
 		}
 	}
+}
+
+func TestCopyFileOntoItself(t *testing.T) {
+	homeDir := t.TempDir()
+	content := []byte("original content")
+	require.NoError(t, os.MkdirAll(filepath.Join(homeDir, "dir"), os.ModePerm))
+	require.NoError(t, os.WriteFile(filepath.Join(homeDir, "f1.txt"), content, 0666))
+	require.NoError(t, os.WriteFile(filepath.Join(homeDir, "dir", "f2.txt"), content, 0666))
+	require.NoError(t, os.Link(filepath.Join(homeDir, "f1.txt"), filepath.Join(homeDir, "hardlink.txt")))
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username:    userTestUsername,
+			HomeDir:     homeDir,
+			Permissions: map[string][]string{"/": {dataprovider.PermAny}},
+		},
+	}
+	conn := NewBaseConnection(xid.New().String(), ProtocolSFTP, "", "", user)
+	defer conn.CloseFS()
+	assertContent := func(name string) {
+		t.Helper()
+		data, err := os.ReadFile(filepath.Join(homeDir, name))
+		require.NoError(t, err)
+		assert.Equal(t, content, data)
+	}
+
+	err := conn.Copy("/f1.txt", "/hardlink.txt")
+	assert.ErrorIs(t, err, conn.GetOpUnsupportedError())
+	assertContent("f1.txt")
+	if err := os.Symlink("f1.txt", filepath.Join(homeDir, "lnk.txt")); err == nil {
+		err = conn.Copy("/f1.txt", "/lnk.txt")
+		assert.ErrorIs(t, err, conn.GetOpUnsupportedError())
+		assertContent("f1.txt")
+	}
+	// the contents of a directory onto one holding a hard link to an entry
+	require.NoError(t, os.MkdirAll(filepath.Join(homeDir, "linked"), os.ModePerm))
+	require.NoError(t, os.Link(filepath.Join(homeDir, "dir", "f2.txt"), filepath.Join(homeDir, "linked", "f2.txt")))
+	err = conn.Copy("/dir/", "/linked")
+	assert.ErrorIs(t, err, conn.GetOpUnsupportedError())
+	assertContent(filepath.Join("dir", "f2.txt"))
+	if _, err := os.Stat(filepath.Join(homeDir, "F1.TXT")); err == nil {
+		// case-insensitive storage
+		err = conn.Copy("/f1.txt", "/F1.TXT")
+		assert.ErrorIs(t, err, conn.GetOpUnsupportedError())
+		assertContent("f1.txt")
+		err = conn.Copy("/dir/", "/DIR")
+		assert.ErrorIs(t, err, conn.GetOpUnsupportedError())
+		assertContent(filepath.Join("dir", "f2.txt"))
+	}
+	// a distinct target is still overwritten
+	require.NoError(t, os.WriteFile(filepath.Join(homeDir, "other.txt"), []byte("other"), 0666))
+	err = conn.Copy("/f1.txt", "/other.txt")
+	require.NoError(t, err)
+	assertContent("other.txt")
+}
+
+func TestRenameAcrossRootsOntoItself(t *testing.T) {
+	homeDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(homeDir, "f.txt"), []byte("content"), 0666))
+	// the folder reaches the home directory through a link
+	mappedPath := filepath.Join(t.TempDir(), "alias")
+	if err := os.Symlink(homeDir, mappedPath); err != nil {
+		t.Skipf("unable to create a symlink: %v", err)
+	}
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username:    userTestUsername,
+			HomeDir:     homeDir,
+			Permissions: map[string][]string{"/": {dataprovider.PermAny}},
+		},
+		VirtualFolders: []vfs.VirtualFolder{
+			{
+				BaseVirtualFolder: vfs.BaseVirtualFolder{
+					Name:       "alias",
+					MappedPath: mappedPath,
+				},
+				VirtualPath: "/vf",
+			},
+		},
+	}
+	conn := NewBaseConnection(xid.New().String(), ProtocolSFTP, "", "", user)
+	defer conn.CloseFS()
+
+	err := conn.Rename("/f.txt", "/vf/f.txt")
+	assert.ErrorIs(t, err, conn.GetOpUnsupportedError())
+	data, err := os.ReadFile(filepath.Join(homeDir, "f.txt"))
+	require.NoError(t, err)
+	assert.Equal(t, []byte("content"), data)
+}
+
+func TestCopyIntoItselfThroughFolder(t *testing.T) {
+	homeDir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(homeDir, "src", "a", "a", "a"), os.ModePerm))
+	require.NoError(t, os.MkdirAll(filepath.Join(homeDir, "dst"), os.ModePerm))
+	require.NoError(t, os.WriteFile(filepath.Join(homeDir, "src", "f.txt"), []byte("content"), 0666))
+	// a folder mounted inside the source reaches the copy target through a link
+	mappedPath := filepath.Join(t.TempDir(), "alias")
+	if err := os.Symlink(filepath.Join(homeDir, "dst"), mappedPath); err != nil {
+		t.Skipf("unable to create a symlink: %v", err)
+	}
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username:    userTestUsername,
+			HomeDir:     homeDir,
+			Permissions: map[string][]string{"/": {dataprovider.PermAny}},
+		},
+		VirtualFolders: []vfs.VirtualFolder{
+			{
+				BaseVirtualFolder: vfs.BaseVirtualFolder{
+					Name:       "alias",
+					MappedPath: mappedPath,
+				},
+				VirtualPath: "/src/m",
+			},
+		},
+	}
+	conn := NewBaseConnection(xid.New().String(), ProtocolSFTP, "", "", user)
+	defer conn.CloseFS()
+
+	err := conn.Copy("/src", "/dst")
+	assert.ErrorIs(t, err, conn.GetOpUnsupportedError())
+	// the walk stops when it reaches the target
+	_, err = os.Stat(filepath.Join(homeDir, "dst", "m", "m"))
+	assert.True(t, os.IsNotExist(err), "unexpected error: %v", err)
+	// a directory holding one named as its first level directory is compared and
+	// copied; a new target, the folder keeps its root open on "dst"
+	require.NoError(t, os.MkdirAll(filepath.Join(homeDir, "out"), os.ModePerm))
+	err = conn.Copy("/src/a", "/out")
+	assert.NoError(t, err)
+	_, err = os.Stat(filepath.Join(homeDir, "out", "a", "a", "a"))
+	assert.NoError(t, err)
+}
+
+func TestCopyMirroredPathLink(t *testing.T) {
+	homeDir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(homeDir, "src", "x"), os.ModePerm))
+	require.NoError(t, os.MkdirAll(filepath.Join(homeDir, "dst"), os.ModePerm))
+	// a link at the path checked for the copy target directory, dangling until the
+	// copy creates it: the walk skips links, so the copy is not inside its source
+	if err := os.Symlink(filepath.Join("..", "..", "dst", "x"), filepath.Join(homeDir, "src", "x", "x")); err != nil {
+		t.Skipf("unable to create a symlink: %v", err)
+	}
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username:    userTestUsername,
+			HomeDir:     homeDir,
+			Permissions: map[string][]string{"/": {dataprovider.PermAny}},
+		},
+	}
+	conn := NewBaseConnection(xid.New().String(), ProtocolSFTP, "", "", user)
+	defer conn.CloseFS()
+
+	err := conn.Copy("/src/", "/dst")
+	assert.NoError(t, err)
+	info, err := os.Stat(filepath.Join(homeDir, "dst", "x"))
+	if assert.NoError(t, err) {
+		assert.True(t, info.IsDir())
+	}
+}
+
+func TestCheckCopyMoveOverlap(t *testing.T) {
+	homeDir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(homeDir, "dir"), os.ModePerm))
+	require.NoError(t, os.WriteFile(filepath.Join(homeDir, "dir", "f"), []byte("data"), 0666))
+	require.NoError(t, os.Link(filepath.Join(homeDir, "dir", "f"), filepath.Join(homeDir, "hardlink")))
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username:    userTestUsername,
+			HomeDir:     homeDir,
+			Permissions: map[string][]string{"/": {dataprovider.PermAny}},
+		},
+	}
+	conn := NewBaseConnection(xid.New().String(), ProtocolWebDAV, "", "", user)
+	defer conn.CloseFS()
+
+	assertOverlap := func(source, target string, overlap bool) {
+		t.Helper()
+		err := conn.CheckCopyMoveOverlap(source, target)
+		if overlap {
+			assert.ErrorIs(t, err, conn.GetOpUnsupportedError(), "%q -> %q", source, target)
+		} else {
+			assert.NoError(t, err, "%q -> %q", source, target)
+		}
+	}
+	for _, paths := range [][2]string{{"/dir/f", "/dir"}, {"/dir", "/dir/sub"}, {"/", "/dir"}} {
+		assertOverlap(paths[0], paths[1], true)
+	}
+	assertOverlap("/dir/f", "/dir2", false)
+	// another name of the same entry
+	assertOverlap("/dir/f", "/hardlink", true)
+	if err := os.Symlink("dir", filepath.Join(homeDir, "lnk")); err == nil {
+		// a target below the source reached through a link, a source below the target
+		assertOverlap("/dir", "/lnk/sub", true)
+		assertOverlap("/lnk/f", "/dir", true)
+		// a target link is replaced as an entry, what it points to is untouched
+		assertOverlap("/dir/f", "/lnk", false)
+	}
+	// case variants overlap where the storage resolves them to one entry
+	_, statErr := os.Stat(filepath.Join(homeDir, "DIR"))
+	caseInsensitive := statErr == nil
+	assertOverlap("/dir/f", "/DIR", caseInsensitive)
+	assertOverlap("/dir", "/DIR/sub", caseInsensitive)
+	assertOverlap("/dir/f", "/dir/F", caseInsensitive)
+}
+
+func TestCopySkipsNonRegularOntoExisting(t *testing.T) {
+	homeDir := t.TempDir()
+	outside := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(homeDir, "src"), os.ModePerm))
+	require.NoError(t, os.MkdirAll(filepath.Join(homeDir, "dst"), os.ModePerm))
+	require.NoError(t, os.WriteFile(filepath.Join(outside, "f"), []byte("outside"), 0666))
+	if err := os.Symlink(filepath.Join(outside, "f"), filepath.Join(homeDir, "src", "lnk")); err != nil {
+		t.Skipf("unable to create a symlink: %v", err)
+	}
+	require.NoError(t, os.WriteFile(filepath.Join(homeDir, "dst", "lnk"), []byte("existing"), 0666))
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username:    userTestUsername,
+			HomeDir:     homeDir,
+			Permissions: map[string][]string{"/": {dataprovider.PermAny}},
+		},
+	}
+	conn := NewBaseConnection(xid.New().String(), ProtocolSFTP, "", "", user)
+	defer conn.CloseFS()
+	// a link escaping the root is skipped as any non-regular entry, without
+	// resolving its target for the same file check
+	err := conn.Copy("/src/", "/dst")
+	assert.NoError(t, err)
+	data, err := os.ReadFile(filepath.Join(homeDir, "dst", "lnk"))
+	require.NoError(t, err)
+	assert.Equal(t, []byte("existing"), data)
 }

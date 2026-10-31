@@ -2517,3 +2517,145 @@ func TestUserInactivityCheck(t *testing.T) {
 	err = dataprovider.DeleteUser(username2, "", "", "")
 	assert.Error(t, err)
 }
+
+func TestCompressSkipsArchiveByIdentity(t *testing.T) {
+	username := "test_compress_archive_identity"
+	homeDir := filepath.Join(os.TempDir(), username)
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username:    username,
+			HomeDir:     homeDir,
+			Status:      1,
+			Permissions: map[string][]string{"/": {dataprovider.PermAny}},
+		},
+	}
+	err := dataprovider.AddUser(&user, "", "", "")
+	require.NoError(t, err)
+	user, err = dataprovider.UserExists(username, "")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		err = dataprovider.DeleteUser(username, "", "", "")
+		assert.NoError(t, err)
+		err = os.RemoveAll(homeDir)
+		assert.NoError(t, err)
+	})
+	require.NoError(t, os.MkdirAll(filepath.Join(homeDir, "dir"), os.ModePerm))
+	require.NoError(t, os.WriteFile(filepath.Join(homeDir, "dir", "f.txt"), []byte("content"), 0o666))
+	// the archive is reachable from the compressed directory through a hard link
+	require.NoError(t, os.WriteFile(filepath.Join(homeDir, "out.zip"), nil, 0o666))
+	require.NoError(t, os.Link(filepath.Join(homeDir, "out.zip"), filepath.Join(homeDir, "dir", "link.zip")))
+
+	err = executeCompressFsActionForUser(dataprovider.EventActionFsCompress{
+		Name:  "/out.zip",
+		Paths: []string{"/dir"},
+	}, strings.NewReplacer(), user)
+	require.NoError(t, err)
+
+	r, err := zip.OpenReader(filepath.Join(homeDir, "out.zip"))
+	require.NoError(t, err)
+	defer r.Close()
+	var names []string
+	for _, f := range r.File {
+		names = append(names, f.Name)
+	}
+	assert.ElementsMatch(t, []string{"dir/", "dir/f.txt"}, names)
+}
+
+func TestCheckFsPathConditionPatternsFolded(t *testing.T) {
+	patterns := []dataprovider.ConditionPattern{{Pattern: "/incoming/*.exe"}}
+	assert.False(t, checkFsPathConditionPatterns("/INCOMING/X.EXE", patterns, false))
+	assert.True(t, checkFsPathConditionPatterns("/INCOMING/X.EXE", patterns, true))
+	assert.False(t, checkFsPathConditionPatterns("/outgoing/x.exe", patterns, true))
+	patterns = []dataprovider.ConditionPattern{{Pattern: "/data/**/*.EXE"}}
+	assert.False(t, checkFsPathConditionPatterns("/data/a/x.exe", patterns, false))
+	assert.True(t, checkFsPathConditionPatterns("/DATA/a/x.exe", patterns, true))
+	// an inverse pattern excludes every spelling of what it names
+	patterns = []dataprovider.ConditionPattern{{Pattern: "/public/*", InverseMatch: true}}
+	assert.True(t, checkFsPathConditionPatterns("/PUBLIC/x", patterns, false))
+	assert.False(t, checkFsPathConditionPatterns("/PUBLIC/x", patterns, true))
+	// letters outside ASCII are matched as written
+	patterns = []dataprovider.ConditionPattern{{Pattern: "/dé/*"}}
+	assert.False(t, checkFsPathConditionPatterns("/DÉ/x", patterns, true))
+	assert.True(t, checkFsPathConditionPatterns("/Dé/x", patterns, true))
+	// a malformed pattern matches nothing
+	patterns = []dataprovider.ConditionPattern{{Pattern: "/data/["}}
+	assert.False(t, checkFsPathConditionPatterns("/data/x", patterns, true))
+	// the event carries the decision
+	r := eventRulesContainer{}
+	conditions := dataprovider.EventConditions{
+		FsEvents: []string{operationUpload},
+		Options: dataprovider.ConditionOptions{
+			FsPaths: []dataprovider.ConditionPattern{{Pattern: "/incoming/*.exe"}},
+		},
+	}
+	params := EventParams{Event: operationUpload, VirtualPath: "/INCOMING/X.EXE"}
+	assert.False(t, r.checkFsEventMatch(&conditions, &params))
+	params.foldNames = true
+	assert.True(t, r.checkFsEventMatch(&conditions, &params))
+}
+
+func TestCheckSamePathSameFile(t *testing.T) {
+	homeDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(homeDir, "f1"), []byte("content"), 0666))
+	require.NoError(t, os.WriteFile(filepath.Join(homeDir, "other"), []byte("other"), 0666))
+	require.NoError(t, os.Link(filepath.Join(homeDir, "f1"), filepath.Join(homeDir, "hardlink")))
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username:    util.GenerateUniqueID(),
+			HomeDir:     homeDir,
+			Permissions: map[string][]string{"/": {dataprovider.PermAny}},
+		},
+	}
+	conn := NewBaseConnection("", protocolEventAction, "", "", user)
+	defer conn.CloseFS()
+
+	err := conn.checkSamePath("/f1", "/f1")
+	assert.ErrorIs(t, err, conn.GetOpUnsupportedError())
+	err = conn.checkSamePath("/f1", "/hardlink")
+	assert.ErrorIs(t, err, conn.GetOpUnsupportedError())
+	assert.ErrorContains(t, err, "same file")
+	if err := os.Symlink("f1", filepath.Join(homeDir, "lnk")); err == nil {
+		err = conn.checkSamePath("/f1", "/lnk")
+		assert.ErrorContains(t, err, "same file")
+	}
+	assert.NoError(t, conn.checkSamePath("/f1", "/other"))
+	assert.NoError(t, conn.checkSamePath("/f1", "/missing"))
+	assert.NoError(t, conn.checkSamePath("/missing", "/f1"))
+}
+
+func TestCompressSourceIsArchive(t *testing.T) {
+	username := "test_compress_source_archive"
+	homeDir := filepath.Join(os.TempDir(), username)
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username:    username,
+			HomeDir:     homeDir,
+			Status:      1,
+			Permissions: map[string][]string{"/": {dataprovider.PermAny}},
+		},
+	}
+	err := dataprovider.AddUser(&user, "", "", "")
+	require.NoError(t, err)
+	user, err = dataprovider.UserExists(username, "")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		err = dataprovider.DeleteUser(username, "", "", "")
+		assert.NoError(t, err)
+		err = os.RemoveAll(homeDir)
+		assert.NoError(t, err)
+	})
+	require.NoError(t, os.MkdirAll(homeDir, os.ModePerm))
+	content := []byte("report content")
+	require.NoError(t, os.WriteFile(filepath.Join(homeDir, "report.txt"), content, 0o666))
+	// the archive to create is another name of the file to compress
+	require.NoError(t, os.Link(filepath.Join(homeDir, "report.txt"), filepath.Join(homeDir, "out.zip")))
+
+	err = executeCompressFsActionForUser(dataprovider.EventActionFsCompress{
+		Name:  "/out.zip",
+		Paths: []string{"/report.txt"},
+	}, strings.NewReplacer(), user)
+	assert.ErrorIs(t, err, ErrOpUnsupported)
+	data, err := os.ReadFile(filepath.Join(homeDir, "report.txt"))
+	require.NoError(t, err)
+	assert.Equal(t, content, data)
+}

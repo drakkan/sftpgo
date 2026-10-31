@@ -16,6 +16,7 @@ package vfs
 
 import (
 	"errors"
+	iofs "io/fs"
 
 	"golang.org/x/sys/windows"
 )
@@ -29,4 +30,9 @@ func isInvalidNameError(err error) bool {
 		return false
 	}
 	return errors.Is(err, windows.ERROR_INVALID_NAME)
+}
+
+func isMissingName(err error) bool {
+	return errors.Is(err, iofs.ErrNotExist) || errors.Is(err, windows.ERROR_INVALID_NAME) ||
+		errors.Is(err, windows.ERROR_FILENAME_EXCED_RANGE) || errors.Is(err, windows.ERROR_DIRECTORY)
 }

@@ -113,6 +113,7 @@ func ExecutePreAction(conn *BaseConnection, operation, filePath, virtualPath str
 			Protocol:          event.Protocol,
 			IP:                event.IP,
 			Role:              event.Role,
+			foldNames:         conn.User.FoldsNamesAt(event.VirtualPath),
 			Timestamp:         dateTime,
 			Email:             conn.User.Email,
 			Object:            nil,
@@ -165,6 +166,7 @@ func ExecuteActionNotification(conn *BaseConnection, operation, filePath, virtua
 			Email:             conn.User.Email,
 			Object:            nil,
 			Metadata:          metadata,
+			foldNames:         conn.User.FoldsNamesAt(notification.VirtualPath),
 		}
 		if err != nil {
 			params.AddError(fmt.Errorf("%q failed: %w", params.Event, err))

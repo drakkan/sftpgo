@@ -16,6 +16,7 @@ package webdavd
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"path"
@@ -118,6 +119,31 @@ func (c *Connection) Mkdir(_ context.Context, name string, _ os.FileMode) error 
 
 	name = util.CleanPath(name)
 	return c.CreateDir(name)
+}
+
+var _ webdav.CopyMoveValidator = (*Connection)(nil)
+
+// ValidateCopyMove implements webdav.CopyMoveValidator.
+func (c *Connection) ValidateCopyMove(_ context.Context, src, dst string, isMove bool) error {
+	c.UpdateLastActivity()
+
+	src = util.CleanPath(src)
+	if !isMove {
+		if info, err := c.DoStat(src, 1, false); err == nil && !info.IsDir() && !info.Mode().IsRegular() {
+			c.Log(logger.LevelDebug, "copying %q is not supported, mode %s", src, info.Mode())
+			return fmt.Errorf("copying %q is not supported: %w", src, c.GetOpUnsupportedError())
+		}
+	}
+	return c.CheckCopyMoveOverlap(src, util.CleanPath(dst))
+}
+
+var _ webdav.CopyDirCreator = (*Connection)(nil)
+
+// CreateCopyDir implements webdav.CopyDirCreator.
+func (c *Connection) CreateCopyDir(_ context.Context, srcRoot, _, srcDir, dstDir string, _ os.FileMode) error {
+	c.UpdateLastActivity()
+
+	return c.CreateCopyTargetDir(util.CleanPath(srcRoot), util.CleanPath(srcDir), util.CleanPath(dstDir))
 }
 
 // Rename renames a file or a directory

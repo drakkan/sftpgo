@@ -134,17 +134,27 @@ func (c *RetentionCheck) updateUserPermissions() {
 	}
 }
 
+var foldsNamesAt = (*dataprovider.User).FoldsNamesAt
+
 func (c *RetentionCheck) getFolderRetention(folderPath string) (dataprovider.FolderRetention, error) {
 	dirsForPath := util.GetDirsForVirtualPath(folderPath)
 	for _, dirPath := range dirsForPath {
 		for _, folder := range c.Folders {
-			if folder.Path == dirPath {
+			if c.isConfiguredFolder(folder.Path, dirPath) {
 				return folder, nil
 			}
 		}
 	}
 
 	return dataprovider.FolderRetention{}, fmt.Errorf("unable to find folder retention for %q", folderPath)
+}
+
+func (c *RetentionCheck) isConfiguredFolder(configured, dirPath string) bool {
+	if configured == dirPath {
+		return true
+	}
+	return util.EqualFoldASCII(configured, dirPath) && foldsNamesAt(&c.conn.User, dirPath) &&
+		c.conn.User.MountPathFor(configured) == c.conn.User.MountPathFor(dirPath)
 }
 
 func (c *RetentionCheck) removeFile(virtualPath string, info os.FileInfo) error {
@@ -256,7 +266,7 @@ func (c *RetentionCheck) checkEmptyDirRemoval(folderPath string, checkVal bool) 
 		return
 	}
 	for _, folder := range c.Folders {
-		if folderPath == folder.Path {
+		if c.isConfiguredFolder(folder.Path, folderPath) {
 			return
 		}
 	}
