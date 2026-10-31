@@ -1382,6 +1382,11 @@ func (s *httpdServer) handleClientSearch(w http.ResponseWriter, r *http.Request)
 	truncated := false
 
 	for len(queue) > 0 {
+		// Nobody reads the result of an abandoned search, and each step can be a paid
+		// call on cloud backends. Typing in the search box abandons searches.
+		if r.Context().Err() != nil {
+			return
+		}
 		if dirsWalked >= maxSearchDirs {
 			truncated = true
 			break
@@ -1580,6 +1585,17 @@ func (s *httpdServer) handleClientThumbnail(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// A thumbnail shows the content of the file, so the cache must not outlive the
+	// right to read it. The Stat above only checks the right to list it.
+	if !connection.User.HasPerm(dataprovider.PermDownload, path.Dir(name)) {
+		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
+	}
+	if ok, _ := connection.User.IsFileAllowed(name); !ok {
+		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
+	}
+
 	key := thumbs.cacheKey(user.Username, name, info.ModTime(), info.Size())
 	etag := `"` + key + `"`
 	w.Header().Set("Cache-Control", "private, max-age=3600")
@@ -1595,6 +1611,11 @@ func (s *httpdServer) handleClientThumbnail(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	if !thumbs.acquire(r.Context()) {
+		return
+	}
+	defer thumbs.release()
+
 	// Generate lazily: open through the connection so the storage backend and the
 	// virtual-filesystem sandbox are respected.
 	reader, err := connection.getFileReader(name, 0, http.MethodGet)
@@ -1608,7 +1629,7 @@ func (s *httpdServer) handleClientThumbnail(w http.ResponseWriter, r *http.Reque
 	limited := io.LimitReader(reader, thumbs.readLimit()+1)
 	var data []byte
 	if thumbs.isVideo(name) {
-		data, err = thumbs.generateFromVideo(limited, strings.ToLower(path.Ext(name)))
+		data, err = thumbs.generateFromVideo(r.Context(), limited, strings.ToLower(path.Ext(name)))
 	} else {
 		data, err = thumbs.generateFromImage(limited)
 	}

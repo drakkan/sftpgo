@@ -687,7 +687,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         function thumbnailSrc(row) {
             // row['url'] points at the file via the files endpoint; swap the base
             // path for the thumbnail endpoint to get its thumbnail URL.
-            return row["url"].replace('{{.FilesURL}}', THUMBNAIL_URL);
+            return attrEscape(row["url"].replace('{{.FilesURL}}', THUMBNAIL_URL));
         }
 
         // mediaIcon returns either a lazy <img> thumbnail (for media files) or the

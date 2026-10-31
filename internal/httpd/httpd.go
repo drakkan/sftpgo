@@ -986,7 +986,8 @@ type ThumbnailsConfig struct {
 	Enabled bool `json:"enabled" mapstructure:"enabled"`
 	// CacheDir is the directory used to cache generated thumbnails. It can be an
 	// absolute path or a path relative to the config dir. If empty a directory
-	// named "thumbnails" inside the OS temp dir is used.
+	// named "thumbnails" inside the config dir is used. Thumbnails show the content
+	// of the files, also of the ones stored encrypted or on a cloud backend.
 	CacheDir string `json:"cache_dir" mapstructure:"cache_dir"`
 	// CacheMaxSize is the maximum total size of the thumbnails cache, in MB. When
 	// the cache grows past this size the oldest thumbnails are evicted. 0 disables

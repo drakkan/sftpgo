@@ -67,7 +67,7 @@ All keys are optional; thumbnails are enabled by default.
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `enabled` | `true` | Globally enable/disable thumbnail generation. |
-| `cache_dir` | `""` | Cache directory (absolute or relative to the config dir). Empty → `<os temp dir>/sftpgo-thumbnails`. |
+| `cache_dir` | `""` | Cache directory (absolute or relative to the config dir). Empty → `thumbnails` inside the config dir. |
 | `cache_max_size` | `512` | Max total cache size in MB; oldest thumbnails are evicted past this. `0` = unlimited. |
 | `max_source_size` | `100` | Max source file size in MB to thumbnail; larger files fall back to an icon. |
 | `ffmpeg_path` | `""` | Path to the ffmpeg binary. Empty → look it up in `PATH`. |

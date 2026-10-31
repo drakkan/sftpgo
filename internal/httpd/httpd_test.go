@@ -18715,6 +18715,101 @@ func TestWebClientThumbnail(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestWebClientThumbnailLimits(t *testing.T) {
+	u := getTestUser()
+	u.Filters.FilePatterns = []sdk.PatternsFilter{{Path: "/denied", DeniedPatterns: []string{"*.png"}}}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_, err := httpdtest.RemoveUser(user, http.StatusOK)
+		assert.NoError(t, err)
+		assert.NoError(t, os.RemoveAll(user.GetHomeDir()))
+	})
+	var pngBuf bytes.Buffer
+	require.NoError(t, png.Encode(&pngBuf, image.NewRGBA(image.Rect(0, 0, 32, 32))))
+	home := user.GetHomeDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(home, "denied"), os.ModePerm))
+	require.NoError(t, os.WriteFile(filepath.Join(home, "pic.png"), pngBuf.Bytes(), os.ModePerm))
+	require.NoError(t, os.WriteFile(filepath.Join(home, "denied", "pic.png"), pngBuf.Bytes(), os.ModePerm))
+
+	// A real image: the limit must be what stops it, not a decoding error. It compresses
+	// to a small file, which is what makes these images dangerous.
+	var bomb bytes.Buffer
+	require.NoError(t, png.Encode(&bomb, image.NewGray(image.Rect(0, 0, 9000, 9000))))
+	require.Less(t, bomb.Len(), 1024*1024)
+	require.NoError(t, os.WriteFile(filepath.Join(home, "bomb.png"), bomb.Bytes(), os.ModePerm))
+
+	webToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
+	require.NoError(t, err)
+	thumbnail := func(name string) *httptest.ResponseRecorder {
+		req, err := http.NewRequest(http.MethodGet, webClientThumbnailPath+"?path="+url.QueryEscape(name), nil)
+		require.NoError(t, err)
+		setJWTCookieForReq(req, webToken)
+		return executeRequest(req)
+	}
+	checkResponseCode(t, http.StatusNotFound, thumbnail("/bomb.png"))
+	checkResponseCode(t, http.StatusNotFound, thumbnail("/denied/pic.png"))
+
+	// Taking away the right to read the file also takes away its cached thumbnail.
+	rr := thumbnail("/pic.png")
+	checkResponseCode(t, http.StatusOK, rr)
+	etag := rr.Header().Get("ETag")
+	user.Filters.FilePatterns = append(user.Filters.FilePatterns, sdk.PatternsFilter{
+		Path: "/", DeniedPatterns: []string{"*.png"},
+	})
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	require.NoError(t, err)
+	checkResponseCode(t, http.StatusNotFound, thumbnail("/pic.png"))
+	user.Filters.FilePatterns = user.Filters.FilePatterns[:1]
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	require.NoError(t, err)
+	checkResponseCode(t, http.StatusOK, thumbnail("/pic.png"))
+
+	user.Permissions["/"] = []string{dataprovider.PermListItems}
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	require.NoError(t, err)
+	checkResponseCode(t, http.StatusNotFound, thumbnail("/pic.png"))
+	req, err := http.NewRequest(http.MethodGet, webClientThumbnailPath+"?path=/pic.png", nil)
+	require.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("If-None-Match", etag)
+	checkResponseCode(t, http.StatusNotFound, executeRequest(req))
+}
+
+func TestWebClientSearchPermissions(t *testing.T) {
+	u := getTestUser()
+	u.Permissions["/secret"] = []string{}
+	u.Filters.FilePatterns = []sdk.PatternsFilter{{
+		Path:           "/hidden",
+		DeniedPatterns: []string{"*.txt"},
+		DenyPolicy:     sdk.DenyPolicyHide,
+	}}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_, err := httpdtest.RemoveUser(user, http.StatusOK)
+		assert.NoError(t, err)
+		assert.NoError(t, os.RemoveAll(user.GetHomeDir()))
+	})
+	home := user.GetHomeDir()
+	for _, dir := range []string{"secret", "hidden", "open"} {
+		require.NoError(t, os.MkdirAll(filepath.Join(home, dir), os.ModePerm))
+		require.NoError(t, os.WriteFile(filepath.Join(home, dir, "target.txt"), []byte("data"), os.ModePerm))
+	}
+	webToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
+	require.NoError(t, err)
+	req, err := http.NewRequest(http.MethodGet, webClientSearchPath+"?path=/&q=target", nil)
+	require.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	var rows []map[string]any
+	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &rows))
+	if assert.Len(t, rows, 1, rr.Body.String()) {
+		assert.Equal(t, "/open", rows[0]["path"])
+	}
+}
+
 func TestRenameDifferentResource(t *testing.T) {
 	folderName := "foldercryptfs"
 	f := vfs.BaseVirtualFolder{

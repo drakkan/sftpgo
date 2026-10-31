@@ -1,3 +1,6 @@
 # compilation output
 sftpgo
 sftpgo.exe
+
+# thumbnails cache, created at runtime in the config dir
+/thumbnails/

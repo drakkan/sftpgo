@@ -16,6 +16,7 @@ package httpd
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -35,8 +36,8 @@ import (
 	_ "image/gif"
 	_ "image/png"
 
-	"golang.org/x/image/draw"
 	_ "golang.org/x/image/bmp"
+	"golang.org/x/image/draw"
 	_ "golang.org/x/image/webp"
 
 	"github.com/drakkan/sftpgo/v2/internal/logger"
@@ -48,6 +49,17 @@ const (
 	thumbnailMaxEdge = 200
 	// thumbnailJPEGQuality is the JPEG quality used when encoding thumbnails.
 	thumbnailJPEGQuality = 80
+	// thumbnailMaxPixels limits the size of a decoded image. A small file can
+	// declare huge dimensions, and decoding allocates memory for all of them.
+	thumbnailMaxPixels = 64 * 1000 * 1000
+	// thumbnailMaxConcurrent limits how many thumbnails are generated at once. A
+	// listing asks for all of its thumbnails together.
+	thumbnailMaxConcurrent = 4
+	// thumbnailFFmpegTimeout stops ffmpeg on a file that is slow to process.
+	thumbnailFFmpegTimeout = 30 * time.Second
+	// thumbnailFFmpegDemuxers lists the only formats ffmpeg can open. It must stay
+	// in sync with videoThumbExtensions, see generateFromVideo.
+	thumbnailFFmpegDemuxers = "mov,matroska,avi"
 )
 
 // imageThumbExtensions and videoThumbExtensions are the allow-lists of source
@@ -57,9 +69,10 @@ var (
 		".jpg": true, ".jpeg": true, ".png": true, ".gif": true,
 		".webp": true, ".bmp": true,
 	}
-	videoThumbExtensions = map[string]bool{
-		".mp4": true, ".mov": true, ".mkv": true, ".webm": true,
-		".avi": true, ".m4v": true,
+	videoThumbExtensions = map[string]string{
+		".mp4": "mov", ".mov": "mov", ".m4v": "mov",
+		".mkv": "matroska", ".webm": "matroska",
+		".avi": "avi",
 	}
 )
 
@@ -73,6 +86,7 @@ type thumbnailer struct {
 	maxCacheSize  int64 // bytes; 0 means no limit
 	ffmpegPath    string
 	evictMu       sync.Mutex
+	slots         chan struct{}
 }
 
 var thumbs = &thumbnailer{}
@@ -81,7 +95,7 @@ var thumbs = &thumbnailer{}
 // thumbs instance. It never fails hard: on any setup problem thumbnails are
 // simply disabled and the WebClient falls back to generic icons.
 func initThumbnailer(cfg ThumbnailsConfig, configDir string) {
-	t := &thumbnailer{enabled: cfg.Enabled}
+	t := &thumbnailer{enabled: cfg.Enabled, slots: make(chan struct{}, thumbnailMaxConcurrent)}
 	if !cfg.Enabled {
 		thumbs = t
 		logger.Info(logSender, "", "WebClient thumbnails are disabled")
@@ -89,9 +103,12 @@ func initThumbnailer(cfg ThumbnailsConfig, configDir string) {
 	}
 
 	cacheDir := cfg.CacheDir
+	// Not in the temp dir by default: its name is predictable there, so another
+	// local user could create it first, and thumbnails show the content of private files.
 	if cacheDir == "" {
-		cacheDir = filepath.Join(os.TempDir(), "sftpgo-thumbnails")
-	} else if !filepath.IsAbs(cacheDir) {
+		cacheDir = "thumbnails"
+	}
+	if !filepath.IsAbs(cacheDir) {
 		cacheDir = filepath.Join(configDir, cacheDir)
 	}
 	if err := os.MkdirAll(cacheDir, 0700); err != nil {
@@ -100,6 +117,7 @@ func initThumbnailer(cfg ThumbnailsConfig, configDir string) {
 		return
 	}
 	t.cacheDir = cacheDir
+	t.removeLeftovers()
 
 	if cfg.MaxSourceSize > 0 {
 		t.maxSourceSize = int64(cfg.MaxSourceSize) * 1024 * 1024
@@ -124,6 +142,35 @@ func initThumbnailer(cfg ThumbnailsConfig, configDir string) {
 		cacheDir, ffmpegPath != "")
 }
 
+// removeLeftovers deletes the temporary files of a process that did not stop cleanly.
+// They are full copies of the source videos, so they must not stay around.
+func (t *thumbnailer) removeLeftovers() {
+	for _, pattern := range []string{"thumbsrc-*", "thumb-*.tmp"} {
+		matches, err := filepath.Glob(filepath.Join(t.cacheDir, pattern))
+		if err != nil {
+			continue
+		}
+		for _, match := range matches {
+			_ = os.Remove(match)
+		}
+	}
+}
+
+// acquire waits for a free generation slot, it returns false if the client went away
+// in the meantime. The slot must be given back with release.
+func (t *thumbnailer) acquire(ctx context.Context) bool {
+	select {
+	case t.slots <- struct{}{}:
+		return true
+	case <-ctx.Done():
+		return false
+	}
+}
+
+func (t *thumbnailer) release() {
+	<-t.slots
+}
+
 // thumbnailURLForUser returns the WebClient thumbnail endpoint if thumbnails are
 // enabled, or an empty string otherwise so the frontend can skip requesting them.
 func thumbnailURLForUser() string {
@@ -143,14 +190,15 @@ func (t *thumbnailer) canThumbnail(name string) bool {
 	if imageThumbExtensions[ext] {
 		return true
 	}
-	if videoThumbExtensions[ext] {
+	if _, ok := videoThumbExtensions[ext]; ok {
 		return t.ffmpegPath != ""
 	}
 	return false
 }
 
 func (t *thumbnailer) isVideo(name string) bool {
-	return videoThumbExtensions[strings.ToLower(path.Ext(name))]
+	_, ok := videoThumbExtensions[strings.ToLower(path.Ext(name))]
+	return ok
 }
 
 // readLimit returns the maximum number of source bytes to read when generating a
@@ -179,7 +227,23 @@ func (t *thumbnailer) cachePath(key string) string {
 // generateFromImage decodes an image from r and returns a JPEG-encoded
 // thumbnail scaled so its longest edge is at most thumbnailMaxEdge.
 func (t *thumbnailer) generateFromImage(r io.Reader) ([]byte, error) {
-	src, _, err := image.Decode(r)
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read image: %w", err)
+	}
+	return decodeThumbnail(data)
+}
+
+// decodeThumbnail checks the dimensions in the image header before decoding it.
+func decodeThumbnail(data []byte) ([]byte, error) {
+	cfg, _, err := image.DecodeConfig(bytes.NewReader(data))
+	if err != nil {
+		return nil, fmt.Errorf("unable to decode image header: %w", err)
+	}
+	if cfg.Width <= 0 || cfg.Height <= 0 || cfg.Width > thumbnailMaxPixels/cfg.Height {
+		return nil, fmt.Errorf("image too large: %dx%d", cfg.Width, cfg.Height)
+	}
+	src, _, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
 		return nil, fmt.Errorf("unable to decode image: %w", err)
 	}
@@ -188,9 +252,19 @@ func (t *thumbnailer) generateFromImage(r io.Reader) ([]byte, error) {
 
 // generateFromVideo writes the source video to a temporary file and uses ffmpeg
 // to extract a single frame near the start, returning it as a JPEG thumbnail.
-func (t *thumbnailer) generateFromVideo(r io.Reader, ext string) ([]byte, error) {
+//
+// The file comes from a user, and ffmpeg picks the format from the content, not from
+// the extension. Some formats can open other files or URLs, and old ffmpeg versions
+// accept a playlist with any name. So the format comes from the extension, the
+// demuxers are limited, also for the streams nested in a file, and only local files
+// can be opened.
+func (t *thumbnailer) generateFromVideo(ctx context.Context, r io.Reader, ext string) ([]byte, error) {
 	if t.ffmpegPath == "" {
 		return nil, fmt.Errorf("ffmpeg not available")
+	}
+	demuxer, ok := videoThumbExtensions[ext]
+	if !ok {
+		return nil, fmt.Errorf("unsupported video extension %q", ext)
 	}
 	tmpIn, err := os.CreateTemp(t.cacheDir, "thumbsrc-*"+ext)
 	if err != nil {
@@ -206,25 +280,26 @@ func (t *thumbnailer) generateFromVideo(r io.Reader, ext string) ([]byte, error)
 	tmpOut := tmpIn.Name() + ".jpg"
 	defer os.Remove(tmpOut)
 
+	ctx, cancel := context.WithTimeout(ctx, thumbnailFFmpegTimeout)
+	defer cancel()
+
 	// Seek 1s in, grab one frame, scale to the target width keeping aspect ratio.
-	cmd := exec.Command(t.ffmpegPath, "-y", "-ss", "00:00:01", "-i", tmpIn.Name(),
+	cmd := exec.CommandContext(ctx, t.ffmpegPath, "-nostdin", "-v", "error", "-y",
+		"-protocol_whitelist", "file", "-format_whitelist", thumbnailFFmpegDemuxers,
+		"-f", demuxer, "-ss", "00:00:01", "-i", tmpIn.Name(),
 		"-frames:v", "1", "-vf", fmt.Sprintf("scale=%d:-1", thumbnailMaxEdge),
 		"-f", "image2", tmpOut)
+	cmd.WaitDelay = 5 * time.Second
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return nil, fmt.Errorf("ffmpeg failed: %w (%s)", err, string(out))
 	}
 	// Re-encode through the shared path so the output size/format is consistent
 	// and to handle the (rare) case ffmpeg produced an oversized frame.
-	f, err := os.Open(tmpOut)
+	frame, err := os.ReadFile(tmpOut)
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
-	src, _, err := image.Decode(f)
-	if err != nil {
-		return nil, fmt.Errorf("unable to decode ffmpeg frame: %w", err)
-	}
-	return encodeThumbnail(src)
+	return decodeThumbnail(frame)
 }
 
 // encodeThumbnail scales src to fit within thumbnailMaxEdge and JPEG-encodes it.
