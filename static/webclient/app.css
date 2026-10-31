@@ -1265,6 +1265,12 @@ button.empty {
   color: var(--danger);
 }
 
+.menu-check {
+  display: grid;
+  margin-left: auto;
+  padding-left: 1rem;
+}
+
 .menu-line {
   height: 1px;
   margin: 0.25rem 0;

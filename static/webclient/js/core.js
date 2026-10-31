@@ -17,6 +17,12 @@
     it: 'Italiano',
     'zh-CN': '简体中文',
   };
+  const languageKey = 'webclient-language';
+  const themes = [
+    { value: 'auto', icon: 'sun-moon', label: 'theme.system' },
+    { value: 'light', icon: 'sun', label: 'theme.light' },
+    { value: 'dark', icon: 'moon', label: 'theme.dark' },
+  ];
 
   const $ = (selector, parent = document) => parent.querySelector(selector);
   const $$ = (selector, parent = document) => [...parent.querySelectorAll(selector)];
@@ -73,6 +79,39 @@
     root.lang = i18next.resolvedLanguage || 'en';
   }
 
+  // Only a choice made in the language picker is stored. Everyone else keeps following
+  // their browser, also if they change its language later.
+  function chosenLanguage() {
+    try {
+      const saved = localStorage.getItem(languageKey);
+      return offered.includes(saved) ? saved : '';
+    } catch {
+      return '';
+    }
+  }
+
+  function chooseLanguage(code) {
+    try {
+      localStorage.setItem(languageKey, code);
+    } catch {
+      // The choice then lasts until this page is left.
+    }
+  }
+
+  // Follows the order of the browser's list: en-GB before pl means English, which an exact
+  // match across the whole list would get wrong.
+  function browserLanguage() {
+    const wanted = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language];
+    for (const tag of wanted) {
+      const lower = String(tag).toLowerCase();
+      const language = lower.split('-')[0];
+      const match = offered.find((code) => code.toLowerCase() === lower)
+        || offered.find((code) => code.toLowerCase().split('-')[0] === language);
+      if (match) return match;
+    }
+    return offered[0];
+  }
+
   function setupLanguagePickers() {
     for (const picker of $$('[data-language-picker]')) {
       const label = picker.closest('.language');
@@ -80,6 +119,7 @@
       picker.value = i18next.resolvedLanguage;
       if (label) label.hidden = offered.length < 2;
       picker.addEventListener('change', async () => {
+        chooseLanguage(picker.value);
         await i18next.changeLanguage(picker.value);
         for (const other of $$('[data-language-picker]')) other.value = picker.value;
         translate();
@@ -95,20 +135,19 @@
   }
 
   function setupTheme() {
-    const order = ['auto', 'light', 'dark'];
-    const names = { auto: 'theme.system', light: 'theme.light', dark: 'theme.dark' };
-    for (const button of $$('[data-theme-toggle]')) {
+    const current = () => themes.find((theme) => theme.value === root.dataset.themeChoice) || themes[0];
+    for (const button of $$('[data-theme-picker]')) {
+      button.replaceChildren(icon(current().icon));
       button.addEventListener('click', () => {
-        const next = order[(order.indexOf(root.dataset.themeChoice) + 1) % order.length];
-        try {
-          localStorage.setItem('webclient-theme', next);
-        } catch {
-          // Only this page changes when the browser refuses to store it.
-          root.dataset.themeChoice = next;
-        }
-        window.applyTheme();
-        toast('info', t(names[next]));
-        document.dispatchEvent(new CustomEvent('themechange'));
+        openMenu(button, themes.map((theme) => ({
+          icon: theme.icon,
+          label: t(theme.label),
+          checked: theme === current(),
+          action: () => {
+            window.applyTheme(theme.value);
+            button.replaceChildren(icon(theme.icon));
+          },
+        })));
       });
     }
   }
@@ -351,7 +390,7 @@
       if (!menu.contains(event.target) && !anchor.contains(event.target)) close();
     };
     const keys = (event) => {
-      const entries = $$('[role=menuitem]', menu);
+      const entries = $$('[role^=menuitem]', menu);
       const index = entries.indexOf(document.activeElement);
       if (event.key === 'Escape' || event.key === 'Tab') {
         event.preventDefault();
@@ -372,7 +411,8 @@
       }
       const tag = item.href ? 'a' : 'button';
       menu.append(h(`${tag}.menu-item${item.danger ? '.menu-danger' : ''}`, {
-        role: 'menuitem',
+        role: item.checked === undefined ? 'menuitem' : 'menuitemradio',
+        ariaChecked: item.checked === undefined ? undefined : String(item.checked),
         href: item.href,
         type: item.href ? undefined : 'button',
         target: item.target,
@@ -382,7 +422,7 @@
           close();
           if (item.action) item.action();
         },
-      }, icon(item.icon), h('span', null, item.label)));
+      }, icon(item.icon), h('span', null, item.label), item.checked ? h('span.menu-check', null, icon('check')) : null));
     }
     document.body.append(menu);
     const box = anchor.getBoundingClientRect();
@@ -398,31 +438,23 @@
     document.addEventListener('pointerdown', outside, true);
     document.addEventListener('keydown', keys, true);
     window.addEventListener('resize', close);
-    const first = $('[role=menuitem]', menu);
+    const first = $('[aria-checked=true]', menu) || $('[role^=menuitem]', menu);
     if (first) first.focus();
   }
 
   const ready = i18next
     .use(i18nextHttpBackend)
-    .use(i18nextBrowserLanguageDetector)
     .init({
+      lng: chosenLanguage() || browserLanguage(),
       // English stays loadable so that strings missing from a language do not show as keys.
       supportedLngs: [...new Set([...offered, 'en'])],
       fallbackLng: 'en',
       load: 'currentOnly',
       returnEmptyString: false,
       interpolation: { escapeValue: false },
-      detection: {
-        order: ['querystring', 'localStorage', 'navigator'],
-        lookupQuerystring: 'lng',
-        caches: ['localStorage'],
-      },
       backend: {
         loadPath: `${staticURL}/locales/{{lng}}/{{ns}}.json?v=${encodeURIComponent(root.dataset.version || '')}`,
       },
-    })
-    .then(async () => {
-      if (!offered.includes(i18next.resolvedLanguage)) await i18next.changeLanguage(offered[0]);
     })
     .catch((error) => console.error(error))
     .then(() => {

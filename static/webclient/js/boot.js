@@ -3,12 +3,13 @@
   'use strict';
   const root = document.documentElement;
   const media = window.matchMedia('(prefers-color-scheme: dark)');
+  let unsaved = '';
 
   function stored() {
     try {
       return localStorage.getItem('webclient-theme') || 'auto';
     } catch {
-      return 'auto';
+      return unsaved || 'auto';
     }
   }
 
@@ -21,5 +22,13 @@
   apply();
   media.addEventListener('change', apply);
   window.addEventListener('storage', apply);
-  window.applyTheme = apply;
+  window.applyTheme = function applyTheme(choice) {
+    unsaved = choice;
+    try {
+      localStorage.setItem('webclient-theme', choice);
+    } catch {
+      // Blocked storage: the theme then lasts until this page is left.
+    }
+    apply();
+  };
 })();
