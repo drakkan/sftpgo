@@ -545,11 +545,12 @@ func (t *oidcToken) getUser(r *http.Request) error {
 
 func (s *httpdServer) validateOIDCToken(w http.ResponseWriter, r *http.Request, isAdmin bool) (oidcToken, error) {
 	doRedirect := func() {
-		removeOIDCCookie(w, r)
 		if isAdmin {
+			removeOIDCCookie(w, r, webBaseAdminPath)
 			http.Redirect(w, r, webAdminLoginPath, http.StatusFound)
 			return
 		}
+		removeOIDCCookie(w, r, webBaseClientPath)
 		http.Redirect(w, r, webClientLoginPath, http.StatusFound)
 	}
 
@@ -889,10 +890,14 @@ func validateOIDCEmailVerified(claims map[string]any, required bool) error {
 func loginOIDCUser(w http.ResponseWriter, r *http.Request, token oidcToken, next string) {
 	oidcMgr.addToken(token)
 
+	cookiePath := webBaseClientPath
+	if token.isAdmin() {
+		cookiePath = webBaseAdminPath
+	}
 	cookie := http.Cookie{
 		Name:     oidcCookieKey,
 		Value:    token.Cookie,
-		Path:     "/",
+		Path:     cookiePath,
 		HttpOnly: true,
 		Secure:   isTLS(r),
 		SameSite: http.SameSiteLaxMode,
@@ -912,9 +917,9 @@ func loginOIDCUser(w http.ResponseWriter, r *http.Request, token oidcToken, next
 	http.Redirect(w, r, webClientFilesPath, http.StatusFound)
 }
 
-func (s *httpdServer) logoutOIDCUser(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) logoutOIDCUser(w http.ResponseWriter, r *http.Request, cookiePath string) {
 	if oidcKey, ok := r.Context().Value(oidcTokenKey).(string); ok {
-		removeOIDCCookie(w, r)
+		removeOIDCCookie(w, r, cookiePath)
 		token, err := oidcMgr.getToken(oidcKey)
 		if err == nil {
 			s.logoutFromOIDCOP(token.IDToken)
@@ -947,11 +952,11 @@ func (s *httpdServer) doOIDCFromLogout(idToken string) {
 	logger.Debug(logSender, "", "oidc: logout url response code %v", resp.StatusCode)
 }
 
-func removeOIDCCookie(w http.ResponseWriter, r *http.Request) {
+func removeOIDCCookie(w http.ResponseWriter, r *http.Request, cookiePath string) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     oidcCookieKey,
 		Value:    "",
-		Path:     "/",
+		Path:     cookiePath,
 		Expires:  time.Unix(0, 0),
 		MaxAge:   -1,
 		HttpOnly: true,
