@@ -24,6 +24,8 @@ type SessionType int
 
 // Supported session types
 const (
+	// SessionTypeOIDCAuth is no longer used: OIDC auth requests are kept in a
+	// browser cookie. It is kept so the values of the following types do not change
 	SessionTypeOIDCAuth SessionType = iota + 1
 	SessionTypeOIDCToken
 	SessionTypeResetCode

@@ -2737,7 +2737,7 @@ func TestDatabaseSharedSessions(t *testing.T) {
 	session1 := dataprovider.Session{
 		Key:       "1",
 		Data:      map[string]string{"a": "b"},
-		Type:      dataprovider.SessionTypeOIDCAuth,
+		Type:      dataprovider.SessionTypeWebTask,
 		Timestamp: 10,
 	}
 	err := dataprovider.AddSharedSession(session1)
@@ -2751,7 +2751,7 @@ func TestDatabaseSharedSessions(t *testing.T) {
 	assert.ErrorIs(t, err, util.ErrNotFound)
 	_, err = dataprovider.GetSharedSession(session1.Key, dataprovider.SessionTypeResetCode)
 	assert.ErrorIs(t, err, util.ErrNotFound)
-	session1Get, err := dataprovider.GetSharedSession(session1.Key, dataprovider.SessionTypeOIDCAuth)
+	session1Get, err := dataprovider.GetSharedSession(session1.Key, dataprovider.SessionTypeWebTask)
 	assert.NoError(t, err)
 	assert.Equal(t, session1.Timestamp, session1Get.Timestamp)
 	var stored map[string]string
@@ -2762,18 +2762,18 @@ func TestDatabaseSharedSessions(t *testing.T) {
 	session1.Data = map[string]string{"c": "d"}
 	err = dataprovider.AddSharedSession(session1)
 	assert.NoError(t, err)
-	session1Get, err = dataprovider.GetSharedSession(session1.Key, dataprovider.SessionTypeOIDCAuth)
+	session1Get, err = dataprovider.GetSharedSession(session1.Key, dataprovider.SessionTypeWebTask)
 	assert.NoError(t, err)
 	assert.Equal(t, session1.Timestamp, session1Get.Timestamp)
 	stored = make(map[string]string)
 	err = json.Unmarshal(session1Get.Data.([]byte), &stored)
 	assert.NoError(t, err)
 	assert.Equal(t, session1.Data, stored)
-	err = dataprovider.DeleteSharedSession(session1.Key, dataprovider.SessionTypeOIDCAuth)
+	err = dataprovider.DeleteSharedSession(session1.Key, dataprovider.SessionTypeWebTask)
 	assert.NoError(t, err)
 	err = dataprovider.DeleteSharedSession(session2.Key, dataprovider.SessionTypeOIDCToken)
 	assert.NoError(t, err)
-	_, err = dataprovider.GetSharedSession(session1.Key, dataprovider.SessionTypeOIDCAuth)
+	_, err = dataprovider.GetSharedSession(session1.Key, dataprovider.SessionTypeWebTask)
 	assert.ErrorIs(t, err, util.ErrNotFound)
 	_, err = dataprovider.GetSharedSession(session2.Key, dataprovider.SessionTypeOIDCToken)
 	assert.ErrorIs(t, err, util.ErrNotFound)

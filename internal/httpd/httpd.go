@@ -1162,6 +1162,10 @@ func (c *Conf) Initialize(configDir string, isShared int) error {
 		return err
 	}
 	c.SigningPassphrase = passphrase
+	oidcStateKey, err = deriveOIDCStateKey(getSigningKey(c.SigningPassphrase))
+	if err != nil {
+		return err
+	}
 
 	hideSupportLink = c.HideSupportLink
 

@@ -16,8 +16,17 @@ package httpd
 
 import (
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/hkdf"
+	"crypto/rand"
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"path"
@@ -38,17 +47,21 @@ import (
 )
 
 const (
-	oidcCookieKey          = "oidc"
-	oidcBrowserCookieKey   = "oidc_browser"
-	adminRoleFieldValue    = "admin"
-	authStateValidity      = 10 * 60 * 1000 // 10 minutes
-	maxWebClientNextLength = 4096
-	emailVerifiedClaim     = "email_verified"
-	tokenUpdateInterval    = 3 * 60 * 1000   // 3 minutes
-	tokenDeleteInterval    = 2 * 3600 * 1000 // 2 hours
+	oidcCookieKey            = "oidc"
+	oidcStateCookieKey       = "oidc_state"
+	adminRoleFieldValue      = "admin"
+	authStateValidity        = 10 * 60 * 1000 // 10 minutes
+	maxWebClientNextLength   = 4096
+	maxOIDCStateCookieLength = 2048
+	oidcStateSaltSize        = 32
+	oidcStateVersion         = byte(1)
+	emailVerifiedClaim       = "email_verified"
+	tokenUpdateInterval      = 3 * 60 * 1000   // 3 minutes
+	tokenDeleteInterval      = 2 * 3600 * 1000 // 2 hours
 )
 
 var (
+	oidcStateKey       []byte
 	oidcTokenKey       = &contextKey{"OIDC token key"}
 	oidcGeneratedToken = &contextKey{"OIDC generated token"}
 )
@@ -220,7 +233,6 @@ type oidcPendingAuth struct {
 	IssuedAt int64         `json:"issued_at"`
 	Verifier string        `json:"verifier"`
 	Next     string        `json:"next,omitempty"`
-	Browser  string        `json:"browser,omitempty"`
 }
 
 func newOIDCPendingAuth(audience tokenAudience) oidcPendingAuth {
@@ -231,6 +243,125 @@ func newOIDCPendingAuth(audience tokenAudience) oidcPendingAuth {
 		IssuedAt: util.GetTimeAsMsSinceEpoch(time.Now()),
 		Verifier: oauth2.GenerateVerifier(),
 	}
+}
+
+func deriveOIDCStateKey(signingKey []byte) ([]byte, error) {
+	return hkdf.Key(sha256.New, signingKey, nil, "SFTPGo OIDC state", 32)
+}
+
+func newOIDCStateAEAD(masterKey, salt []byte) (cipher.AEAD, error) {
+	if len(masterKey) != 32 {
+		return nil, errors.New("oidc: invalid state key")
+	}
+	key, err := hkdf.Key(sha256.New, masterKey, salt, "SFTPGo OIDC state cookie", 32)
+	if err != nil {
+		return nil, err
+	}
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	return cipher.NewGCMWithRandomNonce(block)
+}
+
+func encodeOIDCPendingAuth(pendingAuth oidcPendingAuth, key []byte) (string, error) {
+	payload, err := json.Marshal(pendingAuth)
+	if err != nil {
+		return "", err
+	}
+	header := make([]byte, 1+oidcStateSaltSize)
+	header[0] = oidcStateVersion
+	if _, err := io.ReadFull(rand.Reader, header[1:]); err != nil {
+		return "", err
+	}
+	aead, err := newOIDCStateAEAD(key, header[1:])
+	if err != nil {
+		return "", err
+	}
+	sealed := aead.Seal(nil, nil, payload, header)
+	return base64.RawURLEncoding.EncodeToString(append(header, sealed...)), nil
+}
+
+func decodeOIDCPendingAuth(value string, key []byte) (oidcPendingAuth, error) {
+	var pendingAuth oidcPendingAuth
+
+	data, err := base64.RawURLEncoding.Strict().DecodeString(value)
+	if err != nil {
+		return pendingAuth, err
+	}
+	if len(data) < 1+oidcStateSaltSize || data[0] != oidcStateVersion {
+		return pendingAuth, errors.New("oidc: unsupported state format")
+	}
+	header := data[:1+oidcStateSaltSize]
+	aead, err := newOIDCStateAEAD(key, header[1:])
+	if err != nil {
+		return pendingAuth, err
+	}
+	payload, err := aead.Open(nil, nil, data[len(header):], header)
+	if err != nil {
+		return pendingAuth, err
+	}
+	err = json.Unmarshal(payload, &pendingAuth)
+	return pendingAuth, err
+}
+
+func setOIDCStateCookie(w http.ResponseWriter, r *http.Request, pendingAuth oidcPendingAuth) error {
+	value, err := encodeOIDCPendingAuth(pendingAuth, oidcStateKey)
+	if err != nil {
+		return err
+	}
+	// the redirect target is dropped if it does not fit in the cookie: the
+	// encoded size depends on the escaping, so the cookie itself is measured
+	if len(value) > maxOIDCStateCookieLength && pendingAuth.Next != "" {
+		logger.Debug(logSender, "", "oidc: redirect target too long, it will be ignored, length: %d", len(pendingAuth.Next))
+		pendingAuth.Next = ""
+		value, err = encodeOIDCPendingAuth(pendingAuth, oidcStateKey)
+		if err != nil {
+			return err
+		}
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     oidcStateCookieKey,
+		Value:    value,
+		Path:     "/",
+		MaxAge:   authStateValidity / 1000,
+		HttpOnly: true,
+		Secure:   isTLS(r),
+		SameSite: http.SameSiteLaxMode,
+	})
+	w.Header().Add("Cache-Control", `no-cache="Set-Cookie"`)
+	return nil
+}
+
+func getOIDCPendingAuth(r *http.Request, state string) (oidcPendingAuth, error) {
+	cookie, err := r.Cookie(oidcStateCookieKey)
+	if err != nil {
+		return oidcPendingAuth{}, errors.New("oidc: no auth request found for this browser")
+	}
+	pendingAuth, err := decodeOIDCPendingAuth(cookie.Value, oidcStateKey)
+	if err != nil {
+		return oidcPendingAuth{}, fmt.Errorf("oidc: invalid auth request: %w", err)
+	}
+	if util.GetTimeAsMsSinceEpoch(time.Now())-pendingAuth.IssuedAt > authStateValidity {
+		return oidcPendingAuth{}, errors.New("oidc: auth request is too old")
+	}
+	if state == "" || subtle.ConstantTimeCompare([]byte(state), []byte(pendingAuth.State)) != 1 {
+		return oidcPendingAuth{}, errors.New("oidc: the auth request does not match the specified state")
+	}
+	return pendingAuth, nil
+}
+
+func removeOIDCStateCookie(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     oidcStateCookieKey,
+		Value:    "",
+		Path:     "/",
+		Expires:  time.Unix(0, 0),
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   isTLS(r),
+		SameSite: http.SameSiteLaxMode,
+	})
 }
 
 type oidcToken struct {
@@ -685,8 +816,15 @@ func (s *httpdServer) oidcLoginRedirect(w http.ResponseWriter, r *http.Request, 
 			pendingAuth.Next = target
 		}
 	}
-	pendingAuth.Browser = setAuthBrowserID(w, r, oidcBrowserCookieKey)
-	oidcMgr.addPendingAuth(pendingAuth)
+	if err := setOIDCStateCookie(w, r, pendingAuth); err != nil {
+		logger.Warn(logSender, "", "unable to set the oidc state cookie: %v", err)
+		if audience == tokenAudienceWebAdmin {
+			s.renderInternalServerErrorPage(w, r, err)
+		} else {
+			s.renderClientInternalServerErrorPage(w, r, err)
+		}
+		return
+	}
 	http.Redirect(w, r, s.binding.OIDC.oauth2Config.AuthCodeURL(pendingAuth.State,
 		oidc.Nonce(pendingAuth.Nonce), oauth2.S256ChallengeOption(pendingAuth.Verifier)), http.StatusFound)
 }
@@ -702,23 +840,16 @@ func (s *httpdServer) debugTokenClaims(claims map[string]any, rawIDToken string)
 }
 
 func (s *httpdServer) handleOIDCRedirect(w http.ResponseWriter, r *http.Request) {
-	state := r.URL.Query().Get("state")
-	authReq, err := oidcMgr.getPendingAuth(state)
+	// a refused callback leaves the state cookie in place, so the browser that
+	// started the request can still complete it
+	authReq, err := getOIDCPendingAuth(r, r.URL.Query().Get("state"))
 	if err != nil {
-		logger.Debug(logSender, "", "oidc authentication state did not match")
-		oidcMgr.removePendingAuth(state)
+		logger.Debug(logSender, "", "oidc authentication state did not match: %v", err)
 		s.renderClientMessagePage(w, r, util.I18nInvalidAuthReqTitle, http.StatusBadRequest,
 			util.NewI18nError(err, util.I18nInvalidAuth), "")
 		return
 	}
-	if !checkAuthBrowserID(r, oidcBrowserCookieKey, authReq.Browser) {
-		logger.Debug(logSender, "", "oidc authentication request started by a different browser")
-		s.renderClientMessagePage(w, r, util.I18nInvalidAuthReqTitle, http.StatusBadRequest,
-			util.NewI18nError(errors.New("the authorization request was started by a different browser"),
-				util.I18nInvalidAuth), "")
-		return
-	}
-	oidcMgr.removePendingAuth(state)
+	removeOIDCStateCookie(w, r)
 
 	doRedirect := func() {
 		if authReq.Audience == tokenAudienceWebAdmin {
