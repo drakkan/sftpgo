@@ -2960,7 +2960,14 @@ func RunOnDemandRule(name string) error {
 		return util.NewValidationError(fmt.Sprintf("rule %q has incosistent actions", name))
 	}
 	eventManagerLog(logger.LevelDebug, "on-demand rule %q started", name)
-	go executeAsyncRulesActions([]dataprovider.EventRule{rule}, EventParams{Status: 1, updateStatusFromError: true})
+	params := EventParams{
+		Event:                 "On demand",
+		Name:                  rule.Name,
+		Status:                1,
+		Timestamp:             time.Now(),
+		updateStatusFromError: true,
+	}
+	go executeAsyncRulesActions([]dataprovider.EventRule{rule}, params)
 	return nil
 }
 
