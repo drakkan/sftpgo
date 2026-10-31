@@ -113,19 +113,31 @@
   }
 
   function setupLanguagePickers() {
-    for (const picker of $$('[data-language-picker]')) {
-      const label = picker.closest('.language');
-      picker.replaceChildren(...offered.map((code) => new Option(languageNames[code] || code, code)));
-      picker.value = i18next.resolvedLanguage;
-      if (label) label.hidden = offered.length < 2;
-      picker.addEventListener('change', async () => {
-        chooseLanguage(picker.value);
-        await i18next.changeLanguage(picker.value);
-        for (const other of $$('[data-language-picker]')) other.value = picker.value;
-        translate();
-        document.dispatchEvent(new CustomEvent('languagechange'));
+    const pickers = $$('[data-language-picker]');
+    const showCurrent = () => {
+      for (const picker of pickers) {
+        $('[data-language-name]', picker).textContent = languageNames[i18next.language] || i18next.language;
+      }
+    };
+    const choose = async (code) => {
+      chooseLanguage(code);
+      await i18next.changeLanguage(code);
+      showCurrent();
+      translate();
+      document.dispatchEvent(new CustomEvent('languagechange'));
+    };
+    for (const picker of pickers) {
+      picker.hidden = offered.length < 2;
+      picker.addEventListener('click', () => {
+        openMenu(picker, offered.map((code) => ({
+          label: languageNames[code] || code,
+          lang: code,
+          checked: code === i18next.language,
+          action: () => choose(code),
+        })));
       });
     }
+    showCurrent();
   }
 
   function setupSprites() {
@@ -412,6 +424,7 @@
       const tag = item.href ? 'a' : 'button';
       menu.append(h(`${tag}.menu-item${item.danger ? '.menu-danger' : ''}`, {
         role: item.checked === undefined ? 'menuitem' : 'menuitemradio',
+        lang: item.lang,
         ariaChecked: item.checked === undefined ? undefined : String(item.checked),
         href: item.href,
         type: item.href ? undefined : 'button',
@@ -422,7 +435,7 @@
           close();
           if (item.action) item.action();
         },
-      }, icon(item.icon), h('span', null, item.label), item.checked ? h('span.menu-check', null, icon('check')) : null));
+      }, item.icon ? icon(item.icon) : null, h('span', null, item.label), item.checked ? h('span.menu-check', null, icon('check')) : null));
     }
     document.body.append(menu);
     const box = anchor.getBoundingClientRect();

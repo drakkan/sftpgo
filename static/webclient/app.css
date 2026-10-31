@@ -258,49 +258,25 @@ textarea {
   white-space: nowrap;
 }
 
-/* The language picker keeps the native select: on a phone that opens the system picker. */
-
 .language {
-  position: relative;
   display: inline-flex;
   min-height: 2.5rem;
   align-items: center;
   gap: 0.375rem;
   padding: 0 0.5rem;
+  border: 0;
   border-radius: var(--radius-control);
+  background: transparent;
+  cursor: pointer;
 }
 
 .language:hover {
   background: var(--pressboard-deep);
 }
 
-.language select {
-  padding-right: 1.25rem;
-  border: 0;
-  appearance: none;
-  background: transparent;
-  cursor: pointer;
-}
-
-.language select:focus-visible {
-  outline: none;
-}
-
-.language:focus-within {
-  outline: 3px solid var(--marker);
-}
-
-.language option {
-  background: var(--sheet);
-  color: var(--ink);
-}
-
 .language-caret {
-  position: absolute;
-  right: 0.375rem;
   width: 1rem;
   height: 1rem;
-  pointer-events: none;
 }
 
 /* The folder */
