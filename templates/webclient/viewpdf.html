@@ -1,21 +1,21 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-    <head>
-        <title></title>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="robots" content="noindex">
-        <link rel="icon" type="image/png" href="{{.StaticURL}}{{.Branding.FaviconPath}}" />
-
-        {{range .Branding.ExtraCSS}}
-        <link href="{{$.StaticURL}}{{.}}" rel="stylesheet" type="text/css">
-        {{end}}
-    </head>
-
-<body>
-    <script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/pdfobject/pdfobject.min.js"></script>
-    <script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
-        PDFObject.embed("{{.URL}}", document.body);
-    </script>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <title>{{.Branding.Name}}</title>
+    <link rel="icon" href="{{.StaticURL}}{{.Branding.FaviconPath}}">
+    <link rel="stylesheet" href="{{.StaticURL}}/webclient/app.css?v={{.Version}}">
+    <script{{if .CSPNonce}} nonce="{{.CSPNonce}}"{{end}} src="{{.StaticURL}}/webclient/js/boot.js?v={{.Version}}"></script>
+</head>
+<body class="public">
+    {{- /* Browsers without a PDF viewer, such as Android's WebView, get the file to download. */ -}}
+    <object class="pdf-frame" data="{{.URL}}" type="application/pdf">
+        <div class="desk">
+            <p class="desk-foot"><a class="button" href="{{.URL}}">PDF</a></p>
+        </div>
+    </object>
+    <script{{if .CSPNonce}} nonce="{{.CSPNonce}}"{{end}} src="{{.StaticURL}}/webclient/js/pdf.js?v={{.Version}}"></script>
 </body>
 </html>

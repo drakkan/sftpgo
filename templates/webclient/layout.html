@@ -1,0 +1,166 @@
+{{- /* Shared pieces of the WebClient pages. Written for this fork, it uses nothing from the
+theme in static/assets, which WebAdmin still depends on. */ -}}
+
+{{- define "head"}}
+<!doctype html>
+<html lang="en"
+    data-static="{{.StaticURL}}"
+    data-version="{{.Version}}"
+    data-title="{{.Title}}"
+    data-brand="{{.Branding.Name}}"
+    data-languages="{{range .Languages}}{{.}} {{end}}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="robots" content="noindex">
+    <meta name="theme-color" content="#14505a">
+    <meta name="csrf-token" content="{{.CSRFToken}}">
+    <title>{{.Branding.Name}}</title>
+    <link rel="icon" href="{{.StaticURL}}{{.Branding.FaviconPath}}">
+    <link rel="stylesheet" href="{{.StaticURL}}/webclient/app.css?v={{.Version}}">
+    {{- range .Branding.ExtraCSS}}
+    <link rel="stylesheet" href="{{$.StaticURL}}{{.}}">
+    {{- end}}
+    <script{{if .CSPNonce}} nonce="{{.CSPNonce}}"{{end}} src="{{.StaticURL}}/webclient/js/boot.js?v={{.Version}}"></script>
+</head>
+{{- end}}
+
+{{- define "scripts"}}
+<script{{if .CSPNonce}} nonce="{{.CSPNonce}}"{{end}} src="{{.StaticURL}}/vendor/i18next/i18next.min.js"></script>
+<script{{if .CSPNonce}} nonce="{{.CSPNonce}}"{{end}} src="{{.StaticURL}}/vendor/i18next/i18nextHttpBackend.min.js"></script>
+<script{{if .CSPNonce}} nonce="{{.CSPNonce}}"{{end}} src="{{.StaticURL}}/vendor/i18next/i18nextBrowserLanguageDetector.min.js"></script>
+<script{{if .CSPNonce}} nonce="{{.CSPNonce}}"{{end}} src="{{.StaticURL}}/webclient/js/core.js?v={{.Version}}"></script>
+{{- end}}
+
+{{- define "language"}}
+<label class="language" hidden>
+    <svg class="icon" aria-hidden="true"><use data-sprite="languages"></use></svg>
+    <span class="sr" data-i18n="client.language">Language</span>
+    <select data-language-picker></select>
+    <svg class="icon language-caret" aria-hidden="true"><use data-sprite="chevron-down"></use></svg>
+</label>
+{{- end}}
+
+{{- define "notice"}}
+{{- if .}}
+<div class="notice notice-error" role="alert">
+    <svg class="icon" aria-hidden="true"><use data-sprite="triangle-alert"></use></svg>
+    <p data-i18n="{{.Message}}"{{if .HasArgs}} data-i18n-options="{{.Args}}"{{end}}></p>
+</div>
+{{- end}}
+{{- end}}
+
+{{- define "attribution"}}
+<footer class="colophon">
+    <span>
+        <span data-i18n="client.based_on">Modified build based on</span>
+        <a href="https://sftpgo.com" rel="noopener noreferrer" target="_blank">SFTPGo</a>
+    </span>
+    <a href="https://github.com/xrogers/sftpgo" rel="noopener noreferrer" target="_blank" data-i18n="client.source">Source code</a>
+    <span>{{.Version}}</span>
+</footer>
+{{- end}}
+
+{{- /* The signed-in pages. Pages define "main" and may add "pagescripts". */ -}}
+{{- define "app"}}
+{{- template "head" .}}
+<body class="app">
+    <a class="skip" href="#content" data-i18n="client.skip">Skip to content</a>
+    <header class="bar">
+        <a class="brand" href="{{.FilesURL}}">
+            <img src="{{.StaticURL}}{{.Branding.LogoPath}}" alt="">
+            <span>{{.Branding.ShortName}}</span>
+        </a>
+        {{- if .LoggedUser.Username}}
+        <nav class="bar-nav" aria-label="Main" data-i18n="[aria-label]client.main_nav">
+            <a href="{{.FilesURL}}"{{if eq .CurrentURL .FilesURL}} aria-current="page"{{end}}>
+                <svg class="icon" aria-hidden="true"><use data-sprite="folder"></use></svg>
+                <span data-i18n="title.files">Files</span>
+            </a>
+            {{- if .LoggedUser.CanManageShares}}
+            <a href="{{.SharesURL}}"{{if eq .CurrentURL .SharesURL}} aria-current="page"{{end}}>
+                <svg class="icon" aria-hidden="true"><use data-sprite="share-2"></use></svg>
+                <span data-i18n="title.shares">Shares</span>
+            </a>
+            {{- end}}
+        </nav>
+        {{- end}}
+        <div class="bar-end">
+            {{- template "language" .}}
+            <button class="iconbutton" type="button" data-theme-toggle aria-label="Theme" data-i18n="[aria-label]client.theme">
+                <svg class="icon" aria-hidden="true"><use data-sprite="sun-moon"></use></svg>
+            </button>
+            {{- if .LoggedUser.Username}}
+            <button class="account" type="button" data-account-menu aria-haspopup="menu" aria-expanded="false"
+                data-profile="{{.ProfileURL}}"
+                {{- if .LoggedUser.CanChangePassword}} data-password="{{.ChangePwdURL}}"{{end}}
+                {{- if .LoggedUser.CanManageMFA}} data-mfa="{{.MFAURL}}"{{end}}
+                {{- if .APIKeysURL}} data-apikeys="{{.APIKeysURL}}"{{end}}
+                data-logout="{{.LogoutURL}}">
+                <svg class="icon" aria-hidden="true"><use data-sprite="user-round"></use></svg>
+                <span class="account-name">{{.LoggedUser.Username}}</span>
+            </button>
+            {{- else if .LogoutURL}}
+            <a class="iconbutton" href="{{.LogoutURL}}" aria-label="Sign out" data-i18n="[aria-label]login.signout">
+                <svg class="icon" aria-hidden="true"><use data-sprite="log-out"></use></svg>
+            </a>
+            {{- end}}
+        </div>
+    </header>
+    <main id="content" tabindex="-1">
+        {{- template "main" .}}
+    </main>
+    {{- template "attribution" .}}
+    {{- if .LoggedUser.Username}}
+    <nav class="pocket" aria-label="Main" data-i18n="[aria-label]client.main_nav">
+        <a href="{{.FilesURL}}"{{if eq .CurrentURL .FilesURL}} aria-current="page"{{end}}>
+            <svg class="icon" aria-hidden="true"><use data-sprite="folder"></use></svg>
+            <span data-i18n="title.files">Files</span>
+        </a>
+        {{- if .LoggedUser.CanManageShares}}
+        <a href="{{.SharesURL}}"{{if eq .CurrentURL .SharesURL}} aria-current="page"{{end}}>
+            <svg class="icon" aria-hidden="true"><use data-sprite="share-2"></use></svg>
+            <span data-i18n="title.shares">Shares</span>
+        </a>
+        {{- end}}
+        <a href="{{.ProfileURL}}"{{if eq .CurrentURL .ProfileURL}} aria-current="page"{{end}}>
+            <svg class="icon" aria-hidden="true"><use data-sprite="user-round"></use></svg>
+            <span data-i18n="title.profile">Profile</span>
+        </a>
+    </nav>
+    {{- end}}
+    <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+    {{- template "scripts" .}}
+    {{- block "pagescripts" .}}{{- end}}
+</body>
+</html>
+{{- end}}
+
+{{- /* The pages before sign-in, and the public pages of a share. */ -}}
+{{- define "public"}}
+{{- template "head" .}}
+<body class="public">
+    <main class="desk" id="content">
+        <section class="folder folder-small">
+            <div class="tabs">
+                <div class="tab tab-current">
+                    <img src="{{.StaticURL}}{{.Branding.LogoPath}}" alt="">
+                    <span>{{.Branding.ShortName}}</span>
+                </div>
+            </div>
+            <div class="sheet sheet-pad">
+                {{- template "main" .}}
+            </div>
+        </section>
+        <div class="desk-foot">
+            {{- template "language" .}}
+            {{- block "deskfoot" .}}{{- end}}
+        </div>
+    </main>
+    {{- template "attribution" .}}
+    <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+    {{- template "scripts" .}}
+    {{- block "pagescripts" .}}{{- end}}
+</body>
+</html>
+{{- end}}

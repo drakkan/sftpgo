@@ -124,6 +124,54 @@ func deleteUserAPIKey(w http.ResponseWriter, r *http.Request) {
 	sendAPIResponse(w, r, nil, "API key deleted", http.StatusOK)
 }
 
+// getUserAPIKeys returns the keys bound to the logged-in user. The provider has no filter by
+// owner, so the keys are read page by page.
+func getUserAPIKeys(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := jwt.FromContext(r.Context())
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
+	keys := make([]dataprovider.APIKey, 0)
+	for offset := 0; ; offset += defaultQueryLimit {
+		page, err := dataprovider.GetAPIKeys(defaultQueryLimit, offset, dataprovider.OrderDESC)
+		if err != nil {
+			sendAPIResponse(w, r, err, "", getRespStatus(err))
+			return
+		}
+		for idx := range page {
+			if page[idx].IsForUser() && page[idx].User == claims.Username {
+				page[idx].HideConfidentialData()
+				keys = append(keys, page[idx])
+			}
+		}
+		if len(page) < defaultQueryLimit {
+			break
+		}
+	}
+	render.JSON(w, r, keys)
+}
+
+func (s *httpdServer) handleClientGetAPIKeys(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := jwt.FromContext(r.Context())
+	if err != nil || claims.Username == "" {
+		s.renderClientForbiddenPage(w, r, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken))
+		return
+	}
+	user, err := dataprovider.GetUserWithGroupSettings(claims.Username, "")
+	if err != nil {
+		s.renderClientInternalServerErrorPage(w, r, err)
+		return
+	}
+	data := clientAPIKeysPage{
+		baseClientPage:  s.getBaseClientPageData(util.I18nAPIKeysTitle, webClientAPIKeysPath, w, r),
+		AllowAPIKeyAuth: user.Filters.AllowAPIKeyAuth,
+	}
+	renderClientTemplate(w, templateClientAPIKeys, data)
+}
+
 // createUserWebSession sets the WebClient cookie for the user of the API key in use.
 // The key replaces both the password and the second factor, this is why only keys
 // created for this purpose are accepted, and why the session cannot change the

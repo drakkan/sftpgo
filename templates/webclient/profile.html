@@ -1,309 +1,86 @@
-<!--
-Copyright (C) 2023 Nicola Murino
+{{template "app" .}}
 
-This WebUI uses the KeenThemes Bootstrap Templates:
-
-https://keenthemes.com/bootstrap-templates
-
-KeenThemes HTML/CSS/JS components are allowed for use only within the
-SFTPGo product and restricted to be used in a resealable HTML template
-that can compete with KeenThemes products anyhow.
-
-This WebUI is allowed for use only within the SFTPGo product and
-therefore cannot be used in derivative works/products without an
-explicit grant from the SFTPGo Team (support@sftpgo.com).
--->
-{{template "base" .}}
-
-{{- define "page_body"}}
-<div class="card shadow-sm">
-    <div class="card-header bg-light">
-        <h3 data-i18n="general.my_profile" class="card-title section-title">My profile</h3>
+{{- define "main"}}
+<section class="folder">
+    <div class="tabs">
+        <div class="tab tab-current"><h1 class="tab-title" data-i18n="title.profile"></h1></div>
     </div>
-    <div class="card-body">
-        {{- template "errmsg" .Error}}
-        <form id="page_form" action="{{.CurrentURL}}" method="POST">
-            <div class="form-group row">
-                <label for="idEmail" data-i18n="general.email" class="col-md-3 col-form-label">Email</label>
-                <div class="col-md-9">
-                    <input type="email" id="idEmail" name="email" placeholder="" spellcheck="false" value="{{.Email}}" maxlength="255"
-                        autocomplete="off" {{if not .LoggedUser.CanChangeInfo}}{{if .Email}}class="form-control-plaintext readonly-input"{{else}}class="form-control"{{end}} readonly{{else}}class="form-control"{{end}}>
-                </div>
-            </div>
-
-            {{- if .LoggedUser.CanChangeInfo}}
-            <div class="card mt-10">
-                <div class="card-header bg-light">
-                    <h3 data-i18n="user.additional_emails" class="card-title section-title-inner">Additional emails</h3>
-                </div>
-                <div class="card-body">
-                    <div id="additional_emails">
-                        <div class="form-group">
-                            <div data-repeater-list="additional_emails">
-                                {{- range $idx, $val := .AdditionalEmails}}
-                                <div data-repeater-item>
-                                    <div class="form-group row">
-                                        <div class="col-md-10 mt-3 mt-md-8">
-                                            <input type="email" class="form-control" placeholder="" name="additional_email" value="{{$val}}" maxlength="255" autocomplete="off" spellcheck="false" />
-                                        </div>
-                                        <div class="col-md-2 mt-3 mt-md-8">
-                                            <a href="#" data-repeater-delete
-                                                class="btn btn-light-danger">
-                                                <i class="ki-duotone ki-trash fs-5">
-                                                    <span class="path1"></span>
-                                                    <span class="path2"></span>
-                                                    <span class="path3"></span>
-                                                    <span class="path4"></span>
-                                                    <span class="path5"></span>
-                                                </i>
-                                                <span data-i18n="general.delete">Delete</span>
-                                            </a>
-                                        </div>
-                                    </div>
-                                </div>
-                                {{- else}}
-                                <div data-repeater-item>
-                                    <div class="form-group row">
-                                        <div class="col-md-10 mt-3 mt-md-8">
-                                            <input type="email" class="form-control" placeholder="" name="additional_email" value="" maxlength="255" autocomplete="off" spellcheck="false" />
-                                        </div>
-                                        <div class="col-md-2 mt-3 mt-md-8">
-                                            <a href="#" data-repeater-delete
-                                                class="btn btn-light-danger">
-                                                <i class="ki-duotone ki-trash fs-5">
-                                                    <span class="path1"></span>
-                                                    <span class="path2"></span>
-                                                    <span class="path3"></span>
-                                                    <span class="path4"></span>
-                                                    <span class="path5"></span>
-                                                </i>
-                                                <span data-i18n="general.delete">Delete</span>
-                                            </a>
-                                        </div>
-                                    </div>
-                                </div>
-                                {{- end}}
-                            </div>
-                        </div>
-
-                        <div class="form-group mt-5">
-                            <a href="#" data-repeater-create class="btn btn-light-primary">
-                                <i class="ki-duotone ki-plus fs-3"></i>
-                                <span data-i18n="general.add">Add</span>
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            {{- else}}
-            <div class="form-group row mt-10">
-                <label for="idAdditionalEmails" data-i18n="user.additional_emails" class="col-md-3 col-form-label">Additional emails</label>
-                <div class="col-md-9">
-                    <input type="text" id="idAdditionalEmails" name="description" placeholder="" value="{{.AdditionalEmailsString}}"
-                        class="form-control-plaintext readonly-input" readonly>
-                </div>
-            </div>
-            {{- end}}
-
-            <div class="form-group row mt-10">
-                <label for="idDescription" data-i18n="general.description" class="col-md-3 col-form-label">Description</label>
-                <div class="col-md-9">
-                    <input type="text" id="idDescription" name="description" placeholder="" value="{{.Description}}" maxlength="255"
-                        {{if not .LoggedUser.CanChangeInfo}}{{if .Description}}class="form-control-plaintext readonly-input"{{else}}class="form-control"{{end}} readonly{{else}}class="form-control"{{end}}>
-                </div>
-            </div>
-
-            <div class="form-group row align-items-center mt-10">
-                <label data-i18n="general.api_key_auth" class="col-md-3 col-form-label" for="idAllowAPIKeyAuth">API key authentication</label>
-                <div class="col-md-9">
-                    <div class="form-check form-switch form-check-custom form-check-solid">
-                        <input class="form-check-input" type="checkbox" id="idAllowAPIKeyAuth" name="allow_api_key_auth" {{if not .LoggedUser.CanChangeAPIKeyAuth}}disabled="disabled"{{end}} {{if .AllowAPIKeyAuth}}checked="checked"{{end}}/>
-                        <label data-i18n="general.api_key_auth_help" class="form-check-label fw-semibold text-gray-800" for="idAllowAPIKeyAuth">
-                            Allow to impersonate yourself, in REST API, using an API key
-                        </label>
-                    </div>
-                </div>
-            </div>
-
-            {{- if .LoggedUser.CanManagePublicKeys}}
-            <div class="card mt-10">
-                <div class="card-header bg-light">
-                    <h3 data-i18n="general.pub_keys" class="card-title section-title-inner">Public keys</h3>
-                </div>
-                <div class="card-body">
-                    <div id="public_keys">
-                        {{- template "infomsg-no-mb" "general.pub_keys_help"}}
-                        <div class="form-group">
-                            <div data-repeater-list="public_keys">
-                                {{- range $idx, $val := .PublicKeys}}
-                                <div data-repeater-item>
-                                    <div class="form-group row">
-                                        <div class="col-md-9 mt-3 mt-md-8">
-                                            <textarea data-i18n="[placeholder]general.pub_key_placeholder" class="form-control" name="public_key" rows="4"
-                                                placeholder="Paste your public key here">{{$val}}</textarea>
-                                        </div>
-                                        <div class="col-md-3 mt-3 mt-md-8">
-                                            <a href="#" data-repeater-delete
-                                                class="btn btn-light-danger">
-                                                <i class="ki-duotone ki-trash fs-5">
-                                                    <span class="path1"></span>
-                                                    <span class="path2"></span>
-                                                    <span class="path3"></span>
-                                                    <span class="path4"></span>
-                                                    <span class="path5"></span>
-                                                </i>
-                                                <span data-i18n="general.delete">Delete</span>
-                                            </a>
-                                        </div>
-                                    </div>
-                                </div>
-                                {{- else}}
-                                <div data-repeater-item>
-                                    <div class="form-group row">
-                                        <div class="col-md-9 mt-3 mt-md-8">
-                                            <textarea data-i18n="[placeholder]general.pub_key_placeholder" class="form-control" name="public_key" rows="4"
-                                                placeholder="Paste your public key here"></textarea>
-                                        </div>
-                                        <div class="col-md-3 mt-3 mt-md-8">
-                                            <a href="#" data-repeater-delete
-                                                class="btn btn-light-danger">
-                                                <i class="ki-duotone ki-trash fs-5">
-                                                    <span class="path1"></span>
-                                                    <span class="path2"></span>
-                                                    <span class="path3"></span>
-                                                    <span class="path4"></span>
-                                                    <span class="path5"></span>
-                                                </i>
-                                                <span data-i18n="general.delete">Delete</span>
-                                            </a>
-                                        </div>
-                                    </div>
-                                </div>
-                                {{- end}}
-                            </div>
-                        </div>
-
-                        <div class="form-group mt-5">
-                            <a href="#" data-repeater-create class="btn btn-light-primary">
-                                <i class="ki-duotone ki-plus fs-3"></i>
-                                <span data-i18n="general.add">Add</span>
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            {{- end}}
-            {{- if .LoggedUser.CanManageTLSCerts}}
-            <div class="card mt-10">
-                <div class="card-header bg-light">
-                    <h3 data-i18n="user.tls_certs" class="card-title section-title-inner">TLS certificates</h3>
-                </div>
-                <div class="card-body">
-                    <div id="tls_certs">
-                        {{- template "infomsg-no-mb" "user.tls_certs_help"}}
-                        <div class="form-group">
-                            <div data-repeater-list="tls_certs">
-                                {{- range $idx, $val := .TLSCerts}}
-                                <div data-repeater-item>
-                                    <div class="form-group row">
-                                        <div class="col-md-9 mt-3 mt-md-8">
-                                            <textarea data-i18n="[placeholder]user.tls_cert_help" class="form-control" name="tls_cert" rows="4">{{$val}}</textarea>
-                                        </div>
-                                        <div class="col-md-3 mt-3 mt-md-8">
-                                            <a href="#" data-repeater-delete
-                                                class="btn btn-light-danger">
-                                                <i class="ki-duotone ki-trash fs-5">
-                                                    <span class="path1"></span>
-                                                    <span class="path2"></span>
-                                                    <span class="path3"></span>
-                                                    <span class="path4"></span>
-                                                    <span class="path5"></span>
-                                                </i>
-                                                <span data-i18n="general.delete">Delete</span>
-                                            </a>
-                                        </div>
-                                    </div>
-                                </div>
-                                {{- else}}
-                                <div data-repeater-item>
-                                    <div class="form-group row">
-                                        <div class="col-md-9 mt-3 mt-md-8">
-                                            <textarea data-i18n="[placeholder]user.tls_cert_help" class="form-control" name="tls_cert" rows="4"></textarea>
-                                        </div>
-                                        <div class="col-md-3 mt-3 mt-md-8">
-                                            <a href="#" data-repeater-delete
-                                                class="btn btn-light-danger">
-                                                <i class="ki-duotone ki-trash fs-5">
-                                                    <span class="path1"></span>
-                                                    <span class="path2"></span>
-                                                    <span class="path3"></span>
-                                                    <span class="path4"></span>
-                                                    <span class="path5"></span>
-                                                </i>
-                                                <span data-i18n="general.delete">Delete</span>
-                                            </a>
-                                        </div>
-                                    </div>
-                                </div>
-                                {{- end}}
-                            </div>
-                        </div>
-
-                        <div class="form-group mt-5">
-                            <a href="#" data-repeater-create class="btn btn-light-primary">
-                                <i class="ki-duotone ki-plus fs-3"></i>
-                                <span data-i18n="general.add">Add</span>
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            {{- end}}
-            {{if .CanSubmit}}
-            <div class="d-flex justify-content-end mt-12">
+    <div class="sheet">
+        <div class="prose-width">
+            {{- template "notice" .Error}}
+            <form class="stack" id="profile" action="{{.CurrentURL}}" method="POST" data-busy>
                 <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
-                <button type="submit" id="form_submit" class="btn btn-primary px-10">
-                    <span data-i18n="general.submit" class="indicator-label">
-                        Submit
-                    </span>
-                    <span data-i18n="general.wait" class="indicator-progress">
-                        Please wait...
-                        <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
-                    </span>
-                </button>
-            </div>
-            {{- end}}
-        </form>
+                <div class="section stack">
+                    <label class="field">
+                        <span class="field-label" data-i18n="login.username">Username</span>
+                        <input class="input" type="text" value="{{.LoggedUser.Username}}" disabled>
+                    </label>
+                    <label class="field">
+                        <span class="field-label" data-i18n="general.email">Email</span>
+                        <input class="input" name="email" type="email" value="{{.Email}}" autocomplete="email"{{if not .LoggedUser.CanChangeInfo}} disabled{{end}}>
+                    </label>
+                    <div class="field">
+                        <span class="field-label" data-i18n="user.additional_emails">Additional emails</span>
+                        {{- if .LoggedUser.CanChangeInfo}}
+                        <div class="repeat" data-repeat="additional_emails" data-type="input" data-input-type="email">
+                            {{- range .AdditionalEmails}}
+                            <input class="input" name="additional_emails" type="email" value="{{.}}">
+                            {{- end}}
+                        </div>
+                        {{- else}}
+                        <input class="input" type="text" value="{{.AdditionalEmailsString}}" disabled>
+                        {{- end}}
+                    </div>
+                    <label class="field">
+                        <span class="field-label" data-i18n="general.description">Description</span>
+                        <input class="input" name="description" type="text" value="{{.Description}}"{{if not .LoggedUser.CanChangeInfo}} disabled{{end}}>
+                    </label>
+                </div>
+                {{- if .LoggedUser.CanManagePublicKeys}}
+                <div class="section">
+                    <h2 class="section-title" data-i18n="general.pub_keys">Public keys</h2>
+                    <p class="field-help" data-i18n="general.pub_keys_help"></p>
+                    <div class="repeat" data-repeat="public_keys" data-type="textarea" data-placeholder="general.pub_key_placeholder">
+                        {{- range .PublicKeys}}
+                        <textarea class="textarea textarea-code" name="public_keys" spellcheck="false">{{.}}</textarea>
+                        {{- end}}
+                    </div>
+                </div>
+                {{- end}}
+                {{- if .LoggedUser.CanManageTLSCerts}}
+                <div class="section">
+                    <h2 class="section-title" data-i18n="user.tls_certs">TLS certificates</h2>
+                    <p class="field-help" data-i18n="user.tls_certs_help"></p>
+                    <div class="repeat" data-repeat="tls_certs" data-type="textarea" data-placeholder="user.tls_cert_help">
+                        {{- range .TLSCerts}}
+                        <textarea class="textarea textarea-code" name="tls_certs" spellcheck="false">{{.}}</textarea>
+                        {{- end}}
+                    </div>
+                </div>
+                {{- end}}
+                {{- if .LoggedUser.CanChangeAPIKeyAuth}}
+                <div class="section stack">
+                    <h2 class="section-title" data-i18n="general.api_key_auth">API key authentication</h2>
+                    <label class="switch">
+                        <input name="allow_api_key_auth" type="checkbox" value="1"{{if .AllowAPIKeyAuth}} checked{{end}}>
+                        <span data-i18n="general.api_key_auth_help"></span>
+                    </label>
+                    {{- if .APIKeysURL}}
+                    <p><a href="{{.APIKeysURL}}" data-i18n="apikey.view_manage">View and manage API keys</a></p>
+                    {{- end}}
+                </div>
+                {{- end}}
+                {{- if .CanSubmit}}
+                <div class="form-actions">
+                    <button class="button button-primary" type="submit" data-i18n="client.save_changes">Save changes</button>
+                </div>
+                {{- end}}
+            </form>
+        </div>
     </div>
-</div>
+</section>
 {{- end}}
 
-{{- define "extra_js"}}
-{{- if or .LoggedUser.CanManagePublicKeys .LoggedUser.CanManageTLSCerts}}
-<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/plugins/custom/formrepeater/formrepeater.bundle.js"></script>
-{{- end}}
-<script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
-    KTUtil.onDOMContentLoaded(function () {
-        //{{- if or .LoggedUser.CanManagePublicKeys .LoggedUser.CanManageTLSCerts}}
-        //{{- if .LoggedUser.CanManagePublicKeys}}
-        initRepeater('#public_keys');
-        //{{- end}}
-        //{{- if .LoggedUser.CanManageTLSCerts}}
-        initRepeater('#tls_certs');
-        //{{- end}}
-        //{{- if .LoggedUser.CanChangeInfo}}
-        initRepeater('#additional_emails');
-        //{{- end}}
-        initRepeaterItems();
-        //{{- end}}
-
-        //{{if .CanSubmit}}
-        $("#page_form").submit(function (event) {
-            let submitButton = document.querySelector('#form_submit');
-            submitButton.setAttribute('data-kt-indicator', 'on');
-            submitButton.disabled = true;
-        });
-        //{{- end}}
-    });
-</script>
+{{- define "pagescripts"}}
+<script{{if .CSPNonce}} nonce="{{.CSPNonce}}"{{end}} src="{{.StaticURL}}/webclient/js/forms.js?v={{.Version}}"></script>
 {{- end}}

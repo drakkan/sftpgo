@@ -1710,6 +1710,15 @@ func (s *httpdServer) setupWebClientRoutes() {
 				Get(webClientRecoveryCodesPath, getRecoveryCodes)
 			router.With(s.forbidAPIKeySession, s.checkHTTPUserPerm(sdk.WebClientMFADisabled), s.verifyCSRFHeader).
 				Post(webClientRecoveryCodesPath, generateRecoveryCodes)
+			if !s.binding.isUserAPIKeyAuthDisabled() {
+				// Same rule as the REST routes: a session opened with a key cannot manage keys.
+				apiKeysRouter := router.With(s.forbidAPIKeySession, s.checkAuthRequirements,
+					s.checkHTTPUserPerm(sdk.WebClientAPIKeyAuthChangeDisabled))
+				apiKeysRouter.With(s.refreshCookie).Get(webClientAPIKeysPath, s.handleClientGetAPIKeys)
+				apiKeysRouter.With(s.refreshCookie).Get(webClientAPIKeysPath+jsonAPISuffix, getUserAPIKeys)
+				apiKeysRouter.With(s.verifyCSRFHeader).Post(webClientAPIKeysPath, addUserAPIKey)
+				apiKeysRouter.With(s.verifyCSRFHeader).Delete(webClientAPIKeysPath+"/{id}", deleteUserAPIKey)
+			}
 			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientSharesDisabled), compressor.Handler, s.refreshCookie).
 				Get(webClientSharesPath+jsonAPISuffix, getAllShares)
 			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientSharesDisabled), s.refreshCookie).

@@ -171,6 +171,7 @@ const (
 	webClientDownloadZipPathDefault       = "/web/client/downloadzip"
 	webClientProfilePathDefault           = "/web/client/profile"
 	webClientPingPathDefault              = "/web/client/ping"
+	webClientAPIKeysPathDefault           = "/web/client/api-keys"
 	webClientMFAPathDefault               = "/web/client/mfa"
 	webClientTOTPGeneratePathDefault      = "/web/client/totp/generate"
 	webClientTOTPValidatePathDefault      = "/web/client/totp/validate"
@@ -196,6 +197,7 @@ const (
 	osWindows            = "windows"
 	otpHeaderCode        = "X-SFTPGO-OTP"
 	mTimeHeader          = "X-SFTPGO-MTIME"
+	dirPermissionsHeader = "X-SFTPGO-DIR-PERMISSIONS"
 	acmeChallengeURI     = "/.well-known/acme-challenge/"
 )
 
@@ -277,6 +279,7 @@ var (
 	webClientDownloadZipPath       string
 	webClientProfilePath           string
 	webClientPingPath              string
+	webClientAPIKeysPath           string
 	webChangeClientPwdPath         string
 	webClientMFAPath               string
 	webClientTOTPGeneratePath      string
@@ -1340,6 +1343,7 @@ func updateWebClientURLs(baseURL string) {
 	webClientDownloadZipPath = path.Join(baseURL, webClientDownloadZipPathDefault)
 	webClientProfilePath = path.Join(baseURL, webClientProfilePathDefault)
 	webClientPingPath = path.Join(baseURL, webClientPingPathDefault)
+	webClientAPIKeysPath = path.Join(baseURL, webClientAPIKeysPathDefault)
 	webChangeClientPwdPath = path.Join(baseURL, webChangeClientPwdPathDefault)
 	webClientLogoutPath = path.Join(baseURL, webClientLogoutPathDefault)
 	webClientMFAPath = path.Join(baseURL, webClientMFAPathDefault)

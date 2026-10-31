@@ -1,0 +1,42 @@
+{{if .LoggedUser.Username}}{{template "app" .}}{{else}}{{template "public" .}}{{end}}
+
+{{- define "main"}}
+{{- if .LoggedUser.Username}}
+<section class="folder">
+    <div class="tabs">
+        <div class="tab tab-current"><h1 class="tab-title" data-i18n="{{.Title}}"></h1></div>
+    </div>
+    <div class="sheet">
+        {{- template "message-body" .}}
+    </div>
+</section>
+{{- else}}
+<h1 class="auth-title" data-i18n="{{.Title}}"></h1>
+{{- template "message-body" .}}
+{{- end}}
+{{- end}}
+
+{{- define "message-body"}}
+<div class="prose-width">
+    {{- if .Error}}
+    <div class="notice notice-error" role="alert">
+        <svg class="icon" aria-hidden="true"><use data-sprite="triangle-alert"></use></svg>
+        <p data-i18n="{{.Error.Message}}"{{if .Error.HasArgs}} data-i18n-options="{{.Error.Args}}"{{end}}></p>
+    </div>
+    {{- end}}
+    {{- if .Success}}
+    <div class="notice notice-ok" role="status">
+        <svg class="icon" aria-hidden="true"><use data-sprite="circle-check"></use></svg>
+        <p data-i18n="{{.Success}}"></p>
+    </div>
+    {{- end}}
+    {{- if .Text}}
+    <p>{{.Text}}</p>
+    {{- end}}
+    {{- if not .LoggedUser.Username}}
+    {{- if .LoginURL}}
+    <a class="button" href="{{.LoginURL}}" data-i18n="login.signin">Sign in</a>
+    {{- end}}
+    {{- end}}
+</div>
+{{- end}}

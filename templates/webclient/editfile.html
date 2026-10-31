@@ -1,186 +1,41 @@
-<!--
-Copyright (C) 2023 Nicola Murino
+{{template "app" .}}
 
-This WebUI uses the KeenThemes Bootstrap Templates:
-
-https://keenthemes.com/bootstrap-templates
-
-KeenThemes HTML/CSS/JS components are allowed for use only within the
-SFTPGo product and restricted to be used in a resealable HTML template
-that can compete with KeenThemes products anyhow.
-
-This WebUI is allowed for use only within the SFTPGo product and
-therefore cannot be used in derivative works/products without an
-explicit grant from the SFTPGo Team (support@sftpgo.com).
--->
-{{template "base" .}}
-
-{{- define "extra_css"}}
-<style {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
-    .cm-editor {
-        height: 100%;
-        width: 100%;
-    }
-
-</style>
-{{- end}}
-
-{{- define "additionalnavitems"}}
-<div class="d-flex align-items-center ms-2 ms-lg-3" id="kt_header_user_menu_toggle">
-    <div class="btn btn-icon btn-active-light-primary w-35px h-35px w-md-40px h-md-40px" data-bs-toggle="modal" data-bs-target="#info_modal">
-        <i class="ki-duotone ki-information-2 fs-2">
-            <i class="path1"></i>
-            <i class="path2"></i>
-            <i class="path3"></i>
-        </i>
+{{- define "main"}}
+<section class="folder" id="editor-page"
+    data-path="{{.Path}}"
+    data-name="{{.Name}}"
+    data-file="{{.FileURL}}"
+    data-files="{{.FilesURL}}"
+    data-dir="{{.CurrentDir}}"
+    data-ping="{{.PingURL}}"
+    data-readonly="{{.ReadOnly}}"
+    data-nonce="{{.CSPNonce}}">
+    <div class="tabs">
+        <a class="tab" id="back-tab" href="{{.FilesURL}}">
+            <svg class="icon" aria-hidden="true"><use data-sprite="arrow-left"></use></svg>
+            <span class="tab-label" data-i18n="title.files"></span>
+        </a>
+        <div class="tab tab-current"><h1 class="tab-title" title="{{.Path}}">{{.Name}}</h1></div>
     </div>
-</div>
-{{- end}}
-
-{{- define "page_body"}}
-{{- template "errmsg" ""}}
-<div class="card shadow-sm">
-    <div class="card-header">
-        <h6 id="card_title" class="card-title section-title"></h6>
-        <div class="card-toolbar">
-            <a data-i18n="general.back" class="btn btn-light-primary px-10 me-5" href='{{.FilesURL}}?path={{.CurrentDir}}' role="button">Back</a>
+    <div class="sheet">
+        <div class="tools">
+            <p class="field-help" data-i18n="{{if .ReadOnly}}title.view_file{{else}}title.edit_file{{end}}"></p>
             {{- if not .ReadOnly}}
-            <a id="save_button" type="button" class="btn btn-primary px-10" href="#" role="button">
-                <span data-i18n="general.submit" class="indicator-label">Save</span>
-			    <span data-i18n="general.wait" class="indicator-progress">
-                    Please wait...
-					<span class="spinner-border spinner-border-sm align-middle ms-2"></span>
-				</span>
-            </a>
+            <div class="tools-end">
+                <button class="button button-primary button-grow" id="save" type="button">
+                    <svg class="icon" aria-hidden="true"><use data-sprite="save"></use></svg>
+                    <span data-i18n="general.submit"></span>
+                </button>
+            </div>
             {{- end}}
         </div>
+        <textarea id="source" hidden>{{.Data}}</textarea>
+        <div class="editor-wrap" id="editor"></div>
     </div>
-    <div class="card-body">
-        <div id="editor" class="col-sm-12 border border-light-primary"></div>
-    </div>
-</div>
+</section>
 {{- end}}
 
-{{- define "modals"}}
-<div class="modal fade" id="info_modal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 data-i18n="editor.keybinding" class="modal-title">Editor keybindings</h3>
-                <div data-i18n="[aria-label]general.close" class="btn btn-icon btn-sm btn-active-light-primary" data-bs-dismiss="modal" aria-label="Close">
-                    <i class="ki-solid ki-cross fs-2x text-gray-700"></i>
-                </div>
-            </div>
-            <div class="modal-body fs-5 fw-semibold">
-                <p>
-                    <span class="shortcut">Ctrl-F / Cmd-F</span> => <span data-i18n="editor.search">Open search panel</span>
-                </p>
-                <p>
-                    <span class="shortcut">Alt-G</span> => <span data-i18n="editor.goto">Jump to line</span>
-                </p>
-                <p>
-                    <span class="shortcut">Tab</span> => <span data-i18n="editor.indent_more">Indent more</span>
-                </p>
-                <p>
-                    <span class="shortcut">Shift-Tab</span> => <span data-i18n="editor.indent_less">Indent less</span>
-                </p>
-            </div>
-            <div class="modal-footer">
-                <button data-i18n="general.ok" class="btn btn-primary" type="button" data-bs-dismiss="modal">OK</button>
-            </div>
-        </div>
-    </div>
-</div>
-{{- end}}
-
-{{- define "extra_js"}}
-<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/codemirror/cm6.bundle.min.js"></script>
-<script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
-    var cmView;
-
-    function keepAlive() {
-        axios.get('{{.PingURL}}',{
-            timeout: 15000,
-            responseType: 'text'
-       	}).catch(function (error){});
-    }
-
-    //{{- if not .ReadOnly}}
-    function saveFile() {
-        $('#errorMsg').addClass("d-none");
-        let saveButton = document.querySelector('#save_button');
-	    saveButton.setAttribute('data-kt-indicator', 'on');
-		saveButton.disabled = true;
-
-        let uploadPath = '{{.FileURL}}?path='+encodeURIComponent('{{.CurrentDir}}/{{.Name}}');
-        let blob = new Blob([cmView.state.doc.toString()]);
-
-        axios.post(uploadPath, blob, {
-            headers: {
-                'X-CSRF-TOKEN': '{{.CSRFToken}}'
-            },
-            timeout: 600000,
-            validateStatus: function (status) {
-                    return status == 201;
-                }
-        }).then(function (response) {
-            window.location.replace('{{.FilesURL}}?path='+encodeURIComponent('{{.CurrentDir}}'));
-        }).catch(function (error) {
-            saveButton.removeAttribute('data-kt-indicator');
-		    saveButton.disabled = false;
-
-            let errorMessage = "";
-            if (error && error.response) {
-                switch (error.response.status) {
-                    case 403:
-                        errorMessage = "fs.save.err_403";
-                        break;
-                    case 429:
-                        errorMessage = "fs.save.err_429";
-                        break;
-                }
-            }
-            if (!errorMessage){
-                errorMessage = "fs.save.err_generic";
-            }
-            setI18NData($('#errorTxt'), errorMessage);
-            $('#errorMsg').removeClass("d-none");
-        });
-    }
-    //{{- end}}
-
-    $(document).on("i18nload", function(){
-        let message = 'fs.edit_file';
-        //{{- if .ReadOnly}}
-        message = 'fs.view_file';
-        //{{- end}}
-        setI18NData($('#card_title'), message, { path: '{{.Path}}'});
-    });
-
-    $(document).on("i18nshow", function(){
-        let filename = "{{.Name}}";
-        let extension = filename.slice((filename.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase();
-        let options = {
-            oneDark: KTThemeMode.getMode() == "dark",
-            fileExt: extension
-        };
-        //{{- if .ReadOnly}}
-        options.readOnly = true;
-        //{{- end}}
-        //{{- if .CSPNonce}}
-        options.cspNonce = "{{.CSPNonce}}";
-        //{{- end}}
-        let editorState = cm6.createEditorState("{{.Data}}", options);
-        cmView = cm6.createEditorView(editorState, document.getElementById("editor"));
-
-        var saveBtn = $('#save_button');
-        if (saveBtn){
-            saveBtn.on("click", function(){
-                saveFile();
-            });
-        }
-
-        setInterval(keepAlive, 300000);
-    });
-</script>
+{{- define "pagescripts"}}
+<script{{if .CSPNonce}} nonce="{{.CSPNonce}}"{{end}} src="{{.StaticURL}}/vendor/codemirror/cm6.bundle.min.js"></script>
+<script{{if .CSPNonce}} nonce="{{.CSPNonce}}"{{end}} src="{{.StaticURL}}/webclient/js/editor.js?v={{.Version}}"></script>
 {{- end}}

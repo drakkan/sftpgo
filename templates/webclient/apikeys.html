@@ -1,0 +1,31 @@
+{{template "app" .}}
+
+{{- define "main"}}
+<section class="folder" id="apikeys" data-url="{{.APIKeysURL}}" data-allowed="{{.AllowAPIKeyAuth}}">
+    <div class="tabs">
+        <div class="tab tab-current"><h1 class="tab-title" data-i18n="title.api_keys"></h1></div>
+    </div>
+    <div class="sheet">
+        {{- if not .AllowAPIKeyAuth}}
+        <div class="notice notice-warn" role="alert">
+            <svg class="icon" aria-hidden="true"><use data-sprite="info"></use></svg>
+            <p><span data-i18n="client.keys_disabled"></span> <a href="{{.ProfileURL}}" data-i18n="title.profile"></a></p>
+        </div>
+        {{- end}}
+        <div class="tools">
+            <p class="field-help" data-i18n="client.keys_lead"></p>
+            <div class="tools-end">
+                <button class="button button-primary button-grow" id="add-key" type="button"{{if not .AllowAPIKeyAuth}} disabled{{end}}>
+                    <svg class="icon" aria-hidden="true"><use data-sprite="plus"></use></svg>
+                    <span data-i18n="title.add_api_key"></span>
+                </button>
+            </div>
+        </div>
+        <div id="keys"></div>
+    </div>
+</section>
+{{- end}}
+
+{{- define "pagescripts"}}
+<script{{if .CSPNonce}} nonce="{{.CSPNonce}}"{{end}} src="{{.StaticURL}}/webclient/js/apikeys.js?v={{.Version}}"></script>
+{{- end}}

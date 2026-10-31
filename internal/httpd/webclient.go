@@ -49,13 +49,14 @@ import (
 
 const (
 	templateClientDir      = "webclient"
-	templateClientBase     = "base.html"
+	templateClientLayout   = "layout.html"
 	templateClientFiles    = "files.html"
 	templateClientProfile  = "profile.html"
 	templateClientMFA      = "mfa.html"
 	templateClientEditFile = "editfile.html"
 	templateClientShare    = "share.html"
 	templateClientShares   = "shares.html"
+	templateClientAPIKeys  = "apikeys.html"
 	templateClientViewPDF  = "viewpdf.html"
 	templateShareLogin     = "sharelogin.html"
 	templateShareDownload  = "sharedownload.html"
@@ -105,6 +106,7 @@ type baseClientPage struct {
 	LoginURL        string
 	EditURL         string
 	MFAURL          string
+	APIKeysURL      string
 	CSRFToken       string
 	LoggedUser      *dataprovider.User
 	IsLoggedToShare bool
@@ -220,6 +222,11 @@ type clientMFAPage struct {
 	Protocols         []string
 	RequiredProtocols []string
 	RequiredAction    *util.I18nError
+}
+
+type clientAPIKeysPage struct {
+	baseClientPage
+	AllowAPIKeyAuth bool
 }
 
 type clientSharesPage struct {
@@ -425,127 +432,21 @@ func getFileObjectModTime(t time.Time) int64 {
 	return t.UnixMilli()
 }
 
+// loadClientTemplates parses each page with the shared layout. Nothing here may load from
+// templateCommonDir: those files are built on the theme that WebAdmin still uses.
 func loadClientTemplates(templatesPath string) {
-	filesPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateClientDir, templateClientBase),
-		filepath.Join(templatesPath, templateClientDir, templateClientFiles),
+	pages := []string{
+		templateClientFiles, templateClientProfile, templateChangePwd, templateCommonLogin, templateMessage,
+		templateClientMFA, templateTwoFactor, templateTwoFactorRecovery, templateClientEditFile, templateShareLogin,
+		templateClientShares, templateClientShare, templateForgotPassword, templateResetPassword,
+		templateClientViewPDF, templateUploadToShare, templateShareDownload, templateClientAPIKeys,
 	}
-	editFilePath := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateClientDir, templateClientBase),
-		filepath.Join(templatesPath, templateClientDir, templateClientEditFile),
+	for _, page := range pages {
+		clientTemplates[page] = util.LoadTemplate(nil,
+			filepath.Join(templatesPath, templateClientDir, templateClientLayout),
+			filepath.Join(templatesPath, templateClientDir, page),
+		)
 	}
-	sharesPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateClientDir, templateClientBase),
-		filepath.Join(templatesPath, templateClientDir, templateClientShares),
-	}
-	sharePaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateClientDir, templateClientBase),
-		filepath.Join(templatesPath, templateClientDir, templateClientShare),
-	}
-	profilePaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateClientDir, templateClientBase),
-		filepath.Join(templatesPath, templateClientDir, templateClientProfile),
-	}
-	changePwdPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateClientDir, templateClientBase),
-		filepath.Join(templatesPath, templateCommonDir, templateChangePwd),
-	}
-	loginPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBaseLogin),
-		filepath.Join(templatesPath, templateCommonDir, templateCommonLogin),
-	}
-	messagePaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateClientDir, templateClientBase),
-		filepath.Join(templatesPath, templateCommonDir, templateMessage),
-	}
-	mfaPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateClientDir, templateClientBase),
-		filepath.Join(templatesPath, templateClientDir, templateClientMFA),
-	}
-	twoFactorPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBaseLogin),
-		filepath.Join(templatesPath, templateCommonDir, templateTwoFactor),
-	}
-	twoFactorRecoveryPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBaseLogin),
-		filepath.Join(templatesPath, templateCommonDir, templateTwoFactorRecovery),
-	}
-	forgotPwdPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBaseLogin),
-		filepath.Join(templatesPath, templateCommonDir, templateForgotPassword),
-	}
-	resetPwdPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBaseLogin),
-		filepath.Join(templatesPath, templateCommonDir, templateResetPassword),
-	}
-	viewPDFPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateClientDir, templateClientViewPDF),
-	}
-	shareLoginPath := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBaseLogin),
-		filepath.Join(templatesPath, templateClientDir, templateShareLogin),
-	}
-	shareUploadPath := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateClientDir, templateClientBase),
-		filepath.Join(templatesPath, templateClientDir, templateUploadToShare),
-	}
-	shareDownloadPath := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateClientDir, templateClientBase),
-		filepath.Join(templatesPath, templateClientDir, templateShareDownload),
-	}
-
-	filesTmpl := util.LoadTemplate(nil, filesPaths...)
-	profileTmpl := util.LoadTemplate(nil, profilePaths...)
-	changePwdTmpl := util.LoadTemplate(nil, changePwdPaths...)
-	loginTmpl := util.LoadTemplate(nil, loginPaths...)
-	messageTmpl := util.LoadTemplate(nil, messagePaths...)
-	mfaTmpl := util.LoadTemplate(nil, mfaPaths...)
-	twoFactorTmpl := util.LoadTemplate(nil, twoFactorPaths...)
-	twoFactorRecoveryTmpl := util.LoadTemplate(nil, twoFactorRecoveryPaths...)
-	editFileTmpl := util.LoadTemplate(nil, editFilePath...)
-	shareLoginTmpl := util.LoadTemplate(nil, shareLoginPath...)
-	sharesTmpl := util.LoadTemplate(nil, sharesPaths...)
-	shareTmpl := util.LoadTemplate(nil, sharePaths...)
-	forgotPwdTmpl := util.LoadTemplate(nil, forgotPwdPaths...)
-	resetPwdTmpl := util.LoadTemplate(nil, resetPwdPaths...)
-	viewPDFTmpl := util.LoadTemplate(nil, viewPDFPaths...)
-	shareUploadTmpl := util.LoadTemplate(nil, shareUploadPath...)
-	shareDownloadTmpl := util.LoadTemplate(nil, shareDownloadPath...)
-
-	clientTemplates[templateClientFiles] = filesTmpl
-	clientTemplates[templateClientProfile] = profileTmpl
-	clientTemplates[templateChangePwd] = changePwdTmpl
-	clientTemplates[templateCommonLogin] = loginTmpl
-	clientTemplates[templateMessage] = messageTmpl
-	clientTemplates[templateClientMFA] = mfaTmpl
-	clientTemplates[templateTwoFactor] = twoFactorTmpl
-	clientTemplates[templateTwoFactorRecovery] = twoFactorRecoveryTmpl
-	clientTemplates[templateClientEditFile] = editFileTmpl
-	clientTemplates[templateClientShares] = sharesTmpl
-	clientTemplates[templateClientShare] = shareTmpl
-	clientTemplates[templateForgotPassword] = forgotPwdTmpl
-	clientTemplates[templateResetPassword] = resetPwdTmpl
-	clientTemplates[templateClientViewPDF] = viewPDFTmpl
-	clientTemplates[templateShareLogin] = shareLoginTmpl
-	clientTemplates[templateUploadToShare] = shareUploadTmpl
-	clientTemplates[templateShareDownload] = shareDownloadTmpl
 }
 
 func (s *httpdServer) getBaseClientPageData(title, currentURL string, w http.ResponseWriter, r *http.Request) baseClientPage {
@@ -575,6 +476,11 @@ func (s *httpdServer) getBaseClientPageData(title, currentURL string, w http.Res
 	}
 	if !strings.HasPrefix(r.RequestURI, webClientPubSharesPath) {
 		data.LoginURL = webClientLoginPath
+	}
+	if data.LoggedUser.CanChangeAPIKeyAuth() && !s.binding.isUserAPIKeyAuthDisabled() {
+		if claims, err := jwt.FromContext(r.Context()); err == nil && claims.APIKeyID == "" {
+			data.APIKeysURL = webClientAPIKeysPath
+		}
 	}
 	return data
 }
@@ -1232,6 +1138,24 @@ func (s *httpdServer) handleShareGetPDF(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
+// getDirPermissions lists what the file browser can offer in dirName. It only decides which
+// controls to show: every action is checked again by the server.
+func getDirPermissions(user *dataprovider.User, dirName string) string {
+	var permissions []string
+	add := func(allowed bool, name string) {
+		if allowed {
+			permissions = append(permissions, name)
+		}
+	}
+	add(user.CanAddFilesFromWeb(dirName), "add")
+	add(user.CanAddDirsFromWeb(dirName), "mkdir")
+	add(user.CanRenameFromWeb(dirName, dirName), "rename")
+	add(user.CanDeleteFromWeb(dirName), "delete")
+	add(user.HasPerm(dataprovider.PermDownload, dirName), "download")
+	add(user.CanCopyFromWeb(dirName, dirName), "copy")
+	return strings.Join(permissions, ",")
+}
+
 func (s *httpdServer) handleClientGetDirContents(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := jwt.FromContext(r.Context())
@@ -1270,6 +1194,8 @@ func (s *httpdServer) handleClientGetDirContents(w http.ResponseWriter, r *http.
 	}
 	defer lister.Close()
 
+	// The page moves between folders without reloading, and what it offers depends on the folder.
+	w.Header().Set(dirPermissionsHeader, getDirPermissions(&connection.User, name))
 	dirTree := r.URL.Query().Get("dirtree") == "1"
 	dataGetter := func(limit, offset int) ([]byte, int, error) {
 		contents, finished, err := nextRenderableEntries(lister, limit, func(info os.FileInfo) bool {
