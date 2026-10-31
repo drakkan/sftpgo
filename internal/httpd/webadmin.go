@@ -1913,11 +1913,19 @@ func getAPIKeyFromPostFields(r *http.Request) (dataprovider.APIKey, error) {
 	apiKey.Description = r.Form.Get("description")
 	apiKey.User = strings.TrimSpace(r.Form.Get("user"))
 	apiKey.Admin = strings.TrimSpace(r.Form.Get("admin"))
+	// The form only hides the field of the other scope, so it can still hold a
+	// value typed before the scope was changed.
+	switch apiKey.Scope {
+	case dataprovider.APIKeyScopeAdmin:
+		apiKey.User = ""
+	case dataprovider.APIKeyScopeUser:
+		apiKey.Admin = ""
+	}
 	expirationDateString := strings.TrimSpace(r.Form.Get("expires_at"))
 	if expirationDateString != "" {
 		expirationDate, err := time.Parse(webDateTimeFormat, expirationDateString)
 		if err != nil {
-			return apiKey, err
+			return apiKey, util.NewI18nError(err, util.I18nErrorAPIKeyExpiration)
 		}
 		apiKey.ExpiresAt = util.GetTimeAsMsSinceEpoch(expirationDate)
 	}
@@ -3386,6 +3394,8 @@ func (s *httpdServer) handleWebAddAPIKeyPost(w http.ResponseWriter, r *http.Requ
 		s.renderAddUpdateAPIKeyPage(w, r, &apiKey, "", err, true)
 		return
 	}
+	// This response holds the only copy of the secret.
+	w.Header().Set("Cache-Control", "no-store")
 	s.renderAddUpdateAPIKeyPage(w, r, &apiKey, apiKey.DisplayKey(), nil, false)
 }
 
@@ -3406,7 +3416,11 @@ func (s *httpdServer) handleWebUpdateAPIKeyPost(w http.ResponseWriter, r *http.R
 		return
 	}
 	updatedAPIKey, err := getAPIKeyFromPostFields(r)
+	updatedAPIKey.KeyID = apiKey.KeyID
+	updatedAPIKey.Scope = apiKey.Scope
 	if err != nil {
+		// Show the stored expiration: an empty field would remove it on the next submit.
+		updatedAPIKey.ExpiresAt = apiKey.ExpiresAt
 		s.renderAddUpdateAPIKeyPage(w, r, &updatedAPIKey, "", err, false)
 		return
 	}
@@ -3414,9 +3428,7 @@ func (s *httpdServer) handleWebUpdateAPIKeyPost(w http.ResponseWriter, r *http.R
 		s.renderForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
-	updatedAPIKey.KeyID = apiKey.KeyID
 	updatedAPIKey.Key = apiKey.Key
-	updatedAPIKey.Scope = apiKey.Scope
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	err = dataprovider.UpdateAPIKey(&updatedAPIKey, claims.Username, ipAddr, claims.Role)
 	if err != nil {

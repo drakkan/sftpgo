@@ -55,7 +55,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 <div class="col-md-9">
                     <input id="idUser" type="text" class="form-control" name="user" value="{{.APIKey.User}}" maxlength="255"
                         autocomplete="off" spellcheck="false" aria-describedby="idUserHelp" />
-                    <div id="idUserHelp" class="form-text" data-i18n="apikey.user_help">Leave empty to allow any user</div>
+                    <div id="idUserHelp" class="form-text" data-i18n="apikey.user_help">Username this key is restricted to. If empty, the key can act as any user who allows API key authentication.</div>
                 </div>
             </div>
 
@@ -64,7 +64,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 <div class="col-md-9">
                     <input id="idAdmin" type="text" class="form-control" name="admin" value="{{.APIKey.Admin}}" maxlength="255"
                         autocomplete="off" spellcheck="false" aria-describedby="idAdminHelp" />
-                    <div id="idAdminHelp" class="form-text" data-i18n="apikey.admin_help">Leave empty to allow any admin</div>
+                    <div id="idAdminHelp" class="form-text" data-i18n="apikey.admin_help">Admin this key is restricted to. If empty, the key can act as any admin who allows API key authentication, including super admins.</div>
                 </div>
             </div>
 
@@ -113,6 +113,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     }
 
     $(document).on("i18nshow", function(){
+        //{{- if .GeneratedKey}}
+        // This page is the result of a POST: reloading must open the key, not create another one.
+        history.replaceState(null, "", "{{.CurrentURL}}");
+        //{{- end}}
         toggleScopeFields();
         $('#idScope').on("change", function(){
             toggleScopeFields();

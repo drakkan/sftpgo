@@ -91,6 +91,7 @@ const (
 	I18nErrorInvalidForm               = "general.invalid_form"
 	I18nErrorInvalidCredentials        = "general.invalid_credentials"
 	I18nErrorInvalidCSRF               = "general.invalid_csrf"
+	I18nErrorAPIKeyExpiration          = "apikey.invalid_expiration"
 	I18nErrorFsGeneric                 = "fs.err_generic"
 	I18nErrorDirListGeneric            = "fs.dir_list.err_generic"
 	I18nErrorDirList403                = "fs.dir_list.err_403"
