@@ -196,6 +196,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 switch (data){
                                     case 1:
                                         return $.t('apikey.scope_admin');
+                                    case 3:
+                                        return $.t('apikey.scope_user_web_session');
                                     default:
                                         return $.t('apikey.scope_user');
                                 }

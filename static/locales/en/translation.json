@@ -788,6 +788,7 @@
         "scope": "Scope",
         "scope_admin": "Admin",
         "scope_user": "User",
+        "scope_user_web_session": "User and web session",
         "bound_to": "Bound to",
         "user": "User",
         "user_help": "Username this key is restricted to. If empty, the key can act as any user who allows API key authentication.",

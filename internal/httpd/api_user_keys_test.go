@@ -515,3 +515,39 @@ func TestWebSessionAndSecondFactor(t *testing.T) {
 	_, err = httpdtest.RemoveAPIKey(dataprovider.APIKey{KeyID: keyID}, http.StatusOK)
 	assert.NoError(t, err)
 }
+
+func TestWebAdminKeepsWebSessionScope(t *testing.T) {
+	user := addSelfServiceUser(t, "websession_webadmin")
+	key, keyID := createWebSessionKey(t, userTokenFor(t, user), "session")
+	adminCookie, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	require.NoError(t, err)
+
+	// The page must show the real scope, or saving it would look like a change.
+	rr := webClientRequest(t, http.MethodGet, webAPIKeyPath+"/"+keyID, adminCookie)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Regexp(t, `value="3"\s+selected`, rr.Body.String())
+
+	// A disabled select is not submitted, so the form has no scope.
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webAPIKeyPath, adminCookie)
+	require.NoError(t, err)
+	form := url.Values{
+		"name":        {"session"},
+		"description": {"edited"},
+		"user":        {user.Username},
+		csrfFormToken: {csrfToken},
+	}
+	req, err := http.NewRequest(http.MethodPost, webAPIKeyPath+"/"+keyID, strings.NewReader(form.Encode()))
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, adminCookie)
+	checkResponseCode(t, http.StatusSeeOther, executeRequest(req))
+
+	stored, _, err := httpdtest.GetAPIKeyByID(keyID, http.StatusOK)
+	require.NoError(t, err)
+	assert.Equal(t, "edited", stored.Description)
+	assert.Equal(t, dataprovider.APIKeyScopeUserWebSession, stored.Scope)
+	checkResponseCode(t, http.StatusOK, openWebSession(t, key))
+
+	_, err = httpdtest.RemoveAPIKey(stored, http.StatusOK)
+	assert.NoError(t, err)
+}

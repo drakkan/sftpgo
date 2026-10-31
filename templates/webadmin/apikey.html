@@ -46,6 +46,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     <select id="idScope" name="scope" class="form-select" data-control="i18n-select2" data-hide-search="true" {{if not .IsAdd}}disabled{{end}}>
                         <option data-i18n="apikey.scope_admin" value="1" {{if eq .APIKey.Scope 1}}selected{{end}}>Admin</option>
                         <option data-i18n="apikey.scope_user" value="2" {{if eq .APIKey.Scope 2}}selected{{end}}>User</option>
+                        <option data-i18n="apikey.scope_user_web_session" value="3" {{if eq .APIKey.Scope 3}}selected{{end}}>User and web session</option>
                     </select>
                 </div>
             </div>

@@ -1918,7 +1918,7 @@ func getAPIKeyFromPostFields(r *http.Request) (dataprovider.APIKey, error) {
 	switch apiKey.Scope {
 	case dataprovider.APIKeyScopeAdmin:
 		apiKey.User = ""
-	case dataprovider.APIKeyScopeUser:
+	case dataprovider.APIKeyScopeUser, dataprovider.APIKeyScopeUserWebSession:
 		apiKey.Admin = ""
 	}
 	expirationDateString := strings.TrimSpace(r.Form.Get("expires_at"))
