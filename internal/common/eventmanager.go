@@ -70,9 +70,10 @@ const (
 
 var (
 	// eventManager handle the supported event rules actions
-	eventManager          eventRulesContainer
-	multipartQuoteEscaper = strings.NewReplacer("\\", "\\\\", `"`, "\\\"")
-	fsEventsWithSize      = []string{operationPreDelete, OperationPreUpload, operationDelete,
+	eventManager           eventRulesContainer
+	multipartHeaderEscaper = strings.NewReplacer("\r", "%0D", "\n", "%0A")
+	multipartQuoteEscaper  = strings.NewReplacer("\\", "\\\\", `"`, "\\\"", "\r", "%0D", "\n", "%0A")
+	fsEventsWithSize       = []string{operationPreDelete, OperationPreUpload, operationDelete,
 		operationCopy, operationDownload, operationFirstUpload, operationFirstDownload,
 		operationUpload}
 )
@@ -1432,7 +1433,7 @@ func getHTTPRuleActionBody(c *dataprovider.EventActionHTTPConfig, replacer *stri
 					h.Set("Content-Type", contentType)
 				}
 				for _, keyVal := range part.Headers {
-					h.Set(keyVal.Key, replaceWithReplacer(keyVal.Value, replacer))
+					h.Set(keyVal.Key, multipartHeaderEscaper.Replace(replaceWithReplacer(keyVal.Value, replacer)))
 				}
 				if err := writeHTTPPart(m, part, h, conn, replacer, params, addObjectData); err != nil {
 					cancel()
