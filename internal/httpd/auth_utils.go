@@ -424,6 +424,19 @@ func checkTokenSignature(r *http.Request, token *jwt.Claims) error {
 	return err
 }
 
+// checkWebSessionAPIKey ends a WebClient session as soon as the API key that opened
+// it is revoked or expires, so revoking the key of a lost phone also closes its session.
+func checkWebSessionAPIKey(token *jwt.Claims, audience tokenAudience) error {
+	if token.APIKeyID == "" || audience != tokenAudienceWebClient {
+		return nil
+	}
+	apiKey, err := dataprovider.APIKeyExists(token.APIKeyID)
+	if err != nil || !apiKey.CanOpenWebSession(token.Username) {
+		return errInvalidToken
+	}
+	return nil
+}
+
 func validateSignatureForToken(token *jwt.Claims, getter func(string) (string, error)) error {
 	signature, err := getter(token.Username)
 	if err != nil {

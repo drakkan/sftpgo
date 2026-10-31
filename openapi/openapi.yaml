@@ -3856,6 +3856,9 @@ paths:
                   type: integer
                   format: int64
                   description: 'Expiration as unix timestamp in milliseconds. It must be in the future. 0 or missing means no expiration'
+                web_session:
+                  type: boolean
+                  description: 'If true the key can also open a WebClient session using `/user/websession`. Whoever holds such a key can open a session without the password or the second factor'
       responses:
         '201':
           description: successful operation
@@ -3878,6 +3881,32 @@ paths:
                   key:
                     type: string
                     description: 'The generated key, in the format "key_id.secret". It is not possible to retrieve it later'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /user/websession:
+    post:
+      security:
+        - APIKeyAuth: []
+      tags:
+        - user APIs
+      summary: Open a WebClient session using an API key
+      description: 'Sets the WebClient session cookie for the user of the API key. Only keys created with `web_session` set to true are accepted. The cookie is valid for the WebClient only, ends when the key is revoked or expires, and cannot change the password, the second factor or the profile.'
+      operationId: create_user_web_session
+      responses:
+        '200':
+          description: successful operation, the session cookie is returned in the `Set-Cookie` header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -5192,10 +5221,12 @@ components:
       enum:
         - 1
         - 2
+        - 3
       description: |
         Options:
           * `1` - admin scope. The API key will be used to impersonate an SFTPGo admin
           * `2` - user scope. The API key will be used to impersonate an SFTPGo user
+          * `3` - user web session scope. Same as user scope, it must be associated with a user and it can also open a WebClient session
     ShareScope:
       type: integer
       enum:

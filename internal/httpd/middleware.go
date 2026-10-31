@@ -100,6 +100,11 @@ func validateJWTToken(w http.ResponseWriter, r *http.Request, audience tokenAudi
 		doRedirect("Your token is no longer valid", nil)
 		return err
 	}
+	if err := checkWebSessionAPIKey(token, audience); err != nil {
+		logger.Debug(logSender, "", "the API key that opened the session for user %q is no longer valid", token.Username)
+		doRedirect("Your token is no longer valid", nil)
+		return err
+	}
 	return nil
 }
 
@@ -441,7 +446,7 @@ func checkAPIKeyAuth(tokenAuth *jwt.Signer, scope dataprovider.APIKeyScope) func
 				sendAPIResponse(w, r, errors.New("the provided api key is not valid"), "", http.StatusBadRequest)
 				return
 			}
-			if k.Scope != scope {
+			if !k.HasScope(scope) {
 				_ = handleDefenderEventLoginFailed(util.GetIPFromRemoteAddress(r.RemoteAddr), dataprovider.ErrInvalidCredentials)
 				logger.Debug(logSender, "", "unable to authenticate api key ID %q: invalid scope: got %d, wanted: %d",
 					keyID, k.Scope, scope)
@@ -503,6 +508,25 @@ func forbidAPIKeyAuthentication(next http.Handler) http.Handler {
 		}
 		if claims.APIKeyID != "" {
 			sendAPIResponse(w, r, nil, "API key authentication is not allowed", http.StatusForbidden)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+// forbidAPIKeySession blocks account changes in a WebClient session opened with an
+// API key. REST refuses the same changes to keys, so a stolen key cannot use the
+// session to replace the password or the second factor, or to add an SSH key.
+func (s *httpdServer) forbidAPIKeySession(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		claims, err := jwt.FromContext(r.Context())
+		if err != nil {
+			s.renderClientBadRequestPage(w, r, err)
+			return
+		}
+		if claims.APIKeyID != "" {
+			s.renderClientForbiddenPage(w, r, errors.New("this action requires a login with your password"))
 			return
 		}
 

@@ -1063,6 +1063,11 @@ func (s *httpdServer) refreshClientToken(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
+	if tokenClaims.APIKeyID != "" && !user.Filters.AllowAPIKeyAuth {
+		logger.Debug(logSender, "", "API key authentication disabled for user %q, unable to refresh cookie", user.Username)
+		return
+	}
+
 	tokenClaims.Permissions = user.Filters.WebClient
 	tokenClaims.Role = user.Role
 	logger.Debug(logSender, "", "cookie refreshed for user %q", user.Username)
@@ -1525,6 +1530,9 @@ func (s *httpdServer) setupRESTAPIRoutes() {
 					s.checkHTTPUserPerm(sdk.WebClientAPIKeyAuthChangeDisabled)).Post(userAPIKeysPath, addUserAPIKey)
 				router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientAPIKeyAuthChangeDisabled)).
 					Delete(userAPIKeysPath+"/{id}", deleteUserAPIKey)
+				if s.enableWebClient {
+					router.Post(userWebSessionPath, s.createUserWebSession)
+				}
 			}
 			// user TOTP APIs
 			router.With(forbidAPIKeyAuthentication, s.checkHTTPUserPerm(sdk.WebClientMFADisabled)).
@@ -1681,22 +1689,22 @@ func (s *httpdServer) setupWebClientRoutes() {
 			router.With(s.checkAuthRequirements, s.refreshCookie).Get(webClientPingPath, handlePingRequest)
 			router.With(s.checkAuthRequirements, s.refreshCookie).Get(webClientProfilePath,
 				s.handleClientGetProfile)
-			router.With(s.checkAuthRequirements).Post(webClientProfilePath, s.handleWebClientProfilePost)
-			router.With(s.checkHTTPUserPerm(sdk.WebClientPasswordChangeDisabled)).
+			router.With(s.forbidAPIKeySession, s.checkAuthRequirements).Post(webClientProfilePath, s.handleWebClientProfilePost)
+			router.With(s.forbidAPIKeySession, s.checkHTTPUserPerm(sdk.WebClientPasswordChangeDisabled)).
 				Get(webChangeClientPwdPath, s.handleWebClientChangePwd)
-			router.With(s.checkHTTPUserPerm(sdk.WebClientPasswordChangeDisabled)).
+			router.With(s.forbidAPIKeySession, s.checkHTTPUserPerm(sdk.WebClientPasswordChangeDisabled)).
 				Post(webChangeClientPwdPath, s.handleWebClientChangePwdPost)
-			router.With(s.checkHTTPUserPerm(sdk.WebClientMFADisabled), s.refreshCookie).
+			router.With(s.forbidAPIKeySession, s.checkHTTPUserPerm(sdk.WebClientMFADisabled), s.refreshCookie).
 				Get(webClientMFAPath, s.handleWebClientMFA)
-			router.With(s.checkHTTPUserPerm(sdk.WebClientMFADisabled), s.verifyCSRFHeader).
+			router.With(s.forbidAPIKeySession, s.checkHTTPUserPerm(sdk.WebClientMFADisabled), s.verifyCSRFHeader).
 				Post(webClientTOTPGeneratePath, generateTOTPSecret)
-			router.With(s.checkHTTPUserPerm(sdk.WebClientMFADisabled), s.verifyCSRFHeader).
+			router.With(s.forbidAPIKeySession, s.checkHTTPUserPerm(sdk.WebClientMFADisabled), s.verifyCSRFHeader).
 				Post(webClientTOTPValidatePath, validateTOTPPasscode)
-			router.With(s.checkHTTPUserPerm(sdk.WebClientMFADisabled), s.verifyCSRFHeader).
+			router.With(s.forbidAPIKeySession, s.checkHTTPUserPerm(sdk.WebClientMFADisabled), s.verifyCSRFHeader).
 				Post(webClientTOTPSavePath, saveTOTPConfig)
-			router.With(s.checkHTTPUserPerm(sdk.WebClientMFADisabled), s.verifyCSRFHeader, s.refreshCookie).
+			router.With(s.forbidAPIKeySession, s.checkHTTPUserPerm(sdk.WebClientMFADisabled), s.verifyCSRFHeader, s.refreshCookie).
 				Get(webClientRecoveryCodesPath, getRecoveryCodes)
-			router.With(s.checkHTTPUserPerm(sdk.WebClientMFADisabled), s.verifyCSRFHeader).
+			router.With(s.forbidAPIKeySession, s.checkHTTPUserPerm(sdk.WebClientMFADisabled), s.verifyCSRFHeader).
 				Post(webClientRecoveryCodesPath, generateRecoveryCodes)
 			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientSharesDisabled), compressor.Handler, s.refreshCookie).
 				Get(webClientSharesPath+jsonAPISuffix, getAllShares)

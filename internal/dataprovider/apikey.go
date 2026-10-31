@@ -36,6 +36,10 @@ const (
 	APIKeyScopeAdmin APIKeyScope = iota + 1
 	// the API key will be used for a user
 	APIKeyScopeUser
+	// the API key will be used for a single user and can also open a WebClient session.
+	// A separate scope keeps ordinary user keys away from the web session, and it
+	// fits the existing column, so no schema change is needed
+	APIKeyScopeUserWebSession
 )
 
 // APIKey defines a SFTPGo API key.
@@ -152,8 +156,11 @@ func (k *APIKey) validate() error {
 	if !util.IsNameValid(k.Name) {
 		return util.NewI18nError(errInvalidInput, util.I18nErrorInvalidInput)
 	}
-	if k.Scope != APIKeyScopeAdmin && k.Scope != APIKeyScopeUser {
+	if k.Scope != APIKeyScopeAdmin && !k.IsForUser() {
 		return util.NewValidationError(fmt.Sprintf("invalid scope: %v", k.Scope))
+	}
+	if k.Scope == APIKeyScopeUserWebSession && k.User == "" {
+		return util.NewValidationError("an API key that can open web sessions must be associated with a user")
 	}
 	k.generateKey()
 	if err := k.hashKey(); err != nil {
@@ -165,7 +172,7 @@ func (k *APIKey) validate() error {
 	if k.Scope == APIKeyScopeAdmin {
 		k.User = ""
 	}
-	if k.Scope == APIKeyScopeUser {
+	if k.IsForUser() {
 		k.Admin = ""
 	}
 	if k.User != "" {
@@ -183,9 +190,29 @@ func (k *APIKey) validate() error {
 	return nil
 }
 
+// IsForUser returns true if the key authenticates users and not admins
+func (k *APIKey) IsForUser() bool {
+	return k.Scope == APIKeyScopeUser || k.Scope == APIKeyScopeUserWebSession
+}
+
+// HasScope returns true if the key can be used where the specified scope is required
+func (k *APIKey) HasScope(scope APIKeyScope) bool {
+	return k.Scope == scope || (scope == APIKeyScopeUser && k.IsForUser())
+}
+
+// CanOpenWebSession returns true if the key can open a WebClient session for the
+// specified user
+func (k *APIKey) CanOpenWebSession(username string) bool {
+	return k.Scope == APIKeyScopeUserWebSession && k.User == username && !k.isExpired()
+}
+
+func (k *APIKey) isExpired() bool {
+	return k.ExpiresAt > 0 && k.ExpiresAt < util.GetTimeAsMsSinceEpoch(time.Now())
+}
+
 // Authenticate tries to authenticate the provided plain key
 func (k *APIKey) Authenticate(plainKey string) error {
-	if k.ExpiresAt > 0 && k.ExpiresAt < util.GetTimeAsMsSinceEpoch(time.Now()) {
+	if k.isExpired() {
 		return fmt.Errorf("API key %q is expired, expiration timestamp: %v current timestamp: %v", k.KeyID,
 			k.ExpiresAt, util.GetTimeAsMsSinceEpoch(time.Now()))
 	}

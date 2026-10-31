@@ -26,6 +26,7 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/jwt"
+	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 )
 
@@ -36,6 +37,8 @@ type userAPIKeyRequest struct {
 	Description string `json:"description"`
 	// Milliseconds since the epoch, 0 means the key never expires
 	ExpiresAt int64 `json:"expires_at"`
+	// If true the key can also open a WebClient session, see createUserWebSession
+	WebSession bool `json:"web_session"`
 }
 
 func addUserAPIKey(w http.ResponseWriter, r *http.Request) {
@@ -63,11 +66,15 @@ func addUserAPIKey(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, nil, "expires_at must be in the future", http.StatusBadRequest)
 		return
 	}
+	scope := dataprovider.APIKeyScopeUser
+	if req.WebSession {
+		scope = dataprovider.APIKeyScopeUserWebSession
+	}
 	apiKey := dataprovider.APIKey{
 		Name:        req.Name,
 		Description: req.Description,
 		ExpiresAt:   req.ExpiresAt,
-		Scope:       dataprovider.APIKeyScopeUser,
+		Scope:       scope,
 		User:        claims.Username,
 	}
 	err = dataprovider.AddAPIKey(&apiKey, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
@@ -99,7 +106,7 @@ func deleteUserAPIKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Keys of others get the same answer as unknown keys, so IDs cannot be probed.
-	if err != nil || apiKey.Scope != dataprovider.APIKeyScopeUser || apiKey.User != claims.Username {
+	if err != nil || !apiKey.IsForUser() || apiKey.User != claims.Username {
 		sendAPIResponse(w, r, nil, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		return
 	}
@@ -115,4 +122,56 @@ func deleteUserAPIKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sendAPIResponse(w, r, nil, "API key deleted", http.StatusOK)
+}
+
+// createUserWebSession sets the WebClient cookie for the user of the API key in use.
+// The key replaces both the password and the second factor, this is why only keys
+// created for this purpose are accepted, and why the session cannot change the
+// account: see forbidAPIKeySession and checkWebSessionAPIKey.
+func (s *httpdServer) createUserWebSession(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
+	claims, err := jwt.FromContext(r.Context())
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
+	if claims.APIKeyID == "" {
+		sendAPIResponse(w, r, nil, "An API key is required", http.StatusForbidden)
+		return
+	}
+	apiKey, err := dataprovider.APIKeyExists(claims.APIKeyID)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
+	if !apiKey.CanOpenWebSession(claims.Username) {
+		sendAPIResponse(w, r, nil, "This API key cannot open web sessions", http.StatusForbidden)
+		return
+	}
+	user, err := dataprovider.GetUserWithGroupSettings(claims.Username, "")
+	if err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
+	// These pages are closed to key sessions, so the user must log in to get past them.
+	if user.MustChangePassword() || user.MustSetSecondFactor() {
+		sendAPIResponse(w, r, nil, "Login with the password required", http.StatusForbidden)
+		return
+	}
+	session := &jwt.Claims{
+		Username:                   user.Username,
+		Permissions:                user.Filters.WebClient,
+		Role:                       user.Role,
+		APIKeyID:                   apiKey.KeyID,
+		RequiredTwoFactorProtocols: user.Filters.TwoFactorAuthProtocols,
+	}
+	session.Subject = user.GetSignature()
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	if err := createAndSetCookie(w, r, session, s.tokenAuth, tokenAudienceWebClient, ipAddr); err != nil {
+		sendAPIResponse(w, r, err, "", http.StatusInternalServerError)
+		return
+	}
+	logger.Info(logSender, "", "WebClient session opened for user %q with API key %q from %q", user.Username,
+		apiKey.KeyID, ipAddr)
+	sendAPIResponse(w, r, nil, "Web session created", http.StatusOK)
 }
