@@ -2504,3 +2504,34 @@ func getPreLoginScriptContent(user dataprovider.User, nonJSONResponse bool) []by
 	}
 	return content
 }
+
+func TestOIDCCookieIsScopedToItsUI(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		token    oidcToken
+		expected string
+	}{
+		{"admin", oidcToken{Role: adminRoleFieldValue, Cookie: xid.New().String()}, webBaseAdminPath},
+		{"user", oidcToken{Role: "user", Cookie: xid.New().String()}, webBaseClientPath},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			r, err := http.NewRequest(http.MethodGet, webClientFilesPath, nil)
+			require.NoError(t, err)
+			rr := httptest.NewRecorder()
+			loginOIDCUser(rr, r, test.token, "")
+			cookies := rr.Result().Cookies()
+			require.Len(t, cookies, 1)
+			assert.Equal(t, oidcCookieKey, cookies[0].Name)
+			assert.Equal(t, test.expected, cookies[0].Path)
+			oidcMgr.removeToken(test.token.Cookie)
+
+			// A browser removes a cookie only if the path is the same it was set with.
+			rr = httptest.NewRecorder()
+			removeOIDCCookie(rr, r, test.expected)
+			cookies = rr.Result().Cookies()
+			require.Len(t, cookies, 1)
+			assert.Equal(t, test.expected, cookies[0].Path)
+			assert.Negative(t, cookies[0].MaxAge)
+		})
+	}
+}
