@@ -22,7 +22,9 @@ its body, and zip downloads as a post form with `target="_blank"`.
 ## Language dropdown
 
 Every page has one, listing the languages in the binding's `languages` setting. It
-applies without a reload and is remembered in the browser.
+applies without a reload. A language picked there is remembered in the browser. Until
+then the page follows the browser's language list in order, and falls back to the first
+configured language.
 
 ## API keys
 

@@ -28,7 +28,6 @@ theme in static/assets, which WebAdmin still depends on. */ -}}
 {{- define "scripts"}}
 <script{{if .CSPNonce}} nonce="{{.CSPNonce}}"{{end}} src="{{.StaticURL}}/vendor/i18next/i18next.min.js"></script>
 <script{{if .CSPNonce}} nonce="{{.CSPNonce}}"{{end}} src="{{.StaticURL}}/vendor/i18next/i18nextHttpBackend.min.js"></script>
-<script{{if .CSPNonce}} nonce="{{.CSPNonce}}"{{end}} src="{{.StaticURL}}/vendor/i18next/i18nextBrowserLanguageDetector.min.js"></script>
 <script{{if .CSPNonce}} nonce="{{.CSPNonce}}"{{end}} src="{{.StaticURL}}/webclient/js/core.js?v={{.Version}}"></script>
 {{- end}}
 
@@ -87,7 +86,7 @@ theme in static/assets, which WebAdmin still depends on. */ -}}
         {{- end}}
         <div class="bar-end">
             {{- template "language" .}}
-            <button class="iconbutton" type="button" data-theme-toggle aria-label="Theme" data-i18n="[aria-label]client.theme">
+            <button class="iconbutton" type="button" data-theme-picker aria-haspopup="menu" aria-expanded="false" aria-label="Theme" data-i18n="[aria-label]client.theme;[title]client.theme">
                 <svg class="icon" aria-hidden="true"><use data-sprite="sun-moon"></use></svg>
             </button>
             {{- if .LoggedUser.Username}}
