@@ -120,6 +120,8 @@ const (
 	webStatusPathDefault                  = "/web/admin/status"
 	webAdminsPathDefault                  = "/web/admin/managers"
 	webAdminPathDefault                   = "/web/admin/manager"
+	webAPIKeysPathDefault                 = "/web/admin/api-keys"
+	webAPIKeyPathDefault                  = "/web/admin/api-key"
 	webMaintenancePathDefault             = "/web/admin/maintenance"
 	webBackupPathDefault                  = "/web/admin/backup"
 	webRestorePathDefault                 = "/web/admin/restore"
@@ -222,6 +224,8 @@ var (
 	webStatusPath                  string
 	webAdminsPath                  string
 	webAdminPath                   string
+	webAPIKeysPath                 string
+	webAPIKeyPath                  string
 	webMaintenancePath             string
 	webBackupPath                  string
 	webRestorePath                 string
@@ -1341,6 +1345,8 @@ func updateWebAdminURLs(baseURL string) {
 	webStatusPath = path.Join(baseURL, webStatusPathDefault)
 	webAdminsPath = path.Join(baseURL, webAdminsPathDefault)
 	webAdminPath = path.Join(baseURL, webAdminPathDefault)
+	webAPIKeysPath = path.Join(baseURL, webAPIKeysPathDefault)
+	webAPIKeyPath = path.Join(baseURL, webAPIKeyPathDefault)
 	webMaintenancePath = path.Join(baseURL, webMaintenancePathDefault)
 	webBackupPath = path.Join(baseURL, webBackupPathDefault)
 	webRestorePath = path.Join(baseURL, webRestorePathDefault)

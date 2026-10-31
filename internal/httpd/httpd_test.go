@@ -153,6 +153,8 @@ const (
 	webStatusPath                  = "/web/admin/status"
 	webAdminsPath                  = "/web/admin/managers"
 	webAdminPath                   = "/web/admin/manager"
+	webAPIKeysPath                 = "/web/admin/api-keys"
+	webAPIKeyPath                  = "/web/admin/api-key"
 	webMaintenancePath             = "/web/admin/maintenance"
 	webRestorePath                 = "/web/admin/restore"
 	webChangeAdminPwdPath          = "/web/admin/changepwd"
@@ -23030,6 +23032,252 @@ func TestWebAdminBasicMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
 	assert.Contains(t, rr.Body.String(), "Invalid token")
+}
+
+func TestWebAdminAPIKeysMock(t *testing.T) {
+	token, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+
+	// list page renders
+	req, err := http.NewRequest(http.MethodGet, webAPIKeysPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	// json endpoint renders
+	req, err = http.NewRequest(http.MethodGet, webAPIKeysPath+"/json", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	// add form renders
+	req, err = http.NewRequest(http.MethodGet, webAPIKeyPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webAPIKeyPath, token)
+	assert.NoError(t, err)
+
+	keyName := "test_web_apikey"
+	form := make(url.Values)
+	form.Set("name", keyName)
+	form.Set("scope", "2")
+	form.Set("description", "created from web")
+
+	// missing CSRF -> forbidden
+	req, err = http.NewRequest(http.MethodPost, webAPIKeyPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCSRF)
+
+	// create -> reveal page (200) showing the one-time key
+	form.Set(csrfFormToken, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, webAPIKeyPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "apikey.generated_help")
+
+	// find the created key id via REST helper
+	apiKeys, _, err := httpdtest.GetAPIKeys(500, 0, http.StatusOK)
+	assert.NoError(t, err)
+	var keyID string
+	for _, k := range apiKeys {
+		if k.Name == keyName {
+			keyID = k.KeyID
+			break
+		}
+	}
+	assert.NotEmpty(t, keyID)
+
+	// edit form renders for the created key
+	req, err = http.NewRequest(http.MethodGet, webAPIKeyPath+"/"+keyID, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	// update -> redirect, description changed.
+	// Note: "scope" is intentionally NOT set here: on the edit form the scope
+	// select is disabled and so is not submitted by a real browser. The update
+	// handler must keep the stored scope and not reject the missing value.
+	form = make(url.Values)
+	form.Set(csrfFormToken, csrfToken)
+	form.Set("name", keyName)
+	form.Set("description", "updated from web")
+	req, err = http.NewRequest(http.MethodPost, webAPIKeyPath+"/"+keyID, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+
+	updated, _, err := httpdtest.GetAPIKeyByID(keyID, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, "updated from web", updated.Description)
+	// scope is immutable and must be preserved across the update
+	assert.Equal(t, dataprovider.APIKeyScopeUser, updated.Scope)
+
+	// delete -> 200, key gone
+	req, err = http.NewRequest(http.MethodDelete, webAPIKeyPath+"/"+keyID, nil)
+	assert.NoError(t, err)
+	req.Header.Set("X-CSRF-TOKEN", csrfToken)
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	_, _, err = httpdtest.GetAPIKeyByID(keyID, http.StatusNotFound)
+	assert.NoError(t, err)
+}
+
+func TestWebAdminAPIKeysForm(t *testing.T) {
+	token, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	csrfToken, err := getCSRFTokenFromInternalPageMock(webAPIKeyPath, token)
+	assert.NoError(t, err)
+
+	post := func(path string, form url.Values) *httptest.ResponseRecorder {
+		form.Set(csrfFormToken, csrfToken)
+		req, err := http.NewRequest(http.MethodPost, path, bytes.NewBuffer([]byte(form.Encode())))
+		assert.NoError(t, err)
+		req.RemoteAddr = defaultRemoteAddr
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		setJWTCookieForReq(req, token)
+		return executeRequest(req)
+	}
+
+	// a mistyped expiration is a form error, not a server error
+	rr := post(webAPIKeyPath, url.Values{
+		"name":       {"key_bad_date"},
+		"scope":      {"2"},
+		"expires_at": {"2030-13-45"},
+	})
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorAPIKeyExpiration)
+	assert.NotContains(t, rr.Body.String(), util.I18nError500Message)
+
+	admin := getTestAdmin()
+	admin.Username = altAdminUsername
+	admin.Password = altAdminPassword
+	admin.Filters.AllowAPIKeyAuth = true
+	admin, _, err = httpdtest.AddAdmin(admin, http.StatusCreated)
+	assert.NoError(t, err)
+
+	// a value left in the hidden field of the other scope must not fail the form
+	keyName := "key_form_test"
+	const expiration = "2099-01-02 03:04:05"
+	rr = post(webAPIKeyPath, url.Values{
+		"name":       {keyName},
+		"scope":      {"1"},
+		"user":       {"left_over_from_the_user_scope"},
+		"admin":      {admin.Username},
+		"expires_at": {expiration},
+	})
+	checkResponseCode(t, http.StatusOK, rr)
+	body := rr.Body.String()
+	assert.Contains(t, body, "apikey.generated_help")
+	// the only copy of the secret must not be stored, or created again on reload
+	assert.Equal(t, "no-store", rr.Header().Get("Cache-Control"))
+	assert.Contains(t, body, "history.replaceState")
+
+	match := regexp.MustCompile(`id="idGeneratedKey"[^>]* value="([^"]+)"`).FindStringSubmatch(body)
+	require.Len(t, match, 2)
+	generatedKey := match[1]
+	keyID, _, ok := strings.Cut(generatedKey, ".")
+	require.True(t, ok)
+
+	stored, _, err := httpdtest.GetAPIKeyByID(keyID, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, admin.Username, stored.Admin)
+	assert.Empty(t, stored.User)
+
+	// the key shown to the admin is the one that authenticates
+	req, err := http.NewRequest(http.MethodGet, versionPath, nil)
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, generatedKey, "")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	// the list never exposes the stored hash or the secret
+	req, err = http.NewRequest(http.MethodGet, webAPIKeysPath+"/json", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), keyID)
+	assert.NotContains(t, rr.Body.String(), `"key"`)
+	assert.NotContains(t, rr.Body.String(), generatedKey)
+
+	// and neither does the edit form
+	req, err = http.NewRequest(http.MethodGet, webAPIKeyPath+"/"+keyID, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.NotContains(t, rr.Body.String(), "$argon2")
+	assert.NotContains(t, rr.Body.String(), "$2a$")
+
+	// a rejected edit stays on this key and keeps its expiration: if the field
+	// came back empty, the next submit would make the key last forever
+	rr = post(webAPIKeyPath+"/"+keyID, url.Values{
+		"name":       {keyName},
+		"admin":      {admin.Username},
+		"expires_at": {"not a date"},
+	})
+	checkResponseCode(t, http.StatusOK, rr)
+	body = rr.Body.String()
+	assert.Contains(t, body, util.I18nErrorAPIKeyExpiration)
+	assert.Contains(t, body, `action="`+webAPIKeyPath+"/"+keyID+`"`)
+	assert.Contains(t, body, `value="`+expiration+`"`)
+	unchanged, _, err := httpdtest.GetAPIKeyByID(keyID, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, stored.ExpiresAt, unchanged.ExpiresAt)
+
+	// only super admins can reach the pages
+	limitedAdmin := getTestAdmin()
+	limitedAdmin.Username = altAdminUsername + "_limited"
+	limitedAdmin.Password = altAdminPassword
+	limitedAdmin.Permissions = []string{dataprovider.PermAdminAddUsers, dataprovider.PermAdminChangeUsers}
+	limitedAdmin, _, err = httpdtest.AddAdmin(limitedAdmin, http.StatusCreated)
+	assert.NoError(t, err)
+	limitedToken, err := getJWTWebTokenFromTestServer(limitedAdmin.Username, altAdminPassword)
+	assert.NoError(t, err)
+	for _, path := range []string{webAPIKeysPath, webAPIKeysPath + "/json", webAPIKeyPath, webAPIKeyPath + "/" + keyID} {
+		req, err = http.NewRequest(http.MethodGet, path, nil)
+		assert.NoError(t, err)
+		req.RemoteAddr = defaultRemoteAddr
+		setJWTCookieForReq(req, limitedToken)
+		rr = executeRequest(req)
+		checkResponseCode(t, http.StatusForbidden, rr)
+	}
+	req, err = http.NewRequest(http.MethodDelete, webAPIKeyPath+"/"+keyID, nil)
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("X-CSRF-TOKEN", csrfToken)
+	setJWTCookieForReq(req, limitedToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	_, _, err = httpdtest.GetAPIKeyByID(keyID, http.StatusOK)
+	assert.NoError(t, err)
+
+	_, err = httpdtest.RemoveAPIKey(stored, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveAdmin(limitedAdmin, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
 }
 
 func TestWebAdminGroupsMock(t *testing.T) {

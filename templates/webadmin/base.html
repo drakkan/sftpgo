@@ -260,6 +260,14 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     </a>
 </div>
 <div class="menu-item">
+    <a class="menu-link {{- if eq .CurrentURL .APIKeysURL}} active{{- end}}" href="{{.APIKeysURL}}">
+        <span class="menu-icon">
+            <i class="ki-solid ki-key fs-1"></i>
+        </span>
+        <span data-i18n="title.api_keys" class="menu-title">API Keys</span>
+    </a>
+</div>
+<div class="menu-item">
     <a class="menu-link {{- if eq .CurrentURL .RolesURL}} active{{- end}}" href="{{.RolesURL}}">
         <span class="menu-icon">
             <i class="ki-duotone ki-user-tick fs-1">
