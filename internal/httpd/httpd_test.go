@@ -10366,14 +10366,14 @@ func TestAdminTwoFactorLogin(t *testing.T) {
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
 	assert.Equal(t, webUsersPath, rr.Header().Get("Location"))
-	// the same cookie cannot be reused
 	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, cookie)
 	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
-	assert.Equal(t, http.StatusNotFound, rr.Code)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCredentials)
 	// get a new cookie and login using a recovery code
 	loginCookie, csrfToken, err = getCSRFTokenMock(webLoginPath, defaultRemoteAddr)
 	assert.NoError(t, err)
@@ -10658,7 +10658,6 @@ func TestAdminTOTP(t *testing.T) {
 	setBearerForReq(req, altToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	// the same passcode cannot be reused
 	req, err = http.NewRequest(http.MethodPost, adminTOTPValidatePath, bytes.NewBuffer(asJSON))
 	assert.NoError(t, err)
 	setBearerForReq(req, altToken)
@@ -11158,14 +11157,14 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
 	assert.Equal(t, webClientFilesPath, rr.Header().Get("Location"))
-	// the same cookie cannot be reused
 	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, cookie)
 	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
-	assert.Equal(t, http.StatusNotFound, rr.Code)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCredentials)
 	// get a new cookie and login using a recovery code
 	loginCookie, csrfToken, err = getCSRFTokenMock(webClientLoginPath, defaultRemoteAddr)
 	assert.NoError(t, err)
@@ -12059,7 +12058,6 @@ func TestWebUserTOTP(t *testing.T) {
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	// the same passcode cannot be reused
 	req, err = http.NewRequest(http.MethodPost, userTOTPValidatePath, bytes.NewBuffer(asJSON))
 	assert.NoError(t, err)
 	setBearerForReq(req, token)
@@ -15551,7 +15549,7 @@ func TestShareUsage(t *testing.T) {
 		Paths:     []string{"/"},
 		Password:  defaultPassword,
 		MaxTokens: 2,
-		ExpiresAt: util.GetTimeAsMsSinceEpoch(time.Now().Add(1 * time.Second)),
+		ExpiresAt: util.GetTimeAsMsSinceEpoch(time.Now().Add(3 * time.Second)),
 	}
 	asJSON, err := json.Marshal(share)
 	assert.NoError(t, err)
@@ -15581,7 +15579,7 @@ func TestShareUsage(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(time.Until(util.GetTimeFromMsecSinceEpoch(share.ExpiresAt)) + 100*time.Millisecond)
 
 	req, err = http.NewRequest(http.MethodGet, webClientPubSharesPath+"/"+objectID, nil)
 	assert.NoError(t, err)

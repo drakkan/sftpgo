@@ -780,7 +780,6 @@ func (s *httpdServer) loginUser(
 		errorFunc(w, r, util.NewI18nError(err, util.I18nError500Message))
 		return
 	}
-	_ = invalidateToken(r) // best effort: invalidates the pre-login token
 	if audience == tokenAudienceWebClientPartial {
 		redirectPath := webClientTwoFactorPath
 		if target, ok := safeRedirectTarget(r.URL.Query().Get("next"), webClientFilesPath); ok {
@@ -828,7 +827,6 @@ func (s *httpdServer) loginAdmin(
 		errorFunc(w, r, util.NewI18nError(err, util.I18nError500Message))
 		return
 	}
-	_ = invalidateToken(r) // best effort: invalidates the pre-login token
 	if audience == tokenAudienceWebAdminPartial {
 		http.Redirect(w, r, webAdminTwoFactorPath, http.StatusFound)
 		return

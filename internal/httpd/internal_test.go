@@ -2913,18 +2913,6 @@ func TestProxyHeaders(t *testing.T) {
 	cookie = rr.Header().Get("Set-Cookie")
 	assert.NotContains(t, cookie, "Secure")
 
-	// The login cookie is invalidated after a successful login, the same request will fail
-	req, err = http.NewRequest(http.MethodPost, webAdminLoginPath, bytes.NewBuffer([]byte(form.Encode())))
-	assert.NoError(t, err)
-	req.RemoteAddr = testIP
-	req.Header.Set("Cookie", loginCookie)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("X-Forwarded-For", validForwardedFor)
-	rr = httptest.NewRecorder()
-	testServer.Config.Handler.ServeHTTP(rr, req)
-	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
-	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCSRF)
-
 	req, err = http.NewRequest(http.MethodGet, webAdminLoginPath, nil)
 	assert.NoError(t, err)
 	req.RemoteAddr = validForwardedFor
