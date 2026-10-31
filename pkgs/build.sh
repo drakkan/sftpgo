@@ -50,14 +50,15 @@ version: ${VERSION}
 release: 1
 section: "net"
 priority: "optional"
-maintainer: "Nicola Murino <nicola.murino@gmail.com>"
+maintainer: "xrogers <xrogers@gmail.com>"
 description: |
   Full-featured and highly configurable SFTP server
   SFTPGo has optional HTTP, FTP/S and WebDAV support.
   It can serve local filesystem, S3 (Compatible) Object Storage,
   Google Cloud Storage, Azure Blob Storage, SFTP.
-vendor: "SFTPGo"
-homepage: "https://github.com/drakkan/sftpgo"
+  This is a modified build, not an official SFTPGo release.
+vendor: "xrogers"
+homepage: "https://github.com/xrogers/sftpgo"
 license: "AGPL-3.0"
 provides:
   - sftpgo
@@ -107,6 +108,7 @@ overrides:
     recommends:
       - bash-completion
       - mime-support
+      - ffmpeg
     scripts:
       postinstall: ../scripts/deb/postinstall.sh
       preremove: ../scripts/deb/preremove.sh

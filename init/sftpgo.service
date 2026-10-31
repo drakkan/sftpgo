@@ -10,6 +10,7 @@ WorkingDirectory=/etc/sftpgo
 RuntimeDirectory=sftpgo
 Environment=SFTPGO_CONFIG_DIR=/etc/sftpgo/
 Environment=SFTPGO_LOG_FILE_PATH=
+Environment=SFTPGO_HTTPD__THUMBNAILS__CACHE_DIR=/var/lib/sftpgo/thumbnails
 EnvironmentFile=-/etc/sftpgo/sftpgo.env
 ExecStart=/usr/bin/sftpgo serve
 ExecReload=/bin/kill -s HUP $MAINPID
