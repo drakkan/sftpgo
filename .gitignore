@@ -11,3 +11,12 @@ httpd_signing_key
 
 # thumbnails cache, created at runtime in the config dir
 /thumbnails/
+
+# left behind by the test suite
+/gonas.db*
+/sftpgo.db*
+/backups/
+/*_test.log
+/id_ecdsa*
+/id_ed25519*
+/id_rsa*
