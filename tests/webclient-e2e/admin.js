@@ -1,11 +1,20 @@
 // Usage: node admin.js BASE SHOTS HOME
 // Runs the WebAdmin from an empty database: first admin, every page, then each kind of object.
 const { chromium } = require('playwright');
+const crypto = require('crypto');
 const [base, shots, home] = process.argv.slice(2);
 const admin = `${base}/web/admin`;
 let failed = 0;
 const check = (n, ok, x = '') => { if (!ok) failed++; console.log(`${ok ? 'PASS' : 'FAIL'}  ${n}${x !== '' ? '  -> ' + String(x).slice(0, 300) : ''}`); };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+function totp(secret) {
+  const a = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'; let bits = '';
+  for (const c of secret.replace(/=+$/, '')) bits += a.indexOf(c).toString(2).padStart(5, '0');
+  const key = Buffer.from(bits.match(/.{8}/g).map((b) => parseInt(b, 2)));
+  const buf = Buffer.alloc(8); buf.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30000)));
+  const h = crypto.createHmac('sha1', key).update(buf).digest(); const o = h[19] & 15;
+  return String((h.readUInt32BE(o) & 0x7fffffff) % 1000000).padStart(6, '0');
+}
 
 (async () => {
   const browser = await chromium.launch({ args: process.env.CHROME_ARGS ? process.env.CHROME_ARGS.split(' ') : [] });
@@ -109,16 +118,35 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   check('the edit was stored', (await page.inputValue(name('email'))) === 'bob@example.com');
   check('the stored password is not sent back', !(await page.content()).includes('$2a$') && !(await page.content()).includes('$argon2'));
 
+  // A cloud storage user: the secret must not come back, and saving again must keep it.
+  await open('/user');
+  await page.fill(name('username'), 'dave'); await page.fill(name('password'), 'e2e-User-Pass-1');
+  await page.locator('details', { has: page.locator('select[name=fs_provider]') }).evaluate((d) => { d.open = true; });
+  await page.selectOption('select[name=fs_provider]', '1');
+  check('S3 fields appear with the provider', await page.locator(name('s3_bucket')).isVisible());
+  await page.fill(name('s3_bucket'), 'e2e-bucket'); await page.fill(name('s3_region'), 'eu-west-1');
+  await page.fill(name('s3_access_key'), 'e2e-access'); await page.fill(name('s3_access_secret'), 'e2e-plain-secret');
+  await save();
+  check('S3 user added', page.url().endsWith('/users') && (await rowText('dave').count()) === 1, page.url() + ' ' + (await notice()));
+  await open('/user/dave');
+  check('S3 settings come back', (await page.inputValue(name('s3_bucket'))) === 'e2e-bucket' && (await page.inputValue(name('s3_region'))) === 'eu-west-1');
+  check('the S3 secret is not sent back', !(await page.content()).includes('e2e-plain-secret'));
+  await page.fill(name('description'), 'kept'); await save();
+  check('an S3 user can be saved again', page.url().endsWith('/users'), page.url() + ' ' + (await notice()));
+  const stored = await page.evaluate(async (url) => (await (await fetch(url)).json()).find((u) => u.username === 'dave'), `${admin}/users/json`);
+  check('saving again keeps the S3 secret', !!(stored.filesystem && stored.filesystem.s3config && stored.filesystem.s3config.access_secret
+    && stored.filesystem.s3config.access_secret.status !== '' && !JSON.stringify(stored).includes('e2e-plain-secret')), JSON.stringify(stored.filesystem || {}).slice(0, 160));
+
   await open('/users');
   await page.fill('.table-search', 'carol'); await sleep(100);
   check('search filters the list', (await page.locator('tbody tr').count()) === 1 && (await rowText('carol').count()) === 1);
   await page.fill('.table-search', '');
   await page.locator('thead input[type=checkbox]').check();
-  check('bulk bar counts the selection', /2 items selected/.test(await page.textContent('.bulkbar')) && !(await page.textContent('.bulkbar')).includes('null'), await page.textContent('.bulkbar'));
+  check('bulk bar counts the selection', /3 items selected/.test(await page.textContent('.bulkbar')) && !(await page.textContent('.bulkbar')).includes('null'), await page.textContent('.bulkbar'));
   await page.locator('.bulkbar button', { hasText: 'Disable' }).click();
   await yes();
   await idle();
-  check('bulk disable', (await page.locator('tbody tr', { hasText: 'Inactive' }).count()) === 2);
+  check('bulk disable', (await page.locator('tbody tr', { hasText: 'Inactive' }).count()) === 3);
 
   await open('/manager');
   await page.fill(name('username'), 'helper'); await page.fill(name('password'), 'e2e-Admin-Pass-1');
@@ -173,9 +201,30 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const n = await page.locator('.menu-item', { hasText: 'Delete' }).count(); await page.keyboard.press('Escape'); return n === 0;
   })());
   await open('/users'); check('user deleted', await del('bob'));
+  check('S3 user deleted', await del('dave'));
   await open('/folders'); check('folder deleted', await del('share'));
   await open('/groups'); check('group deleted', await del('team'));
   await open('/roles'); check('role deleted', await del('staff'));
+
+  // Two-factor authentication for the admin
+  await open('/mfa');
+  await page.click('#generate'); await idle();
+  const secret = (await page.textContent('.secret')).trim();
+  await page.fill('dialog input', totp(secret)); await page.click('dialog [data-submit]'); await sleep(800); await idle();
+  await open('/mfa');
+  check('two-factor is on', (await page.locator('#disable').count()) === 1);
+  await page.click('[data-account-menu]');
+  await page.locator('.menu-item', { hasText: /sign out|log ?out/i }).click(); await idle();
+  await page.fill('input[name=username]', 'root'); await page.fill('input[name=password]', 'e2e-Password-1'); await page.click('#sign_in_submit'); await idle();
+  check('login asks for the code', page.url().includes('/twofactor'), page.url());
+  await shot('admin-twofactor');
+  await sleep(Math.max(0, 31000 - (Date.now() % 30000)));
+  await page.fill('input[name=passcode]', totp(secret)); await page.click('#sign_in_submit'); await idle();
+  check('the code signs in', !page.url().includes('/twofactor') && !page.url().includes('/login'), page.url() + ' ' + (await notice()));
+  await open('/mfa');
+  await page.click('#disable'); await sleep(200); await yes(); await sleep(800); await idle();
+  await open('/mfa');
+  check('two-factor can be turned off', (await page.locator('#disable').count()) === 0);
 
   // The small screen
   await page.setViewportSize({ width: 390, height: 800 });
