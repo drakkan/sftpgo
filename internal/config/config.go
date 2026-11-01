@@ -430,8 +430,11 @@ func Init() {
 				AllowPrivateNetwork:  false,
 			},
 			Passkeys: httpd.PasskeysConfig{
-				Enabled: true,
-				Origins: []string{},
+				Enabled:                 true,
+				Origins:                 []string{},
+				AndroidPackageName:      "com.rogers.sftpgo",
+				AndroidCertFingerprints: []string{},
+				SkipTwoFactor:           true,
 			},
 			Setup: httpd.SetupConfig{
 				InstallationCode:     "",
@@ -2251,6 +2254,8 @@ func setViperDefaults() {
 	viper.SetDefault("httpd.passkeys.enabled", globalConf.HTTPDConfig.Passkeys.Enabled)
 	viper.SetDefault("httpd.passkeys.rp_id", globalConf.HTTPDConfig.Passkeys.RPID)
 	viper.SetDefault("httpd.passkeys.origins", globalConf.HTTPDConfig.Passkeys.Origins)
+	viper.SetDefault("httpd.passkeys.android_package_name", globalConf.HTTPDConfig.Passkeys.AndroidPackageName)
+	viper.SetDefault("httpd.passkeys.android_cert_fingerprints", globalConf.HTTPDConfig.Passkeys.AndroidCertFingerprints)
 	viper.SetDefault("httpd.passkeys.skip_two_factor", globalConf.HTTPDConfig.Passkeys.SkipTwoFactor)
 	viper.SetDefault("httpd.thumbnails.enabled", globalConf.HTTPDConfig.Thumbnails.Enabled)
 	viper.SetDefault("httpd.thumbnails.cache_dir", globalConf.HTTPDConfig.Thumbnails.CacheDir)

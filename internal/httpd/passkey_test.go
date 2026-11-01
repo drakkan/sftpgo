@@ -15,12 +15,22 @@
 package httpd
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/go-jose/go-jose/v4"
+	"github.com/go-webauthn/webauthn/protocol"
+	"github.com/go-webauthn/webauthn/protocol/webauthncbor"
+	"github.com/go-webauthn/webauthn/protocol/webauthncose"
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -181,4 +191,134 @@ func TestUpdatePasskeySignCount(t *testing.T) {
 	assert.Equal(t, uint32(1), passkeys[0].SignCount)
 	assert.Equal(t, uint32(2), passkeys[1].SignCount)
 	assert.False(t, updatePasskeySignCount(passkeys, used), "nothing to store")
+}
+
+// softPasskey is a passkey held in memory: it signs what a real authenticator would, so that a
+// test can choose the origin that a client reports.
+type softPasskey struct {
+	key     *ecdsa.PrivateKey
+	account *passkeyAccount
+}
+
+func newSoftPasskey(t *testing.T, rpID string) *softPasskey {
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	public, err := webauthncbor.Marshal(webauthncose.EC2PublicKeyData{
+		PublicKeyData: webauthncose.PublicKeyData{
+			KeyType:   int64(webauthncose.EllipticKey),
+			Algorithm: int64(webauthncose.AlgES256),
+		},
+		Curve:  int64(webauthncose.P256),
+		XCoord: key.X.FillBytes(make([]byte, 32)),
+		YCoord: key.Y.FillBytes(make([]byte, 32)),
+	})
+	require.NoError(t, err)
+	return &softPasskey{key: key, account: &passkeyAccount{
+		username: "user",
+		rpID:     rpID,
+		passkeys: []dataprovider.Passkey{{ID: []byte("credential"), PublicKey: public, RPID: rpID}},
+	}}
+}
+
+func (p *softPasskey) sign(t *testing.T, rpID, origin, challenge string) *protocol.ParsedCredentialAssertionData {
+	encode := base64.RawURLEncoding.EncodeToString
+	clientData, err := json.Marshal(map[string]string{"type": "webauthn.get", "challenge": challenge, "origin": origin})
+	require.NoError(t, err)
+	rpHash := sha256.Sum256([]byte(rpID))
+	// user present and verified, then a counter of zero
+	authData := append(append([]byte{}, rpHash[:]...), 0x05, 0, 0, 0, 0)
+	clientHash := sha256.Sum256(clientData)
+	digest := sha256.Sum256(append(append([]byte{}, authData...), clientHash[:]...))
+	signature, err := ecdsa.SignASN1(rand.Reader, p.key, digest[:])
+	require.NoError(t, err)
+	body, err := json.Marshal(map[string]any{
+		"id": encode([]byte("credential")), "rawId": encode([]byte("credential")), "type": "public-key",
+		"response": map[string]string{
+			"clientDataJSON":    encode(clientData),
+			"authenticatorData": encode(authData),
+			"signature":         encode(signature),
+			"userHandle":        encode([]byte("user")),
+		},
+	})
+	require.NoError(t, err)
+	parsed, err := protocol.ParseCredentialRequestResponseBytes(body)
+	require.NoError(t, err)
+	return parsed
+}
+
+func TestPasskeyAndroidOrigin(t *testing.T) {
+	const fingerprint = "94:F0:25:2E:4A:57:F8:F6:C1:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66"
+	digest, err := parseCertFingerprint(fingerprint)
+	require.NoError(t, err)
+	appOrigin := "android:apk-key-hash:" + base64.RawURLEncoding.EncodeToString(digest)
+	appOriginSHA256 := "android:apk-key-hash-sha256:" + base64.RawURLEncoding.EncodeToString(digest)
+	const webOrigin = "https://files.example.com"
+	const rpID = "files.example.com"
+
+	verify := func(origin string) error {
+		server := &httpdServer{binding: Binding{}}
+		r := httptest.NewRequest(http.MethodGet, webOrigin+"/web/client/login", nil)
+		r.TLS = nil
+		provider, err := server.newPasskeyProvider(r)
+		require.NoError(t, err)
+		passkey := newSoftPasskey(t, rpID)
+		const challenge = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+		session := webauthn.SessionData{
+			Challenge:        challenge,
+			RelyingPartyID:   rpID,
+			UserID:           passkey.account.WebAuthnID(),
+			UserVerification: protocol.VerificationRequired,
+			Expires:          time.Now().Add(time.Minute),
+		}
+		_, err = provider.ValidateLogin(passkey.account, session, passkey.sign(t, rpID, origin, challenge))
+		return err
+	}
+
+	setPasskeysConfig(t, PasskeysConfig{Enabled: true, Origins: []string{webOrigin}})
+	assert.NoError(t, verify(webOrigin))
+	assert.Error(t, verify(appOrigin), "an app must not be accepted unless it is configured")
+
+	setPasskeysConfig(t, PasskeysConfig{
+		Enabled: true, Origins: []string{webOrigin}, AndroidCertFingerprints: []string{fingerprint},
+	})
+	assert.NoError(t, verify(appOrigin))
+	assert.NoError(t, verify(appOriginSHA256))
+	assert.NoError(t, verify(webOrigin), "a WebView may report the web origin")
+	assert.Error(t, verify("android:apk-key-hash:"+strings.Repeat("A", 43)), "an app signed by another key")
+	assert.Error(t, verify("https://evil.example.com"))
+
+	// Any other form a device may report can be allowed without a code change.
+	const other = "android:apk-key-hash:c29tZXRoaW5nLWVsc2U"
+	setPasskeysConfig(t, PasskeysConfig{Enabled: true, Origins: []string{webOrigin, other}})
+	assert.NoError(t, verify(other))
+	assert.NoError(t, verify(webOrigin))
+}
+
+func TestAssetLinks(t *testing.T) {
+	setPasskeysConfig(t, PasskeysConfig{Enabled: true, AndroidPackageName: "com.example.app"})
+	request := httptest.NewRequest(http.MethodGet, assetLinksPath, nil)
+	recorder := httptest.NewRecorder()
+	handleAssetLinks(recorder, request)
+	assert.Equal(t, http.StatusNotFound, recorder.Code, "nothing to publish without a certificate")
+
+	setPasskeysConfig(t, PasskeysConfig{
+		Enabled:            true,
+		AndroidPackageName: "com.example.app",
+		AndroidCertFingerprints: []string{
+			strings.Repeat("ab", 32),
+			"not a fingerprint",
+		},
+	})
+	recorder = httptest.NewRecorder()
+	handleAssetLinks(recorder, request)
+	require.Equal(t, http.StatusOK, recorder.Code)
+	assert.Contains(t, recorder.Header().Get("Content-Type"), "application/json")
+	var links []assetLink
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &links))
+	require.Len(t, links, 1)
+	assert.Contains(t, links[0].Relation, "delegate_permission/common.get_login_creds")
+	assert.Equal(t, "android_app", links[0].Target.Namespace)
+	assert.Equal(t, "com.example.app", links[0].Target.PackageName)
+	require.Len(t, links[0].Target.Fingerprints, 1, "an invalid fingerprint is left out")
+	assert.Equal(t, strings.TrimSuffix(strings.Repeat("AB:", 32), ":"), links[0].Target.Fingerprints[0])
 }

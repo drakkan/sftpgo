@@ -16,7 +16,9 @@ package httpd
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -74,9 +76,17 @@ type PasskeysConfig struct {
 	// Origins allowed to use passkeys, for example "https://files.example.com". Empty means
 	// the origin of each request. It is needed if a passkey must work on several origins.
 	Origins []string `json:"origins" mapstructure:"origins"`
-	// SkipTwoFactor makes a passkey satisfy two-factor authentication. Signing in with one
-	// then needs no authentication code, and it can be used in place of the code after a
-	// password. If false, a passkey only replaces the password.
+	// AndroidPackageName is the package of the Android app allowed to use the passkeys of this
+	// server. It is only used if AndroidCertFingerprints is set.
+	AndroidPackageName string `json:"android_package_name" mapstructure:"android_package_name"`
+	// AndroidCertFingerprints lists the SHA-256 fingerprints of the certificates that sign the
+	// Android app. Setting them publishes the Digital Asset Links file that Android asks for,
+	// and accepts the origin of the app.
+	AndroidCertFingerprints []string `json:"android_cert_fingerprints" mapstructure:"android_cert_fingerprints"`
+	// SkipTwoFactor makes a passkey satisfy two-factor authentication, which is the default.
+	// Signing in with one then needs no authentication code, even if the account has one
+	// configured, and it can be used in place of the code after a password. If false, a
+	// passkey only replaces the password.
 	SkipTwoFactor bool `json:"skip_two_factor" mapstructure:"skip_two_factor"`
 }
 
@@ -200,7 +210,7 @@ func (s *httpdServer) newPasskeyProvider(r *http.Request) (*webauthn.WebAuthn, e
 			rpID = host
 		}
 	}
-	origins := passkeysConfig.Origins
+	origins, opaqueOrigins := splitPasskeyOrigins(passkeysConfig.Origins)
 	if len(origins) == 0 {
 		scheme := "http"
 		if isTLS(r) {
@@ -209,10 +219,98 @@ func (s *httpdServer) newPasskeyProvider(r *http.Request) (*webauthn.WebAuthn, e
 		origins = []string{fmt.Sprintf("%s://%s", scheme, r.Host)}
 	}
 	return webauthn.New(&webauthn.Config{
-		RPID:          rpID,
-		RPDisplayName: s.binding.webClientBranding().ShortName,
-		RPOrigins:     origins,
+		RPID:            rpID,
+		RPDisplayName:   s.binding.webClientBranding().ShortName,
+		RPOrigins:       origins,
+		RPOpaqueOrigins: append(opaqueOrigins, androidPasskeyOrigins()...),
 	})
+}
+
+func splitPasskeyOrigins(configured []string) (origins, opaqueOrigins []string) {
+	for _, origin := range configured {
+		if protocol.IsOpaqueOrigin(origin) {
+			opaqueOrigins = append(opaqueOrigins, origin)
+		} else {
+			origins = append(origins, origin)
+		}
+	}
+	return origins, opaqueOrigins
+}
+
+// parseCertFingerprint returns the bytes of a SHA-256 fingerprint, with or without colons.
+func parseCertFingerprint(fingerprint string) ([]byte, error) {
+	digest, err := hex.DecodeString(strings.ReplaceAll(strings.TrimSpace(fingerprint), ":", ""))
+	if err != nil {
+		return nil, err
+	}
+	if len(digest) != sha256.Size {
+		return nil, fmt.Errorf("invalid length %d", len(digest))
+	}
+	return digest, nil
+}
+
+func androidCertDigests() [][]byte {
+	digests := make([][]byte, 0, len(passkeysConfig.AndroidCertFingerprints))
+	for _, fingerprint := range passkeysConfig.AndroidCertFingerprints {
+		digest, err := parseCertFingerprint(fingerprint)
+		if err != nil {
+			logger.Warn(logSender, "", "ignoring the Android certificate fingerprint %q: %v", fingerprint, err)
+			continue
+		}
+		digests = append(digests, digest)
+	}
+	return digests
+}
+
+// androidPasskeyOrigins returns the origins of the configured Android app. A passkey used from an
+// app is reported with an origin made from its signing certificate, not with a web origin. Both
+// names are in use for a SHA-256 digest, and accepting either adds nothing: the value can only
+// come from a key matching the certificate of the app.
+func androidPasskeyOrigins() []string {
+	var origins []string
+	for _, digest := range androidCertDigests() {
+		hash := base64.RawURLEncoding.EncodeToString(digest)
+		origins = append(origins, protocol.OpaqueOriginPrefixAndroidAPKKeyHash+hash,
+			protocol.OpaqueOriginPrefixAndroidAPKKeyHashSHA256+hash)
+	}
+	return origins
+}
+
+type assetLinkTarget struct {
+	Namespace    string   `json:"namespace"`
+	PackageName  string   `json:"package_name"`
+	Fingerprints []string `json:"sha256_cert_fingerprints"`
+}
+
+type assetLink struct {
+	Relation []string        `json:"relation"`
+	Target   assetLinkTarget `json:"target"`
+}
+
+// handleAssetLinks serves the Digital Asset Links file, which is how a domain tells Android that
+// an app may use its passkeys. It has to be at the root of the domain, whatever the web base path.
+func handleAssetLinks(w http.ResponseWriter, r *http.Request) {
+	digests := androidCertDigests()
+	if len(digests) == 0 || passkeysConfig.AndroidPackageName == "" {
+		sendAPIResponse(w, r, nil, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
+	}
+	fingerprints := make([]string, 0, len(digests))
+	for _, digest := range digests {
+		pairs := make([]string, 0, len(digest))
+		for _, b := range digest {
+			pairs = append(pairs, fmt.Sprintf("%02X", b))
+		}
+		fingerprints = append(fingerprints, strings.Join(pairs, ":"))
+	}
+	render.JSON(w, r, []assetLink{{
+		Relation: []string{"delegate_permission/common.handle_all_urls", "delegate_permission/common.get_login_creds"},
+		Target: assetLinkTarget{
+			Namespace:    "android_app",
+			PackageName:  passkeysConfig.AndroidPackageName,
+			Fingerprints: fingerprints,
+		},
+	}})
 }
 
 func createPasskeyToken(csrfTokenAuth *jwt.Signer, audience string, session *webauthn.SessionData, ip string) (string, error) {

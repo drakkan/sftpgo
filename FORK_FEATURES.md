@@ -32,17 +32,20 @@ of backups. The settings are in `httpd.passkeys`:
 | Setting | Default | Meaning |
 | --- | --- | --- |
 | `enabled` | `true` | Show passkeys in both UIs |
-| `skip_two_factor` | `false` | Whether a passkey satisfies two-factor authentication |
+| `skip_two_factor` | `true` | Whether a passkey satisfies two-factor authentication |
+| `android_package_name` | `com.rogers.sftpgo` | Package of the Android app |
+| `android_cert_fingerprints` | empty | SHA-256 fingerprints of its signing certificates |
 | `rp_id` | empty | Domain passkeys belong to. Empty means the host name of each request |
 | `origins` | empty | Allowed origins. Empty means the origin of each request |
 
 `skip_two_factor` decides what a passkey counts as:
 
+- **`true`:** signing in with a passkey is complete, with no code even if the account has TOTP. It
+  can be used instead of the code after a password, and it meets "2FA required" for HTTP. Other
+  protocols still need TOTP. An account whose only second factor is a passkey cannot sign in with a
+  password alone, and gets recovery codes.
 - **`false`:** it only replaces the password. An account with TOTP still enters a code, and "2FA
   required" still means TOTP.
-- **`true`:** signing in with a passkey is complete, it can be used instead of the code after a
-  password, and it meets "2FA required" for HTTP. Other protocols still need TOTP. An account whose
-  only second factor is a passkey cannot sign in with a password alone, and gets recovery codes.
 
 An account with no requirement and no TOTP keeps its password login after adding a passkey.
 
@@ -55,12 +58,15 @@ An account with no requirement and no TOTP keeps its password login after adding
 - A user who cannot use a password over HTTP (`denied_login_methods`) cannot use a passkey either.
 - There is no REST API for passkeys, and API logins are unchanged: a token request with a password
   from an account that must use 2FA still needs TOTP.
-- The Android app does not use passkeys: a WebView has WebAuthn off unless the app turns it on.
+- For the Android app, set `android_cert_fingerprints`. That publishes
+  `/.well-known/assetlinks.json`, which Android needs before it lets an app use a domain's passkeys,
+  and accepts the app's origin. Two forms of that origin are derived from each fingerprint, as sources
+  disagree on the name. If a device reports something else, add the exact value to `origins`.
 
 Challenges are signed instead of stored, so that visitors cannot fill the server with them, and
 `invalidatedJWTTokens` makes each one single use. They last 5 minutes and are bound to the client's
 address. `tests/webclient-e2e/run.sh passkey` tests all of this through Chromium's virtual
-authenticator, with `SKIP_2FA=1` for the other mode.
+authenticator, with `SKIP_2FA=0` for the other mode.
 
 ## API keys
 

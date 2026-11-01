@@ -205,6 +205,7 @@ const (
 	mTimeHeader          = "X-GONAS-MTIME"
 	dirPermissionsHeader = "X-GONAS-DIR-PERMISSIONS"
 	acmeChallengeURI     = "/.well-known/acme-challenge/"
+	assetLinksPath       = "/.well-known/assetlinks.json"
 )
 
 var (

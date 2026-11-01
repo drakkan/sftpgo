@@ -1330,6 +1330,9 @@ func (s *httpdServer) initializeRouter() error {
 
 	s.router.NotFound(s.notFoundHandler)
 
+	if passkeysConfig.Enabled {
+		s.router.Get(assetLinksPath, handleAssetLinks)
+	}
 	s.router.Get(healthzPath, func(w http.ResponseWriter, r *http.Request) {
 		render.PlainText(w, r, "ok")
 	})

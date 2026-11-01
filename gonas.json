@@ -385,7 +385,9 @@
       "enabled": true,
       "rp_id": "",
       "origins": [],
-      "skip_two_factor": false
+      "android_package_name": "com.rogers.sftpgo",
+      "android_cert_fingerprints": [],
+      "skip_two_factor": true
     },
     "setup": {
       "installation_code": "",
