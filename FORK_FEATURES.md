@@ -1,13 +1,10 @@
-# New WebClient (fork)
+# New web UIs (fork)
 
-The WebClient was rewritten for this fork. Every page lives in `templates/webclient`
-and `static/webclient`, and none of them loads the proprietary theme in `static/assets`:
-no KeenThemes markup, CSS, icons or bundles, and no jQuery or Bootstrap.
-`TestWebClientStaysFreeOfTheTheme` fails if that changes.
-
-**WebAdmin is unchanged and still uses the theme**, through `templates/webadmin`,
-`templates/common` and `static/assets`. Until it is replaced too, or the SFTPGo Team
-grants otherwise, the fork as a whole still contains the restricted UI.
+Both web UIs were rewritten for this fork. The WebClient lives in `templates/webclient` and
+`static/webclient`, the WebAdmin in `templates/webadmin` and `static/webadmin`, on top of the
+WebClient's layout and helpers. The proprietary theme is gone from the tree: no KeenThemes
+markup, CSS, icons or bundles, and no jQuery or Bootstrap. `TestWebUIsStayFreeOfTheTheme` fails
+if that changes, and `tests/webclient-e2e/run.sh admin` drives the WebAdmin in a browser.
 
 - Scripts are plain files with no build step, so that each one can carry the nonce of a
   strict Content-Security-Policy.
