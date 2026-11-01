@@ -59,7 +59,7 @@ Please take a look at the usage below to customize the options.`,
 			err := config.LoadConfig(configDir, configFile)
 			if err != nil {
 				logger.ErrorToConsole("Unable to initialize data provider, config load error: %v", err)
-				return
+				os.Exit(1)
 			}
 			kmsConfig := config.GetKMSConfig()
 			err = kmsConfig.Initialize()
