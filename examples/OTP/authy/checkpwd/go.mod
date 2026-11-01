@@ -1,3 +1,3 @@
-module github.com/drakkan/sftpgo/authy/checkpwd
+module github.com/xrogers/gonas/authy/checkpwd
 
 go 1.22.2

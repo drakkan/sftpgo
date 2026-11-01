@@ -1190,7 +1190,7 @@ button.empty {
   color: var(--ink);
 }
 
-/* Footer: the attribution the SFTPGo NOTICE asks for */
+/* Footer: the attribution the GoNAS NOTICE asks for */
 
 .colophon {
   display: flex;

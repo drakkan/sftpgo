@@ -18,7 +18,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/drakkan/sftpgo/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/logger"
 )
 
 // clienstMap is a struct containing the map of the connected clients

@@ -29,13 +29,13 @@ import (
 	passwordvalidator "github.com/wagslane/go-password-validator"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/drakkan/sftpgo/v2/internal/kms"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/mfa"
-	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/kms"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/mfa"
+	"github.com/xrogers/gonas/v2/internal/util"
 )
 
-// Available permissions for SFTPGo admins
+// Available permissions for GoNAS admins
 const (
 	PermAdminAny              = "*"
 	PermAdminAddUsers         = "add_users"
@@ -181,7 +181,7 @@ func (p *AdminPreferences) VisibleUserPageSections() int {
 	return result
 }
 
-// AdminFilters defines additional restrictions for SFTPGo admins
+// AdminFilters defines additional restrictions for GoNAS admins
 // TODO: rename to AdminOptions in v3
 type AdminFilters struct {
 	// only clients connecting from these IP/Mask are allowed.
@@ -227,13 +227,13 @@ func (o *AdminGroupMappingOptions) GetUserGroupType() int {
 	}
 }
 
-// AdminGroupMapping defines the mapping between an SFTPGo admin and a group
+// AdminGroupMapping defines the mapping between an GoNAS admin and a group
 type AdminGroupMapping struct {
 	Name    string                   `json:"name"`
 	Options AdminGroupMappingOptions `json:"options"`
 }
 
-// Admin defines a SFTPGo admin
+// Admin defines a GoNAS admin
 type Admin struct {
 	// Database unique identifier
 	ID int64 `json:"id"`
@@ -648,10 +648,10 @@ func (a *Admin) getACopy() Admin {
 }
 
 func (a *Admin) setFromEnv() error {
-	envUsername := strings.TrimSpace(os.Getenv("SFTPGO_DEFAULT_ADMIN_USERNAME"))
-	envPassword := strings.TrimSpace(os.Getenv("SFTPGO_DEFAULT_ADMIN_PASSWORD"))
+	envUsername := strings.TrimSpace(os.Getenv("GONAS_DEFAULT_ADMIN_USERNAME"))
+	envPassword := strings.TrimSpace(os.Getenv("GONAS_DEFAULT_ADMIN_PASSWORD"))
 	if envUsername == "" || envPassword == "" {
-		return errors.New(`to create the default admin you need to set the env vars "SFTPGO_DEFAULT_ADMIN_USERNAME" and "SFTPGO_DEFAULT_ADMIN_PASSWORD"`)
+		return errors.New(`to create the default admin you need to set the env vars "GONAS_DEFAULT_ADMIN_USERNAME" and "GONAS_DEFAULT_ADMIN_PASSWORD"`)
 	}
 	a.Username = envUsername
 	a.Password = envPassword

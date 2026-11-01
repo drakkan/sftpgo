@@ -19,7 +19,7 @@ import (
 	"path"
 	"time"
 
-	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/util"
 )
 
 // FileInfo implements os.FileInfo for a Cloud Storage file.

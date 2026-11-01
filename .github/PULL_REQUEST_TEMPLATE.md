@@ -1,5 +1,6 @@
 # Checklist for Pull Requests
 
-- [ ] Have you signed the [Contributor License Agreement](https://sftpgo.com/cla.html)?
+- [ ] Do the Go tests and `tests/webclient-e2e/run.sh` pass?
+- [ ] Does the change keep the web UIs free of third-party theme code?
 
 ---

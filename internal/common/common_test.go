@@ -35,12 +35,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/kms"
-	"github.com/drakkan/sftpgo/v2/internal/plugin"
-	"github.com/drakkan/sftpgo/v2/internal/util"
-	"github.com/drakkan/sftpgo/v2/internal/version"
-	"github.com/drakkan/sftpgo/v2/internal/vfs"
+	"github.com/xrogers/gonas/v2/internal/dataprovider"
+	"github.com/xrogers/gonas/v2/internal/kms"
+	"github.com/xrogers/gonas/v2/internal/plugin"
+	"github.com/xrogers/gonas/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/version"
+	"github.com/xrogers/gonas/v2/internal/vfs"
 )
 
 const (
@@ -1969,7 +1969,7 @@ func TestALPNProtocols(t *testing.T) {
 }
 
 func TestServerVersion(t *testing.T) {
-	appName := "SFTPGo"
+	appName := "GoNAS"
 	version.SetConfig("")
 	v := version.GetServerVersion("_", false)
 	assert.Equal(t, fmt.Sprintf("%s_%s", appName, version.Get().Version), v)

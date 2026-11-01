@@ -12,7 +12,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-// Package service allows to start and stop the SFTPGo service
+// Package service allows to start and stop the GoNAS service
 package service
 
 import (
@@ -23,16 +23,16 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/drakkan/sftpgo/v2/internal/acme"
-	"github.com/drakkan/sftpgo/v2/internal/common"
-	"github.com/drakkan/sftpgo/v2/internal/config"
-	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/httpd"
-	"github.com/drakkan/sftpgo/v2/internal/kms"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/plugin"
-	"github.com/drakkan/sftpgo/v2/internal/util"
-	"github.com/drakkan/sftpgo/v2/internal/version"
+	"github.com/xrogers/gonas/v2/internal/acme"
+	"github.com/xrogers/gonas/v2/internal/common"
+	"github.com/xrogers/gonas/v2/internal/config"
+	"github.com/xrogers/gonas/v2/internal/dataprovider"
+	"github.com/xrogers/gonas/v2/internal/httpd"
+	"github.com/xrogers/gonas/v2/internal/kms"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/plugin"
+	"github.com/xrogers/gonas/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/version"
 )
 
 const (
@@ -43,7 +43,7 @@ var (
 	graceTime int
 )
 
-// Service defines the SFTPGo service
+// Service defines the GoNAS service
 type Service struct {
 	ConfigDir         string
 	ConfigFile        string
@@ -91,14 +91,14 @@ func (s *Service) initLogger() {
 // Start initializes and starts the service
 func (s *Service) Start(disableAWSInstallationCode bool) error {
 	s.initLogger()
-	logger.Info(logSender, "", "starting SFTPGo %s, config dir: %s, config file: %s, log max size: %d log max backups: %d "+
+	logger.Info(logSender, "", "starting GoNAS %s, config dir: %s, config file: %s, log max size: %d log max backups: %d "+
 		"log max age: %d log level: %s, log compress: %t, log utc time: %t, load data from: %q, grace time: %d secs",
 		version.GetAsString(), s.ConfigDir, s.ConfigFile, s.LogMaxSize, s.LogMaxBackups, s.LogMaxAge, s.LogLevel,
 		s.LogCompress, s.LogUTCTime, s.LoadDataFrom, graceTime)
 	if os.Geteuid() == 0 {
 		// os.Geteuid returns -1 on Windows.
 		const warnString = "running with an effective uid of 0: file operations, hooks and external commands " +
-			"are executed with root privileges, the only boundary between users is SFTPGo's own permission " +
+			"are executed with root privileges, the only boundary between users is GoNAS's own permission " +
 			"model. Running the service under a dedicated unprivileged account is recommended"
 		logger.Warn(logSender, "", "%s", warnString)
 		logger.WarnToConsole("%s", warnString)

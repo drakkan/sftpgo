@@ -20,14 +20,14 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/drakkan/sftpgo/v2/internal/service"
-	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/service"
+	"github.com/xrogers/gonas/v2/internal/util"
 )
 
 var (
 	startCmd = &cobra.Command{
 		Use:   "start",
-		Short: "Start the SFTPGo Windows Service",
+		Short: "Start the GoNAS Windows Service",
 		Run: func(_ *cobra.Command, _ []string) {
 			configDir = util.CleanDirInput(configDir)
 			checkServeParamsFromEnvFiles(configDir)

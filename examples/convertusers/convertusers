@@ -23,7 +23,7 @@ class ConvertUsers:
 		self.usernames = usernames
 		self.force_uid = force_uid
 		self.force_gid = force_gid
-		self.SFTPGoUsers = []
+		self.GoNASUsers = []
 
 	def buildUserObject(self, username, password, home_dir, uid, gid, max_sessions, quota_size, quota_files, upload_bandwidth,
 					download_bandwidth, status, expiration_date, allowed_ip=[], denied_ip=[]):
@@ -34,21 +34,21 @@ class ConvertUsers:
 			'filters':{'allowed_ip':allowed_ip, 'denied_ip':denied_ip}}
 
 	def addUser(self, user):
-		user['id'] = len(self.SFTPGoUsers) + 1
+		user['id'] = len(self.GoNASUsers) + 1
 		print('')
 		print('New user imported: {}'.format(user))
 		print('')
-		self.SFTPGoUsers.append(user)
+		self.GoNASUsers.append(user)
 
 	def saveUsers(self):
-		if self.SFTPGoUsers:
-			data = {'users':self.SFTPGoUsers}
+		if self.GoNASUsers:
+			data = {'users':self.GoNASUsers}
 			jsonData = json.dumps(data)
 			with open(self.output_file, 'w') as f:
 				f.write(jsonData)
 			print()
 			print('Number of users saved to "{}": {}. You can import them using loaddata'.format(self.output_file,
-																								len(self.SFTPGoUsers)))
+																								len(self.GoNASUsers)))
 			print()
 			sys.exit(0)
 		else:
@@ -197,9 +197,9 @@ if __name__ == '__main__':
 	parser.add_argument('--usernames', type=str, nargs='+', default=[], help='Only import users with these usernames. ' +
 								'Default: %(default)s')
 	parser.add_argument('--force-uid', type=int, default=-1, help='if >= 0 the imported users will have this UID in ' +
-								'SFTPGo. Default: %(default)s')
+								'GoNAS. Default: %(default)s')
 	parser.add_argument('--force-gid', type=int, default=-1, help='if >= 0 the imported users will have this GID in ' +
-								'SFTPGo. Default: %(default)s')
+								'GoNAS. Default: %(default)s')
 
 	args = parser.parse_args()
 

@@ -3,10 +3,10 @@ package cmd
 import (
 	"path/filepath"
 
-	"github.com/drakkan/sftpgo/ldapauthserver/config"
-	"github.com/drakkan/sftpgo/ldapauthserver/httpd"
-	"github.com/drakkan/sftpgo/ldapauthserver/logger"
-	"github.com/drakkan/sftpgo/ldapauthserver/utils"
+	"github.com/xrogers/gonas/ldapauthserver/config"
+	"github.com/xrogers/gonas/ldapauthserver/httpd"
+	"github.com/xrogers/gonas/ldapauthserver/logger"
+	"github.com/xrogers/gonas/ldapauthserver/utils"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 )

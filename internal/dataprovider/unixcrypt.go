@@ -21,7 +21,7 @@ import (
 
 	"github.com/amoghe/go-crypt"
 
-	"github.com/drakkan/sftpgo/v2/internal/version"
+	"github.com/xrogers/gonas/v2/internal/version"
 )
 
 func init() {

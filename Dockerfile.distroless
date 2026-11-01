@@ -23,35 +23,35 @@ COPY . .
 
 RUN set -xe && \
     export COMMIT_SHA=${COMMIT_SHA:-$(git describe --always --abbrev=8 --dirty)} && \
-    go build $(if [ -n "${FEATURES}" ]; then echo "-tags ${FEATURES}"; fi) -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=${COMMIT_SHA} -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -v -o sftpgo
+    go build $(if [ -n "${FEATURES}" ]; then echo "-tags ${FEATURES}"; fi) -trimpath -ldflags "-s -w -X github.com/xrogers/gonas/v2/internal/version.commit=${COMMIT_SHA} -X github.com/xrogers/gonas/v2/internal/version.date=`date -u +%FT%TZ`" -v -o gonas
 
 # Modify the default configuration file
-RUN sed -i 's|"users_base_dir": "",|"users_base_dir": "/srv/sftpgo/data",|' sftpgo.json && \
-    sed -i 's|"backups"|"/srv/sftpgo/backups"|' sftpgo.json && \
-    sed -i 's|"sqlite"|"bolt"|' sftpgo.json
+RUN sed -i 's|"users_base_dir": "",|"users_base_dir": "/srv/gonas/data",|' gonas.json && \
+    sed -i 's|"backups"|"/srv/gonas/backups"|' gonas.json && \
+    sed -i 's|"sqlite"|"bolt"|' gonas.json
 
-RUN mkdir /etc/sftpgo /var/lib/sftpgo /srv/sftpgo
+RUN mkdir /etc/gonas /var/lib/gonas /srv/gonas
 
 FROM gcr.io/distroless/static-debian13
 
-COPY --from=builder --chown=1000:1000 /etc/sftpgo /etc/sftpgo
-COPY --from=builder --chown=1000:1000 /srv/sftpgo /srv/sftpgo
-COPY --from=builder --chown=1000:1000 /var/lib/sftpgo /var/lib/sftpgo
-COPY --from=builder --chown=1000:1000 /workspace/sftpgo.json /etc/sftpgo/sftpgo.json
-COPY --from=builder /workspace/templates /usr/share/sftpgo/templates
-COPY --from=builder /workspace/static /usr/share/sftpgo/static
-COPY --from=builder /workspace/openapi /usr/share/sftpgo/openapi
-COPY --from=builder /workspace/sftpgo /usr/local/bin/
+COPY --from=builder --chown=1000:1000 /etc/gonas /etc/gonas
+COPY --from=builder --chown=1000:1000 /srv/gonas /srv/gonas
+COPY --from=builder --chown=1000:1000 /var/lib/gonas /var/lib/gonas
+COPY --from=builder --chown=1000:1000 /workspace/gonas.json /etc/gonas/gonas.json
+COPY --from=builder /workspace/templates /usr/share/gonas/templates
+COPY --from=builder /workspace/static /usr/share/gonas/static
+COPY --from=builder /workspace/openapi /usr/share/gonas/openapi
+COPY --from=builder /workspace/gonas /usr/local/bin/
 COPY --from=builder /etc/mime.types /etc/mime.types
 
 # Log to the stdout so the logs will be available using docker logs
-ENV SFTPGO_LOG_FILE_PATH=""
+ENV GONAS_LOG_FILE_PATH=""
 # These env vars are required to avoid the following error when calling user.Current():
 # unable to get the current user: user: Current requires cgo or $USER set in environment
-ENV USER=sftpgo
-ENV HOME=/var/lib/sftpgo
+ENV USER=gonas
+ENV HOME=/var/lib/gonas
 
-WORKDIR /var/lib/sftpgo
+WORKDIR /var/lib/gonas
 USER 1000:1000
 
-CMD ["sftpgo", "serve"]
+CMD ["gonas", "serve"]

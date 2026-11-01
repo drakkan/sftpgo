@@ -1,4 +1,4 @@
-SFTPGo allows you to securely share your files over SFTP and optionally over HTTP/S, FTP/S and WebDAV as well.
+GoNAS allows you to securely share your files over SFTP and optionally over HTTP/S, FTP/S and WebDAV as well.
 Several storage backends are supported: local filesystem, encrypted local filesystem, S3 (compatible) Object Storage,
 Google Cloud Storage, Azure Blob Storage, other SFTP servers.
 
@@ -10,42 +10,38 @@ and complete the initial setup.
 
 The SFTP service is available, by default, on port 2022.
 
-If the SFTPGo service does not start, make sure that TCP ports 2022 and 8080 are not used by other services
-or change the SFTPGo configuration to suit your needs.
+If the GoNAS service does not start, make sure that TCP ports 2022 and 8080 are not used by other services
+or change the GoNAS configuration to suit your needs.
 
 Default data location:
 
-C:\ProgramData\SFTPGo
+C:\ProgramData\GoNAS
 
 Configuration file location:
 
-C:\ProgramData\SFTPGo\sftpgo.json
+C:\ProgramData\GoNAS\gonas.json
 
 Directory to create environment variable files to set configuration options:
 
-C:\ProgramData\SFTPGo\env.d
+C:\ProgramData\GoNAS\env.d
 
 It is recommended that you set custom configurations as environment variables by creating files in
 the env.d directory.
 This eliminates the need to merge your changes with the default configuration file after each update.
-You can simply replace the configuration file with the default one after updating SFTPGo.
+You can simply replace the configuration file with the default one after updating GoNAS.
 
 Documentation:
 
-https://docs.sftpgo.com/
-
-Commercial support:
-
-https://sftpgo.com/
+https://github.com/xrogers/gonas
 
 Source code:
 
-https://github.com/drakkan/sftpgo
+https://github.com/xrogers/gonas
 
 If you find a bug please open an issue:
 
-https://github.com/drakkan/sftpgo/issues
+https://github.com/xrogers/gonas/issues
 
 If you want to suggest a new feature or have a question, please start a new discussion:
 
-https://github.com/drakkan/sftpgo/discussions
+https://github.com/xrogers/gonas/discussions

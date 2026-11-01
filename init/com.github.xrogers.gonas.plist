@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.github.xrogers.gonas</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>GONAS_CONFIG_DIR</key>
+        <string>/usr/local/opt/gonas/etc</string>
+        <key>GONAS_LOG_FILE_PATH</key>
+        <string>/usr/local/opt/gonas/var/log/gonas.log</string>
+        <key>GONAS_HTTPD__TEMPLATES_PATH</key>
+        <string>/usr/local/opt/gonas/usr/share/templates</string>
+        <key>GONAS_HTTPD__STATIC_FILES_PATH</key>
+        <string>/usr/local/opt/gonas/usr/share/static</string>
+        <key>GONAS_HTTPD__OPENAPI_PATH</key>
+        <string>/usr/local/opt/gonas/usr/share/openapi</string>
+        <key>GONAS_HTTPD__BACKUPS_PATH</key>
+        <string>/usr/local/opt/gonas/var/lib/backups</string>
+        <key>GONAS_DATA_PROVIDER__CREDENTIALS_PATH</key>
+        <string>/usr/local/opt/gonas/var/lib/credentials</string>
+    </dict>
+    <key>WorkingDirectory</key>
+    <string>/usr/local/opt/gonas/etc</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/opt/gonas/bin/gonas</string>
+        <string>serve</string>
+    </array>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+</dict>
+</plist>

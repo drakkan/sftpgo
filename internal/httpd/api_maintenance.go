@@ -27,12 +27,12 @@ import (
 
 	"github.com/go-chi/render"
 
-	"github.com/drakkan/sftpgo/v2/internal/common"
-	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/jwt"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/util"
-	"github.com/drakkan/sftpgo/v2/internal/vfs"
+	"github.com/xrogers/gonas/v2/internal/common"
+	"github.com/xrogers/gonas/v2/internal/dataprovider"
+	"github.com/xrogers/gonas/v2/internal/jwt"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/vfs"
 )
 
 func validateBackupFile(outputFile string) (string, error) {
@@ -91,7 +91,7 @@ func dumpData(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if outputData == "1" {
-		w.Header().Set("Content-Disposition", "attachment; filename=\"sftpgo-backup.json\"")
+		w.Header().Set("Content-Disposition", "attachment; filename=\"gonas-backup.json\"")
 		render.JSON(w, r, backup)
 		return
 	}

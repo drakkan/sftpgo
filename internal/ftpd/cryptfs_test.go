@@ -30,10 +30,10 @@ import (
 	"github.com/sftpgo/sdk"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/drakkan/sftpgo/v2/internal/common"
-	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/httpdtest"
-	"github.com/drakkan/sftpgo/v2/internal/kms"
+	"github.com/xrogers/gonas/v2/internal/common"
+	"github.com/xrogers/gonas/v2/internal/dataprovider"
+	"github.com/xrogers/gonas/v2/internal/httpdtest"
+	"github.com/xrogers/gonas/v2/internal/kms"
 )
 
 func TestBasicFTPHandlingCryptFs(t *testing.T) {

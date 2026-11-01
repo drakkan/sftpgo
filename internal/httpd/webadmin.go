@@ -36,19 +36,19 @@ import (
 	sdkkms "github.com/sftpgo/sdk/kms"
 	"golang.org/x/oauth2"
 
-	"github.com/drakkan/sftpgo/v2/internal/acme"
-	"github.com/drakkan/sftpgo/v2/internal/common"
-	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/ftpd"
-	"github.com/drakkan/sftpgo/v2/internal/jwt"
-	"github.com/drakkan/sftpgo/v2/internal/kms"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/mfa"
-	"github.com/drakkan/sftpgo/v2/internal/plugin"
-	"github.com/drakkan/sftpgo/v2/internal/smtp"
-	"github.com/drakkan/sftpgo/v2/internal/util"
-	"github.com/drakkan/sftpgo/v2/internal/vfs"
-	"github.com/drakkan/sftpgo/v2/internal/webdavd"
+	"github.com/xrogers/gonas/v2/internal/acme"
+	"github.com/xrogers/gonas/v2/internal/common"
+	"github.com/xrogers/gonas/v2/internal/dataprovider"
+	"github.com/xrogers/gonas/v2/internal/ftpd"
+	"github.com/xrogers/gonas/v2/internal/jwt"
+	"github.com/xrogers/gonas/v2/internal/kms"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/mfa"
+	"github.com/xrogers/gonas/v2/internal/plugin"
+	"github.com/xrogers/gonas/v2/internal/smtp"
+	"github.com/xrogers/gonas/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/vfs"
+	"github.com/xrogers/gonas/v2/internal/webdavd"
 )
 
 type userPageMode int
@@ -4675,7 +4675,7 @@ func (s *httpdServer) handleOAuth2TokenRedirect(w http.ResponseWriter, r *http.R
 	if token.RefreshToken == "" {
 		errTxt := "the OAuth2 provider returned an empty token. " +
 			"Some providers only return the token when the user first authorizes. " +
-			"If you have already registered SFTPGo with this user in the past, revoke access and try again. " +
+			"If you have already registered GoNAS with this user in the past, revoke access and try again. " +
 			"This way you will invalidate the previous token"
 		s.renderMessagePage(w, r, util.I18nOAuth2ErrorTitle, http.StatusBadRequest,
 			util.NewI18nError(errors.New(errTxt), util.I18nOAuth2ErrNoRefreshToken), "")

@@ -29,9 +29,9 @@ import (
 
 	"github.com/robfig/cron/v3"
 
-	"github.com/drakkan/sftpgo/v2/internal/kms"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/kms"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/util"
 )
 
 // Supported event actions

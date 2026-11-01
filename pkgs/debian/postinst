@@ -3,17 +3,17 @@ set -e
 
 if [ "$1" = "configure" ]; then
   # Add user and group
-  if ! getent group sftpgo >/dev/null; then
-    groupadd --system sftpgo
+  if ! getent group gonas >/dev/null; then
+    groupadd --system gonas
   fi
-  if ! getent passwd sftpgo >/dev/null; then
+  if ! getent passwd gonas >/dev/null; then
     useradd --system \
-      --gid sftpgo \
+      --gid gonas \
       --no-create-home \
-      --home-dir /var/lib/sftpgo \
+      --home-dir /var/lib/gonas \
       --shell /usr/sbin/nologin \
-      --comment "SFTPGo user" \
-      sftpgo
+      --comment "GoNAS user" \
+      gonas
   fi
 
   if [ -z "$2" ]; then
@@ -21,22 +21,22 @@ if [ "$1" = "configure" ]; then
     # for upgrades the second arg is the previously installed version
     #
     # initialize data provider
-    sftpgo initprovider -c /etc/sftpgo
+    gonas initprovider -c /etc/gonas
     # ensure files and folders have the appropriate permissions
-    chown -R sftpgo:sftpgo /etc/sftpgo /var/lib/sftpgo /srv/sftpgo
-    chmod 750 /etc/sftpgo /etc/sftpgo/env.d /var/lib/sftpgo /srv/sftpgo
-    chmod 640 /etc/sftpgo/sftpgo.json
+    chown -R gonas:gonas /etc/gonas /var/lib/gonas /srv/gonas
+    chmod 750 /etc/gonas /etc/gonas/env.d /var/lib/gonas /srv/gonas
+    chmod 640 /etc/gonas/gonas.json
   fi
 
-  # we added /etc/sftpgo/env.d in v2.4.0, we should check if we are upgrading
+  # we added /etc/gonas/env.d in v2.4.0, we should check if we are upgrading
   # from a previous version but a non-recursive chmod/chown shouldn't hurt
-  if [ -d /etc/sftpgo/env.d ]; then
-    chown sftpgo:sftpgo /etc/sftpgo/env.d
-    chmod 750 /etc/sftpgo/env.d
+  if [ -d /etc/gonas/env.d ]; then
+    chown gonas:gonas /etc/gonas/env.d
+    chmod 750 /etc/gonas/env.d
   fi
 
   # set the cap_net_bind_service capability so the service can bind to privileged ports
-  setcap cap_net_bind_service=+ep /usr/bin/sftpgo || true
+  setcap cap_net_bind_service=+ep /usr/bin/gonas || true
 fi
 
 #DEBHELPER#

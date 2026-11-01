@@ -32,15 +32,15 @@ import (
 	"github.com/rs/xid"
 	"github.com/sftpgo/sdk"
 
-	"github.com/drakkan/sftpgo/v2/internal/kms"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/mfa"
-	"github.com/drakkan/sftpgo/v2/internal/plugin"
-	"github.com/drakkan/sftpgo/v2/internal/util"
-	"github.com/drakkan/sftpgo/v2/internal/vfs"
+	"github.com/xrogers/gonas/v2/internal/kms"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/mfa"
+	"github.com/xrogers/gonas/v2/internal/plugin"
+	"github.com/xrogers/gonas/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/vfs"
 )
 
-// Available permissions for SFTPGo users
+// Available permissions for GoNAS users
 const (
 	// All permissions are granted
 	PermAny = "*"
@@ -137,7 +137,7 @@ type UserFilters struct {
 	RecoveryCodes []RecoveryCode `json:"recovery_codes,omitempty"`
 }
 
-// User defines a SFTPGo user
+// User defines a GoNAS user
 type User struct {
 	sdk.BaseUser
 	// Additional restrictions
@@ -568,7 +568,7 @@ func (u *User) SetEmptySecrets() {
 }
 
 // GetPermissionsForPath returns the permissions for the given path.
-// The path must be a SFTPGo virtual path
+// The path must be a GoNAS virtual path
 func (u *User) GetPermissionsForPath(p string) []string {
 	permissions := []string{}
 	if perms, ok := u.Permissions["/"]; ok {

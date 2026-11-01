@@ -21,15 +21,15 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/drakkan/sftpgo/v2/internal/common"
-	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/ftpd"
-	"github.com/drakkan/sftpgo/v2/internal/httpd"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/plugin"
-	"github.com/drakkan/sftpgo/v2/internal/sftpd"
-	"github.com/drakkan/sftpgo/v2/internal/telemetry"
-	"github.com/drakkan/sftpgo/v2/internal/webdavd"
+	"github.com/xrogers/gonas/v2/internal/common"
+	"github.com/xrogers/gonas/v2/internal/dataprovider"
+	"github.com/xrogers/gonas/v2/internal/ftpd"
+	"github.com/xrogers/gonas/v2/internal/httpd"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/plugin"
+	"github.com/xrogers/gonas/v2/internal/sftpd"
+	"github.com/xrogers/gonas/v2/internal/telemetry"
+	"github.com/xrogers/gonas/v2/internal/webdavd"
 )
 
 func registerSignals() {

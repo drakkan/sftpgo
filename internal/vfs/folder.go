@@ -128,11 +128,11 @@ func (v *BaseVirtualFolder) hasPathPlaceholder() bool {
 	return false
 }
 
-// VirtualFolder defines a mapping between an SFTPGo virtual path and a
+// VirtualFolder defines a mapping between an GoNAS virtual path and a
 // filesystem path outside the user home directory.
 // The specified paths must be absolute and the virtual path cannot be "/",
 // it must be a sub directory. The parent directory for the specified virtual
-// path must exist. SFTPGo will try to automatically create any missing
+// path must exist. GoNAS will try to automatically create any missing
 // parent directory for the configured virtual folders at user login.
 type VirtualFolder struct {
 	BaseVirtualFolder

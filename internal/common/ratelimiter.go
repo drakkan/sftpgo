@@ -25,7 +25,7 @@ import (
 
 	"golang.org/x/time/rate"
 
-	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/util"
 )
 
 var (

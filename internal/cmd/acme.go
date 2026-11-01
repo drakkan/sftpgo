@@ -20,12 +20,12 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 
-	"github.com/drakkan/sftpgo/v2/internal/acme"
-	"github.com/drakkan/sftpgo/v2/internal/config"
-	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/plugin"
-	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/acme"
+	"github.com/xrogers/gonas/v2/internal/config"
+	"github.com/xrogers/gonas/v2/internal/dataprovider"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/plugin"
+	"github.com/xrogers/gonas/v2/internal/util"
 )
 
 var (
@@ -40,7 +40,7 @@ var (
 time you add a new domain to your configuration file.
 Certificates are saved in the configured "certs_path".
 After this initial step, the certificates are automatically checked and
-renewed by the SFTPGo service
+renewed by the GoNAS service
 `,
 		Run: func(_ *cobra.Command, _ []string) {
 			logger.DisableLogger()

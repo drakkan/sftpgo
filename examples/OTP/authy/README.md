@@ -4,7 +4,7 @@ These example show how-to integrate [Twilio Authy API](https://www.twilio.com/do
 
 The examples assume that the user has the free [Authy app](https://authy.com/) installed and uses it to generate offline [TOTP](https://en.wikipedia.org/wiki/Time-based_One-time_Password_algorithm) codes (soft tokens).
 
-You first need to [create an Authy Application in the Twilio Console](https://twilio.com/console/authy/applications?_ga=2.205553366.451688189.1597667213-1526360003.1597667213), then you can create a new Authy user and store a reference to the matching SFTPGo account.
+You first need to [create an Authy Application in the Twilio Console](https://twilio.com/console/authy/applications?_ga=2.205553366.451688189.1597667213-1526360003.1597667213), then you can create a new Authy user and store a reference to the matching GoNAS account.
 
 Verify that your Authy application is successfully registered:
 
@@ -29,7 +29,7 @@ The response is something like this:
 {"message":"User created successfully.","user":{"id":xxxxxxxx},"success":true}
 ```
 
-Save the user id somewhere and add a reference to the matching SFTPGo account. You could also store this ID in the `additional_info` SFTPGo user field.
+Save the user id somewhere and add a reference to the matching GoNAS account. You could also store this ID in the `additional_info` GoNAS user field.
 
 After this step you can use the Authy app installed on your phone to generate TOTP codes.
 
@@ -57,4 +57,4 @@ We provide the following examples:
 
 Please note that these are sample programs not intended for production use, you should write your own hook based on them and you should prefer HTTP based hooks if performance is a concern.
 
-:warning: SFTPGo has also built-in 2FA support.
+:warning: GoNAS has also built-in 2FA support.

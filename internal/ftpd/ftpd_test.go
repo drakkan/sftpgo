@@ -47,17 +47,17 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
 
-	"github.com/drakkan/sftpgo/v2/internal/common"
-	"github.com/drakkan/sftpgo/v2/internal/config"
-	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/ftpd"
-	"github.com/drakkan/sftpgo/v2/internal/httpd"
-	"github.com/drakkan/sftpgo/v2/internal/httpdtest"
-	"github.com/drakkan/sftpgo/v2/internal/kms"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/mfa"
-	"github.com/drakkan/sftpgo/v2/internal/sftpd"
-	"github.com/drakkan/sftpgo/v2/internal/vfs"
+	"github.com/xrogers/gonas/v2/internal/common"
+	"github.com/xrogers/gonas/v2/internal/config"
+	"github.com/xrogers/gonas/v2/internal/dataprovider"
+	"github.com/xrogers/gonas/v2/internal/ftpd"
+	"github.com/xrogers/gonas/v2/internal/httpd"
+	"github.com/xrogers/gonas/v2/internal/httpdtest"
+	"github.com/xrogers/gonas/v2/internal/kms"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/mfa"
+	"github.com/xrogers/gonas/v2/internal/sftpd"
+	"github.com/xrogers/gonas/v2/internal/vfs"
 )
 
 const (
@@ -268,11 +268,11 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	logFilePath = filepath.Join(configDir, "sftpgo_ftpd_test.log")
+	logFilePath = filepath.Join(configDir, "gonas_ftpd_test.log")
 	bannerFileName := "banner_file"
 	bannerFile := filepath.Join(configDir, bannerFileName)
 	logger.InitLogger(logFilePath, 5, 1, 28, false, false, zerolog.DebugLevel)
-	err := os.WriteFile(bannerFile, []byte("SFTPGo test ready\nsimple banner line\n"), os.ModePerm)
+	err := os.WriteFile(bannerFile, []byte("GoNAS test ready\nsimple banner line\n"), os.ModePerm)
 	if err != nil {
 		logger.ErrorToConsole("error creating banner file: %v", err)
 		os.Exit(1)
@@ -280,13 +280,13 @@ func TestMain(m *testing.M) {
 	// we run the test cases with UploadMode atomic and resume support. The non atomic code path
 	// simply does not execute some code so if it works in atomic mode will
 	// work in non atomic mode too
-	os.Setenv("SFTPGO_COMMON__UPLOAD_MODE", "2")
-	os.Setenv("SFTPGO_DATA_PROVIDER__CREATE_DEFAULT_ADMIN", "1")
-	os.Setenv("SFTPGO_COMMON__ALLOW_SELF_CONNECTIONS", "1")
-	os.Setenv("SFTPGO_COMMON__SYMLINK_MODE", "3")
-	os.Setenv("SFTPGO_DEFAULT_ADMIN_USERNAME", "admin")
-	os.Setenv("SFTPGO_DEFAULT_ADMIN_PASSWORD", "password")
-	os.Setenv("SFTPGO_COMMON__SECRET_MIN_ENTROPY", "0")
+	os.Setenv("GONAS_COMMON__UPLOAD_MODE", "2")
+	os.Setenv("GONAS_DATA_PROVIDER__CREATE_DEFAULT_ADMIN", "1")
+	os.Setenv("GONAS_COMMON__ALLOW_SELF_CONNECTIONS", "1")
+	os.Setenv("GONAS_COMMON__SYMLINK_MODE", "3")
+	os.Setenv("GONAS_DEFAULT_ADMIN_USERNAME", "admin")
+	os.Setenv("GONAS_DEFAULT_ADMIN_PASSWORD", "password")
+	os.Setenv("GONAS_COMMON__SECRET_MIN_ENTROPY", "0")
 	err = config.LoadConfig(configDir, "")
 	if err != nil {
 		logger.ErrorToConsole("error loading configuration: %v", err)
@@ -4354,7 +4354,7 @@ func getTestUserWithHTTPFs() dataprovider.User {
 
 func getExtAuthScriptContent(user dataprovider.User) []byte {
 	extAuthContent := []byte("#!/bin/sh\n\n")
-	extAuthContent = append(extAuthContent, fmt.Appendf(nil, "if test \"$SFTPGO_AUTHD_USERNAME\" = \"%v\"; then\n", user.Username)...)
+	extAuthContent = append(extAuthContent, fmt.Appendf(nil, "if test \"$GONAS_AUTHD_USERNAME\" = \"%v\"; then\n", user.Username)...)
 	u, _ := json.Marshal(user)
 	extAuthContent = append(extAuthContent, fmt.Appendf(nil, "echo '%v'\n", string(u))...)
 	extAuthContent = append(extAuthContent, []byte("else\n")...)

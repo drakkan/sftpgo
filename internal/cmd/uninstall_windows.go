@@ -20,13 +20,13 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/drakkan/sftpgo/v2/internal/service"
+	"github.com/xrogers/gonas/v2/internal/service"
 )
 
 var (
 	uninstallCmd = &cobra.Command{
 		Use:   "uninstall",
-		Short: "Uninstall the SFTPGo Windows Service",
+		Short: "Uninstall the GoNAS Windows Service",
 		Run: func(_ *cobra.Command, _ []string) {
 			s := service.WindowsService{
 				Service: service.Service{

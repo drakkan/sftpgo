@@ -27,8 +27,8 @@ import (
 
 	"github.com/yl2chen/cidranger"
 
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/util"
 )
 
 const (

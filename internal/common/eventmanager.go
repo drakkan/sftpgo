@@ -47,12 +47,12 @@ import (
 	"github.com/sftpgo/sdk"
 	"github.com/wneessen/go-mail"
 
-	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/plugin"
-	"github.com/drakkan/sftpgo/v2/internal/smtp"
-	"github.com/drakkan/sftpgo/v2/internal/util"
-	"github.com/drakkan/sftpgo/v2/internal/vfs"
+	"github.com/xrogers/gonas/v2/internal/dataprovider"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/plugin"
+	"github.com/xrogers/gonas/v2/internal/smtp"
+	"github.com/xrogers/gonas/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/vfs"
 )
 
 const (
@@ -1537,7 +1537,7 @@ func executeCommandRuleAction(c dataprovider.EventActionCommandConfig, params *E
 	cmd := exec.CommandContext(ctx, c.Cmd, args...)
 	cmd.Env = []string{}
 	for _, keyVal := range c.EnvVars {
-		if keyVal.Value == "$" && !strings.HasPrefix(strings.ToUpper(keyVal.Key), "SFTPGO_") {
+		if keyVal.Value == "$" && !strings.HasPrefix(strings.ToUpper(keyVal.Key), "GONAS_") {
 			val := os.Getenv(keyVal.Key)
 			if val == "" {
 				eventManagerLog(logger.LevelDebug, "empty value for environment variable %q", keyVal.Key)
@@ -2511,7 +2511,7 @@ func executePwdExpirationCheckForUser(user *dataprovider.User, config dataprovid
 			user.Username, err)
 		return err
 	}
-	subject := "SFTPGo password expiration notification"
+	subject := "GoNAS password expiration notification"
 	startTime := time.Now()
 	if err := smtp.SendEmail(user.GetEmailAddresses(), nil, subject, body.String(), smtp.EmailContentTypeTextHTML); err != nil {
 		eventManagerLog(logger.LevelError, "unable to notify password expiration for user %s: %v, elapsed: %s",

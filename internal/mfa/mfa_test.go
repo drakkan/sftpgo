@@ -46,7 +46,7 @@ func TestMFAConfig(t *testing.T) {
 	assert.NoError(t, err)
 	config.TOTP = append(config.TOTP, TOTPConfig{
 		Name:   configName1,
-		Issuer: "SFTPGo",
+		Issuer: "GoNAS",
 		Algo:   TOTPAlgoSHA512,
 	})
 	err = config.Initialize()
@@ -58,7 +58,7 @@ func TestMFAConfig(t *testing.T) {
 	assert.Len(t, GetAvailableTOTPConfigNames(), 2)
 	config.TOTP = append(config.TOTP, TOTPConfig{
 		Name:   configName3,
-		Issuer: "SFTPGo",
+		Issuer: "GoNAS",
 		Algo:   TOTPAlgoSHA256,
 	})
 	err = config.Initialize()

@@ -1,13 +1,13 @@
-Index: sftpgo/sftpgo.json
+Index: gonas/gonas.json
 ===================================================================
---- sftpgo.orig/sftpgo.json
-+++ sftpgo/sftpgo.json
+--- gonas.orig/gonas.json
++++ gonas/gonas.json
 @@ -70,7 +70,7 @@
      "domains": [],
      "email": "",
      "key_type": "4096",
 -    "certs_path": "certs",
-+    "certs_path": "/var/lib/sftpgo/certs",
++    "certs_path": "/var/lib/gonas/certs",
      "ca_endpoint": "https://acme-v02.api.letsencrypt.org/directory",
      "renew_days": 30,
      "http01_challenge": {
@@ -15,8 +15,8 @@ Index: sftpgo/sftpgo.json
    },
    "data_provider": {
      "driver": "sqlite",
--    "name": "sftpgo.db",
-+    "name": "/var/lib/sftpgo/sftpgo.db",
+-    "name": "gonas.db",
++    "name": "/var/lib/gonas/gonas.db",
      "host": "",
      "port": 0,
      "username": "",
@@ -25,7 +25,7 @@ Index: sftpgo/sftpgo.json
      "delayed_quota_update": 0,
      "pool_size": 0,
 -    "users_base_dir": "",
-+    "users_base_dir": "/srv/sftpgo/data",
++    "users_base_dir": "/srv/gonas/data",
      "actions": {
        "execute_on": [],
        "execute_for": [],
@@ -34,7 +34,7 @@ Index: sftpgo/sftpgo.json
        "proto": "http"
      },
 -    "backups_path": "backups"
-+    "backups_path": "/srv/sftpgo/backups"
++    "backups_path": "/srv/gonas/backups"
    },
    "httpd": {
      "bindings": [

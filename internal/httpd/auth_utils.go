@@ -21,10 +21,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/jwt"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/dataprovider"
+	"github.com/xrogers/gonas/v2/internal/jwt"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/util"
 )
 
 type tokenAudience = string
@@ -49,7 +49,7 @@ const (
 )
 
 const (
-	basicRealm = "Basic realm=\"SFTPGo\""
+	basicRealm = "Basic realm=\"GoNAS\""
 )
 
 var (

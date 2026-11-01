@@ -39,12 +39,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
 
-	"github.com/drakkan/sftpgo/v2/internal/common"
-	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/jwt"
-	"github.com/drakkan/sftpgo/v2/internal/kms"
-	"github.com/drakkan/sftpgo/v2/internal/util"
-	"github.com/drakkan/sftpgo/v2/internal/vfs"
+	"github.com/xrogers/gonas/v2/internal/common"
+	"github.com/xrogers/gonas/v2/internal/dataprovider"
+	"github.com/xrogers/gonas/v2/internal/jwt"
+	"github.com/xrogers/gonas/v2/internal/kms"
+	"github.com/xrogers/gonas/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/vfs"
 )
 
 const (
@@ -104,12 +104,12 @@ func TestOIDCInitialization(t *testing.T) {
 	assert.NoError(t, err)
 	secret := "jRsmE0SWnuZjP7djBqNq0mrf8QN77j2c"
 	config = OIDC{
-		ClientID:        "sftpgo-client",
+		ClientID:        "gonas-client",
 		ClientSecret:    util.GenerateUniqueID(),
 		ConfigURL:       fmt.Sprintf("http://%v/", oidcMockAddr),
 		RedirectBaseURL: "http://127.0.0.1:8081/",
 		UsernameField:   "preferred_username",
-		RoleField:       "sftpgo_role",
+		RoleField:       "gonas_role",
 	}
 	err = config.initialize()
 	if assert.Error(t, err) {
@@ -129,15 +129,15 @@ func TestOIDCInitialization(t *testing.T) {
 		assert.Contains(t, err.Error(), "oidc: unable to initialize provider")
 	}
 	assert.Equal(t, secret, config.ClientSecret)
-	config.ConfigURL = fmt.Sprintf("http://%v/auth/realms/sftpgo", oidcMockAddr)
+	config.ConfigURL = fmt.Sprintf("http://%v/auth/realms/gonas", oidcMockAddr)
 	err = config.initialize()
 	assert.NoError(t, err)
 	assert.Equal(t, "http://127.0.0.1:8081"+webOIDCRedirectPath, config.getRedirectURL())
 	config.QueryUserInfo = true
 	err = config.initialize()
 	assert.NoError(t, err)
-	// the sftpgo2 realm has no userinfo endpoint
-	config.ConfigURL = fmt.Sprintf("http://%v/auth/realms/sftpgo2", oidcMockAddr)
+	// the gonas2 realm has no userinfo endpoint
+	config.ConfigURL = fmt.Sprintf("http://%v/auth/realms/gonas2", oidcMockAddr)
 	err = config.initialize()
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "userinfo endpoint")
@@ -152,12 +152,12 @@ func TestMergeOIDCClaims(t *testing.T) {
 	merged := mergeOIDCClaims(
 		map[string]any{"sub": "123", "preferred_username": "user", "email": "", "groups": []any{}},
 		map[string]any{"sub": "123", "preferred_username": "userinfo_user", "email": "user@example.com",
-			"groups": []any{"g1"}, "sftpgo_role": "admin", "empty": nil},
+			"groups": []any{"g1"}, "gonas_role": "admin", "empty": nil},
 	)
 	assert.Equal(t, "user", merged["preferred_username"])
 	assert.Equal(t, "user@example.com", merged["email"])
 	assert.Equal(t, []any{"g1"}, merged["groups"])
-	assert.Equal(t, "admin", merged["sftpgo_role"])
+	assert.Equal(t, "admin", merged["gonas_role"])
 	assert.NotContains(t, merged, "empty")
 	// claims describing the authentication event are read from the ID token only
 	merged = mergeOIDCClaims(
@@ -321,7 +321,7 @@ func TestOIDCQueryUserInfo(t *testing.T) {
 		assert.NoError(t, err)
 	}()
 
-	// the mock user info endpoint returns preferred_username "oidc_user" and sftpgo_role "admin"
+	// the mock user info endpoint returns preferred_username "oidc_user" and gonas_role "admin"
 	token := (&oauth2.Token{
 		AccessToken: "123",
 		Expiry:      time.Now().Add(5 * time.Minute),
@@ -370,7 +370,7 @@ func TestOIDCQueryUserInfo(t *testing.T) {
 		Expiry:  time.Now().Add(5 * time.Minute),
 		Subject: "123",
 	}
-	setIDTokenClaims(idToken, []byte(`{"sub":"123","preferred_username":"admin","sftpgo_role":"admin"}`))
+	setIDTokenClaims(idToken, []byte(`{"sub":"123","preferred_username":"admin","gonas_role":"admin"}`))
 	server.binding.OIDC.verifier = &mockOIDCVerifier{token: idToken}
 	rr = httptest.NewRecorder()
 	r, err = newOIDCRedirectRequest(authReq)
@@ -395,7 +395,7 @@ func TestOIDCQueryUserInfo(t *testing.T) {
 		Expiry:  time.Now().Add(5 * time.Minute),
 		Subject: "123",
 	}
-	setIDTokenClaims(idToken, []byte(`{"sub":"123","preferred_username":"oidc_user","sftpgo_role":"user"}`))
+	setIDTokenClaims(idToken, []byte(`{"sub":"123","preferred_username":"oidc_user","gonas_role":"user"}`))
 	server.binding.OIDC.verifier = &mockOIDCVerifier{token: idToken}
 	rr = httptest.NewRecorder()
 	r, err = newOIDCRedirectRequest(authReq)
@@ -413,7 +413,7 @@ func TestOIDCQueryUserInfo(t *testing.T) {
 		Expiry:  time.Now().Add(5 * time.Minute),
 		Subject: "456",
 	}
-	setIDTokenClaims(idToken, []byte(`{"sub":"456","preferred_username":"admin","sftpgo_role":"admin"}`))
+	setIDTokenClaims(idToken, []byte(`{"sub":"456","preferred_username":"admin","gonas_role":"admin"}`))
 	server.binding.OIDC.verifier = &mockOIDCVerifier{token: idToken}
 	rr = httptest.NewRecorder()
 	r, err = newOIDCRedirectRequest(authReq)
@@ -440,7 +440,7 @@ func TestOIDCQueryUserInfo(t *testing.T) {
 		Expiry:  time.Now().Add(5 * time.Minute),
 		Subject: "123",
 	}
-	setIDTokenClaims(idToken, []byte(`{"sub":"123","preferred_username":"admin","sftpgo_role":"admin"}`))
+	setIDTokenClaims(idToken, []byte(`{"sub":"123","preferred_username":"admin","gonas_role":"admin"}`))
 	server.binding.OIDC.verifier = &mockOIDCVerifier{token: idToken}
 	rr = httptest.NewRecorder()
 	r, err = newOIDCRedirectRequest(authReq)
@@ -564,20 +564,20 @@ func TestOIDCRequireVerifiedEmail(t *testing.T) {
 	}
 
 	// a missing email_verified claim rejects the login
-	rr := doLogin(`{"sub":"123","preferred_username":"oidc_user","sftpgo_role":"admin"}`)
+	rr := doLogin(`{"sub":"123","preferred_username":"oidc_user","gonas_role":"admin"}`)
 	assert.Equal(t, http.StatusFound, rr.Code)
 	assert.Equal(t, webAdminLoginPath, rr.Header().Get("Location"))
 	require.Len(t, oidcMgr.tokens, 0)
 	require.Len(t, oidcMgr.pendingAuths, 0)
 
 	// an email_verified claim set to false rejects the login
-	rr = doLogin(`{"sub":"123","preferred_username":"oidc_user","sftpgo_role":"admin","email_verified":false}`)
+	rr = doLogin(`{"sub":"123","preferred_username":"oidc_user","gonas_role":"admin","email_verified":false}`)
 	assert.Equal(t, http.StatusFound, rr.Code)
 	assert.Equal(t, webAdminLoginPath, rr.Header().Get("Location"))
 	require.Len(t, oidcMgr.tokens, 0)
 
 	// an email_verified claim set to true allows the login
-	rr = doLogin(`{"sub":"123","preferred_username":"oidc_user","sftpgo_role":"admin","email_verified":true}`)
+	rr = doLogin(`{"sub":"123","preferred_username":"oidc_user","gonas_role":"admin","email_verified":true}`)
 	assert.Equal(t, http.StatusFound, rr.Code, rr.Body.String())
 	assert.Equal(t, webUsersPath, rr.Header().Get("Location"))
 	require.Len(t, oidcMgr.tokens, 1)
@@ -587,7 +587,7 @@ func TestOIDCRequireVerifiedEmail(t *testing.T) {
 
 	// the claim can also be provided by the user info endpoint
 	server.binding.OIDC.QueryUserInfo = true
-	rr = doLogin(`{"sub":"123","preferred_username":"oidc_user","sftpgo_role":"admin"}`)
+	rr = doLogin(`{"sub":"123","preferred_username":"oidc_user","gonas_role":"admin"}`)
 	assert.Equal(t, http.StatusFound, rr.Code, rr.Body.String())
 	assert.Equal(t, webUsersPath, rr.Header().Get("Location"))
 	require.Len(t, oidcMgr.tokens, 1)
@@ -596,7 +596,7 @@ func TestOIDCRequireVerifiedEmail(t *testing.T) {
 	}
 
 	// the ID token claim takes precedence over the user info one, which is set to true
-	rr = doLogin(`{"sub":"123","preferred_username":"oidc_user","sftpgo_role":"admin","email_verified":false}`)
+	rr = doLogin(`{"sub":"123","preferred_username":"oidc_user","gonas_role":"admin","email_verified":false}`)
 	assert.Equal(t, http.StatusFound, rr.Code)
 	assert.Equal(t, webAdminLoginPath, rr.Header().Get("Location"))
 	require.Len(t, oidcMgr.tokens, 0)
@@ -609,7 +609,7 @@ func TestOIDCRequireVerifiedEmail(t *testing.T) {
 			Expiry:      time.Now().Add(5 * time.Minute),
 		}).WithExtra(map[string]any{"id_token": "id_token_val"}),
 	}
-	rr = doLogin(`{"sub":"123","preferred_username":"oidc_user","sftpgo_role":"admin"}`)
+	rr = doLogin(`{"sub":"123","preferred_username":"oidc_user","gonas_role":"admin"}`)
 	assert.Equal(t, http.StatusFound, rr.Code)
 	assert.Equal(t, webAdminLoginPath, rr.Header().Get("Location"))
 	require.Len(t, oidcMgr.tokens, 0)
@@ -825,7 +825,7 @@ func TestOIDCLoginLogout(t *testing.T) {
 		Nonce:  authReq.Nonce,
 		Expiry: time.Now().Add(5 * time.Minute),
 	}
-	setIDTokenClaims(idToken, []byte(`{"preferred_username":"test","sftpgo_role":"admin"}`))
+	setIDTokenClaims(idToken, []byte(`{"preferred_username":"test","gonas_role":"admin"}`))
 	server.binding.OIDC.verifier = &mockOIDCVerifier{
 		err:   nil,
 		token: idToken,
@@ -863,7 +863,7 @@ func TestOIDCLoginLogout(t *testing.T) {
 		Nonce:  authReq.Nonce,
 		Expiry: time.Now().Add(5 * time.Minute),
 	}
-	setIDTokenClaims(idToken, []byte(`{"preferred_username":"test","sftpgo_role":"admin"}`))
+	setIDTokenClaims(idToken, []byte(`{"preferred_username":"test","gonas_role":"admin"}`))
 	server.binding.OIDC.verifier = &mockOIDCVerifier{
 		err:   nil,
 		token: idToken,
@@ -882,7 +882,7 @@ func TestOIDCLoginLogout(t *testing.T) {
 		Nonce:  authReq.Nonce,
 		Expiry: time.Now().Add(5 * time.Minute),
 	}
-	setIDTokenClaims(idToken, []byte(`{"preferred_username":"admin","sftpgo_role":"admin","sid":"sid123"}`))
+	setIDTokenClaims(idToken, []byte(`{"preferred_username":"admin","gonas_role":"admin","sid":"sid123"}`))
 	server.binding.OIDC.verifier = &mockOIDCVerifier{
 		err:   nil,
 		token: idToken,
@@ -2224,11 +2224,11 @@ func TestParseAdminRole(t *testing.T) {
 		"given_name": "Sally",
 		"family_name": "Tyler",
 		"params": {
-		  "sftpgo_role": "admin",
+		  "gonas_role": "admin",
 		  "subparams": {
-			"sftpgo_role": "admin",
+			"gonas_role": "admin",
 			"inner": {
-				"sftpgo_role": ["user","admin"]
+				"gonas_role": ["user","admin"]
 			}
 		  }
 		},
@@ -2249,16 +2249,16 @@ func TestParseAdminRole(t *testing.T) {
 
 	tests := []test{
 		{input: "", want: false},
-		{input: "sftpgo_role", want: false},
-		{input: "params.sftpgo_role", want: true, val: "admin"},
-		{input: "params.subparams.sftpgo_role", want: true, val: "admin"},
-		{input: "params.subparams.inner.sftpgo_role", want: true, val: []any{"user", "admin"}},
+		{input: "gonas_role", want: false},
+		{input: "params.gonas_role", want: true, val: "admin"},
+		{input: "params.subparams.gonas_role", want: true, val: "admin"},
+		{input: "params.subparams.inner.gonas_role", want: true, val: []any{"user", "admin"}},
 		{input: "email", want: false},
 		{input: "missing", want: false},
 		{input: "params.email", want: false},
-		{input: "missing.sftpgo_role", want: false},
+		{input: "missing.gonas_role", want: false},
 		{input: "params", want: false},
-		{input: "params.subparams.inner.sftpgo_role.missing", want: false},
+		{input: "params.subparams.inner.gonas_role.missing", want: false},
 	}
 
 	for _, tc := range tests {
@@ -2475,12 +2475,12 @@ func getTestOIDCServer() *httpdServer {
 	return &httpdServer{
 		binding: Binding{
 			OIDC: OIDC{
-				ClientID:        "sftpgo-client",
+				ClientID:        "gonas-client",
 				ClientSecret:    "jRsmE0SWnuZjP7djBqNq0mrf8QN77j2c",
-				ConfigURL:       fmt.Sprintf("http://%v/auth/realms/sftpgo", oidcMockAddr),
+				ConfigURL:       fmt.Sprintf("http://%v/auth/realms/gonas", oidcMockAddr),
 				RedirectBaseURL: "http://127.0.0.1:8081/",
 				UsernameField:   "preferred_username",
-				RoleField:       "sftpgo_role",
+				RoleField:       "gonas_role",
 				ImplicitRoles:   false,
 				Scopes:          []string{oidc.ScopeOpenID, "profile", "email"},
 				CustomFields:    nil,

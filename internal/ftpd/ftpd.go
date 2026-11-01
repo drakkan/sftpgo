@@ -31,10 +31,10 @@ import (
 
 	ftpserver "github.com/fclairamb/ftpserverlib"
 
-	"github.com/drakkan/sftpgo/v2/internal/common"
-	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/common"
+	"github.com/xrogers/gonas/v2/internal/dataprovider"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/util"
 )
 
 const (
@@ -275,7 +275,7 @@ type Configuration struct {
 	// CARevocationLists defines a set a revocation lists, one for each root CA, to be used to check
 	// if a client certificate has been revoked
 	CARevocationLists []string `json:"ca_revocation_lists" mapstructure:"ca_revocation_lists"`
-	// Do not impose the port 20 for active data transfer. Enabling this option allows to run SFTPGo with less privilege
+	// Do not impose the port 20 for active data transfer. Enabling this option allows to run GoNAS with less privilege
 	ActiveTransfersPortNon20 bool `json:"active_transfers_port_non_20" mapstructure:"active_transfers_port_non_20"`
 	// Set to true to disable active FTP
 	DisableActiveMode bool `json:"disable_active_mode" mapstructure:"disable_active_mode"`

@@ -12,7 +12,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-// Package httpclient provides HTTP client configuration for SFTPGo hooks
+// Package httpclient provides HTTP client configuration for GoNAS hooks
 package httpclient
 
 import (
@@ -28,8 +28,8 @@ import (
 
 	"github.com/hashicorp/go-retryablehttp"
 
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/util"
 )
 
 // TLSKeyPair defines the paths for a TLS key pair

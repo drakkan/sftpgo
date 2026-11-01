@@ -28,11 +28,11 @@ import (
 	"github.com/rs/xid"
 	"github.com/wneessen/go-mail"
 
-	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/kms"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/util"
-	"github.com/drakkan/sftpgo/v2/internal/version"
+	"github.com/xrogers/gonas/v2/internal/dataprovider"
+	"github.com/xrogers/gonas/v2/internal/kms"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/version"
 )
 
 const (
@@ -156,9 +156,9 @@ type Config struct {
 	Host string `json:"host" mapstructure:"host"`
 	// Port of SMTP email server
 	Port int `json:"port" mapstructure:"port"`
-	// From address, for example "SFTPGo <sftpgo@example.com>".
+	// From address, for example "GoNAS <gonas@example.com>".
 	// Many SMTP servers reject emails without a `From` header so, if not set,
-	// SFTPGo will try to use the username as fallback, this may or may not be appropriate
+	// GoNAS will try to use the username as fallback, this may or may not be appropriate
 	From string `json:"from" mapstructure:"from"`
 	// SMTP username
 	User string `json:"user" mapstructure:"user"`

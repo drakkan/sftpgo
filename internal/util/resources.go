@@ -22,7 +22,7 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/drakkan/sftpgo/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/logger"
 )
 
 // FindSharedDataPath searches for the specified directory name in searchDir
@@ -38,8 +38,8 @@ func FindSharedDataPath(name, searchDir string) string {
 			searchList = append(searchList, additionalSharedDataSearchPath)
 		}
 		if runtime.GOOS != osWindows {
-			searchList = append(searchList, "/usr/share/sftpgo")
-			searchList = append(searchList, "/usr/local/share/sftpgo")
+			searchList = append(searchList, "/usr/share/gonas")
+			searchList = append(searchList, "/usr/local/share/gonas")
 		}
 		searchList = RemoveDuplicates(searchList, false)
 		for _, basePath := range searchList {

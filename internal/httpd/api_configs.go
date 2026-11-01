@@ -21,11 +21,11 @@ import (
 	"github.com/rs/xid"
 	"golang.org/x/oauth2"
 
-	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/kms"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/smtp"
-	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/dataprovider"
+	"github.com/xrogers/gonas/v2/internal/kms"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/smtp"
+	"github.com/xrogers/gonas/v2/internal/util"
 )
 
 type smtpTestRequest struct {
@@ -71,8 +71,8 @@ func testSMTPConfig(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if err := req.SendEmail([]string{req.Recipient}, nil, "SFTPGo - Testing Email Settings",
-		"It appears your SFTPGo email is setup correctly!", smtp.EmailContentTypeTextPlain); err != nil {
+	if err := req.SendEmail([]string{req.Recipient}, nil, "GoNAS - Testing Email Settings",
+		"It appears your GoNAS email is setup correctly!", smtp.EmailContentTypeTextPlain); err != nil {
 		logger.Info(logSender, "", "unable to send test email: %v", err)
 		sendAPIResponse(w, r, err, "", http.StatusInternalServerError)
 		return

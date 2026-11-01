@@ -22,7 +22,7 @@ import (
 	"github.com/hashicorp/go-plugin"
 	"github.com/sftpgo/sdk/plugin/auth"
 
-	"github.com/drakkan/sftpgo/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/logger"
 )
 
 // Supported auth scopes

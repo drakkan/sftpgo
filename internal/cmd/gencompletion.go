@@ -23,7 +23,7 @@ import (
 var genCompletionCmd = &cobra.Command{
 	Use:   "completion [bash|zsh|fish|powershell]",
 	Short: "Generate the autocompletion script for the specified shell",
-	Long: `Generate the autocompletion script for sftpgo for the specified shell.
+	Long: `Generate the autocompletion script for gonas for the specified shell.
 
 See each sub-command's help for details on how to use the generated script.
 `,
@@ -40,15 +40,15 @@ manager.
 
 To load completions in your current shell session:
 
-$ source <(sftpgo gen completion bash)
+$ source <(gonas gen completion bash)
 
 To load completions for every new session, execute once:
 
 Linux:
-  $ sudo sftpgo gen completion bash > /usr/share/bash-completion/completions/sftpgo
+  $ sudo gonas gen completion bash > /usr/share/bash-completion/completions/gonas
 
 MacOS:
-  $ sudo sftpgo gen completion bash > /usr/local/etc/bash_completion.d/sftpgo
+  $ sudo gonas gen completion bash > /usr/local/etc/bash_completion.d/gonas
 
 You will need to start a new shell for this setup to take effect.
 `,
@@ -71,10 +71,10 @@ $ echo "autoload -U compinit; compinit" >> ~/.zshrc
 To load completions for every new session, execute once:
 
 Linux:
-  $ sftpgo gen completion zsh > > "${fpath[1]}/_sftpgo"
+  $ gonas gen completion zsh > > "${fpath[1]}/_gonas"
 
 macOS:
-  $ sudo sftpgo gen completion zsh > /usr/local/share/zsh/site-functions/_sftpgo
+  $ sudo gonas gen completion zsh > /usr/local/share/zsh/site-functions/_gonas
 
 You will need to start a new shell for this setup to take effect.
 `,
@@ -91,11 +91,11 @@ var genCompletionFishCmd = &cobra.Command{
 
 To load completions in your current shell session:
 
-$ sftpgo gen completion fish | source
+$ gonas gen completion fish | source
 
 To load completions for every new session, execute once:
 
-$ sftpgo gen completion fish > ~/.config/fish/completions/sftpgo.fish
+$ gonas gen completion fish > ~/.config/fish/completions/gonas.fish
 
 You will need to start a new shell for this setup to take effect.
 `,
@@ -112,7 +112,7 @@ var genCompletionPowerShellCmd = &cobra.Command{
 
 To load completions in your current shell session:
 
-PS C:\> sftpgo gen completion powershell | Out-String | Invoke-Expression
+PS C:\> gonas gen completion powershell | Out-String | Invoke-Expression
 
 To load completions for every new session, add the output of the above command
 to your powershell profile.

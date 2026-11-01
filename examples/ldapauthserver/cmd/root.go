@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/drakkan/sftpgo/ldapauthserver/config"
-	"github.com/drakkan/sftpgo/ldapauthserver/utils"
+	"github.com/xrogers/gonas/ldapauthserver/config"
+	"github.com/xrogers/gonas/ldapauthserver/utils"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -52,7 +52,7 @@ var (
 
 	rootCmd = &cobra.Command{
 		Use:   "ldapauthserver",
-		Short: "LDAP Authentication Server for SFTPGo",
+		Short: "LDAP Authentication Server for GoNAS",
 	}
 )
 

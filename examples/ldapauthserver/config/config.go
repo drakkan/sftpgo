@@ -3,7 +3,7 @@ package config
 import (
 	"strings"
 
-	"github.com/drakkan/sftpgo/ldapauthserver/logger"
+	"github.com/xrogers/gonas/ldapauthserver/logger"
 	"github.com/spf13/viper"
 )
 

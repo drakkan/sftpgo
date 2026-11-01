@@ -1,3 +1,3 @@
-module github.com/drakkan/sftpgo/authy/keyint
+module github.com/xrogers/gonas/authy/keyint
 
 go 1.22.2

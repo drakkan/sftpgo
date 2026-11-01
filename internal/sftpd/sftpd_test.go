@@ -61,17 +61,17 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
 
-	"github.com/drakkan/sftpgo/v2/internal/common"
-	"github.com/drakkan/sftpgo/v2/internal/config"
-	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/httpd"
-	"github.com/drakkan/sftpgo/v2/internal/httpdtest"
-	"github.com/drakkan/sftpgo/v2/internal/kms"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/mfa"
-	"github.com/drakkan/sftpgo/v2/internal/sftpd"
-	"github.com/drakkan/sftpgo/v2/internal/util"
-	"github.com/drakkan/sftpgo/v2/internal/vfs"
+	"github.com/xrogers/gonas/v2/internal/common"
+	"github.com/xrogers/gonas/v2/internal/config"
+	"github.com/xrogers/gonas/v2/internal/dataprovider"
+	"github.com/xrogers/gonas/v2/internal/httpd"
+	"github.com/xrogers/gonas/v2/internal/httpdtest"
+	"github.com/xrogers/gonas/v2/internal/kms"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/mfa"
+	"github.com/xrogers/gonas/v2/internal/sftpd"
+	"github.com/xrogers/gonas/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/vfs"
 )
 
 const (
@@ -185,7 +185,7 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	logFilePath = filepath.Join(configDir, "sftpgo_sftpd_test.log")
+	logFilePath = filepath.Join(configDir, "gonas_sftpd_test.log")
 	loginBannerFileName := "login_banner"
 	loginBannerFile := filepath.Join(configDir, loginBannerFileName)
 	logger.InitLogger(logFilePath, 10, 1, 28, false, false, zerolog.DebugLevel)
@@ -193,13 +193,13 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		logger.ErrorToConsole("error creating login banner: %v", err)
 	}
-	os.Setenv("SFTPGO_COMMON__UPLOAD_MODE", "2")
-	os.Setenv("SFTPGO_DATA_PROVIDER__CREATE_DEFAULT_ADMIN", "1")
-	os.Setenv("SFTPGO_COMMON__ALLOW_SELF_CONNECTIONS", "1")
-	os.Setenv("SFTPGO_COMMON__SYMLINK_MODE", "3")
-	os.Setenv("SFTPGO_DEFAULT_ADMIN_USERNAME", "admin")
-	os.Setenv("SFTPGO_DEFAULT_ADMIN_PASSWORD", "password")
-	os.Setenv("SFTPGO_COMMON__SECRET_MIN_ENTROPY", "0")
+	os.Setenv("GONAS_COMMON__UPLOAD_MODE", "2")
+	os.Setenv("GONAS_DATA_PROVIDER__CREATE_DEFAULT_ADMIN", "1")
+	os.Setenv("GONAS_COMMON__ALLOW_SELF_CONNECTIONS", "1")
+	os.Setenv("GONAS_COMMON__SYMLINK_MODE", "3")
+	os.Setenv("GONAS_DEFAULT_ADMIN_USERNAME", "admin")
+	os.Setenv("GONAS_DEFAULT_ADMIN_PASSWORD", "password")
+	os.Setenv("GONAS_COMMON__SECRET_MIN_ENTROPY", "0")
 	err = config.LoadConfig(configDir, "")
 	if err != nil {
 		logger.ErrorToConsole("error loading configuration: %v", err)
@@ -2445,7 +2445,7 @@ func TestSymlinkToStorageRoot(t *testing.T) {
 		_, err = client.Stat(path.Join(deep, "link1", "keep.txt"))
 		assert.Error(t, err)
 
-		_, err = runSSHCommand("sftpgo-remove /sub", user, usePubKey)
+		_, err = runSSHCommand("gonas-remove /sub", user, usePubKey)
 		assert.NoError(t, err)
 		_, err = client.Stat("/keep.txt")
 		assert.NoError(t, err, "the recursive removal followed the link to the root")
@@ -10881,13 +10881,13 @@ func TestSSHCopy(t *testing.T) {
 
 		_, err = client.Stat(testDir1)
 		assert.Error(t, err)
-		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %s", path.Join(vdirPath1, testDir1)), user, usePubKey)
+		_, err = runSSHCommand(fmt.Sprintf("gonas-copy %s", path.Join(vdirPath1, testDir1)), user, usePubKey)
 		assert.Error(t, err)
-		_, err = runSSHCommand("sftpgo-copy", user, usePubKey)
+		_, err = runSSHCommand("gonas-copy", user, usePubKey)
 		assert.Error(t, err)
-		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %s %s", testFileName, testFileName+".linkcopy"), user, usePubKey)
+		_, err = runSSHCommand(fmt.Sprintf("gonas-copy %s %s", testFileName, testFileName+".linkcopy"), user, usePubKey)
 		assert.Error(t, err)
-		out, err := runSSHCommand(fmt.Sprintf("sftpgo-copy %s %s", path.Join(vdirPath1, testDir1), "."), user, usePubKey)
+		out, err := runSSHCommand(fmt.Sprintf("gonas-copy %s %s", path.Join(vdirPath1, testDir1), "."), user, usePubKey)
 		if assert.NoError(t, err) {
 			assert.Equal(t, "OK\n", string(out))
 			fi, err := client.Stat(testDir1)
@@ -10899,9 +10899,9 @@ func TestSSHCopy(t *testing.T) {
 			assert.Equal(t, 6, user.UsedQuotaFiles)
 			assert.Equal(t, 3*testFileSize+3*testFileSize1, user.UsedQuotaSize)
 		}
-		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", "missing\\ dir", "."), user, usePubKey)
+		_, err = runSSHCommand(fmt.Sprintf("gonas-copy %v %v", "missing\\ dir", "."), user, usePubKey)
 		assert.Error(t, err)
-		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath1, testDir1), "."), user, usePubKey)
+		_, err = runSSHCommand(fmt.Sprintf("gonas-copy %v %v", path.Join(vdirPath1, testDir1), "."), user, usePubKey)
 		if assert.NoError(t, err) {
 			// all files are overwritten, quota must remain unchanged
 			user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
@@ -10909,7 +10909,7 @@ func TestSSHCopy(t *testing.T) {
 			assert.Equal(t, 6, user.UsedQuotaFiles)
 			assert.Equal(t, 3*testFileSize+3*testFileSize1, user.UsedQuotaSize)
 		}
-		out, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath2, testDir1, testFileName), testFileName+".copy"),
+		out, err = runSSHCommand(fmt.Sprintf("gonas-copy %v %v", path.Join(vdirPath2, testDir1, testFileName), testFileName+".copy"),
 			user, usePubKey)
 		if assert.NoError(t, err) {
 			assert.Equal(t, "OK\n", string(out))
@@ -10922,7 +10922,7 @@ func TestSSHCopy(t *testing.T) {
 			assert.Equal(t, 7, user.UsedQuotaFiles)
 			assert.Equal(t, 4*testFileSize+3*testFileSize1, user.UsedQuotaSize)
 		}
-		out, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath1, testDir1), path.Join(vdirPath2, testDir1+"copy")),
+		out, err = runSSHCommand(fmt.Sprintf("gonas-copy %v %v", path.Join(vdirPath1, testDir1), path.Join(vdirPath2, testDir1+"copy")),
 			user, usePubKey)
 		if assert.NoError(t, err) {
 			assert.Equal(t, "OK\n", string(out))
@@ -10939,7 +10939,7 @@ func TestSSHCopy(t *testing.T) {
 			assert.Equal(t, testFileSize*2+testFileSize1*2, f.UsedQuotaSize)
 			assert.Equal(t, 4, f.UsedQuotaFiles)
 		}
-		out, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath1, testDir1), path.Join(vdirPath1, testDir1+"copy")),
+		out, err = runSSHCommand(fmt.Sprintf("gonas-copy %v %v", path.Join(vdirPath1, testDir1), path.Join(vdirPath1, testDir1+"copy")),
 			user, usePubKey)
 		if assert.NoError(t, err) {
 			assert.Equal(t, "OK\n", string(out))
@@ -10956,12 +10956,12 @@ func TestSSHCopy(t *testing.T) {
 		}
 		// cross folder copy
 		newDir := "newdir"
-		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath2, ".."), newDir), user, usePubKey)
+		_, err = runSSHCommand(fmt.Sprintf("gonas-copy %v %v", path.Join(vdirPath2, ".."), newDir), user, usePubKey)
 		assert.NoError(t, err)
 		_, err = client.Stat(newDir)
 		assert.NoError(t, err)
 		// denied pattern
-		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(testDir, testFileName), testFileName+".denied"), user, usePubKey)
+		_, err = runSSHCommand(fmt.Sprintf("gonas-copy %v %v", path.Join(testDir, testFileName), testFileName+".denied"), user, usePubKey)
 		assert.Error(t, err)
 		if runtime.GOOS != osWindows {
 			subPath := filepath.Join(mappedPath1, testDir1, "asubdir", "anothersub", "another")
@@ -10970,13 +10970,13 @@ func TestSSHCopy(t *testing.T) {
 			err = os.Chmod(subPath, 0001)
 			assert.NoError(t, err)
 			// listing contents for subdirs with no permissions will fail
-			_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", vdirPath1, "newdir1"), user, usePubKey)
+			_, err = runSSHCommand(fmt.Sprintf("gonas-copy %v %v", vdirPath1, "newdir1"), user, usePubKey)
 			assert.Error(t, err)
 			err = os.Chmod(subPath, os.ModePerm)
 			assert.NoError(t, err)
 			err = os.Chmod(filepath.Join(user.GetHomeDir(), testDir1), 0555)
 			assert.NoError(t, err)
-			_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath1, testDir1, testFileName),
+			_, err = runSSHCommand(fmt.Sprintf("gonas-copy %v %v", path.Join(vdirPath1, testDir1, testFileName),
 				path.Join(testDir1, "anewdir")), user, usePubKey)
 			assert.Error(t, err)
 			err = os.Chmod(filepath.Join(user.GetHomeDir(), testDir1), os.ModePerm)
@@ -11031,14 +11031,14 @@ func TestSSHCopyPermissions(t *testing.T) {
 		err = sftpUploadFile(testFilePath, path.Join("/", testDir, testFileName), testFileSize, client)
 		assert.NoError(t, err)
 		// test copy file with no permission
-		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join("/", testDir, testFileName), path.Join("/dir3", testFileName)),
+		_, err = runSSHCommand(fmt.Sprintf("gonas-copy %v %v", path.Join("/", testDir, testFileName), path.Join("/dir3", testFileName)),
 			user, usePubKey)
 		assert.Error(t, err)
 		// test copy dir with no create dirs perm
-		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join("/", testDir), "/dir1/"), user, usePubKey)
+		_, err = runSSHCommand(fmt.Sprintf("gonas-copy %v %v", path.Join("/", testDir), "/dir1/"), user, usePubKey)
 		assert.Error(t, err)
 		// dir2 has the needed permissions
-		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join("/", testDir), "/dir2/"), user, usePubKey)
+		_, err = runSSHCommand(fmt.Sprintf("gonas-copy %v %v", path.Join("/", testDir), "/dir2/"), user, usePubKey)
 		assert.NoError(t, err)
 		info, err := client.Stat(path.Join("/dir2", testDir))
 		if assert.NoError(t, err) {
@@ -11051,19 +11051,19 @@ func TestSSHCopyPermissions(t *testing.T) {
 		// now create a symlink, dir2 has no create symlink permission, but symlinks will be ignored
 		err = client.Symlink(path.Join("/", testDir, testFileName), path.Join("/", testDir, testFileName+".link"))
 		assert.NoError(t, err)
-		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join("/", testDir), "/dir2/sub"), user, usePubKey)
+		_, err = runSSHCommand(fmt.Sprintf("gonas-copy %v %v", path.Join("/", testDir), "/dir2/sub"), user, usePubKey)
 		assert.NoError(t, err)
-		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join("/", testDir), "/newdir"), user, usePubKey)
+		_, err = runSSHCommand(fmt.Sprintf("gonas-copy %v %v", path.Join("/", testDir), "/newdir"), user, usePubKey)
 		assert.NoError(t, err)
 		// now delete the file and copy inside /dir3
 		err = client.Remove(path.Join("/", testDir, testFileName))
 		assert.NoError(t, err)
 		// the copy permission is required on the directory the entries are copied
 		// to, dir3 does not carry it
-		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join("/", testDir), "/dir3"), user, usePubKey)
+		_, err = runSSHCommand(fmt.Sprintf("gonas-copy %v %v", path.Join("/", testDir), "/dir3"), user, usePubKey)
 		assert.Error(t, err)
 		// dir4 carries it, and the symlink will be skipped, so no errors
-		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join("/", testDir), "/dir4"), user, usePubKey)
+		_, err = runSSHCommand(fmt.Sprintf("gonas-copy %v %v", path.Join("/", testDir), "/dir4"), user, usePubKey)
 		assert.NoError(t, err)
 
 		err = os.Remove(testFilePath)
@@ -11159,20 +11159,20 @@ func TestSSHCopyQuotaLimits(t *testing.T) {
 		assert.NoError(t, err)
 		// user quota: 2 files, size: 32768*2, folder2 quota: 2 files, size: 32768*2
 		// try to duplicate testDir, this will result in 4 file (over quota) and 32768*4 bytes (not over quota)
-		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", testDir, testDir+"_copy"), user, usePubKey)
+		_, err = runSSHCommand(fmt.Sprintf("gonas-copy %v %v", testDir, testDir+"_copy"), user, usePubKey)
 		assert.Error(t, err)
-		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath2, testDir),
+		_, err = runSSHCommand(fmt.Sprintf("gonas-copy %v %v", path.Join(vdirPath2, testDir),
 			path.Join(vdirPath2, testDir+"_copy")), user, usePubKey)
 		assert.Error(t, err)
 
-		_, err = runSSHCommand(fmt.Sprintf("sftpgo-remove %v", testDir), user, usePubKey)
+		_, err = runSSHCommand(fmt.Sprintf("gonas-remove %v", testDir), user, usePubKey)
 		assert.NoError(t, err)
-		_, err = runSSHCommand(fmt.Sprintf("sftpgo-remove %v", path.Join(vdirPath2, testDir)), user, usePubKey)
+		_, err = runSSHCommand(fmt.Sprintf("gonas-remove %v", path.Join(vdirPath2, testDir)), user, usePubKey)
 		assert.NoError(t, err)
 		// remove partially copied dirs
-		_, err = runSSHCommand(fmt.Sprintf("sftpgo-remove %v", testDir+"_copy"), user, usePubKey)
+		_, err = runSSHCommand(fmt.Sprintf("gonas-remove %v", testDir+"_copy"), user, usePubKey)
 		assert.NoError(t, err)
-		_, err = runSSHCommand(fmt.Sprintf("sftpgo-remove %v", path.Join(vdirPath2, testDir+"_copy")), user, usePubKey)
+		_, err = runSSHCommand(fmt.Sprintf("gonas-remove %v", path.Join(vdirPath2, testDir+"_copy")), user, usePubKey)
 		assert.NoError(t, err)
 		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
@@ -11200,11 +11200,11 @@ func TestSSHCopyQuotaLimits(t *testing.T) {
 		assert.NoError(t, err)
 
 		// vdir1 is included in user quota, file limit will be exceeded
-		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath1, testDir), "/"), user, usePubKey)
+		_, err = runSSHCommand(fmt.Sprintf("gonas-copy %v %v", path.Join(vdirPath1, testDir), "/"), user, usePubKey)
 		assert.Error(t, err)
 
 		// vdir2 size limit will be exceeded
-		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath1, testDir, testFileName),
+		_, err = runSSHCommand(fmt.Sprintf("gonas-copy %v %v", path.Join(vdirPath1, testDir, testFileName),
 			vdirPath2+"/"), user, usePubKey)
 		assert.Error(t, err)
 		// now decrease the limits
@@ -11228,11 +11228,11 @@ func TestSSHCopyQuotaLimits(t *testing.T) {
 				}
 			}
 		}
-		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath1, testDir),
+		_, err = runSSHCommand(fmt.Sprintf("gonas-copy %v %v", path.Join(vdirPath1, testDir),
 			path.Join(vdirPath2, testDir+".copy")), user, usePubKey)
 		assert.Error(t, err)
 
-		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath2, testDir),
+		_, err = runSSHCommand(fmt.Sprintf("gonas-copy %v %v", path.Join(vdirPath2, testDir),
 			testDir+".copy"), user, usePubKey)
 		assert.Error(t, err)
 
@@ -11334,15 +11334,15 @@ func TestSSHRemove(t *testing.T) {
 		assert.NoError(t, err)
 		err = client.Symlink(testFileName, testFileName+".link")
 		assert.NoError(t, err)
-		_, err = runSSHCommand(fmt.Sprintf("sftpgo-remove %v", testFileName+".link"), user, usePubKey)
+		_, err = runSSHCommand(fmt.Sprintf("gonas-remove %v", testFileName+".link"), user, usePubKey)
 		assert.NoError(t, err)
-		_, err = runSSHCommand("sftpgo-remove /vdir1", user, usePubKey)
+		_, err = runSSHCommand("gonas-remove /vdir1", user, usePubKey)
 		assert.Error(t, err)
-		_, err = runSSHCommand("sftpgo-remove /", user, usePubKey)
+		_, err = runSSHCommand("gonas-remove /", user, usePubKey)
 		assert.Error(t, err)
-		_, err = runSSHCommand("sftpgo-remove", user, usePubKey)
+		_, err = runSSHCommand("gonas-remove", user, usePubKey)
 		assert.Error(t, err)
-		out, err := runSSHCommand(fmt.Sprintf("sftpgo-remove %v", testFileName), user, usePubKey)
+		out, err := runSSHCommand(fmt.Sprintf("gonas-remove %v", testFileName), user, usePubKey)
 		if assert.NoError(t, err) {
 			assert.Equal(t, "OK\n", string(out))
 			_, err := client.Stat(testFileName)
@@ -11352,7 +11352,7 @@ func TestSSHRemove(t *testing.T) {
 			assert.Equal(t, 3, user.UsedQuotaFiles)
 			assert.Equal(t, testFileSize+2*testFileSize1, user.UsedQuotaSize)
 		}
-		out, err = runSSHCommand(fmt.Sprintf("sftpgo-remove %v", path.Join(vdirPath1, testDir)), user, usePubKey)
+		out, err = runSSHCommand(fmt.Sprintf("gonas-remove %v", path.Join(vdirPath1, testDir)), user, usePubKey)
 		if assert.NoError(t, err) {
 			assert.Equal(t, "OK\n", string(out))
 			_, err := client.Stat(path.Join(vdirPath1, testFileName))
@@ -11362,20 +11362,20 @@ func TestSSHRemove(t *testing.T) {
 			assert.Equal(t, 1, user.UsedQuotaFiles)
 			assert.Equal(t, testFileSize1, user.UsedQuotaSize)
 		}
-		_, err = runSSHCommand(fmt.Sprintf("sftpgo-remove %v", vdirPath1), user, usePubKey)
+		_, err = runSSHCommand(fmt.Sprintf("gonas-remove %v", vdirPath1), user, usePubKey)
 		assert.Error(t, err)
-		_, err = runSSHCommand("sftpgo-remove /", user, usePubKey)
+		_, err = runSSHCommand("gonas-remove /", user, usePubKey)
 		assert.Error(t, err)
-		_, err = runSSHCommand("sftpgo-remove missing_file", user, usePubKey)
+		_, err = runSSHCommand("gonas-remove missing_file", user, usePubKey)
 		assert.Error(t, err)
 		if runtime.GOOS != osWindows {
 			err = os.Chmod(filepath.Join(mappedPath2, testDir), 0555)
 			assert.NoError(t, err)
-			_, err = runSSHCommand(fmt.Sprintf("sftpgo-remove %v", path.Join(vdirPath2, testDir)), user, usePubKey)
+			_, err = runSSHCommand(fmt.Sprintf("gonas-remove %v", path.Join(vdirPath2, testDir)), user, usePubKey)
 			assert.Error(t, err)
 			err = os.Chmod(filepath.Join(mappedPath2, testDir), 0001)
 			assert.NoError(t, err)
-			_, err = runSSHCommand(fmt.Sprintf("sftpgo-remove %v", path.Join(vdirPath2, testDir)), user, usePubKey)
+			_, err = runSSHCommand(fmt.Sprintf("gonas-remove %v", path.Join(vdirPath2, testDir)), user, usePubKey)
 			assert.Error(t, err)
 			err = os.Chmod(filepath.Join(mappedPath2, testDir), os.ModePerm)
 			assert.NoError(t, err)
@@ -11390,7 +11390,7 @@ func TestSSHRemove(t *testing.T) {
 	if assert.NoError(t, err) {
 		defer conn.Close()
 		defer client.Close()
-		_, err = runSSHCommand("sftpgo-remove adir", user, usePubKey)
+		_, err = runSSHCommand("gonas-remove adir", user, usePubKey)
 		assert.Error(t, err)
 	}
 
@@ -11485,29 +11485,29 @@ func TestSSHRemoveCryptFs(t *testing.T) {
 		assert.NoError(t, err)
 		err = writeSFTPFile(path.Join(vdirPath2, testDir, testFileName1), testFileSize1, client)
 		assert.NoError(t, err)
-		_, err = runSSHCommand("sftpgo-remove /vdir2", user, usePubKey)
+		_, err = runSSHCommand("gonas-remove /vdir2", user, usePubKey)
 		assert.Error(t, err)
-		out, err := runSSHCommand(fmt.Sprintf("sftpgo-remove %v", testFileName), user, usePubKey)
+		out, err := runSSHCommand(fmt.Sprintf("gonas-remove %v", testFileName), user, usePubKey)
 		if assert.NoError(t, err) {
 			assert.Equal(t, "OK\n", string(out))
 			_, err := client.Stat(testFileName)
 			assert.Error(t, err)
 		}
-		out, err = runSSHCommand(fmt.Sprintf("sftpgo-remove %v", testDir), user, usePubKey)
+		out, err = runSSHCommand(fmt.Sprintf("gonas-remove %v", testDir), user, usePubKey)
 		if assert.NoError(t, err) {
 			assert.Equal(t, "OK\n", string(out))
 		}
-		out, err = runSSHCommand(fmt.Sprintf("sftpgo-remove %v", path.Join(vdirPath1, testDir)), user, usePubKey)
+		out, err = runSSHCommand(fmt.Sprintf("gonas-remove %v", path.Join(vdirPath1, testDir)), user, usePubKey)
 		if assert.NoError(t, err) {
 			assert.Equal(t, "OK\n", string(out))
 		}
-		out, err = runSSHCommand(fmt.Sprintf("sftpgo-remove %v", path.Join(vdirPath2, testDir, testFileName)), user, usePubKey)
+		out, err = runSSHCommand(fmt.Sprintf("gonas-remove %v", path.Join(vdirPath2, testDir, testFileName)), user, usePubKey)
 		if assert.NoError(t, err) {
 			assert.Equal(t, "OK\n", string(out))
 		}
 		err = writeSFTPFile(path.Join(vdirPath2, testDir, testFileName), testFileSize, client)
 		assert.NoError(t, err)
-		out, err = runSSHCommand(fmt.Sprintf("sftpgo-remove %v", path.Join(vdirPath2, testDir)), user, usePubKey)
+		out, err = runSSHCommand(fmt.Sprintf("gonas-remove %v", path.Join(vdirPath2, testDir)), user, usePubKey)
 		if assert.NoError(t, err) {
 			assert.Equal(t, "OK\n", string(out))
 		}
@@ -13448,7 +13448,7 @@ func getExtAuthScriptContent(user dataprovider.User, nonJSONResponse, emptyRespo
 	if emptyResponse {
 		return extAuthContent
 	}
-	extAuthContent = append(extAuthContent, fmt.Appendf(nil, "if test \"$SFTPGO_AUTHD_USERNAME\" = \"%v\"; then\n", user.Username)...)
+	extAuthContent = append(extAuthContent, fmt.Appendf(nil, "if test \"$GONAS_AUTHD_USERNAME\" = \"%v\"; then\n", user.Username)...)
 	if username != "" {
 		user.Username = username
 	}

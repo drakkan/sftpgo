@@ -18,8 +18,8 @@ import (
 	"errors"
 	"io"
 
-	"github.com/drakkan/sftpgo/v2/internal/common"
-	"github.com/drakkan/sftpgo/v2/internal/vfs"
+	"github.com/xrogers/gonas/v2/internal/common"
+	"github.com/xrogers/gonas/v2/internal/vfs"
 )
 
 // transfer contains the transfer details for an upload or a download.

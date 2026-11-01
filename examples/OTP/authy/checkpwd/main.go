@@ -11,7 +11,7 @@ import (
 )
 
 type userMapping struct {
-	SFTPGoUsername string
+	GoNASUsername string
 	AuthyID        int64
 	AuthyAPIKey    string
 }
@@ -19,7 +19,7 @@ type userMapping struct {
 type checkPasswordResponse struct {
 	// 0 KO, 1 OK, 2 partial success
 	Status int `json:"status"`
-	// for status == 2 this is the password that SFTPGo will check against the one stored
+	// for status == 2 this is the password that GoNAS will check against the one stored
 	// inside the data provider
 	ToVerify string `json:"to_verify"`
 }
@@ -31,7 +31,7 @@ var (
 func init() {
 	// this is for demo only, you probably want to get this mapping dynamically, for example using a database query
 	mapping = append(mapping, userMapping{
-		SFTPGoUsername: "<SFTPGo username>",
+		GoNASUsername: "<GoNAS username>",
 		AuthyID:        1234567,
 		AuthyAPIKey:    "<your api key>",
 	})
@@ -56,11 +56,11 @@ func printResponse(status int, toVerify string) {
 
 func main() {
 	// get credentials from env vars
-	username := os.Getenv("SFTPGO_AUTHD_USERNAME")
-	password := os.Getenv("SFTPGO_AUTHD_PASSWORD")
+	username := os.Getenv("GONAS_AUTHD_USERNAME")
+	password := os.Getenv("GONAS_AUTHD_PASSWORD")
 
 	for _, m := range mapping {
-		if m.SFTPGoUsername == username {
+		if m.GoNASUsername == username {
 			// Authy token len is 7, we assume that we have the password followed by the token
 			pwdLen := len(password)
 			if pwdLen <= 7 {
@@ -68,7 +68,7 @@ func main() {
 			}
 			pwd := password[:pwdLen-7]
 			authyToken := password[pwdLen-7:]
-			// now verify the authy token and instruct SFTPGo to check the password if the token is OK
+			// now verify the authy token and instruct GoNAS to check the password if the token is OK
 			url := fmt.Sprintf("https://api.authy.com/protected/json/verify/%v/%v", authyToken, m.AuthyID)
 			req, err := http.NewRequest(http.MethodGet, url, nil)
 			if err != nil {

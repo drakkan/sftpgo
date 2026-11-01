@@ -11,7 +11,7 @@ import (
 )
 
 type userMapping struct {
-	SFTPGoUsername string
+	GoNASUsername string
 	AuthyID        int64
 	AuthyAPIKey    string
 }
@@ -31,7 +31,7 @@ var (
 func init() {
 	// this is for demo only, you probably want to get this mapping dynamically, for example using a database query
 	mapping = append(mapping, userMapping{
-		SFTPGoUsername: "<SFTPGo username>",
+		GoNASUsername: "<GoNAS username>",
 		AuthyID:        1234567,
 		AuthyAPIKey:    "<your api key>",
 	})
@@ -51,16 +51,16 @@ func printAuthResponse(result int) {
 
 func main() {
 	// get credentials from env vars
-	username := os.Getenv("SFTPGO_AUTHD_USERNAME")
+	username := os.Getenv("GONAS_AUTHD_USERNAME")
 	var userMap userMapping
 	for _, m := range mapping {
-		if m.SFTPGoUsername == username {
+		if m.GoNASUsername == username {
 			userMap = m
 			break
 		}
 	}
 
-	if userMap.SFTPGoUsername != username {
+	if userMap.GoNASUsername != username {
 		// no mapping found
 		os.Exit(1)
 	}

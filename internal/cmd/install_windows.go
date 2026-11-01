@@ -21,18 +21,18 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/drakkan/sftpgo/v2/internal/service"
-	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/service"
+	"github.com/xrogers/gonas/v2/internal/util"
 )
 
 var (
 	installCmd = &cobra.Command{
 		Use:   "install",
-		Short: "Install SFTPGo as Windows Service",
-		Long: `To install the SFTPGo Windows Service with the default values for the command
+		Short: "Install GoNAS as Windows Service",
+		Long: `To install the GoNAS Windows Service with the default values for the command
 line flags simply use:
 
-sftpgo service install
+gonas service install
 
 Please take a look at the usage below to customize the startup options`,
 		Run: func(_ *cobra.Command, _ []string) {

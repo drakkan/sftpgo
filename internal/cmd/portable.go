@@ -26,14 +26,14 @@ import (
 	"github.com/sftpgo/sdk"
 	"github.com/spf13/cobra"
 
-	"github.com/drakkan/sftpgo/v2/internal/common"
-	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/kms"
-	"github.com/drakkan/sftpgo/v2/internal/service"
-	"github.com/drakkan/sftpgo/v2/internal/sftpd"
-	"github.com/drakkan/sftpgo/v2/internal/util"
-	"github.com/drakkan/sftpgo/v2/internal/version"
-	"github.com/drakkan/sftpgo/v2/internal/vfs"
+	"github.com/xrogers/gonas/v2/internal/common"
+	"github.com/xrogers/gonas/v2/internal/dataprovider"
+	"github.com/xrogers/gonas/v2/internal/kms"
+	"github.com/xrogers/gonas/v2/internal/service"
+	"github.com/xrogers/gonas/v2/internal/sftpd"
+	"github.com/xrogers/gonas/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/version"
+	"github.com/xrogers/gonas/v2/internal/vfs"
 )
 
 var (
@@ -106,7 +106,7 @@ var (
 		Long: `To serve the current working directory with auto generated credentials simply
 use:
 
-$ sftpgo portable
+$ gonas portable
 
 Please take a look at the usage below to customize the serving parameters`,
 		Run: func(_ *cobra.Command, _ []string) {

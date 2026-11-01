@@ -27,7 +27,7 @@ import (
 
 	"github.com/minio/sio"
 
-	"github.com/drakkan/sftpgo/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/logger"
 )
 
 const (

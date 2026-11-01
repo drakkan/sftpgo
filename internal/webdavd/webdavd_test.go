@@ -46,18 +46,18 @@ import (
 	"github.com/studio-b12/gowebdav"
 	"golang.org/x/crypto/ssh"
 
-	"github.com/drakkan/sftpgo/v2/internal/common"
-	"github.com/drakkan/sftpgo/v2/internal/config"
-	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/httpclient"
-	"github.com/drakkan/sftpgo/v2/internal/httpd"
-	"github.com/drakkan/sftpgo/v2/internal/httpdtest"
-	"github.com/drakkan/sftpgo/v2/internal/kms"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/sftpd"
-	"github.com/drakkan/sftpgo/v2/internal/util"
-	"github.com/drakkan/sftpgo/v2/internal/vfs"
-	"github.com/drakkan/sftpgo/v2/internal/webdavd"
+	"github.com/xrogers/gonas/v2/internal/common"
+	"github.com/xrogers/gonas/v2/internal/config"
+	"github.com/xrogers/gonas/v2/internal/dataprovider"
+	"github.com/xrogers/gonas/v2/internal/httpclient"
+	"github.com/xrogers/gonas/v2/internal/httpd"
+	"github.com/xrogers/gonas/v2/internal/httpdtest"
+	"github.com/xrogers/gonas/v2/internal/kms"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/sftpd"
+	"github.com/xrogers/gonas/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/vfs"
+	"github.com/xrogers/gonas/v2/internal/webdavd"
 )
 
 const (
@@ -270,16 +270,16 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	logFilePath = filepath.Join(configDir, "sftpgo_webdavd_test.log")
+	logFilePath = filepath.Join(configDir, "gonas_webdavd_test.log")
 	logger.InitLogger(logFilePath, 5, 1, 28, false, false, zerolog.DebugLevel)
-	os.Setenv("SFTPGO_DATA_PROVIDER__CREATE_DEFAULT_ADMIN", "1")
-	os.Setenv("SFTPGO_COMMON__ALLOW_SELF_CONNECTIONS", "1")
-	os.Setenv("SFTPGO_COMMON__SYMLINK_MODE", "3")
-	os.Setenv("SFTPGO_DEFAULT_ADMIN_USERNAME", "admin")
-	os.Setenv("SFTPGO_DEFAULT_ADMIN_PASSWORD", "password")
-	os.Setenv("SFTPGO_WEBDAVD__CACHE__MIME_TYPES__CUSTOM_MAPPINGS__0__EXT", ".sftpgo")
-	os.Setenv("SFTPGO_WEBDAVD__CACHE__MIME_TYPES__CUSTOM_MAPPINGS__0__MIME", "application/sftpgo")
-	os.Setenv("SFTPGO_COMMON__SECRET_MIN_ENTROPY", "0")
+	os.Setenv("GONAS_DATA_PROVIDER__CREATE_DEFAULT_ADMIN", "1")
+	os.Setenv("GONAS_COMMON__ALLOW_SELF_CONNECTIONS", "1")
+	os.Setenv("GONAS_COMMON__SYMLINK_MODE", "3")
+	os.Setenv("GONAS_DEFAULT_ADMIN_USERNAME", "admin")
+	os.Setenv("GONAS_DEFAULT_ADMIN_PASSWORD", "password")
+	os.Setenv("GONAS_WEBDAVD__CACHE__MIME_TYPES__CUSTOM_MAPPINGS__0__EXT", ".gonas")
+	os.Setenv("GONAS_WEBDAVD__CACHE__MIME_TYPES__CUSTOM_MAPPINGS__0__MIME", "application/gonas")
+	os.Setenv("GONAS_COMMON__SECRET_MIN_ENTROPY", "0")
 	err := config.LoadConfig(configDir, "")
 	if err != nil {
 		logger.ErrorToConsole("error loading configuration: %v", err)
@@ -2069,7 +2069,7 @@ func TestUploadAbortAtomic(t *testing.T) {
 			return false
 		}
 		for _, entry := range entries {
-			if strings.Contains(entry.Name(), ".sftpgo-upload.") {
+			if strings.Contains(entry.Name(), ".gonas-upload.") {
 				return false
 			}
 		}
@@ -2637,10 +2637,10 @@ func TestContentTypeGET(t *testing.T) {
 	err = createTestFile(testFilePath, testFileSize)
 	assert.NoError(t, err)
 	client := getWebDavClient(user, true, nil)
-	err = uploadFileWithRawClient(testFilePath, testFileName+".sftpgo", user.Username, defaultPassword,
+	err = uploadFileWithRawClient(testFilePath, testFileName+".gonas", user.Username, defaultPassword,
 		true, testFileSize, client)
 	assert.NoError(t, err)
-	remotePath := fmt.Sprintf("http://%v/%v", webDavServerAddr, testFileName+".sftpgo")
+	remotePath := fmt.Sprintf("http://%v/%v", webDavServerAddr, testFileName+".gonas")
 	req, err := http.NewRequest(http.MethodGet, remotePath, nil)
 	if assert.NoError(t, err) {
 		httpClient := httpclient.GetHTTPClient()
@@ -2649,7 +2649,7 @@ func TestContentTypeGET(t *testing.T) {
 		if assert.NoError(t, err) {
 			defer resp.Body.Close()
 			assert.Equal(t, http.StatusOK, resp.StatusCode)
-			assert.Equal(t, "application/sftpgo", resp.Header.Get("Content-Type"))
+			assert.Equal(t, "application/gonas", resp.Header.Get("Content-Type"))
 		}
 	}
 
@@ -3832,9 +3832,9 @@ func getEncryptedFileSize(size int64) (int64, error) {
 func getExtAuthScriptContent(user dataprovider.User, password string) []byte {
 	extAuthContent := []byte("#!/bin/sh\n\n")
 	if password != "" {
-		extAuthContent = append(extAuthContent, fmt.Appendf(nil, "if test \"$SFTPGO_AUTHD_USERNAME\" = \"%s\" -a \"$SFTPGO_AUTHD_PASSWORD\" = \"%s\"; then\n", user.Username, password)...)
+		extAuthContent = append(extAuthContent, fmt.Appendf(nil, "if test \"$GONAS_AUTHD_USERNAME\" = \"%s\" -a \"$GONAS_AUTHD_PASSWORD\" = \"%s\"; then\n", user.Username, password)...)
 	} else {
-		extAuthContent = append(extAuthContent, fmt.Appendf(nil, "if test \"$SFTPGO_AUTHD_USERNAME\" = \"%s\"; then\n", user.Username)...)
+		extAuthContent = append(extAuthContent, fmt.Appendf(nil, "if test \"$GONAS_AUTHD_USERNAME\" = \"%s\"; then\n", user.Username)...)
 	}
 	u, _ := json.Marshal(user)
 	extAuthContent = append(extAuthContent, fmt.Appendf(nil, "echo '%s'\n", string(u))...)

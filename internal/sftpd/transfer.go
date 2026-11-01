@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/drakkan/sftpgo/v2/internal/common"
-	"github.com/drakkan/sftpgo/v2/internal/vfs"
+	"github.com/xrogers/gonas/v2/internal/common"
+	"github.com/xrogers/gonas/v2/internal/vfs"
 )
 
 type writerAtCloser interface {

@@ -20,19 +20,19 @@ tags:
   - name: public shares
   - name: event manager
 info:
-  title: SFTPGo
+  title: GoNAS
   description: |
-    SFTPGo allows you to securely share your files over SFTP and optionally over HTTP/S, FTP/S and WebDAV as well.
+    GoNAS allows you to securely share your files over SFTP and optionally over HTTP/S, FTP/S and WebDAV as well.
     Several storage backends are supported and they are configurable per-user, so you can serve a local directory for a user and an S3 bucket (or part of it) for another one.
-    SFTPGo also supports virtual folders, a virtual folder can use any of the supported storage backends. So you can have, for example, a user with the S3 backend mapping a Google Cloud Storage bucket (or part of it) on a specified path and an encrypted local filesystem on another one.
+    GoNAS also supports virtual folders, a virtual folder can use any of the supported storage backends. So you can have, for example, a user with the S3 backend mapping a Google Cloud Storage bucket (or part of it) on a specified path and an encrypted local filesystem on another one.
     Virtual folders can be private or shared among multiple users, for shared virtual folders you can define different quota limits for each user.
-    SFTPGo supports groups to simplify the administration of multiple accounts by letting you assign settings once to a group, instead of multiple times to each individual user.
-    The SFTPGo WebClient allows end users to change their credentials, browse and manage their files in the browser and setup two-factor authentication which works with Authy, Google Authenticator and other compatible apps.
+    GoNAS supports groups to simplify the administration of multiple accounts by letting you assign settings once to a group, instead of multiple times to each individual user.
+    The GoNAS WebClient allows end users to change their credentials, browse and manage their files in the browser and setup two-factor authentication which works with Authy, Google Authenticator and other compatible apps.
     From the WebClient each authorized user can also create HTTP/S links to externally share files and folders securely, by setting limits to the number of downloads/uploads, protecting the share with a password, limiting access by source IP address, setting an automatic expiration date.
   version: v2.7.0
   contact:
     name: API support
-    url: 'https://github.com/drakkan/sftpgo'
+    url: 'https://github.com/xrogers/gonas'
   license:
     name: AGPL-3.0-only
     url: 'https://www.gnu.org/licenses/agpl-3.0.en.html'
@@ -245,7 +245,7 @@ paths:
         required: true
         schema:
           type: string
-      - name: X-SFTPGO-MTIME
+      - name: X-GONAS-MTIME
         in: header
         schema:
           type: integer
@@ -311,7 +311,7 @@ paths:
       operationId: get_token
       parameters:
         - in: header
-          name: X-SFTPGO-OTP
+          name: X-GONAS-OTP
           schema:
             type: string
           required: false
@@ -366,7 +366,7 @@ paths:
       operationId: get_user_token
       parameters:
         - in: header
-          name: X-SFTPGO-OTP
+          name: X-GONAS-OTP
           schema:
             type: string
           required: false
@@ -2361,7 +2361,7 @@ paths:
       tags:
         - event manager
       summary: Run an on-demand event rule
-      description: The rule's actions will run in background. SFTPGo will not monitor any concurrency and such. If you want to be notified at the end of the execution please add an appropriate action
+      description: The rule's actions will run in background. GoNAS will not monitor any concurrency and such. If you want to be notified at the end of the execution please add an appropriate action
       operationId: run_event_rule
       responses:
         '202':
@@ -3234,7 +3234,7 @@ paths:
       tags:
         - admins
       summary: Send a password reset code by email
-      description: 'You must set up an SMTP server. SFTPGo will send a code via email to reset the password if the specified admin exists and has a valid email address. Requests that do not meet these conditions are silently ignored (a success response will be returned) to avoid disclosing existing admins'
+      description: 'You must set up an SMTP server. GoNAS will send a code via email to reset the password if the specified admin exists and has a valid email address. Requests that do not meet these conditions are silently ignored (a success response will be returned) to avoid disclosing existing admins'
       operationId: admin_forgot_password
       responses:
         '200':
@@ -3552,7 +3552,7 @@ paths:
       tags:
         - users
       summary: Send a password reset code by email
-      description: 'You must configure an SMTP server. SFTPGo will send a code via email to reset the password if the specified user exists, has a valid email address and does not have the "reset-password-disabled" restriction. Requests that do not meet these conditions are silently ignored (a success response will be returned) to avoid disclosing existing users'
+      description: 'You must configure an SMTP server. GoNAS will send a code via email to reset the password if the specified user exists, has a valid email address and does not have the "reset-password-disabled" restriction. Requests that do not meet these conditions are silently ignored (a success response will be returned) to avoid disclosing existing users'
       operationId: user_forgot_password
       responses:
         '200':
@@ -3738,7 +3738,7 @@ paths:
       tags:
         - maintenance
       summary: Load data from path
-      description: 'Restores SFTPGo data from a JSON backup file on the server. Objects will be restored one by one and the restore is stopped if a object cannot be added or updated, so it could happen a partial restore'
+      description: 'Restores GoNAS data from a JSON backup file on the server. Objects will be restored one by one and the restore is stopped if a object cannot be added or updated, so it could happen a partial restore'
       operationId: loaddata_from_file
       parameters:
         - in: query
@@ -3770,7 +3770,7 @@ paths:
       tags:
         - maintenance
       summary: Load data
-      description: 'Restores SFTPGo data from a JSON backup. Objects will be restored one by one and the restore is stopped if a object cannot be added or updated, so it could happen a partial restore'
+      description: 'Restores GoNAS data from a JSON backup. Objects will be restored one by one and the restore is stopped if a object cannot be added or updated, so it could happen a partial restore'
       operationId: loaddata_from_request_body
       requestBody:
         required: true
@@ -4785,7 +4785,7 @@ paths:
             type: boolean
           required: false
         - in: header
-          name: X-SFTPGO-MTIME
+          name: X-GONAS-MTIME
           schema:
             type: integer
           description: File modification time as unix timestamp in milliseconds
@@ -5224,8 +5224,8 @@ components:
         - 3
       description: |
         Options:
-          * `1` - admin scope. The API key will be used to impersonate an SFTPGo admin
-          * `2` - user scope. The API key will be used to impersonate an SFTPGo user
+          * `1` - admin scope. The API key will be used to impersonate an GoNAS admin
+          * `2` - user scope. The API key will be used to impersonate an GoNAS user
           * `3` - user web session scope. Same as user scope, it must be associated with a user and it can also open a WebClient session
     ShareScope:
       type: integer
@@ -5249,7 +5249,7 @@ components:
         - ''
         - LDAPUser
         - OSUser
-      description: This is an hint for authentication plugins. It is ignored when using SFTPGo internal authentication
+      description: This is an hint for authentication plugins. It is ignored when using GoNAS internal authentication
     DumpDataScopes:
       type: string
       enum:
@@ -5381,7 +5381,7 @@ components:
           type: boolean
         config_name:
           type: string
-          description: 'This name must be defined within the "totp" section of the SFTPGo configuration file. You will be unable to save a user/admin referencing a missing config_name'
+          description: 'This name must be defined within the "totp" section of the GoNAS configuration file. You will be unable to save a user/admin referencing a missing config_name'
         secret:
           $ref: '#/components/schemas/Secret'
     AdminTOTPConfig:
@@ -5524,7 +5524,7 @@ components:
         disable_fs_checks:
           type: boolean
           example: false
-          description: Disable checks for existence and automatic creation of home directory and virtual folders. SFTPGo requires that the user's home directory, virtual folder root, and intermediate paths to virtual folders exist to work properly. If you already know that the required directories exist, disabling these checks will speed up login. You could, for example, disable these checks after the first login
+          description: Disable checks for existence and automatic creation of home directory and virtual folders. GoNAS requires that the user's home directory, virtual folder root, and intermediate paths to virtual folders exist to work properly. If you already know that the required directories exist, disabling these checks will speed up login. You could, for example, disable these checks after the first login
         web_client:
           type: array
           items:
@@ -5640,7 +5640,7 @@ components:
         sse_customer_key:
           allOf:
             - $ref: '#/components/schemas/Secret'
-          description: 'Customer-provided key for S3 server-side encryption (SSE-C). This is encryption key material, not a memorable password: it must be high-entropy and random, for example a base64-encoded random value. When submitted in plain text it must pass a configurable minimum-entropy check (the "common.secret_min_entropy" setting); this is a heuristic estimate used to reject weak secrets, not a measure of cryptographic strength, so always supply key material generated by a CSPRNG. Keep a safe backup: if this key is lost, objects encrypted with it cannot be decrypted, by SFTPGo or by AWS.'
+          description: 'Customer-provided key for S3 server-side encryption (SSE-C). This is encryption key material, not a memorable password: it must be high-entropy and random, for example a base64-encoded random value. When submitted in plain text it must pass a configurable minimum-entropy check (the "common.secret_min_entropy" setting); this is a heuristic estimate used to reject weak secrets, not a measure of cryptographic strength, so always supply key material generated by a CSPRNG. Keep a safe backup: if this key is lost, objects encrypted with it cannot be decrypted, by GoNAS or by AWS.'
         role_arn:
           type: string
           description: 'Optional IAM Role ARN to assume'
@@ -5832,7 +5832,7 @@ components:
       properties:
         endpoint:
           type: string
-          description: 'HTTP/S endpoint URL. SFTPGo will use this URL as base, for example for the `stat` API, SFTPGo will add `/stat/{name}`'
+          description: 'HTTP/S endpoint URL. GoNAS will use this URL as base, for example for the `stat` API, GoNAS will add `/stat/{name}`'
         username:
           type: string
         password:
@@ -5914,18 +5914,18 @@ components:
             quota_size:
               type: integer
               format: int64
-              description: 'Quota as size in bytes. 0 means unlimited, -1 means included in user quota. Quota applies to the whole folder, so every mapping of the same folder uses the same limits. Please note that quota is updated if files are added/removed via SFTPGo otherwise a quota scan or a manual quota update is needed'
+              description: 'Quota as size in bytes. 0 means unlimited, -1 means included in user quota. Quota applies to the whole folder, so every mapping of the same folder uses the same limits. Please note that quota is updated if files are added/removed via GoNAS otherwise a quota scan or a manual quota update is needed'
             quota_files:
               type: integer
               format: int32
-              description: 'Quota as number of files. 0 means unlimited, -1 means included in user quota. Quota applies to the whole folder, so every mapping of the same folder uses the same limits. Please note that quota is updated if files are added/removed via SFTPGo otherwise a quota scan or a manual quota update is needed'
+              description: 'Quota as number of files. 0 means unlimited, -1 means included in user quota. Quota applies to the whole folder, so every mapping of the same folder uses the same limits. Please note that quota is updated if files are added/removed via GoNAS otherwise a quota scan or a manual quota update is needed'
             subpath:
               type: string
               maxLength: 191
               description: 'Re-roots the mapping: the mount at `virtual_path` serves the folder starting from this sub-path. Canonical POSIX path with a leading slash. Supported for local, encrypted, S3, GCS, Azure Blob and SFTP folders. On group mappings the `%username%` and `%role%` placeholders are supported.'
           required:
             - virtual_path
-      description: 'A virtual folder is a mapping between a SFTPGo virtual path and a filesystem path outside the user home directory. The specified paths must be absolute and the virtual path cannot be "/", it must be a sub directory. The parent directory for the specified virtual path must exist. SFTPGo will try to automatically create any missing parent directory for the configured virtual folders at user login.'
+      description: 'A virtual folder is a mapping between a GoNAS virtual path and a filesystem path outside the user home directory. The specified paths must be absolute and the virtual path cannot be "/", it must be a sub directory. The parent directory for the specified virtual path must exist. GoNAS will try to automatically create any missing parent directory for the configured virtual folders at user login.'
     User:
       type: object
       properties:
@@ -5970,24 +5970,24 @@ components:
           description: Indicates whether the password is set
         home_dir:
           type: string
-          description: path to the user home directory. The user cannot upload or download files outside this directory. SFTPGo tries to automatically create this folder if missing. Must be an absolute path
+          description: path to the user home directory. The user cannot upload or download files outside this directory. GoNAS tries to automatically create this folder if missing. Must be an absolute path
         virtual_folders:
           type: array
           items:
             $ref: '#/components/schemas/VirtualFolder'
-          description: mapping between virtual SFTPGo paths and virtual folders
+          description: mapping between virtual GoNAS paths and virtual folders
         uid:
           type: integer
           format: int32
           minimum: 0
           maximum: 2147483647
-          description: 'if you run SFTPGo as root user, the created files and directories will be assigned to this uid. 0 means no change, the owner will be the user that runs SFTPGo. Ignored on windows'
+          description: 'if you run GoNAS as root user, the created files and directories will be assigned to this uid. 0 means no change, the owner will be the user that runs GoNAS. Ignored on windows'
         gid:
           type: integer
           format: int32
           minimum: 0
           maximum: 2147483647
-          description: 'if you run SFTPGo as root user, the created files and directories will be assigned to this gid. 0 means no change, the group will be the one of the user that runs SFTPGo. Ignored on windows'
+          description: 'if you run GoNAS as root user, the created files and directories will be assigned to this gid. 0 means no change, the group will be the one of the user that runs GoNAS. Ignored on windows'
         max_sessions:
           type: integer
           format: int32
@@ -5995,11 +5995,11 @@ components:
         quota_size:
           type: integer
           format: int64
-          description: Quota as size in bytes. 0 means unlimited. Please note that quota is updated if files are added/removed via SFTPGo otherwise a quota scan or a manual quota update is needed
+          description: Quota as size in bytes. 0 means unlimited. Please note that quota is updated if files are added/removed via GoNAS otherwise a quota scan or a manual quota update is needed
         quota_files:
           type: integer
           format: int32
-          description: Quota as number of files. 0 means unlimited. Please note that quota is updated if files are added/removed via SFTPGo otherwise a quota scan or a manual quota update is needed
+          description: Quota as number of files. 0 means unlimited. Please note that quota is updated if files are added/removed via GoNAS otherwise a quota scan or a manual quota update is needed
         permissions:
           type: object
           additionalProperties:
@@ -6810,7 +6810,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/VirtualFolder'
-          description: mapping between virtual SFTPGo paths and folders
+          description: mapping between virtual GoNAS paths and folders
         users:
           type: array
           items:
@@ -7222,10 +7222,10 @@ components:
               * `1` Create the account if it doesn't exist
         template_user:
           type: string
-          description: 'SFTPGo user template in JSON format'
+          description: 'GoNAS user template in JSON format'
         template_admin:
           type: string
-          description: 'SFTPGo admin template in JSON format'
+          description: 'GoNAS admin template in JSON format'
     BaseEventActionOptions:
       type: object
       properties:
@@ -7544,5 +7544,5 @@ components:
     APIKeyAuth:
       type: apiKey
       in: header
-      name: X-SFTPGO-API-KEY
+      name: X-GONAS-API-KEY
       description: 'API key to use for authentication. API key authentication is intrinsically less secure than using a short lived JWT token. You should prefer API key authentication only for machine-to-machine communications in trusted environments. If no admin/user is associated to the provided key you need to add ".username" at the end of the key. For example if your API key is "6ajKLwswLccVBGpZGv596G.ySAXc8vtp9hMiwAuaLtzof" and you want to impersonate the admin with username "myadmin" you have to use "6ajKLwswLccVBGpZGv596G.ySAXc8vtp9hMiwAuaLtzof.myadmin" as API key. When using API key authentication you cannot manage API keys, update the impersonated admin, change password or public keys for the impersonated user.'

@@ -20,8 +20,8 @@ import (
 
 	"github.com/drakkan/webdav"
 
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/util"
 )
 
 var (
@@ -42,7 +42,7 @@ func InitializeWebDAVUserCache(maxSize int) {
 	}
 }
 
-// CachedUser adds fields useful for caching to a SFTPGo user
+// CachedUser adds fields useful for caching to a GoNAS user
 type CachedUser struct {
 	User       User
 	Expiration time.Time

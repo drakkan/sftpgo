@@ -19,7 +19,7 @@ package util
 import (
 	"runtime"
 
-	"github.com/drakkan/sftpgo/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/logger"
 )
 
 // SetUmask sets the specified umask

@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/dataprovider"
+	"github.com/xrogers/gonas/v2/internal/logger"
 )
 
 // HostEvent is the enumerable for the supported host events
@@ -62,7 +62,7 @@ type DefenderConfig struct {
 	Enabled bool `json:"enabled" mapstructure:"enabled"`
 	// Defender implementation to use, we support "memory" and "provider".
 	// Using "provider" as driver you can share the defender events among
-	// multiple SFTPGo instances. For a single instance "memory" provider will
+	// multiple GoNAS instances. For a single instance "memory" provider will
 	// be much faster
 	Driver string `json:"driver" mapstructure:"driver"`
 	// BanTime is the number of minutes that a host is banned

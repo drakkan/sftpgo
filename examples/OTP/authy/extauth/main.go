@@ -12,14 +12,14 @@ import (
 )
 
 type userMapping struct {
-	SFTPGoUsername string
+	GoNASUsername string
 	AuthyID        int64
 	AuthyAPIKey    string
 }
 
-// we assume that the SFTPGo already exists, we only check the one time token.
-// If you need to create the SFTPGo user more fields are needed here
-type minimalSFTPGoUser struct {
+// we assume that the GoNAS already exists, we only check the one time token.
+// If you need to create the GoNAS user more fields are needed here
+type minimalGoNASUser struct {
 	Status      int                 `json:"status,omitempty"`
 	Username    string              `json:"username"`
 	HomeDir     string              `json:"home_dir,omitempty"`
@@ -33,14 +33,14 @@ var (
 func init() {
 	// this is for demo only, you probably want to get this mapping dynamically, for example using a database query
 	mapping = append(mapping, userMapping{
-		SFTPGoUsername: "<SFTPGo username>",
+		GoNASUsername: "<GoNAS username>",
 		AuthyID:        1234567,
 		AuthyAPIKey:    "<your api key>",
 	})
 }
 
 func printResponse(username string) {
-	u := minimalSFTPGoUser{
+	u := minimalGoNASUser{
 		Username: username,
 		Status:   1,
 		HomeDir:  filepath.Join(os.TempDir(), username),
@@ -58,8 +58,8 @@ func printResponse(username string) {
 
 func main() {
 	// get credentials from env vars
-	username := os.Getenv("SFTPGO_AUTHD_USERNAME")
-	password := os.Getenv("SFTPGO_AUTHD_PASSWORD")
+	username := os.Getenv("GONAS_AUTHD_USERNAME")
+	password := os.Getenv("GONAS_AUTHD_PASSWORD")
 	if len(password) == 0 {
 		// login method is not password
 		printResponse("")
@@ -67,7 +67,7 @@ func main() {
 	}
 
 	for _, m := range mapping {
-		if m.SFTPGoUsername == username {
+		if m.GoNASUsername == username {
 			// mapping found we can now verify the token
 			url := fmt.Sprintf("https://api.authy.com/protected/json/verify/%v/%v", password, m.AuthyID)
 			req, err := http.NewRequest(http.MethodGet, url, nil)

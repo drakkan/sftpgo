@@ -20,11 +20,11 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 
-	"github.com/drakkan/sftpgo/v2/internal/config"
-	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/smtp"
-	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/config"
+	"github.com/xrogers/gonas/v2/internal/dataprovider"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/smtp"
+	"github.com/xrogers/gonas/v2/internal/util"
 )
 
 var (
@@ -32,7 +32,7 @@ var (
 	smtpTestCmd       = &cobra.Command{
 		Use:   "smtptest",
 		Short: "Test the SMTP configuration",
-		Long: `SFTPGo will try to send a test email to the specified recipient.
+		Long: `GoNAS will try to send a test email to the specified recipient.
 If the SMTP configuration is correct you should receive this email.`,
 		Run: func(_ *cobra.Command, _ []string) {
 			logger.DisableLogger()
@@ -56,7 +56,7 @@ If the SMTP configuration is correct you should receive this email.`,
 				logger.ErrorToConsole("unable to initialize SMTP configuration: %v", err)
 				os.Exit(1)
 			}
-			err = smtp.SendEmail([]string{smtpTestRecipient}, nil, "SFTPGo - Testing Email Settings", "It appears your SFTPGo email is setup correctly!",
+			err = smtp.SendEmail([]string{smtpTestRecipient}, nil, "GoNAS - Testing Email Settings", "It appears your GoNAS email is setup correctly!",
 				smtp.EmailContentTypeTextPlain)
 			if err != nil {
 				logger.WarnToConsole("Error sending email: %v", err)

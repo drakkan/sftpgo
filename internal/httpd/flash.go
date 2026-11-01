@@ -20,7 +20,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/util"
 )
 
 const (

@@ -16,11 +16,11 @@
 // FTP/S and WebDAV support.
 // For more details about features, installation, configuration and usage
 // please refer to the README inside the source tree:
-// https://github.com/drakkan/sftpgo/blob/main/README.md
+// https://github.com/xrogers/gonas/blob/main/README.md
 package main
 
 import (
-	"github.com/drakkan/sftpgo/v2/internal/cmd"
+	"github.com/xrogers/gonas/v2/internal/cmd"
 )
 
 func main() {

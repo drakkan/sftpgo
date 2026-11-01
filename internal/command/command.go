@@ -12,7 +12,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-// Package command provides command configuration for SFTPGo hooks
+// Package command provides command configuration for GoNAS hooks
 package command
 
 import (
@@ -54,8 +54,8 @@ type Command struct {
 	Path string `json:"path" mapstructure:"path"`
 	// Timeout specifies a time limit, in seconds, for the command execution.
 	// This value overrides the global timeout if set.
-	// Do not use variables with the SFTPGO_ prefix to avoid conflicts with env
-	// vars that SFTPGo sets
+	// Do not use variables with the GONAS_ prefix to avoid conflicts with env
+	// vars that GoNAS sets
 	Timeout int `json:"timeout" mapstructure:"timeout"`
 	// Env defines environment variable for the command.
 	// Each entry is of the form "key=value".
@@ -74,8 +74,8 @@ type Config struct {
 	Timeout int `json:"timeout" mapstructure:"timeout"`
 	// Env defines environment variable for the commands.
 	// Each entry is of the form "key=value".
-	// Do not use variables with the SFTPGO_ prefix to avoid conflicts with env
-	// vars that SFTPGo sets
+	// Do not use variables with the GONAS_ prefix to avoid conflicts with env
+	// vars that GoNAS sets
 	Env []string `json:"env" mapstructure:"env"`
 	// Commands defines configuration for specific commands
 	Commands []Command `json:"commands" mapstructure:"commands"`

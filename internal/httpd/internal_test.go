@@ -50,14 +50,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/html"
 
-	"github.com/drakkan/sftpgo/v2/internal/acme"
-	"github.com/drakkan/sftpgo/v2/internal/common"
-	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/jwt"
-	"github.com/drakkan/sftpgo/v2/internal/kms"
-	"github.com/drakkan/sftpgo/v2/internal/plugin"
-	"github.com/drakkan/sftpgo/v2/internal/util"
-	"github.com/drakkan/sftpgo/v2/internal/vfs"
+	"github.com/xrogers/gonas/v2/internal/acme"
+	"github.com/xrogers/gonas/v2/internal/common"
+	"github.com/xrogers/gonas/v2/internal/dataprovider"
+	"github.com/xrogers/gonas/v2/internal/jwt"
+	"github.com/xrogers/gonas/v2/internal/kms"
+	"github.com/xrogers/gonas/v2/internal/plugin"
+	"github.com/xrogers/gonas/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/vfs"
 )
 
 const (
@@ -3668,7 +3668,7 @@ func TestSecureMiddlewareIntegration(t *testing.T) {
 			ProxyAllowed: []string{"192.168.1.0/24"},
 			Security: SecurityConf{
 				Enabled:              true,
-				AllowedHosts:         []string{"*.sftpgo.com"},
+				AllowedHosts:         []string{"*.gonas.example"},
 				AllowedHostsAreRegex: true,
 				HostsProxyHeaders:    []string{forwardedHostHeader},
 				HTTPSProxyHeaders: []HTTPSProxyHeader{
@@ -3709,14 +3709,14 @@ func TestSecureMiddlewareIntegration(t *testing.T) {
 	assert.Equal(t, "no-cache, no-store, max-age=0, must-revalidate, private", rr.Header().Get("Cache-Control"))
 
 	rr = httptest.NewRecorder()
-	r.Header.Set(forwardedHostHeader, "www.sftpgo.com")
+	r.Header.Set(forwardedHostHeader, "www.gonas.example")
 	server.router.ServeHTTP(rr, r)
 	assert.Equal(t, http.StatusForbidden, rr.Code)
 	// the header should be removed
 	assert.Empty(t, r.Header.Get(forwardedHostHeader))
 
 	rr = httptest.NewRecorder()
-	r.Host = "test.sftpgo.com"
+	r.Host = "test.gonas.example"
 	r.Header.Set(forwardedHostHeader, "test.example.com")
 	r.RemoteAddr = "192.168.1.1"
 	server.router.ServeHTTP(rr, r)
@@ -3724,7 +3724,7 @@ func TestSecureMiddlewareIntegration(t *testing.T) {
 	assert.NotEmpty(t, r.Header.Get(forwardedHostHeader))
 
 	rr = httptest.NewRecorder()
-	r.Header.Set(forwardedHostHeader, "www.sftpgo.com")
+	r.Header.Set(forwardedHostHeader, "www.gonas.example")
 	r.RemoteAddr = "192.168.1.1"
 	server.router.ServeHTTP(rr, r)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -3733,7 +3733,7 @@ func TestSecureMiddlewareIntegration(t *testing.T) {
 	assert.Equal(t, "nosniff", rr.Header().Get("X-Content-Type-Options"))
 	// now set the X-Forwarded-Proto to https, we should get the Strict-Transport-Security header
 	rr = httptest.NewRecorder()
-	r.Host = "test.sftpgo.com"
+	r.Host = "test.gonas.example"
 	r.Header.Set(xForwardedProto, "https")
 	r.RemoteAddr = "192.168.1.3"
 	server.router.ServeHTTP(rr, r)
@@ -4138,10 +4138,10 @@ func TestHTTPSRedirect(t *testing.T) {
 	r, err = http.NewRequest(http.MethodGet, webAdminLoginPath, nil)
 	assert.NoError(t, err)
 	r.RequestURI = webAdminLoginPath
-	r.Header.Set(forwardedHostHeader, "sftpgo.com")
+	r.Header.Set(forwardedHostHeader, "gonas.example")
 	server.router.ServeHTTP(rr, r)
 	assert.Equal(t, http.StatusTemporaryRedirect, rr.Code, rr.Body.String())
-	assert.Contains(t, rr.Body.String(), "https://sftpgo.com")
+	assert.Contains(t, rr.Body.String(), "https://gonas.example")
 
 	server.binding.Security.HTTPSHost = "myhost:1044"
 	rr = httptest.NewRecorder()

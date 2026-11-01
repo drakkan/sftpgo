@@ -37,10 +37,10 @@ import (
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/metric"
-	"github.com/drakkan/sftpgo/v2/internal/util"
-	"github.com/drakkan/sftpgo/v2/internal/version"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/metric"
+	"github.com/xrogers/gonas/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/version"
 )
 
 const (
@@ -554,7 +554,7 @@ func (*GCSFs) GetAtomicUploadPath(_ string) string {
 }
 
 // GetRelativePath returns the path for a file relative to the user's home dir.
-// This is the path as seen by SFTPGo users
+// This is the path as seen by GoNAS users
 func (fs *GCSFs) GetRelativePath(name string) string {
 	rel := path.Clean(name)
 	if rel == "." {
@@ -814,6 +814,7 @@ func (fs *GCSFs) copyFileInternal(source, target string, conditions *storage.Con
 	metadata := getMetadata(srcInfo)
 	if updateModTime && len(metadata) > 0 {
 		delete(metadata, lastModifiedField)
+		delete(metadata, legacyLastModifiedField)
 	}
 	if len(metadata) > 0 {
 		copier.Metadata = metadata
@@ -960,7 +961,7 @@ func (*GCSFs) GetAvailableDiskSize(_ string) (*sftp.StatVFS, error) {
 func (*GCSFs) getTempObject(name string) string {
 	dir := path.Dir(name)
 	guid := xid.New().String()
-	return path.Join(dir, ".sftpgo-partial."+guid+"."+path.Base(name))
+	return path.Join(dir, ".gonas-partial."+guid+"."+path.Base(name))
 }
 
 type gcsDirLister struct {

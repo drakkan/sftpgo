@@ -36,16 +36,16 @@ import (
 	"github.com/pires/go-proxyproto"
 	"github.com/sftpgo/sdk/plugin/notifier"
 
-	"github.com/drakkan/sftpgo/v2/internal/command"
-	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/httpclient"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/metric"
-	"github.com/drakkan/sftpgo/v2/internal/plugin"
-	"github.com/drakkan/sftpgo/v2/internal/smtp"
-	"github.com/drakkan/sftpgo/v2/internal/util"
-	"github.com/drakkan/sftpgo/v2/internal/version"
-	"github.com/drakkan/sftpgo/v2/internal/vfs"
+	"github.com/xrogers/gonas/v2/internal/command"
+	"github.com/xrogers/gonas/v2/internal/dataprovider"
+	"github.com/xrogers/gonas/v2/internal/httpclient"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/metric"
+	"github.com/xrogers/gonas/v2/internal/plugin"
+	"github.com/xrogers/gonas/v2/internal/smtp"
+	"github.com/xrogers/gonas/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/version"
+	"github.com/xrogers/gonas/v2/internal/vfs"
 )
 
 // constants
@@ -585,7 +585,7 @@ type Configuration struct {
 	// RenameMode defines how to handle directory renames. By default, renaming of non-empty directories
 	// is not allowed for cloud storage providers (S3, GCS, Azure Blob). Set to 1 to enable recursive
 	// renames for these providers, they may be slow, there is no atomic rename API like for local
-	// filesystem, so SFTPGo will recursively list the directory contents and do a rename for each entry
+	// filesystem, so GoNAS will recursively list the directory contents and do a rename for each entry
 	RenameMode int `json:"rename_mode" mapstructure:"rename_mode"`
 	// SymlinkMode is a bit mask that selects the backends on which clients holding the
 	// create_symlinks permission may create symbolic links. 0 (default) disables creation
@@ -594,7 +594,7 @@ type Configuration struct {
 	SymlinkMode int `json:"symlink_mode" mapstructure:"symlink_mode"`
 	// ResumeMaxSize defines the maximum size allowed, in bytes, to resume uploads on storage backends
 	// with immutable objects. By default, resuming uploads is not allowed for cloud storage providers
-	// (S3, GCS, Azure Blob) because SFTPGo must rewrite the entire file.
+	// (S3, GCS, Azure Blob) because GoNAS must rewrite the entire file.
 	// Set to a value greater than 0 to allow resuming uploads of files smaller than or equal to the
 	// defined size.
 	ResumeMaxSize int64 `json:"resume_max_size" mapstructure:"resume_max_size"`
@@ -605,14 +605,14 @@ type Configuration struct {
 	// Default: 80.
 	SecretMinEntropy float64 `json:"secret_min_entropy" mapstructure:"secret_min_entropy"`
 	// Support for HAProxy PROXY protocol.
-	// If you are running SFTPGo behind a proxy server such as HAProxy, AWS ELB or NGNIX, you can enable
+	// If you are running GoNAS behind a proxy server such as HAProxy, AWS ELB or NGNIX, you can enable
 	// the proxy protocol. It provides a convenient way to safely transport connection information
 	// such as a client's address across multiple layers of NAT or TCP proxies to get the real
 	// client IP address instead of the proxy IP. Both protocol versions 1 and 2 are supported.
 	// - 0 means disabled
 	// - 1 means proxy protocol enabled. Proxy header will be used and requests without proxy header will be accepted.
 	// - 2 means proxy protocol required. Proxy header will be used and requests without proxy header will be rejected.
-	// If the proxy protocol is enabled in SFTPGo then you have to enable the protocol in your proxy configuration too,
+	// If the proxy protocol is enabled in GoNAS then you have to enable the protocol in your proxy configuration too,
 	// for example for HAProxy add "send-proxy" or "send-proxy-v2" to each server configuration line.
 	ProxyProtocol int `json:"proxy_protocol" mapstructure:"proxy_protocol"`
 	// List of IP addresses and IP ranges allowed to send the proxy header.
@@ -623,9 +623,9 @@ type Configuration struct {
 	ProxyAllowed []string `json:"proxy_allowed" mapstructure:"proxy_allowed"`
 	// List of IP addresses and IP ranges for which not to read the proxy header
 	ProxySkipped []string `json:"proxy_skipped" mapstructure:"proxy_skipped"`
-	// Absolute path to an external program or an HTTP URL to invoke as soon as SFTPGo starts.
+	// Absolute path to an external program or an HTTP URL to invoke as soon as GoNAS starts.
 	// If you define an HTTP URL it will be invoked using a `GET` request.
-	// Please note that SFTPGo services may not yet be available when this hook is run.
+	// Please note that GoNAS services may not yet be available when this hook is run.
 	// Leave empty do disable.
 	StartupHook string `json:"startup_hook" mapstructure:"startup_hook"`
 	// Absolute path to an external program or an HTTP URL to invoke after a user connects
@@ -823,10 +823,10 @@ func (c *Configuration) executePostDisconnectHook(remoteAddr, protocol, username
 	startTime := time.Now()
 	cmd := exec.CommandContext(ctx, c.PostDisconnectHook, args...)
 	cmd.Env = append(env,
-		fmt.Sprintf("SFTPGO_CONNECTION_IP=%s", ipAddr),
-		fmt.Sprintf("SFTPGO_CONNECTION_USERNAME=%s", username),
-		fmt.Sprintf("SFTPGO_CONNECTION_DURATION=%d", connDuration),
-		fmt.Sprintf("SFTPGO_CONNECTION_PROTOCOL=%s", protocol))
+		fmt.Sprintf("GONAS_CONNECTION_IP=%s", ipAddr),
+		fmt.Sprintf("GONAS_CONNECTION_USERNAME=%s", username),
+		fmt.Sprintf("GONAS_CONNECTION_DURATION=%d", connDuration),
+		fmt.Sprintf("GONAS_CONNECTION_PROTOCOL=%s", protocol))
 	err := cmd.Run()
 	logger.Debug(protocol, connID, "Post disconnect hook executed, elapsed: %s error: %v", time.Since(startTime), err)
 }
@@ -882,8 +882,8 @@ func (c *Configuration) ExecutePostConnectHook(ipAddr, protocol string) error {
 
 	cmd := exec.CommandContext(ctx, c.PostConnectHook, args...)
 	cmd.Env = append(env,
-		fmt.Sprintf("SFTPGO_CONNECTION_IP=%s", ipAddr),
-		fmt.Sprintf("SFTPGO_CONNECTION_PROTOCOL=%s", protocol))
+		fmt.Sprintf("GONAS_CONNECTION_IP=%s", ipAddr),
+		fmt.Sprintf("GONAS_CONNECTION_PROTOCOL=%s", protocol))
 	err := cmd.Run()
 	if err != nil {
 		logger.Warn(protocol, "", "Login from ip %q denied, connect hook error: %v", ipAddr, err)

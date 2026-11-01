@@ -22,7 +22,7 @@ import (
 	"io/fs"
 	"net/http"
 
-	"github.com/drakkan/sftpgo/v2/internal/version"
+	"github.com/xrogers/gonas/v2/internal/version"
 )
 
 func init() {
@@ -38,7 +38,7 @@ var staticFs embed.FS
 //go:embed openapi/*
 var openapiFs embed.FS
 
-// GetTemplatesFs returns the embedded filesystem with the SFTPGo templates
+// GetTemplatesFs returns the embedded filesystem with the GoNAS templates
 func GetTemplatesFs() embed.FS {
 	return templatesFs
 }

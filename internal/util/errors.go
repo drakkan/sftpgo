@@ -22,7 +22,7 @@ import (
 const (
 	templateLoadErrorHints = "Try setting the absolute templates path in your configuration file " +
 		"or specifying the config directory adding the `-c` flag to the serve options. For example: " +
-		"sftpgo serve -c \"<path to dir containing the default config file and templates directory>\""
+		"gonas serve -c \"<path to dir containing the default config file and templates directory>\""
 )
 
 // MaxRecursion defines the maximum number of allowed recursions

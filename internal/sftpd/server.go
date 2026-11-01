@@ -40,14 +40,14 @@ import (
 	"github.com/sftpgo/sdk/plugin/notifier"
 	"golang.org/x/crypto/ssh"
 
-	"github.com/drakkan/sftpgo/v2/internal/common"
-	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/metric"
-	"github.com/drakkan/sftpgo/v2/internal/plugin"
-	"github.com/drakkan/sftpgo/v2/internal/util"
-	"github.com/drakkan/sftpgo/v2/internal/version"
-	"github.com/drakkan/sftpgo/v2/internal/vfs"
+	"github.com/xrogers/gonas/v2/internal/common"
+	"github.com/xrogers/gonas/v2/internal/dataprovider"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/metric"
+	"github.com/xrogers/gonas/v2/internal/plugin"
+	"github.com/xrogers/gonas/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/version"
+	"github.com/xrogers/gonas/v2/internal/vfs"
 )
 
 const (
@@ -183,7 +183,7 @@ type Configuration struct {
 	// 		if something does not work as expected for your use cases.
 	//      SCP between two remote hosts is supported using the `-3` scp option.
 	// - "md5sum", "sha1sum", "sha256sum", "sha384sum", "sha512sum". Useful to check message
-	//      digests for uploaded files. These commands are implemented inside SFTPGo so they
+	//      digests for uploaded files. These commands are implemented inside GoNAS so they
 	//      work even if the matching system commands are not available, for example on Windows.
 	// - "cd", "pwd". Some mobile SFTP clients does not support the SFTP SSH_FXP_REALPATH and so
 	//      they use "cd" and "pwd" SSH commands to get the initial directory.

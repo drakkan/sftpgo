@@ -142,7 +142,7 @@
       this.paint(item);
       xhr.open('POST', item.url);
       xhr.setRequestHeader('X-CSRF-TOKEN', csrfToken());
-      if (item.file.lastModified) xhr.setRequestHeader('X-SFTPGO-MTIME', String(item.file.lastModified));
+      if (item.file.lastModified) xhr.setRequestHeader('X-GONAS-MTIME', String(item.file.lastModified));
       xhr.upload.addEventListener('progress', (event) => {
         if (event.lengthComputable) {
           item.loaded = event.loaded;

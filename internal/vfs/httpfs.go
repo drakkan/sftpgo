@@ -35,10 +35,10 @@ import (
 	"github.com/pkg/sftp"
 	"github.com/sftpgo/sdk"
 
-	"github.com/drakkan/sftpgo/v2/internal/kms"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/metric"
-	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/kms"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/metric"
+	"github.com/xrogers/gonas/v2/internal/util"
 )
 
 const (
@@ -192,7 +192,7 @@ func (c *HTTPFsConfig) ValidateAndEncryptCredentials(additionalData string) erro
 	return nil
 }
 
-// HTTPFs is a Fs implementation for the SFTPGo HTTP filesystem backend
+// HTTPFs is a Fs implementation for the GoNAS HTTP filesystem backend
 type HTTPFs struct {
 	connectionID string
 	localTempDir string
@@ -203,7 +203,7 @@ type HTTPFs struct {
 	ctxTimeout time.Duration
 }
 
-// NewHTTPFs returns an HTTPFs object that allows to interact with SFTPGo HTTP filesystem backends
+// NewHTTPFs returns an HTTPFs object that allows to interact with GoNAS HTTP filesystem backends
 func NewHTTPFs(connectionID, localTempDir, mountPath string, config HTTPFsConfig) (Fs, error) {
 	if localTempDir == "" {
 		localTempDir = getLocalTempDir()
@@ -604,7 +604,7 @@ func (*HTTPFs) GetAtomicUploadPath(_ string) string {
 }
 
 // GetRelativePath returns the path for a file relative to the user's home dir.
-// This is the path as seen by SFTPGo users
+// This is the path as seen by GoNAS users
 func (fs *HTTPFs) GetRelativePath(name string) string {
 	rel := path.Clean(name)
 	if rel == "." {

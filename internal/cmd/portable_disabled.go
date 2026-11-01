@@ -16,7 +16,7 @@
 
 package cmd
 
-import "github.com/drakkan/sftpgo/v2/internal/version"
+import "github.com/xrogers/gonas/v2/internal/version"
 
 func init() {
 	version.AddFeature("-portable")

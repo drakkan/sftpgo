@@ -33,7 +33,7 @@ const (
 
 var (
 	supportedSSHCommands = []string{"scp", "md5sum", "sha1sum", "sha256sum", "sha384sum", "sha512sum", "cd", "pwd",
-		"sftpgo-copy", "sftpgo-remove"}
+		"gonas-copy", "gonas-remove"}
 	defaultSSHCommands = []string{"md5sum", "sha1sum", "sha256sum", "cd", "pwd", "scp"}
 	sshHashCommands    = []string{"md5sum", "sha1sum", "sha256sum", "sha384sum", "sha512sum"}
 	serviceStatus      ServiceStatus

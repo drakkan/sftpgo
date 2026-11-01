@@ -201,7 +201,7 @@
   },
   "data_provider": {
     "driver": "sqlite",
-    "name": "sftpgo.db",
+    "name": "gonas.db",
     "host": "",
     "port": 0,
     "username": "",
@@ -431,7 +431,7 @@
     "totp": [
       {
         "name": "Default",
-        "issuer": "SFTPGo",
+        "issuer": "GoNAS",
         "algo": "sha1"
       }
     ]

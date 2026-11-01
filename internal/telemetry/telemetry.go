@@ -12,7 +12,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-// Package telemetry provides telemetry information for SFTPGo, such as:
+// Package telemetry provides telemetry information for GoNAS, such as:
 //   - health information (for health checks)
 //   - metrics
 //   - profiling information
@@ -28,9 +28,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/drakkan/sftpgo/v2/internal/common"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/common"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/util"
 )
 
 const (

@@ -1,47 +1,47 @@
 if [ $1 -eq 1 ]; then
   # Initial installation
   # Add user and group
-  if ! getent group sftpgo >/dev/null; then
-    /usr/sbin/groupadd --system sftpgo
+  if ! getent group gonas >/dev/null; then
+    /usr/sbin/groupadd --system gonas
   fi
-  if ! getent passwd sftpgo >/dev/null; then
+  if ! getent passwd gonas >/dev/null; then
     /usr/sbin/useradd --system \
-      --gid sftpgo \
+      --gid gonas \
       --no-create-home \
-      --home-dir /var/lib/sftpgo \
+      --home-dir /var/lib/gonas \
       --shell /sbin/nologin \
-      --comment "SFTPGo user" \
-      sftpgo
+      --comment "GoNAS user" \
+      gonas
   fi
   # initialize data provider
-  /usr/bin/sftpgo initprovider -c /etc/sftpgo
+  /usr/bin/gonas initprovider -c /etc/gonas
   # ensure files and folders have the appropriate permissions
-  /usr/bin/chown -R sftpgo:sftpgo /etc/sftpgo /var/lib/sftpgo /srv/sftpgo
-  /usr/bin/chmod 750 /etc/sftpgo /etc/sftpgo/env.d /var/lib/sftpgo /srv/sftpgo
-  /usr/bin/chmod 640 /etc/sftpgo/sftpgo.json
+  /usr/bin/chown -R gonas:gonas /etc/gonas /var/lib/gonas /srv/gonas
+  /usr/bin/chmod 750 /etc/gonas /etc/gonas/env.d /var/lib/gonas /srv/gonas
+  /usr/bin/chmod 640 /etc/gonas/gonas.json
 fi
 
 # rpm reapplies the packaged directory metadata on every transaction,
-# restore the ownership set at install for /srv/sftpgo, /etc/sftpgo/env.d
-# and /var/lib/sftpgo
-if [ -d /srv/sftpgo ]; then
-    /usr/bin/chown sftpgo:sftpgo /srv/sftpgo
-    /usr/bin/chmod 750 /srv/sftpgo
+# restore the ownership set at install for /srv/gonas, /etc/gonas/env.d
+# and /var/lib/gonas
+if [ -d /srv/gonas ]; then
+    /usr/bin/chown gonas:gonas /srv/gonas
+    /usr/bin/chmod 750 /srv/gonas
 fi
 
-if [ -d /etc/sftpgo/env.d ]; then
-    /usr/bin/chown sftpgo:sftpgo /etc/sftpgo/env.d
-    /usr/bin/chmod 750 /etc/sftpgo/env.d
+if [ -d /etc/gonas/env.d ]; then
+    /usr/bin/chown gonas:gonas /etc/gonas/env.d
+    /usr/bin/chmod 750 /etc/gonas/env.d
 fi
 
-if [ -d /var/lib/sftpgo ]; then
-    /usr/bin/chown sftpgo:sftpgo /var/lib/sftpgo
-    /usr/bin/chmod 750 /var/lib/sftpgo
+if [ -d /var/lib/gonas ]; then
+    /usr/bin/chown gonas:gonas /var/lib/gonas
+    /usr/bin/chmod 750 /var/lib/gonas
 fi
 
 # set the cap_net_bind_service capability so the service and the CLI
 # commands, such as certificate requests, can bind to privileged ports
-setcap cap_net_bind_service=+ep /usr/bin/sftpgo || :
+setcap cap_net_bind_service=+ep /usr/bin/gonas || :
 
 # reload to pick up any changes to systemd files
 /bin/systemctl daemon-reload >/dev/null 2>&1 || :

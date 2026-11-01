@@ -22,11 +22,11 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 
-	"github.com/drakkan/sftpgo/v2/internal/config"
-	"github.com/drakkan/sftpgo/v2/internal/httpclient"
-	"github.com/drakkan/sftpgo/v2/internal/httpd"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/config"
+	"github.com/xrogers/gonas/v2/internal/httpclient"
+	"github.com/xrogers/gonas/v2/internal/httpd"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/util"
 )
 
 func getHealthzURLFromBindings(bindings []httpd.Binding) string {
@@ -54,7 +54,7 @@ func getHealthzURLFromBindings(bindings []httpd.Binding) string {
 var (
 	pingCmd = &cobra.Command{
 		Use:   "ping",
-		Short: "Issues an health check to SFTPGo",
+		Short: "Issues an health check to GoNAS",
 		Long: `This command is only useful in environments where system commands like
 "curl", "wget" and similar are not available.
 Checks over UNIX domain sockets are not supported`,
@@ -101,7 +101,7 @@ Checks over UNIX domain sockets are not supported`,
 			logger.DebugToConsole("Health Check URL %q", url)
 			resp, err := httpclient.RetryableGet(url)
 			if err != nil {
-				logger.ErrorToConsole("Unable to connect to SFTPGo: %v", err)
+				logger.ErrorToConsole("Unable to connect to GoNAS: %v", err)
 				os.Exit(1)
 			}
 			defer resp.Body.Close()

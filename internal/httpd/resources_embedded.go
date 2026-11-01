@@ -21,7 +21,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/drakkan/sftpgo/v2/internal/bundle"
+	"github.com/xrogers/gonas/v2/internal/bundle"
 )
 
 func serveStaticDir(router chi.Router, path, fsDirPath string, disableDirectoryIndex bool) {

@@ -133,7 +133,7 @@
     else if (replace) history.replaceState({ path }, '', url);
     try {
       const { data: rows, headers } = await request(`${data.dirs}?path=${encodeURIComponent(path)}`, { signal: controller.signal });
-      const permissions = headers.get('X-SFTPGO-DIR-PERMISSIONS');
+      const permissions = headers.get('X-GONAS-DIR-PERMISSIONS');
       if (permissions !== null && !isShare) state.permissions = new Set(permissions.split(',').filter(Boolean));
       state.entries = (rows || []).map((row) => normalize(row, path)).sort(compare);
       render();

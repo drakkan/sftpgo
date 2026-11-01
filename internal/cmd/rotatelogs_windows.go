@@ -20,7 +20,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/drakkan/sftpgo/v2/internal/service"
+	"github.com/xrogers/gonas/v2/internal/service"
 )
 
 var (

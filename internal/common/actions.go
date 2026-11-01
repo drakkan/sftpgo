@@ -33,11 +33,11 @@ import (
 	"github.com/sftpgo/sdk"
 	"github.com/sftpgo/sdk/plugin/notifier"
 
-	"github.com/drakkan/sftpgo/v2/internal/command"
-	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/httpclient"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/plugin"
+	"github.com/xrogers/gonas/v2/internal/command"
+	"github.com/xrogers/gonas/v2/internal/dataprovider"
+	"github.com/xrogers/gonas/v2/internal/httpclient"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/plugin"
 )
 
 var (
@@ -62,7 +62,7 @@ type ProtocolActions struct {
 	ExecuteOn []string `json:"execute_on" mapstructure:"execute_on"`
 	// Actions to be performed synchronously.
 	// The pre-delete action is always executed synchronously while the other ones are asynchronous.
-	// Executing an action synchronously means that SFTPGo will not return a result code to the client
+	// Executing an action synchronously means that GoNAS will not return a result code to the client
 	// (which is waiting for it) until your hook have completed its execution.
 	ExecuteSync []string `json:"execute_sync" mapstructure:"execute_sync"`
 	// Absolute path to an external program or an HTTP URL
@@ -325,30 +325,30 @@ func (h *defaultActionHandler) handleCommand(event *notifier.FsEvent) error {
 
 func notificationAsEnvVars(event *notifier.FsEvent) []string {
 	result := []string{
-		fmt.Sprintf("SFTPGO_ACTION=%s", event.Action),
-		fmt.Sprintf("SFTPGO_ACTION_USERNAME=%s", event.Username),
-		fmt.Sprintf("SFTPGO_ACTION_PATH=%s", event.Path),
-		fmt.Sprintf("SFTPGO_ACTION_TARGET=%s", event.TargetPath),
-		fmt.Sprintf("SFTPGO_ACTION_VIRTUAL_PATH=%s", event.VirtualPath),
-		fmt.Sprintf("SFTPGO_ACTION_VIRTUAL_TARGET=%s", event.VirtualTargetPath),
-		fmt.Sprintf("SFTPGO_ACTION_SSH_CMD=%s", event.SSHCmd),
-		fmt.Sprintf("SFTPGO_ACTION_FILE_SIZE=%d", event.FileSize),
-		fmt.Sprintf("SFTPGO_ACTION_ELAPSED=%d", event.Elapsed),
-		fmt.Sprintf("SFTPGO_ACTION_FS_PROVIDER=%d", event.FsProvider),
-		fmt.Sprintf("SFTPGO_ACTION_BUCKET=%s", event.Bucket),
-		fmt.Sprintf("SFTPGO_ACTION_ENDPOINT=%s", event.Endpoint),
-		fmt.Sprintf("SFTPGO_ACTION_STATUS=%d", event.Status),
-		fmt.Sprintf("SFTPGO_ACTION_PROTOCOL=%s", event.Protocol),
-		fmt.Sprintf("SFTPGO_ACTION_IP=%s", event.IP),
-		fmt.Sprintf("SFTPGO_ACTION_SESSION_ID=%s", event.SessionID),
-		fmt.Sprintf("SFTPGO_ACTION_OPEN_FLAGS=%d", event.OpenFlags),
-		fmt.Sprintf("SFTPGO_ACTION_TIMESTAMP=%d", event.Timestamp),
-		fmt.Sprintf("SFTPGO_ACTION_ROLE=%s", event.Role),
+		fmt.Sprintf("GONAS_ACTION=%s", event.Action),
+		fmt.Sprintf("GONAS_ACTION_USERNAME=%s", event.Username),
+		fmt.Sprintf("GONAS_ACTION_PATH=%s", event.Path),
+		fmt.Sprintf("GONAS_ACTION_TARGET=%s", event.TargetPath),
+		fmt.Sprintf("GONAS_ACTION_VIRTUAL_PATH=%s", event.VirtualPath),
+		fmt.Sprintf("GONAS_ACTION_VIRTUAL_TARGET=%s", event.VirtualTargetPath),
+		fmt.Sprintf("GONAS_ACTION_SSH_CMD=%s", event.SSHCmd),
+		fmt.Sprintf("GONAS_ACTION_FILE_SIZE=%d", event.FileSize),
+		fmt.Sprintf("GONAS_ACTION_ELAPSED=%d", event.Elapsed),
+		fmt.Sprintf("GONAS_ACTION_FS_PROVIDER=%d", event.FsProvider),
+		fmt.Sprintf("GONAS_ACTION_BUCKET=%s", event.Bucket),
+		fmt.Sprintf("GONAS_ACTION_ENDPOINT=%s", event.Endpoint),
+		fmt.Sprintf("GONAS_ACTION_STATUS=%d", event.Status),
+		fmt.Sprintf("GONAS_ACTION_PROTOCOL=%s", event.Protocol),
+		fmt.Sprintf("GONAS_ACTION_IP=%s", event.IP),
+		fmt.Sprintf("GONAS_ACTION_SESSION_ID=%s", event.SessionID),
+		fmt.Sprintf("GONAS_ACTION_OPEN_FLAGS=%d", event.OpenFlags),
+		fmt.Sprintf("GONAS_ACTION_TIMESTAMP=%d", event.Timestamp),
+		fmt.Sprintf("GONAS_ACTION_ROLE=%s", event.Role),
 	}
 	if len(event.Metadata) > 0 {
 		data, err := json.Marshal(event.Metadata)
 		if err == nil {
-			result = append(result, fmt.Sprintf("SFTPGO_ACTION_METADATA=%s", data))
+			result = append(result, fmt.Sprintf("GONAS_ACTION_METADATA=%s", data))
 		}
 	}
 	return result

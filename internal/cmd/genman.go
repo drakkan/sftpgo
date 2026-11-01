@@ -24,16 +24,16 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/version"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/version"
 )
 
 var (
 	manDir    string
 	genManCmd = &cobra.Command{
 		Use:   "man",
-		Short: "Generate man pages for sftpgo",
-		Long: `This command automatically generates up-to-date man pages of SFTPGo's
+		Short: "Generate man pages for gonas",
+		Long: `This command automatically generates up-to-date man pages of GoNAS's
 command-line interface.
 By default, it creates the man page files in the "man" directory under the
 current directory.
@@ -50,8 +50,8 @@ current directory.
 			}
 			header := &doc.GenManHeader{
 				Section: "1",
-				Manual:  "SFTPGo Manual",
-				Source:  fmt.Sprintf("SFTPGo %v", version.Get().Version),
+				Manual:  "GoNAS Manual",
+				Source:  fmt.Sprintf("GoNAS %v", version.Get().Version),
 			}
 			cmd.Root().DisableAutoGenTag = true
 			err := doc.GenManTree(cmd.Root(), header, manDir)

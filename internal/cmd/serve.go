@@ -23,8 +23,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/subosito/gotenv"
 
-	"github.com/drakkan/sftpgo/v2/internal/service"
-	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/service"
+	"github.com/xrogers/gonas/v2/internal/util"
 )
 
 const (
@@ -34,11 +34,11 @@ const (
 var (
 	serveCmd = &cobra.Command{
 		Use:   "serve",
-		Short: "Start the SFTPGo service",
-		Long: `To start the SFTPGo with the default values for the command line flags simply
+		Short: "Start the GoNAS service",
+		Long: `To start the GoNAS with the default values for the command line flags simply
 use:
 
-$ sftpgo serve
+$ gonas serve
 
 Please take a look at the usage below to customize the startup options`,
 		Run: func(_ *cobra.Command, _ []string) {
@@ -109,31 +109,31 @@ func checkServeParamsFromEnvFiles(configDir string) {
 					continue
 				}
 				switch k {
-				case "SFTPGO_LOG_FILE_PATH":
+				case "GONAS_LOG_FILE_PATH":
 					logFilePath = v
-				case "SFTPGO_LOG_MAX_SIZE":
+				case "GONAS_LOG_MAX_SIZE":
 					setIntFromEnv(&logMaxSize, v)
-				case "SFTPGO_LOG_MAX_BACKUPS":
+				case "GONAS_LOG_MAX_BACKUPS":
 					setIntFromEnv(&logMaxBackups, v)
-				case "SFTPGO_LOG_MAX_AGE":
+				case "GONAS_LOG_MAX_AGE":
 					setIntFromEnv(&logMaxAge, v)
-				case "SFTPGO_LOG_COMPRESS":
+				case "GONAS_LOG_COMPRESS":
 					setBoolFromEnv(&logCompress, v)
-				case "SFTPGO_LOG_LEVEL":
+				case "GONAS_LOG_LEVEL":
 					logLevel = v
-				case "SFTPGO_LOG_UTC_TIME":
+				case "GONAS_LOG_UTC_TIME":
 					setBoolFromEnv(&logUTCTime, v)
-				case "SFTPGO_CONFIG_FILE":
+				case "GONAS_CONFIG_FILE":
 					configFile = v
-				case "SFTPGO_LOADDATA_FROM":
+				case "GONAS_LOADDATA_FROM":
 					loadDataFrom = v
-				case "SFTPGO_LOADDATA_MODE":
+				case "GONAS_LOADDATA_MODE":
 					setIntFromEnv(&loadDataMode, v)
-				case "SFTPGO_LOADDATA_CLEAN":
+				case "GONAS_LOADDATA_CLEAN":
 					setBoolFromEnv(&loadDataClean, v)
-				case "SFTPGO_LOADDATA_QUOTA_SCAN":
+				case "GONAS_LOADDATA_QUOTA_SCAN":
 					setIntFromEnv(&loadDataQuotaScan, v)
-				case "SFTPGO_GRACE_TIME":
+				case "GONAS_GRACE_TIME":
 					setIntFromEnv(&graceTime, v)
 				}
 			}

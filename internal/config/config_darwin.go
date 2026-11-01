@@ -20,5 +20,5 @@ import "github.com/spf13/viper"
 
 // macOS specific config search path
 func setViperAdditionalConfigPaths() {
-	viper.AddConfigPath("/usr/local/etc/sftpgo")
+	viper.AddConfigPath("/usr/local/etc/gonas")
 }

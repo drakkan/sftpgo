@@ -3,17 +3,17 @@ set -e
 
 if [ "$1" = "configure" ]; then
   # Add user and group
-  if ! getent group sftpgo >/dev/null; then
-    groupadd --system sftpgo
+  if ! getent group gonas >/dev/null; then
+    groupadd --system gonas
   fi
-  if ! getent passwd sftpgo >/dev/null; then
+  if ! getent passwd gonas >/dev/null; then
     useradd --system \
-      --gid sftpgo \
+      --gid gonas \
       --no-create-home \
-      --home-dir /var/lib/sftpgo \
+      --home-dir /var/lib/gonas \
       --shell /usr/sbin/nologin \
-      --comment "SFTPGo user" \
-      sftpgo
+      --comment "GoNAS user" \
+      gonas
   fi
 
   if [ -z "$2" ]; then
@@ -21,32 +21,32 @@ if [ "$1" = "configure" ]; then
     # for upgrades the second arg is the previously installed version
     #
     # initialize data provider
-    sftpgo initprovider -c /etc/sftpgo
+    gonas initprovider -c /etc/gonas
     # ensure files and folders have the appropriate permissions
-    chown -R sftpgo:sftpgo /etc/sftpgo /var/lib/sftpgo /srv/sftpgo
-    chmod 750 /etc/sftpgo /etc/sftpgo/env.d /var/lib/sftpgo /srv/sftpgo
-    chmod 640 /etc/sftpgo/sftpgo.json
+    chown -R gonas:gonas /etc/gonas /var/lib/gonas /srv/gonas
+    chmod 750 /etc/gonas /etc/gonas/env.d /var/lib/gonas /srv/gonas
+    chmod 640 /etc/gonas/gonas.json
   fi
 
   # set the cap_net_bind_service capability so the service and the CLI
   # commands, such as certificate requests, can bind to privileged ports
-  setcap cap_net_bind_service=+ep /usr/bin/sftpgo || true
+  setcap cap_net_bind_service=+ep /usr/bin/gonas || true
 
 fi
 
 if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-deconfigure" ] || [ "$1" = "abort-remove" ] ; then
 	# This will only remove masks created by d-s-h on package removal.
-	deb-systemd-helper unmask 'sftpgo.service' >/dev/null || true
+	deb-systemd-helper unmask 'gonas.service' >/dev/null || true
 
 	# was-enabled defaults to true, so new installations run enable.
-	if deb-systemd-helper --quiet was-enabled 'sftpgo.service'; then
+	if deb-systemd-helper --quiet was-enabled 'gonas.service'; then
 		# Enables the unit on first installation, creates new
 		# symlinks on upgrades if the unit file has changed.
-		deb-systemd-helper enable 'sftpgo.service' >/dev/null || true
+		deb-systemd-helper enable 'gonas.service' >/dev/null || true
 	else
 		# Update the statefile to add new symlinks (if any), which need to be
 		# cleaned up on purge. Also remove old symlinks.
-		deb-systemd-helper update-state 'sftpgo.service' >/dev/null || true
+		deb-systemd-helper update-state 'gonas.service' >/dev/null || true
 	fi
 fi
 
@@ -58,6 +58,6 @@ if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-decon
 		else
 			_dh_action=start
 		fi
-		deb-systemd-invoke $_dh_action 'sftpgo.service' >/dev/null || true
+		deb-systemd-invoke $_dh_action 'gonas.service' >/dev/null || true
 	fi
 fi

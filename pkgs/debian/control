@@ -1,17 +1,17 @@
-Source: sftpgo
+Source: gonas
 Section: net
 Priority: optional
-Maintainer: Nicola Murino <nicola.murino@gmail.com>
+Maintainer: xrogers <xrogers@users.noreply.github.com>
 Build-Depends: debhelper (>= 10)
 Standards-Version: 4.1.2
-Homepage: https://github.com/drakkan/sftpgo
-Vcs-Git: https://github.com/drakkan/sftpgo.git
+Homepage: https://github.com/xrogers/gonas
+Vcs-Git: https://github.com/xrogers/gonas.git
 
-Package: sftpgo
+Package: gonas
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Recommends: bash-completion, mime-support
 Description: Full-featured and highly configurable SFTP server
- SFTPGo has optional FTP/S and WebDAV support.
+ GoNAS has optional FTP/S and WebDAV support.
  It can serve local filesystem, S3 (Compatible) Object Storage,
  Google Cloud Storage, Azure Blob Storage, SFTP.

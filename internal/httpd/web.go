@@ -22,8 +22,8 @@ import (
 	"github.com/go-chi/render"
 	"github.com/unrolled/secure"
 
-	"github.com/drakkan/sftpgo/v2/internal/util"
-	"github.com/drakkan/sftpgo/v2/internal/version"
+	"github.com/xrogers/gonas/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/version"
 )
 
 const (

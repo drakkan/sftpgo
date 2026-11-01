@@ -29,10 +29,10 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/drakkan/sftpgo/v2/internal/common"
-	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/common"
+	"github.com/xrogers/gonas/v2/internal/dataprovider"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/util"
 )
 
 type ctxReqParams int
@@ -152,7 +152,7 @@ type Binding struct {
 	ClientIPProxyHeader string `json:"client_ip_proxy_header" mapstructure:"client_ip_proxy_header"`
 	// Some client IP headers such as "X-Forwarded-For" can contain multiple IP address, this setting
 	// define the position to trust starting from the right. For example if we have:
-	// "10.0.0.1,11.0.0.1,12.0.0.1,13.0.0.1" and the depth is 0, SFTPGo will use "13.0.0.1"
+	// "10.0.0.1,11.0.0.1,12.0.0.1,13.0.0.1" and the depth is 0, GoNAS will use "13.0.0.1"
 	// as client IP, if depth is 1, "12.0.0.1" will be used and so on
 	ClientIPHeaderDepth int `json:"client_ip_header_depth" mapstructure:"client_ip_header_depth"`
 	// Do not add the WWW-Authenticate header after an authentication error,

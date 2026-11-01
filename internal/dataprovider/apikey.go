@@ -23,8 +23,8 @@ import (
 	"github.com/alexedwards/argon2id"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/util"
 )
 
 // APIKeyScope defines the supported API key scopes
@@ -42,7 +42,7 @@ const (
 	APIKeyScopeUserWebSession
 )
 
-// APIKey defines a SFTPGo API key.
+// APIKey defines a GoNAS API key.
 // API keys can be used as authentication alternative to short lived tokens
 // for REST API
 type APIKey struct {

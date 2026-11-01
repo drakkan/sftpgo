@@ -1,4 +1,4 @@
-module github.com/drakkan/sftpgo/v2
+module github.com/xrogers/gonas/v2
 
 go 1.26.9
 

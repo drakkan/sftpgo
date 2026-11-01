@@ -1,15 +1,15 @@
 # Data Backup
 
-:warning: Since v2.4.0 you can use the [EventManager](https://docs.sftpgo.com/latest/eventmanager/) to schedule backups.
+:warning: Since v2.4.0 you can use the EventManager to schedule backups.
 
-The `backup` example script shows how to use the SFTPGo REST API to backup your data.
+The `backup` example script shows how to use the GoNAS REST API to backup your data.
 
 The script is written in Python and has the following requirements:
 
 - python3 or python2
 - python [Requests](https://requests.readthedocs.io/en/master/) module
 
-The provided example tries to connect to an SFTPGo instance running on `127.0.0.1:8080` using the following credentials:
+The provided example tries to connect to an GoNAS instance running on `127.0.0.1:8080` using the following credentials:
 
 - username: `admin`
 - password: `password`

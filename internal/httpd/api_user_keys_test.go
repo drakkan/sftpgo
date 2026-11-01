@@ -31,12 +31,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/drakkan/sftpgo/v2/internal/common"
-	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/httpdtest"
-	"github.com/drakkan/sftpgo/v2/internal/kms"
-	"github.com/drakkan/sftpgo/v2/internal/mfa"
-	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/common"
+	"github.com/xrogers/gonas/v2/internal/dataprovider"
+	"github.com/xrogers/gonas/v2/internal/httpdtest"
+	"github.com/xrogers/gonas/v2/internal/kms"
+	"github.com/xrogers/gonas/v2/internal/mfa"
+	"github.com/xrogers/gonas/v2/internal/util"
 )
 
 const (
@@ -663,10 +663,10 @@ func TestWebClientDirPermissionsHeader(t *testing.T) {
 	require.NoError(t, err)
 	rr := webClientRequest(t, http.MethodGet, webClientDirsPath+"?path=%2F", cookie)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Equal(t, "add,mkdir,rename,delete,download,copy", rr.Header().Get("X-SFTPGO-DIR-PERMISSIONS"))
+	assert.Equal(t, "add,mkdir,rename,delete,download,copy", rr.Header().Get("X-GONAS-DIR-PERMISSIONS"))
 	rr = webClientRequest(t, http.MethodGet, webClientDirsPath+"?path=%2Freadonly", cookie)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Equal(t, "download", rr.Header().Get("X-SFTPGO-DIR-PERMISSIONS"))
+	assert.Equal(t, "download", rr.Header().Get("X-GONAS-DIR-PERMISSIONS"))
 }
 
 // The WebClient was rewritten so that it no longer depends on the proprietary theme in

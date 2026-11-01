@@ -55,7 +55,7 @@ import (
 	"github.com/lithammer/shortuuid/v4"
 	"golang.org/x/crypto/ssh"
 
-	"github.com/drakkan/sftpgo/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/logger"
 )
 
 const (
@@ -596,11 +596,11 @@ func IsFileInputValid(fileInput string) bool {
 
 // CleanDirInput sanitizes user input for directories.
 // On Windows it removes any trailing `"`.
-// We try to help windows users that set an invalid path such as "C:\ProgramData\SFTPGO\".
+// We try to help windows users that set an invalid path such as "C:\ProgramData\GONAS\".
 // This will only help if the invalid path is the last argument, for example in this command:
-// sftpgo.exe serve -c "C:\ProgramData\SFTPGO\" -l "sftpgo.log"
-// the -l flag will be ignored and the -c flag will get the value `C:\ProgramData\SFTPGO" -l sftpgo.log`
-// since the backslash after SFTPGO escape the double quote. This is definitely a bad user input
+// gonas.exe serve -c "C:\ProgramData\GONAS\" -l "gonas.log"
+// the -l flag will be ignored and the -c flag will get the value `C:\ProgramData\GONAS" -l gonas.log`
+// since the backslash after GONAS escape the double quote. This is definitely a bad user input
 func CleanDirInput(dirInput string) string {
 	if runtime.GOOS == osWindows {
 		for strings.HasSuffix(dirInput, "\"") {

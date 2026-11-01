@@ -39,11 +39,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
 
-	"github.com/drakkan/sftpgo/v2/internal/common"
-	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/kms"
-	"github.com/drakkan/sftpgo/v2/internal/util"
-	"github.com/drakkan/sftpgo/v2/internal/vfs"
+	"github.com/xrogers/gonas/v2/internal/common"
+	"github.com/xrogers/gonas/v2/internal/dataprovider"
+	"github.com/xrogers/gonas/v2/internal/kms"
+	"github.com/xrogers/gonas/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/vfs"
 )
 
 const (
@@ -543,7 +543,7 @@ func TestSSHCommandErrors(t *testing.T) {
 	assert.NoError(t, err)
 
 	cmd = sshCommand{
-		command:    "sftpgo-remove",
+		command:    "gonas-remove",
 		connection: &connection,
 		args:       []string{"/../../src"},
 	}
@@ -551,7 +551,7 @@ func TestSSHCommandErrors(t *testing.T) {
 	assert.Error(t, err, "ssh command must fail, we are requesting an invalid path")
 
 	cmd = sshCommand{
-		command:    "sftpgo-copy",
+		command:    "gonas-copy",
 		connection: &connection,
 		args:       []string{"/../../test_src", "."},
 	}
@@ -690,14 +690,14 @@ func TestSSHCommandsRemoteFs(t *testing.T) {
 		args:       []string{},
 	}
 
-	err := cmd.handleSFTPGoCopy()
+	err := cmd.handleGoNASCopy()
 	assert.Error(t, err)
 	cmd = sshCommand{
-		command:    "sftpgo-remove",
+		command:    "gonas-remove",
 		connection: connection,
 		args:       []string{},
 	}
-	err = cmd.handleSFTPGoRemove()
+	err = cmd.handleGoNASRemove()
 	assert.Error(t, err)
 }
 
@@ -720,19 +720,19 @@ func TestSSHCmdGetFsErrors(t *testing.T) {
 		channel:        &mockSSHChannel,
 	}
 	cmd := sshCommand{
-		command:    "sftpgo-remove",
+		command:    "gonas-remove",
 		connection: connection,
 		args:       []string{"path"},
 	}
-	err := cmd.handleSFTPGoRemove()
+	err := cmd.handleGoNASRemove()
 	assert.Error(t, err)
 
 	cmd = sshCommand{
-		command:    "sftpgo-copy",
+		command:    "gonas-copy",
 		connection: connection,
 		args:       []string{"path1", "path2"},
 	}
-	err = cmd.handleSFTPGoCopy()
+	err = cmd.handleGoNASCopy()
 	assert.Error(t, err)
 
 	err = os.RemoveAll(user.GetHomeDir())

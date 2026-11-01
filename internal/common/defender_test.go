@@ -25,7 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/yl2chen/cidranger"
 
-	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
+	"github.com/xrogers/gonas/v2/internal/dataprovider"
 )
 
 func TestBasicDefender(t *testing.T) {

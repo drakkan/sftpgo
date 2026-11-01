@@ -42,10 +42,10 @@ import (
 	"github.com/sftpgo/sdk"
 	"golang.org/x/crypto/ssh"
 
-	"github.com/drakkan/sftpgo/v2/internal/kms"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/util"
-	"github.com/drakkan/sftpgo/v2/internal/version"
+	"github.com/xrogers/gonas/v2/internal/kms"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/version"
 )
 
 const (
@@ -682,11 +682,11 @@ func (*SFTPFs) CheckMetadata() error {
 func (*SFTPFs) GetAtomicUploadPath(name string) string {
 	dir := path.Dir(name)
 	guid := xid.New().String()
-	return path.Join(dir, ".sftpgo-upload."+guid+"."+path.Base(name))
+	return path.Join(dir, ".gonas-upload."+guid+"."+path.Base(name))
 }
 
 // GetRelativePath returns the path for a file relative to the sftp prefix if any.
-// This is the path as seen by SFTPGo users
+// This is the path as seen by GoNAS users
 func (fs *SFTPFs) GetRelativePath(name string) string {
 	rel := path.Clean(name)
 	if rel == "." {

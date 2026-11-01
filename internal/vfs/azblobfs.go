@@ -44,10 +44,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/sftp"
 
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/metric"
-	"github.com/drakkan/sftpgo/v2/internal/util"
-	"github.com/drakkan/sftpgo/v2/internal/version"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/metric"
+	"github.com/xrogers/gonas/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/version"
 )
 
 const (
@@ -598,7 +598,7 @@ func (*AzureBlobFs) GetAtomicUploadPath(_ string) string {
 }
 
 // GetRelativePath returns the path for a file relative to the user's home dir.
-// This is the path as seen by SFTPGo users
+// This is the path as seen by GoNAS users
 func (fs *AzureBlobFs) GetRelativePath(name string) string {
 	rel := path.Clean(name)
 	if rel == "." {
@@ -1154,7 +1154,7 @@ func (fs *AzureBlobFs) getCopyOptions(srcInfo os.FileInfo, updateModTime bool) *
 		metadata := make(map[string]*string)
 		for k, v := range getMetadata(srcInfo) {
 			if v != "" {
-				if strings.EqualFold(k, lastModifiedField) {
+				if isLastModifiedField(k) {
 					metadata[k] = new("0")
 				} else {
 					metadata[k] = new(v)

@@ -19,7 +19,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/drakkan/sftpgo/v2/internal/vfs"
+	"github.com/xrogers/gonas/v2/internal/vfs"
 )
 
 const (

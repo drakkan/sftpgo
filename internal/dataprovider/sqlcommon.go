@@ -30,9 +30,9 @@ import (
 	"github.com/cockroachdb/cockroach-go/v2/crdb"
 	"github.com/sftpgo/sdk"
 
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/util"
-	"github.com/drakkan/sftpgo/v2/internal/vfs"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/vfs"
 )
 
 const (
@@ -45,7 +45,7 @@ var (
 	errSQLFoldersAssociation = errors.New("unable to associate virtual folders to user")
 	errSQLGroupsAssociation  = errors.New("unable to associate groups to user")
 	errSQLUsersAssociation   = errors.New("unable to associate users to group")
-	errSchemaVersionEmpty    = errors.New("we can't determine schema version because the schema_migration table is empty. The SFTPGo database might be corrupted. Consider using the \"resetprovider\" sub-command")
+	errSchemaVersionEmpty    = errors.New("we can't determine schema version because the schema_migration table is empty. The GoNAS database might be corrupted. Consider using the \"resetprovider\" sub-command")
 )
 
 type sqlQuerier interface {
@@ -4088,7 +4088,7 @@ func sqlAcquireLock(dbHandle *sql.Conn) error {
 		providerLog(logger.LevelInfo, "acquired database lock")
 	case MySQLDataProviderName:
 		var lockResult sql.NullInt64
-		err := dbHandle.QueryRowContext(ctx, `SELECT GET_LOCK('sftpgo.migration',30)`).Scan(&lockResult)
+		err := dbHandle.QueryRowContext(ctx, `SELECT GET_LOCK('gonas.migration',30)`).Scan(&lockResult)
 		if err != nil {
 			return fmt.Errorf("unable to get lock: %w", err)
 		}
@@ -4117,7 +4117,7 @@ func sqlReleaseLock(dbHandle *sql.Conn) {
 			providerLog(logger.LevelInfo, "released database lock")
 		}
 	case MySQLDataProviderName:
-		_, err := dbHandle.ExecContext(ctx, `SELECT RELEASE_LOCK('sftpgo.migration')`)
+		_, err := dbHandle.ExecContext(ctx, `SELECT RELEASE_LOCK('gonas.migration')`)
 		if err != nil {
 			providerLog(logger.LevelWarn, "unable to release lock: %v", err)
 		} else {

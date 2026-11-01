@@ -1,18 +1,18 @@
 [Unit]
-Description=SFTPGo Server
+Description=GoNAS Server
 After=network.target
 
 [Service]
-User=sftpgo
-Group=sftpgo
+User=gonas
+Group=gonas
 Type=simple
-WorkingDirectory=/etc/sftpgo
-RuntimeDirectory=sftpgo
-Environment=SFTPGO_CONFIG_DIR=/etc/sftpgo/
-Environment=SFTPGO_LOG_FILE_PATH=
-Environment=SFTPGO_HTTPD__THUMBNAILS__CACHE_DIR=/var/lib/sftpgo/thumbnails
-EnvironmentFile=-/etc/sftpgo/sftpgo.env
-ExecStart=/usr/bin/sftpgo serve
+WorkingDirectory=/etc/gonas
+RuntimeDirectory=gonas
+Environment=GONAS_CONFIG_DIR=/etc/gonas/
+Environment=GONAS_LOG_FILE_PATH=
+Environment=GONAS_HTTPD__THUMBNAILS__CACHE_DIR=/var/lib/gonas/thumbnails
+EnvironmentFile=-/etc/gonas/gonas.env
+ExecStart=/usr/bin/gonas serve
 ExecReload=/bin/kill -s HUP $MAINPID
 LimitNOFILE=8192
 KillMode=mixed

@@ -1,0 +1,8 @@
+armv7/gonas usr/bin
+gonas.json etc/gonas
+init/gonas.service lib/systemd/system
+bash_completion/gonas usr/share/bash-completion/completions
+man/man1/* usr/share/man/man1
+templates usr/share/gonas
+static usr/share/gonas
+openapi usr/share/gonas

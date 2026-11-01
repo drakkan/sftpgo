@@ -19,7 +19,7 @@ package vfs
 import (
 	"errors"
 
-	"github.com/drakkan/sftpgo/v2/internal/version"
+	"github.com/xrogers/gonas/v2/internal/version"
 )
 
 func init() {

@@ -27,9 +27,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/kms"
-	"github.com/drakkan/sftpgo/v2/internal/vfs"
+	"github.com/xrogers/gonas/v2/internal/dataprovider"
+	"github.com/xrogers/gonas/v2/internal/kms"
+	"github.com/xrogers/gonas/v2/internal/vfs"
 )
 
 func TestTransferUpdateQuota(t *testing.T) {
@@ -455,7 +455,7 @@ func TestUploadAtomicRenameError(t *testing.T) {
 	// the atomic upload temp file lives inside the home dir but does not exist, so the
 	// rename performed on Close fails and must be recorded as the transfer error
 	fsPath := filepath.Join(homeDir, "file.txt")
-	effectiveFsPath := filepath.Join(homeDir, ".sftpgo-upload.missing")
+	effectiveFsPath := filepath.Join(homeDir, ".gonas-upload.missing")
 	transfer := NewBaseTransfer(nil, conn, nil, fsPath, effectiveFsPath, "/file.txt", TransferUpload,
 		0, 0, 0, 0, true, fs, dataprovider.TransferQuota{})
 	require.True(t, transfer.isAtomicUpload())

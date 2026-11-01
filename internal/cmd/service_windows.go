@@ -21,7 +21,7 @@ import (
 var (
 	serviceCmd = &cobra.Command{
 		Use:   "service",
-		Short: "Manage the SFTPGo Windows Service",
+		Short: "Manage the GoNAS Windows Service",
 	}
 )
 

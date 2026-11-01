@@ -233,8 +233,8 @@ const send=XMLHttpRequest.prototype.send;XMLHttpRequest.prototype.send=function(
   check('key shown once', key.includes('.'), key.slice(0, 6));
   await page.locator('dialog .button-primary').click(); await idle();
   check('listed with its scope', (await page.textContent('#keys')).includes('phone') && (await page.textContent('#keys')).includes('web session')); await shot('22-keys');
-  let r = await ctx.request.get(`${base}/api/v2/user/profile`, { headers: { 'X-SFTPGO-API-KEY': key } });
-  const web = await browser.newContext(); r = await web.request.post(`${base}/api/v2/user/websession`, { headers: { 'X-SFTPGO-API-KEY': key } });
+  let r = await ctx.request.get(`${base}/api/v2/user/profile`, { headers: { 'X-GONAS-API-KEY': key } });
+  const web = await browser.newContext(); r = await web.request.post(`${base}/api/v2/user/websession`, { headers: { 'X-GONAS-API-KEY': key } });
   check('the key opens a web session', r.ok(), r.status());
   const sess = await web.newPage(); sess.setDefaultTimeout(8000);
   await sess.goto(`${base}/web/client/files`); await idle(sess);

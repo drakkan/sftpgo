@@ -1,4 +1,4 @@
-module github.com/drakkan/sftpgo/tests/ipfilter
+module github.com/xrogers/gonas/tests/ipfilter
 
 go 1.26.0
 

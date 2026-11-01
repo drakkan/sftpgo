@@ -27,11 +27,11 @@ import (
 
 	"github.com/sftpgo/sdk/plugin/notifier"
 
-	"github.com/drakkan/sftpgo/v2/internal/command"
-	"github.com/drakkan/sftpgo/v2/internal/httpclient"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/plugin"
-	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/command"
+	"github.com/xrogers/gonas/v2/internal/httpclient"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/plugin"
+	"github.com/xrogers/gonas/v2/internal/util"
 )
 
 const (
@@ -142,14 +142,14 @@ func executeNotificationCommand(operation, executor, ip, objectType, objectName,
 
 	cmd := exec.CommandContext(ctx, config.Actions.Hook, args...)
 	cmd.Env = append(env,
-		fmt.Sprintf("SFTPGO_PROVIDER_ACTION=%s", operation),
-		fmt.Sprintf("SFTPGO_PROVIDER_OBJECT_TYPE=%s", objectType),
-		fmt.Sprintf("SFTPGO_PROVIDER_OBJECT_NAME=%s", objectName),
-		fmt.Sprintf("SFTPGO_PROVIDER_USERNAME=%s", executor),
-		fmt.Sprintf("SFTPGO_PROVIDER_IP=%s", ip),
-		fmt.Sprintf("SFTPGO_PROVIDER_ROLE=%s", role),
-		fmt.Sprintf("SFTPGO_PROVIDER_TIMESTAMP=%d", util.GetTimeAsMsSinceEpoch(time.Now())),
-		fmt.Sprintf("SFTPGO_PROVIDER_OBJECT=%s", objectAsJSON))
+		fmt.Sprintf("GONAS_PROVIDER_ACTION=%s", operation),
+		fmt.Sprintf("GONAS_PROVIDER_OBJECT_TYPE=%s", objectType),
+		fmt.Sprintf("GONAS_PROVIDER_OBJECT_NAME=%s", objectName),
+		fmt.Sprintf("GONAS_PROVIDER_USERNAME=%s", executor),
+		fmt.Sprintf("GONAS_PROVIDER_IP=%s", ip),
+		fmt.Sprintf("GONAS_PROVIDER_ROLE=%s", role),
+		fmt.Sprintf("GONAS_PROVIDER_TIMESTAMP=%d", util.GetTimeAsMsSinceEpoch(time.Now())),
+		fmt.Sprintf("GONAS_PROVIDER_OBJECT=%s", objectAsJSON))
 
 	startTime := time.Now()
 	err := cmd.Run()

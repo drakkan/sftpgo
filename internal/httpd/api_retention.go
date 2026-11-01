@@ -19,8 +19,8 @@ import (
 
 	"github.com/go-chi/render"
 
-	"github.com/drakkan/sftpgo/v2/internal/common"
-	"github.com/drakkan/sftpgo/v2/internal/jwt"
+	"github.com/xrogers/gonas/v2/internal/common"
+	"github.com/xrogers/gonas/v2/internal/jwt"
 )
 
 func getRetentionChecks(w http.ResponseWriter, r *http.Request) {

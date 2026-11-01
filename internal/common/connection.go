@@ -31,10 +31,10 @@ import (
 	"github.com/pkg/sftp"
 	"github.com/sftpgo/sdk"
 
-	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/util"
-	"github.com/drakkan/sftpgo/v2/internal/vfs"
+	"github.com/xrogers/gonas/v2/internal/dataprovider"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/vfs"
 )
 
 // BaseConnection defines common fields for a connection using any supported protocol
@@ -1930,7 +1930,7 @@ func (c *BaseConnection) IsQuotaExceededError(err error) bool {
 	}
 }
 
-func isSFTPGoError(err error) bool {
+func isGoNASError(err error) bool {
 	return errors.Is(err, ErrPermissionDenied) || errors.Is(err, ErrNotExist) || errors.Is(err, ErrOpUnsupported) ||
 		errors.Is(err, ErrQuotaExceeded) || errors.Is(err, ErrReadQuotaExceeded) ||
 		errors.Is(err, vfs.ErrStorageSizeUnavailable) || errors.Is(err, ErrShuttingDown)
@@ -1943,7 +1943,7 @@ func (c *BaseConnection) GetGenericError(err error) error {
 		if errors.Is(err, vfs.ErrStorageSizeUnavailable) || errors.Is(err, ErrOpUnsupported) || errors.Is(err, sftp.ErrSSHFxOpUnsupported) {
 			return fmt.Errorf("%w: %w", sftp.ErrSSHFxOpUnsupported, err)
 		}
-		if isSFTPGoError(err) {
+		if isGoNASError(err) {
 			return fmt.Errorf("%w: %w", sftp.ErrSSHFxFailure, err)
 		}
 		if err != nil {
@@ -1955,7 +1955,7 @@ func (c *BaseConnection) GetGenericError(err error) error {
 		}
 		return sftp.ErrSSHFxFailure
 	default:
-		if isSFTPGoError(err) {
+		if isGoNASError(err) {
 			return err
 		}
 		c.Log(logger.LevelError, "generic error: %+v", err)

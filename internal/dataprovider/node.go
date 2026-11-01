@@ -30,11 +30,11 @@ import (
 
 	"github.com/go-jose/go-jose/v4"
 
-	"github.com/drakkan/sftpgo/v2/internal/httpclient"
-	"github.com/drakkan/sftpgo/v2/internal/jwt"
-	"github.com/drakkan/sftpgo/v2/internal/kms"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/httpclient"
+	"github.com/xrogers/gonas/v2/internal/jwt"
+	"github.com/xrogers/gonas/v2/internal/kms"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/util"
 )
 
 // Supported protocols for connecting to other nodes
@@ -45,7 +45,7 @@ const (
 
 const (
 	// NodeTokenHeader defines the header to use for the node auth token
-	NodeTokenHeader   = "X-SFTPGO-Node"
+	NodeTokenHeader   = "X-GONAS-Node"
 	nodeTokenAudience = "node"
 )
 

@@ -1,6 +1,6 @@
 package main
 
-import "github.com/drakkan/sftpgo/ldapauthserver/cmd"
+import "github.com/xrogers/gonas/ldapauthserver/cmd"
 
 func main() {
 	cmd.Execute()

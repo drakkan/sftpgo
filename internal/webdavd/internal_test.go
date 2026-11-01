@@ -36,11 +36,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/drakkan/sftpgo/v2/internal/common"
-	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/kms"
-	"github.com/drakkan/sftpgo/v2/internal/util"
-	"github.com/drakkan/sftpgo/v2/internal/vfs"
+	"github.com/xrogers/gonas/v2/internal/common"
+	"github.com/xrogers/gonas/v2/internal/dataprovider"
+	"github.com/xrogers/gonas/v2/internal/kms"
+	"github.com/xrogers/gonas/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/vfs"
 )
 
 const (
@@ -752,7 +752,7 @@ func TestContentType(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath, testFilePath, testFile+".sftpgo",
+	baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath, testFilePath, testFile+".gonas",
 		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
 	fs = newMockOsFs(false, fs.ConnectionID(), user.GetHomeDir(), nil, os.ErrInvalid)
 	davFile = newWebDavFile(baseTransfer, nil, nil)
@@ -761,7 +761,7 @@ func TestContentType(t *testing.T) {
 	if assert.NoError(t, err) {
 		ctype, err := fi.(*webDavFileInfo).ContentType(ctx)
 		assert.NoError(t, err)
-		assert.Equal(t, "application/sftpgo", ctype)
+		assert.Equal(t, "application/gonas", ctype)
 	}
 	err = davFile.Close()
 	assert.NoError(t, err)

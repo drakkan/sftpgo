@@ -20,13 +20,13 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/drakkan/sftpgo/v2/internal/service"
+	"github.com/xrogers/gonas/v2/internal/service"
 )
 
 var (
 	statusCmd = &cobra.Command{
 		Use:   "status",
-		Short: "Retrieve the status for the SFTPGo Windows Service",
+		Short: "Retrieve the status for the GoNAS Windows Service",
 		Run: func(_ *cobra.Command, _ []string) {
 			s := service.WindowsService{
 				Service: service.Service{

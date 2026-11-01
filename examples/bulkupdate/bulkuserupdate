@@ -10,7 +10,7 @@ try:
 except ImportError:
 	import urlparse
 
-# change base_url to point to your SFTPGo installation
+# change base_url to point to your GoNAS installation
 base_url = "http://127.0.0.1:8080"
 # set to False if you want to skip TLS certificate validation
 verify_tls_cert = True

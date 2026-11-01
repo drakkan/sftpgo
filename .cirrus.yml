@@ -13,19 +13,19 @@ freebsd_task:
 
   setup_script:
     - ln -s /usr/local/bin/go126 /usr/local/bin/go
-    - pw groupadd sftpgo
-    - pw useradd sftpgo -g sftpgo -w none -m
-    - mkdir /home/sftpgo/sftpgo
-    - cp -R . /home/sftpgo/sftpgo
-    - chown -R sftpgo:sftpgo /home/sftpgo/sftpgo
+    - pw groupadd gonas
+    - pw useradd gonas -g gonas -w none -m
+    - mkdir /home/gonas/gonas
+    - cp -R . /home/gonas/gonas
+    - chown -R gonas:gonas /home/gonas/gonas
 
   compile_script:
-    - su sftpgo -c 'cd ~/sftpgo && go build -trimpath -tags nopgxregisterdefaulttypes,disable_grpc_modules -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -o sftpgo'
-    - su sftpgo -c 'cd ~/sftpgo/tests/eventsearcher && go build -trimpath -ldflags "-s -w" -o eventsearcher'
-    - su sftpgo -c 'cd ~/sftpgo/tests/ipfilter && go build -trimpath -ldflags "-s -w" -o ipfilter'
+    - su gonas -c 'cd ~/gonas && go build -trimpath -tags nopgxregisterdefaulttypes,disable_grpc_modules -ldflags "-s -w -X github.com/xrogers/gonas/v2/internal/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/xrogers/gonas/v2/internal/version.date=`date -u +%FT%TZ`" -o gonas'
+    - su gonas -c 'cd ~/gonas/tests/eventsearcher && go build -trimpath -ldflags "-s -w" -o eventsearcher'
+    - su gonas -c 'cd ~/gonas/tests/ipfilter && go build -trimpath -ldflags "-s -w" -o ipfilter'
 
   check_script:
-    - su sftpgo -c 'cd ~/sftpgo && ./sftpgo initprovider && ./sftpgo resetprovider --force'
+    - su gonas -c 'cd ~/gonas && ./gonas initprovider && ./gonas resetprovider --force'
 
   test_script:
-    - su sftpgo -c 'cd ~/sftpgo && go test -v -tags nopgxregisterdefaulttypes,disable_grpc_modules -p 1 -timeout 20m ./... -coverprofile=coverage.txt -covermode=atomic'
+    - su gonas -c 'cd ~/gonas && go test -v -tags nopgxregisterdefaulttypes,disable_grpc_modules -p 1 -timeout 20m ./... -coverprofile=coverage.txt -covermode=atomic'

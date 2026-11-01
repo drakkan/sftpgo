@@ -12,9 +12,9 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-// Package httpd implements REST API and Web interface for SFTPGo.
+// Package httpd implements REST API and Web interface for GoNAS.
 // The OpenAPI 3 schema for the supported API can be found inside the source tree:
-// https://github.com/drakkan/sftpgo/blob/main/openapi/openapi.yaml
+// https://github.com/xrogers/gonas/blob/main/openapi/openapi.yaml
 package httpd
 
 import (
@@ -36,15 +36,15 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/drakkan/sftpgo/v2/internal/acme"
-	"github.com/drakkan/sftpgo/v2/internal/common"
-	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/ftpd"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/mfa"
-	"github.com/drakkan/sftpgo/v2/internal/sftpd"
-	"github.com/drakkan/sftpgo/v2/internal/util"
-	"github.com/drakkan/sftpgo/v2/internal/webdavd"
+	"github.com/xrogers/gonas/v2/internal/acme"
+	"github.com/xrogers/gonas/v2/internal/common"
+	"github.com/xrogers/gonas/v2/internal/dataprovider"
+	"github.com/xrogers/gonas/v2/internal/ftpd"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/mfa"
+	"github.com/xrogers/gonas/v2/internal/sftpd"
+	"github.com/xrogers/gonas/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/webdavd"
 )
 
 const (
@@ -195,9 +195,9 @@ const (
 	httpdMaxEditFileSize = 2 * 1048576  // 2 MB
 	maxMultipartMem      = 10 * 1048576 // 10 MB
 	osWindows            = "windows"
-	otpHeaderCode        = "X-SFTPGO-OTP"
-	mTimeHeader          = "X-SFTPGO-MTIME"
-	dirPermissionsHeader = "X-SFTPGO-DIR-PERMISSIONS"
+	otpHeaderCode        = "X-GONAS-OTP"
+	mTimeHeader          = "X-GONAS-MTIME"
+	dirPermissionsHeader = "X-GONAS-DIR-PERMISSIONS"
 	acmeChallengeURI     = "/.well-known/acme-challenge/"
 )
 
@@ -633,7 +633,7 @@ type Binding struct {
 	ClientIPProxyHeader string `json:"client_ip_proxy_header" mapstructure:"client_ip_proxy_header"`
 	// Some client IP headers such as "X-Forwarded-For" can contain multiple IP address, this setting
 	// define the position to trust starting from the right. For example if we have:
-	// "10.0.0.1,11.0.0.1,12.0.0.1,13.0.0.1" and the depth is 0, SFTPGo will use "13.0.0.1"
+	// "10.0.0.1,11.0.0.1,12.0.0.1,13.0.0.1" and the depth is 0, GoNAS will use "13.0.0.1"
 	// as client IP, if depth is 1, "12.0.0.1" will be used and so on
 	ClientIPHeaderDepth int `json:"client_ip_header_depth" mapstructure:"client_ip_header_depth"`
 	// If both web admin and web client are enabled each login page will show a link
@@ -664,13 +664,13 @@ func (b *Binding) checkBranding() {
 	b.Branding.WebAdmin.check()
 	b.Branding.WebClient.check()
 	if b.Branding.WebAdmin.Name == "" {
-		b.Branding.WebAdmin.Name = "SFTPGo WebAdmin"
+		b.Branding.WebAdmin.Name = "GoNAS WebAdmin"
 	}
 	if b.Branding.WebAdmin.ShortName == "" {
 		b.Branding.WebAdmin.ShortName = "WebAdmin"
 	}
 	if b.Branding.WebClient.Name == "" {
-		b.Branding.WebClient.Name = "SFTPGo WebClient"
+		b.Branding.WebClient.Name = "GoNAS WebClient"
 	}
 	if b.Branding.WebClient.ShortName == "" {
 		b.Branding.WebClient.ShortName = "WebClient"
@@ -910,7 +910,7 @@ type ServicesStatus struct {
 // SetupConfig defines the configuration parameters for the initial web admin setup
 type SetupConfig struct {
 	// Installation code to require when creating the first admin account.
-	// As for the other configurations, this value is read at SFTPGo startup and not at runtime
+	// As for the other configurations, this value is read at GoNAS startup and not at runtime
 	// even if set using an environment variable.
 	// This is not a license key or similar, the purpose here is to prevent anyone who can access
 	// to the initial setup screen from creating an admin user
@@ -962,7 +962,7 @@ type Conf struct {
 	// if a client certificate has been revoked
 	CARevocationLists []string `json:"ca_revocation_lists" mapstructure:"ca_revocation_lists"`
 	// SigningPassphrase defines the passphrase to use to derive the signing key for JWT and CSRF tokens.
-	// If empty a random signing key will be generated each time SFTPGo starts. If you set a
+	// If empty a random signing key will be generated each time GoNAS starts. If you set a
 	// signing passphrase you should consider rotating it periodically for added security
 	SigningPassphrase     string `json:"signing_passphrase" mapstructure:"signing_passphrase"`
 	SigningPassphraseFile string `json:"signing_passphrase_file" mapstructure:"signing_passphrase_file"`

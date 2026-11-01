@@ -20,7 +20,7 @@ import "github.com/spf13/viper"
 
 // linux specific config search path
 func setViperAdditionalConfigPaths() {
-	viper.AddConfigPath("$HOME/.config/sftpgo")
-	viper.AddConfigPath("/etc/sftpgo")
-	viper.AddConfigPath("/usr/local/etc/sftpgo")
+	viper.AddConfigPath("$HOME/.config/gonas")
+	viper.AddConfigPath("/etc/gonas")
+	viper.AddConfigPath("/usr/local/etc/gonas")
 }

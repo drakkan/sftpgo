@@ -18,7 +18,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/drakkan/sftpgo/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/logger"
 )
 
 var delayedQuotaUpdater quotaUpdater

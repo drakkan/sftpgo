@@ -32,11 +32,11 @@ import (
 	"github.com/google/shlex"
 	"golang.org/x/crypto/ssh"
 
-	"github.com/drakkan/sftpgo/v2/internal/common"
-	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/metric"
-	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/common"
+	"github.com/xrogers/gonas/v2/internal/dataprovider"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/metric"
+	"github.com/xrogers/gonas/v2/internal/util"
 )
 
 const (
@@ -114,19 +114,19 @@ func (c *sshCommand) handle() (err error) {
 		// hard coded response to the start directory
 		_, _ = c.connection.channel.Write([]byte(util.CleanPath(c.connection.User.Filters.StartDirectory) + "\n"))
 		c.sendExitStatus(nil)
-	} else if c.command == "sftpgo-copy" {
-		return c.handleSFTPGoCopy()
-	} else if c.command == "sftpgo-remove" {
-		return c.handleSFTPGoRemove()
+	} else if c.command == "gonas-copy" {
+		return c.handleGoNASCopy()
+	} else if c.command == "gonas-remove" {
+		return c.handleGoNASRemove()
 	}
 	return
 }
 
-func (c *sshCommand) handleSFTPGoCopy() error {
+func (c *sshCommand) handleGoNASCopy() error {
 	sshSourcePath := c.getSourcePath()
 	sshDestPath := c.getDestPath()
 	if sshSourcePath == "" || sshDestPath == "" || len(c.args) != 2 {
-		return c.sendErrorResponse(errors.New("usage sftpgo-copy <source dir path> <destination dir path>"))
+		return c.sendErrorResponse(errors.New("usage gonas-copy <source dir path> <destination dir path>"))
 	}
 	c.connection.Log(logger.LevelDebug, "requested copy %q -> %q", sshSourcePath, sshDestPath)
 	if err := c.connection.Copy(sshSourcePath, sshDestPath); err != nil {
@@ -137,7 +137,7 @@ func (c *sshCommand) handleSFTPGoCopy() error {
 	return nil
 }
 
-func (c *sshCommand) handleSFTPGoRemove() error {
+func (c *sshCommand) handleGoNASRemove() error {
 	sshDestPath, err := c.getRemovePath()
 	if err != nil {
 		return c.sendErrorResponse(err)
@@ -219,7 +219,7 @@ func (c *sshCommand) cleanCommandPath(name string) string {
 func (c *sshCommand) getRemovePath() (string, error) {
 	sshDestPath := c.getDestPath()
 	if sshDestPath == "" || len(c.args) != 1 {
-		err := errors.New("usage sftpgo-remove <destination path>")
+		err := errors.New("usage gonas-remove <destination path>")
 		return "", err
 	}
 	if len(sshDestPath) > 1 {
@@ -241,7 +241,7 @@ func (c *sshCommand) sendExitStatus(err error) {
 	cmdPath := ""
 	targetPath := ""
 	vTargetPath := ""
-	if c.command == "sftpgo-copy" {
+	if c.command == "gonas-copy" {
 		vTargetPath = vCmdPath
 		vCmdPath = c.getSourcePath()
 	}

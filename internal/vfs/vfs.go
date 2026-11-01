@@ -37,9 +37,9 @@ import (
 	"github.com/sftpgo/sdk"
 	passwordvalidator "github.com/wagslane/go-password-validator"
 
-	"github.com/drakkan/sftpgo/v2/internal/kms"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/kms"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/util"
 )
 
 const (
@@ -47,7 +47,10 @@ const (
 	s3fsName          = "S3Fs"
 	gcsfsName         = "GCSFs"
 	azBlobFsName      = "AzureBlobFs"
-	lastModifiedField = "sftpgo_last_modified"
+	lastModifiedField = "gonas_last_modified"
+	// legacyLastModifiedField is the metadata key on objects written before the rename.
+	// It is only read: dropping it would lose the modification time of existing objects.
+	legacyLastModifiedField = "sftpgo_last_modified"
 	preResumeTimeout  = 90 * time.Second
 	// ListerBatchSize defines the default limit for DirLister implementations
 	ListerBatchSize = 1000
@@ -215,7 +218,7 @@ type FsFileCopier interface {
 	CopyFile(source, target string, srcInfo os.FileInfo) (int, int64, error)
 }
 
-// File defines an interface representing a SFTPGo file
+// File defines an interface representing a GoNAS file
 type File interface {
 	io.Reader
 	io.Writer
@@ -228,7 +231,7 @@ type File interface {
 	Truncate(size int64) error
 }
 
-// PipeWriter defines an interface representing a SFTPGo pipe writer
+// PipeWriter defines an interface representing a GoNAS pipe writer
 type PipeWriter interface {
 	io.Writer
 	io.WriterAt
@@ -237,7 +240,7 @@ type PipeWriter interface {
 	GetWrittenBytes() int64
 }
 
-// PipeReader defines an interface representing a SFTPGo pipe reader
+// PipeReader defines an interface representing a GoNAS pipe reader
 type PipeReader interface {
 	io.Reader
 	io.ReaderAt
@@ -1229,28 +1232,35 @@ func IsUploadResumeSupported(fs Fs, size int64) bool {
 }
 
 func getLastModified(metadata map[string]string) int64 {
-	if val, ok := metadata[lastModifiedField]; ok && val != "" {
-		lastModified, err := strconv.ParseInt(val, 10, 64)
-		if err == nil {
-			return lastModified
+	for _, field := range []string{lastModifiedField, legacyLastModifiedField} {
+		if val, ok := metadata[field]; ok && val != "" {
+			if lastModified, err := strconv.ParseInt(val, 10, 64); err == nil {
+				return lastModified
+			}
 		}
 	}
 	return 0
 }
 
 func getAzureLastModified(metadata map[string]*string) int64 {
-	for k, v := range metadata {
-		if strings.EqualFold(k, lastModifiedField) {
-			if val := util.GetStringFromPointer(v); val != "" {
-				lastModified, err := strconv.ParseInt(val, 10, 64)
-				if err == nil {
-					return lastModified
+	for _, field := range []string{lastModifiedField, legacyLastModifiedField} {
+		for k, v := range metadata {
+			if strings.EqualFold(k, field) {
+				if val := util.GetStringFromPointer(v); val != "" {
+					if lastModified, err := strconv.ParseInt(val, 10, 64); err == nil {
+						return lastModified
+					}
 				}
 			}
-			return 0
 		}
 	}
 	return 0
+}
+
+// isLastModifiedField reports whether a metadata key holds a modification time, under
+// either name.
+func isLastModifiedField(key string) bool {
+	return strings.EqualFold(key, lastModifiedField) || strings.EqualFold(key, legacyLastModifiedField)
 }
 
 func validateOSFsConfig(config *sdk.OSFsConfig) error {

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--Do not remove this test for UTF-8: if “Ω” doesn’t appear as greek uppercase omega letter enclosed in quotation marks, you should use an editor that supports UTF-8, not this one.-->
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+	<metadata>
+		<id>gonas</id>
+		<version>2.7.6</version>
+		<packageSourceUrl>https://github.com/xrogers/gonas/tree/main/pkgs/choco</packageSourceUrl>
+		<owners>xrogers</owners>
+		<title>GoNAS</title>
+		<authors>xrogers, Nicola Murino</authors>
+		<projectUrl>https://github.com/xrogers/gonas</projectUrl>
+		<iconUrl>https://cdn.statically.io/gh/xrogers/gonas/v2.7.6/static/img/logo.png</iconUrl>
+		<licenseUrl>https://github.com/xrogers/gonas/blob/main/LICENSE</licenseUrl>
+		<requireLicenseAcceptance>false</requireLicenseAcceptance>
+		<projectSourceUrl>https://github.com/xrogers/gonas</projectSourceUrl>
+		<docsUrl>https://github.com/xrogers/gonas</docsUrl>
+		<bugTrackerUrl>https://github.com/xrogers/gonas/issues</bugTrackerUrl>
+		<tags>sftp sftp-server ftp webdav s3 azure-blob google-cloud-storage cloud-storage scp data-at-rest-encryption multi-factor-authentication multi-step-authentication</tags>
+		<summary>Full-featured and highly configurable file transfer server: SFTP, HTTP/S,FTP/S, WebDAV.</summary>
+		<description>GoNAS allows you to securely share your files over SFTP and optionally over HTTP/S, FTP/S and WebDAV as well.
+Several storage backends are supported and they are configurable per-user, so you can serve a local directory for a user and an S3 bucket (or part of it) for another one.
+
+GoNAS also supports virtual folders. A virtual folder can use any of the supported storage backends. So you can have, for example, a user with the S3 backend mapping a GCS bucket (or part of it) on a specified path and an encrypted local filesystem on another one. Virtual folders can be private or shared among multiple users, for shared virtual folders you can define different quota limits for each user.
+
+GoNAS allows to create HTTP/S links to externally share files and folders securely, by setting limits to the number of downloads/uploads, protecting the share with a password, limiting access by source IP address, setting an automatic expiration date.
+
+GoNAS is highly customizable and extensible to suit your needs.
+
+You can find more info [here](https://github.com/xrogers/gonas).
+
+### Notes
+
+* This package installs GoNAS as Windows Service.
+* After the first installation please take a look at the [Getting Started Guide](https://github.com/xrogers/gonas).</description>
+		<releaseNotes>https://github.com/xrogers/gonas/releases/tag/v2.7.6</releaseNotes>
+	</metadata>
+	<files>
+		<file src="**" exclude="**\*.md;**\icon.png;**\icon.jpg;**\icon.svg" />
+	</files>
+</package>

@@ -25,9 +25,9 @@ optional arguments:
   --usernames USERNAMES [USERNAMES ...]
                         Only import users with these usernames. Default: []
   --force-uid FORCE_UID
-                        if >= 0 the imported users will have this UID in SFTPGo. Default: -1
+                        if >= 0 the imported users will have this UID in GoNAS. Default: -1
   --force-gid FORCE_GID
-                        if >= 0 the imported users will have this GID in SFTPGo. Default: -1
+                        if >= 0 the imported users will have this GID in GoNAS. Default: -1
 ```
 
 Let's see some examples:
@@ -48,4 +48,4 @@ The generated json file can be used as input for the `loaddata` REST API.
 
 Please note that when importing Linux/Unix users the input file is not required: `/etc/passwd` and `/etc/shadow` are automatically parsed. `/etc/shadow` read permission is typically granted to the `root` user only, so you need to execute `convertusers` as `root`.
 
-:warning: SFTPGo does not currently support `yescrypt` hashed passwords.
+:warning: GoNAS does not currently support `yescrypt` hashed passwords.

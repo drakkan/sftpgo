@@ -12,7 +12,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-// Package plugin provides support for the SFTPGo plugin system
+// Package plugin provides support for the GoNAS plugin system
 package plugin
 
 import (
@@ -38,9 +38,9 @@ import (
 	kmsplugin "github.com/sftpgo/sdk/plugin/kms"
 	"github.com/sftpgo/sdk/plugin/notifier"
 
-	"github.com/drakkan/sftpgo/v2/internal/kms"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/kms"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/util"
 )
 
 const (
@@ -83,14 +83,14 @@ type Config struct {
 	// rejected. The client will also refuse to connect to any server that isn't
 	// the original instance started by the client.
 	AutoMTLS bool `json:"auto_mtls" mapstructure:"auto_mtls"`
-	// EnvPrefix defines the prefix for env vars to pass from the SFTPGo process
+	// EnvPrefix defines the prefix for env vars to pass from the GoNAS process
 	// environment to the plugin. Set to "none" to not pass any environment
 	// variable, set to "*" to pass all environment variables. If empty, the
 	// prefix is returned as the plugin name in uppercase with "-" replaced with
 	// "_" and a trailing "_". For example if the plugin name is
-	// sftpgo-plugin-eventsearch the prefix will be SFTPGO_PLUGIN_EVENTSEARCH_
+	// sftpgo-plugin-eventsearch the prefix will be GONAS_PLUGIN_EVENTSEARCH_
 	EnvPrefix string `json:"env_prefix" mapstructure:"env_prefix"`
-	// Additional environment variable names to pass from the SFTPGo process
+	// Additional environment variable names to pass from the GoNAS process
 	// environment to the plugin.
 	EnvVars []string `json:"env_vars" mapstructure:"env_vars"`
 	// unique identifier for kms plugins

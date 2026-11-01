@@ -33,7 +33,7 @@ import (
 	"github.com/rs/xid"
 	"github.com/sftpgo/sdk"
 
-	"github.com/drakkan/sftpgo/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/logger"
 )
 
 const (
@@ -576,11 +576,11 @@ func (*OsFs) CheckMetadata() error {
 func (*OsFs) GetAtomicUploadPath(name string) string {
 	dir := filepath.Dir(name)
 	guid := xid.New().String()
-	return filepath.Join(dir, ".sftpgo-upload."+guid+"."+filepath.Base(name))
+	return filepath.Join(dir, ".gonas-upload."+guid+"."+filepath.Base(name))
 }
 
 // GetRelativePath returns the path for a file relative to the user's home dir.
-// This is the path as seen by SFTPGo users
+// This is the path as seen by GoNAS users
 func (fs *OsFs) GetRelativePath(name string) string {
 	return fs.relativeToRoot(fs.rootDir, name)
 }

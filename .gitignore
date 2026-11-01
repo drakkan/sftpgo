@@ -1,6 +1,10 @@
 # compilation output
-sftpgo
-sftpgo.exe
+/gonas
+/gonas.exe
+
+# test plugins
+/tests/eventsearcher/eventsearcher
+/tests/ipfilter/ipfilter
 
 # signing key generated at runtime
 httpd_signing_key

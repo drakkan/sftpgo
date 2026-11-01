@@ -21,7 +21,7 @@ import (
 	"github.com/hashicorp/go-plugin"
 	"github.com/sftpgo/sdk/plugin/eventsearcher"
 
-	"github.com/drakkan/sftpgo/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/logger"
 )
 
 type searcherPlugin struct {

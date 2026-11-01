@@ -23,10 +23,10 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/drakkan/sftpgo/v2/internal/config"
-	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/config"
+	"github.com/xrogers/gonas/v2/internal/dataprovider"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/util"
 )
 
 var (
@@ -56,7 +56,7 @@ Please take a look at the usage below to customize the options.`,
 			}
 			providerConf := config.GetProviderConf()
 			if !resetProviderForce {
-				logger.WarnToConsole("You are about to delete all the SFTPGo data for provider %q, config file: %q",
+				logger.WarnToConsole("You are about to delete all the GoNAS data for provider %q, config file: %q",
 					providerConf.Driver, viper.ConfigFileUsed())
 				logger.WarnToConsole("Are you sure? (Y/n)")
 				reader := bufio.NewReader(os.Stdin)

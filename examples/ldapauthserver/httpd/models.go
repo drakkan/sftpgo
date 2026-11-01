@@ -12,19 +12,19 @@ type externalAuthRequest struct {
 	PublicKey string `json:"public_key"`
 }
 
-// SFTPGoExtensionsFilter defines filters based on file extensions
-type SFTPGoExtensionsFilter struct {
+// GoNASExtensionsFilter defines filters based on file extensions
+type GoNASExtensionsFilter struct {
 	Path              string   `json:"path"`
 	AllowedExtensions []string `json:"allowed_extensions,omitempty"`
 	DeniedExtensions  []string `json:"denied_extensions,omitempty"`
 }
 
-// SFTPGoUserFilters defines additional restrictions for an SFTPGo user
-type SFTPGoUserFilters struct {
+// GoNASUserFilters defines additional restrictions for an GoNAS user
+type GoNASUserFilters struct {
 	AllowedIP          []string                 `json:"allowed_ip,omitempty"`
 	DeniedIP           []string                 `json:"denied_ip,omitempty"`
 	DeniedLoginMethods []string                 `json:"denied_login_methods,omitempty"`
-	FileExtensions     []SFTPGoExtensionsFilter `json:"file_extensions,omitempty"`
+	FileExtensions     []GoNASExtensionsFilter `json:"file_extensions,omitempty"`
 }
 
 // S3FsConfig defines the configuration for S3 based filesystem
@@ -49,8 +49,8 @@ type GCSFsConfig struct {
 	StorageClass         string `json:"storage_class,omitempty"`
 }
 
-// SFTPGoFilesystem defines cloud storage filesystem details
-type SFTPGoFilesystem struct {
+// GoNASFilesystem defines cloud storage filesystem details
+type GoNASFilesystem struct {
 	// 0 local filesystem, 1 AWS S3 compatible, 2 Google Cloud Storage
 	Provider  int         `json:"provider"`
 	S3Config  S3FsConfig  `json:"s3config,omitempty"`
@@ -62,8 +62,8 @@ type virtualFolder struct {
 	MappedPath  string `json:"mapped_path"`
 }
 
-// SFTPGoUser defines an SFTPGo user
-type SFTPGoUser struct {
+// GoNASUser defines an GoNAS user
+type GoNASUser struct {
 	// Database unique identifier
 	ID int64 `json:"id"`
 	// 1 enabled, 0 disabled (login is not allowed)
@@ -78,9 +78,9 @@ type SFTPGoUser struct {
 	HomeDir        string   `json:"home_dir"`
 	// Mapping between virtual paths and filesystem paths outside the home directory. Supported for local filesystem only
 	VirtualFolders []virtualFolder `json:"virtual_folders,omitempty"`
-	// If sftpgo runs as root system user then the created files and directories will be assigned to this system UID
+	// If gonas runs as root system user then the created files and directories will be assigned to this system UID
 	UID int `json:"uid"`
-	// If sftpgo runs as root system user then the created files and directories will be assigned to this system GID
+	// If gonas runs as root system user then the created files and directories will be assigned to this system GID
 	GID int `json:"gid"`
 	// Maximum concurrent sessions. 0 means unlimited
 	MaxSessions int `json:"max_sessions"`
@@ -103,7 +103,7 @@ type SFTPGoUser struct {
 	// Last login as unix timestamp in milliseconds
 	LastLogin int64 `json:"last_login"`
 	// Additional restrictions
-	Filters SFTPGoUserFilters `json:"filters"`
+	Filters GoNASUserFilters `json:"filters"`
 	// Filesystem configuration details
-	FsConfig SFTPGoFilesystem `json:"filesystem"`
+	FsConfig GoNASFilesystem `json:"filesystem"`
 }

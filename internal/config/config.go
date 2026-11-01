@@ -28,32 +28,32 @@ import (
 	"github.com/spf13/viper"
 	"github.com/subosito/gotenv"
 
-	"github.com/drakkan/sftpgo/v2/internal/acme"
-	"github.com/drakkan/sftpgo/v2/internal/command"
-	"github.com/drakkan/sftpgo/v2/internal/common"
-	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/ftpd"
-	"github.com/drakkan/sftpgo/v2/internal/httpclient"
-	"github.com/drakkan/sftpgo/v2/internal/httpd"
-	"github.com/drakkan/sftpgo/v2/internal/kms"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/mfa"
-	"github.com/drakkan/sftpgo/v2/internal/plugin"
-	"github.com/drakkan/sftpgo/v2/internal/sftpd"
-	"github.com/drakkan/sftpgo/v2/internal/smtp"
-	"github.com/drakkan/sftpgo/v2/internal/telemetry"
-	"github.com/drakkan/sftpgo/v2/internal/util"
-	"github.com/drakkan/sftpgo/v2/internal/webdavd"
+	"github.com/xrogers/gonas/v2/internal/acme"
+	"github.com/xrogers/gonas/v2/internal/command"
+	"github.com/xrogers/gonas/v2/internal/common"
+	"github.com/xrogers/gonas/v2/internal/dataprovider"
+	"github.com/xrogers/gonas/v2/internal/ftpd"
+	"github.com/xrogers/gonas/v2/internal/httpclient"
+	"github.com/xrogers/gonas/v2/internal/httpd"
+	"github.com/xrogers/gonas/v2/internal/kms"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/mfa"
+	"github.com/xrogers/gonas/v2/internal/plugin"
+	"github.com/xrogers/gonas/v2/internal/sftpd"
+	"github.com/xrogers/gonas/v2/internal/smtp"
+	"github.com/xrogers/gonas/v2/internal/telemetry"
+	"github.com/xrogers/gonas/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/webdavd"
 )
 
 const (
 	logSender = "config"
 	// configName defines the name for config file.
 	// This name does not include the extension, viper will search for files
-	// with supported extensions such as "sftpgo.json", "sftpgo.yaml" and so on
-	configName = "sftpgo"
+	// with supported extensions such as "gonas.json", "gonas.yaml" and so on
+	configName = "gonas"
 	// ConfigEnvPrefix defines a prefix that environment variables will use
-	configEnvPrefix = "sftpgo"
+	configEnvPrefix = "gonas"
 	envFileMaxSize  = 1048576
 )
 
@@ -171,7 +171,7 @@ var (
 	}
 	defaultTOTP = mfa.TOTPConfig{
 		Name:   "Default",
-		Issuer: "SFTPGo",
+		Issuer: "GoNAS",
 		Algo:   mfa.TOTPAlgoSHA1,
 	}
 )
@@ -339,7 +339,7 @@ func Init() {
 		},
 		ProviderConf: dataprovider.Config{
 			Driver:             "sqlite",
-			Name:               "sftpgo.db",
+			Name:               "gonas.db",
 			Host:               "",
 			Port:               0,
 			Username:           "",
@@ -761,7 +761,7 @@ func checkOverrideDefaultSettings() {
 // LoadConfig loads the configuration
 // configDir will be added to the configuration search paths.
 // The search path contains by default the current directory and on linux it contains
-// $HOME/.config/sftpgo and /etc/sftpgo too.
+// $HOME/.config/gonas and /etc/gonas too.
 // configFile is an absolute or relative path (to the config dir) to the configuration file.
 func LoadConfig(configDir, configFile string) error {
 	var err error
@@ -773,7 +773,7 @@ func LoadConfig(configDir, configFile string) error {
 	if err = viper.ReadInConfig(); err != nil {
 		// if the user specify a configuration file we get os.ErrNotExist.
 		// viper.ConfigFileNotFoundError is returned if viper is unable
-		// to find sftpgo.{json,yaml, etc..} in any of the search paths
+		// to find gonas.{json,yaml, etc..} in any of the search paths
 		if errors.As(err, &viper.ConfigFileNotFoundError{}) {
 			logger.Debug(logSender, "", "no configuration file found")
 		} else {
@@ -876,19 +876,19 @@ func getTOTPFromEnv(idx int) {
 
 	isSet := false
 
-	name, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_MFA__TOTP__%v__NAME", idx))
+	name, ok := os.LookupEnv(fmt.Sprintf("GONAS_MFA__TOTP__%v__NAME", idx))
 	if ok {
 		totpConfig.Name = name
 		isSet = true
 	}
 
-	issuer, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_MFA__TOTP__%v__ISSUER", idx))
+	issuer, ok := os.LookupEnv(fmt.Sprintf("GONAS_MFA__TOTP__%v__ISSUER", idx))
 	if ok {
 		totpConfig.Issuer = issuer
 		isSet = true
 	}
 
-	algo, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_MFA__TOTP__%v__ALGO", idx))
+	algo, ok := os.LookupEnv(fmt.Sprintf("GONAS_MFA__TOTP__%v__ALGO", idx))
 	if ok {
 		totpConfig.Algo = algo
 		isSet = true
@@ -911,49 +911,49 @@ func getRateLimitersFromEnv(idx int) {
 
 	isSet := false
 
-	average, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_COMMON__RATE_LIMITERS__%v__AVERAGE", idx), 64)
+	average, ok := lookupIntFromEnv(fmt.Sprintf("GONAS_COMMON__RATE_LIMITERS__%v__AVERAGE", idx), 64)
 	if ok {
 		rtlConfig.Average = average
 		isSet = true
 	}
 
-	period, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_COMMON__RATE_LIMITERS__%v__PERIOD", idx), 64)
+	period, ok := lookupIntFromEnv(fmt.Sprintf("GONAS_COMMON__RATE_LIMITERS__%v__PERIOD", idx), 64)
 	if ok {
 		rtlConfig.Period = period
 		isSet = true
 	}
 
-	burst, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_COMMON__RATE_LIMITERS__%v__BURST", idx), 32)
+	burst, ok := lookupIntFromEnv(fmt.Sprintf("GONAS_COMMON__RATE_LIMITERS__%v__BURST", idx), 32)
 	if ok {
 		rtlConfig.Burst = int(burst)
 		isSet = true
 	}
 
-	rtlType, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_COMMON__RATE_LIMITERS__%v__TYPE", idx), 32)
+	rtlType, ok := lookupIntFromEnv(fmt.Sprintf("GONAS_COMMON__RATE_LIMITERS__%v__TYPE", idx), 32)
 	if ok {
 		rtlConfig.Type = int(rtlType)
 		isSet = true
 	}
 
-	protocols, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_COMMON__RATE_LIMITERS__%v__PROTOCOLS", idx))
+	protocols, ok := lookupStringListFromEnv(fmt.Sprintf("GONAS_COMMON__RATE_LIMITERS__%v__PROTOCOLS", idx))
 	if ok {
 		rtlConfig.Protocols = protocols
 		isSet = true
 	}
 
-	generateEvents, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_COMMON__RATE_LIMITERS__%v__GENERATE_DEFENDER_EVENTS", idx))
+	generateEvents, ok := lookupBoolFromEnv(fmt.Sprintf("GONAS_COMMON__RATE_LIMITERS__%v__GENERATE_DEFENDER_EVENTS", idx))
 	if ok {
 		rtlConfig.GenerateDefenderEvents = generateEvents
 		isSet = true
 	}
 
-	softLimit, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_COMMON__RATE_LIMITERS__%v__ENTRIES_SOFT_LIMIT", idx), 32)
+	softLimit, ok := lookupIntFromEnv(fmt.Sprintf("GONAS_COMMON__RATE_LIMITERS__%v__ENTRIES_SOFT_LIMIT", idx), 32)
 	if ok {
 		rtlConfig.EntriesSoftLimit = int(softLimit)
 		isSet = true
 	}
 
-	hardLimit, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_COMMON__RATE_LIMITERS__%v__ENTRIES_HARD_LIMIT", idx), 32)
+	hardLimit, ok := lookupIntFromEnv(fmt.Sprintf("GONAS_COMMON__RATE_LIMITERS__%v__ENTRIES_HARD_LIMIT", idx), 32)
 	if ok {
 		rtlConfig.EntriesHardLimit = int(hardLimit)
 		isSet = true
@@ -971,13 +971,13 @@ func getRateLimitersFromEnv(idx int) {
 func getKMSPluginFromEnv(idx int, pluginConfig *plugin.Config) bool {
 	isSet := false
 
-	kmsScheme, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__KMS_OPTIONS__SCHEME", idx))
+	kmsScheme, ok := os.LookupEnv(fmt.Sprintf("GONAS_PLUGINS__%v__KMS_OPTIONS__SCHEME", idx))
 	if ok {
 		pluginConfig.KMSOptions.Scheme = kmsScheme
 		isSet = true
 	}
 
-	kmsEncStatus, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__KMS_OPTIONS__ENCRYPTED_STATUS", idx))
+	kmsEncStatus, ok := os.LookupEnv(fmt.Sprintf("GONAS_PLUGINS__%v__KMS_OPTIONS__ENCRYPTED_STATUS", idx))
 	if ok {
 		pluginConfig.KMSOptions.EncryptedStatus = kmsEncStatus
 		isSet = true
@@ -989,7 +989,7 @@ func getKMSPluginFromEnv(idx int, pluginConfig *plugin.Config) bool {
 func getAuthPluginFromEnv(idx int, pluginConfig *plugin.Config) bool {
 	isSet := false
 
-	authScope, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__AUTH_OPTIONS__SCOPE", idx), 32)
+	authScope, ok := lookupIntFromEnv(fmt.Sprintf("GONAS_PLUGINS__%v__AUTH_OPTIONS__SCOPE", idx), 32)
 	if ok {
 		pluginConfig.AuthOptions.Scope = int(authScope)
 		isSet = true
@@ -1001,25 +1001,25 @@ func getAuthPluginFromEnv(idx int, pluginConfig *plugin.Config) bool {
 func getNotifierPluginFromEnv(idx int, pluginConfig *plugin.Config) bool {
 	isSet := false
 
-	notifierFsEvents, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__NOTIFIER_OPTIONS__FS_EVENTS", idx))
+	notifierFsEvents, ok := lookupStringListFromEnv(fmt.Sprintf("GONAS_PLUGINS__%v__NOTIFIER_OPTIONS__FS_EVENTS", idx))
 	if ok {
 		pluginConfig.NotifierOptions.FsEvents = notifierFsEvents
 		isSet = true
 	}
 
-	notifierProviderEvents, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__NOTIFIER_OPTIONS__PROVIDER_EVENTS", idx))
+	notifierProviderEvents, ok := lookupStringListFromEnv(fmt.Sprintf("GONAS_PLUGINS__%v__NOTIFIER_OPTIONS__PROVIDER_EVENTS", idx))
 	if ok {
 		pluginConfig.NotifierOptions.ProviderEvents = notifierProviderEvents
 		isSet = true
 	}
 
-	notifierProviderObjects, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__NOTIFIER_OPTIONS__PROVIDER_OBJECTS", idx))
+	notifierProviderObjects, ok := lookupStringListFromEnv(fmt.Sprintf("GONAS_PLUGINS__%v__NOTIFIER_OPTIONS__PROVIDER_OBJECTS", idx))
 	if ok {
 		pluginConfig.NotifierOptions.ProviderObjects = notifierProviderObjects
 		isSet = true
 	}
 
-	notifierLogEventsString, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__NOTIFIER_OPTIONS__LOG_EVENTS", idx))
+	notifierLogEventsString, ok := lookupStringListFromEnv(fmt.Sprintf("GONAS_PLUGINS__%v__NOTIFIER_OPTIONS__LOG_EVENTS", idx))
 	if ok {
 		var notifierLogEvents []int
 		for _, e := range notifierLogEventsString {
@@ -1034,13 +1034,13 @@ func getNotifierPluginFromEnv(idx int, pluginConfig *plugin.Config) bool {
 		}
 	}
 
-	notifierRetryMaxTime, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__NOTIFIER_OPTIONS__RETRY_MAX_TIME", idx), 32)
+	notifierRetryMaxTime, ok := lookupIntFromEnv(fmt.Sprintf("GONAS_PLUGINS__%v__NOTIFIER_OPTIONS__RETRY_MAX_TIME", idx), 32)
 	if ok {
 		pluginConfig.NotifierOptions.RetryMaxTime = int(notifierRetryMaxTime)
 		isSet = true
 	}
 
-	notifierRetryQueueMaxSize, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__NOTIFIER_OPTIONS__RETRY_QUEUE_MAX_SIZE", idx), 32)
+	notifierRetryQueueMaxSize, ok := lookupIntFromEnv(fmt.Sprintf("GONAS_PLUGINS__%v__NOTIFIER_OPTIONS__RETRY_QUEUE_MAX_SIZE", idx), 32)
 	if ok {
 		pluginConfig.NotifierOptions.RetryQueueMaxSize = int(notifierRetryQueueMaxSize)
 		isSet = true
@@ -1057,7 +1057,7 @@ func getPluginsFromEnv(idx int) {
 
 	isSet := false
 
-	pluginType, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__TYPE", idx))
+	pluginType, ok := os.LookupEnv(fmt.Sprintf("GONAS_PLUGINS__%v__TYPE", idx))
 	if ok {
 		pluginConfig.Type = pluginType
 		isSet = true
@@ -1075,37 +1075,37 @@ func getPluginsFromEnv(idx int) {
 		isSet = true
 	}
 
-	cmd, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__CMD", idx))
+	cmd, ok := os.LookupEnv(fmt.Sprintf("GONAS_PLUGINS__%v__CMD", idx))
 	if ok {
 		pluginConfig.Cmd = cmd
 		isSet = true
 	}
 
-	cmdArgs, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__ARGS", idx))
+	cmdArgs, ok := lookupStringListFromEnv(fmt.Sprintf("GONAS_PLUGINS__%v__ARGS", idx))
 	if ok {
 		pluginConfig.Args = cmdArgs
 		isSet = true
 	}
 
-	pluginHash, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__SHA256SUM", idx))
+	pluginHash, ok := os.LookupEnv(fmt.Sprintf("GONAS_PLUGINS__%v__SHA256SUM", idx))
 	if ok {
 		pluginConfig.SHA256Sum = pluginHash
 		isSet = true
 	}
 
-	autoMTLS, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__AUTO_MTLS", idx))
+	autoMTLS, ok := lookupBoolFromEnv(fmt.Sprintf("GONAS_PLUGINS__%v__AUTO_MTLS", idx))
 	if ok {
 		pluginConfig.AutoMTLS = autoMTLS
 		isSet = true
 	}
 
-	envPrefix, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__ENV_PREFIX", idx))
+	envPrefix, ok := os.LookupEnv(fmt.Sprintf("GONAS_PLUGINS__%v__ENV_PREFIX", idx))
 	if ok {
 		pluginConfig.EnvPrefix = envPrefix
 		isSet = true
 	}
 
-	envVars, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__ENV_VARS", idx))
+	envVars, ok := lookupStringListFromEnv(fmt.Sprintf("GONAS_PLUGINS__%v__ENV_VARS", idx))
 	if ok {
 		pluginConfig.EnvVars = envVars
 		isSet = true
@@ -1128,19 +1128,19 @@ func getSFTPDBindindFromEnv(idx int) {
 
 	isSet := false
 
-	port, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_SFTPD__BINDINGS__%v__PORT", idx), 32)
+	port, ok := lookupIntFromEnv(fmt.Sprintf("GONAS_SFTPD__BINDINGS__%v__PORT", idx), 32)
 	if ok {
 		binding.Port = int(port)
 		isSet = true
 	}
 
-	address, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_SFTPD__BINDINGS__%v__ADDRESS", idx))
+	address, ok := os.LookupEnv(fmt.Sprintf("GONAS_SFTPD__BINDINGS__%v__ADDRESS", idx))
 	if ok {
 		binding.Address = address
 		isSet = true
 	}
 
-	applyProxyConfig, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_SFTPD__BINDINGS__%v__APPLY_PROXY_CONFIG", idx))
+	applyProxyConfig, ok := lookupBoolFromEnv(fmt.Sprintf("GONAS_SFTPD__BINDINGS__%v__APPLY_PROXY_CONFIG", idx))
 	if ok {
 		binding.ApplyProxyConfig = applyProxyConfig
 		isSet = true
@@ -1169,12 +1169,12 @@ func getFTPDPassiveIPOverridesFromEnv(idx int) []ftpd.PassiveIPOverride {
 			replace = true
 		}
 
-		ip, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__PASSIVE_IP_OVERRIDES__%v__IP", idx, subIdx))
+		ip, ok := os.LookupEnv(fmt.Sprintf("GONAS_FTPD__BINDINGS__%v__PASSIVE_IP_OVERRIDES__%v__IP", idx, subIdx))
 		if ok {
 			override.IP = ip
 		}
 
-		networks, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__PASSIVE_IP_OVERRIDES__%v__NETWORKS",
+		networks, ok := lookupStringListFromEnv(fmt.Sprintf("GONAS_FTPD__BINDINGS__%v__PASSIVE_IP_OVERRIDES__%v__NETWORKS",
 			idx, subIdx))
 		if ok {
 			override.Networks = networks
@@ -1203,49 +1203,49 @@ func getDefaultFTPDBinding(idx int) ftpd.Binding {
 func getFTPDBindingSecurityFromEnv(idx int, binding *ftpd.Binding) bool {
 	isSet := false
 
-	certificateFile, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__CERTIFICATE_FILE", idx))
+	certificateFile, ok := os.LookupEnv(fmt.Sprintf("GONAS_FTPD__BINDINGS__%v__CERTIFICATE_FILE", idx))
 	if ok {
 		binding.CertificateFile = certificateFile
 		isSet = true
 	}
 
-	certificateKeyFile, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__CERTIFICATE_KEY_FILE", idx))
+	certificateKeyFile, ok := os.LookupEnv(fmt.Sprintf("GONAS_FTPD__BINDINGS__%v__CERTIFICATE_KEY_FILE", idx))
 	if ok {
 		binding.CertificateKeyFile = certificateKeyFile
 		isSet = true
 	}
 
-	tlsMode, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__TLS_MODE", idx), 32)
+	tlsMode, ok := lookupIntFromEnv(fmt.Sprintf("GONAS_FTPD__BINDINGS__%v__TLS_MODE", idx), 32)
 	if ok {
 		binding.TLSMode = int(tlsMode)
 		isSet = true
 	}
 
-	tlsVer, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__MIN_TLS_VERSION", idx), 32)
+	tlsVer, ok := lookupIntFromEnv(fmt.Sprintf("GONAS_FTPD__BINDINGS__%v__MIN_TLS_VERSION", idx), 32)
 	if ok {
 		binding.MinTLSVersion = int(tlsVer)
 		isSet = true
 	}
 
-	tlsCiphers, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__TLS_CIPHER_SUITES", idx))
+	tlsCiphers, ok := lookupStringListFromEnv(fmt.Sprintf("GONAS_FTPD__BINDINGS__%v__TLS_CIPHER_SUITES", idx))
 	if ok {
 		binding.TLSCipherSuites = tlsCiphers
 		isSet = true
 	}
 
-	clientAuthType, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__CLIENT_AUTH_TYPE", idx), 32)
+	clientAuthType, ok := lookupIntFromEnv(fmt.Sprintf("GONAS_FTPD__BINDINGS__%v__CLIENT_AUTH_TYPE", idx), 32)
 	if ok {
 		binding.ClientAuthType = int(clientAuthType)
 		isSet = true
 	}
 
-	pasvSecurity, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__PASSIVE_CONNECTIONS_SECURITY", idx), 32)
+	pasvSecurity, ok := lookupIntFromEnv(fmt.Sprintf("GONAS_FTPD__BINDINGS__%v__PASSIVE_CONNECTIONS_SECURITY", idx), 32)
 	if ok {
 		binding.PassiveConnectionsSecurity = int(pasvSecurity)
 		isSet = true
 	}
 
-	activeSecurity, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__ACTIVE_CONNECTIONS_SECURITY", idx), 32)
+	activeSecurity, ok := lookupIntFromEnv(fmt.Sprintf("GONAS_FTPD__BINDINGS__%v__ACTIVE_CONNECTIONS_SECURITY", idx), 32)
 	if ok {
 		binding.ActiveConnectionsSecurity = int(activeSecurity)
 		isSet = true
@@ -1258,25 +1258,25 @@ func getFTPDBindingFromEnv(idx int) {
 	binding := getDefaultFTPDBinding(idx)
 	isSet := false
 
-	port, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__PORT", idx), 32)
+	port, ok := lookupIntFromEnv(fmt.Sprintf("GONAS_FTPD__BINDINGS__%v__PORT", idx), 32)
 	if ok {
 		binding.Port = int(port)
 		isSet = true
 	}
 
-	address, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__ADDRESS", idx))
+	address, ok := os.LookupEnv(fmt.Sprintf("GONAS_FTPD__BINDINGS__%v__ADDRESS", idx))
 	if ok {
 		binding.Address = address
 		isSet = true
 	}
 
-	applyProxyConfig, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__APPLY_PROXY_CONFIG", idx))
+	applyProxyConfig, ok := lookupBoolFromEnv(fmt.Sprintf("GONAS_FTPD__BINDINGS__%v__APPLY_PROXY_CONFIG", idx))
 	if ok {
 		binding.ApplyProxyConfig = applyProxyConfig
 		isSet = true
 	}
 
-	passiveIP, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__FORCE_PASSIVE_IP", idx))
+	passiveIP, ok := os.LookupEnv(fmt.Sprintf("GONAS_FTPD__BINDINGS__%v__FORCE_PASSIVE_IP", idx))
 	if ok {
 		binding.ForcePassiveIP = passiveIP
 		isSet = true
@@ -1288,13 +1288,13 @@ func getFTPDBindingFromEnv(idx int) {
 		isSet = true
 	}
 
-	passiveHost, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__PASSIVE_HOST", idx))
+	passiveHost, ok := os.LookupEnv(fmt.Sprintf("GONAS_FTPD__BINDINGS__%v__PASSIVE_HOST", idx))
 	if ok {
 		binding.PassiveHost = passiveHost
 		isSet = true
 	}
 
-	debug, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__DEBUG", idx))
+	debug, ok := lookupBoolFromEnv(fmt.Sprintf("GONAS_FTPD__BINDINGS__%v__DEBUG", idx))
 	if ok {
 		binding.Debug = debug
 		isSet = true
@@ -1320,43 +1320,43 @@ func applyFTPDBindingFromEnv(idx int, isSet bool, binding ftpd.Binding) {
 func getWebDAVBindingHTTPSConfigsFromEnv(idx int, binding *webdavd.Binding) bool {
 	isSet := false
 
-	enableHTTPS, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__ENABLE_HTTPS", idx))
+	enableHTTPS, ok := lookupBoolFromEnv(fmt.Sprintf("GONAS_WEBDAVD__BINDINGS__%v__ENABLE_HTTPS", idx))
 	if ok {
 		binding.EnableHTTPS = enableHTTPS
 		isSet = true
 	}
 
-	certificateFile, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__CERTIFICATE_FILE", idx))
+	certificateFile, ok := os.LookupEnv(fmt.Sprintf("GONAS_WEBDAVD__BINDINGS__%v__CERTIFICATE_FILE", idx))
 	if ok {
 		binding.CertificateFile = certificateFile
 		isSet = true
 	}
 
-	certificateKeyFile, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__CERTIFICATE_KEY_FILE", idx))
+	certificateKeyFile, ok := os.LookupEnv(fmt.Sprintf("GONAS_WEBDAVD__BINDINGS__%v__CERTIFICATE_KEY_FILE", idx))
 	if ok {
 		binding.CertificateKeyFile = certificateKeyFile
 		isSet = true
 	}
 
-	tlsVer, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__MIN_TLS_VERSION", idx), 32)
+	tlsVer, ok := lookupIntFromEnv(fmt.Sprintf("GONAS_WEBDAVD__BINDINGS__%v__MIN_TLS_VERSION", idx), 32)
 	if ok {
 		binding.MinTLSVersion = int(tlsVer)
 		isSet = true
 	}
 
-	clientAuthType, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__CLIENT_AUTH_TYPE", idx), 32)
+	clientAuthType, ok := lookupIntFromEnv(fmt.Sprintf("GONAS_WEBDAVD__BINDINGS__%v__CLIENT_AUTH_TYPE", idx), 32)
 	if ok {
 		binding.ClientAuthType = int(clientAuthType)
 		isSet = true
 	}
 
-	tlsCiphers, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__TLS_CIPHER_SUITES", idx))
+	tlsCiphers, ok := lookupStringListFromEnv(fmt.Sprintf("GONAS_WEBDAVD__BINDINGS__%v__TLS_CIPHER_SUITES", idx))
 	if ok {
 		binding.TLSCipherSuites = tlsCiphers
 		isSet = true
 	}
 
-	protocols, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%d__TLS_PROTOCOLS", idx))
+	protocols, ok := lookupStringListFromEnv(fmt.Sprintf("GONAS_WEBDAVD__BINDINGS__%d__TLS_PROTOCOLS", idx))
 	if ok {
 		binding.Protocols = protocols
 		isSet = true
@@ -1368,25 +1368,25 @@ func getWebDAVBindingHTTPSConfigsFromEnv(idx int, binding *webdavd.Binding) bool
 func getWebDAVDBindingProxyConfigsFromEnv(idx int, binding *webdavd.Binding) bool {
 	isSet := false
 
-	proxyMode, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__PROXY_MODE", idx), 32)
+	proxyMode, ok := lookupIntFromEnv(fmt.Sprintf("GONAS_WEBDAVD__BINDINGS__%v__PROXY_MODE", idx), 32)
 	if ok {
 		binding.ProxyMode = int(proxyMode)
 		isSet = true
 	}
 
-	proxyAllowed, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__PROXY_ALLOWED", idx))
+	proxyAllowed, ok := lookupStringListFromEnv(fmt.Sprintf("GONAS_WEBDAVD__BINDINGS__%v__PROXY_ALLOWED", idx))
 	if ok {
 		binding.ProxyAllowed = proxyAllowed
 		isSet = true
 	}
 
-	clientIPProxyHeader, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__CLIENT_IP_PROXY_HEADER", idx))
+	clientIPProxyHeader, ok := os.LookupEnv(fmt.Sprintf("GONAS_WEBDAVD__BINDINGS__%v__CLIENT_IP_PROXY_HEADER", idx))
 	if ok {
 		binding.ClientIPProxyHeader = clientIPProxyHeader
 		isSet = true
 	}
 
-	clientIPHeaderDepth, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__CLIENT_IP_HEADER_DEPTH", idx), 32)
+	clientIPHeaderDepth, ok := lookupIntFromEnv(fmt.Sprintf("GONAS_WEBDAVD__BINDINGS__%v__CLIENT_IP_HEADER_DEPTH", idx), 32)
 	if ok {
 		binding.ClientIPHeaderDepth = int(clientIPHeaderDepth)
 		isSet = true
@@ -1397,8 +1397,8 @@ func getWebDAVDBindingProxyConfigsFromEnv(idx int, binding *webdavd.Binding) boo
 
 func loadWebDAVCacheMappingsFromEnv() []webdavd.CustomMimeMapping {
 	for idx := range 30 {
-		ext, extOK := os.LookupEnv(fmt.Sprintf("SFTPGO_WEBDAVD__CACHE__MIME_TYPES__CUSTOM_MAPPINGS__%d__EXT", idx))
-		mime, mimeOK := os.LookupEnv(fmt.Sprintf("SFTPGO_WEBDAVD__CACHE__MIME_TYPES__CUSTOM_MAPPINGS__%d__MIME", idx))
+		ext, extOK := os.LookupEnv(fmt.Sprintf("GONAS_WEBDAVD__CACHE__MIME_TYPES__CUSTOM_MAPPINGS__%d__EXT", idx))
+		mime, mimeOK := os.LookupEnv(fmt.Sprintf("GONAS_WEBDAVD__CACHE__MIME_TYPES__CUSTOM_MAPPINGS__%d__MIME", idx))
 		if extOK && mimeOK {
 			if len(globalConf.WebDAVD.Cache.MimeTypes.CustomMappings) > idx {
 				globalConf.WebDAVD.Cache.MimeTypes.CustomMappings[idx].Ext = ext
@@ -1424,13 +1424,13 @@ func getWebDAVDBindingFromEnv(idx int) {
 
 	isSet := false
 
-	port, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__PORT", idx), 32)
+	port, ok := lookupIntFromEnv(fmt.Sprintf("GONAS_WEBDAVD__BINDINGS__%v__PORT", idx), 32)
 	if ok {
 		binding.Port = int(port)
 		isSet = true
 	}
 
-	address, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__ADDRESS", idx))
+	address, ok := os.LookupEnv(fmt.Sprintf("GONAS_WEBDAVD__BINDINGS__%v__ADDRESS", idx))
 	if ok {
 		binding.Address = address
 		isSet = true
@@ -1440,7 +1440,7 @@ func getWebDAVDBindingFromEnv(idx int) {
 		isSet = true
 	}
 
-	prefix, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__PREFIX", idx))
+	prefix, ok := os.LookupEnv(fmt.Sprintf("GONAS_WEBDAVD__BINDINGS__%v__PREFIX", idx))
 	if ok {
 		binding.Prefix = prefix
 		isSet = true
@@ -1450,7 +1450,7 @@ func getWebDAVDBindingFromEnv(idx int) {
 		isSet = true
 	}
 
-	disableWWWAuth, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__DISABLE_WWW_AUTH_HEADER", idx))
+	disableWWWAuth, ok := lookupBoolFromEnv(fmt.Sprintf("GONAS_WEBDAVD__BINDINGS__%v__DISABLE_WWW_AUTH_HEADER", idx))
 	if ok {
 		binding.DisableWWWAuthHeader = disableWWWAuth
 		isSet = true
@@ -1479,12 +1479,12 @@ func getHTTPDSecurityProxyHeadersFromEnv(idx int) []httpd.HTTPSProxyHeader {
 			httpsProxyHeader = httpsProxyHeaders[subIdx]
 			replace = true
 		}
-		proxyKey, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__HTTPS_PROXY_HEADERS__%v__KEY",
+		proxyKey, ok := os.LookupEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__SECURITY__HTTPS_PROXY_HEADERS__%v__KEY",
 			idx, subIdx))
 		if ok {
 			httpsProxyHeader.Key = proxyKey
 		}
-		proxyVal, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__HTTPS_PROXY_HEADERS__%v__VALUE",
+		proxyVal, ok := os.LookupEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__SECURITY__HTTPS_PROXY_HEADERS__%v__VALUE",
 			idx, subIdx))
 		if ok {
 			httpsProxyHeader.Value = proxyVal
@@ -1507,37 +1507,37 @@ func getHTTPDSecurityConfFromEnv(idx int) (httpd.SecurityConf, bool) {
 	}
 	isSet := false
 
-	enabled, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__ENABLED", idx))
+	enabled, ok := lookupBoolFromEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__SECURITY__ENABLED", idx))
 	if ok {
 		result.Enabled = enabled
 		isSet = true
 	}
 
-	allowedHosts, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__ALLOWED_HOSTS", idx))
+	allowedHosts, ok := lookupStringListFromEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__SECURITY__ALLOWED_HOSTS", idx))
 	if ok {
 		result.AllowedHosts = allowedHosts
 		isSet = true
 	}
 
-	allowedHostsAreRegex, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__ALLOWED_HOSTS_ARE_REGEX", idx))
+	allowedHostsAreRegex, ok := lookupBoolFromEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__SECURITY__ALLOWED_HOSTS_ARE_REGEX", idx))
 	if ok {
 		result.AllowedHostsAreRegex = allowedHostsAreRegex
 		isSet = true
 	}
 
-	hostsProxyHeaders, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__HOSTS_PROXY_HEADERS", idx))
+	hostsProxyHeaders, ok := lookupStringListFromEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__SECURITY__HOSTS_PROXY_HEADERS", idx))
 	if ok {
 		result.HostsProxyHeaders = hostsProxyHeaders
 		isSet = true
 	}
 
-	httpsRedirect, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__HTTPS_REDIRECT", idx))
+	httpsRedirect, ok := lookupBoolFromEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__SECURITY__HTTPS_REDIRECT", idx))
 	if ok {
 		result.HTTPSRedirect = httpsRedirect
 		isSet = true
 	}
 
-	httpsHost, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__HTTPS_HOST", idx))
+	httpsHost, ok := os.LookupEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__SECURITY__HTTPS_HOST", idx))
 	if ok {
 		result.HTTPSHost = httpsHost
 		isSet = true
@@ -1549,67 +1549,67 @@ func getHTTPDSecurityConfFromEnv(idx int) (httpd.SecurityConf, bool) {
 		isSet = true
 	}
 
-	stsSeconds, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__STS_SECONDS", idx), 64)
+	stsSeconds, ok := lookupIntFromEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__SECURITY__STS_SECONDS", idx), 64)
 	if ok {
 		result.STSSeconds = stsSeconds
 		isSet = true
 	}
 
-	stsIncludeSubDomains, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__STS_INCLUDE_SUBDOMAINS", idx))
+	stsIncludeSubDomains, ok := lookupBoolFromEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__SECURITY__STS_INCLUDE_SUBDOMAINS", idx))
 	if ok {
 		result.STSIncludeSubdomains = stsIncludeSubDomains
 		isSet = true
 	}
 
-	stsPreload, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__STS_PRELOAD", idx))
+	stsPreload, ok := lookupBoolFromEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__SECURITY__STS_PRELOAD", idx))
 	if ok {
 		result.STSPreload = stsPreload
 		isSet = true
 	}
 
-	contentTypeNosniff, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__CONTENT_TYPE_NOSNIFF", idx))
+	contentTypeNosniff, ok := lookupBoolFromEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__SECURITY__CONTENT_TYPE_NOSNIFF", idx))
 	if ok {
 		result.ContentTypeNosniff = contentTypeNosniff
 		isSet = true
 	}
 
-	contentSecurityPolicy, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__CONTENT_SECURITY_POLICY", idx))
+	contentSecurityPolicy, ok := os.LookupEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__SECURITY__CONTENT_SECURITY_POLICY", idx))
 	if ok {
 		result.ContentSecurityPolicy = contentSecurityPolicy
 		isSet = true
 	}
 
-	permissionsPolicy, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__PERMISSIONS_POLICY", idx))
+	permissionsPolicy, ok := os.LookupEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__SECURITY__PERMISSIONS_POLICY", idx))
 	if ok {
 		result.PermissionsPolicy = permissionsPolicy
 		isSet = true
 	}
 
-	crossOriginOpenerPolicy, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__CROSS_ORIGIN_OPENER_POLICY", idx))
+	crossOriginOpenerPolicy, ok := os.LookupEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__SECURITY__CROSS_ORIGIN_OPENER_POLICY", idx))
 	if ok {
 		result.CrossOriginOpenerPolicy = crossOriginOpenerPolicy
 		isSet = true
 	}
 
-	crossOriginResourcePolicy, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__CROSS_ORIGIN_RESOURCE_POLICY", idx))
+	crossOriginResourcePolicy, ok := os.LookupEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__SECURITY__CROSS_ORIGIN_RESOURCE_POLICY", idx))
 	if ok {
 		result.CrossOriginResourcePolicy = crossOriginResourcePolicy
 		isSet = true
 	}
 
-	crossOriginEmbedderPolicy, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__CROSS_ORIGIN_EMBEDDER_POLICY", idx))
+	crossOriginEmbedderPolicy, ok := os.LookupEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__SECURITY__CROSS_ORIGIN_EMBEDDER_POLICY", idx))
 	if ok {
 		result.CrossOriginEmbedderPolicy = crossOriginEmbedderPolicy
 		isSet = true
 	}
 
-	referredPolicy, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__REFERRER_POLICY", idx))
+	referredPolicy, ok := os.LookupEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__SECURITY__REFERRER_POLICY", idx))
 	if ok {
 		result.ReferrerPolicy = referredPolicy
 		isSet = true
 	}
 
-	cacheControl, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__CACHE_CONTROL", idx))
+	cacheControl, ok := os.LookupEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__SECURITY__CACHE_CONTROL", idx))
 	if ok {
 		result.CacheControl = cacheControl
 		isSet = true
@@ -1625,85 +1625,85 @@ func getHTTPDOIDCFromEnv(idx int) (httpd.OIDC, bool) {
 	}
 	isSet := false
 
-	clientID, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__CLIENT_ID", idx))
+	clientID, ok := os.LookupEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__OIDC__CLIENT_ID", idx))
 	if ok {
 		result.ClientID = clientID
 		isSet = true
 	}
 
-	clientSecret, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__CLIENT_SECRET", idx))
+	clientSecret, ok := os.LookupEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__OIDC__CLIENT_SECRET", idx))
 	if ok {
 		result.ClientSecret = clientSecret
 		isSet = true
 	}
 
-	clientSecretFile, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__CLIENT_SECRET_FILE", idx))
+	clientSecretFile, ok := os.LookupEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__OIDC__CLIENT_SECRET_FILE", idx))
 	if ok {
 		result.ClientSecretFile = clientSecretFile
 		isSet = true
 	}
 
-	configURL, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__CONFIG_URL", idx))
+	configURL, ok := os.LookupEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__OIDC__CONFIG_URL", idx))
 	if ok {
 		result.ConfigURL = configURL
 		isSet = true
 	}
 
-	redirectBaseURL, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__REDIRECT_BASE_URL", idx))
+	redirectBaseURL, ok := os.LookupEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__OIDC__REDIRECT_BASE_URL", idx))
 	if ok {
 		result.RedirectBaseURL = redirectBaseURL
 		isSet = true
 	}
 
-	usernameField, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__USERNAME_FIELD", idx))
+	usernameField, ok := os.LookupEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__OIDC__USERNAME_FIELD", idx))
 	if ok {
 		result.UsernameField = usernameField
 		isSet = true
 	}
 
-	scopes, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__SCOPES", idx))
+	scopes, ok := lookupStringListFromEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__OIDC__SCOPES", idx))
 	if ok {
 		result.Scopes = scopes
 		isSet = true
 	}
 
-	roleField, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__ROLE_FIELD", idx))
+	roleField, ok := os.LookupEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__OIDC__ROLE_FIELD", idx))
 	if ok {
 		result.RoleField = roleField
 		isSet = true
 	}
 
-	implicitRoles, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__IMPLICIT_ROLES", idx))
+	implicitRoles, ok := lookupBoolFromEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__OIDC__IMPLICIT_ROLES", idx))
 	if ok {
 		result.ImplicitRoles = implicitRoles
 		isSet = true
 	}
 
-	customFields, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__CUSTOM_FIELDS", idx))
+	customFields, ok := lookupStringListFromEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__OIDC__CUSTOM_FIELDS", idx))
 	if ok {
 		result.CustomFields = customFields
 		isSet = true
 	}
 
-	queryUserInfo, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__QUERY_USERINFO", idx))
+	queryUserInfo, ok := lookupBoolFromEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__OIDC__QUERY_USERINFO", idx))
 	if ok {
 		result.QueryUserInfo = queryUserInfo
 		isSet = true
 	}
 
-	skipSignatureCheck, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__INSECURE_SKIP_SIGNATURE_CHECK", idx))
+	skipSignatureCheck, ok := lookupBoolFromEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__OIDC__INSECURE_SKIP_SIGNATURE_CHECK", idx))
 	if ok {
 		result.InsecureSkipSignatureCheck = skipSignatureCheck
 		isSet = true
 	}
 
-	requireVerifiedEmail, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__REQUIRE_VERIFIED_EMAIL", idx))
+	requireVerifiedEmail, ok := lookupBoolFromEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__OIDC__REQUIRE_VERIFIED_EMAIL", idx))
 	if ok {
 		result.RequireVerifiedEmail = requireVerifiedEmail
 		isSet = true
 	}
 
-	debug, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__DEBUG", idx))
+	debug, ok := lookupBoolFromEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__OIDC__DEBUG", idx))
 	if ok {
 		result.Debug = debug
 		isSet = true
@@ -1773,14 +1773,14 @@ func getHTTPDBrandingFromEnv(idx int) (httpd.Branding, bool) {
 	}
 	isSet := false
 
-	webAdmin, ok := getHTTPDUIBrandingFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__BRANDING__WEB_ADMIN", idx),
+	webAdmin, ok := getHTTPDUIBrandingFromEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__BRANDING__WEB_ADMIN", idx),
 		result.WebAdmin)
 	if ok {
 		result.WebAdmin = webAdmin
 		isSet = true
 	}
 
-	webClient, ok := getHTTPDUIBrandingFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__BRANDING__WEB_CLIENT", idx),
+	webClient, ok := getHTTPDUIBrandingFromEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__BRANDING__WEB_CLIENT", idx),
 		result.WebClient)
 	if ok {
 		result.WebClient = webClient
@@ -1825,25 +1825,25 @@ func getHTTPDNestedObjectsFromEnv(idx int, binding *httpd.Binding) bool {
 func getHTTPDBindingProxyConfigsFromEnv(idx int, binding *httpd.Binding) bool {
 	isSet := false
 
-	proxyMode, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__PROXY_MODE", idx), 32)
+	proxyMode, ok := lookupIntFromEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__PROXY_MODE", idx), 32)
 	if ok {
 		binding.ProxyMode = int(proxyMode)
 		isSet = true
 	}
 
-	proxyAllowed, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__PROXY_ALLOWED", idx))
+	proxyAllowed, ok := lookupStringListFromEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__PROXY_ALLOWED", idx))
 	if ok {
 		binding.ProxyAllowed = proxyAllowed
 		isSet = true
 	}
 
-	clientIPProxyHeader, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__CLIENT_IP_PROXY_HEADER", idx))
+	clientIPProxyHeader, ok := os.LookupEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__CLIENT_IP_PROXY_HEADER", idx))
 	if ok {
 		binding.ClientIPProxyHeader = clientIPProxyHeader
 		isSet = true
 	}
 
-	clientIPHeaderDepth, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__CLIENT_IP_HEADER_DEPTH", idx), 32)
+	clientIPHeaderDepth, ok := lookupIntFromEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__CLIENT_IP_HEADER_DEPTH", idx), 32)
 	if ok {
 		binding.ClientIPHeaderDepth = int(clientIPHeaderDepth)
 		isSet = true
@@ -1856,103 +1856,103 @@ func getHTTPDBindingFromEnv(idx int) {
 	binding := getDefaultHTTPBinding(idx)
 	isSet := false
 
-	port, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__PORT", idx), 32)
+	port, ok := lookupIntFromEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__PORT", idx), 32)
 	if ok {
 		binding.Port = int(port)
 		isSet = true
 	}
 
-	address, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__ADDRESS", idx))
+	address, ok := os.LookupEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__ADDRESS", idx))
 	if ok {
 		binding.Address = address
 		isSet = true
 	}
 
-	certificateFile, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__CERTIFICATE_FILE", idx))
+	certificateFile, ok := os.LookupEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__CERTIFICATE_FILE", idx))
 	if ok {
 		binding.CertificateFile = certificateFile
 		isSet = true
 	}
 
-	certificateKeyFile, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__CERTIFICATE_KEY_FILE", idx))
+	certificateKeyFile, ok := os.LookupEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__CERTIFICATE_KEY_FILE", idx))
 	if ok {
 		binding.CertificateKeyFile = certificateKeyFile
 		isSet = true
 	}
 
-	enableWebAdmin, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__ENABLE_WEB_ADMIN", idx))
+	enableWebAdmin, ok := lookupBoolFromEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__ENABLE_WEB_ADMIN", idx))
 	if ok {
 		binding.EnableWebAdmin = enableWebAdmin
 		isSet = true
 	}
 
-	enableWebClient, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__ENABLE_WEB_CLIENT", idx))
+	enableWebClient, ok := lookupBoolFromEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__ENABLE_WEB_CLIENT", idx))
 	if ok {
 		binding.EnableWebClient = enableWebClient
 		isSet = true
 	}
 
-	enableRESTAPI, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__ENABLE_REST_API", idx))
+	enableRESTAPI, ok := lookupBoolFromEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__ENABLE_REST_API", idx))
 	if ok {
 		binding.EnableRESTAPI = enableRESTAPI
 		isSet = true
 	}
 
-	enabledLoginMethods, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__ENABLED_LOGIN_METHODS", idx), 32)
+	enabledLoginMethods, ok := lookupIntFromEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__ENABLED_LOGIN_METHODS", idx), 32)
 	if ok {
 		binding.EnabledLoginMethods = int(enabledLoginMethods)
 		isSet = true
 	}
 
-	disabledLoginMethods, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__DISABLED_LOGIN_METHODS", idx), 32)
+	disabledLoginMethods, ok := lookupIntFromEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__DISABLED_LOGIN_METHODS", idx), 32)
 	if ok {
 		binding.DisabledLoginMethods = int(disabledLoginMethods)
 		isSet = true
 	}
 
-	renderOpenAPI, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__RENDER_OPENAPI", idx))
+	renderOpenAPI, ok := lookupBoolFromEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__RENDER_OPENAPI", idx))
 	if ok {
 		binding.RenderOpenAPI = renderOpenAPI
 		isSet = true
 	}
 
-	baseURL, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%d__BASE_URL", idx))
+	baseURL, ok := os.LookupEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%d__BASE_URL", idx))
 	if ok {
 		binding.BaseURL = baseURL
 		isSet = true
 	}
 
-	languages, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%d__LANGUAGES", idx))
+	languages, ok := lookupStringListFromEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%d__LANGUAGES", idx))
 	if ok {
 		binding.Languages = languages
 		isSet = true
 	}
 
-	enableHTTPS, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__ENABLE_HTTPS", idx))
+	enableHTTPS, ok := lookupBoolFromEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__ENABLE_HTTPS", idx))
 	if ok {
 		binding.EnableHTTPS = enableHTTPS
 		isSet = true
 	}
 
-	tlsVer, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__MIN_TLS_VERSION", idx), 32)
+	tlsVer, ok := lookupIntFromEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__MIN_TLS_VERSION", idx), 32)
 	if ok {
 		binding.MinTLSVersion = int(tlsVer)
 		isSet = true
 	}
 
-	clientAuthType, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__CLIENT_AUTH_TYPE", idx), 32)
+	clientAuthType, ok := lookupIntFromEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__CLIENT_AUTH_TYPE", idx), 32)
 	if ok {
 		binding.ClientAuthType = int(clientAuthType)
 		isSet = true
 	}
 
-	tlsCiphers, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__TLS_CIPHER_SUITES", idx))
+	tlsCiphers, ok := lookupStringListFromEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__TLS_CIPHER_SUITES", idx))
 	if ok {
 		binding.TLSCipherSuites = tlsCiphers
 		isSet = true
 	}
 
-	protocols, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%d__TLS_PROTOCOLS", idx))
+	protocols, ok := lookupStringListFromEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%d__TLS_PROTOCOLS", idx))
 	if ok {
 		binding.Protocols = protocols
 		isSet = true
@@ -1962,7 +1962,7 @@ func getHTTPDBindingFromEnv(idx int) {
 		isSet = true
 	}
 
-	hideLoginURL, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__HIDE_LOGIN_URL", idx), 32)
+	hideLoginURL, ok := lookupIntFromEnv(fmt.Sprintf("GONAS_HTTPD__BINDINGS__%v__HIDE_LOGIN_URL", idx), 32)
 	if ok {
 		binding.HideLoginURL = int(hideLoginURL)
 		isSet = true
@@ -1991,12 +1991,12 @@ func getHTTPClientCertificatesFromEnv(idx int) {
 		tlsCert = globalConf.HTTPConfig.Certificates[idx]
 	}
 
-	cert, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTP__CERTIFICATES__%v__CERT", idx))
+	cert, ok := os.LookupEnv(fmt.Sprintf("GONAS_HTTP__CERTIFICATES__%v__CERT", idx))
 	if ok {
 		tlsCert.Cert = cert
 	}
 
-	key, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTP__CERTIFICATES__%v__KEY", idx))
+	key, ok := os.LookupEnv(fmt.Sprintf("GONAS_HTTP__CERTIFICATES__%v__KEY", idx))
 	if ok {
 		tlsCert.Key = key
 	}
@@ -2016,17 +2016,17 @@ func getHTTPClientHeadersFromEnv(idx int) {
 		header = globalConf.HTTPConfig.Headers[idx]
 	}
 
-	key, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTP__HEADERS__%v__KEY", idx))
+	key, ok := os.LookupEnv(fmt.Sprintf("GONAS_HTTP__HEADERS__%v__KEY", idx))
 	if ok {
 		header.Key = key
 	}
 
-	value, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTP__HEADERS__%v__VALUE", idx))
+	value, ok := os.LookupEnv(fmt.Sprintf("GONAS_HTTP__HEADERS__%v__VALUE", idx))
 	if ok {
 		header.Value = value
 	}
 
-	url, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTP__HEADERS__%v__URL", idx))
+	url, ok := os.LookupEnv(fmt.Sprintf("GONAS_HTTP__HEADERS__%v__URL", idx))
 	if ok {
 		header.URL = url
 	}
@@ -2046,22 +2046,22 @@ func getCommandConfigsFromEnv(idx int) {
 		cfg = globalConf.CommandConfig.Commands[idx]
 	}
 
-	path, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_COMMAND__COMMANDS__%v__PATH", idx))
+	path, ok := os.LookupEnv(fmt.Sprintf("GONAS_COMMAND__COMMANDS__%v__PATH", idx))
 	if ok {
 		cfg.Path = path
 	}
 
-	timeout, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_COMMAND__COMMANDS__%v__TIMEOUT", idx), 32)
+	timeout, ok := lookupIntFromEnv(fmt.Sprintf("GONAS_COMMAND__COMMANDS__%v__TIMEOUT", idx), 32)
 	if ok {
 		cfg.Timeout = int(timeout)
 	}
 
-	env, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_COMMAND__COMMANDS__%v__ENV", idx))
+	env, ok := lookupStringListFromEnv(fmt.Sprintf("GONAS_COMMAND__COMMANDS__%v__ENV", idx))
 	if ok {
 		cfg.Env = env
 	}
 
-	args, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_COMMAND__COMMANDS__%v__ARGS", idx))
+	args, ok := lookupStringListFromEnv(fmt.Sprintf("GONAS_COMMAND__COMMANDS__%v__ARGS", idx))
 	if ok {
 		cfg.Args = args
 	}

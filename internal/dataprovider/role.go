@@ -18,11 +18,11 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/util"
 )
 
-// Role defines an SFTPGo role.
+// Role defines an GoNAS role.
 type Role struct {
 	// Data provider unique identifier
 	ID int64 `json:"id"`

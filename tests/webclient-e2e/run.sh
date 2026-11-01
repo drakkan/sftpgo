@@ -14,18 +14,18 @@ SHOTS=$WORK/shots
 rm -rf "$R"; mkdir -p "$R" "$SHOTS"
 [ -d "$HERE/node_modules" ] || (cd "$HERE" && npm install --silent)
 (cd "$F" && GOTOOLCHAIN=auto go build -o "$WORK/server" .) || exit 1
-cp "$F/sftpgo.json" "$R/sftpgo.json"
+cp "$F/gonas.json" "$R/gonas.json"
 LANGS=en,pl,de
 [ "$MODE" = prefs ] && LANGS=en,pl,de,zh-CN
-export SFTPGO_HTTPD__BINDINGS__0__PORT=18183 SFTPGO_HTTPD__BINDINGS__0__ADDRESS=127.0.0.1 \
-  SFTPGO_HTTPD__BINDINGS__0__LANGUAGES=$LANGS SFTPGO_SFTPD__BINDINGS__0__PORT=0 SFTPGO_FTPD__BINDINGS__0__PORT=0 \
-  SFTPGO_WEBDAVD__BINDINGS__0__PORT=0 SFTPGO_DATA_PROVIDER__CREATE_DEFAULT_ADMIN=1 \
-  SFTPGO_DEFAULT_ADMIN_USERNAME=admin SFTPGO_DEFAULT_ADMIN_PASSWORD=e2e-Password-1 \
-  SFTPGO_HTTPD__TEMPLATES_PATH=$F/templates SFTPGO_HTTPD__STATIC_FILES_PATH=$F/static \
-  SFTPGO_HTTPD__OPENAPI_PATH=$F/openapi SFTPGO_SMTP__TEMPLATES_PATH=$F/templates SFTPGO_DATA_PROVIDER__NAME=$R/e2e.db
+export GONAS_HTTPD__BINDINGS__0__PORT=18183 GONAS_HTTPD__BINDINGS__0__ADDRESS=127.0.0.1 \
+  GONAS_HTTPD__BINDINGS__0__LANGUAGES=$LANGS GONAS_SFTPD__BINDINGS__0__PORT=0 GONAS_FTPD__BINDINGS__0__PORT=0 \
+  GONAS_WEBDAVD__BINDINGS__0__PORT=0 GONAS_DATA_PROVIDER__CREATE_DEFAULT_ADMIN=1 \
+  GONAS_DEFAULT_ADMIN_USERNAME=admin GONAS_DEFAULT_ADMIN_PASSWORD=e2e-Password-1 \
+  GONAS_HTTPD__TEMPLATES_PATH=$F/templates GONAS_HTTPD__STATIC_FILES_PATH=$F/static \
+  GONAS_HTTPD__OPENAPI_PATH=$F/openapi GONAS_SMTP__TEMPLATES_PATH=$F/templates GONAS_DATA_PROVIDER__NAME=$R/e2e.db
 if [ "$MODE" = strict ]; then
-  export SFTPGO_HTTPD__BINDINGS__0__SECURITY__ENABLED=1
-  export SFTPGO_HTTPD__BINDINGS__0__SECURITY__CONTENT_SECURITY_POLICY="default-src 'none'; script-src \$NONCE; style-src 'self' \$NONCE; img-src 'self' data:; font-src 'self'; connect-src 'self'; media-src 'self'; object-src 'self'; base-uri 'none'; form-action 'self'"
+  export GONAS_HTTPD__BINDINGS__0__SECURITY__ENABLED=1
+  export GONAS_HTTPD__BINDINGS__0__SECURITY__CONTENT_SECURITY_POLICY="default-src 'none'; script-src \$NONCE; style-src 'self' \$NONCE; img-src 'self' data:; font-src 'self'; connect-src 'self'; media-src 'self'; object-src 'self'; base-uri 'none'; form-action 'self'"
 fi
 B=http://127.0.0.1:18183
 (cd "$R" && exec "$WORK/server" serve --config-dir "$R" --log-file-path "$R/server.log" >/dev/null 2>&1) &

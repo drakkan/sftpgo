@@ -65,14 +65,14 @@ import (
 	"golang.org/x/crypto/pbkdf2"
 	"golang.org/x/crypto/ssh"
 
-	"github.com/drakkan/sftpgo/v2/internal/command"
-	"github.com/drakkan/sftpgo/v2/internal/httpclient"
-	"github.com/drakkan/sftpgo/v2/internal/kms"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/mfa"
-	"github.com/drakkan/sftpgo/v2/internal/plugin"
-	"github.com/drakkan/sftpgo/v2/internal/util"
-	"github.com/drakkan/sftpgo/v2/internal/vfs"
+	"github.com/xrogers/gonas/v2/internal/command"
+	"github.com/xrogers/gonas/v2/internal/httpclient"
+	"github.com/xrogers/gonas/v2/internal/kms"
+	"github.com/xrogers/gonas/v2/internal/logger"
+	"github.com/xrogers/gonas/v2/internal/mfa"
+	"github.com/xrogers/gonas/v2/internal/plugin"
+	"github.com/xrogers/gonas/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/vfs"
 )
 
 const (
@@ -116,7 +116,7 @@ const (
 )
 
 // Supported algorithms for hashing passwords.
-// These algorithms can be used when SFTPGo hashes a plain text password
+// These algorithms can be used when GoNAS hashes a plain text password
 const (
 	HashingAlgoBcrypt   = "bcrypt"
 	HashingAlgoArgon2ID = "argon2id"
@@ -326,9 +326,9 @@ type PasswordValidationRules struct {
 
 // PasswordValidation defines the password validation rules for admins and protocol users
 type PasswordValidation struct {
-	// Password validation rules for SFTPGo admin users
+	// Password validation rules for GoNAS admin users
 	Admins PasswordValidationRules `json:"admins" mapstructure:"admins"`
-	// Password validation rules for SFTPGo protocol users
+	// Password validation rules for GoNAS protocol users
 	Users PasswordValidationRules `json:"users" mapstructure:"users"`
 }
 
@@ -474,7 +474,7 @@ type Config struct {
 	// its main use case is to allow to easily support things like password+OTP for protocols
 	// without keyboard interactive support such as FTP and WebDAV. You can ask your users
 	// to login using a string consisting of a fixed password and a One Time Token, you
-	// can verify the token inside the hook and ask to SFTPGo to verify the fixed part.
+	// can verify the token inside the hook and ask to GoNAS to verify the fixed part.
 	CheckPasswordHook string `json:"check_password_hook" mapstructure:"check_password_hook"`
 	// CheckPasswordScope defines the scope for the check password hook.
 	// - 0 means all protocols
@@ -499,7 +499,7 @@ type Config struct {
 	// queries to the data provider.
 	// If you want to track quotas, a scheduled quota update is recommended in any case, the stored
 	// quota size may be incorrect for several reasons, such as an unexpected shutdown, temporary provider
-	// failures, file copied outside of SFTPGo, and so on.
+	// failures, file copied outside of GoNAS, and so on.
 	// 0 means immediate quota update.
 	DelayedQuotaUpdate int `json:"delayed_quota_update" mapstructure:"delayed_quota_update"`
 	// If enabled, a default admin user with username "admin" and password "password" will be created
@@ -518,9 +518,9 @@ type Config struct {
 	// could be unable to login, for example existing users with mixed cases in their usernames.
 	// You have to ensure that all existing users respect the defined rules.
 	NamingRules int `json:"naming_rules" mapstructure:"naming_rules"`
-	// If the data provider is shared across multiple SFTPGo instances, set this parameter to 1.
+	// If the data provider is shared across multiple GoNAS instances, set this parameter to 1.
 	// MySQL, PostgreSQL and CockroachDB can be shared, this setting is ignored for other data
-	// providers. For shared data providers, SFTPGo periodically reloads the latest updated users,
+	// providers. For shared data providers, GoNAS periodically reloads the latest updated users,
 	// based on the "updated_at" field, and updates its internal caches if users are updated from
 	// a different instance. This check, if enabled, is executed every 10 minutes.
 	// For shared data providers, active transfers are persisted in the database and thus
@@ -758,7 +758,7 @@ type checkPasswordResponse struct {
 	// 0 KO, 1 OK, 2 partial success, -1 not executed
 	Status int `json:"status"`
 	// for status = 2 this is the password to check against the one stored
-	// inside the SFTPGo data provider
+	// inside the GoNAS data provider
 	ToVerify string `json:"to_verify"`
 }
 
@@ -1295,7 +1295,7 @@ func CheckUserBeforeTLSAuth(username, ip, protocol string, tlsCert *x509.Certifi
 	return user, err
 }
 
-// CheckUserAndTLSCert returns the SFTPGo user with the given username and check if the
+// CheckUserAndTLSCert returns the GoNAS user with the given username and check if the
 // given TLS certificate allow authentication without password
 func CheckUserAndTLSCert(username, ip, protocol string, tlsCert *x509.Certificate) (User, error) {
 	username = config.convertName(username)
@@ -1323,7 +1323,7 @@ func CheckUserAndTLSCert(username, ip, protocol string, tlsCert *x509.Certificat
 	return provider.validateUserAndTLSCert(username, protocol, tlsCert)
 }
 
-// CheckUserAndPass retrieves the SFTPGo user with the given username and password if a match is found or an error
+// CheckUserAndPass retrieves the GoNAS user with the given username and password if a match is found or an error
 func CheckUserAndPass(username, password, ip, protocol string) (User, error) {
 	username = config.convertName(username)
 	if plugin.Handler.HasAuthScope(plugin.AuthScopePassword) {
@@ -1415,9 +1415,9 @@ func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.Keyboard
 	return doKeyboardInteractiveAuth(&user, usePlugin, authHook, client, ip, protocol, isPartialAuth)
 }
 
-// GetFTPPreAuthUser returns the SFTPGo user with the specified username
+// GetFTPPreAuthUser returns the GoNAS user with the specified username
 // after receiving the FTP "USER" command.
-// If a pre-login hook is defined it will be executed so the SFTPGo user
+// If a pre-login hook is defined it will be executed so the GoNAS user
 // can be created if it does not exist
 func GetFTPPreAuthUser(username, ip string) (User, error) {
 	var user User
@@ -1435,9 +1435,9 @@ func GetFTPPreAuthUser(username, ip string) (User, error) {
 	return user, err
 }
 
-// GetUserAfterIDPAuth returns the SFTPGo user with the specified username
+// GetUserAfterIDPAuth returns the GoNAS user with the specified username
 // after a successful authentication with an external identity provider.
-// If a pre-login hook is defined it will be executed so the SFTPGo user
+// If a pre-login hook is defined it will be executed so the GoNAS user
 // can be created if it does not exist
 func GetUserAfterIDPAuth(username, ip, protocol string, oidcTokenFields *map[string]any) (User, error) {
 	var user User
@@ -1518,7 +1518,7 @@ func UpdateAPIKeyLastUse(apiKey *APIKey) error {
 	return nil
 }
 
-// UpdateLastLogin updates the last login field for the given SFTPGo user
+// UpdateLastLogin updates the last login field for the given GoNAS user
 func UpdateLastLogin(user *User) {
 	delay := lastLoginMinDelay
 	if user.Filters.ExternalAuthCacheTime > 0 {
@@ -1532,14 +1532,14 @@ func UpdateLastLogin(user *User) {
 	}
 }
 
-// UpdateAdminLastLogin updates the last login field for the given SFTPGo admin
+// UpdateAdminLastLogin updates the last login field for the given GoNAS admin
 func UpdateAdminLastLogin(admin *Admin) {
 	if !isLastActivityRecent(admin.LastLogin, lastLoginMinDelay) {
 		_ = provider.updateAdminLastLogin(admin.Username)
 	}
 }
 
-// UpdateUserQuota updates the quota for the given SFTPGo user adding filesAdd and sizeAdd.
+// UpdateUserQuota updates the quota for the given GoNAS user adding filesAdd and sizeAdd.
 // If reset is true filesAdd and sizeAdd indicates the total files and the total size instead of the difference.
 func UpdateUserQuota(user *User, filesAdd int, sizeAdd int64, reset bool) error {
 	if config.TrackQuota == 0 {
@@ -1588,7 +1588,7 @@ func UpdateVirtualFolderQuota(vfolder *vfs.BaseVirtualFolder, filesAdd int, size
 	return nil
 }
 
-// UpdateUserTransferQuota updates the transfer quota for the given SFTPGo user.
+// UpdateUserTransferQuota updates the transfer quota for the given GoNAS user.
 // If reset is true uploadSize and downloadSize indicates the actual sizes instead of the difference.
 func UpdateUserTransferQuota(user *User, uploadSize, downloadSize int64, reset bool) error {
 	if config.TrackQuota == 0 {
@@ -1625,7 +1625,7 @@ func UpdateUserTransferTimestamps(username string, isUpload bool) error {
 	return err
 }
 
-// GetUsedQuota returns the used quota for the given SFTPGo user.
+// GetUsedQuota returns the used quota for the given GoNAS user.
 func GetUsedQuota(username string) (int, int64, int64, int64, error) {
 	if config.TrackQuota == 0 {
 		return 0, 0, 0, 0, util.NewMethodDisabledError(trackQuotaDisabledError)
@@ -2058,7 +2058,7 @@ func GetNodeByName(name string) (Node, error) {
 }
 
 // HasAdmin returns true if the first admin has been created
-// and so SFTPGo is ready to be used
+// and so GoNAS is ready to be used
 func HasAdmin() (bool, error) {
 	if isAdminCreated.Load() {
 		return true, nil
@@ -2085,7 +2085,7 @@ func checkAdminCreated() (bool, error) {
 	return true, nil
 }
 
-// AddAdmin adds a new SFTPGo admin
+// AddAdmin adds a new GoNAS admin
 func AddAdmin(admin *Admin, executor, ipAddress, role string) error {
 	admin.Filters.RecoveryCodes = nil
 	admin.Filters.TOTPConfig = AdminTOTPConfig{
@@ -2100,7 +2100,7 @@ func AddAdmin(admin *Admin, executor, ipAddress, role string) error {
 	return err
 }
 
-// UpdateAdmin updates an existing SFTPGo admin
+// UpdateAdmin updates an existing GoNAS admin
 func UpdateAdmin(admin *Admin, executor, ipAddress, role string) error {
 	err := provider.updateAdmin(admin, selfUpdateGuard(executor, admin.UpdatedAt))
 	if err == nil {
@@ -2109,7 +2109,7 @@ func UpdateAdmin(admin *Admin, executor, ipAddress, role string) error {
 	return err
 }
 
-// DeleteAdmin deletes an existing SFTPGo admin
+// DeleteAdmin deletes an existing GoNAS admin
 func DeleteAdmin(username, executor, ipAddress, role string) error {
 	username = config.convertName(username)
 	admin, err := provider.adminExists(username)
@@ -2130,7 +2130,7 @@ func AdminExists(username string) (Admin, error) {
 	return provider.adminExists(username)
 }
 
-// UserExists checks if the given SFTPGo username exists, returns an error if no match is found
+// UserExists checks if the given GoNAS username exists, returns an error if no match is found
 func UserExists(username, role string) (User, error) {
 	username = config.convertName(username)
 	return provider.userExists(username, role)
@@ -2175,7 +2175,7 @@ func GetUserVariants(username, role string) (User, User, error) {
 	return user, userWithGroupSettings, err
 }
 
-// AddUser adds a new SFTPGo user.
+// AddUser adds a new GoNAS user.
 func AddUser(user *User, executor, ipAddress, role string) error {
 	user.Username = config.convertName(user.Username)
 	err := provider.addUser(user)
@@ -2209,7 +2209,7 @@ func UpdateUserPassword(username, plainPwd, executor, ipAddress, role string) er
 	return nil
 }
 
-// UpdateUser updates an existing SFTPGo user.
+// UpdateUser updates an existing GoNAS user.
 func UpdateUser(user *User, executor, ipAddress, role string) error {
 	if user.groupSettingsApplied {
 		return errors.New("cannot save a user with group settings applied")
@@ -2235,7 +2235,7 @@ func nextUpdatedAt(storedUpdatedAt int64) int64 {
 	return max(util.GetTimeAsMsSinceEpoch(time.Now()), storedUpdatedAt+1)
 }
 
-// DeleteUser deletes an existing SFTPGo user.
+// DeleteUser deletes an existing GoNAS user.
 func DeleteUser(username, executor, ipAddress, role string) error {
 	username = config.convertName(username)
 	user, err := provider.userExists(username, role)
@@ -4116,9 +4116,9 @@ func executeKeyboardInteractiveProgram(user *User, authHook string, client ssh.K
 
 	cmd := exec.CommandContext(ctx, authHook, args...)
 	cmd.Env = append(env,
-		fmt.Sprintf("SFTPGO_AUTHD_USERNAME=%s", user.Username),
-		fmt.Sprintf("SFTPGO_AUTHD_IP=%s", ip),
-		fmt.Sprintf("SFTPGO_AUTHD_PASSWORD=%s", user.Password))
+		fmt.Sprintf("GONAS_AUTHD_USERNAME=%s", user.Username),
+		fmt.Sprintf("GONAS_AUTHD_IP=%s", ip),
+		fmt.Sprintf("GONAS_AUTHD_PASSWORD=%s", user.Password))
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return authResult, err
@@ -4260,10 +4260,10 @@ func getPasswordHookResponse(username, password, ip, protocol string) ([]byte, e
 
 	cmd := exec.CommandContext(ctx, config.CheckPasswordHook, args...)
 	cmd.Env = append(env,
-		fmt.Sprintf("SFTPGO_AUTHD_USERNAME=%s", username),
-		fmt.Sprintf("SFTPGO_AUTHD_PASSWORD=%s", password),
-		fmt.Sprintf("SFTPGO_AUTHD_IP=%s", ip),
-		fmt.Sprintf("SFTPGO_AUTHD_PROTOCOL=%s", protocol),
+		fmt.Sprintf("GONAS_AUTHD_USERNAME=%s", username),
+		fmt.Sprintf("GONAS_AUTHD_PASSWORD=%s", password),
+		fmt.Sprintf("GONAS_AUTHD_IP=%s", ip),
+		fmt.Sprintf("GONAS_AUTHD_PROTOCOL=%s", protocol),
 	)
 	return getCmdOutput(cmd, "check_password_hook")
 }
@@ -4321,10 +4321,10 @@ func getPreLoginHookResponse(loginMethod, ip, protocol string, userAsJSON []byte
 
 	cmd := exec.CommandContext(ctx, config.PreLoginHook, args...)
 	cmd.Env = append(env,
-		fmt.Sprintf("SFTPGO_LOGIND_USER=%s", userAsJSON),
-		fmt.Sprintf("SFTPGO_LOGIND_METHOD=%s", loginMethod),
-		fmt.Sprintf("SFTPGO_LOGIND_IP=%s", ip),
-		fmt.Sprintf("SFTPGO_LOGIND_PROTOCOL=%s", protocol),
+		fmt.Sprintf("GONAS_LOGIND_USER=%s", userAsJSON),
+		fmt.Sprintf("GONAS_LOGIND_METHOD=%s", loginMethod),
+		fmt.Sprintf("GONAS_LOGIND_IP=%s", ip),
+		fmt.Sprintf("GONAS_LOGIND_PROTOCOL=%s", protocol),
 	)
 	return getCmdOutput(cmd, "pre_login_hook")
 }
@@ -4456,11 +4456,11 @@ func ExecutePostLoginHook(user *User, loginMethod, ip, protocol string, err erro
 
 		cmd := exec.CommandContext(ctx, config.PostLoginHook, args...)
 		cmd.Env = append(env,
-			fmt.Sprintf("SFTPGO_LOGIND_USER=%s", userAsJSON),
-			fmt.Sprintf("SFTPGO_LOGIND_IP=%s", ip),
-			fmt.Sprintf("SFTPGO_LOGIND_METHOD=%s", loginMethod),
-			fmt.Sprintf("SFTPGO_LOGIND_STATUS=%s", status),
-			fmt.Sprintf("SFTPGO_LOGIND_PROTOCOL=%s", protocol))
+			fmt.Sprintf("GONAS_LOGIND_USER=%s", userAsJSON),
+			fmt.Sprintf("GONAS_LOGIND_IP=%s", ip),
+			fmt.Sprintf("GONAS_LOGIND_METHOD=%s", loginMethod),
+			fmt.Sprintf("GONAS_LOGIND_STATUS=%s", status),
+			fmt.Sprintf("GONAS_LOGIND_PROTOCOL=%s", protocol))
 		startTime := time.Now()
 		err = cmd.Run()
 		providerLog(logger.LevelDebug, "post login hook executed for user %q, ip %v, protocol %v, elapsed %v err: %v",
@@ -4524,14 +4524,14 @@ func getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, 
 
 	cmd := exec.CommandContext(ctx, config.ExternalAuthHook, args...)
 	cmd.Env = append(env,
-		fmt.Sprintf("SFTPGO_AUTHD_USERNAME=%s", username),
-		fmt.Sprintf("SFTPGO_AUTHD_USER=%s", userAsJSON),
-		fmt.Sprintf("SFTPGO_AUTHD_IP=%s", ip),
-		fmt.Sprintf("SFTPGO_AUTHD_PASSWORD=%s", password),
-		fmt.Sprintf("SFTPGO_AUTHD_PUBLIC_KEY=%s", pkey),
-		fmt.Sprintf("SFTPGO_AUTHD_PROTOCOL=%s", protocol),
-		fmt.Sprintf("SFTPGO_AUTHD_TLS_CERT=%s", strings.ReplaceAll(tlsCert, "\n", "\\n")),
-		fmt.Sprintf("SFTPGO_AUTHD_KEYBOARD_INTERACTIVE=%v", keyboardInteractive))
+		fmt.Sprintf("GONAS_AUTHD_USERNAME=%s", username),
+		fmt.Sprintf("GONAS_AUTHD_USER=%s", userAsJSON),
+		fmt.Sprintf("GONAS_AUTHD_IP=%s", ip),
+		fmt.Sprintf("GONAS_AUTHD_PASSWORD=%s", password),
+		fmt.Sprintf("GONAS_AUTHD_PUBLIC_KEY=%s", pkey),
+		fmt.Sprintf("GONAS_AUTHD_PROTOCOL=%s", protocol),
+		fmt.Sprintf("GONAS_AUTHD_TLS_CERT=%s", strings.ReplaceAll(tlsCert, "\n", "\\n")),
+		fmt.Sprintf("GONAS_AUTHD_KEYBOARD_INTERACTIVE=%v", keyboardInteractive))
 
 	return getCmdOutput(cmd, "external_auth_hook")
 }
@@ -4619,7 +4619,7 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 	}
 	updateUserFromExtAuthResponse(&user, password, pkey)
 	user.Username = config.convertName(user.Username)
-	// some users want to map multiple login usernames with a single SFTPGo account
+	// some users want to map multiple login usernames with a single GoNAS account
 	// for example an SFTP user logins using "user1" or "user2" and the external auth
 	// returns "user" in both cases, so we use the username returned from
 	// external auth and not the one used to login
@@ -4885,7 +4885,7 @@ func checkReservedUsernames(username string) error {
 }
 
 func errSchemaVersionTooOld(version int) error {
-	return fmt.Errorf("database schema version %d is too old, please see the upgrading docs: https://docs.sftpgo.com/latest/data-provider/#upgrading", version)
+	return fmt.Errorf("database schema version %d is too old, upgrade to a release that supports it first", version)
 }
 
 func getCmdOutput(cmd *exec.Cmd, sender string) ([]byte, error) {

@@ -20,13 +20,13 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/drakkan/sftpgo/v2/internal/service"
+	"github.com/xrogers/gonas/v2/internal/service"
 )
 
 var (
 	reloadCmd = &cobra.Command{
 		Use:   "reload",
-		Short: "Reload the SFTPGo Windows Service sending a \"paramchange\" request",
+		Short: "Reload the GoNAS Windows Service sending a \"paramchange\" request",
 		Run: func(_ *cobra.Command, _ []string) {
 			s := service.WindowsService{
 				Service: service.Service{
