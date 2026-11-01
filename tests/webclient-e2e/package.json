@@ -1,0 +1,5 @@
+{
+  "private": true,
+  "description": "Browser tests for the WebClient",
+  "dependencies": { "playwright": "^1.48.2" }
+}
