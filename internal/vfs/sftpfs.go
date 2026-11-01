@@ -154,7 +154,7 @@ func (c *SFTPFsConfig) setEmptyCredentialsIfNil() {
 }
 
 func (c *SFTPFsConfig) isSameResource(other SFTPFsConfig) bool {
-	if c.EqualityCheckMode > 0 || other.EqualityCheckMode > 0 {
+	if c.EqualityCheckMode != 1 || other.EqualityCheckMode != 1 {
 		if c.Username != other.Username {
 			return false
 		}
@@ -643,7 +643,7 @@ func (*SFTPFs) IsNotSupported(err error) bool {
 	if err == nil {
 		return false
 	}
-	return err == ErrVfsUnsupported
+	return errors.Is(err, ErrVfsUnsupported)
 }
 
 // CheckRootPath creates the specified local root directory if it does not exists

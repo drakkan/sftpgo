@@ -600,7 +600,7 @@ func (fs *S3Fs) Walk(root string, walkFn filepath.WalkFunc) error {
 			}
 			err := walkFn(util.GetStringFromPointer(fileObject.Key),
 				NewFileInfo(name, isDir, util.GetIntFromPointer(fileObject.Size),
-					util.GetTimeFromPointer(fileObject.LastModified), false), nil)
+					s3ListedModTime(fileObject.LastModified), false), nil)
 			if err != nil {
 				return err
 			}
@@ -1295,6 +1295,10 @@ func (fs *S3Fs) headObject(name string) (*s3.HeadObjectOutput, error) {
 	return obj, err
 }
 
+func s3ListedModTime(t *time.Time) time.Time {
+	return util.GetTimeFromPointer(t).Truncate(time.Second)
+}
+
 // GetMimeType returns the content type
 func (fs *S3Fs) GetMimeType(name string) (string, error) {
 	obj, err := fs.headObject(name)
@@ -1383,7 +1387,7 @@ func (l *s3DirLister) Next(limit int) ([]os.FileInfo, error) {
 		l.prefixes[name] = true
 	}
 	for _, fileObject := range page.Contents {
-		objectModTime := util.GetTimeFromPointer(fileObject.LastModified)
+		objectModTime := s3ListedModTime(fileObject.LastModified)
 		objectSize := util.GetIntFromPointer(fileObject.Size)
 		name, isDir := l.resolve(fileObject.Key)
 		if !addressesEntry(name) {

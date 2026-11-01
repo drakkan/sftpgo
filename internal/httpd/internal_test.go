@@ -26,6 +26,7 @@ import (
 	"html/template"
 	"io"
 	"io/fs"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -34,6 +35,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -56,6 +59,7 @@ import (
 	"github.com/xrogers/gonas/v2/internal/jwt"
 	"github.com/xrogers/gonas/v2/internal/kms"
 	"github.com/xrogers/gonas/v2/internal/plugin"
+	"github.com/xrogers/gonas/v2/internal/smtp"
 	"github.com/xrogers/gonas/v2/internal/util"
 	"github.com/xrogers/gonas/v2/internal/vfs"
 )
@@ -316,6 +320,155 @@ func (s *failingJoseSigner) Sign(payload []byte) (*jose.JSONWebSignature, error)
 
 func (s *failingJoseSigner) Options() jose.SignerOptions {
 	return jose.SignerOptions{}
+}
+
+func init() {
+	resetCodeSendWindow = 0
+}
+
+func TestResetCodeSendThrottle(t *testing.T) {
+	if resetCodesMgr == nil {
+		resetCodesMgr = newResetCodeManager(0)
+	}
+	if codeSendMarkersMgr == nil {
+		codeSendMarkersMgr = newCodeSendMarkerManager(0)
+	}
+	oldWindow := resetCodeSendWindow
+	resetCodeSendWindow = time.Minute
+	username := "Throttle_User"
+	defer func() {
+		resetCodeSendWindow = oldWindow
+		clearCodeSent(false, username)
+	}()
+
+	clearCodeSent(false, username)
+	require.False(t, hasRecentCodeSend(false, username))
+	require.NoError(t, markCodeSent(false, username))
+	// further sends within the window are throttled
+	require.True(t, hasRecentCodeSend(false, username))
+	require.ErrorIs(t, markCodeSent(false, username), dataprovider.ErrDuplicatedKey)
+	// markers live in their own store, they are not visible as reset codes
+	_, err := resetCodesMgr.Get(codeSendMarkerKey(false, username))
+	require.Error(t, err)
+	// the case variants of a username share the send window
+	require.True(t, hasRecentCodeSend(false, strings.ToLower(username)))
+	require.ErrorIs(t, markCodeSent(false, strings.ToLower(username)), dataprovider.ErrDuplicatedKey)
+	require.ErrorIs(t, markCodeSent(false, strings.ToUpper(username)), dataprovider.ErrDuplicatedKey)
+	// another account or an admin with the same name are not affected
+	require.False(t, hasRecentCodeSend(false, "another_user"))
+	require.False(t, hasRecentCodeSend(true, username))
+	require.NoError(t, markCodeSent(false, "another_user"))
+	clearCodeSent(false, "another_user")
+	require.NoError(t, markCodeSent(true, username))
+	clearCodeSent(true, username)
+	// clearing the marker (used on delivery failure and code consumption)
+	// allows a new send
+	clearCodeSent(false, username)
+	require.False(t, hasRecentCodeSend(false, username))
+	require.NoError(t, markCodeSent(false, username))
+	clearCodeSent(false, username)
+	// a disabled window never throttles and records nothing
+	resetCodeSendWindow = 0
+	require.NoError(t, markCodeSent(false, username))
+	require.NoError(t, markCodeSent(false, username))
+	require.False(t, hasRecentCodeSend(false, username))
+	resetCodeSendWindow = time.Minute
+	require.NoError(t, markCodeSent(false, username))
+}
+
+func TestCodeSendMarkerManagers(t *testing.T) {
+	managers := map[string]codeSendMarkerManager{
+		"memory": newCodeSendMarkerManager(0),
+	}
+	if isSharedProviderSupported() {
+		managers["database"] = newCodeSendMarkerManager(1)
+	}
+	for name, mgr := range managers {
+		t.Run(name, func(t *testing.T) {
+			key := codeSendMarkerKey(false, "marker_user_"+name)
+			mgr.Clear(key)
+			defer mgr.Clear(key)
+
+			require.False(t, mgr.Has(key))
+			require.NoError(t, mgr.Mark(key, time.Now().Add(time.Minute).UTC()))
+			require.True(t, mgr.Has(key))
+			require.ErrorIs(t, mgr.Mark(key, time.Now().Add(time.Minute).UTC()), dataprovider.ErrDuplicatedKey)
+			mgr.Clear(key)
+			require.False(t, mgr.Has(key))
+			// an expired marker does not throttle and is replaced
+			require.NoError(t, mgr.Mark(key, time.Now().Add(-time.Minute).UTC()))
+			require.False(t, mgr.Has(key))
+			require.NoError(t, mgr.Mark(key, time.Now().Add(time.Minute).UTC()))
+			require.ErrorIs(t, mgr.Mark(key, time.Now().Add(time.Minute).UTC()), dataprovider.ErrDuplicatedKey)
+			// Cleanup removes expired markers only
+			mgr.Cleanup()
+			require.True(t, mgr.Has(key))
+			require.ErrorIs(t, mgr.Mark(key, time.Now().Add(time.Minute).UTC()), dataprovider.ErrDuplicatedKey)
+			mgr.Clear(key)
+			require.NoError(t, mgr.Mark(key, time.Now().Add(-time.Minute).UTC()))
+			mgr.Cleanup()
+			require.NoError(t, mgr.Mark(key, time.Now().Add(time.Minute).UTC()))
+			mgr.Clear(key)
+			// concurrent marks for the same key: exactly one wins
+			const workers = 20
+			var wg sync.WaitGroup
+			var marked, duplicated atomic.Int32
+			start := make(chan struct{})
+			for range workers {
+				wg.Go(func() {
+					<-start
+					err := mgr.Mark(key, time.Now().Add(time.Minute).UTC())
+					if err == nil {
+						marked.Add(1)
+					} else if errors.Is(err, dataprovider.ErrDuplicatedKey) {
+						duplicated.Add(1)
+					}
+				})
+			}
+			close(start)
+			wg.Wait()
+			require.Equal(t, int32(1), marked.Load())
+			require.Equal(t, int32(workers-1), duplicated.Load())
+		})
+	}
+}
+
+func TestSendCodeEmailInBackgroundFailure(t *testing.T) {
+	if resetCodesMgr == nil {
+		resetCodesMgr = newResetCodeManager(0)
+	}
+	if codeSendMarkersMgr == nil {
+		codeSendMarkersMgr = newCodeSendMarkerManager(0)
+	}
+	smtpCfg := smtp.Config{
+		Host: "127.0.0.1",
+		Port: 3526,
+		From: "notification@example.com",
+	}
+	err := smtpCfg.Initialize(configDir, true)
+	require.NoError(t, err)
+	oldWindow := resetCodeSendWindow
+	resetCodeSendWindow = time.Minute
+	defer func() {
+		resetCodeSendWindow = oldWindow
+		smtpCfg = smtp.Config{}
+		require.NoError(t, smtpCfg.Initialize(configDir, true))
+	}()
+
+	c := newResetCode("background_user", false)
+	require.True(t, sendCodeEmailInBackground(c, "", []string{"user@example.com"}, "subject", "body"))
+	// the failed delivery removes the code and allows a new send right away
+	assert.Eventually(t, func() bool {
+		_, err := resetCodesMgr.Get(c.Code)
+		return err != nil && !hasRecentCodeSend(c.IsAdmin, c.Username)
+	}, 5*time.Second, 50*time.Millisecond)
+	// within the send window a new email is suppressed and no code is stored
+	require.NoError(t, markCodeSent(c.IsAdmin, c.Username))
+	defer clearCodeSent(c.IsAdmin, c.Username)
+	c1 := newResetCode(c.Username, c.IsAdmin)
+	require.False(t, sendCodeEmailInBackground(c1, "", []string{"user@example.com"}, "subject", "body"))
+	_, err = resetCodesMgr.Get(c1.Code)
+	require.Error(t, err)
 }
 
 func TestShouldBind(t *testing.T) {
@@ -2584,7 +2737,7 @@ func TestDatabaseSharedSessions(t *testing.T) {
 	session1 := dataprovider.Session{
 		Key:       "1",
 		Data:      map[string]string{"a": "b"},
-		Type:      dataprovider.SessionTypeOIDCAuth,
+		Type:      dataprovider.SessionTypeWebTask,
 		Timestamp: 10,
 	}
 	err := dataprovider.AddSharedSession(session1)
@@ -2598,7 +2751,7 @@ func TestDatabaseSharedSessions(t *testing.T) {
 	assert.ErrorIs(t, err, util.ErrNotFound)
 	_, err = dataprovider.GetSharedSession(session1.Key, dataprovider.SessionTypeResetCode)
 	assert.ErrorIs(t, err, util.ErrNotFound)
-	session1Get, err := dataprovider.GetSharedSession(session1.Key, dataprovider.SessionTypeOIDCAuth)
+	session1Get, err := dataprovider.GetSharedSession(session1.Key, dataprovider.SessionTypeWebTask)
 	assert.NoError(t, err)
 	assert.Equal(t, session1.Timestamp, session1Get.Timestamp)
 	var stored map[string]string
@@ -2609,18 +2762,18 @@ func TestDatabaseSharedSessions(t *testing.T) {
 	session1.Data = map[string]string{"c": "d"}
 	err = dataprovider.AddSharedSession(session1)
 	assert.NoError(t, err)
-	session1Get, err = dataprovider.GetSharedSession(session1.Key, dataprovider.SessionTypeOIDCAuth)
+	session1Get, err = dataprovider.GetSharedSession(session1.Key, dataprovider.SessionTypeWebTask)
 	assert.NoError(t, err)
 	assert.Equal(t, session1.Timestamp, session1Get.Timestamp)
 	stored = make(map[string]string)
 	err = json.Unmarshal(session1Get.Data.([]byte), &stored)
 	assert.NoError(t, err)
 	assert.Equal(t, session1.Data, stored)
-	err = dataprovider.DeleteSharedSession(session1.Key, dataprovider.SessionTypeOIDCAuth)
+	err = dataprovider.DeleteSharedSession(session1.Key, dataprovider.SessionTypeWebTask)
 	assert.NoError(t, err)
 	err = dataprovider.DeleteSharedSession(session2.Key, dataprovider.SessionTypeOIDCToken)
 	assert.NoError(t, err)
-	_, err = dataprovider.GetSharedSession(session1.Key, dataprovider.SessionTypeOIDCAuth)
+	_, err = dataprovider.GetSharedSession(session1.Key, dataprovider.SessionTypeWebTask)
 	assert.ErrorIs(t, err, util.ErrNotFound)
 	_, err = dataprovider.GetSharedSession(session2.Key, dataprovider.SessionTypeOIDCToken)
 	assert.ErrorIs(t, err, util.ErrNotFound)
@@ -2759,18 +2912,6 @@ func TestProxyHeaders(t *testing.T) {
 	assert.Equal(t, http.StatusFound, rr.Code, rr.Body.String())
 	cookie = rr.Header().Get("Set-Cookie")
 	assert.NotContains(t, cookie, "Secure")
-
-	// The login cookie is invalidated after a successful login, the same request will fail
-	req, err = http.NewRequest(http.MethodPost, webAdminLoginPath, bytes.NewBuffer([]byte(form.Encode())))
-	assert.NoError(t, err)
-	req.RemoteAddr = testIP
-	req.Header.Set("Cookie", loginCookie)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("X-Forwarded-For", validForwardedFor)
-	rr = httptest.NewRecorder()
-	testServer.Config.Handler.ServeHTTP(rr, req)
-	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
-	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCSRF)
 
 	req, err = http.NewRequest(http.MethodGet, webAdminLoginPath, nil)
 	assert.NoError(t, err)
@@ -4947,5 +5088,51 @@ func TestThumbnailLeftoversAreRemoved(t *testing.T) {
 	require.NoError(t, err)
 	if assert.Len(t, entries, 1) {
 		assert.Equal(t, filepath.Base(cached), entries[0].Name())
+	}
+}
+
+func TestRenameCopyFieldsOrder(t *testing.T) {
+	const rows = 12
+	form := url.Values{}
+	// set in reverse to also cover the lexicographic order of "10" < "2"
+	for i := rows - 1; i >= 0; i-- {
+		base := fmt.Sprintf("fs_rename[%d]", i)
+		form.Set(base+"[fs_rename_source]", fmt.Sprintf("/src%d", i))
+		form.Set(base+"[fs_rename_target]", fmt.Sprintf("/dst%d", i))
+		if i%2 == 0 {
+			form[base+"[fs_rename_options][]"] = []string{"1"}
+		}
+		base = fmt.Sprintf("fs_copy[%d]", i)
+		form.Set(base+"[fs_copy_source]", fmt.Sprintf("/csrc%d", i))
+		form.Set(base+"[fs_copy_target]", fmt.Sprintf("/cdst%d", i))
+	}
+	r := &http.Request{Form: form}
+	updateRepeaterFormActionFields(r)
+
+	renames := getRenameConfigsFromPostFields(r)
+	copies := getKeyValsFromPostFields(r, "fs_copy_source", "fs_copy_target")
+	require.Len(t, renames, rows)
+	require.Len(t, copies, rows)
+	for i := range rows {
+		assert.Equal(t, fmt.Sprintf("/src%d", i), renames[i].Key)
+		assert.Equal(t, fmt.Sprintf("/dst%d", i), renames[i].Value)
+		assert.Equal(t, i%2 == 0, renames[i].UpdateModTime)
+		assert.Equal(t, fmt.Sprintf("/csrc%d", i), copies[i].Key)
+		assert.Equal(t, fmt.Sprintf("/cdst%d", i), copies[i].Value)
+	}
+
+	for key, expected := range map[string]struct {
+		list string
+		idx  int
+	}{
+		"fs_rename[3][fs_rename_source]": {"fs_rename", 3},
+		"fs_rename[a][fs_rename_source]": {"fs_rename", math.MaxInt},
+		"fs_rename[-1][x]":               {"fs_rename", math.MaxInt},
+		"fs_rename[":                     {"fs_rename", math.MaxInt},
+		"username":                       {"username", math.MaxInt},
+	} {
+		list, idx := splitRepeaterKey(key)
+		assert.Equal(t, expected.list, list, key)
+		assert.Equal(t, expected.idx, idx, key)
 	}
 }

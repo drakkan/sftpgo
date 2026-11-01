@@ -1385,11 +1385,20 @@ func doRecursiveRename(fs Fs, source, target string,
 // one found inside a moved tree is left at the source, which then keeps the source
 // directory in place with what could not be moved.
 func RenameAcrossRoots(fsSrc, fsDst Fs, source, target string, srcInfo os.FileInfo, checks, uid, gid int) (int, int64, error) {
-	numFiles, filesSize, _, err := moveAcrossRoots(fsSrc, fsDst, source, target, srcInfo, checks, uid, gid, 0)
+	roots := moveRoots{source: source, target: target}
+	numFiles, filesSize, _, err := moveAcrossRoots(fsSrc, fsDst, roots, source, target, srcInfo, checks, uid, gid, 0)
 	return numFiles, filesSize, err
 }
 
-func moveAcrossRoots(fsSrc, fsDst Fs, source, target string, info os.FileInfo, checks, uid, gid, recursion int) (int, int64, bool, error) {
+// moveRoots holds the paths a move across roots was requested for.
+type moveRoots struct {
+	source string
+	target string
+}
+
+func moveAcrossRoots(fsSrc, fsDst Fs, roots moveRoots, source, target string, info os.FileInfo, checks, uid, gid,
+	recursion int,
+) (int, int64, bool, error) {
 	var numFiles int
 	var filesSize int64
 	var keptAtSource bool
@@ -1402,6 +1411,11 @@ func moveAcrossRoots(fsSrc, fsDst Fs, source, target string, info os.FileInfo, c
 			return numFiles, filesSize, keptAtSource, err
 		}
 		SetPathPermissions(fsDst, target, uid, gid)
+		if recursion > 1 {
+			if err := checkMoveIntoItself(fsSrc, fsDst, roots, source); err != nil {
+				return numFiles, filesSize, true, err
+			}
+		}
 		lister, err := fsSrc.ReadDir(source)
 		if err != nil {
 			return numFiles, filesSize, keptAtSource, err
@@ -1417,7 +1431,7 @@ func moveAcrossRoots(fsSrc, fsDst Fs, source, target string, info os.FileInfo, c
 				if !addressesEntry(entry.Name()) {
 					continue
 				}
-				files, size, kept, err := moveAcrossRoots(fsSrc, fsDst, fsSrc.Join(source, entry.Name()),
+				files, size, kept, err := moveAcrossRoots(fsSrc, fsDst, roots, fsSrc.Join(source, entry.Name()),
 					fsDst.Join(target, entry.Name()), entry, checks, uid, gid, recursion)
 				numFiles += files
 				filesSize += size
@@ -1479,6 +1493,11 @@ func moveAcrossRoots(fsSrc, fsDst Fs, source, target string, info os.FileInfo, c
 }
 
 func copyFileAcrossRoots(fsSrc, fsDst Fs, source, target string, replaceTarget bool) error {
+	if replaceTarget {
+		if err := checkMoveOntoItself(fsSrc, fsDst, source, target); err != nil {
+			return err
+		}
+	}
 	f, r, cancelR, err := fsSrc.Open(source, 0)
 	if err != nil {
 		return err
@@ -1543,6 +1562,43 @@ func copyFileAcrossRoots(fsSrc, fsDst Fs, source, target string, replaceTarget b
 	if closeErr != nil {
 		_ = fsDst.Remove(target, false)
 		return closeErr
+	}
+	return nil
+}
+
+func checkMoveOntoItself(fsSrc, fsDst Fs, source, target string) error {
+	same, err := SameEntry(fsSrc, source, fsDst, target)
+	if err != nil {
+		if errors.Is(err, ErrVfsUnsupported) || fsDst.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	if same {
+		return fmt.Errorf("cannot move %q onto %q, they are the same file: %w", source, target, ErrVfsUnsupported)
+	}
+	return nil
+}
+
+func checkMoveIntoItself(fsSrc, fsDst Fs, roots moveRoots, source string) error {
+	rel, err := filepath.Rel(roots.source, source)
+	if err != nil || rel == "." {
+		return nil
+	}
+	first, _, _ := strings.Cut(filepath.ToSlash(rel), "/")
+	if fi, err := fsSrc.Stat(fsSrc.Join(source, first)); err != nil || !fi.IsDir() {
+		return nil
+	}
+	same, err := SameFile(fsSrc, source, fsDst, roots.target)
+	if err != nil {
+		if errors.Is(err, ErrVfsUnsupported) || fsSrc.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	if same {
+		return fmt.Errorf("cannot move %q into %q, the target is inside the source: %w", roots.source,
+			roots.target, ErrVfsUnsupported)
 	}
 	return nil
 }

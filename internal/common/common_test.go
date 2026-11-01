@@ -1669,29 +1669,71 @@ func TestVfsSameResource(t *testing.T) {
 	other.AzBlobConfig.Container = "c2"
 	res = fs.IsSameResource(other)
 	assert.False(t, res)
-	fs = vfs.Filesystem{
-		Provider: sdk.HTTPFilesystemProvider,
-		HTTPConfig: vfs.HTTPFsConfig{
-			BaseHTTPFsConfig: sdk.BaseHTTPFsConfig{
-				Endpoint: "http://127.0.0.1/httpfs",
-				Username: "a",
+}
+
+func TestVfsSameResourceEqualityCheckMode(t *testing.T) {
+	newSFTPFs := func(endpoint, username string, mode int) vfs.Filesystem {
+		return vfs.Filesystem{
+			Provider: sdk.SFTPFilesystemProvider,
+			SFTPConfig: vfs.SFTPFsConfig{
+				BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
+					Endpoint:          endpoint,
+					Username:          username,
+					EqualityCheckMode: mode,
+				},
 			},
-		},
+		}
 	}
-	other = vfs.Filesystem{
-		Provider: sdk.HTTPFilesystemProvider,
-		HTTPConfig: vfs.HTTPFsConfig{
-			BaseHTTPFsConfig: sdk.BaseHTTPFsConfig{
-				Endpoint: "http://127.0.0.1/httpfs",
-				Username: "b",
+	newHTTPFs := func(endpoint, username string, mode int) vfs.Filesystem {
+		return vfs.Filesystem{
+			Provider: sdk.HTTPFilesystemProvider,
+			HTTPConfig: vfs.HTTPFsConfig{
+				BaseHTTPFsConfig: sdk.BaseHTTPFsConfig{
+					Endpoint:          endpoint,
+					Username:          username,
+					EqualityCheckMode: mode,
+				},
 			},
-		},
+		}
 	}
-	res = fs.IsSameResource(other)
-	assert.True(t, res)
-	fs.HTTPConfig.EqualityCheckMode = 1
-	res = fs.IsSameResource(other)
-	assert.False(t, res)
+	for _, provider := range []struct {
+		name     string
+		endpoint string
+		newFs    func(string, string, int) vfs.Filesystem
+	}{
+		{"sftp", "127.0.0.1:2022", newSFTPFs},
+		{"http", "http://127.0.0.1/httpfs", newHTTPFs},
+	} {
+		for _, tc := range []struct {
+			mode, otherMode int
+			sameUsername    bool
+			expected        bool
+		}{
+			{0, 0, false, false},
+			{0, 1, false, false},
+			{1, 0, false, false},
+			{1, 1, false, true},
+			{0, 0, true, true},
+			{0, 1, true, true},
+			{1, 0, true, true},
+			{1, 1, true, true},
+		} {
+			otherUsername := "b"
+			if tc.sameUsername {
+				otherUsername = "a"
+			}
+			fs := provider.newFs(provider.endpoint, "a", tc.mode)
+			other := provider.newFs(provider.endpoint, otherUsername, tc.otherMode)
+			assert.Equal(t, tc.expected, fs.IsSameResource(other), "%s modes %d/%d same username %t",
+				provider.name, tc.mode, tc.otherMode, tc.sameUsername)
+			assert.Equal(t, tc.expected, other.IsSameResource(fs), "%s modes %d/%d same username %t",
+				provider.name, tc.otherMode, tc.mode, tc.sameUsername)
+			// a different endpoint is a different resource whatever the mode
+			other = provider.newFs(provider.endpoint+"1", "a", tc.otherMode)
+			assert.False(t, fs.IsSameResource(other), "%s modes %d/%d different endpoint",
+				provider.name, tc.mode, tc.otherMode)
+		}
+	}
 }
 
 func TestUpdateTransferTimestamps(t *testing.T) {

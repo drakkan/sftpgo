@@ -17,6 +17,7 @@ httpd_signing_key
 /sftpgo.db*
 /backups/
 /*_test.log
+/*_test-*.log
 /id_ecdsa*
 /id_ed25519*
 /id_rsa*

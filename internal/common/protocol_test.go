@@ -28,6 +28,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"runtime"
@@ -2877,8 +2878,21 @@ func TestCrossFolderRename(t *testing.T) {
 	folder5 := "folder5"
 	folder6 := "folder6"
 	folder7 := "folder7"
+	folder8 := "folder8"
+	folder9 := "folder9"
+	folder10 := "folder10"
 
 	baseUser, resp, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	u2 := getTestUser()
+	u2.Username += "_2"
+	u2.HomeDir += "_2"
+	baseUser2, resp, err := httpdtest.AddUser(u2, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	// another account sharing the home directory of baseUser
+	u3 := getTestUser()
+	u3.Username += "_3"
+	baseUser3, resp, err := httpdtest.AddUser(u3, http.StatusCreated)
 	assert.NoError(t, err, string(resp))
 
 	f1 := vfs.BaseVirtualFolder{
@@ -2985,6 +2999,36 @@ func TestCrossFolderRename(t *testing.T) {
 	}
 	_, _, err = httpdtest.AddFolder(f7, http.StatusCreated)
 	assert.NoError(t, err)
+	// folder8 uses an account of the same SFTP server with its own home directory,
+	// folder9 and folder10 two accounts sharing the home directory of folder4 with
+	// the relaxed equality check
+	for _, cfg := range []struct {
+		name     string
+		username string
+		mode     int
+	}{
+		{folder8, baseUser2.Username, 0},
+		{folder9, baseUser3.Username, 1},
+		{folder10, baseUser.Username, 1},
+	} {
+		f := vfs.BaseVirtualFolder{
+			Name: cfg.name,
+			FsConfig: vfs.Filesystem{
+				Provider: sdk.SFTPFilesystemProvider,
+				SFTPConfig: vfs.SFTPFsConfig{
+					BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
+						Endpoint:          sftpServerAddr,
+						Username:          cfg.username,
+						Prefix:            path.Join("/", cfg.name),
+						EqualityCheckMode: cfg.mode,
+					},
+					Password: kms.NewPlainSecret(defaultPassword),
+				},
+			},
+		}
+		_, _, err = httpdtest.AddFolder(f, http.StatusCreated)
+		assert.NoError(t, err)
+	}
 
 	u := getCryptFsUser()
 	u.VirtualFolders = []vfs.VirtualFolder{
@@ -3044,6 +3088,16 @@ func TestCrossFolderRename(t *testing.T) {
 			QuotaSize:   -1,
 			QuotaFiles:  -1,
 		},
+	}
+	for _, folderName := range []string{folder8, folder9, folder10} {
+		u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+			BaseVirtualFolder: vfs.BaseVirtualFolder{
+				Name: folderName,
+			},
+			VirtualPath: path.Join("/", folderName),
+			QuotaSize:   -1,
+			QuotaFiles:  -1,
+		})
 	}
 
 	user, resp, err := httpdtest.AddUser(u, http.StatusCreated)
@@ -3105,18 +3159,51 @@ func TestCrossFolderRename(t *testing.T) {
 		assert.NoError(t, err)
 		_, err = client.Stat(path.Join("/", folder7, "afile.bin"))
 		assert.NoError(t, err)
+		// the source path is resolved by the account of folder4 and the rename is
+		// executed by the account of the target: a file at the same path of the
+		// other account must not be moved in place of the authorized one
+		otherFile := filepath.Join(baseUser2.GetHomeDir(), folder4, "afile.bin")
+		err = os.MkdirAll(filepath.Dir(otherFile), 0777)
+		assert.NoError(t, err)
+		err = os.WriteFile(otherFile, []byte("other account"), 0666)
+		assert.NoError(t, err)
+		err = client.Rename(path.Join("/", folder4, "afile.bin"), path.Join("/", folder8, "afile.bin"))
+		assert.ErrorIs(t, err, os.ErrPermission)
+		_, err = client.Stat(path.Join("/", folder8, "afile.bin"))
+		assert.ErrorIs(t, err, os.ErrNotExist)
+		assert.FileExists(t, otherFile)
+		_, err = client.Stat(path.Join("/", folder4, "afile.bin"))
+		assert.NoError(t, err)
+		// the relaxed equality check is applied only if both folders enable it
+		err = client.Rename(path.Join("/", folder4, "afile.bin"), path.Join("/", folder9, "afile.bin"))
+		assert.ErrorIs(t, err, os.ErrPermission)
+		err = writeSFTPFile(path.Join("/", folder10, "afile.bin"), 64, client)
+		assert.NoError(t, err)
+		err = client.Rename(path.Join("/", folder10, "afile.bin"), path.Join("/", folder8, "afile.bin"))
+		assert.ErrorIs(t, err, os.ErrPermission)
+		err = client.Rename(path.Join("/", folder10, "afile.bin"), path.Join("/", folder9, "afile.bin"))
+		assert.NoError(t, err)
+		_, err = client.Stat(path.Join("/", folder9, "afile.bin"))
+		assert.NoError(t, err)
+		assert.FileExists(t, filepath.Join(baseUser.GetHomeDir(), folder9, "afile.bin"))
 	}
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(baseUser, http.StatusOK)
 	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(baseUser2, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(baseUser3, http.StatusOK)
+	assert.NoError(t, err)
 	waitNoActiveConnections(t)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 	err = os.RemoveAll(baseUser.GetHomeDir())
 	assert.NoError(t, err)
-	for _, folderName := range []string{folder1, folder2, folder3, folder4, folder5, folder6, folder7} {
+	err = os.RemoveAll(baseUser2.GetHomeDir())
+	assert.NoError(t, err)
+	for _, folderName := range []string{folder1, folder2, folder3, folder4, folder5, folder6, folder7, folder8, folder9, folder10} {
 		_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName}, http.StatusOK)
 		assert.NoError(t, err)
 		err = os.RemoveAll(filepath.Join(os.TempDir(), folderName))
@@ -8979,6 +9066,37 @@ func TestMultiStepBuiltinKeyboardAuth(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestRenameOntoHardLink(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
+	u := getTestUser()
+	u.QuotaFiles = 100
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	require.NoError(t, err)
+
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		assert.NoError(t, writeSFTPFile(testFileName, 100, client))
+		assert.NoError(t, os.Link(filepath.Join(user.GetHomeDir(), testFileName),
+			filepath.Join(user.GetHomeDir(), "hard.txt")))
+		assert.NoError(t, client.Rename(testFileName, "hard.txt"))
+		// POSIX rename between two links to one file leaves both
+		assert.FileExists(t, filepath.Join(user.GetHomeDir(), "hard.txt"))
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, user.UsedQuotaFiles)
+		assert.Equal(t, int64(100), user.UsedQuotaSize)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	assert.NoError(t, os.RemoveAll(user.GetHomeDir()))
+}
+
 func TestRenameSymlink(t *testing.T) {
 	u := getTestUser()
 	testDir := "/dir-no-create-links"
@@ -9695,6 +9813,75 @@ func TestCopyAndRemoveSSHCommands(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestCopyIntoItselfOnSFTPFs(t *testing.T) {
+	// user1 is a local account with a folder inside "/src" that reaches its "/dst"
+	// through a link, user2 has user1 as SFTP storage: on user2 the folder is a
+	// directory of the remote server, compared by listing
+	// usernames of their own: user2 must not reuse a cached SFTP session that
+	// another test opened as a user with the same name
+	user1 := getTestUser()
+	user1.Username += "_itself1"
+	user1.HomeDir = filepath.Join(homeBasePath, user1.Username)
+	user2 := getTestUser()
+	user2.Username += "_itself2"
+	user2.HomeDir = filepath.Join(homeBasePath, user2.Username)
+	mappedPath := filepath.Join(os.TempDir(), "alias_"+xid.New().String())
+	require.NoError(t, os.MkdirAll(filepath.Join(user1.GetHomeDir(), "dst"), os.ModePerm))
+	require.NoError(t, os.MkdirAll(filepath.Join(user1.GetHomeDir(), "src"), os.ModePerm))
+	require.NoError(t, os.WriteFile(filepath.Join(user1.GetHomeDir(), "src", "f.txt"), []byte("content"), 0o666))
+	require.NoError(t, os.MkdirAll(filepath.Join(user1.GetHomeDir(), "tree", "a", "a"), os.ModePerm))
+	if err := os.Symlink(filepath.Join(user1.GetHomeDir(), "dst"), mappedPath); err != nil {
+		t.Skipf("unable to create a symlink: %v", err)
+	}
+	folder, _, err := httpdtest.AddFolder(vfs.BaseVirtualFolder{
+		Name:       filepath.Base(mappedPath),
+		MappedPath: mappedPath,
+	}, http.StatusCreated)
+	require.NoError(t, err)
+	user1.VirtualFolders = append(user1.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name: folder.Name,
+		},
+		VirtualPath: "/src/m",
+	})
+	user2.FsConfig.Provider = sdk.SFTPFilesystemProvider
+	user2.FsConfig.SFTPConfig = vfs.SFTPFsConfig{
+		BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
+			Endpoint: sftpServerAddr,
+			Username: user1.Username,
+		},
+		Password: kms.NewPlainSecret(defaultPassword),
+	}
+	user1, resp, err := httpdtest.AddUser(user1, http.StatusCreated)
+	require.NoError(t, err, string(resp))
+	user2, resp, err = httpdtest.AddUser(user2, http.StatusCreated)
+	require.NoError(t, err, string(resp))
+
+	out, err := runSSHCommand("gonas-copy /src /dst", user2)
+	assert.Error(t, err, string(out))
+	// "/src/m" is the parent of the target "/dst/src": the walk stops when it
+	// reaches the target, after creating the empty directory it would copy into
+	entries, err := os.ReadDir(filepath.Join(user1.GetHomeDir(), "dst", "src", "m", "src"))
+	assert.NoError(t, err)
+	assert.Empty(t, entries)
+	// a directory holding one with the same name, created in the same second as
+	// the copy target directories, is copied
+	out, err = runSSHCommand("gonas-copy /tree /tree_copy", user2)
+	assert.NoError(t, err, string(out))
+	_, err = os.Stat(filepath.Join(user1.GetHomeDir(), "tree_copy", "a", "a"))
+	assert.NoError(t, err)
+
+	_, err = httpdtest.RemoveUser(user2, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(folder, http.StatusOK)
+	assert.NoError(t, err)
+	assert.NoError(t, os.Remove(mappedPath))
+	assert.NoError(t, os.RemoveAll(user1.GetHomeDir()))
+	assert.NoError(t, os.RemoveAll(user2.GetHomeDir()))
+}
+
 func TestCopyAndRemovePermissions(t *testing.T) {
 	u := getTestUser()
 	restrictedPath := "/dir/path"
@@ -10305,4 +10492,518 @@ func startHTTPFs() {
 		}
 	}()
 	waitTCPListening(fmt.Sprintf(":%d", httpFsPort))
+}
+
+func hasShortName(t *testing.T, dir, shortName string) bool {
+	t.Helper()
+	p := filepath.Join(filepath.Dir(dir), shortName)
+	if _, err := os.Stat(p); err == nil {
+		t.Logf("%q is a short name generated by the volume", p)
+		return true
+	}
+	if out, err := exec.Command("fsutil", "file", "setshortname", dir, shortName).CombinedOutput(); err != nil {
+		t.Logf("short names are not available on this volume, skipping their checks: %v, %s", err, out)
+		return false
+	}
+	if _, err := os.Stat(p); err != nil {
+		t.Logf("%q was assigned but does not resolve, skipping the short name checks: %v", p, err)
+		return false
+	}
+	t.Logf("%q is a short name assigned with fsutil", p)
+	return true
+}
+
+func TestKeyPathWildcardKeys(t *testing.T) {
+	if runtime.GOOS != osWindows && runtime.GOOS != "darwin" {
+		t.Skip("this test is only available on Windows and macOS")
+	}
+	u := getTestUser()
+	u.Permissions["/arch*"] = readOnlyPerms
+	u.Permissions["/log[a-c]"] = readOnlyPerms
+	u.Permissions["/DOC[A-C]"] = readOnlyPerms
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	require.NoError(t, err)
+	for _, dir := range []string{"archive", "logb", "logd", "docb", "docd"} {
+		require.NoError(t, os.MkdirAll(filepath.Join(user.GetHomeDir(), dir), os.ModePerm))
+	}
+
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		// wildcard keys and ranges written with letters of one case match every
+		// ASCII case of the name
+		for _, tc := range []struct{ request, key string }{
+			{"/archive/f1", "archive"},
+			{"/ARCHIVE/f1", "archive"},
+			{"/Archive/f1", "archive"},
+			{"/LOGB/f1", "logb"},
+			{"/docb/f1", "docb"},
+			{"/DocB/f1", "docb"},
+		} {
+			assertKeySpellingDenied(t, client, user.GetHomeDir(), tc.request, tc.key)
+		}
+		// outside the range
+		assert.NoError(t, writeSFTPFile("/LOGD/f1", 10, client), "/LOGD/f1")
+		assert.NoError(t, writeSFTPFile("/docd/f1", 10, client), "/docd/f1")
+		closeSFTPClient(t, conn, client)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	assert.NoError(t, os.RemoveAll(user.GetHomeDir()))
+}
+
+var readOnlyPerms = []string{dataprovider.PermListItems, dataprovider.PermDownload}
+
+// closeSFTPClient closes the client and waits until the server closes the connection
+// and the storage it holds open: Windows refuses to remove an open directory.
+func closeSFTPClient(t *testing.T, conn *ssh.Client, client *sftp.Client) {
+	t.Helper()
+	assert.NoError(t, client.Close())
+	assert.NoError(t, conn.Close())
+	waitNoActiveConnections(t)
+}
+
+// assertKeySpellingDenied writes below request and expects a permission error when
+// the storage resolves its directory to keyDir or the two differ only in the case of
+// ASCII letters, which get the key's settings on any volume, a not found error
+// otherwise. The log records which one applied.
+func assertKeySpellingDenied(t *testing.T, client *sftp.Client, homeDir, request, keyDir string) {
+	t.Helper()
+	keyInfo, err := os.Stat(filepath.Join(homeDir, keyDir))
+	require.NoError(t, err)
+	err = writeSFTPFile(request, 10, client)
+	dir := filepath.Join(homeDir, filepath.FromSlash(path.Dir(request)))
+	if info, statErr := os.Stat(dir); statErr == nil && os.SameFile(info, keyInfo) {
+		t.Logf("%q reaches the key directory %q", request, keyDir)
+		assert.ErrorIs(t, err, os.ErrPermission, request)
+		return
+	}
+	if util.EqualFoldASCII(path.Dir(request), "/"+filepath.ToSlash(keyDir)) {
+		t.Logf("%q is another directory than %q, the key applies by ASCII case", request, keyDir)
+		assert.ErrorIs(t, err, os.ErrPermission, request)
+		return
+	}
+	t.Logf("%q is another directory than %q", request, keyDir)
+	assert.ErrorIs(t, err, os.ErrNotExist, request)
+}
+
+func TestKeyPathWindowsProtocol(t *testing.T) {
+	if runtime.GOOS != osWindows {
+		t.Skip("this test is only available on Windows")
+	}
+	mappedPath := filepath.Join(os.TempDir(), "keypath_vf")
+	folder, _, err := httpdtest.AddFolder(vfs.BaseVirtualFolder{
+		Name:       filepath.Base(mappedPath),
+		MappedPath: mappedPath,
+	}, http.StatusCreated)
+	require.NoError(t, err)
+
+	u := getTestUser()
+	u.Permissions["/private"] = readOnlyPerms
+	u.Permissions["/étude"] = readOnlyPerms
+	u.Permissions["/étude2"] = readOnlyPerms
+	u.Permissions["/aaa/étude/bbb"] = readOnlyPerms
+	u.Permissions["/vf/private"] = readOnlyPerms
+	u.Permissions["/privatedirectory"] = readOnlyPerms
+	u.Filters.FilePatterns = []sdk.PatternsFilter{
+		{Path: "/upl", DeniedPatterns: []string{"*.exe"}},
+	}
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{Name: folder.Name},
+		VirtualPath:       "/vf",
+	})
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	require.NoError(t, err)
+	for _, dir := range []string{"private", "étude", filepath.Join("aaa", "étude", "bbb"), "upl", "privatedirectory"} {
+		require.NoError(t, os.MkdirAll(filepath.Join(user.GetHomeDir(), dir), os.ModePerm))
+	}
+	require.NoError(t, os.MkdirAll(filepath.Join(mappedPath, "private"), os.ModePerm))
+	require.NoError(t, os.WriteFile(filepath.Join(user.GetHomeDir(), "private", "f.txt"), []byte("data"), 0666))
+
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		// ASCII spellings of a key
+		for _, p := range []string{"/private/f1", "/PRIVATE/f1", "/Private/f1"} {
+			assert.Error(t, writeSFTPFile(p, 10, client), p)
+		}
+		f, err := client.Open("/PRIVATE/f.txt")
+		if assert.NoError(t, err) {
+			assert.NoError(t, f.Close())
+		}
+		// names ending with a dot or a space are not allowed, short names do not exist
+		for _, p := range []string{"/private./f1", "/private /f1", "/private../f1"} {
+			assert.ErrorIs(t, writeSFTPFile(p, 10, client), os.ErrPermission, p)
+		}
+		_, err = client.Stat("/private.")
+		assert.ErrorIs(t, err, os.ErrPermission, "stat /private.")
+		if hasShortName(t, filepath.Join(user.GetHomeDir(), "privatedirectory"), "PRIVAT~1") {
+			assert.ErrorIs(t, writeSFTPFile("/PRIVAT~1/f1", 10, client), os.ErrNotExist, "upload /PRIVAT~1/f1")
+			_, err = client.Stat("/PRIVAT~1")
+			assert.ErrorIs(t, err, os.ErrNotExist, "stat /PRIVAT~1")
+			_, err = client.ReadDir("/privat~1")
+			assert.ErrorIs(t, err, os.ErrNotExist, "readdir /privat~1")
+			assert.NoFileExists(t, filepath.Join(user.GetHomeDir(), "privatedirectory", "f1"))
+		}
+		// spellings outside ASCII, compared by identity, at several depths
+		for _, p := range []string{"/ÉTUDE/f1", "/Étude/f1", "/AAA/ÉTUDE/BBB/f1", "/aaa/Étude/Bbb/f1"} {
+			assert.Error(t, writeSFTPFile(p, 10, client), p)
+		}
+		_, err = client.ReadDir("/ÉTUDE")
+		assert.NoError(t, err)
+		// a directory without a key below a keyed spelling keeps the parent's settings
+		assert.NoError(t, client.Mkdir("/AAA/ÉTUDE/other"))
+		assert.NoError(t, writeSFTPFile("/AAA/ÉTUDE/other/f1", 10, client))
+		// file pattern filters keyed by a directory
+		assert.Error(t, writeSFTPFile("/UPL/f1.exe", 10, client))
+		assert.Error(t, writeSFTPFile("/Upl/f1.EXE", 10, client))
+		assert.NoError(t, writeSFTPFile("/UPL/f1.txt", 10, client))
+		// keys below a mount point: the mount is reached by its exact name only
+		assert.Error(t, writeSFTPFile("/vf/PRIVATE/f1", 10, client))
+		_, err = client.Stat("/VF/private")
+		assert.Error(t, err)
+		_, err = client.ReadDir("/VF/private")
+		assert.Error(t, err)
+		// a directory rename onto a missing name the storage would have to compare
+		// with the keys is refused
+		assert.NoError(t, client.Mkdir("/x"))
+		assert.NoError(t, writeSFTPFile("/x/f1.exe", 10, client))
+		assert.Error(t, client.Rename("/x", "/ÉTUDE2"))
+		assert.NoDirExists(t, filepath.Join(user.GetHomeDir(), "étude2"))
+		assert.Error(t, client.Rename("/x", "/ünïcode"))
+		assert.NoError(t, client.Rename("/x", "/new"))
+		assert.DirExists(t, filepath.Join(user.GetHomeDir(), "new"))
+		closeSFTPClient(t, conn, client)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	assert.NoError(t, os.RemoveAll(user.GetHomeDir()))
+	_, err = httpdtest.RemoveFolder(folder, http.StatusOK)
+	assert.NoError(t, err)
+	assert.NoError(t, os.RemoveAll(mappedPath))
+}
+
+func TestKeyPathDarwinProtocol(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("this test is only available on macOS")
+	}
+	u := getTestUser()
+	u.Permissions["/étude"] = readOnlyPerms
+	u.Permissions["/secret"] = readOnlyPerms
+	u.Permissions["/aaa/étude/bbb"] = readOnlyPerms
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	require.NoError(t, err)
+	for _, dir := range []string{"étude", "secret", filepath.Join("aaa", "étude", "bbb"), "sub"} {
+		require.NoError(t, os.MkdirAll(filepath.Join(user.GetHomeDir(), dir), os.ModePerm))
+	}
+
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		// NFD and case spellings of an NFC key, at several depths, and spellings of an
+		// ASCII key: denied where the storage resolves them to the key directory
+		for _, tc := range []struct{ request, key string }{
+			{"/étude/f1", "étude"},
+			{"/ÉTUDE/f1", "étude"},
+			{"/AAA/ÉTUDE/BBB/f1", filepath.Join("aaa", "étude", "bbb")},
+			{"/SECRET/f1", "secret"},
+			{"/ſecret/f1", "secret"},
+		} {
+			assertKeySpellingDenied(t, client, user.GetHomeDir(), tc.request, tc.key)
+		}
+		_, err = client.ReadDir("/étude")
+		assert.NoError(t, err)
+		// a directory rename next to a key outside ASCII is refused, also for an
+		// ASCII name; below a directory without keys it works
+		assert.NoError(t, client.Mkdir("/x"))
+		assert.ErrorIs(t, client.Rename("/x", "/ÉTUDE2"), os.ErrPermission)
+		assert.ErrorIs(t, client.Rename("/x", "/new"), os.ErrPermission)
+		assert.NoError(t, client.Rename("/x", "/sub/new"))
+		closeSFTPClient(t, conn, client)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	assert.NoError(t, os.RemoveAll(user.GetHomeDir()))
+}
+
+func TestKeyPathEventRules(t *testing.T) {
+	if runtime.GOOS != osWindows && runtime.GOOS != "darwin" {
+		t.Skip("this test is only available on Windows and macOS")
+	}
+	// re-applies common.Config: earlier tests of the package leave its derived state changed
+	require.NoError(t, common.Initialize(common.Config, 0))
+	u := getTestUser()
+	u.Username = "keypath_events"
+	u.HomeDir = filepath.Join(homeBasePath, u.Username)
+	conditionNames := []dataprovider.ConditionPattern{{Pattern: u.Username}}
+
+	copyAction, _, err := httpdtest.AddEventAction(dataprovider.BaseEventAction{
+		Name: "keypath_copy",
+		Type: dataprovider.ActionTypeFilesystem,
+		Options: dataprovider.BaseEventActionOptions{
+			FsConfig: dataprovider.EventActionFilesystemConfig{
+				Type: dataprovider.FilesystemActionCopy,
+				Copy: []dataprovider.KeyValue{{
+					Key:   "/{{.VirtualPath}}",
+					Value: "/copied/{{.VirtualPath}}",
+				}},
+			},
+		},
+	}, http.StatusCreated)
+	require.NoError(t, err)
+	retentionAction, _, err := httpdtest.AddEventAction(dataprovider.BaseEventAction{
+		Name: "keypath_retention",
+		Type: dataprovider.ActionTypeDataRetentionCheck,
+		Options: dataprovider.BaseEventActionOptions{
+			RetentionConfig: dataprovider.EventActionDataRetentionConfig{
+				Folders: []dataprovider.FolderRetention{
+					{Path: "/data", Retention: 1},
+					{Path: "/data/keep", Retention: 0},
+				},
+			},
+		},
+	}, http.StatusCreated)
+	require.NoError(t, err)
+	copyRule, _, err := httpdtest.AddEventRule(dataprovider.EventRule{
+		Name:    "keypath_copy_rule",
+		Status:  1,
+		Trigger: dataprovider.EventTriggerFsEvent,
+		Conditions: dataprovider.EventConditions{
+			FsEvents: []string{"upload"},
+			Options: dataprovider.ConditionOptions{
+				Names:   conditionNames,
+				FsPaths: []dataprovider.ConditionPattern{{Pattern: "/incoming/*.txt"}},
+			},
+		},
+		Actions: []dataprovider.EventAction{{
+			BaseEventAction: dataprovider.BaseEventAction{Name: copyAction.Name},
+			Order:           1,
+			Options:         dataprovider.EventActionOptions{ExecuteSync: true},
+		}},
+	}, http.StatusCreated)
+	require.NoError(t, err)
+	retentionRule, _, err := httpdtest.AddEventRule(dataprovider.EventRule{
+		Name:    "keypath_retention_rule",
+		Status:  1,
+		Trigger: dataprovider.EventTriggerFsEvent,
+		Conditions: dataprovider.EventConditions{
+			FsEvents: []string{"upload"},
+			Options: dataprovider.ConditionOptions{
+				Names:   conditionNames,
+				FsPaths: []dataprovider.ConditionPattern{{Pattern: "/trigger.txt"}},
+			},
+		},
+		Actions: []dataprovider.EventAction{{
+			BaseEventAction: dataprovider.BaseEventAction{Name: retentionAction.Name},
+			Order:           1,
+			Options:         dataprovider.EventActionOptions{ExecuteSync: true},
+		}},
+	}, http.StatusCreated)
+	require.NoError(t, err)
+
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	require.NoError(t, err)
+	for _, dir := range []string{"incoming", "other", filepath.Join("data", "Keep")} {
+		require.NoError(t, os.MkdirAll(filepath.Join(user.GetHomeDir(), dir), os.ModePerm))
+	}
+	old := time.Now().Add(-48 * time.Hour)
+	for _, name := range []string{filepath.Join("data", "old.txt"), filepath.Join("data", "Keep", "old.txt")} {
+		p := filepath.Join(user.GetHomeDir(), name)
+		require.NoError(t, os.WriteFile(p, []byte("data"), 0666))
+		require.NoError(t, os.Chtimes(p, old, old))
+	}
+
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		// a path condition matches every spelling of the path it names
+		assert.NoError(t, writeSFTPFile("/INCOMING/X.TXT", 10, client))
+		assert.FileExists(t, filepath.Join(user.GetHomeDir(), "copied", "incoming", "x.txt"))
+		assert.NoError(t, writeSFTPFile("/other/x.txt", 10, client))
+		assert.NoDirExists(t, filepath.Join(user.GetHomeDir(), "copied", "other"))
+		// a retention folder applies to the directory stored in another spelling
+		assert.NoError(t, writeSFTPFile("/trigger.txt", 10, client))
+		assert.NoFileExists(t, filepath.Join(user.GetHomeDir(), "data", "old.txt"))
+		assert.FileExists(t, filepath.Join(user.GetHomeDir(), "data", "Keep", "old.txt"))
+		closeSFTPClient(t, conn, client)
+	}
+
+	_, err = httpdtest.RemoveEventRule(copyRule, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventRule(retentionRule, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(copyAction, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(retentionAction, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	assert.NoError(t, os.RemoveAll(user.GetHomeDir()))
+}
+
+func TestCaseOnlyRename(t *testing.T) {
+	if runtime.GOOS != osWindows && runtime.GOOS != "darwin" {
+		t.Skip("this test is only available on Windows and macOS")
+	}
+	u := getTestUser()
+	u.Username = "case_only_rename"
+	u.HomeDir = filepath.Join(homeBasePath, u.Username)
+	u.QuotaFiles = 100
+	u.Permissions["/"] = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload,
+		dataprovider.PermCreateDirs, dataprovider.PermRename}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	require.NoError(t, err)
+
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		assert.NoError(t, writeSFTPFile("/f1.txt", 100, client))
+		assert.NoError(t, client.Mkdir("/docs"))
+		assert.NoError(t, client.Rename("/f1.txt", "/F1.txt"))
+		assert.NoError(t, client.Rename("/docs", "/Docs"))
+		entries, err := client.ReadDir("/")
+		if assert.NoError(t, err) {
+			var names []string
+			for _, e := range entries {
+				names = append(names, e.Name())
+			}
+			assert.ElementsMatch(t, []string{"F1.txt", "Docs"}, names)
+		}
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, user.UsedQuotaFiles)
+		assert.Equal(t, int64(100), user.UsedQuotaSize)
+		closeSFTPClient(t, conn, client)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	assert.NoError(t, os.RemoveAll(user.GetHomeDir()))
+}
+
+func TestMountSpellingListing(t *testing.T) {
+	mappedPath := filepath.Join(os.TempDir(), "keypath_mount_spelling")
+	require.NoError(t, os.MkdirAll(mappedPath, os.ModePerm))
+	require.NoError(t, os.WriteFile(filepath.Join(mappedPath, "mount.txt"), []byte("mount"), 0666))
+	folder, _, err := httpdtest.AddFolder(vfs.BaseVirtualFolder{
+		Name:       filepath.Base(mappedPath),
+		MappedPath: mappedPath,
+	}, http.StatusCreated)
+	require.NoError(t, err)
+	u := getTestUser()
+	u.Username = "keypath_mount_spelling"
+	u.HomeDir = filepath.Join(homeBasePath, u.Username)
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{Name: folder.Name},
+		VirtualPath:       "/data",
+	})
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Join(user.GetHomeDir(), "Data"), os.ModePerm))
+	require.NoError(t, os.WriteFile(filepath.Join(user.GetHomeDir(), "Data", "home.txt"), []byte("home"), 0666))
+
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		entries, err := client.ReadDir("/")
+		if assert.NoError(t, err) {
+			var names []string
+			for _, entry := range entries {
+				names = append(names, entry.Name())
+			}
+			assert.Contains(t, names, "data")
+			assert.Contains(t, names, "Data")
+		}
+		_, err = client.Stat("/data/mount.txt")
+		assert.NoError(t, err)
+		_, err = client.Stat("/Data/home.txt")
+		assert.NoError(t, err)
+		_, err = client.Stat("/Data/mount.txt")
+		assert.Error(t, err)
+		_, err = client.Stat("/data/home.txt")
+		assert.Error(t, err)
+		closeSFTPClient(t, conn, client)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	assert.NoError(t, os.RemoveAll(user.GetHomeDir()))
+	_, err = httpdtest.RemoveFolder(folder, http.StatusOK)
+	assert.NoError(t, err)
+	assert.NoError(t, os.RemoveAll(mappedPath))
+}
+
+func TestMountSpellingShadowedDir(t *testing.T) {
+	if runtime.GOOS != osWindows && runtime.GOOS != "darwin" {
+		t.Skip("this test is only available on Windows and macOS")
+	}
+	mappedPath := filepath.Join(os.TempDir(), "keypath_mount_shadowed")
+	require.NoError(t, os.MkdirAll(mappedPath, os.ModePerm))
+	require.NoError(t, os.WriteFile(filepath.Join(mappedPath, "mount.txt"), []byte("mount"), 0666))
+	folder, _, err := httpdtest.AddFolder(vfs.BaseVirtualFolder{
+		Name:       filepath.Base(mappedPath),
+		MappedPath: mappedPath,
+	}, http.StatusCreated)
+	require.NoError(t, err)
+	u := getTestUser()
+	u.Username = "keypath_mount_shadowed"
+	u.HomeDir = filepath.Join(homeBasePath, u.Username)
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{Name: folder.Name},
+		VirtualPath:       "/data",
+	})
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Join(user.GetHomeDir(), "data"), os.ModePerm))
+	require.NoError(t, os.WriteFile(filepath.Join(user.GetHomeDir(), "data", "shadowed.txt"), []byte("home"), 0666))
+
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		entries, err := client.ReadDir("/")
+		if assert.NoError(t, err) {
+			var found []string
+			for _, entry := range entries {
+				if strings.EqualFold(entry.Name(), "data") {
+					found = append(found, entry.Name())
+				}
+			}
+			assert.Equal(t, []string{"data"}, found)
+		}
+		// the exact name is the mount
+		_, err = client.Stat("/data/mount.txt")
+		assert.NoError(t, err)
+		_, err = client.Stat("/data/shadowed.txt")
+		assert.Error(t, err)
+		// another spelling reaches the home directory beneath the mount point
+		_, err = client.Stat("/DATA/shadowed.txt")
+		assert.NoError(t, err)
+		_, err = client.Stat("/DATA/mount.txt")
+		assert.Error(t, err)
+		closeSFTPClient(t, conn, client)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	assert.NoError(t, os.RemoveAll(user.GetHomeDir()))
+	_, err = httpdtest.RemoveFolder(folder, http.StatusOK)
+	assert.NoError(t, err)
+	assert.NoError(t, os.RemoveAll(mappedPath))
 }

@@ -37,6 +37,7 @@ fmt.Println
 (*mime/multipart.Form).RemoveAll
 (*mime/multipart.Writer).Close
 (*os.File).Close
+(*os.Root).Close
 (github.com/xrogers/gonas/v2/internal/dataprovider.User).CloseFs
 (github.com/xrogers/gonas/v2/internal/vfs.DirLister).Close
 (github.com/xrogers/gonas/v2/internal/vfs.Fs).Close

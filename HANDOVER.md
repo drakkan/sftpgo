@@ -8,6 +8,10 @@ State of the fork, for carrying on from another machine.
 - The newest package on `Y:\`, `sftpgo_2.7.99~local.2fb9a683-1_amd64.deb`, predates the rename.
 - `FORK_FEATURES.md` describes the rewritten UIs. The Android wrapper depends on what it lists.
 
+Upstream is merged through this fork's `main`, which tracks `drakkan/sftpgo`. After a merge, look for old
+names that merged without a conflict (`git grep -E 'drakkan/sftpgo/v2|SFTPGO_|sftpgo-'`), and keep
+`static/assets` deleted: changes to the theme come back as conflicts.
+
 ## Decisions
 
 - **Name:** the fork becomes **GoNAS**. Checked 2026-11-01: free on npm, PyPI, crates.io and Debian,
@@ -34,9 +38,13 @@ any public release, and search the USPTO and EUIPO registers for the name.
 
 ## Android wrapper
 
-The app is a separate repository: `git@github.com:xrogers/sftpgo-android.git`. It builds with the debug key of the machine it was
-built on, and Android refuses updates signed with another key, so take `~/.android/debug.keystore`
-along, or reinstall the app, which removes its saved sign-in.
+The app is a separate repository: `git@github.com:xrogers/gonas-android.git`. Its local folder is
+still `~/sftpgo`. It builds with the debug key of the machine it was built on, and Android refuses
+updates signed with another key, so take `~/.android/debug.keystore` along, or reinstall the app,
+which removes its saved sign-in.
+
+The rename of the app is on its `gonas-rebrand` branch. Its `applicationId` stays `com.rogers.sftpgo`,
+so that installed copies keep updating.
 
 ## Building and testing
 

@@ -194,7 +194,7 @@ func GetHTTPClient() *http.Client {
 func GetRetraybleHTTPClient() *retryablehttp.Client {
 	client := retryablehttp.NewClient()
 	client.HTTPClient.Timeout = time.Duration(httpConfig.Timeout * float64(time.Second))
-	client.HTTPClient.Transport.(*http.Transport).TLSClientConfig = httpConfig.customTransport.TLSClientConfig
+	client.HTTPClient.Transport = httpConfig.customTransport
 	client.Logger = &logger.LeveledLogger{Sender: "RetryableHTTPClient"}
 	client.RetryWaitMin = time.Duration(httpConfig.RetryWaitMin) * time.Second
 	client.RetryWaitMax = time.Duration(httpConfig.RetryWaitMax) * time.Second

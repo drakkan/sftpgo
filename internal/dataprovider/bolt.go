@@ -2048,6 +2048,10 @@ func (p *BoltProvider) addSharedSession(_ Session) error {
 	return ErrNotImplemented
 }
 
+func (p *BoltProvider) addUniqueSharedSession(_ Session) error {
+	return ErrNotImplemented
+}
+
 func (p *BoltProvider) deleteSharedSession(_ string, _ SessionType) error {
 	return ErrNotImplemented
 }

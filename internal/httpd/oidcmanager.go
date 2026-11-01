@@ -36,15 +36,11 @@ func newOIDCManager(isShared int) oidcManager {
 	}
 	logger.Info(logSender, "", "using memory OIDC manager")
 	return &memoryOIDCManager{
-		pendingAuths: make(map[string]oidcPendingAuth),
-		tokens:       make(map[string]oidcToken),
+		tokens: make(map[string]oidcToken),
 	}
 }
 
 type oidcManager interface {
-	addPendingAuth(pendingAuth oidcPendingAuth)
-	removePendingAuth(state string)
-	getPendingAuth(state string) (oidcPendingAuth, error)
 	addToken(token oidcToken)
 	getToken(cookie string) (oidcToken, error)
 	removeToken(cookie string)
@@ -53,38 +49,8 @@ type oidcManager interface {
 }
 
 type memoryOIDCManager struct {
-	authMutex    sync.RWMutex
-	pendingAuths map[string]oidcPendingAuth
-	tokenMutex   sync.RWMutex
-	tokens       map[string]oidcToken
-}
-
-func (o *memoryOIDCManager) addPendingAuth(pendingAuth oidcPendingAuth) {
-	o.authMutex.Lock()
-	o.pendingAuths[pendingAuth.State] = pendingAuth
-	o.authMutex.Unlock()
-}
-
-func (o *memoryOIDCManager) removePendingAuth(state string) {
-	o.authMutex.Lock()
-	defer o.authMutex.Unlock()
-
-	delete(o.pendingAuths, state)
-}
-
-func (o *memoryOIDCManager) getPendingAuth(state string) (oidcPendingAuth, error) {
-	o.authMutex.RLock()
-	defer o.authMutex.RUnlock()
-
-	authReq, ok := o.pendingAuths[state]
-	if !ok {
-		return oidcPendingAuth{}, errors.New("oidc: no auth request found for the specified state")
-	}
-	diff := util.GetTimeAsMsSinceEpoch(time.Now()) - authReq.IssuedAt
-	if diff > authStateValidity {
-		return oidcPendingAuth{}, errors.New("oidc: auth request is too old")
-	}
-	return authReq, nil
+	tokenMutex sync.RWMutex
+	tokens     map[string]oidcToken
 }
 
 func (o *memoryOIDCManager) addToken(token oidcToken) {
@@ -124,21 +90,7 @@ func (o *memoryOIDCManager) updateTokenUsage(token oidcToken) {
 }
 
 func (o *memoryOIDCManager) cleanup() {
-	o.cleanupAuthRequests()
 	o.cleanupTokens()
-}
-
-func (o *memoryOIDCManager) cleanupAuthRequests() {
-	o.authMutex.Lock()
-	defer o.authMutex.Unlock()
-
-	for k, auth := range o.pendingAuths {
-		diff := util.GetTimeAsMsSinceEpoch(time.Now()) - auth.IssuedAt
-		// remove old pending auth requests
-		if diff < 0 || diff > authStateValidity {
-			delete(o.pendingAuths, k)
-		}
-	}
 }
 
 func (o *memoryOIDCManager) cleanupTokens() {
@@ -155,42 +107,6 @@ func (o *memoryOIDCManager) cleanupTokens() {
 }
 
 type dbOIDCManager struct{}
-
-func (o *dbOIDCManager) addPendingAuth(pendingAuth oidcPendingAuth) {
-	session := dataprovider.Session{
-		Key:       pendingAuth.State,
-		Data:      pendingAuth,
-		Type:      dataprovider.SessionTypeOIDCAuth,
-		Timestamp: pendingAuth.IssuedAt + authStateValidity,
-	}
-	_ = dataprovider.AddSharedSession(session)
-}
-
-func (o *dbOIDCManager) removePendingAuth(state string) {
-	_ = dataprovider.DeleteSharedSession(state, dataprovider.SessionTypeOIDCAuth)
-}
-
-func (o *dbOIDCManager) getPendingAuth(state string) (oidcPendingAuth, error) {
-	session, err := dataprovider.GetSharedSession(state, dataprovider.SessionTypeOIDCAuth)
-	if err != nil {
-		return oidcPendingAuth{}, errors.New("oidc: unable to get the auth request for the specified state")
-	}
-	if session.Timestamp < util.GetTimeAsMsSinceEpoch(time.Now()) {
-		// expired
-		return oidcPendingAuth{}, errors.New("oidc: auth request is too old")
-	}
-	return o.decodePendingAuthData(session.Data)
-}
-
-func (o *dbOIDCManager) decodePendingAuthData(data any) (oidcPendingAuth, error) {
-	if val, ok := data.([]byte); ok {
-		authReq := oidcPendingAuth{}
-		err := json.Unmarshal(val, &authReq)
-		return authReq, err
-	}
-	logger.Error(logSender, "", "invalid oidc auth request data type %T", data)
-	return oidcPendingAuth{}, errors.New("oidc: invalid auth request data")
-}
 
 func (o *dbOIDCManager) addToken(token oidcToken) {
 	token.UsedAt = util.GetTimeAsMsSinceEpoch(time.Now())
@@ -237,6 +153,5 @@ func (o *dbOIDCManager) decodeTokenData(data any) (oidcToken, error) {
 }
 
 func (o *dbOIDCManager) cleanup() {
-	_ = dataprovider.CleanupSharedSessions(dataprovider.SessionTypeOIDCAuth, time.Now())
 	_ = dataprovider.CleanupSharedSessions(dataprovider.SessionTypeOIDCToken, time.Now())
 }

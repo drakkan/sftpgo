@@ -86,6 +86,24 @@ func getAddSessionQuery() string {
 		sqlTableSharedSessions, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3])
 }
 
+func getAddUniqueSessionQuery() string {
+	if config.Driver == MySQLDataProviderName {
+		return fmt.Sprintf("INSERT INTO %s (`key`,`data`,`type`,`timestamp`) VALUES (%s,%s,%s,%s)",
+			sqlTableSharedSessions, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3])
+	}
+	return fmt.Sprintf(`INSERT INTO %s (key,data,type,timestamp) VALUES (%s,%s,%s,%s)`,
+		sqlTableSharedSessions, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3])
+}
+
+func getDeleteExpiredSessionQuery() string {
+	if config.Driver == MySQLDataProviderName {
+		return fmt.Sprintf("DELETE FROM %s WHERE `key` = %s AND `type` = %s AND `timestamp` < %s",
+			sqlTableSharedSessions, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2])
+	}
+	return fmt.Sprintf(`DELETE FROM %s WHERE key = %s AND type = %s AND timestamp < %s`,
+		sqlTableSharedSessions, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2])
+}
+
 func getDeleteSessionQuery() string {
 	if config.Driver == MySQLDataProviderName {
 		return fmt.Sprintf("DELETE FROM %s WHERE `key` = %s AND `type` = %s",

@@ -181,6 +181,9 @@ var (
 	// ErrPlaceholderUnset is returned when a group setting uses a placeholder
 	// the account has no value for. The login is refused
 	ErrPlaceholderUnset = errors.New("a group setting uses a placeholder the account has no value for")
+	// ErrPlaceholderValue is returned when a placeholder value adds a bracket to a
+	// permission key or a "~" to a local path. The login is refused
+	ErrPlaceholderValue = errors.New("a group setting uses a placeholder whose value contains a character not allowed there")
 	// ErrNoInitRequired defines the error returned by InitProvider if no inizialization/update is required
 	ErrNoInitRequired = errors.New("the data provider is up to date")
 	// ErrInvalidCredentials defines the error to return if the supplied credentials are invalid
@@ -845,6 +848,7 @@ type Provider interface {
 	cleanupActiveTransfers(before time.Time) error
 	getActiveTransfers(from time.Time) ([]ActiveTransfer, error)
 	addSharedSession(session Session) error
+	addUniqueSharedSession(session Session) error
 	deleteSharedSession(key string, sessionType SessionType) error
 	getSharedSession(key string, sessionType SessionType) (Session, error)
 	cleanupSharedSessions(sessionType SessionType, before int64) error
@@ -2302,11 +2306,24 @@ func AddSharedSession(session Session) error {
 	return err
 }
 
+// AddUniqueSharedSession stores a new session within the data provider unless
+// a not expired session with the same key and type already exists, in this case
+// ErrDuplicatedKey is returned. An expired session is replaced
+func AddUniqueSharedSession(session Session) error {
+	err := provider.addUniqueSharedSession(session)
+	if err != nil && !errors.Is(err, ErrDuplicatedKey) {
+		providerLog(logger.LevelError, "unable to add unique shared session, key %q, type: %v, err: %v",
+			session.Key, session.Type, err)
+	}
+	return err
+}
+
 // DeleteSharedSession deletes the session with the specified key
 func DeleteSharedSession(key string, sessionType SessionType) error {
 	err := provider.deleteSharedSession(key, sessionType)
-	if err != nil {
-		providerLog(logger.LevelError, "unable to add shared session, key %q, err: %v", key, err)
+	if err != nil && !errors.Is(err, util.ErrNotFound) {
+		providerLog(logger.LevelError, "unable to delete shared session, key %q, type: %v, err: %v",
+			key, sessionType, err)
 	}
 	return err
 }
@@ -2733,11 +2750,24 @@ func copyBaseUserFilters(in sdk.BaseUserFilters) sdk.BaseUserFilters {
 	return filters
 }
 
-func buildUserHomeDir(user *User) {
+// IsAccountConfigError reports whether err refuses a login because of how the
+// account is configured rather than a wrong credential: the defender does not
+// score it
+func IsAccountConfigError(err error) bool {
+	return errors.Is(err, ErrPlaceholderUnset) || errors.Is(err, ErrPlaceholderValue)
+}
+
+func buildUserHomeDir(user *User) error {
 	if user.HomeDir == "" {
 		if config.UsersBaseDir != "" {
+			if strings.Contains(user.Username, "~") {
+				return util.NewI18nError(
+					util.NewValidationError(fmt.Sprintf("home_dir is mandatory for the username %q: it contains \"~\"", user.Username)),
+					util.I18nErrorHomeRequired,
+				)
+			}
 			user.HomeDir = filepath.Join(config.UsersBaseDir, user.Username)
-			return
+			return nil
 		}
 		switch user.FsConfig.Provider {
 		case sdk.SFTPFilesystemProvider, sdk.S3FilesystemProvider, sdk.AzureBlobFilesystemProvider, sdk.GCSFilesystemProvider, sdk.HTTPFilesystemProvider:
@@ -2746,6 +2776,7 @@ func buildUserHomeDir(user *User) {
 	} else {
 		user.HomeDir = filepath.Clean(user.HomeDir)
 	}
+	return nil
 }
 
 func validateFolderQuotaLimits(folder vfs.VirtualFolder) error {
@@ -3506,7 +3537,9 @@ func ValidateUser(user *User) error {
 	user.HasPassword = false
 	user.SetEmptySecretsIfNil()
 	user.applyNamingRules()
-	buildUserHomeDir(user)
+	if err := buildUserHomeDir(user); err != nil {
+		return err
+	}
 	if err := validateBaseParams(user); err != nil {
 		return err
 	}

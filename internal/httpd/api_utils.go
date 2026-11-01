@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"math/rand/v2"
 	"mime"
 	"net/http"
 	"net/url"
@@ -752,7 +753,7 @@ func updateLoginMetrics(user *dataprovider.User, loginMethod, ip string, err err
 		plugin.Handler.NotifyLogEvent(notifier.LogEventTypeLoginOK, protocol, user.Username, ip, "", nil)
 		common.DelayLogin(nil)
 	} else if err != common.ErrInternalFailure && err != common.ErrNoCredentials &&
-		!errors.Is(err, dataprovider.ErrPlaceholderUnset) {
+		!dataprovider.IsAccountConfigError(err) {
 		logger.ConnectionFailedLog(user.Username, ip, loginMethod, protocol, err.Error())
 		err = handleDefenderEventLoginFailed(ip, err)
 		logEv := notifier.LogEventTypeLoginFailed
@@ -844,6 +845,11 @@ func handleForgotPassword(r *http.Request, username string, isAdmin bool) error 
 	if username == "" {
 		return util.NewI18nError(util.NewValidationError("username is mandatory"), util.I18nErrorUsernameRequired)
 	}
+	if !smtp.IsEnabled() {
+		return util.NewGenericError("Unable to send the reset code, SMTP is not configured")
+	}
+	defer waitCodeRequestDeadline(time.Now())
+
 	if isAdmin {
 		admin, err = getActiveAdmin(username, util.GetIPFromRemoteAddress(r.RemoteAddr))
 		if err == nil {
@@ -883,20 +889,17 @@ func handleForgotPassword(r *http.Request, username string, isAdmin bool) error 
 	data["Code"] = c.Code
 	if err := smtp.RenderPasswordResetTemplate(body, data); err != nil {
 		logger.Warn(logSender, middleware.GetReqID(r.Context()), "unable to render password reset template: %v", err)
-		return util.NewGenericError("Unable to render password reset template")
+		return nil
 	}
-	startTime := time.Now()
-	if err := smtp.SendEmail(emails, nil, subject, body.String(), smtp.EmailContentTypeTextHTML); err != nil {
-		logger.Warn(logSender, middleware.GetReqID(r.Context()), "unable to send password reset code via email: %v, elapsed: %v",
-			err, time.Since(startTime))
-		return util.NewI18nError(
-			util.NewGenericError(fmt.Sprintf("Error sending confirmation code via email: %v", err)),
-			util.I18nErrorPwdResetSendEmail,
-		)
+	if sendCodeEmailInBackground(c, middleware.GetReqID(r.Context()), emails, subject, body.String()) {
+		logger.Debug(logSender, middleware.GetReqID(r.Context()), "reset code for %q is being sent via email to %+v, is admin? %v",
+			username, emails, isAdmin)
 	}
-	logger.Debug(logSender, middleware.GetReqID(r.Context()), "reset code sent via email to %q, emails: %+v, is admin? %v, elapsed: %v",
-		username, emails, isAdmin, time.Since(startTime))
-	return resetCodesMgr.Add(c)
+	return nil
+}
+
+func waitCodeRequestDeadline(start time.Time) {
+	time.Sleep(time.Until(start.Add(time.Duration(500+rand.IntN(500)) * time.Millisecond)))
 }
 
 func handleResetPassword(r *http.Request, code, newPassword, confirmPassword string, isAdmin bool) (
@@ -936,6 +939,7 @@ func handleResetPassword(r *http.Request, code, newPassword, confirmPassword str
 		if err != nil {
 			return &admin, &user, util.NewGenericError(fmt.Sprintf("unable to set the new password: %v", err))
 		}
+		clearCodeSent(resetCode.IsAdmin, resetCode.Username)
 		err = resetCodesMgr.Delete(code)
 		return &admin, &user, err
 	}
@@ -952,6 +956,7 @@ func handleResetPassword(r *http.Request, code, newPassword, confirmPassword str
 	err = dataprovider.UpdateUserPassword(user.Username, newPassword, dataprovider.ActionExecutorSelf,
 		util.GetIPFromRemoteAddress(r.RemoteAddr), user.Role)
 	if err == nil {
+		clearCodeSent(resetCode.IsAdmin, resetCode.Username)
 		err = resetCodesMgr.Delete(code)
 	}
 	user.LastPasswordChange = util.GetTimeAsMsSinceEpoch(time.Now())

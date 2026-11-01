@@ -24,12 +24,15 @@ type SessionType int
 
 // Supported session types
 const (
+	// SessionTypeOIDCAuth is no longer used: OIDC auth requests are kept in a
+	// browser cookie. It is kept so the values of the following types do not change
 	SessionTypeOIDCAuth SessionType = iota + 1
 	SessionTypeOIDCToken
 	SessionTypeResetCode
 	SessionTypeOAuth2Auth
 	SessionTypeInvalidToken
 	SessionTypeWebTask
+	SessionTypeCodeSendMarker
 )
 
 // Session defines a shared session persisted in the data provider
@@ -44,7 +47,7 @@ func (s *Session) validate() error {
 	if s.Key == "" {
 		return errors.New("unable to save a session with an empty key")
 	}
-	if s.Type < SessionTypeOIDCAuth || s.Type > SessionTypeWebTask {
+	if s.Type < SessionTypeOIDCAuth || s.Type > SessionTypeCodeSendMarker {
 		return fmt.Errorf("invalid session type: %v", s.Type)
 	}
 	return nil

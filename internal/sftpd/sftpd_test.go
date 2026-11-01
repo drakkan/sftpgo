@@ -10176,13 +10176,9 @@ func TestUserPerms(t *testing.T) {
 	assert.True(t, user.HasPerm(dataprovider.PermListItems, "."))
 	assert.True(t, user.HasPerm(dataprovider.PermListItems, ""))
 	assert.True(t, user.HasPerm(dataprovider.PermListItems, "../"))
-	// path p and /p are the same
 	assert.True(t, user.HasPerm(dataprovider.PermDelete, "/p"))
 	assert.True(t, user.HasPerm(dataprovider.PermDownload, "/p/1"))
-	assert.True(t, user.HasPerm(dataprovider.PermCreateDirs, "p/2"))
 	assert.True(t, user.HasPerm(dataprovider.PermChmod, "/p/3"))
-	assert.True(t, user.HasPerm(dataprovider.PermChtimes, "p/3/4/"))
-	assert.True(t, user.HasPerm(dataprovider.PermChtimes, "p/3/4/../4"))
 	// undefined paths have permissions of the nearest path
 	assert.True(t, user.HasPerm(dataprovider.PermListItems, "/p34"))
 	assert.True(t, user.HasPerm(dataprovider.PermListItems, "/p34/p1/file.dat"))

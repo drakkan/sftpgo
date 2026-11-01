@@ -58,6 +58,14 @@ func isPathResolutionError(err error) bool {
 	return errors.As(err, &pErr)
 }
 
+type invalidNameError struct {
+	name string
+}
+
+func (e *invalidNameError) Error() string {
+	return fmt.Sprintf("invalid name %q", e.name)
+}
+
 // OsFs is a Fs implementation that uses functions provided by the os package.
 type OsFs struct {
 	name         string
@@ -137,6 +145,9 @@ func (fs *OsFs) toRootRelative(name string) (*os.Root, string, error) {
 	}
 	if !filepath.IsLocal(rel) {
 		return nil, "", &pathResolutionError{err: fmt.Sprintf("path %q is not inside root %q", name, fs.rootDir)}
+	}
+	if err := checkRootRelativeName(root, rel); err != nil {
+		return nil, "", err
 	}
 	return root, rel, nil
 }
@@ -526,6 +537,9 @@ func (*OsFs) IsPermission(err error) bool {
 	if _, ok := err.(*pathResolutionError); ok {
 		return true
 	}
+	if _, ok := errors.AsType[*invalidNameError](err); ok {
+		return true
+	}
 	if isRootEscapeError(err) {
 		return true
 	}
@@ -537,7 +551,7 @@ func (*OsFs) IsNotSupported(err error) bool {
 	if err == nil {
 		return false
 	}
-	return err == ErrVfsUnsupported
+	return errors.Is(err, ErrVfsUnsupported)
 }
 
 // CheckRootPath creates the root directory if it does not exist.

@@ -16,6 +16,8 @@ package common
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/sftpgo/sdk"
@@ -24,6 +26,7 @@ import (
 
 	"github.com/xrogers/gonas/v2/internal/dataprovider"
 	"github.com/xrogers/gonas/v2/internal/util"
+	"github.com/xrogers/gonas/v2/internal/vfs"
 )
 
 func TestRetentionPermissionsAndGetFolder(t *testing.T) {
@@ -179,4 +182,113 @@ func TestCleanupErrors(t *testing.T) {
 	assert.ErrorIs(t, err, util.ErrRecursionTooDeep)
 
 	assert.True(t, RetentionChecks.remove(user.Username))
+}
+
+func TestRetentionConfiguredFolderFolded(t *testing.T) {
+	homeDir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(homeDir, "EMPTY"), os.ModePerm))
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username: "retention_fold",
+			HomeDir:  homeDir,
+			Permissions: map[string][]string{
+				"/": {dataprovider.PermAny},
+			},
+		},
+	}
+	check := RetentionCheck{
+		Folders: []dataprovider.FolderRetention{
+			{Path: "/", Retention: 24},
+			{Path: "/keep", Retention: 0},
+			{Path: "/keep/sub", Retention: 48},
+			{Path: "/d\u00e9", Retention: 0},
+			{Path: "/empty", Retention: 0, DeleteEmptyDirs: true},
+		},
+	}
+	check.conn = NewBaseConnection("", ProtocolDataRetention, "", "", user)
+	// runs before the removal of homeDir: Windows refuses to remove an open directory
+	t.Cleanup(func() {
+		assert.NoError(t, check.conn.CloseFS())
+	})
+	assertFolder := func(walked, expected string) {
+		t.Helper()
+		folder, err := check.getFolderRetention(walked)
+		if assert.NoError(t, err, walked) {
+			assert.Equal(t, expected, folder.Path, walked)
+		}
+	}
+	saved := foldsNamesAt
+	t.Cleanup(func() {
+		foldsNamesAt = saved
+	})
+	// where the storage keeps letter case apart the stored names are other folders
+	foldsNamesAt = func(*dataprovider.User, string) bool {
+		return false
+	}
+	assertFolder("/Keep/x", "/")
+	check.checkEmptyDirRemoval("/empty", true)
+	assert.DirExists(t, filepath.Join(homeDir, "EMPTY"))
+	// where it matches names ignoring case they reach the configured folders
+	foldsNamesAt = func(*dataprovider.User, string) bool {
+		return true
+	}
+	assertFolder("/Keep/x", "/keep")
+	assertFolder("/KEEP/SUB/x", "/keep/sub")
+	assertFolder("/kept/x", "/")
+	assertFolder("/d\u00e9/x", "/d\u00e9")
+	// letters outside ASCII are compared as written
+	assertFolder("/D\u00c9/x", "/")
+	// a stored spelling of a configured folder is not removed as an empty directory
+	check.checkEmptyDirRemoval("/EMPTY", true)
+	assert.DirExists(t, filepath.Join(homeDir, "EMPTY"))
+	foldsNamesAt = func(*dataprovider.User, string) bool {
+		return false
+	}
+	check.checkEmptyDirRemoval("/EMPTY", true)
+	assert.NoDirExists(t, filepath.Join(homeDir, "EMPTY"))
+}
+
+func TestRetentionConfiguredFolderOtherMount(t *testing.T) {
+	homeDir := t.TempDir()
+	mappedPath := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(homeDir, "Data"), os.ModePerm))
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username: "retention_mount",
+			HomeDir:  homeDir,
+			Permissions: map[string][]string{
+				"/": {dataprovider.PermAny},
+			},
+		},
+		VirtualFolders: []vfs.VirtualFolder{{
+			BaseVirtualFolder: vfs.BaseVirtualFolder{
+				Name:       "retention_mount",
+				MappedPath: mappedPath,
+				FsConfig:   vfs.Filesystem{Provider: sdk.LocalFilesystemProvider},
+			},
+			VirtualPath: "/data",
+		}},
+	}
+	check := RetentionCheck{
+		Folders: []dataprovider.FolderRetention{
+			{Path: "/", Retention: 0},
+			{Path: "/data", Retention: 1},
+		},
+	}
+	check.conn = NewBaseConnection("", ProtocolDataRetention, "", "", user)
+	saved := foldsNamesAt
+	t.Cleanup(func() {
+		foldsNamesAt = saved
+	})
+	foldsNamesAt = func(*dataprovider.User, string) bool {
+		return true
+	}
+	// a home directory spelled like a mount point is not the mount: mount points are
+	// reached by their exact name only
+	folder, err := check.getFolderRetention("/Data/x")
+	require.NoError(t, err)
+	assert.Equal(t, "/", folder.Path)
+	folder, err = check.getFolderRetention("/data/x")
+	require.NoError(t, err)
+	assert.Equal(t, "/data", folder.Path)
 }

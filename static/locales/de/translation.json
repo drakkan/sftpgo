@@ -97,7 +97,6 @@
         "reset_submit": "Passwort aktualisieren und anmelden",
         "confirm_code": "Bestätigungscode",
         "reset_pwd_forbidden": "Sie sind nicht berechtigt, Ihr Passwort zurückzusetzen",
-        "reset_pwd_send_email_err": "Bestätigungscode konnte nicht per E-Mail gesendet werden",
         "reset_pwd_err_generic": "Unerwarteter Fehler beim Zurücksetzen des Passworts",
         "reset_ok_login_error": "Das Passwort wurde erfolgreich zurückgesetzt, aber beim Anmelden trat ein unerwarteter Fehler auf",
         "ip_not_allowed": "Login ist von dieser IP-Adresse nicht erlaubt",

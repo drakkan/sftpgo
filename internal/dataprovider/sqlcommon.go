@@ -3314,6 +3314,27 @@ func sqlCommonAddSession(session Session, dbHandle *sql.DB) error {
 	return err
 }
 
+func sqlCommonAddUniqueSession(session Session, dbHandle *sql.DB) error {
+	if err := session.validate(); err != nil {
+		return err
+	}
+	data, err := json.Marshal(session.Data)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	q := getDeleteExpiredSessionQuery()
+	_, err = dbHandle.ExecContext(ctx, q, session.Key, session.Type, util.GetTimeAsMsSinceEpoch(time.Now()))
+	if err != nil {
+		return err
+	}
+	q = getAddUniqueSessionQuery()
+	_, err = dbHandle.ExecContext(ctx, q, session.Key, data, session.Type, session.Timestamp)
+	return err
+}
+
 func sqlCommonGetSession(key string, sessionType SessionType, dbHandle sqlQuerier) (Session, error) {
 	var session Session
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)

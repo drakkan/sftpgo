@@ -2260,7 +2260,7 @@ func getHTTPPartsFromPostFields(r *http.Request) []dataprovider.HTTPPart {
 }
 
 func updateRepeaterFormActionFields(r *http.Request) {
-	for k := range r.Form {
+	for _, k := range sortedRepeaterKeys(r.Form) {
 		if hasPrefixAndSuffix(k, "http_headers[", "][http_header_key]") {
 			base, _ := strings.CutSuffix(k, "[http_header_key]")
 			r.Form.Add("http_header_key", strings.TrimSpace(r.Form.Get(k)))

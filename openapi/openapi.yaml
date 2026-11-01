@@ -7322,6 +7322,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ConditionPattern'
+          description: >-
+            Virtual path patterns to match. On Windows and macOS local storage, pattern and path
+            are compared in lowercase ASCII: ranges work as expected when written with letters of one
+            case, e.g. "[a-z]" or "[A-Z]"
         protocols:
           type: array
           items:
