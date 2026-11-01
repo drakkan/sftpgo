@@ -50,7 +50,7 @@ so that installed copies keep updating.
 
 ```sh
 GOTOOLCHAIN=auto go test ./internal/httpd/... ./internal/config/... -count=1
-tests/webclient-e2e/run.sh client   # also: strict, prefs, admin
+tests/webclient-e2e/run.sh client   # also: strict, prefs, admin, passkey
 ```
 
 The Go tests need the plugins in `tests/eventsearcher` and `tests/ipfilter` built first. The test

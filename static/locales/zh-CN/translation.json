@@ -102,7 +102,9 @@
         "ip_not_allowed": "此 IP 地址不允许登录",
         "two_factor_required": "设置双因素认证，它是以下协议所必需的：{{val}}。",
         "two_factor_required_generic": "设置双因素认证，这是您帐户的强制要求",
-        "link": "跳转 {{link}}"
+        "link": "跳转 {{link}}",
+        "signin_passkey": "使用通行密钥登录",
+        "two_factor_passkey": "使用通行密钥"
     },
     "theme": {
         "light": "明亮",
@@ -1224,5 +1226,19 @@
         "key_revoke_button": "撤销密钥",
         "key_revoke_confirm": "使用此密钥的应用将立即停止工作，由它打开的网页会话也会结束。此操作无法撤销。",
         "key_revoked": "密钥已撤销"
+    },
+    "passkey": {
+        "title": "通行密钥",
+        "help": "使用设备的屏幕锁或安全密钥登录，无需输入密码。",
+        "help_2fa": "登录时，通行密钥也可以代替验证码。",
+        "help_no_2fa": "如果已启用双因素身份验证，使用通行密钥后仍需输入验证码。",
+        "add": "添加通行密钥",
+        "unavailable": "通行密钥需要安全的地址：请通过 HTTPS 并使用主机名（而不是 IP 地址）打开此页面。",
+        "err_failed": "无法使用该通行密钥，请重试。",
+        "err_save": "无法保存对通行密钥的更改",
+        "err_limit": "通行密钥数量已达上限",
+        "err_name": "请输入不超过 64 个字符且未被其他通行密钥使用的名称",
+        "err_username": "此用户名过长，无法与通行密钥一起使用",
+        "err_required": "您的账户要求双因素身份验证，因此请保留一个通行密钥，或先设置身份验证器应用"
     }
 }

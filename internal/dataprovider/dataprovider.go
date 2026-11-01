@@ -2092,6 +2092,7 @@ func checkAdminCreated() (bool, error) {
 // AddAdmin adds a new GoNAS admin
 func AddAdmin(admin *Admin, executor, ipAddress, role string) error {
 	admin.Filters.RecoveryCodes = nil
+	admin.Filters.Passkeys = nil
 	admin.Filters.TOTPConfig = AdminTOTPConfig{
 		Enabled: false,
 	}
@@ -3555,6 +3556,9 @@ func ValidateUser(user *User) error {
 	if err := validateUserRecoveryCodes(user); err != nil {
 		return util.NewI18nError(err, util.I18nErrorRecoveryCodesInvalid)
 	}
+	if err := validatePasskeys(user.Filters.Passkeys); err != nil {
+		return err
+	}
 	vfolders, err := validateAssociatedVirtualFolders(user.VirtualFolders)
 	if err != nil {
 		return err
@@ -4408,9 +4412,10 @@ func executePreLoginHook(username, loginMethod, ip, protocol string, oidcTokenFi
 		user.LastPasswordChange = u.LastPasswordChange
 		user.FirstDownload = u.FirstDownload
 		user.FirstUpload = u.FirstUpload
-		// preserve TOTP config and recovery codes
+		// preserve TOTP config, recovery codes and passkeys
 		user.Filters.TOTPConfig = u.Filters.TOTPConfig
 		user.Filters.RecoveryCodes = u.Filters.RecoveryCodes
+		user.Filters.Passkeys = u.Filters.Passkeys
 		if err := provider.updateUser(&user, updateUnconditionally); err != nil {
 			return u, err
 		}
@@ -4672,9 +4677,10 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 		user.FirstUpload = u.FirstUpload
 		user.CreatedAt = u.CreatedAt
 		user.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
-		// preserve TOTP config and recovery codes
+		// preserve TOTP config, recovery codes and passkeys
 		user.Filters.TOTPConfig = u.Filters.TOTPConfig
 		user.Filters.RecoveryCodes = u.Filters.RecoveryCodes
+		user.Filters.Passkeys = u.Filters.Passkeys
 		user, err = updateUserAfterExternalAuth(&user)
 		if err == nil {
 			if protocol != protocolWebDAV {
@@ -4750,9 +4756,10 @@ func doPluginAuth(username, password string, pubKey []byte, ip, protocol string,
 		user.LastPasswordChange = u.LastPasswordChange
 		user.FirstDownload = u.FirstDownload
 		user.FirstUpload = u.FirstUpload
-		// preserve TOTP config and recovery codes
+		// preserve TOTP config, recovery codes and passkeys
 		user.Filters.TOTPConfig = u.Filters.TOTPConfig
 		user.Filters.RecoveryCodes = u.Filters.RecoveryCodes
+		user.Filters.Passkeys = u.Filters.Passkeys
 		user, err = updateUserAfterExternalAuth(&user)
 		if err == nil {
 			if protocol != protocolWebDAV {

@@ -140,6 +140,12 @@ const (
 	webAdminEventActionPathDefault        = "/web/admin/eventaction"
 	webAdminRolesPathDefault              = "/web/admin/roles"
 	webAdminRolePathDefault               = "/web/admin/role"
+	webAdminPasskeyLoginPathDefault       = "/web/admin/login/passkey"
+	webAdminPasskeyTwoFactorPathDefault   = "/web/admin/twofactor/passkey"
+	webAdminPasskeysPathDefault           = "/web/admin/passkeys"
+	webClientPasskeyLoginPathDefault      = "/web/client/login/passkey"
+	webClientPasskeyTwoFactorPathDefault  = "/web/client/twofactor/passkey"
+	webClientPasskeysPathDefault          = "/web/client/passkeys"
 	webAdminTOTPGeneratePathDefault       = "/web/admin/totp/generate"
 	webAdminTOTPValidatePathDefault       = "/web/admin/totp/validate"
 	webAdminTOTPSavePathDefault           = "/web/admin/totp/save"
@@ -283,6 +289,12 @@ var (
 	webChangeClientPwdPath         string
 	webClientMFAPath               string
 	webClientTOTPGeneratePath      string
+	webClientPasskeyLoginPath      string
+	webClientPasskeyTwoFactorPath  string
+	webClientPasskeysPath          string
+	webAdminPasskeyLoginPath       string
+	webAdminPasskeyTwoFactorPath   string
+	webAdminPasskeysPath           string
 	webClientTOTPValidatePath      string
 	webClientTOTPSavePath          string
 	webClientRecoveryCodesPath     string
@@ -980,6 +992,8 @@ type Conf struct {
 	Cors CorsConfig `json:"cors" mapstructure:"cors"`
 	// Initial setup configuration
 	Setup SetupConfig `json:"setup" mapstructure:"setup"`
+	// Passkeys configuration for the web interfaces
+	Passkeys PasskeysConfig `json:"passkeys" mapstructure:"passkeys"`
 	// Thumbnails configuration for the WebClient file browser
 	Thumbnails ThumbnailsConfig `json:"thumbnails" mapstructure:"thumbnails"`
 	// If enabled, the link to the sponsors section will not appear on the setup screen page
@@ -1245,6 +1259,7 @@ func (c *Conf) Initialize(configDir string, isShared int) error {
 func (c *Conf) applyGlobalSettings() {
 	globalSettingsOnce.Do(func() {
 		maxUploadFileSize = c.MaxUploadFileSize
+		passkeysConfig = c.Passkeys
 		installationCode = c.Setup.InstallationCode
 		installationCodeHint = c.Setup.InstallationCodeHint
 		updateTokensDuration(c.JWTLifetime, c.CookieLifetime, c.ShareCookieLifetime)
@@ -1349,6 +1364,9 @@ func updateWebClientURLs(baseURL string) {
 	webChangeClientPwdPath = path.Join(baseURL, webChangeClientPwdPathDefault)
 	webClientLogoutPath = path.Join(baseURL, webClientLogoutPathDefault)
 	webClientMFAPath = path.Join(baseURL, webClientMFAPathDefault)
+	webClientPasskeyLoginPath = path.Join(baseURL, webClientPasskeyLoginPathDefault)
+	webClientPasskeyTwoFactorPath = path.Join(baseURL, webClientPasskeyTwoFactorPathDefault)
+	webClientPasskeysPath = path.Join(baseURL, webClientPasskeysPathDefault)
 	webClientTOTPGeneratePath = path.Join(baseURL, webClientTOTPGeneratePathDefault)
 	webClientTOTPValidatePath = path.Join(baseURL, webClientTOTPValidatePathDefault)
 	webClientTOTPSavePath = path.Join(baseURL, webClientTOTPSavePathDefault)
@@ -1407,6 +1425,9 @@ func updateWebAdminURLs(baseURL string) {
 	webAdminEventActionPath = path.Join(baseURL, webAdminEventActionPathDefault)
 	webAdminRolesPath = path.Join(baseURL, webAdminRolesPathDefault)
 	webAdminRolePath = path.Join(baseURL, webAdminRolePathDefault)
+	webAdminPasskeyLoginPath = path.Join(baseURL, webAdminPasskeyLoginPathDefault)
+	webAdminPasskeyTwoFactorPath = path.Join(baseURL, webAdminPasskeyTwoFactorPathDefault)
+	webAdminPasskeysPath = path.Join(baseURL, webAdminPasskeysPathDefault)
 	webAdminTOTPGeneratePath = path.Join(baseURL, webAdminTOTPGeneratePathDefault)
 	webAdminTOTPValidatePath = path.Join(baseURL, webAdminTOTPValidatePathDefault)
 	webAdminTOTPSavePath = path.Join(baseURL, webAdminTOTPSavePathDefault)

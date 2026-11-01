@@ -1,7 +1,7 @@
 // Two-factor setup: enrol an authenticator app, pick protocols, handle recovery codes.
 (function () {
   'use strict';
-  const { $, $$, h, t, request, toast, dialog, confirmDialog, errorText } = WC;
+  const { $, $$, h, t, request, toast, dialog, confirmDialog, promptDialog, errorText, formatDate } = WC;
 
   const page = $('#mfa');
   const data = page.dataset;
@@ -150,7 +150,57 @@
     }
   }
 
+  async function addPasskey(section) {
+    const name = await promptDialog({
+      title: t('passkey.add'),
+      label: t('general.name'),
+      confirm: t('general.submit'),
+      validate: (text) => (text.length > 64 ? t('passkey.err_name') : ''),
+    });
+    if (!name) return;
+    try {
+      const { data: begin } = await request(`${section.dataset.url}/begin`, { method: 'POST' });
+      const credential = await WCPasskey.create(begin.options);
+      await request(`${section.dataset.url}/finish`, { method: 'POST', json: { token: begin.token, name, credential } });
+      await afterSave();
+    } catch (error) {
+      if (!WCPasskey.cancelled(error)) toast('error', errorText(error, 'passkey.err_save'));
+    }
+  }
+
+  async function removePasskey(section, button) {
+    const confirmed = await confirmDialog({
+      title: t('general.delete'),
+      message: t('general.delete_confirm', { name: button.dataset.name }),
+      confirm: t('general.delete_confirm_btn'),
+      danger: true,
+    });
+    if (!confirmed) return;
+    try {
+      await request(`${section.dataset.url}/${button.dataset.passkeyDelete}`, { method: 'DELETE' });
+      await afterSave();
+    } catch (error) {
+      toast('error', errorText(error, 'passkey.err_save'));
+    }
+  }
+
+  function setupPasskeys() {
+    const section = $('#passkeys');
+    if (!section) return;
+    for (const time of $$('time[data-ms]', section)) time.textContent = formatDate(Number(time.dataset.ms));
+    for (const button of $$('[data-passkey-delete]', section)) {
+      button.addEventListener('click', () => removePasskey(section, button));
+    }
+    const add = $('#add-passkey');
+    if (WCPasskey.supported()) add.addEventListener('click', () => addPasskey(section));
+    else {
+      add.hidden = true;
+      $('#passkey-unavailable').hidden = false;
+    }
+  }
+
   WC.ready.then(() => {
+    setupPasskeys();
     $('#generate').addEventListener('click', enrol);
     const bind = (selector, handler) => {
       const button = $(selector);

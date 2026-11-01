@@ -60,7 +60,32 @@
                     {{- end}}
                 </div>
             </div>
-            {{- if .TOTPConfig.Enabled}}
+            {{- if .PasskeysEnabled}}
+            <div class="section stack" id="passkeys" data-url="{{.PasskeysURL}}">
+                <h2 class="section-title" data-i18n="passkey.title"></h2>
+                <p class="field-help" data-i18n="passkey.help"></p>
+                <p class="field-help" data-i18n="{{if .PasskeyIs2FA}}passkey.help_2fa{{else}}passkey.help_no_2fa{{end}}"></p>
+                <p class="notice notice-warn" id="passkey-unavailable" hidden data-i18n="passkey.unavailable"></p>
+                {{- if .Passkeys}}
+                <ul class="passkeys">
+                    {{- range .Passkeys}}
+                    <li>
+                        <svg class="icon" aria-hidden="true"><use data-sprite="key-round"></use></svg>
+                        <span class="passkey-name">{{.Name}}</span>
+                        <time class="field-help" data-ms="{{.CreatedAt}}"></time>
+                        <button class="iconbutton" type="button" data-passkey-delete="{{.ID}}" data-name="{{.Name}}" aria-label="Delete" data-i18n="[aria-label]general.delete;[title]general.delete">
+                            <svg class="icon" aria-hidden="true"><use data-sprite="trash-2"></use></svg>
+                        </button>
+                    </li>
+                    {{- end}}
+                </ul>
+                {{- end}}
+                <div class="form-actions">
+                    <button class="button" id="add-passkey" type="button" data-i18n="passkey.add"></button>
+                </div>
+            </div>
+            {{- end}}
+            {{- if or .TOTPConfig.Enabled .ShowRecovery}}
             <div class="section stack">
                 <h2 class="section-title" data-i18n="2fa.recovery_codes"></h2>
                 <p class="field-help" data-i18n="2fa.recovery_codes_msg1"></p>
@@ -86,5 +111,8 @@
 {{- end}}
 
 {{- define "pagescripts"}}
+{{- if .PasskeysEnabled}}
+<script{{if .CSPNonce}} nonce="{{.CSPNonce}}"{{end}} src="{{.StaticURL}}/webclient/js/passkey.js?v={{.Version}}"></script>
+{{- end}}
 <script{{if .CSPNonce}} nonce="{{.CSPNonce}}"{{end}} src="{{.StaticURL}}/webclient/js/mfa.js?v={{.Version}}"></script>
 {{- end}}

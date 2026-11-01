@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Browser tests for the web UIs. Usage: tests/webclient-e2e/run.sh [client|strict|prefs|admin]
+# Browser tests for the web UIs. Usage: tests/webclient-e2e/run.sh [client|strict|prefs|admin|passkey]
 #   client  every page and flow, with a copy of the Android app's page hooks
 #   strict  the same under a strict nonce Content-Security-Policy
 #   prefs   language and theme choices
 #   admin   the WebAdmin from an empty database, under the strict policy
+#   passkey signing in with passkeys, with SKIP_2FA=1 for skip_two_factor
 # Needs Go, Node and a Chromium: run "npx playwright install chromium" here once.
 set -u
 MODE=${1:-client}
@@ -25,7 +26,8 @@ export GONAS_HTTPD__BINDINGS__0__PORT=18183 GONAS_HTTPD__BINDINGS__0__ADDRESS=12
   GONAS_HTTPD__TEMPLATES_PATH=$F/templates GONAS_HTTPD__STATIC_FILES_PATH=$F/static \
   GONAS_HTTPD__OPENAPI_PATH=$F/openapi GONAS_SMTP__TEMPLATES_PATH=$F/templates GONAS_DATA_PROVIDER__NAME=$R/e2e.db
 [ "$MODE" = admin ] && unset GONAS_DATA_PROVIDER__CREATE_DEFAULT_ADMIN
-if [ "$MODE" = strict ] || [ "$MODE" = admin ]; then
+[ "$MODE" = passkey ] && export GONAS_HTTPD__PASSKEYS__SKIP_TWO_FACTOR=${SKIP_2FA:-0}
+if [ "$MODE" = strict ] || [ "$MODE" = admin ] || [ "$MODE" = passkey ]; then
   export GONAS_HTTPD__BINDINGS__0__SECURITY__ENABLED=1
   export GONAS_HTTPD__BINDINGS__0__SECURITY__CONTENT_SECURITY_POLICY="default-src 'none'; script-src \$NONCE; style-src 'self' \$NONCE; img-src 'self' data:; font-src 'self'; connect-src 'self'; media-src 'self'; object-src 'self'; base-uri 'none'; form-action 'self'"
 fi
@@ -42,6 +44,14 @@ if [ "$MODE" = admin ]; then
   exit $RC
 fi
 T=$(curl -s --max-time 5 -u admin:e2e-Password-1 $B/api/v2/token | python3 -I -c 'import json,sys;print(json.load(sys.stdin)["access_token"])')
+if [ "$MODE" = passkey ]; then
+  cd "$HERE" || exit 1
+  [ "${SKIP_2FA:-0}" = 1 ] && SWITCH=on || SWITCH=off
+  timeout 280 node passkey.js http://localhost:18183 "$SHOTS" "$T" $SWITCH
+  RC=$?
+  echo "screenshots: $SHOTS"
+  exit $RC
+fi
 H=$R/alice
 mkdir -p "$H/photos" "$H/docs" "$H/readonly"
 echo 'note body' > "$H/note.txt"; echo x > "$H/copy-me.txt"; echo x > "$H/drag-me.txt"; echo deep > "$H/docs/deep.txt"

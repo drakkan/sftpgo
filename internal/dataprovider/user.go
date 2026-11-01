@@ -91,6 +91,7 @@ const (
 	LoginMethodTLSCertificate         = "TLSCertificate"
 	LoginMethodTLSCertificateAndPwd   = "TLSCertificate+password"
 	LoginMethodIDP                    = "IDP"
+	LoginMethodPasskey                = "passkey"
 )
 
 var (
@@ -135,6 +136,8 @@ type UserFilters struct {
 	// Each code can only be used once, you should use these codes to login and disable or
 	// reset 2FA for your account
 	RecoveryCodes []RecoveryCode `json:"recovery_codes,omitempty"`
+	// Passkeys are WebAuthn credentials to sign in to the web interface
+	Passkeys []Passkey `json:"passkeys,omitempty"`
 }
 
 // User defines a GoNAS user
@@ -2126,6 +2129,7 @@ func (u *User) getACopy() User {
 	copy(filters.TOTPConfig.Protocols, u.Filters.TOTPConfig.Protocols)
 	filters.AdditionalEmails = make([]string, len(u.Filters.AdditionalEmails))
 	copy(filters.AdditionalEmails, u.Filters.AdditionalEmails)
+	filters.Passkeys = copyPasskeys(u.Filters.Passkeys)
 	filters.RecoveryCodes = make([]RecoveryCode, 0, len(u.Filters.RecoveryCodes))
 	for _, code := range u.Filters.RecoveryCodes {
 		if code.Secret == nil {

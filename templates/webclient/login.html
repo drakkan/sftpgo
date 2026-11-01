@@ -18,6 +18,9 @@
         <button class="button button-primary button-wide" id="sign_in_submit" type="submit" data-i18n="login.signin">Sign in</button>
     </form>
     {{- end}}
+    {{- if .PasskeyURL}}
+    <button class="button button-wide" type="button" hidden data-passkey="{{.PasskeyURL}}" data-form-token="{{.CSRFToken}}" data-i18n="login.signin_passkey">Sign in with a passkey</button>
+    {{- end}}
     {{- if .OpenIDLoginURL}}
     <a class="button button-wide" href="{{.OpenIDLoginURL}}" data-i18n="login.signin_openid">Sign in with OpenID</a>
     {{- end}}
@@ -33,5 +36,11 @@
 {{- end}}
 {{- if and .Branding.DisclaimerName .Branding.DisclaimerPath}}
 <a href="{{.Branding.DisclaimerPath}}" target="_blank" rel="noopener noreferrer">{{.Branding.DisclaimerName}}</a>
+{{- end}}
+{{- end}}
+
+{{- define "pagescripts"}}
+{{- if .PasskeyURL}}
+<script{{if .CSPNonce}} nonce="{{.CSPNonce}}"{{end}} src="{{.StaticURL}}/webclient/js/passkey.js?v={{.Version}}"></script>
 {{- end}}
 {{- end}}

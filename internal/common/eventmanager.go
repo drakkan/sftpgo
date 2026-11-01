@@ -2597,6 +2597,7 @@ func executeAdminCheckAction(c *dataprovider.EventActionIDPAccountCheck, params 
 		}
 		newAdmin.Filters.TOTPConfig = admin.Filters.TOTPConfig
 		newAdmin.Filters.RecoveryCodes = admin.Filters.RecoveryCodes
+		newAdmin.Filters.Passkeys = admin.Filters.Passkeys
 		err = dataprovider.UpdateAdmin(&newAdmin, dataprovider.ActionExecutorSystem, "", "")
 	} else {
 		eventManagerLog(logger.LevelDebug, "creating admin %q after IDP login", params.Name)
@@ -2635,6 +2636,7 @@ func preserveUserProfile(user, newUser *dataprovider.User) {
 		newUser.Filters.AllowAPIKeyAuth = user.Filters.AllowAPIKeyAuth
 	}
 	newUser.Filters.RecoveryCodes = user.Filters.RecoveryCodes
+	newUser.Filters.Passkeys = user.Filters.Passkeys
 	newUser.Filters.TOTPConfig = user.Filters.TOTPConfig
 	newUser.LastPasswordChange = user.LastPasswordChange
 	newUser.SetEmptySecretsIfNil()

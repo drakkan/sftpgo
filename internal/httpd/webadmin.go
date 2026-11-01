@@ -242,6 +242,7 @@ type mfaPage struct {
 	RecCodesURL       string
 	RequireTwoFactor  bool
 	RequiredAction    *util.I18nError
+	passkeyPageData
 }
 
 type maintenancePage struct {
@@ -620,6 +621,14 @@ func (s *httpdServer) renderTwoFactorPage(w http.ResponseWriter, r *http.Request
 		Branding:       s.binding.webAdminBranding(),
 		Languages:      s.binding.languages(),
 	}
+	if claims, claimsErr := jwt.FromContext(r.Context()); claimsErr == nil {
+		if admin, adminErr := dataprovider.AdminExists(claims.Username); adminErr == nil {
+			if adminHasPasskeyTwoFactor(&admin) {
+				data.PasskeyURL = webAdminPasskeyTwoFactorPath
+			}
+			data.PasscodeDisabled = !admin.Filters.TOTPConfig.Enabled
+		}
+	}
 	renderAdminTemplate(w, templateTwoFactor, data)
 }
 
@@ -652,6 +661,7 @@ func (s *httpdServer) renderMFAPage(w http.ResponseWriter, r *http.Request) {
 	}
 	data.TOTPConfig = admin.Filters.TOTPConfig
 	data.RequireTwoFactor = admin.Filters.RequireTwoFactor
+	data.passkeyPageData = newPasskeyPageData(webAdminPasskeysPath, admin.Filters.Passkeys)
 	if claims, claimsErr := jwt.FromContext(r.Context()); claimsErr == nil && claims.MustSetTwoFactorAuth {
 		data.RequiredAction = util.NewI18nError(
 			util.NewGenericError("Two-factor authentication setup required"),
@@ -3109,6 +3119,7 @@ func (s *httpdServer) handleWebUpdateAdminPost(w http.ResponseWriter, r *http.Re
 	}
 	updatedAdmin.Filters.TOTPConfig = admin.Filters.TOTPConfig
 	updatedAdmin.Filters.RecoveryCodes = admin.Filters.RecoveryCodes
+	updatedAdmin.Filters.Passkeys = admin.Filters.Passkeys
 	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		s.renderAddUpdateAdminPage(w, r, &updatedAdmin, util.NewI18nError(errInvalidTokenClaims, util.I18nErrorInvalidToken), false)
@@ -3536,6 +3547,7 @@ func (s *httpdServer) handleWebAddUserPost(w http.ResponseWriter, r *http.Reques
 		user.Role = claims.Role
 	}
 	user.Filters.RecoveryCodes = nil
+	user.Filters.Passkeys = nil
 	user.Filters.TOTPConfig = dataprovider.UserTOTPConfig{
 		Enabled: false,
 	}
@@ -3576,6 +3588,7 @@ func (s *httpdServer) handleWebUpdateUserPost(w http.ResponseWriter, r *http.Req
 	updatedUser.ID = user.ID
 	updatedUser.Username = user.Username
 	updatedUser.Filters.RecoveryCodes = user.Filters.RecoveryCodes
+	updatedUser.Filters.Passkeys = user.Filters.Passkeys
 	updatedUser.Filters.TOTPConfig = user.Filters.TOTPConfig
 	updatedUser.LastPasswordChange = user.LastPasswordChange
 	updatedUser.SetEmptySecretsIfNil()

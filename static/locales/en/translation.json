@@ -102,7 +102,9 @@
         "ip_not_allowed": "Login is not allowed from this IP address",
         "two_factor_required": "Set up two-factor authentication, it is required for the following protocols: {{val}}",
         "two_factor_required_generic": "Set up two-factor authentication, it is mandatory for your account",
-        "link": "Go to {{link}}"
+        "link": "Go to {{link}}",
+        "signin_passkey": "Sign in with a passkey",
+        "two_factor_passkey": "Use a passkey"
     },
     "theme": {
         "light": "Light",
@@ -1224,5 +1226,19 @@
         "key_revoke_button": "Revoke key",
         "key_revoke_confirm": "Apps using this key stop working straight away, and any web session it opened ends. You can't undo this.",
         "key_revoked": "Key revoked"
+    },
+    "passkey": {
+        "title": "Passkeys",
+        "help": "Sign in with your device's screen lock or a security key instead of your password.",
+        "help_2fa": "A passkey also replaces the authentication code when you sign in.",
+        "help_no_2fa": "If two-factor authentication is on, you will still be asked for your code after using a passkey.",
+        "add": "Add a passkey",
+        "unavailable": "Passkeys need a secure address: open this page over HTTPS, using a host name and not an IP address.",
+        "err_failed": "The passkey could not be used. Please try again.",
+        "err_save": "Unable to save the change to your passkeys",
+        "err_limit": "You have reached the maximum number of passkeys",
+        "err_name": "Enter a name of up to 64 characters that no other passkey uses",
+        "err_username": "This username is too long to use with a passkey",
+        "err_required": "Two-factor authentication is required for your account, so keep a passkey or set up an authenticator app first"
     }
 }

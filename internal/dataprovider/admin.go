@@ -199,8 +199,10 @@ type AdminFilters struct {
 	// Recovery codes to use if the user loses access to their second factor auth device.
 	// Each code can only be used once, you should use these codes to login and disable or
 	// reset 2FA for your account
-	RecoveryCodes []RecoveryCode   `json:"recovery_codes,omitempty"`
-	Preferences   AdminPreferences `json:"preferences"`
+	RecoveryCodes []RecoveryCode `json:"recovery_codes,omitempty"`
+	// Passkeys are WebAuthn credentials to sign in to the web interface
+	Passkeys    []Passkey        `json:"passkeys,omitempty"`
+	Preferences AdminPreferences `json:"preferences"`
 }
 
 // AdminGroupMappingOptions defines the options for admin/group mapping
@@ -396,6 +398,9 @@ func (a *Admin) validate() error {
 	}
 	if err := a.validateRecoveryCodes(); err != nil {
 		return util.NewI18nError(err, util.I18nErrorRecoveryCodesInvalid)
+	}
+	if err := validatePasskeys(a.Filters.Passkeys); err != nil {
+		return err
 	}
 	if config.NamingRules&1 == 0 && !usernameRegex.MatchString(a.Username) {
 		return util.NewI18nError(
@@ -605,6 +610,7 @@ func (a *Admin) getACopy() Admin {
 	filters.TOTPConfig.ConfigName = a.Filters.TOTPConfig.ConfigName
 	filters.TOTPConfig.Secret = a.Filters.TOTPConfig.Secret.Clone()
 	copy(filters.AllowList, a.Filters.AllowList)
+	filters.Passkeys = copyPasskeys(a.Filters.Passkeys)
 	filters.RecoveryCodes = make([]RecoveryCode, 0)
 	for _, code := range a.Filters.RecoveryCodes {
 		if code.Secret == nil {

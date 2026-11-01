@@ -381,6 +381,12 @@
       "options_success_status": 0,
       "allow_private_network": false
     },
+    "passkeys": {
+      "enabled": true,
+      "rp_id": "",
+      "origins": [],
+      "skip_two_factor": false
+    },
     "setup": {
       "installation_code": "",
       "installation_code_hint": "Installation code"

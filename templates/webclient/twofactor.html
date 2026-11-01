@@ -3,14 +3,28 @@
 {{- define "main"}}
 <h1 class="auth-title" data-i18n="title.two_factor_auth">Two-factor authentication</h1>
 {{- template "notice" .Error}}
-<form class="stack" id="sign_in_form" action="{{.CurrentURL}}" method="POST" data-busy>
-    <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
-    <p class="auth-lead" data-i18n="login.two_factor_help"></p>
-    <label class="field">
-        <span class="field-label" data-i18n="login.auth_code">Authentication code</span>
-        <input class="input" name="passcode" type="text" inputmode="numeric" autocomplete="one-time-code" required autofocus>
-    </label>
-    <button class="button button-primary button-wide" id="sign_in_submit" type="submit" data-i18n="general.verify">Verify</button>
+<div class="stack">
+    {{- if not .PasscodeDisabled}}
+    <form class="stack" id="sign_in_form" action="{{.CurrentURL}}" method="POST" data-busy>
+        <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
+        <p class="auth-lead" data-i18n="login.two_factor_help"></p>
+        <label class="field">
+            <span class="field-label" data-i18n="login.auth_code">Authentication code</span>
+            <input class="input" name="passcode" type="text" inputmode="numeric" autocomplete="one-time-code" required autofocus>
+        </label>
+        <button class="button button-primary button-wide" id="sign_in_submit" type="submit" data-i18n="general.verify">Verify</button>
+    </form>
+    {{- end}}
+    {{- if .PasskeyURL}}
+    <p class="notice notice-warn" id="passkey-unavailable" hidden data-i18n="passkey.unavailable"></p>
+    <button class="button button-wide{{if .PasscodeDisabled}} button-primary{{end}}" type="button" hidden data-passkey="{{.PasskeyURL}}" data-form-token="{{.CSRFToken}}"{{if .PasscodeDisabled}} data-passkey-only{{end}} data-i18n="login.two_factor_passkey">Use a passkey</button>
+    {{- end}}
     <a href="{{.RecoveryURL}}" data-i18n="login.two_factor_msg">Enter a two-factor recovery code</a>
-</form>
+</div>
+{{- end}}
+
+{{- define "pagescripts"}}
+{{- if .PasskeyURL}}
+<script{{if .CSPNonce}} nonce="{{.CSPNonce}}"{{end}} src="{{.StaticURL}}/webclient/js/passkey.js?v={{.Version}}"></script>
+{{- end}}
 {{- end}}

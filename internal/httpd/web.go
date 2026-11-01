@@ -70,6 +70,7 @@ type loginPage struct {
 	Languages      []string
 	FormDisabled   bool
 	CheckRedirect  bool
+	PasskeyURL     string
 }
 
 type twoFactorPage struct {
@@ -82,6 +83,10 @@ type twoFactorPage struct {
 	Branding      UIBranding
 	Languages     []string
 	CheckRedirect bool
+	// A passkey can complete the sign in
+	PasskeyURL string
+	// The account has no TOTP, so there is no code to enter
+	PasscodeDisabled bool
 }
 
 type forgotPwdPage struct {

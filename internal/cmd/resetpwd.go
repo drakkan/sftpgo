@@ -110,6 +110,7 @@ Please take a look at the usage below to customize the options.`,
 			}
 			admin.Password = string(pwd)
 			admin.Filters.TOTPConfig.Enabled = false
+			admin.Filters.Passkeys = nil
 			if err := dataprovider.UpdateAdmin(&admin, dataprovider.ActionExecutorSystem, "", ""); err != nil {
 				logger.ErrorToConsole("Unable to update password: %v", err)
 				os.Exit(1)

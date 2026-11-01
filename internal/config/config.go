@@ -429,6 +429,10 @@ func Init() {
 				OptionsSuccessStatus: 0,
 				AllowPrivateNetwork:  false,
 			},
+			Passkeys: httpd.PasskeysConfig{
+				Enabled: true,
+				Origins: []string{},
+			},
 			Setup: httpd.SetupConfig{
 				InstallationCode:     "",
 				InstallationCodeHint: defaultInstallCodeHint,
@@ -2244,6 +2248,10 @@ func setViperDefaults() {
 	viper.SetDefault("httpd.cors.allow_private_network", globalConf.HTTPDConfig.Cors.AllowPrivateNetwork)
 	viper.SetDefault("httpd.setup.installation_code", globalConf.HTTPDConfig.Setup.InstallationCode)
 	viper.SetDefault("httpd.setup.installation_code_hint", globalConf.HTTPDConfig.Setup.InstallationCodeHint)
+	viper.SetDefault("httpd.passkeys.enabled", globalConf.HTTPDConfig.Passkeys.Enabled)
+	viper.SetDefault("httpd.passkeys.rp_id", globalConf.HTTPDConfig.Passkeys.RPID)
+	viper.SetDefault("httpd.passkeys.origins", globalConf.HTTPDConfig.Passkeys.Origins)
+	viper.SetDefault("httpd.passkeys.skip_two_factor", globalConf.HTTPDConfig.Passkeys.SkipTwoFactor)
 	viper.SetDefault("httpd.thumbnails.enabled", globalConf.HTTPDConfig.Thumbnails.Enabled)
 	viper.SetDefault("httpd.thumbnails.cache_dir", globalConf.HTTPDConfig.Thumbnails.CacheDir)
 	viper.SetDefault("httpd.thumbnails.cache_max_size", globalConf.HTTPDConfig.Thumbnails.CacheMaxSize)

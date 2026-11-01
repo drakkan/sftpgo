@@ -42,6 +42,8 @@
     }
   }
 
+  const hasSecondFactor = (row) => Boolean(row.filters && ((row.filters.totp_config && row.filters.totp_config.enabled) || row.filters.passkeys));
+
   async function disableMFA(url, list) {
     const confirmed = await confirmDialog({
       title: t('2fa.disable_msg'),
@@ -107,7 +109,7 @@
         if (can('edit_users')) items.push({ icon: 'pencil', label: t('general.edit'), href: `${page.user}/${encode(row.username)}` });
         if (can('add_users')) items.push({ icon: 'copy', label: t('general.template'), href: `${page.userTemplate}?from=${encode(row.username)}` });
         if (can('quota_scans')) items.push({ icon: 'gauge', label: t('general.quota_scan'), action: () => runQuotaScan(`${page.quotaUser}/${encode(row.username)}`) });
-        if (can('disable_mfa') && row.filters && row.filters.totp_config && row.filters.totp_config.enabled) {
+        if (can('disable_mfa') && hasSecondFactor(row)) {
           items.push({ icon: 'shield-check', label: t('2fa.disable_msg'), action: () => disableMFA(`${page.user}/${encode(row.username)}/2fa/disable`, list) });
         }
         if (can('del_users')) items.push({ icon: 'trash-2', label: t('general.delete'), danger: true, action: () => removeRow({ url: `${page.user}/${encode(row.username)}`, name: row.username, list }) });
@@ -131,7 +133,7 @@
       ],
       actions: (row) => {
         const items = [{ icon: 'pencil', label: t('general.edit'), href: `${page.admin}/${encode(row.username)}` }];
-        if (row.filters && row.filters.totp_config && row.filters.totp_config.enabled) {
+        if (hasSecondFactor(row)) {
           items.push({ icon: 'shield-check', label: t('2fa.disable_msg'), action: () => disableMFA(`${page.admin}/${encode(row.username)}/2fa/disable`, list) });
         }
         if (row.username !== page.self) {

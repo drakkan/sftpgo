@@ -109,6 +109,7 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 	}
 	user.LastPasswordChange = 0
 	user.Filters.RecoveryCodes = nil
+	user.Filters.Passkeys = nil
 	user.Filters.TOTPConfig = dataprovider.UserTOTPConfig{
 		Enabled: false,
 	}
@@ -134,11 +135,12 @@ func disableUser2FA(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	if !user.Filters.TOTPConfig.Enabled {
+	if !user.Filters.TOTPConfig.Enabled && !user.HasPasskeys() {
 		sendAPIResponse(w, r, nil, "two-factor authentication is not enabled", http.StatusBadRequest)
 		return
 	}
 	user.Filters.RecoveryCodes = nil
+	user.Filters.Passkeys = nil
 	user.Filters.TOTPConfig = dataprovider.UserTOTPConfig{
 		Enabled: false,
 	}
@@ -183,6 +185,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	updatedUser.ID = user.ID
 	updatedUser.Username = user.Username
 	updatedUser.Filters.RecoveryCodes = user.Filters.RecoveryCodes
+	updatedUser.Filters.Passkeys = user.Filters.Passkeys
 	updatedUser.Filters.TOTPConfig = user.Filters.TOTPConfig
 	updatedUser.LastPasswordChange = user.LastPasswordChange
 	updatedUser.SetEmptySecretsIfNil()

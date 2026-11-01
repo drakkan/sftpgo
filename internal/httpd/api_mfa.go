@@ -162,7 +162,7 @@ func getRecoveryCodes(w http.ResponseWriter, r *http.Request) {
 			sendAPIResponse(w, r, err, "", getRespStatus(err))
 			return
 		}
-		if !user.Filters.TOTPConfig.Enabled {
+		if !user.Filters.TOTPConfig.Enabled && !userHasPasskeyTwoFactor(&user) {
 			sendAPIResponse(w, r, errRecoveryCodeForbidden, "", http.StatusForbidden)
 			return
 		}
@@ -173,7 +173,7 @@ func getRecoveryCodes(w http.ResponseWriter, r *http.Request) {
 			sendAPIResponse(w, r, err, "", getRespStatus(err))
 			return
 		}
-		if !admin.Filters.TOTPConfig.Enabled {
+		if !admin.Filters.TOTPConfig.Enabled && !adminHasPasskeyTwoFactor(&admin) {
 			sendAPIResponse(w, r, errRecoveryCodeForbidden, "", http.StatusForbidden)
 			return
 		}
@@ -213,7 +213,7 @@ func generateRecoveryCodes(w http.ResponseWriter, r *http.Request) {
 			sendAPIResponse(w, r, err, "", getRespStatus(err))
 			return
 		}
-		if !user.Filters.TOTPConfig.Enabled {
+		if !user.Filters.TOTPConfig.Enabled && !userHasPasskeyTwoFactor(&user) {
 			sendAPIResponse(w, r, errRecoveryCodeForbidden, "", http.StatusForbidden)
 			return
 		}
@@ -228,7 +228,7 @@ func generateRecoveryCodes(w http.ResponseWriter, r *http.Request) {
 			sendAPIResponse(w, r, err, "", getRespStatus(err))
 			return
 		}
-		if !admin.Filters.TOTPConfig.Enabled {
+		if !admin.Filters.TOTPConfig.Enabled && !adminHasPasskeyTwoFactor(&admin) {
 			sendAPIResponse(w, r, errRecoveryCodeForbidden, "", http.StatusForbidden)
 			return
 		}

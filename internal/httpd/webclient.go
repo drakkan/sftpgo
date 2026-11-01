@@ -222,6 +222,7 @@ type clientMFAPage struct {
 	Protocols         []string
 	RequiredProtocols []string
 	RequiredAction    *util.I18nError
+	passkeyPageData
 }
 
 type clientAPIKeysPage struct {
@@ -577,6 +578,15 @@ func (s *httpdServer) renderClientTwoFactorPage(w http.ResponseWriter, r *http.R
 	if target, ok := safeRedirectTarget(r.URL.Query().Get("next"), webClientFilesPath); ok {
 		data.CurrentURL += "?next=" + url.QueryEscape(target)
 	}
+	if claims, claimsErr := jwt.FromContext(r.Context()); claimsErr == nil {
+		if user, userErr := dataprovider.GetUserWithGroupSettings(claims.Username, ""); userErr == nil {
+			if userHasPasskeyTwoFactor(&user) {
+				data.PasskeyURL = webClientPasskeyTwoFactorPath
+			}
+			data.PasscodeDisabled = !user.Filters.TOTPConfig.Enabled ||
+				!slices.Contains(user.Filters.TOTPConfig.Protocols, common.ProtocolHTTP)
+		}
+	}
 	renderClientTemplate(w, templateTwoFactor, data)
 }
 
@@ -610,6 +620,7 @@ func (s *httpdServer) renderClientMFAPage(w http.ResponseWriter, r *http.Request
 	}
 	data.TOTPConfig = user.Filters.TOTPConfig
 	data.RequiredProtocols = user.Filters.TwoFactorAuthProtocols
+	data.passkeyPageData = newPasskeyPageData(webClientPasskeysPath, user.Filters.Passkeys)
 	if claims, claimsErr := jwt.FromContext(r.Context()); claimsErr == nil && claims.MustSetTwoFactorAuth {
 		if len(claims.RequiredTwoFactorProtocols) > 0 {
 			protocols := strings.Join(claims.RequiredTwoFactorProtocols, ", ")

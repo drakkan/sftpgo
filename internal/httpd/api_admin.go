@@ -100,7 +100,7 @@ func disableAdmin2FA(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	if !admin.Filters.TOTPConfig.Enabled {
+	if !admin.Filters.TOTPConfig.Enabled && !admin.HasPasskeys() {
 		sendAPIResponse(w, r, nil, "two-factor authentication is not enabled", http.StatusBadRequest)
 		return
 	}
@@ -112,6 +112,7 @@ func disableAdmin2FA(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	admin.Filters.RecoveryCodes = nil
+	admin.Filters.Passkeys = nil
 	admin.Filters.TOTPConfig = dataprovider.AdminTOTPConfig{
 		Enabled: false,
 	}
@@ -178,6 +179,7 @@ func updateAdmin(w http.ResponseWriter, r *http.Request) {
 	}
 	updatedAdmin.Filters.TOTPConfig = admin.Filters.TOTPConfig
 	updatedAdmin.Filters.RecoveryCodes = admin.Filters.RecoveryCodes
+	updatedAdmin.Filters.Passkeys = admin.Filters.Passkeys
 	err = dataprovider.UpdateAdmin(&updatedAdmin, executor, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))

@@ -182,6 +182,9 @@ func (s *httpdServer) renderClientLoginPage(w http.ResponseWriter, r *http.Reque
 		FormDisabled:   s.binding.isWebClientLoginFormDisabled(),
 		CheckRedirect:  true,
 	}
+	if passkeysConfig.Enabled && !data.FormDisabled {
+		data.PasskeyURL = webClientPasskeyLoginPath
+	}
 	if target, ok := safeRedirectTarget(r.URL.Query().Get("next"), webClientFilesPath); ok {
 		data.CurrentURL += "?next=" + url.QueryEscape(target)
 	}
@@ -297,7 +300,7 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 		s.renderClientLoginPage(w, r, util.NewI18nError(err, util.I18nErrorFsGeneric))
 		return
 	}
-	s.loginUser(w, r, &user, connectionID, ipAddr, false, s.renderClientLoginPage)
+	s.loginUser(w, r, &user, connectionID, ipAddr, dataprovider.LoginMethodPassword, false, s.renderClientLoginPage)
 }
 
 func (s *httpdServer) handleWebClientPasswordResetPost(w http.ResponseWriter, r *http.Request) {
@@ -334,7 +337,7 @@ func (s *httpdServer) handleWebClientPasswordResetPost(w http.ResponseWriter, r 
 		s.renderClientResetPwdPage(w, r, util.NewI18nError(err, util.I18nErrorLoginAfterReset))
 		return
 	}
-	s.loginUser(w, r, user, connectionID, ipAddr, false, s.renderClientResetPwdPage)
+	s.loginUser(w, r, user, connectionID, ipAddr, dataprovider.LoginMethodPassword, false, s.renderClientResetPwdPage)
 }
 
 func (s *httpdServer) handleWebClientTwoFactorRecoveryPost(w http.ResponseWriter, r *http.Request) {
@@ -369,7 +372,7 @@ func (s *httpdServer) handleWebClientTwoFactorRecoveryPost(w http.ResponseWriter
 			util.NewI18nError(dataprovider.ErrInvalidCredentials, util.I18nErrorInvalidCredentials))
 		return
 	}
-	if !userMerged.Filters.TOTPConfig.Enabled || !slices.Contains(userMerged.Filters.TOTPConfig.Protocols, common.ProtocolHTTP) {
+	if !userMustUseSecondFactor(&userMerged) && !userHasPasskeyTwoFactor(&userMerged) {
 		s.renderClientTwoFactorPage(w, r, util.NewI18nError(
 			util.NewValidationError("two factory authentication is not enabled"), util.I18n2FADisabled))
 		return
@@ -393,7 +396,7 @@ func (s *httpdServer) handleWebClientTwoFactorRecoveryPost(w http.ResponseWriter
 				return
 			}
 			connectionID := fmt.Sprintf("%v_%v", getProtocolFromRequest(r), xid.New().String())
-			s.loginUser(w, r, &userMerged, connectionID, ipAddr, true,
+			s.loginUser(w, r, &userMerged, connectionID, ipAddr, dataprovider.LoginMethodPassword, true,
 				s.renderClientTwoFactorRecoveryPage)
 			return
 		}
@@ -457,7 +460,7 @@ func (s *httpdServer) handleWebClientTwoFactorPost(w http.ResponseWriter, r *htt
 		return
 	}
 	connectionID := fmt.Sprintf("%s_%s", getProtocolFromRequest(r), xid.New().String())
-	s.loginUser(w, r, &user, connectionID, ipAddr, true, s.renderClientTwoFactorPage)
+	s.loginUser(w, r, &user, connectionID, ipAddr, dataprovider.LoginMethodPassword, true, s.renderClientTwoFactorPage)
 }
 
 func (s *httpdServer) handleWebAdminTwoFactorRecoveryPost(w http.ResponseWriter, r *http.Request) {
@@ -491,7 +494,7 @@ func (s *httpdServer) handleWebAdminTwoFactorRecoveryPost(w http.ResponseWriter,
 		s.renderTwoFactorRecoveryPage(w, r, util.NewI18nError(dataprovider.ErrInvalidCredentials, util.I18nErrorInvalidCredentials))
 		return
 	}
-	if !admin.Filters.TOTPConfig.Enabled {
+	if !adminMustUseSecondFactor(&admin) && !adminHasPasskeyTwoFactor(&admin) {
 		s.renderTwoFactorRecoveryPage(w, r, util.NewI18nError(util.NewValidationError("two factory authentication is not enabled"), util.I18n2FADisabled))
 		return
 	}
@@ -609,6 +612,9 @@ func (s *httpdServer) renderAdminLoginPage(w http.ResponseWriter, r *http.Reques
 		Languages:      s.binding.languages(),
 		FormDisabled:   s.binding.isWebAdminLoginFormDisabled(),
 		CheckRedirect:  false,
+	}
+	if passkeysConfig.Enabled && !data.FormDisabled {
+		data.PasskeyURL = webAdminPasskeyLoginPath
 	}
 	if s.binding.showClientLoginURL() {
 		data.AltLoginURL = webClientLoginPath
@@ -754,29 +760,28 @@ func (s *httpdServer) handleWebAdminSetupPost(w http.ResponseWriter, r *http.Req
 }
 
 func (s *httpdServer) loginUser(
-	w http.ResponseWriter, r *http.Request, user *dataprovider.User, connectionID, ipAddr string,
+	w http.ResponseWriter, r *http.Request, user *dataprovider.User, connectionID, ipAddr, loginMethod string,
 	isSecondFactorAuth bool, errorFunc func(w http.ResponseWriter, r *http.Request, err *util.I18nError),
 ) {
 	c := &jwt.Claims{
 		Username:                   user.Username,
 		Permissions:                user.Filters.WebClient,
 		Role:                       user.Role,
-		MustSetTwoFactorAuth:       user.MustSetSecondFactor(),
+		MustSetTwoFactorAuth:       userMustSetSecondFactor(user),
 		MustChangePassword:         user.MustChangePassword(),
 		RequiredTwoFactorProtocols: user.Filters.TwoFactorAuthProtocols,
 	}
 	c.Subject = user.GetSignature()
 
 	audience := tokenAudienceWebClient
-	if user.Filters.TOTPConfig.Enabled && slices.Contains(user.Filters.TOTPConfig.Protocols, common.ProtocolHTTP) &&
-		user.CanManageMFA() && !isSecondFactorAuth {
+	if userMustUseSecondFactor(user) && user.CanManageMFA() && !isSecondFactorAuth {
 		audience = tokenAudienceWebClientPartial
 	}
 
 	err := createAndSetCookie(w, r, c, s.tokenAuth, audience, ipAddr)
 	if err != nil {
 		logger.Warn(logSender, connectionID, "unable to set user login cookie %v", err)
-		updateLoginMetrics(user, dataprovider.LoginMethodPassword, ipAddr, common.ErrInternalFailure, r)
+		updateLoginMetrics(user, loginMethod, ipAddr, common.ErrInternalFailure, r)
 		errorFunc(w, r, util.NewI18nError(err, util.I18nError500Message))
 		return
 	}
@@ -788,7 +793,7 @@ func (s *httpdServer) loginUser(
 		http.Redirect(w, r, redirectPath, http.StatusFound)
 		return
 	}
-	updateLoginMetrics(user, dataprovider.LoginMethodPassword, ipAddr, err, r)
+	updateLoginMetrics(user, loginMethod, ipAddr, err, r)
 	dataprovider.UpdateLastLogin(user)
 	if target, ok := safeRedirectTarget(r.URL.Query().Get("next"), webClientFilesPath); ok {
 		http.Redirect(w, r, target, http.StatusFound)
@@ -807,13 +812,13 @@ func (s *httpdServer) loginAdmin(
 		Permissions:          admin.Permissions,
 		Role:                 admin.Role,
 		HideUserPageSections: admin.Filters.Preferences.HideUserPageSections,
-		MustSetTwoFactorAuth: admin.Filters.RequireTwoFactor && !admin.Filters.TOTPConfig.Enabled,
+		MustSetTwoFactorAuth: adminMustSetSecondFactor(admin),
 		MustChangePassword:   admin.Filters.RequirePasswordChange,
 	}
 	c.Subject = admin.GetSignature()
 
 	audience := tokenAudienceWebAdmin
-	if admin.Filters.TOTPConfig.Enabled && admin.CanManageMFA() && !isSecondFactorAuth {
+	if adminMustUseSecondFactor(admin) && admin.CanManageMFA() && !isSecondFactorAuth {
 		audience = tokenAudienceWebAdminPartial
 	}
 
@@ -1621,6 +1626,10 @@ func (s *httpdServer) setupWebClientRoutes() {
 				Get(webClientResetPwdPath, s.handleWebClientPasswordReset)
 			s.router.With(jwt.Verify(s.csrfTokenAuth, jwt.TokenFromCookie)).
 				Post(webClientResetPwdPath, s.handleWebClientPasswordResetPost)
+			if passkeysConfig.Enabled {
+				s.registerPasskeyLoginRoutes(webClientPasskeyLoginPath, webClientPasskeyTwoFactorPath,
+					tokenAudienceWebClientPartial, false)
+			}
 			s.router.With(jwt.Verify(s.tokenAuth, jwt.TokenFromCookie),
 				s.jwtAuthenticatorPartial(tokenAudienceWebClientPartial)).
 				Get(webClientTwoFactorPath, s.handleWebClientTwoFactor)
@@ -1698,6 +1707,14 @@ func (s *httpdServer) setupWebClientRoutes() {
 				Post(webChangeClientPwdPath, s.handleWebClientChangePwdPost)
 			router.With(s.forbidAPIKeySession, s.checkHTTPUserPerm(sdk.WebClientMFADisabled), s.refreshCookie).
 				Get(webClientMFAPath, s.handleWebClientMFA)
+			if passkeysConfig.Enabled {
+				router.With(s.forbidAPIKeySession, s.checkHTTPUserPerm(sdk.WebClientMFADisabled), s.verifyCSRFHeader).
+					Post(webClientPasskeysPath+"/begin", s.handlePasskeyRegisterBegin)
+				router.With(s.forbidAPIKeySession, s.checkHTTPUserPerm(sdk.WebClientMFADisabled), s.verifyCSRFHeader).
+					Post(webClientPasskeysPath+"/finish", s.handlePasskeyRegisterFinish)
+				router.With(s.forbidAPIKeySession, s.checkHTTPUserPerm(sdk.WebClientMFADisabled), s.verifyCSRFHeader).
+					Delete(webClientPasskeysPath+"/{id}", s.handlePasskeyDelete)
+			}
 			router.With(s.forbidAPIKeySession, s.checkHTTPUserPerm(sdk.WebClientMFADisabled), s.verifyCSRFHeader).
 				Post(webClientTOTPGeneratePath, generateTOTPSecret)
 			router.With(s.forbidAPIKeySession, s.checkHTTPUserPerm(sdk.WebClientMFADisabled), s.verifyCSRFHeader).
@@ -1762,6 +1779,10 @@ func (s *httpdServer) setupWebAdminRoutes() {
 		if !s.binding.isWebAdminLoginFormDisabled() {
 			s.router.With(jwt.Verify(s.csrfTokenAuth, jwt.TokenFromCookie)).
 				Post(webAdminLoginPath, s.handleWebAdminLoginPost)
+			if passkeysConfig.Enabled {
+				s.registerPasskeyLoginRoutes(webAdminPasskeyLoginPath, webAdminPasskeyTwoFactorPath,
+					tokenAudienceWebAdminPartial, true)
+			}
 			s.router.With(jwt.Verify(s.tokenAuth, jwt.TokenFromCookie),
 				s.jwtAuthenticatorPartial(tokenAudienceWebAdminPartial)).
 				Get(webAdminTwoFactorPath, s.handleWebAdminTwoFactor)
@@ -1798,6 +1819,14 @@ func (s *httpdServer) setupWebAdminRoutes() {
 			router.With(s.requireBuiltinLogin).Post(webChangeAdminPwdPath, s.handleWebAdminChangePwdPost)
 
 			router.With(s.refreshCookie, s.requireBuiltinLogin).Get(webAdminMFAPath, s.handleWebAdminMFA)
+			if passkeysConfig.Enabled {
+				router.With(s.verifyCSRFHeader, s.requireBuiltinLogin).
+					Post(webAdminPasskeysPath+"/begin", s.handlePasskeyRegisterBegin)
+				router.With(s.verifyCSRFHeader, s.requireBuiltinLogin).
+					Post(webAdminPasskeysPath+"/finish", s.handlePasskeyRegisterFinish)
+				router.With(s.verifyCSRFHeader, s.requireBuiltinLogin).
+					Delete(webAdminPasskeysPath+"/{id}", s.handlePasskeyDelete)
+			}
 			router.With(s.verifyCSRFHeader, s.requireBuiltinLogin).Post(webAdminTOTPGeneratePath, generateTOTPSecret)
 			router.With(s.verifyCSRFHeader, s.requireBuiltinLogin).Post(webAdminTOTPValidatePath, validateTOTPPasscode)
 			router.With(s.verifyCSRFHeader, s.requireBuiltinLogin).Post(webAdminTOTPSavePath, saveTOTPConfig)

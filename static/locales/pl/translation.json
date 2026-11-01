@@ -103,7 +103,9 @@
         "ip_not_allowed": "Logowanie z tego adresu IP jest niedozwolone",
         "two_factor_required": "Skonfiguruj uwierzytelnianie dwuskładnikowe, jest ono wymagane dla następujących protokołów: {{val}}",
         "two_factor_required_generic": "Skonfiguruj uwierzytelnianie dwuskładnikowe, jest ono obowiązkowe dla Twojego konta",
-        "link": "Przejdź do {{link}}"
+        "link": "Przejdź do {{link}}",
+        "signin_passkey": "Zaloguj się kluczem dostępu",
+        "two_factor_passkey": "Użyj klucza dostępu"
     },
     "theme": {
         "light": "Jasny",
@@ -1227,5 +1229,19 @@
         "key_revoke_button": "Unieważnij klucz",
         "key_revoke_confirm": "Aplikacje używające tego klucza natychmiast przestaną działać, a otwarte nim sesje WWW zostaną zakończone. Tej operacji nie można cofnąć.",
         "key_revoked": "Klucz został unieważniony"
+    },
+    "passkey": {
+        "title": "Klucze dostępu",
+        "help": "Logowanie blokadą ekranu urządzenia lub kluczem bezpieczeństwa zamiast hasłem.",
+        "help_2fa": "Klucz dostępu zastępuje też kod uwierzytelniający przy logowaniu.",
+        "help_no_2fa": "Jeśli uwierzytelnianie dwuskładnikowe jest włączone, po użyciu klucza dostępu nadal będzie wymagany kod.",
+        "add": "Dodaj klucz dostępu",
+        "unavailable": "Klucze dostępu wymagają bezpiecznego adresu: otwórz tę stronę przez HTTPS, używając nazwy hosta, a nie adresu IP.",
+        "err_failed": "Nie udało się użyć klucza dostępu. Spróbuj ponownie.",
+        "err_save": "Nie udało się zapisać zmiany kluczy dostępu",
+        "err_limit": "Osiągnięto maksymalną liczbę kluczy dostępu",
+        "err_name": "Wpisz nazwę o długości do 64 znaków, której nie używa inny klucz dostępu",
+        "err_username": "Ta nazwa użytkownika jest zbyt długa, aby używać jej z kluczem dostępu",
+        "err_required": "Twoje konto wymaga uwierzytelniania dwuskładnikowego, więc zachowaj klucz dostępu lub najpierw skonfiguruj aplikację uwierzytelniającą"
     }
 }

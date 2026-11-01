@@ -102,7 +102,9 @@
         "ip_not_allowed": "El inicio de sesión no está permitido desde esta dirección IP",
         "two_factor_required": "Configura la autenticación de dos factores, es obligatoria para los siguientes protocolos: {{val}}",
         "two_factor_required_generic": "Configura la autenticación de dos factores, es obligatoria para tu cuenta",
-        "link": "Ir a {{link}}"
+        "link": "Ir a {{link}}",
+        "signin_passkey": "Iniciar sesión con una clave de acceso",
+        "two_factor_passkey": "Usar una clave de acceso"
     },
     "theme": {
         "light": "Claro",
@@ -1224,5 +1226,19 @@
         "key_revoke_button": "Revocar clave",
         "key_revoke_confirm": "Las aplicaciones que usan esta clave dejarán de funcionar de inmediato, y las sesiones web abiertas con ella terminarán. Esta acción es irreversible.",
         "key_revoked": "Clave revocada"
+    },
+    "passkey": {
+        "title": "Claves de acceso",
+        "help": "Inicia sesión con el bloqueo de pantalla de tu dispositivo o una llave de seguridad en lugar de tu contraseña.",
+        "help_2fa": "Una clave de acceso también sustituye al código de autenticación al iniciar sesión.",
+        "help_no_2fa": "Si la autenticación de dos factores está activada, se te seguirá pidiendo el código después de usar una clave de acceso.",
+        "add": "Añadir una clave de acceso",
+        "unavailable": "Las claves de acceso necesitan una dirección segura: abre esta página por HTTPS, con un nombre de host y no con una dirección IP.",
+        "err_failed": "No se pudo usar la clave de acceso. Inténtalo de nuevo.",
+        "err_save": "No se pudo guardar el cambio en tus claves de acceso",
+        "err_limit": "Has alcanzado el número máximo de claves de acceso",
+        "err_name": "Escribe un nombre de hasta 64 caracteres que no use otra clave de acceso",
+        "err_username": "Este nombre de usuario es demasiado largo para usarlo con una clave de acceso",
+        "err_required": "Tu cuenta requiere autenticación de dos factores, así que conserva una clave de acceso o configura antes una aplicación de autenticación"
     }
 }

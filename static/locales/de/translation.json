@@ -102,7 +102,9 @@
         "ip_not_allowed": "Login ist von dieser IP-Adresse nicht erlaubt",
         "two_factor_required": "Zwei-Faktor-Authentifizierung einrichten, dies ist für folgende Protokolle erforderlich: {{val}}",
         "two_factor_required_generic": "Zwei-Faktor-Authentifizierung einrichten, es ist erforderlich für Ihr Konto",
-        "link": "Gehe zu {{link}}"
+        "link": "Gehe zu {{link}}",
+        "signin_passkey": "Mit einem Passkey anmelden",
+        "two_factor_passkey": "Passkey verwenden"
     },
     "theme": {
         "light": "Hell",
@@ -1224,5 +1226,19 @@
         "key_revoke_button": "Schlüssel widerrufen",
         "key_revoke_confirm": "Apps mit diesem Schlüssel funktionieren sofort nicht mehr, und damit geöffnete Websitzungen enden. Das lässt sich nicht rückgängig machen.",
         "key_revoked": "Schlüssel widerrufen"
+    },
+    "passkey": {
+        "title": "Passkeys",
+        "help": "Melden Sie sich mit der Bildschirmsperre Ihres Geräts oder einem Sicherheitsschlüssel statt mit Ihrem Passwort an.",
+        "help_2fa": "Ein Passkey ersetzt bei der Anmeldung auch den Authentifizierungscode.",
+        "help_no_2fa": "Wenn die Zwei-Faktor-Authentifizierung aktiviert ist, werden Sie nach der Verwendung eines Passkeys weiterhin nach Ihrem Code gefragt.",
+        "add": "Passkey hinzufügen",
+        "unavailable": "Passkeys benötigen eine sichere Adresse: Öffnen Sie diese Seite über HTTPS mit einem Hostnamen, nicht mit einer IP-Adresse.",
+        "err_failed": "Der Passkey konnte nicht verwendet werden. Bitte versuchen Sie es erneut.",
+        "err_save": "Die Änderung an Ihren Passkeys konnte nicht gespeichert werden",
+        "err_limit": "Sie haben die maximale Anzahl an Passkeys erreicht",
+        "err_name": "Geben Sie einen Namen mit bis zu 64 Zeichen ein, den kein anderer Passkey verwendet",
+        "err_username": "Dieser Benutzername ist zu lang für die Verwendung mit einem Passkey",
+        "err_required": "Für Ihr Konto ist die Zwei-Faktor-Authentifizierung erforderlich. Behalten Sie daher einen Passkey oder richten Sie zuerst eine Authentifizierungs-App ein"
     }
 }

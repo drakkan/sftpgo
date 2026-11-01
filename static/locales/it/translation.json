@@ -102,7 +102,9 @@
         "ip_not_allowed": "L'accesso non è consentito da questo indirizzo IP",
         "two_factor_required": "Configura l'autenticazione a due fattori, è obbligatoria per i seguenti protocolli: {{val}}",
         "two_factor_required_generic": "Configura l'autenticazione a due fattori, è obbligatoria per il tuo account",
-        "link": "Vai a {{link}}"
+        "link": "Vai a {{link}}",
+        "signin_passkey": "Accedi con una passkey",
+        "two_factor_passkey": "Usa una passkey"
     },
     "theme": {
         "light": "Chiaro",
@@ -1224,5 +1226,19 @@
         "key_revoke_button": "Revoca chiave",
         "key_revoke_confirm": "Le app che usano questa chiave smettono subito di funzionare e le sessioni web aperte con essa terminano. Questa azione è irreversibile.",
         "key_revoked": "Chiave revocata"
+    },
+    "passkey": {
+        "title": "Passkey",
+        "help": "Accedi con il blocco schermo del dispositivo o una chiave di sicurezza invece della password.",
+        "help_2fa": "Una passkey sostituisce anche il codice di autenticazione durante l'accesso.",
+        "help_no_2fa": "Se l'autenticazione a due fattori è attiva, il codice verrà comunque richiesto dopo aver usato una passkey.",
+        "add": "Aggiungi una passkey",
+        "unavailable": "Le passkey richiedono un indirizzo sicuro: apri questa pagina tramite HTTPS, con un nome host e non con un indirizzo IP.",
+        "err_failed": "Impossibile usare la passkey. Riprova.",
+        "err_save": "Impossibile salvare la modifica alle passkey",
+        "err_limit": "Hai raggiunto il numero massimo di passkey",
+        "err_name": "Inserisci un nome di massimo 64 caratteri non usato da un'altra passkey",
+        "err_username": "Questo nome utente è troppo lungo per essere usato con una passkey",
+        "err_required": "Il tuo account richiede l'autenticazione a due fattori: mantieni una passkey o configura prima un'app di autenticazione"
     }
 }

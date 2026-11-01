@@ -102,7 +102,9 @@
         "ip_not_allowed": "La connexion n'est pas autorisée depuis cette adresse IP",
         "two_factor_required": "Configurez l'authentification à deux facteurs, elle est requise pour les protocoles suivants : {{val}}",
         "two_factor_required_generic": "Configurez l'authentification à deux facteurs, elle est obligatoire pour votre compte",
-        "link": "Basculer vers {{link}}"
+        "link": "Basculer vers {{link}}",
+        "signin_passkey": "Se connecter avec une clé d'accès",
+        "two_factor_passkey": "Utiliser une clé d'accès"
     },
     "theme": {
         "light": "Clair",
@@ -1224,5 +1226,19 @@
         "key_revoke_button": "Révoquer la clé",
         "key_revoke_confirm": "Les applications qui utilisent cette clé cessent aussitôt de fonctionner, et les sessions web ouvertes avec elle prennent fin. Cette action est irréversible.",
         "key_revoked": "Clé révoquée"
+    },
+    "passkey": {
+        "title": "Clés d'accès",
+        "help": "Connectez-vous avec le verrouillage d'écran de votre appareil ou une clé de sécurité au lieu de votre mot de passe.",
+        "help_2fa": "Une clé d'accès remplace aussi le code d'authentification à la connexion.",
+        "help_no_2fa": "Si l'authentification à deux facteurs est activée, votre code vous sera toujours demandé après l'utilisation d'une clé d'accès.",
+        "add": "Ajouter une clé d'accès",
+        "unavailable": "Les clés d'accès nécessitent une adresse sécurisée : ouvrez cette page en HTTPS, avec un nom d'hôte et non une adresse IP.",
+        "err_failed": "La clé d'accès n'a pas pu être utilisée. Veuillez réessayer.",
+        "err_save": "Impossible d'enregistrer la modification de vos clés d'accès",
+        "err_limit": "Vous avez atteint le nombre maximal de clés d'accès",
+        "err_name": "Saisissez un nom de 64 caractères maximum qu'aucune autre clé d'accès n'utilise",
+        "err_username": "Ce nom d'utilisateur est trop long pour être utilisé avec une clé d'accès",
+        "err_required": "L'authentification à deux facteurs est requise pour votre compte : conservez une clé d'accès ou configurez d'abord une application d'authentification"
     }
 }
