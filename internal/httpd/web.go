@@ -31,15 +31,12 @@ const (
 	redactedSecret            = "[**redacted**]"
 	csrfFormToken             = "_form_token"
 	csrfHeaderToken           = "X-CSRF-TOKEN"
-	templateCommonDir         = "common"
 	templateTwoFactor         = "twofactor.html"
 	templateTwoFactorRecovery = "twofactor-recovery.html"
 	templateForgotPassword    = "forgot-password.html"
 	templateResetPassword     = "reset-password.html"
 	templateChangePwd         = "changepassword.html"
 	templateMessage           = "message.html"
-	templateCommonBase        = "base.html"
-	templateCommonBaseLogin   = "baselogin.html"
 	templateCommonLogin       = "login.html"
 )
 

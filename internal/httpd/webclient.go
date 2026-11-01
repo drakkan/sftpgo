@@ -432,8 +432,7 @@ func getFileObjectModTime(t time.Time) int64 {
 	return t.UnixMilli()
 }
 
-// loadClientTemplates parses each page with the shared layout. Nothing here may load from
-// templateCommonDir: those files are built on the theme that WebAdmin still uses.
+// loadClientTemplates parses each page with the shared layout.
 func loadClientTemplates(templatesPath string) {
 	pages := []string{
 		templateClientFiles, templateClientProfile, templateChangePwd, templateCommonLogin, templateMessage,

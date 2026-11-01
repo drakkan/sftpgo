@@ -1,69 +1,18 @@
-<!--
-Copyright (C) 2024 Nicola Murino
+{{template "app" .}}
 
-This WebUI uses the KeenThemes Bootstrap Templates:
-
-https://keenthemes.com/bootstrap-templates
-
-KeenThemes HTML/CSS/JS components are allowed for use only within the
-SFTPGo product and restricted to be used in a resealable HTML template
-that can compete with KeenThemes products anyhow.
-
-This WebUI is allowed for use only within the SFTPGo product and
-therefore cannot be used in derivative works/products without an
-explicit grant from the SFTPGo Team (support@sftpgo.com).
--->
-{{template "base" .}}
-
-{{- define "page_body"}}
-<div class="card shadow-sm">
-    <div class="card-header bg-light">
-        <h3 data-i18n="{{.Title}}" class="card-title section-title"></h3>
-    </div>
-    <div class="card-body">
-        {{- template "errmsg" .Error}}
-        <form id="role_form" action="{{.CurrentURL}}" method="POST" autocomplete="off">
-
-            <div class="form-group row">
-                <label for="idRoleName" data-i18n="general.name" class="col-md-3 col-form-label">Name</label>
-                <div class="col-md-9">
-                    <input id="idRoleName" type="text" placeholder="" name="name" value="{{.Role.Name}}" maxlength="255" autocomplete="off"
-                        spellcheck="false" required {{if eq .Mode 2}}class="form-control-plaintext readonly-input" readonly{{else}}class="form-control"{{end}} />
-                </div>
+{{- define "main"}}
+<section class="folder">
+    {{- template "pagehead" .}}
+    <div class="sheet">
+        {{- template "notice" .Error}}
+        <form class="form-page" action="{{.CurrentURL}}" method="POST" data-busy>
+            <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
+            <div class="form-grid">
+                {{- template "text" dict "Name" "name" "Label" "general.name" "Value" .Role.Name "Readonly" (eq .Mode 2) "Required" true}}
+                {{- template "text" dict "Name" "description" "Label" "general.description" "Value" .Role.Description}}
             </div>
-
-            <div class="form-group row mt-10">
-                <label for="idDescription" data-i18n="general.description" class="col-md-3 col-form-label">Description</label>
-                <div class="col-md-9">
-                    <input id="idDescription" type="text" class="form-control" name="description" value="{{.Role.Description}}" maxlength="255">
-                </div>
-            </div>
-
-            <div class="d-flex justify-content-end mt-12">
-                <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
-                <button type="submit" id="form_submit" class="btn btn-primary px-10" name="form_action" value="submit">
-                    <span data-i18n="general.submit" class="indicator-label">
-                        Submit
-                    </span>
-                    <span data-i18n="general.wait" class="indicator-progress">
-                        Please wait...
-                        <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
-                    </span>
-                </button>
-            </div>
+            {{- template "form-actions" ""}}
         </form>
     </div>
-</div>
-{{- end}}
-
-{{- define "extra_js"}}
-<script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
-    $(document).on("i18nshow", function(){
-        $('#role_form').submit(function (event) {
-			let submitButton = document.querySelector('#form_submit');
-			submitButton.setAttribute('data-kt-indicator', 'on');
-			submitButton.disabled = true;
-        });
-    });
-</script>
+</section>
 {{- end}}

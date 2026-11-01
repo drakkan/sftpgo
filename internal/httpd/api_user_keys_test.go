@@ -669,12 +669,18 @@ func TestWebClientDirPermissionsHeader(t *testing.T) {
 	assert.Equal(t, "download", rr.Header().Get("X-GONAS-DIR-PERMISSIONS"))
 }
 
-// The WebClient was rewritten so that it no longer depends on the proprietary theme in
-// static/assets, which only WebAdmin may use. This keeps it that way.
-func TestWebClientStaysFreeOfTheTheme(t *testing.T) {
+// Both web UIs were rewritten so that nothing depends on the proprietary theme, which may not
+// be used in a modified version. This keeps it that way.
+func TestWebUIsStayFreeOfTheTheme(t *testing.T) {
 	forbidden := []string{"/assets/", "ki-duotone", "ki-outline", "data-kt", "keenthemes", "bootstrap", "KTThemeMode",
 		"jquery", "{{template \"base\"", "{{template \"baselogin\""}
-	for _, root := range []string{filepath.Join("..", "..", "templates", "webclient"), filepath.Join("..", "..", "static", "webclient")} {
+	for _, removed := range []string{"static/assets", "templates/common"} {
+		assert.NoDirExists(t, filepath.Join("..", "..", removed))
+	}
+	for _, root := range []string{
+		filepath.Join("..", "..", "templates", "webclient"), filepath.Join("..", "..", "static", "webclient"),
+		filepath.Join("..", "..", "templates", "webadmin"), filepath.Join("..", "..", "static", "webadmin"),
+	} {
 		err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
 			if err != nil {
 				return err

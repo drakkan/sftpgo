@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Browser tests for the WebClient. Usage: tests/webclient-e2e/run.sh [client|strict|prefs]
+# Browser tests for the web UIs. Usage: tests/webclient-e2e/run.sh [client|strict|prefs|admin]
 #   client  every page and flow, with a copy of the Android app's page hooks
 #   strict  the same under a strict nonce Content-Security-Policy
 #   prefs   language and theme choices
+#   admin   the WebAdmin from an empty database, under the strict policy
 # Needs Go, Node and a Chromium: run "npx playwright install chromium" here once.
 set -u
 MODE=${1:-client}
@@ -23,7 +24,8 @@ export GONAS_HTTPD__BINDINGS__0__PORT=18183 GONAS_HTTPD__BINDINGS__0__ADDRESS=12
   GONAS_DEFAULT_ADMIN_USERNAME=admin GONAS_DEFAULT_ADMIN_PASSWORD=e2e-Password-1 \
   GONAS_HTTPD__TEMPLATES_PATH=$F/templates GONAS_HTTPD__STATIC_FILES_PATH=$F/static \
   GONAS_HTTPD__OPENAPI_PATH=$F/openapi GONAS_SMTP__TEMPLATES_PATH=$F/templates GONAS_DATA_PROVIDER__NAME=$R/e2e.db
-if [ "$MODE" = strict ]; then
+[ "$MODE" = admin ] && unset GONAS_DATA_PROVIDER__CREATE_DEFAULT_ADMIN
+if [ "$MODE" = strict ] || [ "$MODE" = admin ]; then
   export GONAS_HTTPD__BINDINGS__0__SECURITY__ENABLED=1
   export GONAS_HTTPD__BINDINGS__0__SECURITY__CONTENT_SECURITY_POLICY="default-src 'none'; script-src \$NONCE; style-src 'self' \$NONCE; img-src 'self' data:; font-src 'self'; connect-src 'self'; media-src 'self'; object-src 'self'; base-uri 'none'; form-action 'self'"
 fi
@@ -32,6 +34,13 @@ B=http://127.0.0.1:18183
 SPID=$!
 trap 'kill $SPID 2>/dev/null' EXIT
 for _ in $(seq 1 60); do curl -sf -o /dev/null --max-time 1 $B/healthz && break; sleep 0.25; done
+if [ "$MODE" = admin ]; then
+  cd "$HERE" || exit 1
+  timeout 280 node admin.js $B "$SHOTS" "$R"
+  RC=$?
+  echo "screenshots: $SHOTS"
+  exit $RC
+fi
 T=$(curl -s --max-time 5 -u admin:e2e-Password-1 $B/api/v2/token | python3 -I -c 'import json,sys;print(json.load(sys.stdin)["access_token"])')
 H=$R/alice
 mkdir -p "$H/photos" "$H/docs" "$H/readonly"

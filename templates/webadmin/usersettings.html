@@ -1,0 +1,236 @@
+{{- /* Settings that users and groups have in common. "F" holds the filters and "Page" the
+page data. */ -}}
+
+{{- define "virtual-folders"}}
+<details class="panel"{{if .Hidden}} hidden{{end}}{{if .Folders}} open{{end}}>
+    <summary data-i18n="title.folders"></summary>
+    <div class="panel-body">
+        <p class="field-help" data-i18n="user.virtual_folders_help"></p>
+        <div data-rows="virtual_folders">
+            <template>
+                <label class="field">
+                    <span class="field-label" data-i18n="virtual_folders.name"></span>
+                    <select class="select" data-field="vfolder_name">
+                        <option value="" data-i18n="general.folder_placeholder"></option>
+                        {{- range .Available}}
+                        <option value="{{.Name}}">{{.Name}}</option>
+                        {{- end}}
+                    </select>
+                </label>
+                <label class="field">
+                    <span class="field-label" data-i18n="virtual_folders.mount_path"></span>
+                    <input class="input" type="text" data-field="vfolder_path" spellcheck="false">
+                </label>
+                <label class="field">
+                    <span class="field-label" data-i18n="virtual_folders.subpath"></span>
+                    <input class="input" type="text" data-field="vfolder_subpath" spellcheck="false">
+                </label>
+                <label class="field">
+                    <span class="field-label" data-i18n="virtual_folders.quota_size"></span>
+                    <input class="input" type="text" data-field="vfolder_quota_size" value="-1" spellcheck="false">
+                </label>
+                <label class="field">
+                    <span class="field-label" data-i18n="virtual_folders.quota_files"></span>
+                    <input class="input" type="number" data-field="vfolder_quota_files" value="-1">
+                </label>
+            </template>
+            {{- range .Folders}}
+            <i data-item data-vfolder_name="{{.Name}}" data-vfolder_path="{{.VirtualPath}}" data-vfolder_subpath="{{.Subpath}}" data-vfolder_quota_size="{{.QuotaSize}}" data-vfolder_quota_files="{{.QuotaFiles}}"></i>
+            {{- end}}
+        </div>
+        <p class="field-help" data-i18n="virtual_folders.quota_size_help"></p>
+    </div>
+</details>
+{{- end}}
+
+{{- define "directory-permissions"}}
+<div class="field">
+    <h3 class="subtitle" data-i18n="filters.directory_permissions"></h3>
+    <p class="field-help" data-i18n="filters.directory_permissions_help"></p>
+    <div data-rows="directory_permissions">
+        <template>
+            <label class="field">
+                <span class="field-label" data-i18n="filters.directory_path_help"></span>
+                <input class="input" type="text" data-field="sub_perm_path" spellcheck="false">
+            </label>
+            <div class="option-box">
+                {{- range .Valid}}
+                <label><input type="checkbox" value="{{.}}" data-field="sub_perm_permissions" data-multi><span>{{.}}</span></label>
+                {{- end}}
+            </div>
+        </template>
+        {{- range $path, $values := .Permissions}}
+        {{- if ne $path "/"}}
+        <i data-item data-sub_perm_path="{{$path}}" data-sub_perm_permissions="{{join $values ","}}"></i>
+        {{- end}}
+        {{- end}}
+    </div>
+</div>
+{{- end}}
+
+{{- define "acl-filters"}}
+<div class="form-grid">
+    <label class="field">
+        <span class="field-label" data-i18n="general.allowed_ip_mask"></span>
+        <input class="input" name="allowed_ip" type="text" value="{{join .F.AllowedIP ","}}" spellcheck="false" autocomplete="off">
+        <span class="field-help" data-i18n="general.ip_mask_help"></span>
+    </label>
+    <label class="field">
+        <span class="field-label" data-i18n="general.denied_ip_mask"></span>
+        <input class="input" name="denied_ip" type="text" value="{{join .F.DeniedIP ","}}" spellcheck="false" autocomplete="off">
+        <span class="field-help" data-i18n="general.ip_mask_help"></span>
+    </label>
+</div>
+{{- template "options" dict "Name" "denied_login_methods" "Label" "filters.denied_login_methods" "Help" "filters.denied_login_methods_help" "Values" .Page.ValidLoginMethods "Selected" .F.DeniedLoginMethods}}
+{{- template "options" dict "Name" "denied_protocols" "Label" "filters.denied_protocols" "Values" .Page.ValidProtocols "Selected" .F.DeniedProtocols}}
+{{- template "options" dict "Name" "required_two_factor_protocols" "Label" "2fa.require_for" "Values" .Page.TwoFactorProtocols "Selected" .F.TwoFactorAuthProtocols}}
+{{- template "options" dict "Name" "web_client_options" "Label" "filters.web_client_options" "Values" .Page.WebClientOptions "Selected" .F.WebClient}}
+<div class="field">
+    <h3 class="subtitle" data-i18n="filters.directory_patterns"></h3>
+    <p class="field-help" data-i18n="filters.directory_patterns_help"></p>
+    <div data-rows="directory_patterns">
+        <template>
+            <label class="field">
+                <span class="field-label" data-i18n="filters.directory_path_help"></span>
+                <input class="input" type="text" data-field="pattern_path" spellcheck="false">
+            </label>
+            <label class="field">
+                <span class="field-label" data-i18n="events.path"></span>
+                <input class="input" type="text" data-field="patterns" spellcheck="false" placeholder="*.jpg,*.png">
+            </label>
+            <label class="field">
+                <span class="field-label" data-i18n="general.type"></span>
+                <select class="select" data-field="pattern_type">
+                    <option value="denied" data-i18n="general.denied"></option>
+                    <option value="allowed" data-i18n="general.allowed"></option>
+                </select>
+            </label>
+            <label class="field">
+                <span class="field-label" data-i18n="general.options"></span>
+                <select class="select" data-field="pattern_policy">
+                    <option value="0" data-i18n="general.visible"></option>
+                    <option value="1" data-i18n="general.hidden"></option>
+                </select>
+            </label>
+        </template>
+        {{- range .F.FilePatterns}}
+        {{- if .AllowedPatterns}}
+        <i data-item data-pattern_path="{{.Path}}" data-patterns="{{join .AllowedPatterns ","}}" data-pattern_type="allowed" data-pattern_policy="{{.DenyPolicy}}"></i>
+        {{- end}}
+        {{- if .DeniedPatterns}}
+        <i data-item data-pattern_path="{{.Path}}" data-patterns="{{join .DeniedPatterns ","}}" data-pattern_type="denied" data-pattern_policy="{{.DenyPolicy}}"></i>
+        {{- end}}
+        {{- end}}
+    </div>
+</div>
+{{- end}}
+
+{{- define "bandwidth-filters"}}
+<div class="field">
+    <h3 class="subtitle" data-i18n="filters.src_bandwidth_limit"></h3>
+    <div data-rows="src_bandwidth_limits">
+        <template>
+            <label class="field">
+                <span class="field-label" data-i18n="general.allowed_ip_mask"></span>
+                <input class="input" type="text" data-field="bandwidth_limit_sources" spellcheck="false" placeholder="192.0.2.0/24,2001:db8::/32">
+            </label>
+            <label class="field">
+                <span class="field-label" data-i18n="filters.upload_bandwidth"></span>
+                <input class="input" type="number" min="0" value="0" data-field="upload_bandwidth_source">
+            </label>
+            <label class="field">
+                <span class="field-label" data-i18n="filters.download_bandwidth"></span>
+                <input class="input" type="number" min="0" value="0" data-field="download_bandwidth_source">
+            </label>
+        </template>
+        {{- range .F.BandwidthLimits}}
+        <i data-item data-bandwidth_limit_sources="{{join .Sources ","}}" data-upload_bandwidth_source="{{.UploadBandwidth}}" data-download_bandwidth_source="{{.DownloadBandwidth}}"></i>
+        {{- end}}
+    </div>
+</div>
+{{- end}}
+
+{{- define "advanced-filters"}}
+<div class="form-grid">
+    {{- template "text" dict "Name" "start_directory" "Label" "filters.start_directory" "Value" .F.StartDirectory "Help" "filters.start_directory_help"}}
+    {{- template "text" dict "Name" "max_upload_file_size" "Label" "filters.max_upload_size" "Value" .F.MaxUploadFileSize "Help" "filters.max_upload_size_help"}}
+    {{- template "text" dict "Name" "default_shares_expiration" "Label" "filters.default_shares_expiration" "Type" "number" "Value" .F.DefaultSharesExpiration "Help" "filters.default_shares_expiration_help"}}
+    {{- template "text" dict "Name" "max_shares_expiration" "Label" "filters.max_shares_expiration" "Type" "number" "Value" .F.MaxSharesExpiration "Help" "filters.max_shares_expiration_help"}}
+    {{- template "text" dict "Name" "password_expiration" "Label" "filters.password_expiration" "Type" "number" "Value" .F.PasswordExpiration "Help" "filters.password_expiration_help"}}
+    {{- template "text" dict "Name" "password_strength" "Label" "filters.password_strength" "Type" "number" "Value" .F.PasswordStrength "Help" "filters.password_strength_help"}}
+    {{- template "text" dict "Name" "external_auth_cache_time" "Label" "filters.external_auth_cache_time" "Type" "number" "Value" .F.ExternalAuthCacheTime "Help" "filters.external_auth_cache_time_help"}}
+    <label class="field">
+        <span class="field-label" data-i18n="filters.tls_username"></span>
+        <select class="select" name="tls_username">
+            <option value="">-</option>
+            <option value="None"{{if eq (printf "%s" .F.TLSUsername) "None"}} selected{{end}}>None</option>
+            <option value="CommonName"{{if eq (printf "%s" .F.TLSUsername) "CommonName"}} selected{{end}}>CommonName</option>
+        </select>
+        <span class="field-help" data-i18n="filters.tls_username_help"></span>
+    </label>
+    <label class="field">
+        <span class="field-label" data-i18n="filters.ftp_security"></span>
+        <select class="select" name="ftp_security">
+            <option value="0"{{if eq .F.FTPSecurity 0}} selected{{end}} data-i18n="general.default"></option>
+            <option value="1"{{if eq .F.FTPSecurity 1}} selected{{end}} data-i18n="general.mandatory_encryption"></option>
+        </select>
+        <span class="field-help" data-i18n="filters.ftp_security_help"></span>
+    </label>
+</div>
+<fieldset class="field checks">
+    <legend class="field-label" data-i18n="filters.hooks"></legend>
+    {{- template "toggle" dict "Name" "hooks" "Value" "external_auth_disabled" "Label" "filters.hook_ext_auth_disabled" "Checked" .F.Hooks.ExternalAuthDisabled}}
+    {{- template "toggle" dict "Name" "hooks" "Value" "pre_login_disabled" "Label" "filters.hook_pre_login_disabled" "Checked" .F.Hooks.PreLoginDisabled}}
+    {{- template "toggle" dict "Name" "hooks" "Value" "check_password_disabled" "Label" "filters.hook_check_password_disabled" "Checked" .F.Hooks.CheckPasswordDisabled}}
+</fieldset>
+{{- template "toggle" dict "Name" "is_anonymous" "Label" "filters.is_anonymous" "Checked" .F.IsAnonymous}}
+<p class="field-help" data-i18n="filters.is_anonymous_help"></p>
+{{- template "toggle" dict "Name" "disable_fs_checks" "Label" "filters.disable_fs_checks" "Checked" .F.DisableFsChecks}}
+<p class="field-help" data-i18n="filters.disable_fs_checks_help"></p>
+{{- template "toggle" dict "Name" "allow_api_key_auth" "Label" "general.api_key_auth" "Checked" .F.AllowAPIKeyAuth}}
+<p class="field-help" data-i18n="filters.api_key_auth_help"></p>
+<div class="field">
+    <h3 class="subtitle" data-i18n="filters.access_time"></h3>
+    <p class="field-help" data-i18n="filters.access_time_help"></p>
+    <div data-rows="access_time_restrictions">
+        <template>
+            <label class="field">
+                <span class="field-label" data-i18n="general.day_of_week"></span>
+                <select class="select" data-field="access_time_day_of_week">
+                    <option value="1" data-i18n="general.monday"></option>
+                    <option value="2" data-i18n="general.tuesday"></option>
+                    <option value="3" data-i18n="general.wednesday"></option>
+                    <option value="4" data-i18n="general.thursday"></option>
+                    <option value="5" data-i18n="general.friday"></option>
+                    <option value="6" data-i18n="general.saturday"></option>
+                    <option value="0" data-i18n="general.sunday"></option>
+                </select>
+            </label>
+            <label class="field">
+                <span class="field-label" data-i18n="general.start"></span>
+                <input class="input" type="text" data-field="access_time_start" placeholder="08:00" spellcheck="false">
+            </label>
+            <label class="field">
+                <span class="field-label" data-i18n="general.end"></span>
+                <input class="input" type="text" data-field="access_time_end" placeholder="18:00" spellcheck="false">
+            </label>
+        </template>
+        {{- range .F.AccessTime}}
+        <i data-item data-access_time_day_of_week="{{.DayOfWeek}}" data-access_time_start="{{.From}}" data-access_time_end="{{.To}}"></i>
+        {{- end}}
+    </div>
+</div>
+{{- end}}
+
+{{- define "limit-fields"}}
+<div class="form-grid">
+    {{- template "text" dict "Name" "quota_size" "Label" "virtual_folders.quota_size" "Value" .QuotaSize "Help" "filters.max_upload_size_help"}}
+    {{- template "text" dict "Name" "quota_files" "Label" "virtual_folders.quota_files" "Type" "number" "Value" .QuotaFiles "Help" "general.zero_no_limit_help"}}
+    {{- template "text" dict "Name" "max_sessions" "Label" "filters.max_sessions" "Type" "number" "Value" .MaxSessions "Help" "filters.max_sessions_help"}}
+    {{- template "text" dict "Name" "upload_bandwidth" "Label" "filters.upload_bandwidth" "Type" "number" "Value" .UploadBandwidth "Help" "filters.upload_bandwidth_help"}}
+    {{- template "text" dict "Name" "download_bandwidth" "Label" "filters.download_bandwidth" "Type" "number" "Value" .DownloadBandwidth "Help" "filters.download_bandwidth_help"}}
+    {{- template "text" dict "Name" "total_data_transfer" "Label" "filters.total_data_transfer" "Type" "number" "Value" .TotalDataTransfer "Help" "filters.total_data_transfer_help"}}
+    {{- template "text" dict "Name" "upload_data_transfer" "Label" "filters.upload_data_transfer" "Type" "number" "Value" .UploadDataTransfer "Help" "filters.upload_data_transfer_help"}}
+    {{- template "text" dict "Name" "download_data_transfer" "Label" "filters.download_data_transfer" "Type" "number" "Value" .DownloadDataTransfer "Help" "filters.download_data_transfer_help"}}
+</div>
+{{- end}}

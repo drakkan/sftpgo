@@ -169,11 +169,13 @@
     if (!button) return;
     button.addEventListener('click', () => {
       const data = button.dataset;
-      const items = [{ icon: 'user-round', label: t('title.profile'), href: data.profile }];
+      const items = [];
+      if (data.profile) items.push({ icon: 'user-round', label: t('title.profile'), href: data.profile });
       if (data.password) items.push({ icon: 'key-round', label: t('title.change_password'), href: data.password });
       if (data.mfa) items.push({ icon: 'shield-check', label: t('title.two_factor_auth'), href: data.mfa });
       if (data.apikeys) items.push({ icon: 'key-round', label: t('title.api_keys'), href: data.apikeys });
-      items.push({ separator: true }, { icon: 'log-out', label: t('login.signout'), href: data.logout });
+      if (items.length) items.push({ separator: true });
+      items.push({ icon: 'log-out', label: t('login.signout'), href: data.logout });
       openMenu(button, items);
     });
   }

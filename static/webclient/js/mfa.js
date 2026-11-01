@@ -12,6 +12,8 @@
   }
 
   function checkProtocols(protocols) {
+    // Admins have no protocols to choose from: their second factor covers the web UI.
+    if (!$$('input[name=protocol]').length) return true;
     if (!protocols.length) {
       toast('error', t('2fa.no_protocol'));
       return false;

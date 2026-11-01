@@ -1,82 +1,20 @@
-<!--
-Copyright (C) 2023 Nicola Murino
+{{template "app" .}}
 
-This WebUI uses the KeenThemes Bootstrap Templates:
-
-https://keenthemes.com/bootstrap-templates
-
-KeenThemes HTML/CSS/JS components are allowed for use only within the
-SFTPGo product and restricted to be used in a resealable HTML template
-that can compete with KeenThemes products anyhow.
-
-This WebUI is allowed for use only within the SFTPGo product and
-therefore cannot be used in derivative works/products without an
-explicit grant from the SFTPGo Team (support@sftpgo.com).
--->
-{{template "base" .}}
-
-{{- define "page_body"}}
-<div class="card shadow-sm">
-    <div class="card-header bg-light">
-        <h3 data-i18n="general.my_profile" class="card-title section-title">My profile</h3>
-    </div>
-    <div class="card-body">
-        {{- template "errmsg" .Error}}
-        <form id="page_form" action="{{.CurrentURL}}" method="POST">
-            <div class="form-group row">
-                <label for="idEmail" data-i18n="general.email" class="col-md-3 col-form-label">Email</label>
-                <div class="col-md-9">
-                    <input type="email" class="form-control" id="idEmail" name="email" placeholder="" spellcheck="false"
-                        value="{{.Email}}" maxlength="255" autocomplete="off">
-                </div>
+{{- define "main"}}
+<section class="folder">
+    {{- template "pagehead" .}}
+    <div class="sheet">
+        {{- template "notice" .Error}}
+        <form class="form-page" action="{{.CurrentURL}}" method="POST" data-busy>
+            <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
+            <div class="form-grid">
+                {{- template "text" dict "Name" "email" "Label" "general.email" "Type" "email" "Value" .Email}}
+                {{- template "text" dict "Name" "description" "Label" "general.description" "Value" .Description}}
             </div>
-
-            <div class="form-group row mt-10">
-                <label for="idDescription" data-i18n="general.description" class="col-md-3 col-form-label">Description</label>
-                <div class="col-md-9">
-                    <input type="text" class="form-control" id="idDescription" name="description" placeholder=""
-                        value="{{.Description}}" maxlength="255">
-                </div>
-            </div>
-
-            <div class="form-group row align-items-center mt-10">
-                <label data-i18n="general.api_key_auth" class="col-md-3 col-form-label" for="idAllowAPIKeyAuth">API key authentication</label>
-                <div class="col-md-9">
-                    <div class="form-check form-switch form-check-custom form-check-solid">
-                        <input class="form-check-input" type="checkbox" id="idAllowAPIKeyAuth" name="allow_api_key_auth" {{if .AllowAPIKeyAuth}}checked="checked"{{end}}/>
-                        <label data-i18n="general.api_key_auth_help" class="form-check-label fw-semibold text-gray-800" for="idAllowAPIKeyAuth">
-                            Allow to impersonate yourself, in REST API, using an API key
-                        </label>
-                    </div>
-                </div>
-            </div>
-
-            <div class="d-flex justify-content-end mt-12">
-                <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
-                <button type="submit" id="form_submit" class="btn btn-primary px-10">
-                    <span data-i18n="general.submit" class="indicator-label">
-                        Submit
-                    </span>
-                    <span data-i18n="general.wait" class="indicator-progress">
-                        Please wait...
-                        <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
-                    </span>
-                </button>
-            </div>
-
+            {{- template "toggle" dict "Name" "allow_api_key_auth" "Label" "general.api_key_auth" "Checked" .AllowAPIKeyAuth}}
+            <p class="field-help" data-i18n="general.api_key_auth_help"></p>
+            {{- template "form-actions" ""}}
         </form>
     </div>
-</div>
-{{- end}}
-
-{{- define "extra_js"}}
-<script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
-    KTUtil.onDOMContentLoaded(function () {
-        $("#page_form").submit(function (event) {
-            let submitButton = document.querySelector('#form_submit');
-            submitButton.setAttribute('data-kt-indicator', 'on');
-            submitButton.disabled = true;
-        });
-    });
-</script>
+</section>
 {{- end}}

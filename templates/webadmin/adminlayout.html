@@ -1,0 +1,161 @@
+{{- /* The WebAdmin shell. Parsed after webclient/layout.html, so "app" replaces the shell of
+the WebClient while the pages shared by both UIs keep working. */ -}}
+
+{{- define "extrahead"}}
+    <link rel="stylesheet" href="{{.StaticURL}}/webadmin/admin.css?v={{.Version}}">
+{{- end}}
+
+
+{{- define "app"}}
+{{- template "head" .}}
+<body class="app admin"
+    data-perms="{{range .LoggedUser.Permissions}}{{.}} {{end}}"
+    data-self="{{.LoggedUser.Username}}"
+    data-users="{{.UsersURL}}" data-user="{{.UserURL}}" data-user-template="{{.UserTemplateURL}}"
+    data-admins="{{.AdminsURL}}" data-admin="{{.AdminURL}}"
+    data-apikeys="{{.APIKeysURL}}" data-apikey="{{.APIKeyURL}}"
+    data-groups="{{.GroupsURL}}" data-group="{{.GroupURL}}"
+    data-folders="{{.FoldersURL}}" data-folder="{{.FolderURL}}" data-folder-template="{{.FolderTemplateURL}}"
+    data-roles="{{.RolesURL}}" data-role="{{.RoleURL}}"
+    data-rules="{{.EventRulesURL}}" data-rule="{{.EventRuleURL}}"
+    data-actions="{{.EventActionsURL}}" data-action="{{.EventActionURL}}"
+    data-connections="{{.ConnectionsURL}}"
+    data-iplists="{{.IPListsURL}}" data-iplist="{{.IPListURL}}"
+    data-quota-user="{{.QuotaScanURL}}" data-quota-folder="{{.FolderQuotaScanURL}}">
+    <a class="skip" href="#content" data-i18n="client.skip">Skip to content</a>
+    <header class="bar">
+        <button class="iconbutton rail-toggle" type="button" data-rail-toggle aria-controls="rail" aria-expanded="false" aria-label="Menu" data-i18n="[aria-label]client.main_nav">
+            <svg class="icon" aria-hidden="true"><use data-sprite="menu"></use></svg>
+        </button>
+        <span class="brand">
+            <img src="{{.StaticURL}}{{.Branding.LogoPath}}" alt="">
+            <span>{{.Branding.ShortName}}</span>
+        </span>
+        <div class="bar-end">
+            {{- template "language" .}}
+            <button class="iconbutton" type="button" data-theme-picker aria-haspopup="menu" aria-expanded="false" aria-label="Theme" data-i18n="[aria-label]client.theme;[title]client.theme">
+                <svg class="icon" aria-hidden="true"><use data-sprite="sun-moon"></use></svg>
+            </button>
+            <button class="account" type="button" data-account-menu aria-haspopup="menu" aria-expanded="false"
+                {{- if not .HasExternalLogin}} data-profile="{{.ProfileURL}}" data-password="{{.ChangePwdURL}}"{{end}}
+                {{- if and (not .HasExternalLogin) .LoggedUser.CanManageMFA}} data-mfa="{{.MFAURL}}"{{end}}
+                data-logout="{{.LogoutURL}}">
+                <svg class="icon" aria-hidden="true"><use data-sprite="user-round"></use></svg>
+                <span class="account-name">{{.LoggedUser.Username}}</span>
+            </button>
+        </div>
+    </header>
+    <div class="shell">
+        <nav class="rail" id="rail" aria-label="Main" data-i18n="[aria-label]client.main_nav">
+            {{- $url := .CurrentURL}}
+            <div class="rail-group">
+                {{- if .LoggedUser.HasPermission "view_users"}}
+                <a href="{{.UsersURL}}"{{if or (eq $url .UsersURL) (eq $url .UserURL) (eq $url .UserTemplateURL)}} aria-current="page"{{end}}><svg class="icon" aria-hidden="true"><use data-sprite="users"></use></svg><span data-i18n="title.users"></span></a>
+                {{- end}}
+                {{- if .LoggedUser.HasPermission "manage_groups"}}
+                <a href="{{.GroupsURL}}"{{if or (eq $url .GroupsURL) (eq $url .GroupURL)}} aria-current="page"{{end}}><svg class="icon" aria-hidden="true"><use data-sprite="users-round"></use></svg><span data-i18n="title.groups"></span></a>
+                {{- end}}
+                {{- if .LoggedUser.HasPermission "manage_folders"}}
+                <a href="{{.FoldersURL}}"{{if or (eq $url .FoldersURL) (eq $url .FolderURL) (eq $url .FolderTemplateURL)}} aria-current="page"{{end}}><svg class="icon" aria-hidden="true"><use data-sprite="folders"></use></svg><span data-i18n="title.folders"></span></a>
+                {{- end}}
+                {{- if .LoggedUser.HasPermission "view_conns"}}
+                <a href="{{.ConnectionsURL}}"{{if eq $url .ConnectionsURL}} aria-current="page"{{end}}><svg class="icon" aria-hidden="true"><use data-sprite="unplug"></use></svg><span data-i18n="title.connections"></span></a>
+                {{- end}}
+            </div>
+            {{- if .LoggedUser.HasPermission "*"}}
+            <div class="rail-group">
+                <p class="rail-title" data-i18n="title.event_manager"></p>
+                <a href="{{.EventRulesURL}}"{{if or (eq $url .EventRulesURL) (eq $url .EventRuleURL)}} aria-current="page"{{end}}><svg class="icon" aria-hidden="true"><use data-sprite="workflow"></use></svg><span data-i18n="title.event_rules"></span></a>
+                <a href="{{.EventActionsURL}}"{{if or (eq $url .EventActionsURL) (eq $url .EventActionURL)}} aria-current="page"{{end}}><svg class="icon" aria-hidden="true"><use data-sprite="zap"></use></svg><span data-i18n="title.event_actions"></span></a>
+            </div>
+            {{- end}}
+            {{- if or (.LoggedUser.HasPermission "*") (and .HasDefender (.LoggedUser.HasPermission "view_defender"))}}
+            <div class="rail-group">
+                <p class="rail-title" data-i18n="title.ip_manager"></p>
+                {{- if .LoggedUser.HasPermission "*"}}
+                <a href="{{.IPListsURL}}"{{if eq $url .IPListsURL}} aria-current="page"{{end}}><svg class="icon" aria-hidden="true"><use data-sprite="network"></use></svg><span data-i18n="title.ip_lists"></span></a>
+                {{- end}}
+                {{- if and .HasDefender (.LoggedUser.HasPermission "view_defender")}}
+                <a href="{{.DefenderURL}}"{{if eq $url .DefenderURL}} aria-current="page"{{end}}><svg class="icon" aria-hidden="true"><use data-sprite="shield-ban"></use></svg><span data-i18n="title.defender"></span></a>
+                {{- end}}
+            </div>
+            {{- end}}
+            <div class="rail-group">
+                <p class="rail-title" data-i18n="title.server_manager"></p>
+                {{- if and .HasSearcher (.LoggedUser.HasPermission "view_events")}}
+                <a href="{{.EventsURL}}"{{if eq $url .EventsURL}} aria-current="page"{{end}}><svg class="icon" aria-hidden="true"><use data-sprite="scroll-text"></use></svg><span data-i18n="title.logs"></span></a>
+                {{- end}}
+                {{- if .LoggedUser.HasPermission "view_status"}}
+                <a href="{{.StatusURL}}"{{if eq $url .StatusURL}} aria-current="page"{{end}}><svg class="icon" aria-hidden="true"><use data-sprite="activity"></use></svg><span data-i18n="title.status"></span></a>
+                {{- end}}
+                {{- if .LoggedUser.HasPermission "*"}}
+                <a href="{{.ConfigsURL}}"{{if eq $url .ConfigsURL}} aria-current="page"{{end}}><svg class="icon" aria-hidden="true"><use data-sprite="settings"></use></svg><span data-i18n="title.configs"></span></a>
+                <a href="{{.MaintenanceURL}}"{{if eq $url .MaintenanceURL}} aria-current="page"{{end}}><svg class="icon" aria-hidden="true"><use data-sprite="database"></use></svg><span data-i18n="title.maintenance"></span></a>
+                {{- end}}
+            </div>
+            {{- if .LoggedUser.HasPermission "*"}}
+            <div class="rail-group">
+                <a href="{{.AdminsURL}}"{{if or (eq $url .AdminsURL) (eq $url .AdminURL)}} aria-current="page"{{end}}><svg class="icon" aria-hidden="true"><use data-sprite="shield-check"></use></svg><span data-i18n="title.admins"></span></a>
+                <a href="{{.RolesURL}}"{{if or (eq $url .RolesURL) (eq $url .RoleURL)}} aria-current="page"{{end}}><svg class="icon" aria-hidden="true"><use data-sprite="tag"></use></svg><span data-i18n="title.roles"></span></a>
+                <a href="{{.APIKeysURL}}"{{if or (eq $url .APIKeysURL) (eq $url .APIKeyURL)}} aria-current="page"{{end}}><svg class="icon" aria-hidden="true"><use data-sprite="key-round"></use></svg><span data-i18n="title.api_keys"></span></a>
+            </div>
+            {{- end}}
+        </nav>
+        <main id="content" tabindex="-1">
+            {{- template "main" .}}
+        </main>
+    </div>
+    {{- template "attribution" .}}
+    <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+    {{- template "scripts" .}}
+    <script{{if .CSPNonce}} nonce="{{.CSPNonce}}"{{end}} src="{{.StaticURL}}/webadmin/js/admin.js?v={{.Version}}"></script>
+    {{- block "pagescripts" .}}{{- end}}
+</body>
+</html>
+{{- end}}
+
+{{- /* Pieces of the form pages. */ -}}
+{{- define "pagehead"}}
+<div class="tabs">
+    <div class="tab tab-current"><h1 class="tab-title" data-i18n="{{.Title}}"></h1></div>
+</div>
+{{- end}}
+
+{{- define "text"}}
+<label class="field"{{if .When}} data-show-when="{{.When}}"{{end}}>
+    <span class="field-label" data-i18n="{{.Label}}"></span>
+    <input class="input" name="{{.Name}}" type="{{if .Type}}{{.Type}}{{else}}text{{end}}" value="{{.Value}}" autocomplete="{{if .Auto}}{{.Auto}}{{else}}off{{end}}" spellcheck="false"{{if .Placeholder}} placeholder="{{.Placeholder}}"{{end}}{{if .Readonly}} readonly{{end}}{{if .Required}} required{{end}}>
+    {{- if .Help}}
+    <span class="field-help" data-i18n="{{.Help}}"></span>
+    {{- end}}
+</label>
+{{- end}}
+
+{{- define "toggle"}}
+<label class="switch"{{if .When}} data-show-when="{{.When}}"{{end}}>
+    <input name="{{.Name}}" type="checkbox"{{if .Value}} value="{{.Value}}"{{end}}{{if .Checked}} checked{{end}}>
+    <span data-i18n="{{.Label}}"></span>
+</label>
+{{- end}}
+
+{{- define "options"}}
+<fieldset class="field">
+    <legend class="field-label" data-i18n="{{.Label}}"></legend>
+    {{- if .Help}}
+    <p class="field-help" data-i18n="{{.Help}}"></p>
+    {{- end}}
+    <div class="option-box">
+        {{- $name := .Name}}
+        {{- $selected := .Selected}}
+        {{- range .Values}}
+        <label><input name="{{$name}}" type="checkbox" value="{{.}}"{{if contains $selected .}} checked{{end}}><span>{{.}}</span></label>
+        {{- end}}
+    </div>
+</fieldset>
+{{- end}}
+
+{{- define "form-actions"}}
+<div class="sticky-actions">
+    <button class="button button-primary" type="submit" data-i18n="{{if .}}{{.}}{{else}}general.submit{{end}}"></button>
+</div>
+{{- end}}

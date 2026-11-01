@@ -51,7 +51,7 @@ const (
 	// legacyLastModifiedField is the metadata key on objects written before the rename.
 	// It is only read: dropping it would lose the modification time of existing objects.
 	legacyLastModifiedField = "sftpgo_last_modified"
-	preResumeTimeout  = 90 * time.Second
+	preResumeTimeout        = 90 * time.Second
 	// ListerBatchSize defines the default limit for DirLister implementations
 	ListerBatchSize = 1000
 )

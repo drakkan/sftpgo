@@ -536,10 +536,7 @@ func (b *UIBranding) check() {
 			b.DefaultCSS[idx] = util.CleanPath(b.DefaultCSS[idx])
 		}
 	} else {
-		b.DefaultCSS = []string{
-			"/assets/plugins/global/plugins.bundle.css",
-			"/assets/css/style.bundle.css",
-		}
+		b.DefaultCSS = []string{"/webclient/app.css"}
 	}
 	for idx := range b.ExtraCSS {
 		b.ExtraCSS[idx] = util.CleanPath(b.ExtraCSS[idx])

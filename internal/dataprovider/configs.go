@@ -48,6 +48,26 @@ var (
 	}
 )
 
+// SFTPDAlgorithms lists the algorithms that can be enabled at runtime
+type SFTPDAlgorithms struct {
+	HostKeys   []string
+	PublicKeys []string
+	KEX        []string
+	Ciphers    []string
+	MACs       []string
+}
+
+// GetSFTPDAlgorithms returns the algorithms that the web UI can offer
+func GetSFTPDAlgorithms() SFTPDAlgorithms {
+	return SFTPDAlgorithms{
+		HostKeys:   supportedHostKeyAlgos,
+		PublicKeys: supportedPublicKeyAlgos,
+		KEX:        supportedKexAlgos,
+		Ciphers:    supportedCiphers,
+		MACs:       supportedMACs,
+	}
+}
+
 // SFTPDConfigs defines configurations for SFTPD
 type SFTPDConfigs struct {
 	HostKeyAlgos   []string `json:"host_key_algos,omitempty"`

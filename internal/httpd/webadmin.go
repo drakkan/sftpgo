@@ -17,6 +17,7 @@ package httpd
 import (
 	"context"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -76,8 +77,9 @@ const (
 
 const (
 	templateAdminDir     = "webadmin"
-	templateBase         = "base.html"
+	templateAdminLayout  = "adminlayout.html"
 	templateFsConfig     = "fsconfig.html"
+	templateUserSettings = "usersettings.html"
 	templateUsers        = "users.html"
 	templateUser         = "user.html"
 	templateAdmins       = "admins.html"
@@ -103,7 +105,6 @@ const (
 	templateConfigs      = "configs.html"
 	templateProfile      = "profile.html"
 	templateMaintenance  = "maintenance.html"
-	templateMFA          = "mfa.html"
 	templateSetup        = "adminsetup.html"
 	defaultQueryLimit    = 1000
 	inversePatternType   = "inverse"
@@ -231,14 +232,16 @@ type changePasswordPage struct {
 
 type mfaPage struct {
 	basePage
-	TOTPConfigs      []string
-	TOTPConfig       dataprovider.AdminTOTPConfig
-	GenerateTOTPURL  string
-	ValidateTOTPURL  string
-	SaveTOTPURL      string
-	RecCodesURL      string
-	RequireTwoFactor bool
-	RequiredAction   *util.I18nError
+	TOTPConfigs       []string
+	TOTPConfig        dataprovider.AdminTOTPConfig
+	Protocols         []string
+	RequiredProtocols []string
+	GenerateTOTPURL   string
+	ValidateTOTPURL   string
+	SaveTOTPURL       string
+	RecCodesURL       string
+	RequireTwoFactor  bool
+	RequiredAction    *util.I18nError
 }
 
 type maintenancePage struct {
@@ -348,6 +351,7 @@ type eventsPage struct {
 type configsPage struct {
 	basePage
 	Configs           dataprovider.Configs
+	SFTPAlgorithms    dataprovider.SFTPDAlgorithms
 	ConfigSection     int
 	RedactedSecret    string
 	OAuth2TokenURL    string
@@ -370,253 +374,76 @@ type userTemplateFields struct {
 	RequirePwdChange bool
 }
 
+// loadAdminTemplates parses each page with the shared layout, then the WebAdmin one, whose
+// "app" template replaces the WebClient shell. The pages that behave the same in both UIs
+// live in templateClientDir.
 func loadAdminTemplates(templatesPath string) {
-	usersPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateAdminDir, templateBase),
-		filepath.Join(templatesPath, templateAdminDir, templateUsers),
-	}
-	userPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateAdminDir, templateBase),
-		filepath.Join(templatesPath, templateAdminDir, templateFsConfig),
-		filepath.Join(templatesPath, templateAdminDir, templateUser),
-	}
-	adminsPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateAdminDir, templateBase),
-		filepath.Join(templatesPath, templateAdminDir, templateAdmins),
-	}
-	adminPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateAdminDir, templateBase),
-		filepath.Join(templatesPath, templateAdminDir, templateAdmin),
-	}
-	apiKeysPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateAdminDir, templateBase),
-		filepath.Join(templatesPath, templateAdminDir, templateAPIKeys),
-	}
-	apiKeyPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateAdminDir, templateBase),
-		filepath.Join(templatesPath, templateAdminDir, templateAPIKey),
-	}
-	profilePaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateAdminDir, templateBase),
-		filepath.Join(templatesPath, templateAdminDir, templateProfile),
-	}
-	changePwdPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateAdminDir, templateBase),
-		filepath.Join(templatesPath, templateCommonDir, templateChangePwd),
-	}
-	connectionsPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateAdminDir, templateBase),
-		filepath.Join(templatesPath, templateAdminDir, templateConnections),
-	}
-	messagePaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateAdminDir, templateBase),
-		filepath.Join(templatesPath, templateCommonDir, templateMessage),
-	}
-	foldersPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateAdminDir, templateBase),
-		filepath.Join(templatesPath, templateAdminDir, templateFolders),
-	}
-	folderPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateAdminDir, templateBase),
-		filepath.Join(templatesPath, templateAdminDir, templateFsConfig),
-		filepath.Join(templatesPath, templateAdminDir, templateFolder),
-	}
-	groupsPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateAdminDir, templateBase),
-		filepath.Join(templatesPath, templateAdminDir, templateGroups),
-	}
-	groupPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateAdminDir, templateBase),
-		filepath.Join(templatesPath, templateAdminDir, templateFsConfig),
-		filepath.Join(templatesPath, templateAdminDir, templateGroup),
-	}
-	eventRulesPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateAdminDir, templateBase),
-		filepath.Join(templatesPath, templateAdminDir, templateEventRules),
-	}
-	eventRulePaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateAdminDir, templateBase),
-		filepath.Join(templatesPath, templateAdminDir, templateEventRule),
-	}
-	eventActionsPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateAdminDir, templateBase),
-		filepath.Join(templatesPath, templateAdminDir, templateEventActions),
-	}
-	eventActionPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateAdminDir, templateBase),
-		filepath.Join(templatesPath, templateAdminDir, templateEventAction),
-	}
-	statusPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateAdminDir, templateBase),
-		filepath.Join(templatesPath, templateAdminDir, templateStatus),
-	}
-	loginPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBaseLogin),
-		filepath.Join(templatesPath, templateCommonDir, templateCommonLogin),
-	}
-	maintenancePaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateAdminDir, templateBase),
-		filepath.Join(templatesPath, templateAdminDir, templateMaintenance),
-	}
-	defenderPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateAdminDir, templateBase),
-		filepath.Join(templatesPath, templateAdminDir, templateDefender),
-	}
-	ipListsPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateAdminDir, templateBase),
-		filepath.Join(templatesPath, templateAdminDir, templateIPLists),
-	}
-	ipListPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateAdminDir, templateBase),
-		filepath.Join(templatesPath, templateAdminDir, templateIPList),
-	}
-	mfaPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateAdminDir, templateBase),
-		filepath.Join(templatesPath, templateAdminDir, templateMFA),
-	}
-	twoFactorPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBaseLogin),
-		filepath.Join(templatesPath, templateCommonDir, templateTwoFactor),
-	}
-	twoFactorRecoveryPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBaseLogin),
-		filepath.Join(templatesPath, templateCommonDir, templateTwoFactorRecovery),
-	}
-	setupPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBaseLogin),
-		filepath.Join(templatesPath, templateAdminDir, templateSetup),
-	}
-	forgotPwdPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBaseLogin),
-		filepath.Join(templatesPath, templateCommonDir, templateForgotPassword),
-	}
-	resetPwdPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBaseLogin),
-		filepath.Join(templatesPath, templateCommonDir, templateResetPassword),
-	}
-	rolesPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateAdminDir, templateBase),
-		filepath.Join(templatesPath, templateAdminDir, templateRoles),
-	}
-	rolePaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateAdminDir, templateBase),
-		filepath.Join(templatesPath, templateAdminDir, templateRole),
-	}
-	eventsPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateAdminDir, templateBase),
-		filepath.Join(templatesPath, templateAdminDir, templateEvents),
-	}
-	configsPaths := []string{
-		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
-		filepath.Join(templatesPath, templateAdminDir, templateBase),
-		filepath.Join(templatesPath, templateAdminDir, templateConfigs),
-	}
-
-	fsBaseTpl := template.New("fsBaseTemplate").Funcs(template.FuncMap{
-		"HumanizeBytes": util.ByteCountSI,
+	base := template.New("webadmin").Funcs(template.FuncMap{
+		"contains":    slices.Contains[[]string],
+		"hasInt":      slices.Contains[[]int],
+		"inGroup":     isInGroup,
+		"secretValue": getSecretFormValue,
+		"base64":      base64.StdEncoding.EncodeToString,
+		"join":        strings.Join,
+		"dict":        templateDict,
+		"hasBit":      func(value, bit int) bool { return value&bit != 0 },
 	})
-	usersTmpl := util.LoadTemplate(nil, usersPaths...)
-	userTmpl := util.LoadTemplate(fsBaseTpl, userPaths...)
-	adminsTmpl := util.LoadTemplate(nil, adminsPaths...)
-	adminTmpl := util.LoadTemplate(nil, adminPaths...)
-	apiKeysTmpl := util.LoadTemplate(nil, apiKeysPaths...)
-	apiKeyTmpl := util.LoadTemplate(nil, apiKeyPaths...)
-	connectionsTmpl := util.LoadTemplate(nil, connectionsPaths...)
-	messageTmpl := util.LoadTemplate(nil, messagePaths...)
-	groupsTmpl := util.LoadTemplate(nil, groupsPaths...)
-	groupTmpl := util.LoadTemplate(fsBaseTpl, groupPaths...)
-	foldersTmpl := util.LoadTemplate(nil, foldersPaths...)
-	folderTmpl := util.LoadTemplate(fsBaseTpl, folderPaths...)
-	eventRulesTmpl := util.LoadTemplate(nil, eventRulesPaths...)
-	eventRuleTmpl := util.LoadTemplate(fsBaseTpl, eventRulePaths...)
-	eventActionsTmpl := util.LoadTemplate(nil, eventActionsPaths...)
-	eventActionTmpl := util.LoadTemplate(nil, eventActionPaths...)
-	statusTmpl := util.LoadTemplate(nil, statusPaths...)
-	loginTmpl := util.LoadTemplate(nil, loginPaths...)
-	profileTmpl := util.LoadTemplate(nil, profilePaths...)
-	changePwdTmpl := util.LoadTemplate(nil, changePwdPaths...)
-	maintenanceTmpl := util.LoadTemplate(nil, maintenancePaths...)
-	defenderTmpl := util.LoadTemplate(nil, defenderPaths...)
-	ipListsTmpl := util.LoadTemplate(nil, ipListsPaths...)
-	ipListTmpl := util.LoadTemplate(nil, ipListPaths...)
-	mfaTmpl := util.LoadTemplate(nil, mfaPaths...)
-	twoFactorTmpl := util.LoadTemplate(nil, twoFactorPaths...)
-	twoFactorRecoveryTmpl := util.LoadTemplate(nil, twoFactorRecoveryPaths...)
-	setupTmpl := util.LoadTemplate(nil, setupPaths...)
-	forgotPwdTmpl := util.LoadTemplate(nil, forgotPwdPaths...)
-	resetPwdTmpl := util.LoadTemplate(nil, resetPwdPaths...)
-	rolesTmpl := util.LoadTemplate(nil, rolesPaths...)
-	roleTmpl := util.LoadTemplate(nil, rolePaths...)
-	eventsTmpl := util.LoadTemplate(nil, eventsPaths...)
-	configsTmpl := util.LoadTemplate(nil, configsPaths...)
+	load := func(dir, page string, extra ...string) {
+		paths := []string{
+			filepath.Join(templatesPath, templateClientDir, templateClientLayout),
+			filepath.Join(templatesPath, templateAdminDir, templateAdminLayout),
+		}
+		for _, file := range extra {
+			paths = append(paths, filepath.Join(templatesPath, templateAdminDir, file))
+		}
+		adminTemplates[page] = util.LoadTemplate(base, append(paths, filepath.Join(templatesPath, dir, page))...)
+	}
+	for _, page := range []string{
+		templateUsers, templateAdmins, templateAdmin, templateAPIKeys, templateAPIKey, templateConnections,
+		templateGroups, templateFolders, templateEventRules, templateEventRule, templateEventActions,
+		templateEventAction, templateRoles, templateRole, templateEvents, templateStatus, templateDefender,
+		templateIPLists, templateIPList, templateConfigs, templateProfile, templateMaintenance, templateSetup,
+	} {
+		load(templateAdminDir, page)
+	}
+	for _, page := range []string{templateUser, templateGroup, templateFolder} {
+		load(templateAdminDir, page, templateFsConfig, templateUserSettings)
+	}
+	for _, page := range []string{
+		templateChangePwd, templateMessage, templateCommonLogin, templateTwoFactor, templateTwoFactorRecovery,
+		templateForgotPassword, templateResetPassword, templateClientMFA,
+	} {
+		load(templateClientDir, page)
+	}
+}
 
-	adminTemplates[templateUsers] = usersTmpl
-	adminTemplates[templateUser] = userTmpl
-	adminTemplates[templateAdmins] = adminsTmpl
-	adminTemplates[templateAdmin] = adminTmpl
-	adminTemplates[templateAPIKeys] = apiKeysTmpl
-	adminTemplates[templateAPIKey] = apiKeyTmpl
-	adminTemplates[templateConnections] = connectionsTmpl
-	adminTemplates[templateMessage] = messageTmpl
-	adminTemplates[templateGroups] = groupsTmpl
-	adminTemplates[templateGroup] = groupTmpl
-	adminTemplates[templateFolders] = foldersTmpl
-	adminTemplates[templateFolder] = folderTmpl
-	adminTemplates[templateEventRules] = eventRulesTmpl
-	adminTemplates[templateEventRule] = eventRuleTmpl
-	adminTemplates[templateEventActions] = eventActionsTmpl
-	adminTemplates[templateEventAction] = eventActionTmpl
-	adminTemplates[templateStatus] = statusTmpl
-	adminTemplates[templateCommonLogin] = loginTmpl
-	adminTemplates[templateProfile] = profileTmpl
-	adminTemplates[templateChangePwd] = changePwdTmpl
-	adminTemplates[templateMaintenance] = maintenanceTmpl
-	adminTemplates[templateDefender] = defenderTmpl
-	adminTemplates[templateIPLists] = ipListsTmpl
-	adminTemplates[templateIPList] = ipListTmpl
-	adminTemplates[templateMFA] = mfaTmpl
-	adminTemplates[templateTwoFactor] = twoFactorTmpl
-	adminTemplates[templateTwoFactorRecovery] = twoFactorRecoveryTmpl
-	adminTemplates[templateSetup] = setupTmpl
-	adminTemplates[templateForgotPassword] = forgotPwdTmpl
-	adminTemplates[templateResetPassword] = resetPwdTmpl
-	adminTemplates[templateRoles] = rolesTmpl
-	adminTemplates[templateRole] = roleTmpl
-	adminTemplates[templateEvents] = eventsTmpl
-	adminTemplates[templateConfigs] = configsTmpl
+// getSecretFormValue returns what a secret field shows: the text just submitted if the form
+// is shown again, otherwise a placeholder that tells the server to keep the stored value.
+func getSecretFormValue(secret *kms.Secret, redacted string) string {
+	if secret == nil || secret.IsEmpty() {
+		return ""
+	}
+	if secret.IsPlain() {
+		return secret.GetPayload()
+	}
+	return redacted
+}
+
+// templateDict passes several values to a shared template, as pairs of name and value.
+func templateDict(pairs ...any) map[string]any {
+	result := make(map[string]any, len(pairs)/2)
+	for idx := 0; idx+1 < len(pairs); idx += 2 {
+		if key, ok := pairs[idx].(string); ok {
+			result[key] = pairs[idx+1]
+		}
+	}
+	return result
+}
+
+func isInGroup(groups []sdk.GroupMapping, name string, groupType int) bool {
+	return slices.ContainsFunc(groups, func(group sdk.GroupMapping) bool {
+		return group.Name == name && group.Type == groupType
+	})
 }
 
 func isEventManagerResource(currentURL string) bool {
@@ -831,7 +658,7 @@ func (s *httpdServer) renderMFAPage(w http.ResponseWriter, r *http.Request) {
 			util.I18nError2FARequiredGeneric,
 		)
 	}
-	renderAdminTemplate(w, templateMFA, data)
+	renderAdminTemplate(w, templateClientMFA, data)
 }
 
 func (s *httpdServer) renderProfilePage(w http.ResponseWriter, r *http.Request, err error) {
@@ -891,6 +718,7 @@ func (s *httpdServer) renderConfigsPage(w http.ResponseWriter, r *http.Request, 
 	data := configsPage{
 		basePage:          s.getBasePageData(util.I18nConfigsTitle, webConfigsPath, w, r),
 		Configs:           configs,
+		SFTPAlgorithms:    dataprovider.GetSFTPDAlgorithms(),
 		ConfigSection:     section,
 		RedactedSecret:    redactedSecret,
 		OAuth2TokenURL:    webOAuth2TokenPath,

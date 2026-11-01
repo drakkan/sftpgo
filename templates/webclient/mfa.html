@@ -39,6 +39,7 @@
                         {{- end}}
                     </select>
                 </label>
+                {{- if .Protocols}}
                 <fieldset class="field checks">
                     <legend class="field-label" data-i18n="2fa.require_for">Require 2FA for</legend>
                     {{- range $protocol := .Protocols}}
@@ -48,10 +49,13 @@
                     </label>
                     {{- end}}
                 </fieldset>
+                {{- end}}
                 <div class="form-actions">
                     <button class="button button-primary" id="generate" type="button" data-i18n="2fa.generate"></button>
                     {{- if .TOTPConfig.Enabled}}
+                    {{- if .Protocols}}
                     <button class="button" id="save-protocols" type="button" data-i18n="client.save_changes"></button>
+                    {{- end}}
                     <button class="button button-danger" id="disable" type="button" data-i18n="2fa.disable_msg"></button>
                     {{- end}}
                 </div>
