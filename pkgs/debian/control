@@ -11,6 +11,8 @@ Package: gonas
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Recommends: bash-completion, mime-support
+Conflicts: sftpgo
+Replaces: sftpgo
 Description: Full-featured and highly configurable SFTP server
  GoNAS has optional FTP/S and WebDAV support.
  It can serve local filesystem, S3 (Compatible) Object Storage,

@@ -6,3 +6,5 @@ man/man1/* usr/share/man/man1
 templates usr/share/gonas
 static usr/share/gonas
 openapi usr/share/gonas
+pkgs/scripts/migrate-from-sftpgo usr/share/gonas
+MIGRATING.md usr/share/doc/gonas

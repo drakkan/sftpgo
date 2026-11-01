@@ -10,8 +10,8 @@ A self-hosted file server with web, SFTP, FTP/S and WebDAV access, on local disk
 - **REST API:** described in [`openapi`](./openapi).
 - A strict Content-Security-Policy works on both web UIs: scripts are plain files with no build step.
 
-See [FORK_FEATURES.md](./FORK_FEATURES.md) for what this fork adds, and [HANDOVER.md](./HANDOVER.md)
-for how to build and test it.
+See [FORK_FEATURES.md](./FORK_FEATURES.md) for what this fork adds, [MIGRATING.md](./MIGRATING.md) to
+move an existing SFTPGo installation over, and [HANDOVER.md](./HANDOVER.md) for how to build and test it.
 
 ## Origin
 

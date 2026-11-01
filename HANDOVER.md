@@ -27,8 +27,9 @@ any public release, and search the USPTO and EUIPO registers for the name.
 
 - `LICENSE`, `NOTICE`, the copyright headers and the `github.com/sftpgo/sdk` dependency stay.
 - Stored values kept on purpose: `sftpgo_last_modified` in object metadata is still read (`internal/vfs/vfs.go`).
-- An installed system needs a migration: the service user, the config paths and the home directories
-  stored in the database contain the old name. No migration tool exists yet.
+- Installing the package over SFTPGo migrates it: see `MIGRATING.md`. User files stay in `/srv/sftpgo` on
+  purpose, so those paths and `users_base_dir` keep the old name on migrated systems. To test it, build
+  the package, then run `sudo tests/sftpgo-migration/run.sh gonas.deb sftpgo.deb` on a machine with systemd.
 - The footer's source link points to `xrogers/sftpgo`, so update it if the repository is renamed.
 
 ## Android wrapper

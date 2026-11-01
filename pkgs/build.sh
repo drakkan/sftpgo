@@ -62,6 +62,10 @@ homepage: "https://github.com/xrogers/gonas"
 license: "AGPL-3.0"
 provides:
   - gonas
+# deb: with the conflict below, installing this removes sftpgo. rpm: becomes Obsoletes.
+# Never list sftpgo under provides: this is not SFTPGo.
+replaces:
+  - sftpgo
 contents:
   - src: "${BASE_DIR}/gonas${BIN_SUFFIX}"
     dst: "/usr/bin/gonas"
@@ -84,6 +88,14 @@ contents:
   - src: "${BASE_DIR}/openapi/*"
     dst: "/usr/share/gonas/openapi"
 
+  - src: "${BASE_DIR}/pkgs/scripts/migrate-from-sftpgo"
+    dst: "/usr/share/gonas/migrate-from-sftpgo"
+    file_info:
+      mode: 0755
+
+  - src: "${BASE_DIR}/MIGRATING.md"
+    dst: "/usr/share/doc/gonas/MIGRATING.md"
+
   - src: "${BASE_DIR}/LICENSE"
     dst: "/usr/share/licenses/gonas/LICENSE"
 
@@ -105,6 +117,8 @@ contents:
 
 overrides:
   deb:
+    conflicts:
+      - sftpgo
     recommends:
       - bash-completion
       - mime-support

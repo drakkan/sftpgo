@@ -2,6 +2,12 @@
 set -e
 
 if [ "$1" = "configure" ]; then
+  # replacing SFTPGo renames its user, keeping the id of the files it owns
+  if [ -z "$2" ] && /usr/share/gonas/migrate-from-sftpgo --needed; then
+    /usr/share/gonas/migrate-from-sftpgo
+    MIGRATED=1
+  fi
+
   # Add user and group
   if ! getent group gonas >/dev/null; then
     groupadd --system gonas
@@ -20,8 +26,8 @@ if [ "$1" = "configure" ]; then
     # if configure has no args this is the first installation
     # for upgrades the second arg is the previously installed version
     #
-    # initialize data provider
-    gonas initprovider -c /etc/gonas
+    # initialize data provider, the migration already did it for the copied database
+    [ -n "${MIGRATED:-}" ] || gonas initprovider -c /etc/gonas
     # ensure files and folders have the appropriate permissions
     chown -R gonas:gonas /etc/gonas /var/lib/gonas /srv/gonas
     chmod 750 /etc/gonas /etc/gonas/env.d /var/lib/gonas /srv/gonas

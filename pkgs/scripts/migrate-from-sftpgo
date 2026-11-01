@@ -1,0 +1,164 @@
+#!/bin/sh
+# Takes over an installed SFTPGo. Runs from the package scripts on a first installation, and can
+# be run by hand. The SFTPGo files are copied, not moved, so they remain as a way back, and the
+# files of the users stay where they are, so the home directories in the database stay valid.
+#
+#   migrate-from-sftpgo           migrate, if there is something to migrate
+#   migrate-from-sftpgo --needed  exit with 0 if there is something to migrate
+set -eu
+
+OLD_CONF=/etc/sftpgo
+OLD_DATA=/var/lib/sftpgo
+NEW_CONF=/etc/gonas
+NEW_DATA=/var/lib/gonas
+STARTED=$NEW_DATA/.migrating-from-sftpgo
+DONE=$NEW_DATA/.migrated-from-sftpgo
+
+say() {
+  echo "GoNAS migration: $*"
+}
+
+die() {
+  echo "GoNAS migration failed: $*" >&2
+  echo "The SFTPGo files in $OLD_CONF and $OLD_DATA are untouched. Fix the cause and run this again:" >&2
+  echo "  /usr/share/gonas/migrate-from-sftpgo" >&2
+  exit 1
+}
+
+needed() {
+  # A run that failed halfway is finished by the next one.
+  [ -e "$STARTED" ] && return 0
+  [ -f "$OLD_CONF/sftpgo.json" ] && [ ! -e "$DONE" ] && [ ! -e "$NEW_DATA/gonas.db" ]
+}
+
+# Only paths are rewritten: "sftpgo" can also be the name of a database or of a bucket.
+rewrite_paths() {
+  sed -i \
+    -e "s#$OLD_DATA/sftpgo\.db#$NEW_DATA/gonas.db#g" \
+    -e 's#"sftpgo\.db"#"gonas.db"#g' \
+    -e "s#$OLD_CONF#$NEW_CONF#g" \
+    -e "s#$OLD_DATA#$NEW_DATA#g" \
+    -e 's#/usr/share/sftpgo#/usr/share/gonas#g' \
+    -e 's#/run/sftpgo#/run/gonas#g' \
+    "$@"
+}
+
+rewrite_environment() {
+  rewrite_paths "$@"
+  sed -i 's/SFTPGO_/GONAS_/g' "$@"
+}
+
+stop_sftpgo() {
+  if [ -d /run/systemd/system ]; then
+    systemctl stop sftpgo.service >/dev/null 2>&1 || true
+    systemctl disable sftpgo.service >/dev/null 2>&1 || true
+  fi
+}
+
+# The id stays the same, so every file keeps its owner without walking through them, also in
+# home directories outside of /srv and on network mounts.
+rename_user() {
+  getent passwd sftpgo >/dev/null || return 0
+  if getent passwd gonas >/dev/null; then
+    say "the users sftpgo and gonas both exist, changing the owner of /srv/sftpgo only"
+    [ ! -d /srv/sftpgo ] || chown -R gonas:gonas /srv/sftpgo
+    return 0
+  fi
+  if getent group sftpgo >/dev/null && ! getent group gonas >/dev/null; then
+    groupmod -n gonas sftpgo || die "unable to rename the group sftpgo"
+  fi
+  usermod -l gonas -d "$NEW_DATA" -c "GoNAS user" sftpgo ||
+    die "unable to rename the user sftpgo, is SFTPGo still running?"
+}
+
+copy_config() {
+  cp -a "$OLD_CONF/." "$NEW_CONF/"
+  mv -f "$NEW_CONF/sftpgo.json" "$NEW_CONF/gonas.json"
+  rewrite_paths "$NEW_CONF/gonas.json"
+  # Only the name shown by authenticator apps, codes do not depend on it.
+  sed -i 's/"issuer": "SFTPGo"/"issuer": "GoNAS"/' "$NEW_CONF/gonas.json"
+  if [ -f "$NEW_CONF/sftpgo.env" ]; then
+    mv -f "$NEW_CONF/sftpgo.env" "$NEW_CONF/gonas.env"
+    rewrite_environment "$NEW_CONF/gonas.env"
+  fi
+  for file in "$NEW_CONF"/env.d/*; do
+    [ ! -f "$file" ] || rewrite_environment "$file"
+  done
+}
+
+# The thumbnails are a cache and can be large, so they are left behind.
+copy_data() {
+  [ -d "$OLD_DATA" ] || return 0
+  for entry in "$OLD_DATA"/* "$OLD_DATA"/.[!.]*; do
+    [ -e "$entry" ] || continue
+    [ "$(basename "$entry")" = thumbnails ] || cp -a "$entry" "$NEW_DATA/"
+  done
+  for suffix in "" -wal -shm; do
+    [ ! -e "$NEW_DATA/sftpgo.db$suffix" ] || mv -f "$NEW_DATA/sftpgo.db$suffix" "$NEW_DATA/gonas.db$suffix"
+  done
+}
+
+copy_systemd_overrides() {
+  old=/etc/systemd/system/sftpgo.service.d
+  new=/etc/systemd/system/gonas.service.d
+  [ -d "$old" ] || return 0
+  mkdir -p "$new"
+  cp -a "$old/." "$new/"
+  for file in "$new"/*; do
+    [ ! -f "$file" ] || rewrite_environment "$file"
+  done
+}
+
+# The values in gonas.env reach the service through systemd, and can name the database.
+upgrade_database() {
+  (
+    if [ -f "$NEW_CONF/gonas.env" ]; then
+      set -a
+      # shellcheck disable=SC1091
+      . "$NEW_CONF/gonas.env"
+      set +a
+    fi
+    gonas initprovider -c "$NEW_CONF"
+  ) || die "unable to open or upgrade the database"
+}
+
+report() {
+  say "done. The configuration and the database were copied to $NEW_CONF and $NEW_DATA."
+  say "the user files stay in /srv/sftpgo, and the service user is now gonas, with the same id."
+  if grep -Eq '"[a-z_]*hook": *"[^"]' "$NEW_CONF/gonas.json"; then
+    say "WARNING: hooks are configured. They now receive GONAS_* variables, not SFTPGO_* ones."
+  fi
+  say "scripts run by event actions, metrics dashboards and clients reading X-SFTPGO-* headers"
+  say "need the new names too, see /usr/share/doc/gonas/MIGRATING.md"
+}
+
+case "${1:-}" in
+  --needed)
+    needed
+    exit
+    ;;
+  "") ;;
+  *)
+    echo "usage: $0 [--needed]" >&2
+    exit 2
+    ;;
+esac
+
+if ! needed; then
+  say "nothing to migrate"
+  exit 0
+fi
+[ "$(id -u)" -eq 0 ] || { echo "GoNAS migration: must be run as root" >&2; exit 1; }
+
+say "found SFTPGo in $OLD_CONF"
+mkdir -p "$NEW_CONF" "$NEW_DATA"
+touch "$STARTED"
+stop_sftpgo
+rename_user
+copy_config
+copy_data
+copy_systemd_overrides
+upgrade_database
+chown -R gonas:gonas "$NEW_CONF" "$NEW_DATA"
+mv -f "$STARTED" "$DONE"
+report
