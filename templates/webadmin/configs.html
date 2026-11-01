@@ -98,7 +98,7 @@
                 <label class="field">
                     <span class="field-label" data-i18n="smtp.encryption"></span>
                     <select class="select" name="smtp_encryption">
-                        <option value="0"{{if eq $smtp.Encryption 0}} selected{{end}}>None</option>
+                        <option value="0"{{if eq $smtp.Encryption 0}} selected{{end}} data-i18n="general.none">None</option>
                         <option value="1"{{if eq $smtp.Encryption 1}} selected{{end}}>TLS</option>
                         <option value="2"{{if eq $smtp.Encryption 2}} selected{{end}}>STARTTLS</option>
                     </select>

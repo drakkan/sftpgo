@@ -39,6 +39,9 @@
         "ip_lists": "IP 列表",
         "defender": "自动屏蔽列表",
         "admins": "管理员",
+        "api_keys": "API 密钥",
+        "add_api_key": "添加 API 密钥",
+        "update_api_key": "更新 API 密钥",
         "roles": "角色",
         "server_manager": "服务器管理",
         "configs": "配置",
@@ -69,6 +72,7 @@
     },
     "setup": {
         "desc": "要开始使用 GoNAS，您需要创建管理员用户",
+        "install_code": "安装代码",
         "submit": "创建管理员并登录",
         "install_code_mismatch": "安装代码不匹配",
         "help_text": "商业支持"
@@ -275,7 +279,10 @@
         "friday": "星期五",
         "saturday": "星期六",
         "sunday": "星期日",
-        "expired_session": "会话已过期，请重新登录。"
+        "expired_session": "会话已过期，请重新登录。",
+        "created_at": "创建时间",
+        "copy": "复制",
+        "none": "无"
     },
     "fs": {
         "search": {
@@ -391,7 +398,7 @@
         }
     },
     "datatable": {
-        "info": "Showing _START_ to _END_ of _TOTAL_ records",
+        "info": "显示第 _START_ 至 _END_ 条，共 _TOTAL_ 条记录",
         "info_empty": "无记录显示",
         "info_filtered": "(从 _MAX_ 条总记录中筛选)",
         "processing": "处理中...",
@@ -778,6 +785,25 @@
         "default_users_expiration_help": "新用户的默认到期天数",
         "require_pwd_change_help": "下次登录需要更改密码"
     },
+    "apikey": {
+        "view_manage": "查看和管理 API 密钥",
+        "scope": "范围",
+        "scope_admin": "管理员",
+        "scope_user": "用户",
+        "scope_user_web_session": "用户和 Web 会话",
+        "bound_to": "绑定到",
+        "user": "用户",
+        "user_help": "此密钥限定的用户名。如果留空，此密钥可以代表任何允许 API 密钥认证的用户。",
+        "admin": "管理员",
+        "admin_help": "此密钥限定的管理员。如果留空，此密钥可以代表任何允许 API 密钥认证的管理员，包括超级管理员。",
+        "expires": "过期时间",
+        "expires_help": "留空表示永不过期。格式：YYYY-MM-DD HH:MM:SS (UTC)。",
+        "invalid_expiration": "过期时间无效。请使用格式 YYYY-MM-DD HH:MM:SS (UTC)",
+        "last_use": "上次使用",
+        "never": "从不",
+        "any": "任意",
+        "generated_help": "API 密钥仅在此时显示一次，请立即保存。"
+    },
     "connections": {
         "view_manage": "查看和管理连接",
         "started": "已开始",
@@ -790,7 +816,8 @@
         "download": "下载: \"{{- path}}\"",
         "upload_info": "$t(connections.upload). 大小: {{- size}}. 速度: {{- speed}}",
         "download_info": "$t(connections.download). 大小: {{- size}}. 速度: {{- speed}}",
-        "client": "客户端: {{- val}}"
+        "client": "客户端: {{- val}}",
+        "node": "节点"
     },
     "role": {
         "view_manage": "查看和管理角色",
@@ -1158,6 +1185,7 @@
         "language": "语言",
         "based_on": "修改版本，基于",
         "source": "源代码",
+        "attribution": "GoNAS 包含 SFTPGo® 源代码，与 SFTPGo 项目没有关联，也未获得其认可。SFTPGo 是 Nicola Murino 的注册商标。",
         "skip": "跳到内容",
         "main_nav": "主导航",
         "theme": "主题",

@@ -163,7 +163,7 @@ page data. */ -}}
         <span class="field-label" data-i18n="filters.tls_username"></span>
         <select class="select" name="tls_username">
             <option value="">-</option>
-            <option value="None"{{if eq (printf "%s" .F.TLSUsername) "None"}} selected{{end}}>None</option>
+            <option value="None"{{if eq (printf "%s" .F.TLSUsername) "None"}} selected{{end}} data-i18n="general.none">None</option>
             <option value="CommonName"{{if eq (printf "%s" .F.TLSUsername) "CommonName"}} selected{{end}}>CommonName</option>
         </select>
         <span class="field-help" data-i18n="filters.tls_username_help"></span>

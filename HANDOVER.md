@@ -29,7 +29,6 @@ any public release, and search the USPTO and EUIPO registers for the name.
 - Stored values kept on purpose: `sftpgo_last_modified` in object metadata is still read (`internal/vfs/vfs.go`).
 - An installed system needs a migration: the service user, the config paths and the home directories
   stored in the database contain the old name. No migration tool exists yet.
-- Locales other than `en` and `pl` lack the strings of the fork's API key pages and show English there.
 - The footer's source link points to `xrogers/sftpgo`, so update it if the repository is renamed.
 
 ## Android wrapper

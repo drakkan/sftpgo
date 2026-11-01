@@ -8,7 +8,8 @@
     <p class="auth-lead" data-i18n="setup.desc"></p>
     {{- if .HasInstallationCode}}
     <label class="field">
-        <span class="field-label">{{if .InstallationCodeHint}}{{.InstallationCodeHint}}{{else}}Installation code{{end}}</span>
+        {{- /* A hint set in the configuration is the operator's own text and stays as written. */}}
+        <span class="field-label"{{if or (not .InstallationCodeHint) (eq .InstallationCodeHint "Installation code")}} data-i18n="setup.install_code">Installation code{{else}}>{{.InstallationCodeHint}}{{end}}</span>
         <input class="input" name="install_code" type="text" autocomplete="off" spellcheck="false" required>
     </label>
     {{- end}}

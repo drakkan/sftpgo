@@ -39,6 +39,9 @@
         "ip_lists": "Listes IP",
         "defender": "Liste de blocage automatique",
         "admins": "Administrateurs",
+        "api_keys": "Clés API",
+        "add_api_key": "Ajouter une clé API",
+        "update_api_key": "Mettre à jour la clé API",
         "roles": "Rôles",
         "server_manager": "Gestionnaire de serveur",
         "configs": "Paramètres",
@@ -69,6 +72,7 @@
     },
     "setup": {
         "desc": "Pour commencer à utiliser GoNAS vous devez créer un utilisateur administrateur",
+        "install_code": "Code d'installation",
         "submit": "Créer un administrateur et se connecter",
         "install_code_mismatch": "Le code d'installation ne correspond pas",
         "help_text": "Support commercial"
@@ -275,7 +279,10 @@
         "friday": "Vendredi",
         "saturday": "Samedi",
         "sunday": "Dimanche",
-        "expired_session": "Votre session a expiré. Veuillez vous reconnecter"
+        "expired_session": "Votre session a expiré. Veuillez vous reconnecter",
+        "created_at": "Créé le",
+        "copy": "Copier",
+        "none": "Aucun"
     },
     "fs": {
         "search": {
@@ -778,6 +785,25 @@
         "default_users_expiration_help": "Expiration par défaut des nouveaux utilisateurs en nombre de jours",
         "require_pwd_change_help": "Un changement de mot de passe est requis lors de la prochaine connexion"
     },
+    "apikey": {
+        "view_manage": "Voir et gérer les clés API",
+        "scope": "Portée",
+        "scope_admin": "Administrateur",
+        "scope_user": "Utilisateur",
+        "scope_user_web_session": "Utilisateur et session web",
+        "bound_to": "Liée à",
+        "user": "Utilisateur",
+        "user_help": "Nom de l'utilisateur auquel cette clé est limitée. Si ce champ est vide, la clé peut agir au nom de n'importe quel utilisateur autorisant l'authentification par clé API.",
+        "admin": "Administrateur",
+        "admin_help": "Administrateur auquel cette clé est limitée. Si ce champ est vide, la clé peut agir au nom de n'importe quel administrateur autorisant l'authentification par clé API, y compris les super-administrateurs.",
+        "expires": "Expire le",
+        "expires_help": "Laissez vide pour qu'elle n'expire pas. Format : AAAA-MM-JJ HH:MM:SS (UTC).",
+        "invalid_expiration": "Expiration invalide. Utilisez le format AAAA-MM-JJ HH:MM:SS (UTC)",
+        "last_use": "Dernière utilisation",
+        "never": "Jamais",
+        "any": "Tous",
+        "generated_help": "C'est la seule fois où la clé API est visible, veuillez l'enregistrer maintenant."
+    },
     "connections": {
         "view_manage": "Voir et gérer les connexions",
         "started": "Démarré",
@@ -790,7 +816,8 @@
         "download": "DL : \"{{- path}}\"",
         "upload_info": "$t(connections.upload). Taille : {{- size}}. Vitesse : {{- speed}}",
         "download_info": "$t(connections.download). Taille : {{- size}}. Vitesse : {{- speed}}",
-        "client": "Client : {{- val}}"
+        "client": "Client : {{- val}}",
+        "node": "Nœud"
     },
     "role": {
         "view_manage": "Voir et gérer les rôles",
@@ -1158,6 +1185,7 @@
         "language": "Langue",
         "based_on": "Version modifiée basée sur",
         "source": "Code source",
+        "attribution": "GoNAS intègre le code source de SFTPGo® et n'est ni affilié au projet SFTPGo ni approuvé par celui-ci. SFTPGo est une marque déposée de Nicola Murino.",
         "skip": "Aller au contenu",
         "main_nav": "Principal",
         "theme": "Thème",

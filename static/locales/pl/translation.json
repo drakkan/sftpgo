@@ -72,6 +72,7 @@
     },
     "setup": {
         "desc": "Aby zacząć korzystać z GoNAS, musisz utworzyć konto administratora",
+        "install_code": "Kod instalacyjny",
         "submit": "Utwórz administratora i zaloguj się",
         "install_code_mismatch": "Kod instalacyjny jest nieprawidłowy",
         "help_text": "Wsparcie komercyjne"
@@ -282,7 +283,8 @@
         "sunday": "Niedziela",
         "expired_session": "Twoja sesja wygasła. Zaloguj się ponownie",
         "created_at": "Data utworzenia",
-        "copy": "Kopiuj"
+        "copy": "Kopiuj",
+        "none": "Brak"
     },
     "fs": {
         "search": {
@@ -1185,6 +1187,7 @@
         "language": "Język",
         "based_on": "Zmodyfikowana wersja oparta na",
         "source": "Kod źródłowy",
+        "attribution": "GoNAS zawiera kod źródłowy SFTPGo® i nie jest powiązany z projektem SFTPGo ani przez niego wspierany. SFTPGo to zarejestrowany znak towarowy Nicola Murino.",
         "skip": "Przejdź do treści",
         "main_nav": "Główna",
         "theme": "Motyw",
