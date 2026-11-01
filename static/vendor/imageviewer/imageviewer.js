@@ -1,8 +1,9 @@
 /*
  * Minimal image viewer - zero dependencies, CSP-safe
- * Usage: ImageViewer.open(items, index)
+ * Usage: ImageViewer.open(items, index, options)
  *   items: [{src: 'url', name: 'filename'}, ...]
  *   index: starting index
+ *   options.labels: button names {zoomIn, zoomOut, close, previous, next}, English by default
  *
  * While open, exposes --iv-scrollbar-width on <html>. Fixed elements that
  * would otherwise jump when the page scrollbar is hidden can compensate via:
@@ -13,6 +14,8 @@
 
     var overlay, imgEl, captionEl, counterEl, zoomInBtn, zoomOutBtn;
     var prevBtn, nextBtn, closeBtn, container, spinnerEl;
+    var labels = { zoomIn: 'Zoom in', zoomOut: 'Zoom out', close: 'Close', previous: 'Previous', next: 'Next' };
+    var returnFocus = null;
     var items = [];
     var currentIndex = 0;
     var scale = 1;
@@ -57,14 +60,26 @@
     function createElement(tag, className, parent) {
         var el = document.createElement(tag);
         if (className) el.className = className;
+        if (tag === 'button') el.type = 'button';
         if (parent) parent.appendChild(el);
         return el;
+    }
+
+    function applyLabels() {
+        zoomInBtn.setAttribute('aria-label', labels.zoomIn);
+        zoomOutBtn.setAttribute('aria-label', labels.zoomOut);
+        closeBtn.setAttribute('aria-label', labels.close);
+        prevBtn.setAttribute('aria-label', labels.previous);
+        nextBtn.setAttribute('aria-label', labels.next);
     }
 
     function buildDOM() {
         if (overlay) return;
 
         overlay = createElement('div', 'iv-overlay');
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-labelledby', 'iv-caption');
 
         var toolbar = createElement('div', 'iv-toolbar', overlay);
         counterEl = createElement('span', 'iv-counter', toolbar);
@@ -72,17 +87,14 @@
         spacer.style.flex = '1';
 
         zoomInBtn = createElement('button', 'iv-btn iv-btn-zoom', toolbar);
-        zoomInBtn.setAttribute('aria-label', 'Zoom in');
         zoomInBtn.innerHTML = '&#x2b;';
         zoomInBtn.addEventListener('click', function() { zoomBy(zoomStep); });
 
         zoomOutBtn = createElement('button', 'iv-btn iv-btn-zoom', toolbar);
-        zoomOutBtn.setAttribute('aria-label', 'Zoom out');
         zoomOutBtn.innerHTML = '&#x2212;';
         zoomOutBtn.addEventListener('click', function() { zoomBy(1 / zoomStep); });
 
         closeBtn = createElement('button', 'iv-btn iv-btn-close', toolbar);
-        closeBtn.setAttribute('aria-label', 'Close');
         closeBtn.innerHTML = '&#x2715;';
         closeBtn.addEventListener('click', close);
 
@@ -92,16 +104,15 @@
         imgEl.setAttribute('draggable', 'false');
 
         prevBtn = createElement('button', 'iv-btn iv-btn-prev', overlay);
-        prevBtn.setAttribute('aria-label', 'Previous');
         prevBtn.innerHTML = '&#x276E;';
         prevBtn.addEventListener('click', function() { navigate(-1); });
 
         nextBtn = createElement('button', 'iv-btn iv-btn-next', overlay);
-        nextBtn.setAttribute('aria-label', 'Next');
         nextBtn.innerHTML = '&#x276F;';
         nextBtn.addEventListener('click', function() { navigate(1); });
 
         captionEl = createElement('div', 'iv-caption', overlay);
+        captionEl.id = 'iv-caption';
 
         overlay.addEventListener('click', function(e) {
             if (Date.now() < suppressClickUntil) return;
@@ -427,6 +438,7 @@
             imgEl.style.opacity = '1';
             spinnerEl.style.display = 'none';
         };
+        imgEl.alt = item.name || '';
         imgEl.src = item.src;
         if (imgEl.complete && imgEl.naturalWidth > 0) {
             imgEl.style.opacity = '1';
@@ -448,11 +460,27 @@
         showItem(newIndex);
     }
 
+    // Tab cycles through the visible buttons: the page behind the overlay is unreachable
+    function trapFocus(e) {
+        var buttons = Array.prototype.filter.call(overlay.querySelectorAll('button'), function(b) {
+            return b.offsetParent !== null && !b.disabled;
+        });
+        if (!buttons.length) return;
+        var idx = buttons.indexOf(document.activeElement);
+        var next = e.shiftKey ? idx - 1 : idx + 1;
+        if (idx === -1) next = 0;
+        if (next < 0) next = buttons.length - 1;
+        if (next >= buttons.length) next = 0;
+        e.preventDefault();
+        buttons[next].focus();
+    }
+
     function onKeyDown(e) {
         switch (e.key) {
             case 'Escape': close(); break;
             case 'ArrowLeft': navigate(-1); break;
             case 'ArrowRight': navigate(1); break;
+            case 'Tab': trapFocus(e); break;
         }
     }
 
@@ -460,12 +488,17 @@
         return window.innerWidth - document.documentElement.clientWidth;
     }
 
-    function open(itemList, startIndex) {
+    function open(itemList, startIndex, options) {
         buildDOM();
         items = itemList || [];
         if (!items.length) return;
+        if (options && options.labels) {
+            Object.assign(labels, options.labels);
+        }
+        applyLabels();
 
         if (!isOpen) {
+            returnFocus = document.activeElement;
             savedBodyOverflow = document.body.style.overflow;
             savedBodyPaddingRight = document.body.style.paddingRight;
             scrollbarWidth = getScrollbarWidth();
@@ -482,6 +515,7 @@
         }
         overlay.classList.add('iv-visible');
         showItem(clamp(startIndex || 0, 0, items.length - 1));
+        closeBtn.focus();
     }
 
     function close() {
@@ -511,6 +545,10 @@
         lastTapTime = 0;
         suppressClickUntil = 0;
         isOpen = false;
+        if (returnFocus && returnFocus.isConnected) {
+            returnFocus.focus();
+        }
+        returnFocus = null;
     }
 
     window.ImageViewer = {
