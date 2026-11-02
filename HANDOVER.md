@@ -47,8 +47,9 @@ The app signs in with a key of its own in Android Keystore, registered on the se
 passkey, so the server has no special code for it. `WebAuthnMessages.kt` builds what an authenticator
 would send. Testing it needs an emulator with an enrolled fingerprint (`adb emu finger touch 1`).
 
-The rename of the app is on its `gonas-rebrand` branch. Its `applicationId` stays `com.rogers.sftpgo`,
-so that installed copies keep updating.
+The rename of the app is on its `gonas-rebrand` branch. The app was never released, so it keeps no
+compatibility with earlier builds. Its `applicationId` is `com.rogers.gonas`, which is also the default
+of `android_package_name`.
 
 ## Building and testing
 

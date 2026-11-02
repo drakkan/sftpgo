@@ -385,7 +385,7 @@
       "enabled": true,
       "rp_id": "",
       "origins": [],
-      "android_package_name": "com.rogers.sftpgo",
+      "android_package_name": "com.rogers.gonas",
       "android_cert_fingerprints": [],
       "skip_two_factor": true
     },

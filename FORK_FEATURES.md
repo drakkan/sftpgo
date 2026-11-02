@@ -33,7 +33,7 @@ of backups. The settings are in `httpd.passkeys`:
 | --- | --- | --- |
 | `enabled` | `true` | Show passkeys in both UIs |
 | `skip_two_factor` | `true` | Whether a passkey satisfies two-factor authentication |
-| `android_package_name` | `com.rogers.sftpgo` | Package of the Android app |
+| `android_package_name` | `com.rogers.gonas` | Package of the Android app |
 | `android_cert_fingerprints` | empty | SHA-256 fingerprints of its signing certificates |
 | `rp_id` | empty | Domain passkeys belong to. Empty means the host name of each request |
 | `origins` | empty | Allowed origins. Empty means the origin of each request |

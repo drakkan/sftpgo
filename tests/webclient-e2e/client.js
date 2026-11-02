@@ -36,7 +36,7 @@ const send=XMLHttpRequest.prototype.send;XMLHttpRequest.prototype.send=function(
   const listed = async () => page.locator('.entry-name').allTextContents();
   const signIn = async (user, pass) => {
     await page.goto(`${base}/web/client/login`); await idle();
-    // exactly what the Android app does
+    // a script filling in the form, not a person typing
     const ok = await page.evaluate(({ user, pass }) => { const form = document.getElementById('sign_in_form'); const submit = document.getElementById('sign_in_submit'); if (!form || !submit || !form.elements.username || !form.elements.password) return false; form.elements.username.value = user; form.elements.password.value = pass; submit.click(); return true; }, { user, pass });
     await idle(); return ok;
   };
@@ -45,7 +45,7 @@ const send=XMLHttpRequest.prototype.send;XMLHttpRequest.prototype.send=function(
   await page.goto(`${base}/web/client/login`); await idle(); await shot('01-login');
   await page.fill('input[name=username]', 'alice'); await page.fill('input[name=password]', 'wrong-one'); await page.click('#sign_in_submit'); await idle();
   check('wrong password shows an error', (await page.textContent('.notice')).includes('Invalid credentials'));
-  check('Android auto-login fills and submits', await signIn('alice', 'e2e-User-Pass-1'));
+  check('the login form can be filled by a script', await signIn('alice', 'e2e-User-Pass-1'));
   check('lands on files', page.url().includes('/web/client/files'));
   await idle(); await shot('02-files');
   let names = await listed();
@@ -264,7 +264,7 @@ const send=XMLHttpRequest.prototype.send;XMLHttpRequest.prototype.send=function(
   check('login asks for the code', page.url().includes('/twofactor')); await shot('25-2fa');
   const pass = await page.evaluate((code) => { const form = document.getElementById('sign_in_form'); const submit = document.getElementById('sign_in_submit'); if (!form || !submit || !form.elements.passcode) return false; form.elements.passcode.value = code; submit.click(); return true; }, totp(secret, 1));
   await idle();
-  check('Android 2FA path works', pass && page.url().includes('/web/client/files'), page.url());
+  check('the 2FA form can be filled by a script', pass && page.url().includes('/web/client/files'), page.url());
   await page.goto(`${base}/web/client/mfa`); await idle();
   await page.click('#disable'); await page.locator('dialog .button-danger').click(); await sleep(600); await idle();
   check('2FA disabled', (await page.textContent('.sheet')).includes('Secure Your Account'));

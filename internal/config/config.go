@@ -432,7 +432,7 @@ func Init() {
 			Passkeys: httpd.PasskeysConfig{
 				Enabled:                 true,
 				Origins:                 []string{},
-				AndroidPackageName:      "com.rogers.sftpgo",
+				AndroidPackageName:      "com.rogers.gonas",
 				AndroidCertFingerprints: []string{},
 				SkipTwoFactor:           true,
 			},
