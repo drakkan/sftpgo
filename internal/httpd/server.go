@@ -770,6 +770,7 @@ func (s *httpdServer) loginUser(
 		MustSetTwoFactorAuth:       userMustSetSecondFactor(user),
 		MustChangePassword:         user.MustChangePassword(),
 		RequiredTwoFactorProtocols: user.Filters.TwoFactorAuthProtocols,
+		AuthAt:                     time.Now().Unix(),
 	}
 	c.Subject = user.GetSignature()
 
@@ -814,6 +815,7 @@ func (s *httpdServer) loginAdmin(
 		HideUserPageSections: admin.Filters.Preferences.HideUserPageSections,
 		MustSetTwoFactorAuth: adminMustSetSecondFactor(admin),
 		MustChangePassword:   admin.Filters.RequirePasswordChange,
+		AuthAt:               time.Now().Unix(),
 	}
 	c.Subject = admin.GetSignature()
 

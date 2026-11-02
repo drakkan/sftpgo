@@ -1239,6 +1239,7 @@
         "err_limit": "Sie haben die maximale Anzahl an Passkeys erreicht",
         "err_name": "Geben Sie einen Namen mit bis zu 64 Zeichen ein, den kein anderer Passkey verwendet",
         "err_username": "Dieser Benutzername ist zu lang für die Verwendung mit einem Passkey",
-        "err_required": "Für Ihr Konto ist die Zwei-Faktor-Authentifizierung erforderlich. Behalten Sie daher einen Passkey oder richten Sie zuerst eine Authentifizierungs-App ein"
+        "err_required": "Für Ihr Konto ist die Zwei-Faktor-Authentifizierung erforderlich. Behalten Sie daher einen Passkey oder richten Sie zuerst eine Authentifizierungs-App ein",
+        "err_recent": "Melden Sie sich zu Ihrer Sicherheit ab und erneut an, bevor Sie einen Passkey hinzufügen"
     }
 }

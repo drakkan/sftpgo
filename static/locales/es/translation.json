@@ -1239,6 +1239,7 @@
         "err_limit": "Has alcanzado el número máximo de claves de acceso",
         "err_name": "Escribe un nombre de hasta 64 caracteres que no use otra clave de acceso",
         "err_username": "Este nombre de usuario es demasiado largo para usarlo con una clave de acceso",
-        "err_required": "Tu cuenta requiere autenticación de dos factores, así que conserva una clave de acceso o configura antes una aplicación de autenticación"
+        "err_required": "Tu cuenta requiere autenticación de dos factores, así que conserva una clave de acceso o configura antes una aplicación de autenticación",
+        "err_recent": "Por tu seguridad, cierra la sesión y vuelve a iniciarla antes de añadir una clave de acceso"
     }
 }

@@ -1242,6 +1242,7 @@
         "err_limit": "Osiągnięto maksymalną liczbę kluczy dostępu",
         "err_name": "Wpisz nazwę o długości do 64 znaków, której nie używa inny klucz dostępu",
         "err_username": "Ta nazwa użytkownika jest zbyt długa, aby używać jej z kluczem dostępu",
-        "err_required": "Twoje konto wymaga uwierzytelniania dwuskładnikowego, więc zachowaj klucz dostępu lub najpierw skonfiguruj aplikację uwierzytelniającą"
+        "err_required": "Twoje konto wymaga uwierzytelniania dwuskładnikowego, więc zachowaj klucz dostępu lub najpierw skonfiguruj aplikację uwierzytelniającą",
+        "err_recent": "Ze względów bezpieczeństwa wyloguj się i zaloguj ponownie przed dodaniem klucza dostępu"
     }
 }

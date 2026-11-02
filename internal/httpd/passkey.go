@@ -43,6 +43,9 @@ import (
 
 const (
 	passkeyChallengeLifetime = 5 * time.Minute
+	// A passkey can get past two-factor authentication, so adding one needs a recent sign in.
+	// Otherwise a session left open, or a stolen one, could give itself lasting access.
+	passkeyRecentLogin = 10 * time.Minute
 	// The user handle is the username, and WebAuthn limits it to 64 bytes.
 	passkeyMaxUserHandle = 64
 	passkeyTokenField    = "passkey_token"
@@ -58,6 +61,7 @@ const (
 	i18nErrorPasskeyName     = "passkey.err_name"
 	i18nErrorPasskeyUsername = "passkey.err_username"
 	i18nErrorPasskeyRequired = "passkey.err_required"
+	i18nErrorPasskeyRecent   = "passkey.err_recent"
 )
 
 var (
@@ -742,11 +746,21 @@ func requiredSecondFactorLost(claims *jwt.Claims) bool {
 	return err != nil || (admin.Filters.RequireTwoFactor && !admin.Filters.TOTPConfig.Enabled)
 }
 
+// loginIsRecent returns true if the credentials of a session were checked a short while ago.
+func loginIsRecent(claims *jwt.Claims, now time.Time) bool {
+	return now.Sub(time.Unix(claims.AuthAt, 0)) < passkeyRecentLogin
+}
+
 func (s *httpdServer) handlePasskeyRegisterBegin(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
 	claims, err := jwt.FromContext(r.Context())
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, i18nErrorPasskeyFailed, http.StatusBadRequest)
+		return
+	}
+	// The sign in of OIDC sessions happens at the provider, and they skip 2FA in any case.
+	if !isLoggedInWithOIDC(r) && !loginIsRecent(claims, time.Now()) {
+		sendAPIResponse(w, r, nil, i18nErrorPasskeyRecent, http.StatusForbidden)
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)

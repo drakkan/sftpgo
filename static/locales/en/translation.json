@@ -1239,6 +1239,7 @@
         "err_limit": "You have reached the maximum number of passkeys",
         "err_name": "Enter a name of up to 64 characters that no other passkey uses",
         "err_username": "This username is too long to use with a passkey",
-        "err_required": "Two-factor authentication is required for your account, so keep a passkey or set up an authenticator app first"
+        "err_required": "Two-factor authentication is required for your account, so keep a passkey or set up an authenticator app first",
+        "err_recent": "For your security, sign out and sign in again before adding a passkey"
     }
 }

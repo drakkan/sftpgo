@@ -54,6 +54,7 @@ An account with no requirement and no TOTP keeps its password login after adding
 - With `rp_id` empty, a passkey works only on the host name it was added on. Set `rp_id` to the parent
   domain and list every origin in `origins` to use several. Changing `rp_id` later makes existing
   passkeys stop working. Behind a proxy that does not send `X-Forwarded-Proto`, set `origins`.
+- Adding a passkey needs a sign in from the last 10 minutes, as a passkey can get past 2FA.
 - "Disable 2FA" in the WebAdmin and `resetpwd` also remove passkeys, as both are the way back in.
 - A user who cannot use a password over HTTP (`denied_login_methods`) cannot use a passkey either.
 - There is no REST API for passkeys, and API logins are unchanged: a token request with a password

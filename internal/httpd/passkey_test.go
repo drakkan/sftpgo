@@ -322,3 +322,27 @@ func TestAssetLinks(t *testing.T) {
 	require.Len(t, links[0].Target.Fingerprints, 1, "an invalid fingerprint is left out")
 	assert.Equal(t, strings.TrimSuffix(strings.Repeat("AB:", 32), ":"), links[0].Target.Fingerprints[0])
 }
+
+func TestPasskeyNeedsRecentLogin(t *testing.T) {
+	now := time.Now()
+	claims := &jwt.Claims{AuthAt: now.Add(-time.Minute).Unix()}
+	assert.True(t, loginIsRecent(claims, now))
+	claims.AuthAt = now.Add(-passkeyRecentLogin - time.Second).Unix()
+	assert.False(t, loginIsRecent(claims, now), "an old sign in")
+	claims.AuthAt = 0
+	assert.False(t, loginIsRecent(claims, now), "a session from before this check, or with no sign in")
+}
+
+func TestRefreshKeepsLoginTime(t *testing.T) {
+	signer := newPasskeyTestSigner(t)
+	claims := &jwt.Claims{Username: "user", AuthAt: 1234}
+	first, err := signer.SignWithParams(claims, tokenAudienceWebClient, "192.0.2.1", time.Hour)
+	require.NoError(t, err)
+	decoded, err := jwt.VerifyToken(signer, first)
+	require.NoError(t, err)
+	second, err := signer.SignWithParams(decoded, tokenAudienceWebClient, "192.0.2.1", time.Hour)
+	require.NoError(t, err)
+	refreshed, err := jwt.VerifyToken(signer, second)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1234), refreshed.AuthAt, "a refresh is not a new sign in")
+}

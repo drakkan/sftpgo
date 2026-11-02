@@ -72,6 +72,9 @@ type Claims struct {
 	RequiredTwoFactorProtocols []string `json:"2fa_protos,omitempty"`
 	HideUserPageSections       int      `json:"hus,omitempty"`
 	Ref                        string   `json:"ref,omitempty"`
+	// AuthAt is when the credentials were last checked, in seconds since the epoch. Unlike
+	// the issue time it stays the same when the token is refreshed.
+	AuthAt int64 `json:"auth_at,omitempty"`
 }
 
 func (c *Claims) SetIssuedAt(t time.Time) {

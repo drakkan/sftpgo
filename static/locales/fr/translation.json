@@ -1239,6 +1239,7 @@
         "err_limit": "Vous avez atteint le nombre maximal de clés d'accès",
         "err_name": "Saisissez un nom de 64 caractères maximum qu'aucune autre clé d'accès n'utilise",
         "err_username": "Ce nom d'utilisateur est trop long pour être utilisé avec une clé d'accès",
-        "err_required": "L'authentification à deux facteurs est requise pour votre compte : conservez une clé d'accès ou configurez d'abord une application d'authentification"
+        "err_required": "L'authentification à deux facteurs est requise pour votre compte : conservez une clé d'accès ou configurez d'abord une application d'authentification",
+        "err_recent": "Pour votre sécurité, déconnectez-vous puis reconnectez-vous avant d'ajouter une clé d'accès"
     }
 }
