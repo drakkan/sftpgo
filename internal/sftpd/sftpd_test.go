@@ -12135,9 +12135,37 @@ func TestSCPUploadMaxSize(t *testing.T) {
 	assert.Error(t, err)
 	err = scpUpload(testFilePath, remoteUpPath, false, false)
 	assert.NoError(t, err)
+	// the limit also applies when an existing file is replaced
+	testFileSize2 := int64(100000)
+	testFileName2 := "test_file2.dat"
+	testFilePath2 := filepath.Join(homeBasePath, testFileName2)
+	err = createTestFile(testFilePath2, testFileSize2)
+	assert.NoError(t, err)
+	remoteExistingPath := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, path.Join("/", testFileName))
+	err = scpUpload(testFilePath2, remoteExistingPath, false, false)
+	assert.Error(t, err)
+	// replacing a file frees its size once, the quota is not exceeded
+	err = os.RemoveAll(filepath.Join(user.GetHomeDir(), testFileName))
+	assert.NoError(t, err)
+	user.Filters.MaxUploadFileSize = 0
+	user.QuotaSize = testFileSize2 - 1
+	user.UsedQuotaSize = 0
+	user.UsedQuotaFiles = 0
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	_, err = httpdtest.UpdateQuotaUsage(user, "reset", http.StatusOK)
+	assert.NoError(t, err)
+	err = scpUpload(testFilePath, remoteExistingPath, false, false)
+	assert.NoError(t, err)
+	err = scpUpload(testFilePath2, remoteExistingPath, false, false)
+	assert.Error(t, err)
+	err = scpUpload(testFilePath, remoteExistingPath, false, false)
+	assert.NoError(t, err)
 	err = os.Remove(testFilePath)
 	assert.NoError(t, err)
 	err = os.Remove(testFilePath1)
+	assert.NoError(t, err)
+	err = os.Remove(testFilePath2)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)

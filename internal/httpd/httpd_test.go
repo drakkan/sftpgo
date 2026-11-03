@@ -20430,6 +20430,62 @@ func TestStartDirectory(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestWebFilesMaxUploadSizeExistingFile(t *testing.T) {
+	u := getTestUser()
+	u.Filters.MaxUploadFileSize = 4096
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	uploadFile := func(fileName string, size int) *httptest.ResponseRecorder {
+		webAPIToken, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+		assert.NoError(t, err)
+		body := new(bytes.Buffer)
+		writer := multipart.NewWriter(body)
+		part, err := writer.CreateFormFile("filenames", fileName)
+		assert.NoError(t, err)
+		_, err = part.Write(make([]byte, size))
+		assert.NoError(t, err)
+		assert.NoError(t, writer.Close())
+		req, err := http.NewRequest(http.MethodPost, userFilesPath, bytes.NewReader(body.Bytes()))
+		assert.NoError(t, err)
+		req.Header.Add("Content-Type", writer.FormDataContentType())
+		setBearerForReq(req, webAPIToken)
+		return executeRequest(req)
+	}
+	checkFileSize := func(fileName string, maxSize int64) {
+		info, err := os.Stat(filepath.Join(user.GetHomeDir(), fileName))
+		if err == nil {
+			assert.LessOrEqual(t, info.Size(), maxSize)
+		} else {
+			assert.True(t, os.IsNotExist(err), "unexpected error: %v", err)
+		}
+	}
+	// the per-file limit also applies when an existing file is replaced
+	checkResponseCode(t, http.StatusCreated, uploadFile("file.data", 4096))
+	checkResponseCode(t, http.StatusRequestEntityTooLarge, uploadFile("file.data", 8192))
+	checkFileSize("file.data", 4096)
+	// replacing a file frees its size once, the quota is not exceeded
+	err = os.RemoveAll(filepath.Join(user.GetHomeDir(), "file.data"))
+	assert.NoError(t, err)
+	user.Filters.MaxUploadFileSize = 0
+	user.QuotaSize = 10000
+	user.UsedQuotaSize = 0
+	user.UsedQuotaFiles = 0
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	_, err = httpdtest.UpdateQuotaUsage(user, "reset", http.StatusOK)
+	assert.NoError(t, err)
+	checkResponseCode(t, http.StatusCreated, uploadFile("quota.data", 6000))
+	checkResponseCode(t, http.StatusRequestEntityTooLarge, uploadFile("quota.data", 15000))
+	checkFileSize("quota.data", 10000)
+	checkResponseCode(t, http.StatusCreated, uploadFile("quota.data", 10000))
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestWebFilesTransferQuotaLimits(t *testing.T) {
 	u := getTestUser()
 	u.UploadDataTransfer = 1

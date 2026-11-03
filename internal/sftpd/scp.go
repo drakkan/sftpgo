@@ -271,9 +271,6 @@ func (c *scpCommand) handleUploadFile(fs vfs.Fs, resolvedPath, filePath string, 
 			initialSize = fileSize
 			truncatedSize = initialSize
 		}
-		if maxWriteSize > 0 {
-			maxWriteSize += fileSize
-		}
 	}
 
 	vfs.SetPathPermissions(fs, filePath, c.connection.User.GetUID(), c.connection.User.GetGID())
