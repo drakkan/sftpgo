@@ -34,7 +34,6 @@ any public release, and search the USPTO and EUIPO registers for the name.
 - Installing the package over SFTPGo migrates it: see `MIGRATING.md`. User files stay in `/srv/sftpgo` on
   purpose, so those paths and `users_base_dir` keep the old name on migrated systems. To test it, build
   the package, then run `sudo tests/sftpgo-migration/run.sh gonas.deb sftpgo.deb` on a machine with systemd.
-- The footer's source link points to `xrogers/sftpgo`, so update it if the repository is renamed.
 
 ## Android wrapper
 
