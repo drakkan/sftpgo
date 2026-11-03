@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# offload: run a heavy command (build, tests) on the PC when it is reachable,
+# otherwise run it locally.
+#
+#   scripts/offload go test ./internal/...
+#   scripts/offload go build -o gonas .
+#
+# The working tree (including uncommitted changes, excluding .git and
+# gitignored files) is rsynced to the PC before the command runs there.
+#
+# Environment:
+#   OFFLOAD_HOST   ssh host to use              (default: pc, see ~/.ssh/config)
+#   OFFLOAD_DIR    remote dir, relative to ~    (default: src/gonas)
+#   OFFLOAD_LOCAL  set to 1 to force a local run
+set -euo pipefail
+
+HOST=${OFFLOAD_HOST:-pc}
+DIR=${OFFLOAD_DIR:-src/gonas}
+ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
+
+if [ $# -eq 0 ]; then
+  echo "usage: $0 <command> [args...]" >&2
+  exit 2
+fi
+
+run_local() {
+  cd "$ROOT"
+  exec "$@"
+}
+
+if [ "${OFFLOAD_LOCAL:-}" = 1 ]; then
+  run_local "$@"
+fi
+
+if ! ssh -o ConnectTimeout=3 -o BatchMode=yes "$HOST" true 2>/dev/null; then
+  echo "[offload] $HOST unreachable, running locally" >&2
+  run_local "$@"
+fi
+
+echo "[offload] syncing to $HOST:~/$DIR" >&2
+rsync -az --delete \
+  --exclude /.git \
+  --filter=':- .gitignore' \
+  --rsync-path="mkdir -p $DIR && rsync" \
+  "$ROOT/" "$HOST:$DIR/"
+
+echo "[offload] running on $HOST: $*" >&2
+cmd=$(printf '%q ' "$@")
+tty=()
+[ -t 1 ] && tty=(-t)
+exec ssh "${tty[@]}" "$HOST" "cd $DIR && exec bash -lc $(printf '%q' "$cmd")"
