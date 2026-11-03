@@ -244,9 +244,6 @@ func (c *Connection) handleUploadFile(fs vfs.Fs, resolvedPath, filePath, request
 			initialSize = fileSize
 			truncatedSize = fileSize
 		}
-		if maxWriteSize > 0 {
-			maxWriteSize += fileSize
-		}
 	}
 
 	vfs.SetPathPermissions(fs, filePath, c.User.GetUID(), c.User.GetGID())
