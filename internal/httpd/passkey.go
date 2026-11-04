@@ -52,6 +52,7 @@ const (
 	passkeyCredential    = "credential"
 
 	tokenAudiencePasskeyLogin     tokenAudience = "PasskeyLogin"
+	tokenAudiencePasskeyAPILogin  tokenAudience = "PasskeyAPILogin"
 	tokenAudiencePasskeyTwoFactor tokenAudience = "PasskeyTwoFactor"
 	tokenAudiencePasskeyRegister  tokenAudience = "PasskeyRegister"
 
@@ -222,9 +223,13 @@ func (s *httpdServer) newPasskeyProvider(r *http.Request) (*webauthn.WebAuthn, e
 		}
 		origins = []string{fmt.Sprintf("%s://%s", scheme, r.Host)}
 	}
+	displayName := s.binding.webClientBranding().ShortName
+	if displayName == "" {
+		displayName = "GoNAS"
+	}
 	return webauthn.New(&webauthn.Config{
 		RPID:            rpID,
-		RPDisplayName:   s.binding.webClientBranding().ShortName,
+		RPDisplayName:   displayName,
 		RPOrigins:       origins,
 		RPOpaqueOrigins: append(opaqueOrigins, androidPasskeyOrigins()...),
 	})
@@ -377,27 +382,33 @@ func (s *httpdServer) sendPasskeyOptions(
 	render.JSON(w, r, passkeyOptions{Token: token, Options: options})
 }
 
-func (s *httpdServer) handlePasskeyLoginOptions(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
-	provider, err := s.newPasskeyProvider(r)
-	if err != nil {
-		sendAPIResponse(w, r, err, i18nErrorPasskeyFailed, http.StatusBadRequest)
-		return
+// passkeyLoginOptions returns the handler that starts a sign in with a passkey. The audience keeps
+// the challenges of the web pages and of the REST API apart.
+func (s *httpdServer) passkeyLoginOptions(audience string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
+		provider, err := s.newPasskeyProvider(r)
+		if err != nil {
+			sendAPIResponse(w, r, err, i18nErrorPasskeyFailed, http.StatusBadRequest)
+			return
+		}
+		assertion, session, err := provider.BeginDiscoverableLogin(webauthn.WithUserVerification(protocol.VerificationRequired))
+		if err != nil {
+			sendAPIResponse(w, r, err, i18nErrorPasskeyFailed, http.StatusInternalServerError)
+			return
+		}
+		s.sendPasskeyOptions(w, r, audience, assertion.Response, session)
 	}
-	assertion, session, err := provider.BeginDiscoverableLogin(webauthn.WithUserVerification(protocol.VerificationRequired))
-	if err != nil {
-		sendAPIResponse(w, r, err, i18nErrorPasskeyFailed, http.StatusInternalServerError)
-		return
-	}
-	s.sendPasskeyOptions(w, r, tokenAudiencePasskeyLogin, assertion.Response, session)
 }
 
-// validateDiscoverableLogin checks a passkey sign in from the login page. The account comes from
-// the passkey itself: lookup returns the credentials of the account named by the user handle.
+// validateDiscoverableLogin checks a passkey sign in from the login page or the REST API. The
+// account comes from the passkey itself: lookup returns the credentials of the account named by
+// the user handle.
 func (s *httpdServer) validateDiscoverableLogin(
-	r *http.Request, ipAddr string, lookup func(username string) (*passkeyAccount, error),
+	r *http.Request, ipAddr, audience, token string, credentialJSON []byte,
+	lookup func(username string) (*passkeyAccount, error),
 ) (*webauthn.Credential, error) {
-	session, err := consumePasskeyToken(s.csrfTokenAuth, r.Form.Get(passkeyTokenField), tokenAudiencePasskeyLogin, ipAddr)
+	session, err := consumePasskeyToken(s.csrfTokenAuth, token, audience, ipAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -405,7 +416,7 @@ func (s *httpdServer) validateDiscoverableLogin(
 	if err != nil {
 		return nil, err
 	}
-	parsed, err := protocol.ParseCredentialRequestResponseBytes([]byte(r.Form.Get(passkeyCredential)))
+	parsed, err := protocol.ParseCredentialRequestResponseBytes(credentialJSON)
 	if err != nil {
 		return nil, errPasskeyInvalid
 	}
@@ -485,18 +496,19 @@ func (s *httpdServer) handleWebClientPasskeyLoginPost(w http.ResponseWriter, r *
 		return
 	}
 	var user, userMerged dataprovider.User
-	credential, err := s.validateDiscoverableLogin(r, ipAddr, func(username string) (*passkeyAccount, error) {
-		var err error
-		user, userMerged, err = dataprovider.GetUserVariants(username, "")
-		if err != nil {
-			return nil, err
-		}
-		failed.Username = user.Username
-		if !userMerged.CanManageMFA() {
-			return nil, errPasskeyDisabled
-		}
-		return &passkeyAccount{username: user.Username, passkeys: user.Filters.Passkeys}, nil
-	})
+	credential, err := s.validateDiscoverableLogin(r, ipAddr, tokenAudiencePasskeyLogin,
+		r.Form.Get(passkeyTokenField), []byte(r.Form.Get(passkeyCredential)), func(username string) (*passkeyAccount, error) {
+			var err error
+			user, userMerged, err = dataprovider.GetUserVariants(username, "")
+			if err != nil {
+				return nil, err
+			}
+			failed.Username = user.Username
+			if !userMerged.CanManageMFA() {
+				return nil, errPasskeyDisabled
+			}
+			return &passkeyAccount{username: user.Username, passkeys: user.Filters.Passkeys}, nil
+		})
 	if err != nil {
 		logger.Debug(logSender, "", "passkey login failed: %v", err)
 		updateLoginMetrics(failed, dataprovider.LoginMethodPasskey, ipAddr, dataprovider.ErrInvalidCredentials, r)
@@ -538,17 +550,18 @@ func (s *httpdServer) handleWebAdminPasskeyLoginPost(w http.ResponseWriter, r *h
 		return
 	}
 	var admin dataprovider.Admin
-	credential, err := s.validateDiscoverableLogin(r, ipAddr, func(username string) (*passkeyAccount, error) {
-		var err error
-		admin, err = dataprovider.AdminExists(username)
-		if err != nil {
-			return nil, err
-		}
-		if !admin.CanManageMFA() {
-			return nil, errPasskeyDisabled
-		}
-		return &passkeyAccount{username: admin.Username, passkeys: admin.Filters.Passkeys}, nil
-	})
+	credential, err := s.validateDiscoverableLogin(r, ipAddr, tokenAudiencePasskeyLogin,
+		r.Form.Get(passkeyTokenField), []byte(r.Form.Get(passkeyCredential)), func(username string) (*passkeyAccount, error) {
+			var err error
+			admin, err = dataprovider.AdminExists(username)
+			if err != nil {
+				return nil, err
+			}
+			if !admin.CanManageMFA() {
+				return nil, errPasskeyDisabled
+			}
+			return &passkeyAccount{username: admin.Username, passkeys: admin.Filters.Passkeys}, nil
+		})
 	if err == nil {
 		err = admin.CanLogin(ipAddr)
 	}
@@ -957,7 +970,7 @@ func newPasskeyPageData(url string, passkeys []dataprovider.Passkey) passkeyPage
 }
 
 func (s *httpdServer) registerPasskeyLoginRoutes(login, twoFactor string, partial string, isAdmin bool) {
-	options := s.handlePasskeyLoginOptions
+	options := s.passkeyLoginOptions(tokenAudiencePasskeyLogin)
 	twoFactorOptions, twoFactorPost := s.handleWebClientPasskeyTwoFactorOptions, s.handleWebClientPasskeyTwoFactorPost
 	loginPost := s.handleWebClientPasskeyLoginPost
 	if isAdmin {

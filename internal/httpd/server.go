@@ -896,26 +896,20 @@ func (s *httpdServer) getUserToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if user.Filters.TOTPConfig.Enabled && slices.Contains(user.Filters.TOTPConfig.Protocols, common.ProtocolHTTP) {
-		passcode := r.Header.Get(otpHeaderCode)
-		if passcode == "" {
-			logger.Debug(logSender, "", "TOTP enabled for user %q and not passcode provided, authentication refused", user.Username)
+	if status, err := checkUserTOTPHeader(&user, r); err != nil {
+		if status == http.StatusUnauthorized {
 			w.Header().Set(common.HTTPAuthenticationHeader, basicRealm)
-			updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, dataprovider.ErrInvalidCredentials, r)
-			sendAPIResponse(w, r, dataprovider.ErrInvalidCredentials, http.StatusText(http.StatusUnauthorized),
-				http.StatusUnauthorized)
-			return
-		}
-		err = user.Filters.TOTPConfig.Secret.Decrypt()
-		if err != nil {
+			updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, err, r)
+		} else {
 			updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, common.ErrInternalFailure, r)
-			sendAPIResponse(w, r, fmt.Errorf("unable to decrypt TOTP secret: %w", err), http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-			return
 		}
-		match, err := mfa.ValidateTOTPPasscode(user.Filters.TOTPConfig.ConfigName, passcode,
-			user.Filters.TOTPConfig.Secret.GetPayload())
-		if !match || err != nil {
-			logger.Debug(logSender, "invalid passcode for user %q, match? %v, err: %v", user.Username, match, err)
+		sendAPIResponse(w, r, err, http.StatusText(status), status)
+		return
+	}
+	// An account whose second factor is a passkey cannot sign in with its password alone, as in
+	// the WebClient: it would otherwise get a token that can add a passkey or set up TOTP.
+	if !user.Filters.TOTPConfig.Enabled || !slices.Contains(user.Filters.TOTPConfig.Protocols, common.ProtocolHTTP) {
+		if userMustUseSecondFactor(&user) {
 			w.Header().Set(common.HTTPAuthenticationHeader, basicRealm)
 			updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, dataprovider.ErrInvalidCredentials, r)
 			sendAPIResponse(w, r, dataprovider.ErrInvalidCredentials, http.StatusText(http.StatusUnauthorized),
@@ -933,15 +927,45 @@ func (s *httpdServer) getUserToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.generateAndSendUserToken(w, r, ipAddr, user)
+	// A password does not stand in for a passkey that the account must use as its second factor.
+	s.generateAndSendUserToken(w, r, ipAddr, user, dataprovider.LoginMethodPassword, user.MustSetSecondFactor())
 }
 
-func (s *httpdServer) generateAndSendUserToken(w http.ResponseWriter, r *http.Request, ipAddr string, user dataprovider.User) {
+// checkUserTOTPHeader checks the code that a token request must carry if the user has TOTP for
+// HTTP. It returns the status to answer with if the code is missing or wrong.
+func checkUserTOTPHeader(user *dataprovider.User, r *http.Request) (int, error) {
+	if !user.Filters.TOTPConfig.Enabled || !slices.Contains(user.Filters.TOTPConfig.Protocols, common.ProtocolHTTP) {
+		return http.StatusOK, nil
+	}
+	passcode := r.Header.Get(otpHeaderCode)
+	if passcode == "" {
+		logger.Debug(logSender, "", "TOTP enabled for user %q and not passcode provided, authentication refused", user.Username)
+		return http.StatusUnauthorized, dataprovider.ErrInvalidCredentials
+	}
+	if err := user.Filters.TOTPConfig.Secret.Decrypt(); err != nil {
+		return http.StatusInternalServerError, fmt.Errorf("unable to decrypt TOTP secret: %w", err)
+	}
+	match, err := mfa.ValidateTOTPPasscode(user.Filters.TOTPConfig.ConfigName, passcode,
+		user.Filters.TOTPConfig.Secret.GetPayload())
+	if !match || err != nil {
+		logger.Debug(logSender, "", "invalid passcode for user %q, match? %v, err: %v", user.Username, match, err)
+		return http.StatusUnauthorized, dataprovider.ErrInvalidCredentials
+	}
+	return http.StatusOK, nil
+}
+
+func (s *httpdServer) generateAndSendUserToken(
+	w http.ResponseWriter, r *http.Request, ipAddr string, user dataprovider.User, loginMethod string,
+	mustSetSecondFactor bool,
+) {
 	c := &jwt.Claims{
-		Username:                   user.Username,
-		Permissions:                user.Filters.WebClient,
-		Role:                       user.Role,
-		MustSetTwoFactorAuth:       user.MustSetSecondFactor(),
+		Username:             user.Username,
+		Permissions:          user.Filters.WebClient,
+		Role:                 user.Role,
+		MustSetTwoFactorAuth: mustSetSecondFactor,
+		// The credentials were just checked, which lets the token add a passkey, and API
+		// tokens are never refreshed.
+		AuthAt:                     time.Now().Unix(),
 		MustChangePassword:         user.MustChangePassword(),
 		RequiredTwoFactorProtocols: user.Filters.TwoFactorAuthProtocols,
 	}
@@ -949,11 +973,11 @@ func (s *httpdServer) generateAndSendUserToken(w http.ResponseWriter, r *http.Re
 
 	token, err := s.tokenAuth.SignWithParams(c, tokenAudienceAPIUser, ipAddr, getTokenDuration(tokenAudienceAPIUser))
 	if err != nil {
-		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, common.ErrInternalFailure, r)
+		updateLoginMetrics(&user, loginMethod, ipAddr, common.ErrInternalFailure, r)
 		sendAPIResponse(w, r, err, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
-	updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, err, r)
+	updateLoginMetrics(&user, loginMethod, ipAddr, err, r)
 	dataprovider.UpdateLastLogin(&user)
 
 	render.JSON(w, r, c.BuildTokenResponse(token))
@@ -1516,6 +1540,10 @@ func (s *httpdServer) setupRESTAPIRoutes() {
 
 		if !s.binding.isUserTokenEndpointDisabled() {
 			s.router.Get(userTokenPath, s.getUserToken)
+			if passkeysConfig.Enabled {
+				s.router.Get(userTokenPasskeyPath, s.passkeyLoginOptions(tokenAudiencePasskeyAPILogin))
+				s.router.Post(userTokenPasskeyPath, s.getUserTokenWithPasskey)
+			}
 			s.router.Post(userPath+"/{username}/forgot-password", forgotUserPassword)
 			s.router.Post(userPath+"/{username}/reset-password", resetUserPassword)
 		}
@@ -1528,6 +1556,7 @@ func (s *httpdServer) setupRESTAPIRoutes() {
 			router.Use(jwtAuthenticatorAPIUser)
 
 			router.With(forbidAPIKeyAuthentication).Get(userLogoutPath, s.logout)
+			router.With(forbidAPIKeyAuthentication).Get(userTokenRefreshPath, s.refreshUserToken)
 			router.With(forbidAPIKeyAuthentication, s.checkHTTPUserPerm(sdk.WebClientPasswordChangeDisabled)).
 				Put(userPwdPath, changeUserPassword)
 			router.With(forbidAPIKeyAuthentication).Get(userProfilePath, getUserProfile)
@@ -1556,6 +1585,21 @@ func (s *httpdServer) setupRESTAPIRoutes() {
 			router.With(forbidAPIKeyAuthentication, s.checkHTTPUserPerm(sdk.WebClientMFADisabled)).
 				Post(user2FARecoveryCodesPath, generateRecoveryCodes)
 
+			// Passkeys, like TOTP, are not for API keys. Adding one needs a token issued in the
+			// last 10 minutes, and is allowed before two-factor authentication is set up, as it
+			// can be what sets it up.
+			if passkeysConfig.Enabled {
+				router.With(forbidAPIKeyAuthentication, s.checkHTTPUserPerm(sdk.WebClientMFADisabled)).
+					Get(userPasskeysPath, getUserPasskeys)
+				router.With(forbidAPIKeyAuthentication, s.checkHTTPUserPerm(sdk.WebClientMFADisabled)).
+					Post(userPasskeysPath+"/begin", s.handlePasskeyRegisterBegin)
+				router.With(forbidAPIKeyAuthentication, s.checkHTTPUserPerm(sdk.WebClientMFADisabled)).
+					Post(userPasskeysPath+"/finish", s.handlePasskeyRegisterFinish)
+				router.With(forbidAPIKeyAuthentication, s.checkHTTPUserPerm(sdk.WebClientMFADisabled)).
+					Delete(userPasskeysPath+"/{id}", s.handlePasskeyDelete)
+			}
+			router.With(s.checkAuthRequirements, compressor.Handler).Get(userSearchPath, searchUserFiles)
+			router.With(s.checkAuthRequirements).Get(userThumbnailPath, s.handleClientThumbnail)
 			router.With(s.checkAuthRequirements, compressor.Handler).Get(userDirsPath, readUserFolder)
 			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled)).
 				Post(userDirsPath, createUserDir)

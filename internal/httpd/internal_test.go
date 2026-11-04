@@ -1696,7 +1696,7 @@ func TestCreateTokenError(t *testing.T) {
 	}
 	req, _ = http.NewRequest(http.MethodGet, userTokenPath, nil)
 
-	server.generateAndSendUserToken(rr, req, "", user)
+	server.generateAndSendUserToken(rr, req, "", user, dataprovider.LoginMethodPassword, false)
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
 
 	c := &jwt.Claims{}

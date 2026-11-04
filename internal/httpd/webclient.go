@@ -16,6 +16,7 @@ package httpd
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/json"
 	"errors"
@@ -1301,7 +1302,6 @@ func (s *httpdServer) handleClientSearch(w http.ResponseWriter, r *http.Request)
 
 	startDir := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
-	qLower := strings.ToLower(q)
 
 	results := make([]map[string]any, 0)
 	if q == "" {
@@ -1312,88 +1312,42 @@ func (s *httpdServer) handleClientSearch(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Breadth-first walk starting at startDir, bounded by the safety caps.
-	queue := []string{startDir}
-	dirsWalked := 0
-	truncated := false
-
-	for len(queue) > 0 {
-		// Nobody reads the result of an abandoned search, and each step can be a paid
-		// call on cloud backends. Typing in the search box abandons searches.
-		if r.Context().Err() != nil {
-			return
-		}
-		if dirsWalked >= maxSearchDirs {
-			truncated = true
-			break
-		}
-		dir := queue[0]
-		queue = queue[1:]
-		dirsWalked++
-
-		lister, err := connection.ReadDir(dir)
-		if err != nil {
-			// Skip directories the user cannot list or that no longer exist.
-			connection.Log(logger.LevelDebug, "search: skipping dir %q: %v", dir, err)
-			continue
-		}
-
-		for {
-			entries, err := lister.Next(defaultQueryLimit)
-			for _, info := range entries {
-				name := info.Name()
-				if info.IsDir() {
-					// Always recurse, whether or not the folder name itself matches.
-					queue = append(queue, path.Join(dir, name))
-				}
-				if !matchesSearchQuery(q, qLower, name) {
-					continue
-				}
-				res := make(map[string]any)
-				res["id"] = len(results) + 1
-				res["url"] = getFileObjectURL(dir, name, webClientFilesPath)
-				if info.IsDir() {
-					res["type"] = "1"
-					res["size"] = ""
-					res["dir_path"] = url.QueryEscape(path.Join(dir, name))
-				} else {
-					res["type"] = "2"
-					if info.Mode()&os.ModeSymlink != 0 {
-						res["size"] = ""
-					} else {
-						res["size"] = info.Size()
-						if info.Size() < httpdMaxEditFileSize {
-							res["edit_url"] = strings.Replace(res["url"].(string), webClientFilesPath, webClientEditFilePath, 1)
-						}
-					}
-				}
-				res["meta"] = fmt.Sprintf("%v_%v", res["type"], name)
-				res["name"] = name
-				res["last_modified"] = getFileObjectModTime(info.ModTime())
-				// Extra field (search only): the hit's parent directory, so the UI can
-				// show where each result lives and navigate to it.
-				res["path"] = dir
-				results = append(results, res)
-
-				if len(results) >= maxSearchResults {
-					truncated = true
-					break
+	truncated, aborted := walkSearch(r.Context(), connection, startDir, q, func(dir string, info os.FileInfo) bool {
+		name := info.Name()
+		res := make(map[string]any)
+		res["id"] = len(results) + 1
+		res["url"] = getFileObjectURL(dir, name, webClientFilesPath)
+		if info.IsDir() {
+			res["type"] = "1"
+			res["size"] = ""
+			res["dir_path"] = url.QueryEscape(path.Join(dir, name))
+		} else {
+			res["type"] = "2"
+			if info.Mode()&os.ModeSymlink != 0 {
+				res["size"] = ""
+			} else {
+				res["size"] = info.Size()
+				if info.Size() < httpdMaxEditFileSize {
+					res["edit_url"] = strings.Replace(res["url"].(string), webClientFilesPath, webClientEditFilePath, 1)
 				}
 			}
-			if errors.Is(err, io.EOF) || err != nil || truncated {
-				break
-			}
 		}
-		lister.Close()
-
-		if truncated {
-			break
-		}
+		res["meta"] = fmt.Sprintf("%v_%v", res["type"], name)
+		res["name"] = name
+		res["last_modified"] = getFileObjectModTime(info.ModTime())
+		// Extra field (search only): the hit's parent directory, so the UI can
+		// show where each result lives and navigate to it.
+		res["path"] = dir
+		results = append(results, res)
+		return len(results) < maxSearchResults
+	})
+	if aborted {
+		return
 	}
 
 	if truncated {
-		connection.Log(logger.LevelInfo, "search for %q under %q hit a safety cap (dirs walked: %d, results: %d); returning partial results",
-			q, startDir, dirsWalked, len(results))
+		connection.Log(logger.LevelInfo, "search for %q under %q hit a safety cap (results: %d); returning partial results",
+			q, startDir, len(results))
 	}
 
 	dataGetter := func(limit, offset int) ([]byte, int, error) {
@@ -2545,4 +2499,55 @@ func keepAliveTask(task webTaskData, conn *Connection, done chan bool, interval 
 			logger.Debug(logSender, task.ID, "task timestamp updated, err: %v", err)
 		}
 	}
+}
+
+// walkSearch visits, breadth first from startDir, the entries whose names match q, and descends
+// into every folder whether or not its name matches. It stops when add returns false or a
+// safety cap is reached, which it reports as truncated, and gives up with aborted set once the
+// client has gone: nobody reads the result of an abandoned search, and each step can be a paid
+// call on cloud backends.
+func walkSearch(
+	ctx context.Context, connection *Connection, startDir, q string, add func(dir string, info os.FileInfo) bool,
+) (truncated, aborted bool) {
+	qLower := strings.ToLower(q)
+	queue := []string{startDir}
+	dirsWalked := 0
+	for len(queue) > 0 {
+		if ctx.Err() != nil {
+			return false, true
+		}
+		if dirsWalked >= maxSearchDirs {
+			return true, false
+		}
+		dir := queue[0]
+		queue = queue[1:]
+		dirsWalked++
+
+		lister, err := connection.ReadDir(dir)
+		if err != nil {
+			// Skip directories the user cannot list or that no longer exist.
+			connection.Log(logger.LevelDebug, "search: skipping dir %q: %v", dir, err)
+			continue
+		}
+		for {
+			entries, err := lister.Next(defaultQueryLimit)
+			for _, info := range entries {
+				if info.IsDir() {
+					queue = append(queue, path.Join(dir, info.Name()))
+				}
+				if !matchesSearchQuery(q, qLower, info.Name()) {
+					continue
+				}
+				if !add(dir, info) {
+					lister.Close()
+					return true, false
+				}
+			}
+			if err != nil {
+				break
+			}
+		}
+		lister.Close()
+	}
+	return false, false
 }

@@ -57,8 +57,9 @@ An account with no requirement and no TOTP keeps its password login after adding
 - Adding a passkey needs a sign in from the last 10 minutes, as a passkey can get past 2FA.
 - "Disable 2FA" in the WebAdmin and `resetpwd` also remove passkeys, as both are the way back in.
 - A user who cannot use a password over HTTP (`denied_login_methods`) cannot use a passkey either.
-- There is no REST API for passkeys, and API logins are unchanged: a token request with a password
-  from an account that must use 2FA still needs TOTP.
+- The REST API can use passkeys too, see [REST API for native apps](#rest-api-for-native-apps). A token
+  request with a password from an account that must use 2FA still needs TOTP, and one from an account
+  whose second factor is a passkey is refused, as on the login page.
 - For the Android app, set `android_cert_fingerprints`. That publishes
   `/.well-known/assetlinks.json`, which Android needs before it lets an app use a domain's passkeys,
   and accepts the app's origin. Two forms of that origin are derived from each fingerprint, as sources
@@ -68,6 +69,31 @@ Challenges are signed instead of stored, so that visitors cannot fill the server
 `invalidatedJWTTokens` makes each one single use. They last 5 minutes and are bound to the client's
 address. `tests/webclient-e2e/run.sh passkey` tests all of this through Chromium's virtual
 authenticator, with `SKIP_2FA=0` for the other mode.
+
+## REST API for native apps
+
+The Android app talks to the REST API instead of wrapping the WebClient. These routes are in
+`openapi/openapi.yaml`, and `api_user_native_test.go` tests them with a key held the way the app
+holds its own.
+
+| Route | Use |
+| --- | --- |
+| `GET /api/v2/user/token/passkey` | WebAuthn options and a token holding their challenge |
+| `POST /api/v2/user/token/passkey` | An API token for `{token, credential}`, as `/api/v2/user/token` returns |
+| `GET /api/v2/user/token/refresh` | A new token for a valid one, up to 12 hours after the sign in |
+| `GET /api/v2/user/passkeys` | The user's passkeys |
+| `POST /api/v2/user/passkeys/begin`, `/finish` | Add a passkey, as the 2FA page does |
+| `DELETE /api/v2/user/passkeys/{id}` | Remove one |
+| `GET /api/v2/user/search?q=&path=` | The WebClient's recursive search, as folder entries plus `path` |
+| `GET /api/v2/user/thumbnail?path=` | The WebClient's thumbnails |
+
+- Challenges of the API and of the login page have different audiences, so neither works for the other.
+- API tokens now record when the credentials were checked, like web sessions. A refresh keeps that
+  time, so a token can add a passkey only in the first 10 minutes after the sign in, and a session
+  ends 12 hours after it, as in the WebClient. A changed password or a disabled account ends it sooner.
+- A passkey token counts the passkey as the second factor, if `skip_two_factor` is on. Otherwise an
+  account with TOTP also sends its code, in `X-GONAS-OTP`.
+- The passkey routes refuse API keys, like the TOTP ones.
 
 ## API keys
 

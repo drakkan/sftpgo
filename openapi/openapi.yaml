@@ -386,6 +386,95 @@ paths:
           $ref: '#/components/responses/InternalServerError'
         default:
           $ref: '#/components/responses/DefaultResponse'
+  /user/token/passkey:
+    get:
+      security: []
+      tags:
+        - token
+      summary: Start a passkey sign in
+      description: 'Returns the WebAuthn options of a discoverable sign in, and a token that holds their challenge. The token lasts 5 minutes, is single use and only valid from the same IP address. Only available if passkeys are enabled'
+      operationId: get_user_passkey_options
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasskeyOptions'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+    post:
+      security: []
+      tags:
+        - token
+      summary: Get a user access token with a passkey
+      description: 'Checks a WebAuthn assertion made on the challenge of the options endpoint, and returns an access token as the token endpoint does. If passkeys do not satisfy two-factor authentication (`skip_two_factor` false), an account with TOTP for HTTP must also send its code in the X-GONAS-OTP header'
+      operationId: get_user_token_with_passkey
+      parameters:
+        - in: header
+          name: X-GONAS-OTP
+          schema:
+            type: string
+          required: false
+          description: 'Only needed if passkeys do not satisfy two-factor authentication and the user has TOTP configured for HTTP'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                  description: the token returned with the options
+                credential:
+                  type: object
+                  description: 'the PublicKeyCredential of the assertion, in the JSON form of WebAuthn Level 3, with binary values in base64url'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Token'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /user/token/refresh:
+    get:
+      security:
+        - BearerAuth: []
+      tags:
+        - token
+      summary: Refresh a user access token
+      description: 'Returns a new access token for a valid one, as the WebClient refreshes its session. The new token keeps the time of the sign in, so a session cannot be extended past 12 hours, and the account is checked again. Not available with API key authentication'
+      operationId: refresh_user_token
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Token'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
   /user/logout:
     get:
       security:
@@ -4472,6 +4561,198 @@ paths:
           $ref: '#/components/responses/InternalServerError'
         default:
           $ref: '#/components/responses/DefaultResponse'
+  /user/passkeys:
+    get:
+      tags:
+        - user APIs
+      summary: List passkeys
+      description: 'Returns the passkeys of the logged in user. Not available with API key authentication'
+      operationId: get_user_passkeys
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Passkey'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /user/passkeys/begin:
+    post:
+      tags:
+        - user APIs
+      summary: Start adding a passkey
+      description: 'Returns the WebAuthn creation options and a token that holds their challenge. The access token must have been issued in the last 10 minutes, as a passkey can get past two-factor authentication. Not available with API key authentication'
+      operationId: begin_user_passkey
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasskeyOptions'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /user/passkeys/finish:
+    post:
+      tags:
+        - user APIs
+      summary: Add a passkey
+      description: 'Checks the WebAuthn attestation made on the challenge of the begin endpoint, and stores the passkey. If passkeys satisfy two-factor authentication, new recovery codes are generated when fewer than 5 are left'
+      operationId: finish_user_passkey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                  description: the token returned with the options
+                name:
+                  type: string
+                  description: a name for the passkey, unique for the user
+                credential:
+                  type: object
+                  description: 'the PublicKeyCredential of the attestation, in the JSON form of WebAuthn Level 3, with binary values in base64url'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /user/passkeys/{id}:
+    delete:
+      tags:
+        - user APIs
+      summary: Remove a passkey
+      description: 'The last passkey cannot be removed while it is the second factor that the account must use'
+      operationId: delete_user_passkey
+      parameters:
+        - in: path
+          name: id
+          required: true
+          description: the passkey id, in base64url
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /user/search:
+    get:
+      tags:
+        - user APIs
+      summary: Search files and folders
+      description: 'Returns the files and folders under a path whose names match the query, searching subfolders. Without wildcards the query matches anywhere in the name, ignoring case. With "*" or "?" it is a case-sensitive pattern for the whole name. Results stop at 2000 entries or 5000 folders walked, and the response then has the X-GONAS-Search-Truncated header'
+      operationId: search_user_files
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: path
+          description: the folder to search, the user's start directory if empty
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+          headers:
+            X-GONAS-Search-Truncated:
+              schema:
+                type: string
+              description: '"true" if the results are incomplete'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SearchResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /user/thumbnail:
+    get:
+      tags:
+        - user APIs
+      summary: Get a thumbnail
+      description: 'Returns a JPEG thumbnail of an image or video, at most 200 pixels on its longest edge. Answers 404 if thumbnails are disabled or the file has none'
+      operationId: get_user_thumbnail
+      parameters:
+        - in: query
+          name: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
   /user/dirs:
     get:
       tags:
@@ -6906,6 +7187,35 @@ components:
           type: string
         new_password:
           type: string
+    PasskeyOptions:
+      type: object
+      properties:
+        token:
+          type: string
+          description: 'send it back with the credential: it holds the challenge'
+        options:
+          type: object
+          description: 'PublicKeyCredentialRequestOptions or PublicKeyCredentialCreationOptions, in the JSON form of WebAuthn Level 3'
+    Passkey:
+      type: object
+      properties:
+        id:
+          type: string
+          description: credential id, in base64url
+        name:
+          type: string
+        created_at:
+          type: integer
+          format: int64
+          description: 'creation time as unix timestamp in milliseconds'
+    SearchResult:
+      allOf:
+        - $ref: '#/components/schemas/DirEntry'
+        - type: object
+          properties:
+            path:
+              type: string
+              description: the folder that holds the entry
     DirEntry:
       type: object
       properties:
