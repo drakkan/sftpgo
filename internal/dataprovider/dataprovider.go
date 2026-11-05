@@ -3050,14 +3050,6 @@ func validatePublicKeys(user *User) error {
 				util.I18nErrorPubKeyInvalid,
 			)
 		}
-		//lint:ignore SA1019 the check names DSA to reject it
-		if out.Type() == ssh.InsecureKeyAlgoDSA {
-			providerLog(logger.LevelError, "dsa public key not accepted, position: %d", idx)
-			return util.NewI18nError(
-				util.NewValidationError(fmt.Sprintf("DSA key format is insecure and it is not allowed for key at position %d", idx)),
-				util.I18nErrorKeyInsecure,
-			)
-		}
 		if k, ok := out.(ssh.CryptoPublicKey); ok {
 			cryptoKey := k.CryptoPublicKey()
 			if rsaKey, ok := cryptoKey.(*rsa.PublicKey); ok {
@@ -3774,8 +3766,8 @@ func checkUserAndPubKey(user *User, pubKey []byte, isSSHCert bool) (User, string
 	for idx, key := range user.PublicKeys {
 		storedKey, comment, _, _, err := ssh.ParseAuthorizedKey(util.StringToBytes(key))
 		if err != nil {
-			providerLog(logger.LevelError, "error parsing stored public key %d for user %s: %v", idx, user.Username, err)
-			return *user, "", err
+			providerLog(logger.LevelWarn, "error parsing stored public key %d for user %s: %v", idx, user.Username, err)
+			continue
 		}
 		if bytes.Equal(storedKey.Marshal(), pubKey) {
 			return *user, fmt.Sprintf("%s:%s", ssh.FingerprintSHA256(storedKey), comment), nil

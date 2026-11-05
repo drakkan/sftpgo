@@ -71,7 +71,9 @@ var (
 		ssh.KeyAlgoRSASHA256, ssh.KeyAlgoRSASHA512,
 		ssh.KeyAlgoECDSA256, ssh.KeyAlgoECDSA384, ssh.KeyAlgoECDSA521,
 		ssh.KeyAlgoED25519,
+		ssh.KeyAlgoMLDSA44, ssh.KeyAlgoMLDSA65, ssh.KeyAlgoMLDSA87,
 	}
+	removedKeyAlgos         = []string{"ssh-dss", "ssh-dss-cert-v01@openssh.com"}
 	supportedPublicKeyAlgos = append(supportedAlgos.PublicKeyAuths, insecureAlgos.PublicKeyAuths...)
 	preferredPublicKeyAlgos = supportedAlgos.PublicKeyAuths
 	supportedKexAlgos       = append(supportedAlgos.KeyExchanges, insecureAlgos.KeyExchanges...)
@@ -135,8 +137,8 @@ type Configuration struct {
 	MaxAuthTries int `json:"max_auth_tries" mapstructure:"max_auth_tries"`
 	// HostKeys define the daemon's private host keys.
 	// Each host key can be defined as a path relative to the configuration directory or an absolute one.
-	// If empty or missing, the daemon will search or try to generate "id_rsa" and "id_ecdsa" host keys
-	// inside the configuration directory.
+	// If empty or missing, the daemon will search or try to generate "id_rsa", "id_ecdsa" and "id_ed25519"
+	// host keys inside the configuration directory.
 	HostKeys []string `json:"host_keys" mapstructure:"host_keys"`
 	// HostCertificates defines public host certificates.
 	// Each certificate can be defined as a path relative to the configuration directory or an absolute one.
@@ -473,11 +475,21 @@ func (c *Configuration) serve(listener net.Listener, serverConfig *ssh.ServerCon
 	}
 }
 
+func withoutRemovedKeyAlgos(algos []string, what string) []string {
+	algos = util.RemoveDuplicates(slices.Clone(algos), true)
+	return slices.DeleteFunc(algos, func(algo string) bool {
+		if slices.Contains(removedKeyAlgos, algo) {
+			logger.Warn(logSender, "", "%s algorithm %q is not supported and will be ignored", what, algo)
+			return true
+		}
+		return false
+	})
+}
+
 func (c *Configuration) configureKeyAlgos(serverConfig *ssh.ServerConfig) error {
+	c.HostKeyAlgorithms = withoutRemovedKeyAlgos(c.HostKeyAlgorithms, "host key")
 	if len(c.HostKeyAlgorithms) == 0 {
 		c.HostKeyAlgorithms = preferredHostKeyAlgos
-	} else {
-		c.HostKeyAlgorithms = util.RemoveDuplicates(slices.Clone(c.HostKeyAlgorithms), true)
 	}
 	for _, hostKeyAlgo := range c.HostKeyAlgorithms {
 		if !slices.Contains(supportedHostKeyAlgos, hostKeyAlgo) {
@@ -485,15 +497,14 @@ func (c *Configuration) configureKeyAlgos(serverConfig *ssh.ServerConfig) error 
 		}
 	}
 
-	if len(c.PublicKeyAlgorithms) > 0 {
-		c.PublicKeyAlgorithms = util.RemoveDuplicates(slices.Clone(c.PublicKeyAlgorithms), true)
-		for _, algo := range c.PublicKeyAlgorithms {
-			if !slices.Contains(supportedPublicKeyAlgos, algo) {
-				return fmt.Errorf("unsupported public key authentication algorithm %q", algo)
-			}
-		}
-	} else {
+	c.PublicKeyAlgorithms = withoutRemovedKeyAlgos(c.PublicKeyAlgorithms, "public key authentication")
+	if len(c.PublicKeyAlgorithms) == 0 {
 		c.PublicKeyAlgorithms = preferredPublicKeyAlgos
+	}
+	for _, algo := range c.PublicKeyAlgorithms {
+		if !slices.Contains(supportedPublicKeyAlgos, algo) {
+			return fmt.Errorf("unsupported public key authentication algorithm %q", algo)
+		}
 	}
 	serverConfig.PublicKeyAuthAlgorithms = c.PublicKeyAlgorithms
 	serviceStatus.PublicKeyAlgorithms = c.PublicKeyAlgorithms
@@ -1084,7 +1095,7 @@ func (c *Configuration) checkAndLoadHostKeys(configDir string, serverConfig *ssh
 
 		private, err := ssh.ParsePrivateKey(privateBytes)
 		if err != nil {
-			return err
+			return fmt.Errorf("unable to parse host key %q: %w", hostKey, err)
 		}
 		k := HostKey{
 			Path:        hostKey,

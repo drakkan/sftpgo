@@ -39,17 +39,18 @@ var (
 	serviceStatus      ServiceStatus
 	serviceStatusMu    sync.RWMutex
 	certKeyAlgoNames   = map[string]string{
-		ssh.CertAlgoRSAv01:       ssh.KeyAlgoRSA,
-		ssh.CertAlgoRSASHA256v01: ssh.KeyAlgoRSASHA256,
-		ssh.CertAlgoRSASHA512v01: ssh.KeyAlgoRSASHA512,
-		//lint:ignore SA1019 the map names the DSA certificate algorithm
-		ssh.InsecureCertAlgoDSAv01: ssh.InsecureKeyAlgoDSA,
-		ssh.CertAlgoECDSA256v01:    ssh.KeyAlgoECDSA256,
-		ssh.CertAlgoECDSA384v01:    ssh.KeyAlgoECDSA384,
-		ssh.CertAlgoECDSA521v01:    ssh.KeyAlgoECDSA521,
-		ssh.CertAlgoSKECDSA256v01:  ssh.KeyAlgoSKECDSA256,
-		ssh.CertAlgoED25519v01:     ssh.KeyAlgoED25519,
-		ssh.CertAlgoSKED25519v01:   ssh.KeyAlgoSKED25519,
+		ssh.CertAlgoRSAv01:        ssh.KeyAlgoRSA,
+		ssh.CertAlgoRSASHA256v01:  ssh.KeyAlgoRSASHA256,
+		ssh.CertAlgoRSASHA512v01:  ssh.KeyAlgoRSASHA512,
+		ssh.CertAlgoECDSA256v01:   ssh.KeyAlgoECDSA256,
+		ssh.CertAlgoECDSA384v01:   ssh.KeyAlgoECDSA384,
+		ssh.CertAlgoECDSA521v01:   ssh.KeyAlgoECDSA521,
+		ssh.CertAlgoSKECDSA256v01: ssh.KeyAlgoSKECDSA256,
+		ssh.CertAlgoED25519v01:    ssh.KeyAlgoED25519,
+		ssh.CertAlgoSKED25519v01:  ssh.KeyAlgoSKED25519,
+		ssh.CertAlgoMLDSA44v01Go:  ssh.KeyAlgoMLDSA44,
+		ssh.CertAlgoMLDSA65v01Go:  ssh.KeyAlgoMLDSA65,
+		ssh.CertAlgoMLDSA87v01Go:  ssh.KeyAlgoMLDSA87,
 	}
 )
 

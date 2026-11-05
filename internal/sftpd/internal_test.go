@@ -1668,12 +1668,11 @@ func TestConfigsFromProvider(t *testing.T) {
 	assert.Len(t, c.PublicKeyAlgorithms, 0)
 	configs := dataprovider.Configs{
 		SFTPD: &dataprovider.SFTPDConfigs{
-			HostKeyAlgos:  []string{ssh.KeyAlgoRSA},
-			KexAlgorithms: []string{ssh.InsecureKeyExchangeDHGEXSHA1},
-			Ciphers:       []string{ssh.InsecureCipherAES128CBC},
-			MACs:          []string{ssh.HMACSHA512ETM},
-			//lint:ignore SA1019 the test covers the DSA algorithm
-			PublicKeyAlgos: []string{ssh.InsecureKeyAlgoDSA},
+			HostKeyAlgos:   []string{ssh.KeyAlgoRSA},
+			KexAlgorithms:  []string{ssh.InsecureKeyExchangeDHGEXSHA1},
+			Ciphers:        []string{ssh.InsecureCipherAES128CBC},
+			MACs:           []string{ssh.HMACSHA512ETM},
+			PublicKeyAlgos: []string{ssh.KeyAlgoRSA},
 		},
 	}
 	err = dataprovider.UpdateConfigs(&configs, "", "", "")
@@ -1693,6 +1692,86 @@ func TestConfigsFromProvider(t *testing.T) {
 
 	err = dataprovider.UpdateConfigs(nil, "", "", "")
 	assert.NoError(t, err)
+}
+
+func TestRemovedKeyAlgorithms(t *testing.T) {
+	c := Configuration{
+		HostKeyAlgorithms:   []string{"ssh-dss", ssh.KeyAlgoED25519, "ssh-dss-cert-v01@openssh.com"},
+		PublicKeyAlgorithms: []string{ssh.KeyAlgoED25519, "ssh-dss"},
+	}
+	serverConfig := &ssh.ServerConfig{}
+	require.NoError(t, c.configureKeyAlgos(serverConfig))
+	assert.Equal(t, []string{ssh.KeyAlgoED25519}, c.HostKeyAlgorithms)
+	assert.Equal(t, []string{ssh.KeyAlgoED25519}, serverConfig.PublicKeyAuthAlgorithms)
+	// with only removed algorithms the defaults apply
+	c = Configuration{
+		HostKeyAlgorithms:   []string{"ssh-dss"},
+		PublicKeyAlgorithms: []string{"ssh-dss"},
+	}
+	require.NoError(t, c.configureKeyAlgos(serverConfig))
+	assert.Equal(t, preferredHostKeyAlgos, c.HostKeyAlgorithms)
+	assert.Equal(t, preferredPublicKeyAlgos, serverConfig.PublicKeyAuthAlgorithms)
+}
+
+func TestMLDSAHostKey(t *testing.T) {
+	require.Contains(t, preferredHostKeyAlgos, ssh.KeyAlgoMLDSA65)
+	require.Contains(t, preferredPublicKeyAlgos, ssh.KeyAlgoMLDSA65)
+	// ML-DSA-65 private key in PKCS#8 format
+	const mldsaPrivateKey = `-----BEGIN PRIVATE KEY-----
+MDQCAQAwCwYJYIZIAWUDBAMSBCKAIIuovNqC/VLZiTG097pBt+m1KH4ZMYeRot4G
+sMmhivsy
+-----END PRIVATE KEY-----`
+	configDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(configDir, "id_mldsa65"), []byte(mldsaPrivateKey), 0600))
+	hostKeys := serviceStatus.HostKeys
+	t.Cleanup(func() {
+		// restore the fingerprints of the running server, used to detect SFTP self connections
+		serviceStatus.HostKeys = hostKeys
+		var fp []string
+		for _, k := range hostKeys {
+			fp = append(fp, k.Fingerprint)
+		}
+		vfs.SetSFTPFingerprints(fp)
+	})
+	c := Configuration{HostKeys: []string{"id_mldsa65"}}
+	serverConfig := &ssh.ServerConfig{NoClientAuth: true}
+	require.NoError(t, c.configureKeyAlgos(serverConfig))
+	require.NoError(t, c.checkAndLoadHostKeys(configDir, serverConfig))
+	require.Len(t, serviceStatus.HostKeys, 1)
+	assert.Equal(t, []string{ssh.KeyAlgoMLDSA65}, serviceStatus.HostKeys[0].Algorithms)
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer listener.Close()
+	go func() {
+		serverConn, err := listener.Accept()
+		if err != nil {
+			return
+		}
+		conn, chans, reqs, err := ssh.NewServerConn(serverConn, serverConfig)
+		if err == nil {
+			go ssh.DiscardRequests(reqs)
+			go func() {
+				for newCh := range chans {
+					_ = newCh.Reject(ssh.Prohibited, "")
+				}
+			}()
+			_ = conn.Wait()
+		}
+		serverConn.Close()
+	}()
+	var hostKeyType string
+	conn, err := ssh.Dial("tcp", listener.Addr().String(), &ssh.ClientConfig{
+		HostKeyAlgorithms: []string{ssh.KeyAlgoMLDSA65},
+		HostKeyCallback: func(_ string, _ net.Addr, key ssh.PublicKey) error {
+			hostKeyType = key.Type()
+			return nil
+		},
+		Timeout: 5 * time.Second,
+	})
+	require.NoError(t, err)
+	conn.Close()
+	assert.Equal(t, ssh.KeyAlgoMLDSA65, hostKeyType)
 }
 
 func TestSupportedSecurityOptions(t *testing.T) {

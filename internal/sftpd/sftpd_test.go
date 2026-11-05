@@ -2838,6 +2838,37 @@ func TestLogin(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestLoginMLDSAPublicKey(t *testing.T) {
+	const mldsaPrivateKey = `-----BEGIN PRIVATE KEY-----
+MDQCAQAwCwYJYIZIAWUDBAMSBCKAIIuovNqC/VLZiTG097pBt+m1KH4ZMYeRot4G
+sMmhivsy
+-----END PRIVATE KEY-----`
+	signer, err := ssh.ParsePrivateKey([]byte(mldsaPrivateKey))
+	require.NoError(t, err)
+	u := getTestUser(true)
+	u.PublicKeys = []string{string(ssh.MarshalAuthorizedKey(signer.PublicKey()))}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_, err := httpdtest.RemoveUser(user, http.StatusOK)
+		assert.NoError(t, err)
+		err = os.RemoveAll(user.GetHomeDir())
+		assert.NoError(t, err)
+	})
+	conn, err := ssh.Dial("tcp", sftpServerAddr, &ssh.ClientConfig{
+		User:            user.Username,
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         5 * time.Second,
+		Auth:            []ssh.AuthMethod{ssh.PublicKeys(signer)},
+	})
+	require.NoError(t, err)
+	defer conn.Close()
+	sftpClient, err := sftp.NewClient(conn)
+	require.NoError(t, err)
+	defer sftpClient.Close()
+	assert.NoError(t, checkBasicSFTP(sftpClient))
+}
+
 func TestLoginUserCert(t *testing.T) {
 	u := getTestUser(true)
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)

@@ -505,7 +505,6 @@
         "pub_key_invalid": "无效公钥",
         "priv_key_invalid": "无效的私钥",
         "key_invalid_size": "无效的 RSA 公钥：支持的最小长度是 2048",
-        "key_insecure": "不允许使用不安全的公钥格式",
         "err_primary_group": "只允许一个主要组",
         "err_duplicate_group": "检测到重复的组",
         "no_permissions": "目录权限是必填项",

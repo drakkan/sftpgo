@@ -505,7 +505,6 @@
         "pub_key_invalid": "Clé publique invalide",
         "priv_key_invalid": "Clé privée invalide",
         "key_invalid_size": "Clé publique RSA invalide : la taille minimale prise en charge est de 2048",
-        "key_insecure": "Format de clé publique non sécurisé non autorisé",
         "err_primary_group": "Un seul groupe principal est autorisé",
         "err_duplicate_group": "Groupes en double détectés",
         "no_permissions": "Les permissions des répertoires sont obligatoires",

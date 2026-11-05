@@ -5825,13 +5825,13 @@ func TestUserPublicKey(t *testing.T) {
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	// DSA keys are not accepted
+	// DSA keys no longer parse
 	u = getTestUser()
 	u.Password = ""
 	u.PublicKeys = []string{"ssh-dss AAAAB3NzaC1kc3MAAACBAK+BKLZs1Vd0cWYOquKfp++0ml9hkzB7UDRozT3nhRcyHcuwASsXiVTqsg96oGjBcUUy076CXlsfJEXE2P0dF6tt1wvABPMwKpOn+kIrfJ0j93X2c2KIZNlD4YuNUJjLHu1DvgQHw8NMps6l5D0M5NFCRdD3NYhI5zFVJJ4CzikrAAAAFQCRBagw7gEbs0gd8So7OLMcSVzs/wAAAIBjuo7U9q8npchQ3otgCvj0xIwsQ+Fi9bH0SBceqbCcVzFYY6JXSQ0XmwHs+0AuvRCPIGaBdfcm+w+9YOxREtdEVjcmkYlfJpTaVljjWcWFWTQddbiamZhQ/xLU9CNLK4oYLwIGLZjCcG7nRDdLtLQdBFuzP/faEi3TD2BK114QmAAAAIEAj1n34pH2WKwbSZhzmz/OG0VzqJICFWboiM44LZl2AqcRBvEEycdHlGe2IKaj5lEtLgBKJt9NSFhBIzWh7gcEzSMlkiDecdYSFlDc4snmTiXaoiIehV59nTY6gc8GLWCzuem+WdHxvJ4yOSWF9k+a+Y+/v/35shNLkfokViOlN7k="}
 	_, resp, err := httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
-	assert.Contains(t, string(resp), "DSA key format is insecure and it is not allowed")
+	assert.Contains(t, string(resp), "unknown key algorithm: ssh-dss")
 }
 
 func TestUpdateUserEmptyPassword(t *testing.T) {
@@ -9169,9 +9169,8 @@ func TestLoaddata(t *testing.T) {
 	}
 	configs := dataprovider.Configs{
 		SFTPD: &dataprovider.SFTPDConfigs{
-			HostKeyAlgos: []string{ssh.KeyAlgoRSA, ssh.CertAlgoRSAv01},
-			//lint:ignore SA1019 the test covers the DSA algorithm
-			PublicKeyAlgos: []string{ssh.InsecureKeyAlgoDSA},
+			HostKeyAlgos:   []string{ssh.KeyAlgoRSA, ssh.CertAlgoRSAv01},
+			PublicKeyAlgos: []string{ssh.KeyAlgoRSA, "ssh-dss"},
 		},
 		SMTP: &dataprovider.SMTPConfigs{
 			Host: "mail.example.com",
@@ -9238,8 +9237,7 @@ func TestLoaddata(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, configs.SMTP, configsGet.SMTP)
 	assert.Equal(t, []string{ssh.KeyAlgoRSA}, configsGet.SFTPD.HostKeyAlgos)
-	//lint:ignore SA1019 the test covers the DSA algorithm
-	assert.Equal(t, []string{ssh.InsecureKeyAlgoDSA}, configsGet.SFTPD.PublicKeyAlgos)
+	assert.Equal(t, []string{ssh.KeyAlgoRSA}, configsGet.SFTPD.PublicKeyAlgos)
 	assert.Len(t, configsGet.SFTPD.KexAlgorithms, 0)
 	assert.Len(t, configsGet.SFTPD.Ciphers, 0)
 	assert.Len(t, configsGet.SFTPD.MACs, 0)
@@ -9669,8 +9667,7 @@ func TestLoaddataMode(t *testing.T) {
 	entry, _, err = httpdtest.UpdateIPListEntry(entry, http.StatusOK)
 	assert.NoError(t, err)
 
-	//lint:ignore SA1019 the test covers the DSA algorithm
-	configs.SFTPD.PublicKeyAlgos = append(configs.SFTPD.PublicKeyAlgos, ssh.InsecureKeyAlgoDSA)
+	configs.SFTPD.KexAlgorithms = append(configs.SFTPD.KexAlgorithms, ssh.KeyExchangeDH16SHA512)
 	err = dataprovider.UpdateConfigs(&configs, "", "", "")
 	assert.NoError(t, err)
 	backupData.Configs = &configs
@@ -9684,7 +9681,7 @@ func TestLoaddataMode(t *testing.T) {
 	assert.NoError(t, err)
 	configs, err = dataprovider.GetConfigs()
 	assert.NoError(t, err)
-	assert.Len(t, configs.SFTPD.PublicKeyAlgos, 2)
+	assert.Len(t, configs.SFTPD.KexAlgorithms, 1)
 	group, _, err = httpdtest.GetGroupByName(group.Name, http.StatusOK)
 	assert.NoError(t, err)
 	assert.NotEqual(t, oldGroupDesc, group.Description)
@@ -9745,7 +9742,7 @@ func TestLoaddataMode(t *testing.T) {
 	assert.Equal(t, oldUploadBandwidth, user.UploadBandwidth)
 	configs, err = dataprovider.GetConfigs()
 	assert.NoError(t, err)
-	assert.Len(t, configs.SFTPD.PublicKeyAlgos, 1)
+	assert.Len(t, configs.SFTPD.KexAlgorithms, 0)
 	// the group is referenced
 	_, err = httpdtest.RemoveGroup(group, http.StatusBadRequest)
 	assert.NoError(t, err)
@@ -14495,10 +14492,8 @@ func TestWebConfigsMock(t *testing.T) {
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	// save SFTP configs
 	form.Set("sftp_host_key_algos", ssh.KeyAlgoRSA)
-	//lint:ignore SA1019 the test covers the DSA algorithm
-	form.Add("sftp_host_key_algos", ssh.InsecureCertAlgoDSAv01)
-	//lint:ignore SA1019 the test covers the DSA algorithm
-	form.Set("sftp_pub_key_algos", ssh.InsecureKeyAlgoDSA)
+	form.Add("sftp_host_key_algos", "ssh-dss-cert-v01@openssh.com")
+	form.Set("sftp_pub_key_algos", ssh.KeyAlgoRSA)
 	form.Set("form_action", "sftp_submit")
 	b, contentType, err = getMultipartFormData(form, "", "")
 	assert.NoError(t, err)
@@ -14511,8 +14506,7 @@ func TestWebConfigsMock(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), util.I18nError500Message) // invalid algo
 	form.Set("sftp_host_key_algos", ssh.KeyAlgoRSA)
 	form.Add("sftp_host_key_algos", ssh.CertAlgoRSAv01)
-	//lint:ignore SA1019 the test covers the DSA algorithm
-	form.Set("sftp_pub_key_algos", ssh.InsecureKeyAlgoDSA)
+	form.Set("sftp_pub_key_algos", ssh.KeyAlgoRSA)
 	form.Set("sftp_kex_algos", "diffie-hellman-group18-sha512")
 	form.Add("sftp_kex_algos", ssh.KeyExchangeDH16SHA512)
 	b, contentType, err = getMultipartFormData(form, "", "")
@@ -14530,8 +14524,7 @@ func TestWebConfigsMock(t *testing.T) {
 	assert.Len(t, configs.SFTPD.HostKeyAlgos, 1)
 	assert.Contains(t, configs.SFTPD.HostKeyAlgos, ssh.KeyAlgoRSA)
 	assert.Len(t, configs.SFTPD.PublicKeyAlgos, 1)
-	//lint:ignore SA1019 the test covers the DSA algorithm
-	assert.Contains(t, configs.SFTPD.PublicKeyAlgos, ssh.InsecureKeyAlgoDSA)
+	assert.Contains(t, configs.SFTPD.PublicKeyAlgos, ssh.KeyAlgoRSA)
 	assert.Len(t, configs.SFTPD.KexAlgorithms, 1)
 	assert.Contains(t, configs.SFTPD.KexAlgorithms, ssh.KeyExchangeDH16SHA512)
 	// invalid form action
@@ -14584,8 +14577,7 @@ func TestWebConfigsMock(t *testing.T) {
 	assert.Len(t, configs.SFTPD.HostKeyAlgos, 1)
 	assert.Contains(t, configs.SFTPD.HostKeyAlgos, ssh.KeyAlgoRSA)
 	assert.Len(t, configs.SFTPD.PublicKeyAlgos, 1)
-	//lint:ignore SA1019 the test covers the DSA algorithm
-	assert.Contains(t, configs.SFTPD.PublicKeyAlgos, ssh.InsecureKeyAlgoDSA)
+	assert.Contains(t, configs.SFTPD.PublicKeyAlgos, ssh.KeyAlgoRSA)
 	assert.Equal(t, "mail.example.net", configs.SMTP.Host)
 	assert.Equal(t, 587, configs.SMTP.Port)
 	assert.Equal(t, "Example <info@example.net>", configs.SMTP.From)
@@ -14664,8 +14656,7 @@ func TestWebConfigsMock(t *testing.T) {
 	assert.Len(t, configs.SFTPD.HostKeyAlgos, 1)
 	assert.Contains(t, configs.SFTPD.HostKeyAlgos, ssh.KeyAlgoRSA)
 	assert.Len(t, configs.SFTPD.PublicKeyAlgos, 1)
-	//lint:ignore SA1019 the test covers the DSA algorithm
-	assert.Contains(t, configs.SFTPD.PublicKeyAlgos, ssh.InsecureKeyAlgoDSA)
+	assert.Contains(t, configs.SFTPD.PublicKeyAlgos, ssh.KeyAlgoRSA)
 	assert.Equal(t, 80, configs.ACME.HTTP01Challenge.Port)
 	assert.Equal(t, 7, configs.ACME.Protocols)
 	assert.Empty(t, configs.ACME.Domain)

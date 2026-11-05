@@ -31,9 +31,8 @@ import (
 
 // Supported values for host keys, KEXs, ciphers, MACs
 var (
-	supportedHostKeyAlgos = []string{ssh.KeyAlgoRSA}
-	//lint:ignore SA1019 the allowlist names DSA so it can be enabled on purpose
-	supportedPublicKeyAlgos = []string{ssh.KeyAlgoRSA, ssh.InsecureKeyAlgoDSA}
+	supportedHostKeyAlgos   = []string{ssh.KeyAlgoRSA}
+	supportedPublicKeyAlgos = []string{ssh.KeyAlgoRSA}
 	supportedKexAlgos       = []string{
 		ssh.KeyExchangeDH16SHA512, ssh.InsecureKeyExchangeDH14SHA1, ssh.InsecureKeyExchangeDH1SHA1,
 		ssh.InsecureKeyExchangeDHGEXSHA1,
@@ -137,11 +136,17 @@ func (c *SFTPDConfigs) validate() error {
 			return util.NewValidationError(fmt.Sprintf("unsupported MAC algorithm %q", mac))
 		}
 	}
+	var publicKeyAlgos []string
 	for _, algo := range c.PublicKeyAlgos {
+		if algo == "ssh-dss" {
+			continue
+		}
 		if !slices.Contains(supportedPublicKeyAlgos, algo) {
 			return util.NewValidationError(fmt.Sprintf("unsupported public key algorithm %q", algo))
 		}
+		publicKeyAlgos = append(publicKeyAlgos, algo)
 	}
+	c.PublicKeyAlgos = publicKeyAlgos
 	return nil
 }
 

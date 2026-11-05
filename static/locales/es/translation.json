@@ -505,7 +505,6 @@
         "pub_key_invalid": "Clave pública inválida",
         "priv_key_invalid": "Clave privada inválida",
         "key_invalid_size": "Clave pública RSA inválida: el tamaño mínimo soportado es 2048",
-        "key_insecure": "Formato de clave pública inseguro no permitido",
         "err_primary_group": "Solo se permite un grupo primario",
         "err_duplicate_group": "Grupos duplicados detectados",
         "no_permissions": "Los permisos de directorios son obligatorios",

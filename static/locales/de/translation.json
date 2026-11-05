@@ -505,7 +505,6 @@
         "pub_key_invalid": "Ungültiger öffentlicher Schlüssel",
         "priv_key_invalid": "Ungültiger privater Schlüssel",
         "key_invalid_size": "Ungültiger öffentlicher RSA Schlüssel: Die Mindestlänge beträgt 2048",
-        "key_insecure": "Unsicheres Format des öffentlichen Schlüssels ist nicht erlaubt",
         "err_primary_group": "Nur eine Primärgruppe ist erlaubt",
         "err_duplicate_group": "Doppelte Gruppen erkannt",
         "no_permissions": "Verzeichnisberechtigungen sind obligatorisch",
