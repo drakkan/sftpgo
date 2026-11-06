@@ -24,6 +24,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"syscall"
 
 	"github.com/minio/sio"
 
@@ -234,6 +235,16 @@ func (fs *CryptFs) ReadDir(dirname string) (DirLister, error) {
 			err = os.ErrNotExist
 		}
 		return nil, err
+	}
+	fi, err := f.Stat()
+	if err != nil {
+		f.Close()
+		return nil, err
+	}
+	if !fi.IsDir() {
+		name := f.Name()
+		f.Close()
+		return nil, &os.PathError{Op: "readdir", Path: name, Err: syscall.ENOTDIR}
 	}
 
 	return &cryptFsDirLister{f}, nil
