@@ -290,6 +290,7 @@
           "en"
         ],
         "oidc": {
+          "display_name": "OpenID",
           "client_id": "",
           "client_secret": "",
           "client_secret_file": "",
