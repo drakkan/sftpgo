@@ -108,7 +108,7 @@ func (c *Connection) ReadDir(name string) (vfs.DirLister, error) {
 	return c.ListDir(name)
 }
 
-func (c *Connection) getFileReader(name string, offset int64, method string) (io.ReadCloser, error) {
+func (c *Connection) getFileReader(name string, offset int64, method string) (*httpdFile, error) {
 	c.UpdateLastActivity()
 
 	if err := common.Connections.IsNewTransferAllowed(c.BaseConnection); err != nil {

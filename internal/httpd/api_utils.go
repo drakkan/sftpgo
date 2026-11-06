@@ -516,7 +516,9 @@ func addFileToZipEntry(wr *zip.Writer, conn *Connection, entryPath, entryName st
 		conn.Log(logger.LevelError, "unable to create zip entry %q: %v", entryPath, err)
 		return err
 	}
-	_, err = io.Copy(f, reader)
+	if _, err = io.Copy(f, reader); err != nil {
+		reader.TransferError(err)
+	}
 	return err
 }
 
@@ -594,10 +596,10 @@ func downloadFile(w http.ResponseWriter, r *http.Request, connection *Connection
 	if r.Method != http.MethodHead {
 		_, err = io.CopyN(w, reader, size)
 		if err != nil {
+			reader.TransferError(err)
 			if share != nil {
 				_ = dataprovider.UpdateShareLastUse(share, -1)
 			}
-			connection.Log(logger.LevelDebug, "error reading file to download: %v", err)
 			panic(http.ErrAbortHandler)
 		}
 	}
