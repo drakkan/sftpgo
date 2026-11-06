@@ -34,8 +34,7 @@ import (
 )
 
 var (
-	errNotImplemented   = errors.New("not implemented")
-	errCOMBNotSupported = errors.New("COMB is not supported for this filesystem")
+	errNotImplemented = errors.New("not implemented")
 )
 
 // Connection details for an FTP connection.
@@ -346,10 +345,6 @@ func (c *Connection) GetHandle(name string, flags int, offset int64) (ftpserver.
 		return nil, err
 	}
 
-	if c.GetCommand() == "COMB" && !vfs.IsLocalOsFs(fs) {
-		return nil, errCOMBNotSupported
-	}
-
 	if err := common.Connections.IsNewTransferAllowed(c.BaseConnection); err != nil {
 		c.Log(logger.LevelInfo, "denying transfer due to count limits")
 		return nil, c.GetPermissionDeniedError()
@@ -471,7 +466,7 @@ func (c *Connection) handleFTPUploadToExistingFile(fs vfs.Fs, flags int, resolve
 	}
 	minWriteOffset := int64(0)
 	// ftpserverlib sets:
-	// - os.O_WRONLY | os.O_APPEND for APPE and COMB
+	// - os.O_WRONLY | os.O_APPEND for APPE
 	// - os.O_WRONLY | os.O_CREATE for REST.
 	// - os.O_WRONLY | os.O_CREATE | os.O_TRUNC if the command is not APPE and REST = 0
 	// so if we don't have O_TRUNC is a resume.

@@ -426,7 +426,6 @@ func TestMain(m *testing.M) {
 	ftpdConf.CARevocationLists = []string{caCRLPath}
 	ftpdConf.EnableSite = false
 	ftpdConf.DisableActiveMode = true
-	ftpdConf.CombineSupport = 1
 	ftpdConf.HASHSupport = 1
 
 	go func(cfg ftpd.Configuration) {
@@ -3586,66 +3585,6 @@ func TestHASH(t *testing.T) {
 	_, err = httpdtest.RemoveUser(cryptUser, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(cryptUser.GetHomeDir())
-	assert.NoError(t, err)
-}
-
-func TestCombine(t *testing.T) {
-	u := getTestUser()
-	localUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
-	assert.NoError(t, err)
-	sftpUser, _, err := httpdtest.AddUser(getTestSFTPUser(), http.StatusCreated)
-	assert.NoError(t, err)
-	for _, user := range []dataprovider.User{localUser, sftpUser} {
-		client, err := getFTPClientImplicitTLS(user)
-		if assert.NoError(t, err) {
-			testFilePath := filepath.Join(homeBasePath, testFileName)
-			testFileSize := int64(131072)
-			err = createTestFile(testFilePath, testFileSize)
-			assert.NoError(t, err)
-			err = checkBasicFTP(client)
-			assert.NoError(t, err)
-			err = ftpUploadFile(testFilePath, testFileName+".1", testFileSize, client, 0)
-			assert.NoError(t, err)
-			err = ftpUploadFile(testFilePath, testFileName+".2", testFileSize, client, 0)
-			assert.NoError(t, err)
-
-			code, response, err := client.SendCommand("COMB %v %v %v", testFileName, testFileName+".1", testFileName+".2")
-			assert.NoError(t, err)
-			if user.Username == defaultUsername {
-				assert.Equal(t, ftp.StatusRequestedFileActionOK, code)
-				assert.Equal(t, "COMB succeeded!", response)
-			} else {
-				assert.Equal(t, ftp.StatusFileUnavailable, code)
-				assert.Contains(t, response, "COMB is not supported for this filesystem")
-			}
-
-			err = client.Quit()
-			assert.NoError(t, err)
-
-			err = os.Remove(testFilePath)
-			assert.NoError(t, err)
-			if user.Username == defaultUsername {
-				// remove the user before the home dir so the connection
-				// holding the fs root is closed
-				_, err = httpdtest.RemoveUser(user, http.StatusOK)
-				assert.NoError(t, err)
-				waitNoConnections()
-				err = os.RemoveAll(user.GetHomeDir())
-				assert.NoError(t, err)
-				user.Password = defaultPassword
-				user.ID = 0
-				user.CreatedAt = 0
-				_, resp, err := httpdtest.AddUser(user, http.StatusCreated)
-				assert.NoError(t, err, string(resp))
-			}
-		}
-	}
-
-	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
-	assert.NoError(t, err)
-	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
-	assert.NoError(t, err)
-	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
 }
 

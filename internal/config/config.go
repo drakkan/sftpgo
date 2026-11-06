@@ -301,7 +301,6 @@ func Init() {
 			DisableActiveMode:  false,
 			EnableSite:         false,
 			HASHSupport:        0,
-			CombineSupport:     0,
 			CertificateFile:    "",
 			CertificateKeyFile: "",
 			CACertificates:     []string{},
@@ -2141,7 +2140,6 @@ func setViperDefaults() {
 	viper.SetDefault("ftpd.disable_active_mode", globalConf.FTPD.DisableActiveMode)
 	viper.SetDefault("ftpd.enable_site", globalConf.FTPD.EnableSite)
 	viper.SetDefault("ftpd.hash_support", globalConf.FTPD.HASHSupport)
-	viper.SetDefault("ftpd.combine_support", globalConf.FTPD.CombineSupport)
 	viper.SetDefault("ftpd.certificate_file", globalConf.FTPD.CertificateFile)
 	viper.SetDefault("ftpd.certificate_key_file", globalConf.FTPD.CertificateKeyFile)
 	viper.SetDefault("ftpd.ca_certificates", globalConf.FTPD.CACertificates)
