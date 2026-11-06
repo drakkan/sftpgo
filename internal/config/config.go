@@ -289,6 +289,7 @@ func Init() {
 			KeyboardInteractiveAuthentication: true,
 			KeyboardInteractiveHook:           "",
 			PasswordAuthentication:            true,
+			MaxTxPacketSize:                   32768,
 		},
 		FTPD: ftpd.Configuration{
 			Bindings:                 []ftpd.Binding{defaultFTPDBinding},
@@ -2134,6 +2135,7 @@ func setViperDefaults() {
 	viper.SetDefault("sftpd.keyboard_interactive_authentication", globalConf.SFTPD.KeyboardInteractiveAuthentication)
 	viper.SetDefault("sftpd.keyboard_interactive_auth_hook", globalConf.SFTPD.KeyboardInteractiveHook)
 	viper.SetDefault("sftpd.password_authentication", globalConf.SFTPD.PasswordAuthentication)
+	viper.SetDefault("sftpd.max_tx_packet_size", globalConf.SFTPD.MaxTxPacketSize)
 	viper.SetDefault("ftpd.banner_file", globalConf.FTPD.BannerFile)
 	viper.SetDefault("ftpd.active_transfers_port_non_20", globalConf.FTPD.ActiveTransfersPortNon20)
 	viper.SetDefault("ftpd.passive_port_range.start", globalConf.FTPD.PassivePortRange.Start)

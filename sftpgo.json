@@ -114,7 +114,8 @@
     ],
     "keyboard_interactive_authentication": true,
     "keyboard_interactive_auth_hook": "",
-    "password_authentication": true
+    "password_authentication": true,
+    "max_tx_packet_size": 32768
   },
   "ftpd": {
     "bindings": [
