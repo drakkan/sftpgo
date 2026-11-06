@@ -148,14 +148,14 @@ func (p *MemoryProvider) close() error {
 	return nil
 }
 
-func (p *MemoryProvider) validateUserAndTLSCert(username, protocol string, tlsCert *x509.Certificate) (User, error) {
+func (p *MemoryProvider) validateUserAndTLSCert(username, ip, protocol string, tlsCert *x509.Certificate) (User, error) {
 	var user User
 	if tlsCert == nil {
 		return user, errors.New("TLS certificate cannot be null or empty")
 	}
 	user, err := p.userExists(username, "")
 	if err != nil {
-		providerLog(logger.LevelWarn, "error authenticating user %q: %v", username, err)
+		providerLog(logger.LevelWarn, "error authenticating user %q from IP %q: %v", username, ip, err)
 		return user, err
 	}
 	return checkUserAndTLSCertificate(&user, protocol, tlsCert)
@@ -164,20 +164,20 @@ func (p *MemoryProvider) validateUserAndTLSCert(username, protocol string, tlsCe
 func (p *MemoryProvider) validateUserAndPass(username, password, ip, protocol string) (User, error) {
 	user, err := p.userExists(username, "")
 	if err != nil {
-		providerLog(logger.LevelWarn, "error authenticating user %q: %v", username, err)
+		providerLog(logger.LevelWarn, "error authenticating user %q from IP %q: %v", username, ip, err)
 		return user, err
 	}
 	return checkUserAndPass(&user, password, ip, protocol)
 }
 
-func (p *MemoryProvider) validateUserAndPubKey(username string, pubKey []byte, isSSHCert bool) (User, string, error) {
+func (p *MemoryProvider) validateUserAndPubKey(username string, pubKey []byte, ip string, isSSHCert bool) (User, string, error) {
 	var user User
 	if len(pubKey) == 0 {
 		return user, "", errors.New("credentials cannot be null or empty")
 	}
 	user, err := p.userExists(username, "")
 	if err != nil {
-		providerLog(logger.LevelWarn, "error authenticating user %q: %v", username, err)
+		providerLog(logger.LevelWarn, "error authenticating user %q from IP %q: %v", username, ip, err)
 		return user, "", err
 	}
 	return checkUserAndPubKey(&user, pubKey, isSSHCert)
@@ -186,7 +186,7 @@ func (p *MemoryProvider) validateUserAndPubKey(username string, pubKey []byte, i
 func (p *MemoryProvider) validateAdminAndPass(username, password, ip string) (Admin, error) {
 	admin, err := p.adminExists(username)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error authenticating admin %q: %v", username, err)
+		providerLog(logger.LevelWarn, "error authenticating admin %q from IP %q: %v", username, ip, err)
 		return admin, err
 	}
 	err = admin.checkUserAndPass(password, ip)
