@@ -298,13 +298,14 @@ func Init() {
 				Start: 50000,
 				End:   50100,
 			},
-			DisableActiveMode:  false,
-			EnableSite:         false,
-			HASHSupport:        0,
-			CertificateFile:    "",
-			CertificateKeyFile: "",
-			CACertificates:     []string{},
-			CARevocationLists:  []string{},
+			DisableActiveMode:       false,
+			EnableSite:              false,
+			HASHSupport:             0,
+			PassivePortMultiplexing: false,
+			CertificateFile:         "",
+			CertificateKeyFile:      "",
+			CACertificates:          []string{},
+			CARevocationLists:       []string{},
 		},
 		WebDAVD: webdavd.Configuration{
 			Bindings:           []webdavd.Binding{defaultWebDAVDBinding},
@@ -2137,6 +2138,7 @@ func setViperDefaults() {
 	viper.SetDefault("ftpd.active_transfers_port_non_20", globalConf.FTPD.ActiveTransfersPortNon20)
 	viper.SetDefault("ftpd.passive_port_range.start", globalConf.FTPD.PassivePortRange.Start)
 	viper.SetDefault("ftpd.passive_port_range.end", globalConf.FTPD.PassivePortRange.End)
+	viper.SetDefault("ftpd.passive_port_multiplexing", globalConf.FTPD.PassivePortMultiplexing)
 	viper.SetDefault("ftpd.disable_active_mode", globalConf.FTPD.DisableActiveMode)
 	viper.SetDefault("ftpd.enable_site", globalConf.FTPD.EnableSite)
 	viper.SetDefault("ftpd.hash_support", globalConf.FTPD.HASHSupport)

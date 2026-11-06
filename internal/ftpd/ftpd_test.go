@@ -488,6 +488,18 @@ func TestInitializationFailure(t *testing.T) {
 	ftpdConf.CertificateKeyFile = filepath.Join(os.TempDir(), "test_ftpd.key")
 	err := ftpdConf.Initialize(configDir)
 	require.EqualError(t, err, common.ErrNoBinding.Error())
+	ftpdConf.PassivePortMultiplexing = true
+	ftpdConf.Bindings = []ftpd.Binding{
+		{
+			Port: 2121,
+		},
+		{
+			Port: 2122,
+		},
+	}
+	err = ftpdConf.Initialize(configDir)
+	require.ErrorContains(t, err, "single FTP binding")
+	ftpdConf.PassivePortMultiplexing = false
 	ftpdConf.Bindings = []ftpd.Binding{
 		{
 			Port: 0,

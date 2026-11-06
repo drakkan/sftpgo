@@ -141,6 +141,7 @@ func (s *Server) GetSettings() (*ftpserver.Settings, error) {
 	}
 	if portRange != nil {
 		settings.PassiveTransferPortRange = portRange
+		settings.PassiveTransferPortMultiplexing = s.config.PassivePortMultiplexing
 	}
 	return settings, nil
 }

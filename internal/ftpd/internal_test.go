@@ -1306,3 +1306,28 @@ func TestTransferAbortSignal(t *testing.T) {
 	err = os.Remove(testfile)
 	assert.NoError(t, err)
 }
+
+func TestPassivePortMultiplexingConfig(t *testing.T) {
+	c := &Configuration{
+		Bindings:         []Binding{{Port: 2121}, {Port: 0}, {Port: 2122}},
+		PassivePortRange: PortRange{Start: 50000, End: 50010},
+	}
+	assert.NoError(t, c.checkPassivePortMultiplexing())
+	c.PassivePortMultiplexing = true
+	assert.ErrorContains(t, c.checkPassivePortMultiplexing(), "single FTP binding")
+	c.Bindings[2].Port = 0
+	assert.NoError(t, c.checkPassivePortMultiplexing())
+	c.Bindings[0].PassiveConnectionsSecurity = 1
+	assert.ErrorContains(t, c.checkPassivePortMultiplexing(), "passive_connections_security")
+	c.Bindings[0].PassiveConnectionsSecurity = 0
+	for _, portRange := range []PortRange{{}, {Start: 50010, End: 50000}, {Start: 65000, End: 65536}} {
+		c.PassivePortRange = portRange
+		assert.ErrorContains(t, c.checkPassivePortMultiplexing(), "valid passive port range")
+	}
+
+	c.PassivePortRange = PortRange{Start: 50000, End: 50010}
+	server := NewServer(c, configDir, c.Bindings[0], 0)
+	settings, err := server.GetSettings()
+	require.NoError(t, err)
+	assert.True(t, settings.PassiveTransferPortMultiplexing)
+}
