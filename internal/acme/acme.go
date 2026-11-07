@@ -20,30 +20,34 @@
 package acme
 
 import (
+	"context"
 	"crypto"
+	"crypto/ecdsa"
+	"crypto/rsa"
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math/rand"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/go-acme/lego/v4/certcrypto"
-	"github.com/go-acme/lego/v4/certificate"
-	"github.com/go-acme/lego/v4/challenge"
-	"github.com/go-acme/lego/v4/challenge/http01"
-	"github.com/go-acme/lego/v4/challenge/tlsalpn01"
-	"github.com/go-acme/lego/v4/lego"
-	"github.com/go-acme/lego/v4/log"
-	"github.com/go-acme/lego/v4/providers/http/webroot"
-	"github.com/go-acme/lego/v4/registration"
+	"github.com/go-acme/lego/v5/certcrypto"
+	"github.com/go-acme/lego/v5/certificate"
+	"github.com/go-acme/lego/v5/challenge"
+	"github.com/go-acme/lego/v5/challenge/http01"
+	"github.com/go-acme/lego/v5/challenge/tlsalpn01"
+	"github.com/go-acme/lego/v5/lego"
+	"github.com/go-acme/lego/v5/log"
+	"github.com/go-acme/lego/v5/providers/http/webroot"
+	"github.com/go-acme/lego/v5/registration"
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/robfig/cron/v3"
 
@@ -58,7 +62,8 @@ import (
 )
 
 const (
-	logSender = "acme"
+	logSender     = "acme"
+	legoLogSender = "lego"
 )
 
 var (
@@ -66,13 +71,13 @@ var (
 	initialConfig     Configuration
 	scheduler         *cron.Cron
 	logMode           int
-	supportedKeyTypes = []string{
-		string(certcrypto.EC256),
-		string(certcrypto.EC384),
-		string(certcrypto.RSA2048),
-		string(certcrypto.RSA3072),
-		string(certcrypto.RSA4096),
-		string(certcrypto.RSA8192),
+	supportedKeyTypes = map[string]certcrypto.KeyType{
+		"P256": certcrypto.EC256,
+		"P384": certcrypto.EC384,
+		"2048": certcrypto.RSA2048,
+		"3072": certcrypto.RSA3072,
+		"4096": certcrypto.RSA4096,
+		"8192": certcrypto.RSA8192,
 	}
 	fnReloadHTTPDCerts func() error
 )
@@ -251,7 +256,7 @@ func (c *Configuration) Initialize(configDir string) error {
 	if c.RenewDays < 1 {
 		return fmt.Errorf("invalid number of days remaining before renewal: %d", c.RenewDays)
 	}
-	if !slices.Contains(supportedKeyTypes, c.KeyType) {
+	if _, ok := supportedKeyTypes[c.KeyType]; !ok {
 		return fmt.Errorf("invalid key type %q", c.KeyType)
 	}
 	caURL, err := url.Parse(c.CAEndpoint)
@@ -352,7 +357,7 @@ func (c *Configuration) saveAccount(account *account) error {
 	return nil
 }
 
-func (c *Configuration) getAccount(privateKey crypto.PrivateKey) (account, error) {
+func (c *Configuration) getAccount(privateKey crypto.Signer) (account, error) {
 	_, err := os.Stat(c.accountConfigPath)
 	if err != nil && os.IsNotExist(err) {
 		acmeLog(logger.LevelDebug, "account does not exist")
@@ -387,28 +392,14 @@ func (c *Configuration) getAccount(privateKey crypto.PrivateKey) (account, error
 	return account, nil
 }
 
-func (c *Configuration) loadPrivateKey() (crypto.PrivateKey, error) {
+func (c *Configuration) loadPrivateKey() (crypto.Signer, error) {
 	keyBytes, err := os.ReadFile(c.accountKeyPath)
 	if err != nil {
 		acmeLog(logger.LevelError, "unable to read account key from file %q: %v", c.accountKeyPath, err)
 		return nil, fmt.Errorf("unable to read account key: %w", err)
 	}
 
-	keyBlock, _ := pem.Decode(keyBytes)
-	if keyBlock == nil {
-		acmeLog(logger.LevelError, "unable to parse private key from file %q: pem decoding failed", c.accountKeyPath)
-		return nil, errors.New("pem decoding failed")
-	}
-
-	var privateKey crypto.PrivateKey
-	switch keyBlock.Type {
-	case "RSA PRIVATE KEY":
-		privateKey, err = x509.ParsePKCS1PrivateKey(keyBlock.Bytes)
-	case "EC PRIVATE KEY":
-		privateKey, err = x509.ParseECPrivateKey(keyBlock.Bytes)
-	default:
-		err = fmt.Errorf("unknown private key type %q", keyBlock.Type)
-	}
+	privateKey, err := certcrypto.ParsePEMPrivateKey(keyBytes)
 	if err != nil {
 		acmeLog(logger.LevelError, "unable to parse private key from file %q: %v", c.accountKeyPath, err)
 		return privateKey, fmt.Errorf("unable to parse private key: %w", err)
@@ -416,31 +407,49 @@ func (c *Configuration) loadPrivateKey() (crypto.PrivateKey, error) {
 	return privateKey, nil
 }
 
-func (c *Configuration) generatePrivateKey() (crypto.PrivateKey, error) {
-	privateKey, err := certcrypto.GeneratePrivateKey(certcrypto.KeyType(c.KeyType))
+func (c *Configuration) generatePrivateKey() (crypto.Signer, error) {
+	privateKey, err := certcrypto.GeneratePrivateKey(supportedKeyTypes[c.KeyType])
 	if err != nil {
 		acmeLog(logger.LevelError, "unable to generate private key: %v", err)
 		return nil, fmt.Errorf("unable to generate private key: %w", err)
 	}
-	certOut, err := os.Create(c.accountKeyPath)
-	if err != nil {
-		acmeLog(logger.LevelError, "unable to save private key to file %q: %v", c.accountKeyPath, err)
-		return nil, fmt.Errorf("unable to save private key: %w", err)
-	}
-	defer certOut.Close()
-
-	pemKey := certcrypto.PEMBlock(privateKey)
-	err = pem.Encode(certOut, pemKey)
+	keyPEM, err := encodePrivateKeyPEM(privateKey)
 	if err != nil {
 		acmeLog(logger.LevelError, "unable to encode private key: %v", err)
 		return nil, fmt.Errorf("unable to encode private key: %w", err)
+	}
+	err = os.WriteFile(c.accountKeyPath, keyPEM, 0600)
+	if err != nil {
+		acmeLog(logger.LevelError, "unable to save private key to file %q: %v", c.accountKeyPath, err)
+		return nil, fmt.Errorf("unable to save private key: %w", err)
 	}
 	acmeLog(logger.LevelDebug, "new account private key generated")
 
 	return privateKey, nil
 }
 
-func (c *Configuration) getPrivateKey() (crypto.PrivateKey, error) {
+func encodePrivateKeyPEM(key crypto.Signer) ([]byte, error) {
+	var block *pem.Block
+	switch k := key.(type) {
+	case *rsa.PrivateKey:
+		block = &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(k)}
+	case *ecdsa.PrivateKey:
+		der, err := x509.MarshalECPrivateKey(k)
+		if err != nil {
+			return nil, err
+		}
+		block = &pem.Block{Type: "EC PRIVATE KEY", Bytes: der}
+	default:
+		der, err := x509.MarshalPKCS8PrivateKey(key)
+		if err != nil {
+			return nil, err
+		}
+		block = &pem.Block{Type: "PRIVATE KEY", Bytes: der}
+	}
+	return pem.EncodeToMemory(block), nil
+}
+
+func (c *Configuration) getPrivateKey() (crypto.Signer, error) {
 	_, err := os.Stat(c.accountKeyPath)
 	if err != nil && os.IsNotExist(err) {
 		acmeLog(logger.LevelDebug, "private key file %q does not exist, generating new private key", c.accountKeyPath)
@@ -490,7 +499,6 @@ func (c *Configuration) setup() (*account, *lego.Client, error) {
 	}
 	config := lego.NewConfig(&account)
 	config.CADirURL = c.CAEndpoint
-	config.Certificate.KeyType = certcrypto.KeyType(c.KeyType)
 	config.Certificate.OverallRequestLimit = 6
 	config.UserAgent = version.GetServerVersion("/", false)
 
@@ -531,11 +539,10 @@ func (c *Configuration) setupChalleges(client *lego.Client) error {
 			}
 		} else {
 			acmeLog(logger.LevelDebug, "configuring HTTP-01 challenge, port %d", c.HTTP01Challenge.Port)
-			providerServer := http01.NewProviderServer("", fmt.Sprintf("%d", c.HTTP01Challenge.Port))
-			if c.HTTP01Challenge.ProxyHeader != "" {
-				acmeLog(logger.LevelDebug, "setting proxy header to \"%s\"", c.HTTP01Challenge.ProxyHeader)
-				providerServer.SetProxyHeader(c.HTTP01Challenge.ProxyHeader)
-			}
+			providerServer := http01.NewProviderServerWithOptions(http01.Options{
+				Address:         net.JoinHostPort("", fmt.Sprintf("%d", c.HTTP01Challenge.Port)),
+				ProxyHeaderName: c.HTTP01Challenge.ProxyHeader,
+			})
 			err := client.Challenge.SetHTTP01Provider(providerServer)
 			if err != nil {
 				acmeLog(logger.LevelError, "unable to set HTTP-01 challenge provider: %v", err)
@@ -559,11 +566,15 @@ func (c *Configuration) setupChalleges(client *lego.Client) error {
 	return nil
 }
 
-func (c *Configuration) register(client *lego.Client) (*registration.Resource, error) {
-	return client.Registration.Register(registration.RegisterOptions{TermsOfServiceAgreed: true})
+func (c *Configuration) register(client *lego.Client) (*accountRegistration, error) {
+	reg, err := client.Registration.Register(context.Background(), registration.RegisterOptions{TermsOfServiceAgreed: true})
+	if err != nil {
+		return nil, err
+	}
+	return newAccountRegistration(reg), nil
 }
 
-func (c *Configuration) tryRecoverRegistration(privateKey crypto.PrivateKey) (*registration.Resource, error) {
+func (c *Configuration) tryRecoverRegistration(privateKey crypto.Signer) (*accountRegistration, error) {
 	config := lego.NewConfig(&account{key: privateKey})
 	config.CADirURL = c.CAEndpoint
 	config.UserAgent = version.GetServerVersion("/", false)
@@ -581,7 +592,11 @@ func (c *Configuration) tryRecoverRegistration(privateKey crypto.PrivateKey) (*r
 		return nil, err
 	}
 
-	return client.Registration.ResolveAccountByKey()
+	reg, err := client.Registration.ResolveAccountByKey(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	return newAccountRegistration(reg), nil
 }
 
 func (c *Configuration) getCrtPath(domain string) string {
@@ -602,11 +617,13 @@ func (c *Configuration) obtainAndSaveCertificate(client *lego.Client, domain str
 	request := certificate.ObtainRequest{
 		Domains:                        domains,
 		Bundle:                         true,
+		KeyType:                        supportedKeyTypes[c.KeyType],
+		EnableCommonName:               true,
 		MustStaple:                     false,
 		PreferredChain:                 "",
 		AlwaysDeactivateAuthorizations: false,
 	}
-	cert, err := client.Certificate.Obtain(request)
+	cert, err := client.Certificate.Obtain(context.Background(), request)
 	if err != nil {
 		acmeLog(logger.LevelError, "unable to obtain certificates for domains %+v: %v", domains, err)
 		return fmt.Errorf("unable to obtain certificates: %w", err)
@@ -836,9 +853,13 @@ func setLogMode(checkRenew bool) {
 	} else {
 		logMode = 2
 	}
-	log.Logger = &logger.LegoAdapter{
-		LogToConsole: logMode != 1,
+	var handler slog.Handler
+	if logMode == 1 {
+		handler = logger.NewSlogAdapter(legoLogSender, nil)
+	} else {
+		handler = logger.NewConsoleSlogAdapter(legoLogSender)
 	}
+	log.SetDefault(slog.New(handler))
 }
 
 func acmeLog(level logger.LogLevel, format string, v ...any) {

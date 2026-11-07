@@ -24,8 +24,9 @@ import (
 
 // slogAdapter is an adapter for slog.Handler
 type slogAdapter struct {
-	sender string
-	attrs  []slog.Attr
+	sender  string
+	attrs   []slog.Attr
+	console bool
 }
 
 // NewSlogAdapter creates a slog.Handler adapter
@@ -36,24 +37,36 @@ func NewSlogAdapter(sender string, attrs []slog.Attr) *slogAdapter {
 	}
 }
 
+// NewConsoleSlogAdapter creates a slog.Handler adapter that writes to the console logger
+func NewConsoleSlogAdapter(sender string) *slogAdapter {
+	return &slogAdapter{
+		sender:  sender,
+		console: true,
+	}
+}
+
 func (l *slogAdapter) Enabled(ctx context.Context, level slog.Level) bool {
 	// Log level is handled by our implementation
 	return true
 }
 
 func (l *slogAdapter) Handle(ctx context.Context, r slog.Record) error {
+	target := &logger
+	if l.console {
+		target = &consoleLogger
+	}
 	var ev *zerolog.Event
 	switch r.Level {
 	case slog.LevelDebug:
-		ev = logger.Debug()
+		ev = target.Debug()
 	case slog.LevelInfo:
-		ev = logger.Info()
+		ev = target.Info()
 	case slog.LevelWarn:
-		ev = logger.Warn()
+		ev = target.Warn()
 	case slog.LevelError:
-		ev = logger.Error()
+		ev = target.Error()
 	default:
-		ev = logger.Debug()
+		ev = target.Debug()
 	}
 
 	ev.Timestamp()

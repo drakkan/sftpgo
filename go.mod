@@ -24,7 +24,7 @@ require (
 	github.com/drakkan/webdav v0.0.0-20261106194941-0afbc7f2f740
 	github.com/eikenb/pipeat v0.0.0-20260709234154-608894928e53
 	github.com/fclairamb/ftpserverlib v0.33.0
-	github.com/go-acme/lego/v4 v4.35.2
+	github.com/go-acme/lego/v5 v5.6.0
 	github.com/go-chi/chi/v5 v5.5.0
 	github.com/go-chi/render v1.0.3
 	github.com/go-jose/go-jose/v4 v4.1.9
@@ -35,7 +35,7 @@ require (
 	github.com/hashicorp/go-plugin v1.8.0
 	github.com/hashicorp/go-retryablehttp v0.7.8
 	github.com/jackc/pgx/v5 v5.12.0
-	github.com/jlaffaye/ftp v0.2.0
+	github.com/jlaffaye/ftp v0.2.4
 	github.com/klauspost/compress v1.20.3
 	github.com/lithammer/shortuuid/v4 v4.3.0
 	github.com/mattn/go-sqlite3 v1.14.53
@@ -124,9 +124,7 @@ require (
 	github.com/google/s2a-go v0.1.11 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.25 // indirect
 	github.com/googleapis/gax-go/v2 v2.27.0 // indirect
-	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
-	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/yamux v0.1.2 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
@@ -179,9 +177,10 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20261104224025-d1e00e9f33ab // indirect
 	google.golang.org/grpc v1.85.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
+	software.sslmate.com/src/go-pkcs12 v0.7.4 // indirect
 )
 
 replace (
-	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20240430173938-7ba8270c8e7f
+	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20261107171846-94beb3bed251
 	github.com/robfig/cron/v3 => github.com/drakkan/cron/v3 v3.0.0-20230222140221-217a1e4d96c0
 )
