@@ -7515,6 +7515,7 @@ func TestEventRuleIDPLogin(t *testing.T) {
 	admin.Status = 0
 	_, _, err = httpdtest.UpdateAdmin(*admin, http.StatusOK)
 	assert.NoError(t, err)
+	lastReceivedEmail.reset()
 	user, admin, err = common.HandleIDPLoginEvent(common.EventParams{
 		Name:   username,
 		Event:  common.IDPLoginAdmin,
@@ -7525,9 +7526,13 @@ func TestEventRuleIDPLogin(t *testing.T) {
 		assert.Equal(t, 0, admin.Status)
 	}
 	assert.NoError(t, err)
+	assert.Eventually(t, func() bool {
+		return lastReceivedEmail.get().From != ""
+	}, 3000*time.Millisecond, 100*time.Millisecond)
 	action1.Options.IDPConfig.Mode = 0
 	action1, _, err = httpdtest.UpdateEventAction(action1, http.StatusOK)
 	assert.NoError(t, err)
+	lastReceivedEmail.reset()
 	user, admin, err = common.HandleIDPLoginEvent(common.EventParams{
 		Name:   username,
 		Event:  common.IDPLoginAdmin,
@@ -7538,6 +7543,9 @@ func TestEventRuleIDPLogin(t *testing.T) {
 		assert.Equal(t, 1, admin.Status)
 	}
 	assert.NoError(t, err)
+	assert.Eventually(t, func() bool {
+		return lastReceivedEmail.get().From != ""
+	}, 3000*time.Millisecond, 100*time.Millisecond)
 	_, err = httpdtest.RemoveAdmin(*admin, http.StatusOK)
 	assert.NoError(t, err)
 
@@ -7579,16 +7587,21 @@ func TestEventRuleIDPLogin(t *testing.T) {
 	action1.Options.IDPConfig.TemplateAdmin = `{}`
 	action1, _, err = httpdtest.UpdateEventAction(action1, http.StatusOK)
 	assert.NoError(t, err)
+	lastReceivedEmail.reset()
 	_, _, err = common.HandleIDPLoginEvent(common.EventParams{
 		Name:   username,
 		Event:  common.IDPLoginAdmin,
 		Status: 1,
 	}, &customFields)
 	assert.ErrorIs(t, err, util.ErrValidation)
+	assert.Eventually(t, func() bool {
+		return lastReceivedEmail.get().From != ""
+	}, 3000*time.Millisecond, 100*time.Millisecond)
 
 	_, err = httpdtest.RemoveEventRule(rule1, http.StatusOK)
 	assert.NoError(t, err)
 
+	lastReceivedEmail.reset()
 	user, admin, err = common.HandleIDPLoginEvent(common.EventParams{
 		Name:   username,
 		Event:  common.IDPLoginAdmin,
@@ -7597,6 +7610,9 @@ func TestEventRuleIDPLogin(t *testing.T) {
 	assert.Nil(t, user)
 	assert.Nil(t, admin)
 	assert.NoError(t, err)
+	assert.Eventually(t, func() bool {
+		return lastReceivedEmail.get().From != ""
+	}, 3000*time.Millisecond, 100*time.Millisecond)
 
 	_, err = httpdtest.RemoveEventRule(rule2, http.StatusOK)
 	assert.NoError(t, err)
