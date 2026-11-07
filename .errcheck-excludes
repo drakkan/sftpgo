@@ -23,6 +23,7 @@ fmt.Println
 (*github.com/drakkan/sftpgo/v2/internal/common.DirListerAt).Close
 (*github.com/drakkan/sftpgo/v2/internal/dataprovider.User).CloseFs
 (*github.com/drakkan/sftpgo/v2/internal/httpd.Connection).CloseFS
+(*github.com/drakkan/sftpgo/v2/internal/httpd.httpdFile).Close
 (*github.com/drakkan/sftpgo/v2/internal/sftpd.Connection).CloseFS
 (*github.com/drakkan/sftpgo/v2/internal/sftpd.transfer).Close
 (*github.com/drakkan/sftpgo/v2/internal/vfs.SFTPFs).Close
