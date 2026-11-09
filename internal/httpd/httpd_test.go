@@ -879,6 +879,68 @@ func TestRoleRelations(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestRoleAdminUsersOffset(t *testing.T) {
+	role, _, err := httpdtest.AddRole(getTestRole(), http.StatusCreated)
+	assert.NoError(t, err)
+	a := getTestAdmin()
+	a.Username = altAdminUsername
+	a.Password = altAdminPassword
+	a.Role = role.Name
+	a.Permissions = []string{dataprovider.PermAdminViewUsers}
+	admin, _, err := httpdtest.AddAdmin(a, http.StatusCreated)
+	assert.NoError(t, err)
+	// users of the role interleaved with users without it
+	var users []dataprovider.User
+	var roleUsers []string
+	for i := range 6 {
+		u := getTestUser()
+		u.Username = fmt.Sprintf("role_offset_user%d", i)
+		if i%2 == 0 {
+			u.Role = role.Name
+			roleUsers = append(roleUsers, u.Username)
+		}
+		user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+		assert.NoError(t, err)
+		users = append(users, user)
+	}
+
+	token, err := getJWTAPITokenFromTestServer(altAdminUsername, altAdminPassword)
+	assert.NoError(t, err)
+	for _, order := range []string{dataprovider.OrderASC, dataprovider.OrderDESC} {
+		var listed []string
+		for offset := 0; offset < 10; offset++ {
+			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s?limit=1&offset=%d&order=%s", userPath, offset, order), nil)
+			assert.NoError(t, err)
+			setBearerForReq(req, token)
+			rr := executeRequest(req)
+			checkResponseCode(t, http.StatusOK, rr)
+			var page []dataprovider.User
+			err = json.Unmarshal(rr.Body.Bytes(), &page)
+			assert.NoError(t, err)
+			if len(page) == 0 {
+				break
+			}
+			listed = append(listed, page[0].Username)
+		}
+		expected := slices.Clone(roleUsers)
+		if order == dataprovider.OrderDESC {
+			slices.Reverse(expected)
+		}
+		assert.Equal(t, expected, listed, order)
+	}
+
+	for _, user := range users {
+		_, err = httpdtest.RemoveUser(user, http.StatusOK)
+		assert.NoError(t, err)
+		err = os.RemoveAll(user.GetHomeDir())
+		assert.NoError(t, err)
+	}
+	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveRole(role, http.StatusOK)
+	assert.NoError(t, err)
+}
+
 func TestDisableAdmin2FARequiresWildcard(t *testing.T) {
 	target := getTestAdmin()
 	target.Username = altAdminUsername + "_target"

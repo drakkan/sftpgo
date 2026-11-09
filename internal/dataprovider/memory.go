@@ -639,15 +639,15 @@ func (p *MemoryProvider) getUsers(limit int, offset int, order, role string) ([]
 	itNum := 0
 	if order == OrderASC {
 		for _, username := range p.dbHandle.usernames {
+			u := p.dbHandle.users[username]
+			if !u.hasRole(role) {
+				continue
+			}
 			itNum++
 			if itNum <= offset {
 				continue
 			}
-			u := p.dbHandle.users[username]
 			user := u.getACopy()
-			if !user.hasRole(role) {
-				continue
-			}
 			p.addVirtualFoldersToUser(&user)
 			user.PrepareForRendering()
 			users = append(users, user)
@@ -657,15 +657,15 @@ func (p *MemoryProvider) getUsers(limit int, offset int, order, role string) ([]
 		}
 	} else {
 		for _, username := range slices.Backward(p.dbHandle.usernames) {
+			u := p.dbHandle.users[username]
+			if !u.hasRole(role) {
+				continue
+			}
 			itNum++
 			if itNum <= offset {
 				continue
 			}
-			u := p.dbHandle.users[username]
 			user := u.getACopy()
-			if !user.hasRole(role) {
-				continue
-			}
 			p.addVirtualFoldersToUser(&user)
 			user.PrepareForRendering()
 			users = append(users, user)

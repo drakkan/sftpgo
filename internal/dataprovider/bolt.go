@@ -1026,8 +1026,14 @@ func (p *BoltProvider) getUsers(limit int, offset int, order, role string) ([]Us
 		itNum := 0
 		if order == OrderASC {
 			for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
-				itNum++
-				if itNum <= offset {
+				if itNum < offset {
+					inRole, err := boltUserInRole(v, role)
+					if err != nil {
+						return err
+					}
+					if inRole {
+						itNum++
+					}
 					continue
 				}
 				user, err := p.joinUserAndFolders(v, foldersBucket)
@@ -1045,8 +1051,14 @@ func (p *BoltProvider) getUsers(limit int, offset int, order, role string) ([]Us
 			}
 		} else {
 			for k, v := cursor.Last(); k != nil; k, v = cursor.Prev() {
-				itNum++
-				if itNum <= offset {
+				if itNum < offset {
+					inRole, err := boltUserInRole(v, role)
+					if err != nil {
+						return err
+					}
+					if inRole {
+						itNum++
+					}
 					continue
 				}
 				user, err := p.joinUserAndFolders(v, foldersBucket)
@@ -1066,6 +1078,19 @@ func (p *BoltProvider) getUsers(limit int, offset int, order, role string) ([]Us
 		return err
 	})
 	return users, err
+}
+
+func boltUserInRole(v []byte, role string) (bool, error) {
+	if role == "" {
+		return true, nil
+	}
+	var user struct {
+		Role string `json:"role"`
+	}
+	if err := json.Unmarshal(v, &user); err != nil {
+		return false, err
+	}
+	return user.Role == role, nil
 }
 
 func (p *BoltProvider) dumpFolders() ([]vfs.BaseVirtualFolder, error) {
