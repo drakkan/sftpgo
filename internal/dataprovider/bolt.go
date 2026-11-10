@@ -3780,7 +3780,7 @@ func (p *BoltProvider) getRolesBucket(tx *bolt.Tx) (*bolt.Bucket, error) {
 
 func (p *BoltProvider) getIPListsBucket(tx *bolt.Tx) (*bolt.Bucket, error) {
 	var err error
-	bucket := tx.Bucket(rolesBucket)
+	bucket := tx.Bucket(ipListsBucket)
 	if bucket == nil {
 		err = fmt.Errorf("unable to find IP lists bucket, bolt database structure not correcly defined")
 	}
