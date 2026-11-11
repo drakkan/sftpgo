@@ -407,6 +407,23 @@ func TestSSHCommandsFromEnv(t *testing.T) {
 	}
 }
 
+func TestMaxTxPacketSizeFromEnv(t *testing.T) {
+	reset()
+
+	err := config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	assert.Equal(t, 32768, config.GetSFTPDConfig().MaxTxPacketSize)
+
+	os.Setenv("SFTPGO_SFTPD__MAX_TX_PACKET_SIZE", "65536")
+	t.Cleanup(func() {
+		os.Unsetenv("SFTPGO_SFTPD__MAX_TX_PACKET_SIZE")
+	})
+
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	assert.Equal(t, 65536, config.GetSFTPDConfig().MaxTxPacketSize)
+}
+
 func TestSMTPFromEnv(t *testing.T) {
 	reset()
 
