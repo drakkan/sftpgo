@@ -998,7 +998,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     e.preventDefault();
                     const parent = e.target.closest('tr');
                     let rowData = dt.row(parent).data();
-                    openMediaPlayer(rowData["name"], rowData["url"]);
+                    openMediaPlayer(rowData["name"], rowData["url"], rowData["size"]);
                 });
             });
         }
@@ -2000,6 +2000,11 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     //{{- end}}
 
     var playerKeepAlive;
+    // audio files are downloaded again and decoded in the browser to draw the waveform
+    const waveformMaxSize = 20 * 1024 * 1024;
+    const waveformBars = 200;
+    var waveformPeaks = null;
+    var waveformAbortController = null;
 
     function uploadFiles(files) {
         if (files.length == 0) {
@@ -2230,10 +2235,69 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             }
         }();
 
-    function openMediaPlayer(name, url){
+    function loadWaveform(url) {
+        let abortController = new AbortController();
+        waveformAbortController = abortController;
+        axios.get(url, {
+            responseType: 'arraybuffer',
+            signal: abortController.signal,
+            validateStatus: function (status) {
+                return status == 200;
+            }
+        }).then(function (response) {
+            // a low sample rate is enough for the peaks and keeps the decoded audio small
+            return new OfflineAudioContext(1, 1, 8000).decodeAudioData(response.data);
+        }).then(function (audio) {
+            if (abortController.signal.aborted) {
+                return;
+            }
+            let step = Math.ceil(audio.length / waveformBars);
+            let peaks = new Array(waveformBars).fill(0);
+            for (let c = 0; c < audio.numberOfChannels; c++) {
+                let samples = audio.getChannelData(c);
+                for (let i = 0; i < samples.length; i++) {
+                    let bar = Math.floor(i / step);
+                    peaks[bar] = Math.max(peaks[bar], Math.abs(samples[i]));
+                }
+            }
+            let max = Math.max(...peaks) || 1;
+            waveformPeaks = peaks.map(p => p / max);
+            $("#audio_waveform").removeClass("d-none");
+            drawWaveform();
+        }).catch(function (error) {});
+    }
+
+    function drawWaveform() {
+        if (waveformPeaks == null) {
+            return;
+        }
+        let canvas = $("#audio_waveform").get(0);
+        let player = $("#video_player").get(0);
+        let ratio = window.devicePixelRatio || 1;
+        canvas.width = canvas.clientWidth * ratio;
+        canvas.height = canvas.clientHeight * ratio;
+        let ctx = canvas.getContext("2d");
+        let playedColor = KTUtil.getCssVariableValue("--bs-primary");
+        let color = KTUtil.getCssVariableValue("--bs-gray-400");
+        let played = player.duration ? player.currentTime / player.duration : 0;
+        let barWidth = canvas.width / waveformPeaks.length;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        waveformPeaks.forEach((peak, i) => {
+            let height = Math.max(peak * canvas.height, ratio);
+            ctx.fillStyle = (i + 0.5) / waveformPeaks.length <= played ? playedColor : color;
+            ctx.fillRect(i * barWidth, (canvas.height - height) / 2, barWidth * 0.7, height);
+        });
+    }
+
+    function openMediaPlayer(name, url, size){
         $("#video_title").text(name);
         $("#video_player").attr("src", url);
         $("#video_player").get(0).load();
+        $("#audio_waveform").addClass("d-none");
+        let extension = name.slice((name.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase();
+        if (["mp3", "wav", "ogg"].includes(extension) && size > 0 && size <= waveformMaxSize && window.OfflineAudioContext) {
+            loadWaveform(url);
+        }
         $('#modal_video_player').modal('show');
         keepAlive();
         playerKeepAlive = setInterval(keepAlive, keepAliveInterval);
@@ -2331,8 +2395,23 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             lastAddedFile = Date.now();
         });
 
+        $("#video_player").on("timeupdate", drawWaveform);
+        $('#modal_video_player').on('shown.bs.modal', drawWaveform);
+
+        $("#audio_waveform").on("click", function (e) {
+            let player = $("#video_player").get(0);
+            if (player.duration) {
+                player.currentTime = player.duration * e.offsetX / this.clientWidth;
+            }
+        });
+
         $('#modal_video_player').on('hide.bs.modal', function () {
             $("#video_player").get(0).pause();
+            if (waveformAbortController != null) {
+                waveformAbortController.abort();
+                waveformAbortController = null;
+            }
+            waveformPeaks = null;
             if (playerKeepAlive != null) {
                 clearInterval(playerKeepAlive);
                 playerKeepAlive = null;
@@ -2555,6 +2634,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
 
             <div class="modal-body">
+                <canvas id="audio_waveform" class="w-100 h-80px mb-3 cursor-pointer d-none" aria-hidden="true"></canvas>
                 <video id="video_player" width="100%" height="auto" controls preload="metadata">
                     <span data-i18n="general.html5_media_not_supported"></span>
                 </video>
