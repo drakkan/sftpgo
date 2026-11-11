@@ -1390,8 +1390,13 @@ func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.Keyboard
 	var err error
 	username = config.convertName(username)
 	usePlugin := plugin.Handler.HasAuthScope(plugin.AuthScopeKeyboardInteractive)
+	useExternalAuth := !usePlugin && config.ExternalAuthHook != "" &&
+		(config.ExternalAuthScope == 0 || config.ExternalAuthScope&4 != 0)
+	// An external auth hook decides which accounts use this method: no challenge is sent
+	// before its answer, so on a refusal clients move on to the next method.
+	challengeEveryAccount := !isPartialAuth && !useExternalAuth
 	hasCustomChallenges := usePlugin || authHook != ""
-	if !isPartialAuth && !hasCustomChallenges {
+	if challengeEveryAccount && !hasCustomChallenges {
 		answers, errPrompt := client("", "", []string{passwordPrompt}, []bool{false})
 		if errPrompt != nil {
 			return user, errPrompt
@@ -1403,7 +1408,7 @@ func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.Keyboard
 	}
 	if usePlugin {
 		user, err = doPluginAuth(username, "", nil, ip, protocol, nil, plugin.AuthScopeKeyboardInteractive)
-	} else if config.ExternalAuthHook != "" && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&4 != 0) {
+	} else if useExternalAuth {
 		user, err = doExternalAuth(username, "", nil, "1", ip, protocol, nil)
 	} else if config.PreLoginHook != "" {
 		user, err = executePreLoginHook(username, SSHLoginMethodKeyboardInteractive, ip, protocol, nil)
@@ -1411,7 +1416,7 @@ func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.Keyboard
 		user, err = provider.userExists(username, "")
 	}
 	if err != nil {
-		if !isPartialAuth && hasCustomChallenges {
+		if challengeEveryAccount && hasCustomChallenges {
 			_, _ = client("", "", []string{passwordPrompt}, []bool{false})
 		}
 		return user, err

@@ -5239,6 +5239,72 @@ func TestLoginExternalAuthInteractive(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestLoginExternalAuthInteractiveRefused(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
+	u := getTestUser(false)
+	err := dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	// the hook validates passwords and refuses every keyboard interactive request
+	content := bytes.Replace(getExtAuthScriptContent(u, false, false, ""), []byte("#!/bin/sh\n\n"),
+		[]byte("#!/bin/sh\n\nif test -n \"$SFTPGO_AUTHD_KEYBOARD_INTERACTIVE\"; then\nexit 1\nfi\n"), 1)
+	err = os.WriteFile(extAuthPath, content, os.ModePerm)
+	assert.NoError(t, err)
+	providerConf.ExternalAuthHook = extAuthPath
+	providerConf.ExternalAuthScope = 0
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+
+	var questions []string
+	authMethods := []ssh.AuthMethod{
+		ssh.KeyboardInteractive(func(_, _ string, qs []string, _ []bool) ([]string, error) {
+			questions = append(questions, qs...)
+			return []string{defaultPassword}, nil
+		}),
+		ssh.Password(defaultPassword),
+	}
+	// no challenge is sent before the hook answers, so the client moves on to the password
+	for _, addr := range []string{sftpSrvAddr2228, sftpServerAddr} {
+		conn, client, err := getCustomAuthSftpClient(u, authMethods, addr)
+		if assert.NoError(t, err, addr) {
+			assert.NoError(t, checkBasicSFTP(client))
+			client.Close()
+			conn.Close()
+		}
+		assert.Empty(t, questions, addr)
+	}
+	// a hook that resolves the account is followed by the password challenge
+	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, false, ""), os.ModePerm)
+	assert.NoError(t, err)
+	questions, err = getKeyboardInteractiveQuestions(sftpSrvAddr2228, u.Username, []string{defaultPassword})
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"Password: "}, questions)
+	questions, err = getKeyboardInteractiveQuestions(sftpSrvAddr2228, u.Username+"_missing", []string{defaultPassword})
+	assert.Error(t, err)
+	assert.Empty(t, questions)
+
+	user, _, err := httpdtest.GetUserByUsername(u.Username, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf = config.GetProviderConf()
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+	err = os.Remove(extAuthPath)
+	assert.NoError(t, err)
+}
+
 func TestLoginExternalAuthErrors(t *testing.T) {
 	if runtime.GOOS == osWindows {
 		t.Skip("this test is not available on Windows")
