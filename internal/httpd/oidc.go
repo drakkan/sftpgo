@@ -383,6 +383,7 @@ type oidcToken struct {
 	CustomFields               *map[string]any `json:"custom_fields,omitempty"`
 	Cookie                     string          `json:"cookie"`
 	UsedAt                     int64           `json:"used_at"`
+	Signature                  string          `json:"signature,omitempty"` // signature of the SFTPGo account
 }
 
 func (t *oidcToken) parseClaims(claims map[string]any, usernameField, roleField string, customFields []string,
@@ -496,6 +497,31 @@ func (t *oidcToken) isAdmin() bool {
 	}
 }
 
+func getOIDCTokenExpiration(expiry time.Time) int64 {
+	if expiry.IsZero() {
+		return util.GetTimeAsMsSinceEpoch(time.Now().Add(cookieTokenDuration))
+	}
+	return util.GetTimeAsMsSinceEpoch(expiry)
+}
+
+func (t *oidcToken) checkSignature() error {
+	var signature string
+	var err error
+	if t.isAdmin() {
+		signature, err = dataprovider.GetAdminSignature(t.Username)
+	} else {
+		signature, err = dataprovider.GetUserSignature(t.Username)
+	}
+	if err != nil {
+		return err
+	}
+	if signature == "" || signature != t.Signature {
+		return fmt.Errorf("signature mismatch for username %q, signature %q, session signature %q",
+			t.Username, signature, t.Signature)
+	}
+	return nil
+}
+
 func (t *oidcToken) isExpired() bool {
 	if t.ExpiresAt == 0 {
 		return false
@@ -532,11 +558,7 @@ func (t *oidcToken) refresh(ctx context.Context, config OAuth2Config, verifier O
 	t.TokenType = newToken.TokenType
 	t.RefreshToken = newToken.RefreshToken
 	t.IDToken = rawIDToken
-	if !newToken.Expiry.IsZero() {
-		t.ExpiresAt = util.GetTimeAsMsSinceEpoch(newToken.Expiry)
-	} else {
-		t.ExpiresAt = 0
-	}
+	t.ExpiresAt = getOIDCTokenExpiration(newToken.Expiry)
 	idToken, err := verifier.Verify(ctx, rawIDToken)
 	if err != nil {
 		logger.Debug(logSender, "", "unable to verify refreshed id token for cookie %q: %v", t.Cookie, err)
@@ -580,6 +602,7 @@ func (t *oidcToken) refreshUser(r *http.Request) error {
 		t.Permissions = admin.Permissions
 		t.TokenRole = admin.Role
 		t.HideUserPageSections = admin.Filters.Preferences.HideUserPageSections
+		t.Signature = admin.GetSignature()
 		return nil
 	}
 	user, err := dataprovider.GetUserWithGroupSettings(t.Username, "")
@@ -594,6 +617,7 @@ func (t *oidcToken) refreshUser(r *http.Request) error {
 	}
 	t.Permissions = user.Filters.WebClient
 	t.TokenRole = user.Role
+	t.Signature = user.GetSignature()
 	t.MustSetTwoFactorAuth = user.MustSetSecondFactor()
 	t.MustChangePassword = user.MustChangePassword()
 	t.RequiredTwoFactorProtocols = user.Filters.TwoFactorAuthProtocols
@@ -628,6 +652,7 @@ func (t *oidcToken) getUser(r *http.Request) error {
 		t.Permissions = admin.Permissions
 		t.TokenRole = admin.Role
 		t.HideUserPageSections = admin.Filters.Preferences.HideUserPageSections
+		t.Signature = admin.GetSignature()
 		dataprovider.UpdateAdminLastLogin(admin)
 		common.DelayLogin(nil)
 		return nil
@@ -668,6 +693,7 @@ func (t *oidcToken) getUser(r *http.Request) error {
 	dataprovider.UpdateLastLogin(user)
 	t.Permissions = user.Filters.WebClient
 	t.TokenRole = user.Role
+	t.Signature = user.GetSignature()
 	t.MustSetTwoFactorAuth = user.MustSetSecondFactor()
 	t.MustChangePassword = user.MustChangePassword()
 	t.RequiredTwoFactorProtocols = user.Filters.TwoFactorAuthProtocols
@@ -695,6 +721,14 @@ func (s *httpdServer) validateOIDCToken(w http.ResponseWriter, r *http.Request, 
 		logger.Debug(logSender, "", "error getting oidc token associated with cookie %q: %v", cookie.Value, err)
 		doRedirect()
 		return oidcToken{}, errInvalidToken
+	}
+	if tokenValidationMode&tokenValidationModeUserSignature != 0 {
+		if err := token.checkSignature(); err != nil {
+			logger.Debug(logSender, "", "oidc token associated with cookie %q is no longer valid: %v", token.Cookie, err)
+			oidcMgr.removeToken(token.Cookie)
+			doRedirect()
+			return oidcToken{}, errInvalidToken
+		}
 	}
 	if token.isExpired() {
 		logger.Debug(logSender, "", "oidc token associated with cookie %q is expired", token.Cookie)
@@ -945,9 +979,7 @@ func (s *httpdServer) handleOIDCRedirect(w http.ResponseWriter, r *http.Request)
 		Nonce:        idToken.Nonce,
 		Cookie:       util.GenerateOpaqueString(),
 	}
-	if !oauth2Token.Expiry.IsZero() {
-		token.ExpiresAt = util.GetTimeAsMsSinceEpoch(oauth2Token.Expiry)
-	}
+	token.ExpiresAt = getOIDCTokenExpiration(oauth2Token.Expiry)
 	if err := validateOIDCEmailVerified(claims, s.binding.OIDC.RequireVerifiedEmail); err != nil {
 		logger.Debug(logSender, "", "unable to validate the OpenID email address: %v", err)
 		setFlashMessage(w, r, newFlashMessage(fmt.Sprintf("Unable to validate the OpenID email address: %v", err),

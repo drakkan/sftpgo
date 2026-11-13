@@ -404,6 +404,7 @@ func validateIPForToken(token *jwt.Claims, ip string) error {
 }
 
 func checkTokenSignature(r *http.Request, token *jwt.Claims) error {
+	// OIDC sessions are checked against the account signature in validateOIDCToken
 	if _, ok := r.Context().Value(oidcTokenKey).(string); ok {
 		return nil
 	}

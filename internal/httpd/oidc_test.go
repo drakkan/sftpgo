@@ -2568,3 +2568,113 @@ func getPreLoginScriptContent(user dataprovider.User, nonJSONResponse bool) []by
 	}
 	return content
 }
+
+func TestOIDCTokenExpiration(t *testing.T) {
+	expiry := time.Now().Add(10 * time.Minute)
+	assert.Equal(t, util.GetTimeAsMsSinceEpoch(expiry), getOIDCTokenExpiration(expiry))
+	// a token without expiration gets the cookie lifetime
+	expiresAt := getOIDCTokenExpiration(time.Time{})
+	assert.InDelta(t, util.GetTimeAsMsSinceEpoch(time.Now().Add(cookieTokenDuration)), expiresAt, 1000)
+	token := oidcToken{ExpiresAt: expiresAt}
+	assert.False(t, token.isExpired())
+	token.ExpiresAt = util.GetTimeAsMsSinceEpoch(time.Now().Add(-1 * time.Second))
+	assert.True(t, token.isExpired())
+}
+
+func TestOIDCTokenSignature(t *testing.T) {
+	oidcMgr, ok := oidcMgr.(*memoryOIDCManager)
+	require.True(t, ok)
+	server := getTestOIDCServer()
+	err := server.binding.OIDC.initialize()
+	assert.NoError(t, err)
+	err = server.initializeRouter()
+	require.NoError(t, err)
+
+	tokenValidationMode = 2
+	defer func() {
+		tokenValidationMode = 0
+	}()
+
+	validate := func(token oidcToken, isAdmin bool) error {
+		oidcMgr.addToken(token)
+		rr := httptest.NewRecorder()
+		r, err := http.NewRequest(http.MethodGet, webClientFilesPath, nil)
+		require.NoError(t, err)
+		r.Header.Set("Cookie", fmt.Sprintf("%v=%v", oidcCookieKey, token.Cookie))
+		_, err = server.validateOIDCToken(rr, r, isAdmin)
+		return err
+	}
+
+	admin := dataprovider.Admin{
+		Username:    "test_oidc_admin_signature",
+		Password:    "p",
+		Permissions: []string{dataprovider.PermAdminAny},
+		Status:      1,
+	}
+	err = dataprovider.AddAdmin(&admin, "", "", "")
+	require.NoError(t, err)
+	admin, err = dataprovider.AdminExists(admin.Username)
+	require.NoError(t, err)
+	token := oidcToken{
+		Cookie:      util.GenerateOpaqueString(),
+		AccessToken: xid.New().String(),
+		ExpiresAt:   util.GetTimeAsMsSinceEpoch(time.Now().Add(10 * time.Minute)),
+		Username:    admin.Username,
+		Role:        adminRoleFieldValue,
+		Signature:   admin.GetSignature(),
+	}
+	assert.NoError(t, validate(token, true))
+	_, err = oidcMgr.getToken(token.Cookie)
+	assert.NoError(t, err)
+	// any change to the account ends the session
+	time.Sleep(10 * time.Millisecond)
+	admin.Description = "updated"
+	err = dataprovider.UpdateAdmin(&admin, "", "", "")
+	require.NoError(t, err)
+	assert.ErrorIs(t, validate(token, true), errInvalidToken)
+	_, err = oidcMgr.getToken(token.Cookie)
+	assert.Error(t, err)
+	// a session without signature ends too
+	token.Signature = ""
+	assert.ErrorIs(t, validate(token, true), errInvalidToken)
+	// without signature validation the session is accepted
+	tokenValidationMode = 0
+	assert.NoError(t, validate(token, true))
+	oidcMgr.removeToken(token.Cookie)
+	tokenValidationMode = 2
+
+	err = dataprovider.DeleteAdmin(admin.Username, "", "", "")
+	require.NoError(t, err)
+
+	username := "test_oidc_user_signature"
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username: username,
+			Password: "p",
+			HomeDir:  filepath.Join(os.TempDir(), username),
+			Status:   1,
+			Permissions: map[string][]string{
+				"/": {dataprovider.PermAny},
+			},
+		},
+	}
+	err = dataprovider.AddUser(&user, "", "", "")
+	require.NoError(t, err)
+	user, err = dataprovider.UserExists(username, "")
+	require.NoError(t, err)
+	token = oidcToken{
+		Cookie:      util.GenerateOpaqueString(),
+		AccessToken: xid.New().String(),
+		ExpiresAt:   util.GetTimeAsMsSinceEpoch(time.Now().Add(10 * time.Minute)),
+		Username:    username,
+		Signature:   user.GetSignature(),
+	}
+	assert.NoError(t, validate(token, false))
+	oidcMgr.removeToken(token.Cookie)
+	// a deleted account ends the session
+	err = dataprovider.DeleteUser(username, "", "", "")
+	require.NoError(t, err)
+	assert.ErrorIs(t, validate(token, false), errInvalidToken)
+	_, err = oidcMgr.getToken(token.Cookie)
+	assert.Error(t, err)
+}
