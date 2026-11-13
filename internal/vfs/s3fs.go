@@ -174,7 +174,6 @@ func (fs *S3Fs) ConnectionID() string {
 
 // Stat returns a FileInfo describing the named file
 func (fs *S3Fs) Stat(name string) (os.FileInfo, error) {
-	var result *FileInfo
 	if name == "" || name == "/" || name == "." {
 		return NewFileInfo(name, true, 0, time.Unix(0, 0), false), nil
 	}
@@ -194,7 +193,7 @@ func (fs *S3Fs) Stat(name string) (os.FileInfo, error) {
 		return info, nil
 	}
 	if !fs.IsNotExist(err) {
-		return result, err
+		return nil, err
 	}
 	// now check if this is a prefix (virtual directory)
 	hasContents, err := fs.hasContents(name)
@@ -211,10 +210,9 @@ func (fs *S3Fs) Stat(name string) (os.FileInfo, error) {
 }
 
 func (fs *S3Fs) getStatForDir(name string) (os.FileInfo, error) {
-	var result *FileInfo
 	obj, err := fs.headObject(name + "/")
 	if err != nil {
-		return result, err
+		return nil, err
 	}
 	return NewFileInfo(name, true, util.GetIntFromPointer(obj.ContentLength), util.GetTimeFromPointer(obj.LastModified), false), nil
 }

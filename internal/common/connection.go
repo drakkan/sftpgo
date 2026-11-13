@@ -1100,18 +1100,18 @@ func (c *BaseConnection) renameInternal(virtualSourcePath, virtualTargetPath str
 	}
 	initialSize := int64(-1)
 	dstInfo, err := fsDst.Lstat(fsTargetPath)
-	if err != nil && !fsDst.IsNotExist(err) {
-		return c.GetFsError(fsDst, err)
-	}
-	if err == nil {
+	if err != nil {
+		if !fsDst.IsNotExist(err) {
+			return c.GetFsError(fsDst, err)
+		}
+		// the target is missing: a FileInfo returned with the error describes nothing
+		dstInfo = nil
+	} else {
 		checkParentDestination = false
 		if c.isRenameOntoItself(fsSrc, fsSourcePath, fsDst, fsTargetPath) {
 			// the target is the source entry: the rename replaces nothing
 			dstInfo = nil
 		}
-	} else {
-		// the target does not exist, some backends, such as S3, still return a typed nil FileInfo
-		dstInfo = nil
 	}
 	if dstInfo != nil {
 		if dstInfo.IsDir() {
