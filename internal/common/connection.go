@@ -1109,6 +1109,9 @@ func (c *BaseConnection) renameInternal(virtualSourcePath, virtualTargetPath str
 			// the target is the source entry: the rename replaces nothing
 			dstInfo = nil
 		}
+	} else {
+		// the target does not exist, some backends, such as S3, still return a typed nil FileInfo
+		dstInfo = nil
 	}
 	if dstInfo != nil {
 		if dstInfo.IsDir() {
