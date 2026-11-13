@@ -51,15 +51,15 @@ func (p *ipFilterPlugin) cleanup() {
 
 func (p *ipFilterPlugin) initialize() error {
 	logger.Debug(logSender, "", "create new IP filter plugin %q", p.config.Cmd)
-	killProcess(p.config.Cmd)
 	secureConfig, err := p.config.getSecureConfig()
 	if err != nil {
 		return err
 	}
+	cmd := p.config.getCommand()
 	client := plugin.NewClient(&plugin.ClientConfig{
 		HandshakeConfig: ipfilter.Handshake,
 		Plugins:         ipfilter.PluginMap,
-		Cmd:             p.config.getCommand(),
+		Cmd:             cmd,
 		SkipHostEnv:     true,
 		AllowedProtocols: []plugin.Protocol{
 			plugin.ProtocolGRPC,
@@ -80,6 +80,7 @@ func (p *ipFilterPlugin) initialize() error {
 		logger.Debug(logSender, "", "unable to get rpc client for plugin %q: %v", p.config.Cmd, err)
 		return err
 	}
+	tieToHost(cmd)
 	raw, err := rpcClient.Dispense(ipfilter.PluginName)
 	if err != nil {
 		logger.Debug(logSender, "", "unable to get plugin %v from rpc client for command %q: %v",

@@ -50,16 +50,16 @@ func (p *searcherPlugin) cleanup() {
 }
 
 func (p *searcherPlugin) initialize() error {
-	killProcess(p.config.Cmd)
 	logger.Debug(logSender, "", "create new searcher plugin %q", p.config.Cmd)
 	secureConfig, err := p.config.getSecureConfig()
 	if err != nil {
 		return err
 	}
+	cmd := p.config.getCommand()
 	client := plugin.NewClient(&plugin.ClientConfig{
 		HandshakeConfig: eventsearcher.Handshake,
 		Plugins:         eventsearcher.PluginMap,
-		Cmd:             p.config.getCommand(),
+		Cmd:             cmd,
 		SkipHostEnv:     true,
 		AllowedProtocols: []plugin.Protocol{
 			plugin.ProtocolGRPC,
@@ -80,6 +80,7 @@ func (p *searcherPlugin) initialize() error {
 		logger.Debug(logSender, "", "unable to get rpc client for plugin %q: %v", p.config.Cmd, err)
 		return err
 	}
+	tieToHost(cmd)
 	raw, err := rpcClient.Dispense(eventsearcher.PluginName)
 	if err != nil {
 		logger.Debug(logSender, "", "unable to get plugin %v from rpc client for command %q: %v",

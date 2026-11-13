@@ -55,6 +55,7 @@ fmt.Println
 (net.Conn).Close
 (net.Listener).Close
 (net/http.File).Close
+golang.org/x/sys/windows.CloseHandle
 
 # Close promoted from an embedded type: errcheck names the declaring type
 (golang.org/x/crypto/ssh.Conn).Close

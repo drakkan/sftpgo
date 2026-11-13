@@ -105,7 +105,6 @@ func newAuthPlugin(config Config) (*authPlugin, error) {
 }
 
 func (p *authPlugin) initialize() error {
-	killProcess(p.config.Cmd)
 	logger.Debug(logSender, "", "create new auth plugin %q", p.config.Cmd)
 	if err := p.config.AuthOptions.validate(); err != nil {
 		return fmt.Errorf("invalid options for auth plugin %q: %v", p.config.Cmd, err)
@@ -115,10 +114,11 @@ func (p *authPlugin) initialize() error {
 	if err != nil {
 		return err
 	}
+	cmd := p.config.getCommand()
 	client := plugin.NewClient(&plugin.ClientConfig{
 		HandshakeConfig: auth.Handshake,
 		Plugins:         auth.PluginMap,
-		Cmd:             p.config.getCommand(),
+		Cmd:             cmd,
 		SkipHostEnv:     true,
 		AllowedProtocols: []plugin.Protocol{
 			plugin.ProtocolGRPC,
@@ -139,6 +139,7 @@ func (p *authPlugin) initialize() error {
 		logger.Debug(logSender, "", "unable to get rpc client for auth plugin %q: %v", p.config.Cmd, err)
 		return err
 	}
+	tieToHost(cmd)
 	raw, err := rpcClient.Dispense(auth.PluginName)
 	if err != nil {
 		logger.Debug(logSender, "", "unable to get plugin %v from rpc client for command %q: %v",

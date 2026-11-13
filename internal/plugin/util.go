@@ -15,25 +15,19 @@
 package plugin
 
 import (
-	"github.com/shirou/gopsutil/v4/process"
+	"os/exec"
 
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 )
 
-func killProcess(processPath string) {
-	procs, err := process.Processes()
-	if err != nil {
+// tieToHost makes the started plugin process end together with the SFTPGo
+// process. A failure is logged and the plugin keeps running.
+func tieToHost(cmd *exec.Cmd) {
+	if cmd.Process == nil {
 		return
 	}
-	for _, p := range procs {
-		cmdLine, err := p.Exe()
-		if err == nil {
-			if cmdLine == processPath {
-				err = p.Kill()
-				logger.Debug(logSender, "", "killed process %v, pid %v, err %v", cmdLine, p.Pid, err)
-				return
-			}
-		}
+	if err := tieProcessToHost(cmd.Process.Pid); err != nil {
+		logger.Warn(logSender, "", "unable to tie plugin process %q, pid %d, to the SFTPGo process: %v",
+			cmd.Path, cmd.Process.Pid, err)
 	}
-	logger.Debug(logSender, "", "no match for plugin process %v", processPath)
 }

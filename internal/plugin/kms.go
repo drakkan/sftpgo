@@ -69,7 +69,6 @@ func newKMSPlugin(config Config) (*kmsPlugin, error) {
 }
 
 func (p *kmsPlugin) initialize() error {
-	killProcess(p.config.Cmd)
 	logger.Debug(logSender, "", "create new kms plugin %q", p.config.Cmd)
 	if err := p.config.KMSOptions.validate(); err != nil {
 		return fmt.Errorf("invalid options for kms plugin %q: %v", p.config.Cmd, err)
@@ -78,10 +77,11 @@ func (p *kmsPlugin) initialize() error {
 	if err != nil {
 		return err
 	}
+	cmd := p.config.getCommand()
 	client := plugin.NewClient(&plugin.ClientConfig{
 		HandshakeConfig: kmsplugin.Handshake,
 		Plugins:         kmsplugin.PluginMap,
-		Cmd:             p.config.getCommand(),
+		Cmd:             cmd,
 		SkipHostEnv:     true,
 		AllowedProtocols: []plugin.Protocol{
 			plugin.ProtocolGRPC,
@@ -102,6 +102,7 @@ func (p *kmsPlugin) initialize() error {
 		logger.Debug(logSender, "", "unable to get rpc client for kms plugin %q: %v", p.config.Cmd, err)
 		return err
 	}
+	tieToHost(cmd)
 	raw, err := rpcClient.Dispense(kmsplugin.PluginName)
 	if err != nil {
 		logger.Debug(logSender, "", "unable to get plugin %v from rpc client for command %q: %v",
