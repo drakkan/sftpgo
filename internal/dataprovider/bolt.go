@@ -39,26 +39,29 @@ import (
 )
 
 const (
-	boltDatabaseVersion = 36
+	boltDatabaseVersion = 37
 )
 
 var (
-	usersBucket     = []byte("users")
-	groupsBucket    = []byte("groups")
-	foldersBucket   = []byte("folders")
-	adminsBucket    = []byte("admins")
-	apiKeysBucket   = []byte("api_keys")
-	sharesBucket    = []byte("shares")
-	actionsBucket   = []byte("events_actions")
-	rulesBucket     = []byte("events_rules")
-	rolesBucket     = []byte("roles")
-	ipListsBucket   = []byte("ip_lists")
-	configsBucket   = []byte("configs")
-	dbVersionBucket = []byte("db_version")
-	dbVersionKey    = []byte("version")
-	configsKey      = []byte("configs")
-	boltBuckets     = [][]byte{usersBucket, groupsBucket, foldersBucket, adminsBucket, apiKeysBucket,
-		sharesBucket, actionsBucket, rulesBucket, rolesBucket, ipListsBucket, configsBucket, dbVersionBucket}
+	usersBucket               = []byte("users")
+	groupsBucket              = []byte("groups")
+	foldersBucket             = []byte("folders")
+	adminsBucket              = []byte("admins")
+	apiKeysBucket             = []byte("api_keys")
+	sharesBucket              = []byte("shares")
+	actionsBucket             = []byte("events_actions")
+	rulesBucket               = []byte("events_rules")
+	rolesBucket               = []byte("roles")
+	ipListsBucket             = []byte("ip_lists")
+	configsBucket             = []byte("configs")
+	usersIDPIdentitiesBucket  = []byte("users_idp_identities")
+	adminsIDPIdentitiesBucket = []byte("admins_idp_identities")
+	dbVersionBucket           = []byte("db_version")
+	dbVersionKey              = []byte("version")
+	configsKey                = []byte("configs")
+	boltBuckets               = [][]byte{usersBucket, groupsBucket, foldersBucket, adminsBucket, apiKeysBucket,
+		sharesBucket, actionsBucket, rulesBucket, rolesBucket, ipListsBucket, configsBucket, dbVersionBucket,
+		usersIDPIdentitiesBucket, adminsIDPIdentitiesBucket}
 )
 
 // BoltProvider defines the auth provider for bolt key/value store
@@ -3102,6 +3105,67 @@ func (p *BoltProvider) initializeDatabase() error {
 	return ErrNoInitRequired
 }
 
+func (p *BoltProvider) ipListEntriesInRolesBucket(tx *bolt.Tx) ([][]byte, [][]byte, error) {
+	bucket, err := p.getRolesBucket(tx)
+	if err != nil {
+		return nil, nil, err
+	}
+	var keys, values [][]byte
+	cursor := bucket.Cursor()
+	for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
+		var entry struct {
+			IPOrNet string `json:"ipornet"`
+		}
+		if err := json.Unmarshal(v, &entry); err != nil || entry.IPOrNet == "" {
+			continue
+		}
+		keys = append(keys, bytes.Clone(k))
+		values = append(values, bytes.Clone(v))
+	}
+	return keys, values, nil
+}
+
+func (p *BoltProvider) repairIPListsBucket() error {
+	var found int
+	err := p.dbHandle.View(func(tx *bolt.Tx) error {
+		keys, _, err := p.ipListEntriesInRolesBucket(tx)
+		found = len(keys)
+		return err
+	})
+	if err != nil || found == 0 {
+		return err
+	}
+	err = p.dbHandle.Update(func(tx *bolt.Tx) error {
+		keys, values, err := p.ipListEntriesInRolesBucket(tx)
+		if err != nil {
+			return err
+		}
+		roles, err := p.getRolesBucket(tx)
+		if err != nil {
+			return err
+		}
+		ipLists, err := p.getIPListsBucket(tx)
+		if err != nil {
+			return err
+		}
+		for idx, key := range keys {
+			if err := ipLists.Put(key, values[idx]); err != nil {
+				return err
+			}
+			if err := roles.Delete(key); err != nil {
+				return err
+			}
+		}
+		found = len(keys)
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("unable to move the IP list entries to their bucket: %w", err)
+	}
+	providerLog(logger.LevelInfo, "%d IP list entries moved from the roles bucket to the IP lists bucket", found)
+	return nil
+}
+
 func (p *BoltProvider) migrateDatabase() error {
 	dbVersion, err := getBoltDatabaseVersion(p.dbHandle)
 	if err != nil {
@@ -3116,10 +3180,15 @@ func (p *BoltProvider) migrateDatabase() error {
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
-	case version == 33, version == 34, version == 35:
-		logger.InfoToConsole("updating database schema version: %d -> 36", version)
-		providerLog(logger.LevelInfo, "updating database schema version: %d -> 36", version)
-		return updateBoltDatabaseVersion(p.dbHandle, 36)
+	case version >= 33 && version <= 36:
+		logger.InfoToConsole("updating database schema version: %d -> 37", version)
+		providerLog(logger.LevelInfo, "updating database schema version: %d -> 37", version)
+		if err := p.repairIPListsBucket(); err != nil {
+			providerLog(logger.LevelError, "%v", err)
+			logger.ErrorToConsole("%v", err)
+			return err
+		}
+		return updateBoltDatabaseVersion(p.dbHandle, 37)
 
 	default:
 		if version > boltDatabaseVersion {
@@ -3142,7 +3211,12 @@ func (p *BoltProvider) revertDatabase(targetVersion int) error {
 		return errors.New("current version match target version, nothing to do")
 	}
 	switch dbVersion.Version {
-	case 34, 35, 36:
+	case 34, 35, 36, 37:
+		if dbVersion.Version == 37 {
+			if err := p.removeIDPIdentities(); err != nil {
+				return err
+			}
+		}
 		logger.InfoToConsole("downgrading database schema version: %d -> 33", dbVersion.Version)
 		providerLog(logger.LevelInfo, "downgrading database schema version: %d -> 33", dbVersion.Version)
 		return updateBoltDatabaseVersion(p.dbHandle, 33)
@@ -3150,6 +3224,49 @@ func (p *BoltProvider) revertDatabase(targetVersion int) error {
 	default:
 		return fmt.Errorf("database schema version not handled: %v", dbVersion.Version)
 	}
+}
+
+func (p *BoltProvider) removeIDPIdentities() error {
+	return p.dbHandle.Update(func(tx *bolt.Tx) error {
+		for _, name := range [][]byte{usersIDPIdentitiesBucket, adminsIDPIdentitiesBucket} {
+			if err := tx.DeleteBucket(name); err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
+				return err
+			}
+			if _, err := tx.CreateBucket(name); err != nil {
+				return err
+			}
+		}
+		for _, name := range [][]byte{usersBucket, adminsBucket} {
+			bucket := tx.Bucket(name)
+			if bucket == nil {
+				continue
+			}
+			var keys, values [][]byte
+			cursor := bucket.Cursor()
+			for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
+				var obj map[string]json.RawMessage
+				if err := json.Unmarshal(v, &obj); err != nil {
+					return err
+				}
+				if _, ok := obj["idp_identity"]; !ok {
+					continue
+				}
+				delete(obj, "idp_identity")
+				buf, err := json.Marshal(obj)
+				if err != nil {
+					return err
+				}
+				keys = append(keys, bytes.Clone(k))
+				values = append(values, buf)
+			}
+			for idx, key := range keys {
+				if err := bucket.Put(key, values[idx]); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
 }
 
 func (p *BoltProvider) resetDatabase() error {

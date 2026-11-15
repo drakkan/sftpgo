@@ -242,6 +242,14 @@ const (
 		"ALTER TABLE `{{users}}` DROP FOREIGN KEY `{{prefix}}users_role_id_fk_roles_id`;" +
 		"ALTER TABLE `{{users}}` ADD CONSTRAINT `{{prefix}}users_role_id_fk_roles_id` " +
 		"FOREIGN KEY (`role_id`) REFERENCES `{{roles}}` (`id`) ON DELETE NO ACTION;"
+	mysqlV37SQL = "ALTER TABLE `{{users}}` ADD COLUMN `idp_identity` varchar(255) NULL;" +
+		"ALTER TABLE `{{admins}}` ADD COLUMN `idp_identity` varchar(255) NULL;" +
+		"CREATE UNIQUE INDEX `{{prefix}}users_idp_identity_idx` ON `{{users}}` (`idp_identity`);" +
+		"CREATE UNIQUE INDEX `{{prefix}}admins_idp_identity_idx` ON `{{admins}}` (`idp_identity`);"
+	mysqlV37DownSQL = "DROP INDEX `{{prefix}}users_idp_identity_idx` ON `{{users}}`;" +
+		"DROP INDEX `{{prefix}}admins_idp_identity_idx` ON `{{admins}}`;" +
+		"ALTER TABLE `{{users}}` DROP COLUMN `idp_identity`;" +
+		"ALTER TABLE `{{admins}}` DROP COLUMN `idp_identity`;"
 	mysqlV36DownSQL = "ALTER TABLE `{{groups}}` DROP FOREIGN KEY `{{prefix}}groups_role_id_fk_roles_id`;" +
 		"ALTER TABLE `{{folders}}` DROP FOREIGN KEY `{{prefix}}folders_role_id_fk_roles_id`;" +
 		"ALTER TABLE `{{groups}}` DROP COLUMN `role_id`;" +
@@ -878,6 +886,8 @@ func (p *MySQLProvider) migrateDatabase() error {
 		return updateMySQLDatabaseFromV34(p.dbHandle)
 	case version == 35:
 		return updateMySQLDatabaseFromV35(p.dbHandle)
+	case version == 36:
+		return updateMySQLDatabaseFromV36(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -906,6 +916,8 @@ func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 		return downgradeMySQLDatabaseFromV35(p.dbHandle)
 	case 36:
 		return downgradeMySQLDatabaseFromV36(p.dbHandle)
+	case 37:
+		return downgradeMySQLDatabaseFromV37(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
@@ -971,7 +983,37 @@ func updateMySQLDatabaseFromV34(dbHandle *sql.DB) error {
 }
 
 func updateMySQLDatabaseFromV35(dbHandle *sql.DB) error {
-	return updateMySQLDatabaseFrom35To36(dbHandle)
+	if err := updateMySQLDatabaseFrom35To36(dbHandle); err != nil {
+		return err
+	}
+	return updateMySQLDatabaseFromV36(dbHandle)
+}
+
+func updateMySQLDatabaseFromV36(dbHandle *sql.DB) error {
+	return updateMySQLDatabaseFrom36To37(dbHandle)
+}
+
+func downgradeMySQLDatabaseFromV37(dbHandle *sql.DB) error {
+	if err := downgradeMySQLDatabaseFrom37To36(dbHandle); err != nil {
+		return err
+	}
+	return downgradeMySQLDatabaseFromV36(dbHandle)
+}
+
+func updateMySQLDatabaseFrom36To37(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database schema version: 36 -> 37")
+	providerLog(logger.LevelInfo, "updating database schema version: 36 -> 37")
+
+	sql := sqlReplaceAll(mysqlV37SQL)
+	return mysqlExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 37, true)
+}
+
+func downgradeMySQLDatabaseFrom37To36(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database schema version: 37 -> 36")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 37 -> 36")
+
+	sql := sqlReplaceAll(mysqlV37DownSQL)
+	return mysqlExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 36, false)
 }
 
 func downgradeMySQLDatabaseFromV34(dbHandle *sql.DB) error {

@@ -266,6 +266,14 @@ ALTER TABLE "{{users}}" DROP CONSTRAINT "{{prefix}}users_role_id_fk_roles_id";
 ALTER TABLE "{{users}}" ADD CONSTRAINT "{{prefix}}users_role_id_fk_roles_id" FOREIGN KEY ("role_id")
 REFERENCES "{{roles}}" ("id") ON DELETE NO ACTION;
 `
+	pgsqlV37SQL = `ALTER TABLE "{{users}}" ADD COLUMN "idp_identity" varchar(255) NULL;
+ALTER TABLE "{{admins}}" ADD COLUMN "idp_identity" varchar(255) NULL;
+CREATE UNIQUE INDEX "{{prefix}}users_idp_identity_idx" ON "{{users}}" ("idp_identity");
+CREATE UNIQUE INDEX "{{prefix}}admins_idp_identity_idx" ON "{{admins}}" ("idp_identity");
+`
+	pgsqlV37DownSQL = `ALTER TABLE "{{users}}" DROP COLUMN "idp_identity" CASCADE;
+ALTER TABLE "{{admins}}" DROP COLUMN "idp_identity" CASCADE;
+`
 	pgsqlV36DownSQL = `ALTER TABLE "{{groups}}" DROP COLUMN "role_id" CASCADE;
 ALTER TABLE "{{folders}}" DROP COLUMN "role_id" CASCADE;
 ALTER TABLE "{{roles}}" DROP COLUMN "settings" CASCADE;
@@ -315,6 +323,16 @@ var (
 		`ALTER TABLE "{{admins_groups_mapping}}" ADD CONSTRAINT IF NOT EXISTS "{{prefix}}admins_groups_mapping_group_id_fk_groups_id" FOREIGN KEY ("group_id") REFERENCES "{{groups}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION`,
 		`ALTER TABLE "{{users}}" DROP CONSTRAINT IF EXISTS "{{prefix}}users_role_id_fk_roles_id"`,
 		`ALTER TABLE "{{users}}" ADD CONSTRAINT IF NOT EXISTS "{{prefix}}users_role_id_fk_roles_id" FOREIGN KEY ("role_id") REFERENCES "{{roles}}" ("id") ON DELETE NO ACTION`,
+	}
+	crdbV37SQL = []string{
+		`ALTER TABLE "{{users}}" ADD COLUMN IF NOT EXISTS "idp_identity" varchar(255) NULL`,
+		`ALTER TABLE "{{admins}}" ADD COLUMN IF NOT EXISTS "idp_identity" varchar(255) NULL`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS "{{prefix}}users_idp_identity_idx" ON "{{users}}" ("idp_identity")`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS "{{prefix}}admins_idp_identity_idx" ON "{{admins}}" ("idp_identity")`,
+	}
+	crdbV37DownSQL = []string{
+		`ALTER TABLE "{{users}}" DROP COLUMN IF EXISTS "idp_identity" CASCADE`,
+		`ALTER TABLE "{{admins}}" DROP COLUMN IF EXISTS "idp_identity" CASCADE`,
 	}
 	crdbV36DownSQL = []string{
 		`ALTER TABLE "{{groups}}" DROP COLUMN IF EXISTS "role_id" CASCADE`,
@@ -1012,6 +1030,8 @@ func (p *PGSQLProvider) migrateDatabase() error {
 		return updatePGSQLDatabaseFromV34(p.dbHandle)
 	case version == 35:
 		return updatePGSQLDatabaseFromV35(p.dbHandle)
+	case version == 36:
+		return updatePGSQLDatabaseFromV36(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -1040,6 +1060,8 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 		return downgradePGSQLDatabaseFromV35(p.dbHandle)
 	case 36:
 		return downgradePGSQLDatabaseFromV36(p.dbHandle)
+	case 37:
+		return downgradePGSQLDatabaseFromV37(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
@@ -1092,7 +1114,43 @@ func updatePGSQLDatabaseFromV34(dbHandle *sql.DB) error {
 }
 
 func updatePGSQLDatabaseFromV35(dbHandle *sql.DB) error {
-	return updatePGSQLDatabaseFrom35To36(dbHandle)
+	if err := updatePGSQLDatabaseFrom35To36(dbHandle); err != nil {
+		return err
+	}
+	return updatePGSQLDatabaseFromV36(dbHandle)
+}
+
+func updatePGSQLDatabaseFromV36(dbHandle *sql.DB) error {
+	return updatePGSQLDatabaseFrom36To37(dbHandle)
+}
+
+func downgradePGSQLDatabaseFromV37(dbHandle *sql.DB) error {
+	if err := downgradePGSQLDatabaseFrom37To36(dbHandle); err != nil {
+		return err
+	}
+	return downgradePGSQLDatabaseFromV36(dbHandle)
+}
+
+func updatePGSQLDatabaseFrom36To37(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database schema version: 36 -> 37")
+	providerLog(logger.LevelInfo, "updating database schema version: 36 -> 37")
+
+	if config.Driver == CockroachDataProviderName {
+		return runCRDBStatements(dbHandle, sqlReplaceAllList(crdbV37SQL), 37, true)
+	}
+	sql := sqlReplaceAll(pgsqlV37SQL)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 37, true)
+}
+
+func downgradePGSQLDatabaseFrom37To36(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database schema version: 37 -> 36")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 37 -> 36")
+
+	if config.Driver == CockroachDataProviderName {
+		return runCRDBStatements(dbHandle, sqlReplaceAllList(crdbV37DownSQL), 36, false)
+	}
+	sql := sqlReplaceAll(pgsqlV37DownSQL)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 36, false)
 }
 
 func downgradePGSQLDatabaseFromV34(dbHandle *sql.DB) error {

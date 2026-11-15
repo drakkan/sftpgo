@@ -342,6 +342,16 @@ CREATE INDEX "{{prefix}}users_updated_at_idx" ON "{{users}}" ("updated_at");
 CREATE INDEX "{{prefix}}users_deleted_at_idx" ON "{{users}}" ("deleted_at");
 CREATE INDEX "{{prefix}}users_role_id_idx" ON "{{users}}" ("role_id");
 `
+	sqliteV37SQL = `ALTER TABLE "{{users}}" ADD COLUMN "idp_identity" varchar(255) NULL;
+ALTER TABLE "{{admins}}" ADD COLUMN "idp_identity" varchar(255) NULL;
+CREATE UNIQUE INDEX "{{prefix}}users_idp_identity_idx" ON "{{users}}" ("idp_identity");
+CREATE UNIQUE INDEX "{{prefix}}admins_idp_identity_idx" ON "{{admins}}" ("idp_identity");
+`
+	sqliteV37DownSQL = `DROP INDEX "{{prefix}}users_idp_identity_idx";
+DROP INDEX "{{prefix}}admins_idp_identity_idx";
+ALTER TABLE "{{users}}" DROP COLUMN "idp_identity";
+ALTER TABLE "{{admins}}" DROP COLUMN "idp_identity";
+`
 	sqliteV36DownSQL = `DROP INDEX "{{prefix}}groups_role_id_idx";
 DROP INDEX "{{prefix}}folders_role_id_idx";
 ALTER TABLE "{{groups}}" DROP COLUMN "role_id";
@@ -985,6 +995,8 @@ func (p *SQLiteProvider) migrateDatabase() error {
 		return updateSQLiteDatabaseFromV34(p.dbHandle)
 	case version == 35:
 		return updateSQLiteDatabaseFromV35(p.dbHandle)
+	case version == 36:
+		return updateSQLiteDatabaseFromV36(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -1013,6 +1025,8 @@ func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 		return downgradeSQLiteDatabaseFromV35(p.dbHandle)
 	case 36:
 		return downgradeSQLiteDatabaseFromV36(p.dbHandle)
+	case 37:
+		return downgradeSQLiteDatabaseFromV37(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
@@ -1073,7 +1087,37 @@ func updateSQLiteDatabaseFromV34(dbHandle *sql.DB) error {
 }
 
 func updateSQLiteDatabaseFromV35(dbHandle *sql.DB) error {
-	return updateSQLiteDatabaseFrom35To36(dbHandle)
+	if err := updateSQLiteDatabaseFrom35To36(dbHandle); err != nil {
+		return err
+	}
+	return updateSQLiteDatabaseFromV36(dbHandle)
+}
+
+func updateSQLiteDatabaseFromV36(dbHandle *sql.DB) error {
+	return updateSQLiteDatabaseFrom36To37(dbHandle)
+}
+
+func downgradeSQLiteDatabaseFromV37(dbHandle *sql.DB) error {
+	if err := downgradeSQLiteDatabaseFrom37To36(dbHandle); err != nil {
+		return err
+	}
+	return downgradeSQLiteDatabaseFromV36(dbHandle)
+}
+
+func updateSQLiteDatabaseFrom36To37(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database schema version: 36 -> 37")
+	providerLog(logger.LevelInfo, "updating database schema version: 36 -> 37")
+
+	sql := sqlReplaceAll(sqliteV37SQL)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 37, true)
+}
+
+func downgradeSQLiteDatabaseFrom37To36(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database schema version: 37 -> 36")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 37 -> 36")
+
+	sql := sqlReplaceAll(sqliteV37DownSQL)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 36, false)
 }
 
 func downgradeSQLiteDatabaseFromV34(dbHandle *sql.DB) error {
