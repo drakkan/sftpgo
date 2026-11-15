@@ -23,7 +23,7 @@ require (
 	github.com/coreos/go-oidc/v3 v3.21.0
 	github.com/drakkan/webdav v0.0.0-20261106194941-0afbc7f2f740
 	github.com/eikenb/pipeat v0.0.0-20260709234154-608894928e53
-	github.com/fclairamb/ftpserverlib v0.33.1
+	github.com/fclairamb/ftpserverlib v0.33.2
 	github.com/go-acme/lego/v5 v5.6.0
 	github.com/go-chi/chi/v5 v5.5.0
 	github.com/go-chi/render v1.0.3

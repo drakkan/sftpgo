@@ -148,8 +148,8 @@ github.com/envoyproxy/protoc-gen-validate v1.3.3/go.mod h1:TsndJ/ngyIdQRhMcVVGDD
 github.com/fatih/color v1.13.0/go.mod h1:kLAiJbzzSOZDVNGyDpeOxJ47H46qBXwg5ILebYFFOfk=
 github.com/fatih/color v1.19.0 h1:Zp3PiM21/9Ld6FzSKyL5c/BULoe/ONr9KlbYVOfG8+w=
 github.com/fatih/color v1.19.0/go.mod h1:zNk67I0ZUT1bEGsSGyCZYZNrHuTkJJB+r6Q9VuMi0LE=
-github.com/fclairamb/ftpserverlib v0.33.1 h1:BkTtxjJ5Hi0wnjEyoJHl81URLo92P+h7PtoIv+iQ4os=
-github.com/fclairamb/ftpserverlib v0.33.1/go.mod h1:kvHAaE6wFlfEzI4RwCViiNJrZb2Dne8wpOMng4ySvV8=
+github.com/fclairamb/ftpserverlib v0.33.2 h1:v5KIqlzk+n5TpYb39w93vtyYpWZmjlpXINtlL7/8m6g=
+github.com/fclairamb/ftpserverlib v0.33.2/go.mod h1:kvHAaE6wFlfEzI4RwCViiNJrZb2Dne8wpOMng4ySvV8=
 github.com/felixge/httpsnoop v1.1.0 h1:3YtUj32ZZkqZtt3sZZsClsymw/QDuVfpNhoA31zeORc=
 github.com/felixge/httpsnoop v1.1.0/go.mod h1:Zqxgdd+1Rkcz8euOqdr7lqgCRJztwr5hp9vDSi5UZCE=
 github.com/frankban/quicktest v1.14.6 h1:7Xjx+VpznH+oBnejlPUj8oUpdxnVs4f8XU8WnHkI4W8=
