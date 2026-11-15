@@ -557,6 +557,10 @@ func (p *PGSQLProvider) getUsersForQuotaCheck(toFetch map[string]bool) ([]User, 
 	return sqlCommonGetUsersForQuotaCheck(toFetch, p.dbHandle)
 }
 
+func (p *PGSQLProvider) getUsersAccountState(usernames []string) ([]User, error) {
+	return sqlCommonGetUsersAccountState(usernames, p.dbHandle)
+}
+
 func (p *PGSQLProvider) dumpFolders() ([]vfs.BaseVirtualFolder, error) {
 	return sqlCommonDumpFolders(p.dbHandle)
 }

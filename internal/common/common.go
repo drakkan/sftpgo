@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net"
 	"net/http"
 	"net/url"
@@ -81,6 +82,7 @@ const (
 	OperationSSHCmd              = "ssh_cmd"
 	chtimesFormat                = "2006-01-02T15:04:05" // YYYY-MM-DDTHH:MM:SS
 	idleTimeoutCheckInterval     = 3 * time.Minute
+	accountsCheckInterval        = 5 * time.Minute
 	periodicTimeoutCheckInterval = 1 * time.Minute
 )
 
@@ -467,6 +469,9 @@ func startPeriodicChecks(duration time.Duration, isShared int) {
 		util.PanicOnError(err)
 		logger.Info(logSender, "", "scheduled idle connections check, schedule %q", spec)
 	}
+	_, err = eventScheduler.AddFunc(fmt.Sprintf("@every %s", accountsCheckInterval), Connections.checkAccounts)
+	util.PanicOnError(err)
+	logger.Info(logSender, "", "scheduled accounts check, interval %s", accountsCheckInterval)
 }
 
 // ActiveTransfer defines the interface for the current active transfers
@@ -507,6 +512,7 @@ type ActiveConnection interface {
 	SignalTransferClose(transferID int64, err error)
 	CloseFS() error
 	isAccessAllowed() bool
+	getUserCreatedAt() int64
 }
 
 // StatAttributes defines the attributes for set stat commands
@@ -1104,8 +1110,8 @@ func (conns *ActiveConnections) Remove(connectionID string) {
 	logger.Debug(logSender, "", "connection id %q to remove not found!", connectionID)
 }
 
-// Close closes an active connection.
-// It returns true on success
+// Close closes an active connection and, for SFTP, SCP and SSH commands, the
+// SSH connection that carries it. It returns true on success
 func (conns *ActiveConnections) Close(connectionID, role string) bool {
 	conns.RLock()
 
@@ -1115,16 +1121,58 @@ func (conns *ActiveConnections) Close(connectionID, role string) bool {
 		c := conns.connections[idx]
 
 		if role == "" || c.GetRole() == role {
-			defer func(conn ActiveConnection) {
-				err := conn.Disconnect()
+			defer func(conn ActiveConnection, sshConn *SSHConnection) {
+				err := disconnectSession(conn, sshConn)
 				logger.Debug(conn.GetProtocol(), conn.GetID(), "close connection requested, close err: %v", err)
-			}(c)
+			}(c, conns.getSSHConnection(c))
 			result = true
 		}
 	}
 
 	conns.RUnlock()
 	return result
+}
+
+func getSSHConnectionID(c ActiveConnection) string {
+	switch c.GetProtocol() {
+	case ProtocolSFTP, ProtocolSCP, ProtocolSSH:
+	default:
+		return ""
+	}
+	id := c.GetID()
+	end := strings.LastIndexByte(id, '_')
+	if end < 0 {
+		return ""
+	}
+	return id[strings.LastIndexByte(id[:end], '_')+1 : end]
+}
+
+func (conns *ActiveConnections) getSSHConnection(c ActiveConnection) *SSHConnection {
+	if idx, ok := conns.sshMapping[getSSHConnectionID(c)]; ok {
+		return conns.sshConnections[idx]
+	}
+	return nil
+}
+
+func (conns *ActiveConnections) getChannelsActivity() map[string]time.Time {
+	result := make(map[string]time.Time, len(conns.sshConnections))
+	for _, c := range conns.connections {
+		if id := getSSHConnectionID(c); id != "" {
+			if lastActivity := c.GetLastActivity(); lastActivity.After(result[id]) {
+				result[id] = lastActivity
+			}
+		}
+	}
+	return result
+}
+
+func disconnectSession(c ActiveConnection, sshConn *SSHConnection) error {
+	if sshConn == nil {
+		return c.Disconnect()
+	}
+	err := sshConn.Close()
+	_ = c.Disconnect()
+	return err
 }
 
 // AddSSHConnection adds a new ssh connection to the active ones
@@ -1157,29 +1205,78 @@ func (conns *ActiveConnections) RemoveSSHConnection(connectionID string) {
 	logger.Warn(logSender, "", "ssh connection to remove with id %q not found!", connectionID)
 }
 
+func (conns *ActiveConnections) checkAccounts() {
+	type connectionAccount struct {
+		conn      ActiveConnection
+		sshConn   *SSHConnection
+		createdAt int64
+	}
+	var connections []connectionAccount
+	usernames := make(map[string]bool)
+
+	conns.RLock()
+	for _, c := range conns.connections {
+		if username := c.GetUsername(); username != "" {
+			connections = append(connections, connectionAccount{
+				conn:      c,
+				sshConn:   conns.getSSHConnection(c),
+				createdAt: c.getUserCreatedAt(),
+			})
+			usernames[username] = true
+		}
+	}
+	conns.RUnlock()
+
+	if len(connections) == 0 {
+		return
+	}
+	users, err := dataprovider.GetUsersAccountState(slices.Collect(maps.Keys(usernames)))
+	if err != nil {
+		logger.Warn(logSender, "", "unable to check the accounts of the connected users: %v", err)
+		return
+	}
+	byName := make(map[string]*dataprovider.User, len(users))
+	for idx := range users {
+		byName[users[idx].Username] = &users[idx]
+	}
+	closedSSHConns := make(map[*SSHConnection]bool)
+	for _, c := range connections {
+		user := byName[c.conn.GetUsername()]
+		reason := fmt.Sprintf("user %q no longer exists", c.conn.GetUsername())
+		if user != nil && user.CreatedAt != c.createdAt {
+			reason = fmt.Sprintf("user %q was deleted and created again", c.conn.GetUsername())
+		} else if user != nil {
+			err := user.CheckAccountValidity()
+			if err == nil {
+				continue
+			}
+			reason = err.Error()
+		}
+		sshConn := c.sshConn
+		if closedSSHConns[sshConn] {
+			sshConn = nil
+		} else if sshConn != nil {
+			closedSSHConns[sshConn] = true
+		}
+		err := disconnectSession(c.conn, sshConn)
+		logger.Info(c.conn.GetProtocol(), c.conn.GetID(), "connection closed: %s, close err: %v", reason, err)
+	}
+}
+
 func (conns *ActiveConnections) checkIdles() {
 	conns.RLock()
 
+	var channelsActivity map[string]time.Time
+	var idleSSHConns []*SSHConnection
 	for _, sshConn := range conns.sshConnections {
 		idleTime := time.Since(sshConn.GetLastActivity())
 		if idleTime > Config.idleTimeoutAsDuration {
-			// we close an SSH connection if it has no active connections associated
-			idToMatch := fmt.Sprintf("_%s_", sshConn.GetID())
-			toClose := true
-			for _, conn := range conns.connections {
-				if strings.Contains(conn.GetID(), idToMatch) {
-					if time.Since(conn.GetLastActivity()) <= Config.idleTimeoutAsDuration {
-						toClose = false
-						break
-					}
-				}
+			// an idle SSH connection is closed when all its channels are idle too
+			if channelsActivity == nil {
+				channelsActivity = conns.getChannelsActivity()
 			}
-			if toClose {
-				defer func(c *SSHConnection) {
-					err := c.Close()
-					logger.Debug(logSender, c.GetID(), "close idle SSH connection, idle time: %v, close err: %v",
-						time.Since(c.GetLastActivity()), err)
-				}(sshConn)
+			if time.Since(channelsActivity[sshConn.GetID()]) > Config.idleTimeoutAsDuration {
+				idleSSHConns = append(idleSSHConns, sshConn)
 			}
 		}
 	}
@@ -1195,15 +1292,21 @@ func (conns *ActiveConnections) checkIdles() {
 					time.Since(conn.GetLastActivity()), conn.GetUsername(), err)
 			}(c)
 		} else if !isUnauthenticatedFTPUser && !c.isAccessAllowed() {
-			defer func(conn ActiveConnection) {
-				err := conn.Disconnect()
+			defer func(conn ActiveConnection, sshConn *SSHConnection) {
+				err := disconnectSession(conn, sshConn)
 				logger.Info(conn.GetProtocol(), conn.GetID(), "access conditions not met for user: %q close connection err: %v",
 					conn.GetUsername(), err)
-			}(c)
+			}(c, conns.getSSHConnection(c))
 		}
 	}
 
 	conns.RUnlock()
+
+	for _, c := range idleSSHConns {
+		err := c.Close()
+		logger.Debug(logSender, c.GetID(), "close idle SSH connection, idle time: %v, close err: %v",
+			time.Since(c.GetLastActivity()), err)
+	}
 }
 
 func (conns *ActiveConnections) checkTransfers() {

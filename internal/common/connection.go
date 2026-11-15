@@ -111,6 +111,10 @@ func (c *BaseConnection) GetMaxSessions() int {
 	return c.User.MaxSessions
 }
 
+func (c *BaseConnection) getUserCreatedAt() int64 {
+	return c.User.CreatedAt
+}
+
 // isAccessAllowed returns true if the user's access conditions are met
 func (c *BaseConnection) isAccessAllowed() bool {
 	if err := c.User.CheckLoginConditions(); err != nil {

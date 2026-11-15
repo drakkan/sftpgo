@@ -101,6 +101,256 @@ func (c *customNetConn) Close() error {
 	return c.Conn.Close()
 }
 
+func TestCloseConnectionClosesSSHConnection(t *testing.T) {
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username: "ssh_close_user",
+			Status:   1,
+		},
+	}
+	addSSHConn := func(id string) *customNetConn {
+		conn, _ := net.Pipe()
+		netConn := &customNetConn{Conn: conn, id: id}
+		Connections.AddSSHConnection(NewSSHConnection(id, netConn))
+		return netConn
+	}
+	sshSFTP := addSSHConn("sshsftp")
+	sshExec := addSSHConn("sshexec")
+	sshOther := addSSHConn("sshother")
+
+	sftpConn := &fakeConnection{BaseConnection: NewBaseConnection("sshsftp_1", ProtocolSFTP, "", "", user)}
+	require.NoError(t, Connections.Add(sftpConn))
+	// SSH commands are created with a placeholder protocol, their ID has no protocol prefix
+	execConn := &fakeConnection{BaseConnection: NewBaseConnection("sshexec_2", "sshd_exec", "", "", user)}
+	execConn.SetProtocol(ProtocolSCP)
+	require.NoError(t, Connections.Add(execConn))
+	// an ID with the same shape on another protocol is not an SSH channel
+	ftpConn := &fakeConnection{BaseConnection: NewBaseConnection("sshother_1", ProtocolFTP, "", "", user)}
+	require.NoError(t, Connections.Add(ftpConn))
+
+	assert.True(t, Connections.Close(sftpConn.GetID(), ""))
+	assert.True(t, sshSFTP.isClosed)
+	assert.True(t, Connections.Close(execConn.GetID(), ""))
+	assert.True(t, sshExec.isClosed)
+	assert.True(t, Connections.Close(ftpConn.GetID(), ""))
+	assert.False(t, sshOther.isClosed)
+
+	Connections.RLock()
+	assert.Len(t, Connections.sshConnections, 1)
+	Connections.RUnlock()
+	require.NoError(t, sshOther.Close())
+	assert.Len(t, Connections.GetStats(""), 0)
+}
+
+type closerFunc func() error
+
+func (f closerFunc) Close() error {
+	return f()
+}
+
+type blockingDisconnectConn struct {
+	*fakeConnection
+	transportClosed chan struct{}
+}
+
+func (c *blockingDisconnectConn) Disconnect() error {
+	<-c.transportClosed
+	return c.fakeConnection.Disconnect()
+}
+
+func TestCloseSessionBlockedChannel(t *testing.T) {
+	transportClosed := make(chan struct{})
+	sshConn := NewSSHConnection("sshblocked", closerFunc(func() error {
+		Connections.RemoveSSHConnection("sshblocked")
+		close(transportClosed)
+		return nil
+	}))
+	Connections.AddSSHConnection(sshConn)
+	c := &blockingDisconnectConn{
+		fakeConnection: &fakeConnection{BaseConnection: NewBaseConnection("sshblocked_1", ProtocolSFTP, "", "",
+			dataprovider.User{BaseUser: sdk.BaseUser{Username: "blocked_user"}})},
+		transportClosed: transportClosed,
+	}
+	require.NoError(t, Connections.Add(c))
+	done := make(chan bool, 1)
+	go func() { done <- Connections.Close(c.GetID(), "") }()
+	select {
+	case closed := <-done:
+		assert.True(t, closed)
+	case <-time.After(2 * time.Second):
+		assert.Fail(t, "closing the session is blocked")
+	}
+	assert.Len(t, Connections.GetStats(""), 0)
+}
+
+func TestIdleChannelKeepsSSHConnection(t *testing.T) {
+	configCopy := Config
+	Config.IdleTimeout = 1
+	Config.idleTimeoutAsDuration = time.Minute
+	defer func() { Config = configCopy }()
+
+	pipeConn, _ := net.Pipe()
+	sshNetConn := &customNetConn{Conn: pipeConn, id: "sshtwochannels"}
+	sshConn := NewSSHConnection(sshNetConn.id, sshNetConn)
+	sshConn.lastActivity.Store(time.Now().Add(-time.Hour).UnixNano())
+	Connections.AddSSHConnection(sshConn)
+	user := dataprovider.User{BaseUser: sdk.BaseUser{Username: "two_channels_user", Status: 1}}
+	idle := &fakeConnection{BaseConnection: NewBaseConnection("sshtwochannels_1", ProtocolSFTP, "", "", user)}
+	idle.lastActivity.Store(time.Now().Add(-time.Hour).UnixNano())
+	active := &fakeConnection{BaseConnection: NewBaseConnection("sshtwochannels_2", ProtocolSFTP, "", "", user)}
+	require.NoError(t, Connections.Add(idle))
+	require.NoError(t, Connections.Add(active))
+
+	Connections.checkIdles()
+	stats := Connections.GetStats("")
+	require.Len(t, stats, 1)
+	assert.Equal(t, active.GetID(), stats[0].ConnectionID)
+	assert.False(t, sshNetConn.isClosed)
+
+	Connections.Remove(active.GetID())
+	require.NoError(t, sshNetConn.Close())
+}
+
+func TestIdleSSHConnectionClosedBeforeChannels(t *testing.T) {
+	configCopy := Config
+	Config.IdleTimeout = 1
+	Config.idleTimeoutAsDuration = time.Minute
+	defer func() { Config = configCopy }()
+
+	// the channels close only after the transport is closed, as when the
+	// client stops reading
+	transportClosed := make(chan struct{})
+	sshConn := NewSSHConnection("sshstuck", closerFunc(func() error {
+		Connections.RemoveSSHConnection("sshstuck")
+		close(transportClosed)
+		return nil
+	}))
+	sshConn.lastActivity.Store(time.Now().Add(-time.Hour).UnixNano())
+	Connections.AddSSHConnection(sshConn)
+	user := dataprovider.User{BaseUser: sdk.BaseUser{Username: "stuck_user", Status: 1}}
+	for _, id := range []string{"sshstuck_1", "sshstuck_2"} {
+		c := &blockingDisconnectConn{
+			fakeConnection:  &fakeConnection{BaseConnection: NewBaseConnection(id, ProtocolSFTP, "", "", user)},
+			transportClosed: transportClosed,
+		}
+		c.lastActivity.Store(time.Now().Add(-time.Hour).UnixNano())
+		require.NoError(t, Connections.Add(c))
+	}
+	done := make(chan struct{})
+	go func() {
+		Connections.checkIdles()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		assert.Fail(t, "the idle check is blocked")
+	}
+	assert.Len(t, Connections.GetStats(""), 0)
+	Connections.RLock()
+	assert.Len(t, Connections.sshConnections, 0)
+	Connections.RUnlock()
+}
+
+func TestCheckAccounts(t *testing.T) {
+	addUser := func(name string) dataprovider.User {
+		u := &dataprovider.User{
+			BaseUser: sdk.BaseUser{
+				Username:    name,
+				Password:    "pwd",
+				HomeDir:     filepath.Join(os.TempDir(), name),
+				Status:      1,
+				Permissions: map[string][]string{"/": {dataprovider.PermAny}},
+			},
+		}
+		require.NoError(t, dataprovider.AddUser(u, "", "", ""))
+		stored, err := dataprovider.UserExists(name, "")
+		require.NoError(t, err)
+		return stored
+	}
+	valid := addUser("acc_valid")
+	disabled := addUser("acc_disabled")
+	expired := addUser("acc_expired")
+	deleted := addUser("acc_deleted")
+	recreated := addUser("acc_recreated")
+	// the state changes after the login
+	u := disabled
+	u.Status = 0
+	require.NoError(t, dataprovider.UpdateUser(&u, "", "", ""))
+	u = expired
+	u.ExpirationDate = util.GetTimeAsMsSinceEpoch(time.Now().Add(-time.Hour))
+	require.NoError(t, dataprovider.UpdateUser(&u, "", "", ""))
+	require.NoError(t, dataprovider.DeleteUser(deleted.Username, "", "", ""))
+	require.NoError(t, dataprovider.DeleteUser(recreated.Username, "", "", ""))
+	time.Sleep(5 * time.Millisecond)
+	newRecreated := addUser(recreated.Username)
+	require.NotEqual(t, recreated.CreatedAt, newRecreated.CreatedAt)
+
+	addConn := func(id, protocol string, user dataprovider.User) {
+		require.NoError(t, Connections.Add(&fakeConnection{BaseConnection: NewBaseConnection(id, protocol, "", "", user)}))
+	}
+	addConn("acc_1", ProtocolFTP, valid)
+	addConn("acc_2", ProtocolWebDAV, valid)
+	addConn("acc_3", ProtocolFTP, expired)
+	addConn("acc_4", ProtocolHTTP, deleted)
+	addConn("acc_5", ProtocolFTP, recreated)
+	addConn("acc_6", ProtocolFTP, newRecreated)
+	addConn("acc_7", ProtocolFTP, dataprovider.User{})
+
+	pipeConn, _ := net.Pipe()
+	sshNetConn := &customNetConn{Conn: pipeConn, id: "accssh"}
+	Connections.AddSSHConnection(NewSSHConnection(sshNetConn.id, sshNetConn))
+	addConn("accssh_1", ProtocolSFTP, disabled)
+	addConn("accssh_2", ProtocolSFTP, disabled)
+	require.Len(t, Connections.GetStats(""), 9)
+
+	Connections.checkAccounts()
+	var remaining []string
+	for _, stat := range Connections.GetStats("") {
+		remaining = append(remaining, stat.ConnectionID)
+	}
+	assert.ElementsMatch(t, []string{"FTP_acc_1", "DAV_acc_2", "FTP_acc_6", "FTP_acc_7"}, remaining)
+	assert.True(t, sshNetConn.isClosed)
+
+	for _, id := range remaining {
+		Connections.Remove(id)
+	}
+	for _, name := range []string{valid.Username, disabled.Username, expired.Username, recreated.Username} {
+		require.NoError(t, dataprovider.DeleteUser(name, "", "", ""))
+	}
+}
+
+func TestGetUsersAccountStateBatches(t *testing.T) {
+	var usernames []string
+	for idx := range 250 {
+		usernames = append(usernames, fmt.Sprintf("acc_missing_%d", idx))
+	}
+	for _, idx := range []int{0, 130, 249} {
+		usernames[idx] = fmt.Sprintf("acc_batch_%d", idx)
+		u := &dataprovider.User{
+			BaseUser: sdk.BaseUser{
+				Username:    usernames[idx],
+				Password:    "pwd",
+				HomeDir:     filepath.Join(os.TempDir(), usernames[idx]),
+				Status:      idx % 2,
+				Permissions: map[string][]string{"/": {dataprovider.PermAny}},
+			},
+		}
+		require.NoError(t, dataprovider.AddUser(u, "", "", ""))
+	}
+	users, err := dataprovider.GetUsersAccountState(usernames)
+	require.NoError(t, err)
+	require.Len(t, users, 3)
+	for _, u := range users {
+		var idx int
+		_, err := fmt.Sscanf(u.Username, "acc_batch_%d", &idx)
+		require.NoError(t, err)
+		assert.Equal(t, idx%2, u.Status)
+		assert.Greater(t, u.CreatedAt, int64(0))
+		require.NoError(t, dataprovider.DeleteUser(u.Username, "", "", ""))
+	}
+}
+
 func TestConnections(t *testing.T) {
 	c1 := &fakeConnection{
 		BaseConnection: NewBaseConnection("id1", ProtocolSFTP, "", "", dataprovider.User{

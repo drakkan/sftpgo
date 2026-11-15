@@ -628,6 +628,11 @@ func getUsersQuery(order, role string) string {
 		selectUserFields, sqlTableUsers, sqlTableRoles, sqlPlaceholders[0], order, sqlPlaceholders[1], sqlPlaceholders[2])
 }
 
+func getUsersAccountStateQuery(numArgs int) string {
+	return fmt.Sprintf(`SELECT username,status,expiration_date,created_at FROM %s WHERE username IN (%s) AND deleted_at = 0`,
+		sqlTableUsers, strings.Join(sqlPlaceholders[:numArgs], ","))
+}
+
 func getUsersForQuotaCheckQuery(numArgs int) string {
 	var sb strings.Builder
 	for idx := range numArgs {

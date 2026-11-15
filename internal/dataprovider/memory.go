@@ -591,6 +591,27 @@ func (p *MemoryProvider) getRecentlyUpdatedUsers(after int64) ([]User, error) {
 	return users, nil
 }
 
+func (p *MemoryProvider) getUsersAccountState(usernames []string) ([]User, error) {
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+
+	if p.dbHandle.isClosed {
+		return nil, errMemoryProviderClosed
+	}
+	users := make([]User, 0, len(usernames))
+	for _, username := range usernames {
+		if u, ok := p.dbHandle.users[username]; ok {
+			var user User
+			user.Username = u.Username
+			user.Status = u.Status
+			user.ExpirationDate = u.ExpirationDate
+			user.CreatedAt = u.CreatedAt
+			users = append(users, user)
+		}
+	}
+	return users, nil
+}
+
 func (p *MemoryProvider) getUsersForQuotaCheck(toFetch map[string]bool) ([]User, error) {
 	users := make([]User, 0, 30)
 	p.dbHandle.Lock()

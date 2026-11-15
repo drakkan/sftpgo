@@ -1729,6 +1729,42 @@ func sqlCommonGetUsersForQuotaCheck(toFetch map[string]bool, dbHandle sqlQuerier
 	return users, nil
 }
 
+func sqlCommonGetUsersAccountState(usernames []string, dbHandle sqlQuerier) ([]User, error) {
+	users := make([]User, 0, len(usernames))
+	for len(usernames) > 0 {
+		batch := usernames[:min(len(usernames), len(sqlPlaceholders))]
+		usernames = usernames[len(batch):]
+		if err := sqlCommonGetUsersAccountStateBatch(batch, dbHandle, &users); err != nil {
+			return nil, err
+		}
+	}
+	return users, nil
+}
+
+func sqlCommonGetUsersAccountStateBatch(usernames []string, dbHandle sqlQuerier, users *[]User) error {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	queryArgs := make([]any, 0, len(usernames))
+	for _, username := range usernames {
+		queryArgs = append(queryArgs, username)
+	}
+	rows, err := dbHandle.QueryContext(ctx, getUsersAccountStateQuery(len(usernames)), queryArgs...)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var user User
+		if err := rows.Scan(&user.Username, &user.Status, &user.ExpirationDate, &user.CreatedAt); err != nil {
+			return err
+		}
+		*users = append(*users, user)
+	}
+	return rows.Err()
+}
+
 func sqlCommonGetUsersRangeForQuotaCheck(usernames []string, dbHandle sqlQuerier) ([]User, error) {
 	users := make([]User, 0, len(usernames))
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)

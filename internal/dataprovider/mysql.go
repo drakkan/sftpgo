@@ -455,6 +455,10 @@ func (p *MySQLProvider) getUsersForQuotaCheck(toFetch map[string]bool) ([]User, 
 	return sqlCommonGetUsersForQuotaCheck(toFetch, p.dbHandle)
 }
 
+func (p *MySQLProvider) getUsersAccountState(usernames []string) ([]User, error) {
+	return sqlCommonGetUsersAccountState(usernames, p.dbHandle)
+}
+
 func (p *MySQLProvider) dumpFolders() ([]vfs.BaseVirtualFolder, error) {
 	return sqlCommonDumpFolders(p.dbHandle)
 }

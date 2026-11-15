@@ -565,6 +565,10 @@ func (p *SQLiteProvider) getUsersForQuotaCheck(toFetch map[string]bool) ([]User,
 	return sqlCommonGetUsersForQuotaCheck(toFetch, p.dbHandle)
 }
 
+func (p *SQLiteProvider) getUsersAccountState(usernames []string) ([]User, error) {
+	return sqlCommonGetUsersAccountState(usernames, p.dbHandle)
+}
+
 func (p *SQLiteProvider) dumpFolders() ([]vfs.BaseVirtualFolder, error) {
 	return sqlCommonDumpFolders(p.dbHandle)
 }

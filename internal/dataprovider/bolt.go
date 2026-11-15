@@ -950,6 +950,34 @@ func (p *BoltProvider) getRecentlyUpdatedUsers(after int64) ([]User, error) {
 	return users, err
 }
 
+func (p *BoltProvider) getUsersAccountState(usernames []string) ([]User, error) {
+	users := make([]User, 0, len(usernames))
+	err := p.dbHandle.View(func(tx *bolt.Tx) error {
+		bucket, err := p.getUsersBucket(tx)
+		if err != nil {
+			return err
+		}
+		for _, username := range usernames {
+			v := bucket.Get([]byte(username))
+			if v == nil {
+				continue
+			}
+			var user User
+			if err := json.Unmarshal(v, &user); err != nil {
+				return err
+			}
+			var state User
+			state.Username = user.Username
+			state.Status = user.Status
+			state.ExpirationDate = user.ExpirationDate
+			state.CreatedAt = user.CreatedAt
+			users = append(users, state)
+		}
+		return nil
+	})
+	return users, err
+}
+
 func (p *BoltProvider) getUsersForQuotaCheck(toFetch map[string]bool) ([]User, error) {
 	users := make([]User, 0, 10)
 

@@ -792,6 +792,7 @@ type Provider interface {
 	dumpUsers() ([]User, error)
 	getRecentlyUpdatedUsers(after int64) ([]User, error)
 	getUsersForQuotaCheck(toFetch map[string]bool) ([]User, error)
+	getUsersAccountState(usernames []string) ([]User, error)
 	updateLastLogin(username string) error
 	updateAdminLastLogin(username string) error
 	setUpdatedAt(username string)
@@ -2390,6 +2391,12 @@ func GetUsers(limit, offset int, order, role string) ([]User, error) {
 // GetUsersForQuotaCheck returns the users with the fields required for a quota check
 func GetUsersForQuotaCheck(toFetch map[string]bool) ([]User, error) {
 	return provider.getUsersForQuotaCheck(toFetch)
+}
+
+// GetUsersAccountState returns username, status, expiration date and creation
+// time of the given users. Missing and deleted users are not returned
+func GetUsersAccountState(usernames []string) ([]User, error) {
+	return provider.getUsersAccountState(usernames)
 }
 
 // AddFolder adds a new virtual folder.

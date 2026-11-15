@@ -552,6 +552,48 @@ func TestInitialization(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestClosedConnectionEndsSSHSession(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(false), http.StatusCreated)
+	require.NoError(t, err)
+	checkClosed := func(conn *ssh.Client) {
+		assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
+			2*time.Second, 50*time.Millisecond)
+		waitErr := make(chan error, 1)
+		go func() { waitErr <- conn.Wait() }()
+		select {
+		case <-waitErr:
+		case <-time.After(2 * time.Second):
+			assert.Fail(t, "the SSH connection is still open")
+		}
+		client, err := sftp.NewClient(conn)
+		if !assert.Error(t, err) {
+			client.Close()
+		}
+	}
+	conn, client, err := getSftpClient(user, false)
+	require.NoError(t, err)
+	defer conn.Close()
+	defer client.Close()
+	_, err = client.ReadDir(".")
+	require.NoError(t, err)
+	stats := common.Connections.GetStats("")
+	require.Len(t, stats, 1)
+	_, err = httpdtest.CloseConnection(stats[0].ConnectionID, http.StatusOK)
+	require.NoError(t, err)
+	checkClosed(conn)
+
+	conn, client, err = getSftpClient(user, false)
+	require.NoError(t, err)
+	defer conn.Close()
+	defer client.Close()
+	_, err = client.ReadDir(".")
+	require.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	require.NoError(t, err)
+	checkClosed(conn)
+	require.NoError(t, os.RemoveAll(user.GetHomeDir()))
+}
+
 func TestBasicSFTPHandling(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
