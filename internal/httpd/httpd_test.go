@@ -18749,6 +18749,59 @@ func TestWebGetFiles(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestMoveDifferentResourceMergesDirs(t *testing.T) {
+	mappedPath := filepath.Join(os.TempDir(), "move_merge_folder")
+	folderName := filepath.Base(mappedPath)
+	// an encrypted folder is a different resource: the move is a copy and a delete
+	_, _, err := httpdtest.AddFolder(vfs.BaseVirtualFolder{
+		Name:       folderName,
+		MappedPath: mappedPath,
+		FsConfig: vfs.Filesystem{
+			Provider: sdk.CryptedFilesystemProvider,
+			CryptConfig: vfs.CryptFsConfig{
+				Passphrase: kms.NewPlainSecret("super secret"),
+			},
+		},
+	}, http.StatusCreated)
+	assert.NoError(t, err)
+	u := getTestUser()
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{Name: folderName},
+		VirtualPath:       "/vf",
+	})
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	// the source tree and a target tree that already holds one of its directories
+	for _, p := range []string{
+		filepath.Join(user.GetHomeDir(), "a", "f0"),
+		filepath.Join(user.GetHomeDir(), "a", "sub", "f1"),
+	} {
+		assert.NoError(t, os.MkdirAll(filepath.Dir(p), os.ModePerm))
+		assert.NoError(t, os.WriteFile(p, []byte(filepath.Base(p)), 0o600))
+	}
+	assert.NoError(t, os.MkdirAll(filepath.Join(mappedPath, "a", "sub"), os.ModePerm))
+	webAPIToken, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, userFileActionsPath+"/move?path=%2Fa&target=%2Fvf", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// the existing directory is merged, nothing of the source is lost
+	assert.FileExists(t, filepath.Join(mappedPath, "a", "f0"))
+	assert.FileExists(t, filepath.Join(mappedPath, "a", "sub", "f1"))
+	assert.NoDirExists(t, filepath.Join(user.GetHomeDir(), "a"))
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName}, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath)
+	assert.NoError(t, err)
+}
+
 func TestRenameDifferentResource(t *testing.T) {
 	folderName := "foldercryptfs"
 	f := vfs.BaseVirtualFolder{

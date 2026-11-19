@@ -9569,6 +9569,30 @@ func TestNonLocalCrossRenameNonLocalBaseUser(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestCopyMergeHiddenTargetDir(t *testing.T) {
+	u := getTestUser()
+	u.Filters.FilePatterns = []sdk.PatternsFilter{
+		{Path: "/dst/src", DeniedPatterns: []string{"hid*"}, DenyPolicy: sdk.DenyPolicyHide},
+	}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	for _, dir := range []string{"src/hid", "dst/src"} {
+		assert.NoError(t, os.MkdirAll(filepath.Join(user.GetHomeDir(), dir), os.ModePerm))
+	}
+	// copying an empty directory onto a hidden name fails the same way whether
+	// the target exists or not
+	out, err := runSSHCommand("sftpgo-copy /src /dst", user)
+	assert.Error(t, err, string(out))
+	assert.NoError(t, os.Mkdir(filepath.Join(user.GetHomeDir(), "dst", "src", "hid"), os.ModePerm))
+	out, err = runSSHCommand("sftpgo-copy /src /dst", user)
+	assert.Error(t, err, string(out))
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestCopyAndRemoveSSHCommands(t *testing.T) {
 	u := getTestUser()
 	u.QuotaFiles = 1000

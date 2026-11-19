@@ -982,20 +982,15 @@ func (c *BaseConnection) recursiveCopyEntries(sourceRoot, virtualSourcePath, vir
 	for _, info := range entries {
 		sourcePath := path.Join(virtualSourcePath, info.Name())
 		targetPath := path.Join(virtualTargetPath, info.Name())
-		targetInfo, err := c.DoStat(targetPath, 1, false)
-		if err == nil {
-			if info.IsDir() && targetInfo.IsDir() {
-				c.Log(logger.LevelDebug, "target copy dir %q already exists", targetPath)
-				continue
-			}
-		}
+		targetInfo, err := c.DoStat(targetPath, 1, true)
 		if err != nil && !c.IsNotExistError(err) {
 			return err
 		}
 		if err := c.checkCopy(info, targetInfo, sourcePath, targetPath); err != nil {
 			return err
 		}
-		if err := c.doRecursiveCopy(sourceRoot, sourcePath, targetPath, info, targetInfo, true, recursion); err != nil {
+		createTargetDir := targetInfo == nil || !targetInfo.IsDir()
+		if err := c.doRecursiveCopy(sourceRoot, sourcePath, targetPath, info, targetInfo, createTargetDir, recursion); err != nil {
 			if c.IsNotExistError(err) {
 				c.Log(logger.LevelInfo, "skipping copy for source path %q: %v", sourcePath, err)
 				continue
