@@ -72,7 +72,13 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 								{{- if .OpenIDLoginURL}}
 								<a href="{{.OpenIDLoginURL}}" class="btn btn-flex btn-outline flex-center {{if .FormDisabled}}btn-primary{{else}}btn-active-color-primary bg-state-light{{end}} btn-lg w-100 my-5">
 									<img alt="Logo" src="{{.StaticURL}}/img/openid-logo.png" class="h-20px me-3" />
-									<span data-i18n="login.signin_openid">Sign in with OpenID</span>
+									<span data-i18n="login.signin_with">Sign in with</span>
+									&nbsp;
+									{{- if .OpenIDDisplayName}} 
+										{{ .OpenIDDisplayName }} 
+									{{- else}} 
+										OpenID 
+									{{- end}}
 								</a>
 								{{- end}}
 							</div>
