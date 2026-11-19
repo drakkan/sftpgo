@@ -27,9 +27,7 @@ import (
 	"github.com/minio/sio"
 	"github.com/sftpgo/sdk"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
-	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/httpdtest"
 	"github.com/drakkan/sftpgo/v2/internal/kms"
@@ -241,7 +239,7 @@ func TestQuotaFileReplaceCryptFs(t *testing.T) {
 		assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
 		// now create a symlink, replace it with a file and check the quota
 		// replacing a symlink is like uploading a new file
-		err = client.Symlink(testFileName, testFileName+".link")
+		err = os.Symlink(testFileName, filepath.Join(user.GetHomeDir(), testFileName+".link"))
 		assert.NoError(t, err)
 		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
@@ -511,37 +509,4 @@ func getTestUserWithCryptFs(usePubKey bool) dataprovider.User {
 	u.FsConfig.Provider = sdk.CryptedFilesystemProvider
 	u.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret(testPassphrase)
 	return u
-}
-
-func TestSymlinkModeEnforcementCryptFs(t *testing.T) {
-	oldMode := common.Config.SymlinkMode
-	defer func() { common.Config.SymlinkMode = oldMode }()
-
-	usePubKey := true
-	user, _, err := httpdtest.AddUser(getTestUserWithCryptFs(usePubKey), http.StatusCreated)
-	require.NoError(t, err)
-
-	conn, client, err := getSftpClient(user, usePubKey)
-	require.NoError(t, err)
-	defer conn.Close()
-	defer client.Close()
-
-	testFilePath := filepath.Join(homeBasePath, testFileName)
-	require.NoError(t, createTestFile(testFilePath, 4096))
-	require.NoError(t, sftpUploadFile(testFilePath, testFileName, 4096, client))
-
-	// the encrypted local backend is governed by the local bit
-	common.Config.SymlinkMode = 0
-	assert.Error(t, client.Symlink(testFileName, testFileName+".c0"))
-	common.Config.SymlinkMode = common.SymlinkModeAllowSFTP
-	assert.Error(t, client.Symlink(testFileName, testFileName+".c1"))
-	common.Config.SymlinkMode = common.SymlinkModeAllowLocal
-	assert.NoError(t, client.Symlink(testFileName, testFileName+".c2"))
-
-	_, err = httpdtest.RemoveUser(user, http.StatusOK)
-	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
-	err = os.Remove(testFilePath)
-	assert.NoError(t, err)
 }

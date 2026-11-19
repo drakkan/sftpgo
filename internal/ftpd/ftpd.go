@@ -280,7 +280,7 @@ type Configuration struct {
 	// Set to true to disable active FTP
 	DisableActiveMode bool `json:"disable_active_mode" mapstructure:"disable_active_mode"`
 	// Set to true to enable the FTP SITE command.
-	// We support chmod and symlink if SITE support is enabled
+	// We support chmod if SITE support is enabled
 	EnableSite bool `json:"enable_site" mapstructure:"enable_site"`
 	// Set to 1 to enable FTP commands that allow to calculate the hash value of files.
 	// These FTP commands will be enabled: HASH, XCRC, MD5/XMD5, XSHA/XSHA1, XSHA256, XSHA512.

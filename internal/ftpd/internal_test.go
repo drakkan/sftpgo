@@ -751,10 +751,6 @@ func TestResolvePathErrors(t *testing.T) {
 	}
 	err = connection.Rename("", "")
 	assert.ErrorIs(t, err, common.ErrOpUnsupported)
-	err = connection.Symlink("", "")
-	if assert.Error(t, err) {
-		assert.EqualError(t, err, common.ErrGenericFailure.Error())
-	}
 	_, err = connection.Stat("")
 	if assert.Error(t, err) {
 		assert.EqualError(t, err, common.ErrGenericFailure.Error())

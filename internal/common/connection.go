@@ -1198,62 +1198,6 @@ func (c *BaseConnection) renameInternal(virtualSourcePath, virtualTargetPath str
 	return nil
 }
 
-// CreateSymlink creates fsTargetPath as a symbolic link to fsSourcePath
-func (c *BaseConnection) CreateSymlink(virtualSourcePath, virtualTargetPath string) error {
-	var relativePath string
-	if !path.IsAbs(virtualSourcePath) {
-		relativePath = virtualSourcePath
-		virtualSourcePath = path.Join(path.Dir(virtualTargetPath), relativePath)
-		c.Log(logger.LevelDebug, "link relative path %q resolved as %q, target path %q",
-			relativePath, virtualSourcePath, virtualTargetPath)
-	}
-	if c.isCrossFoldersRequest(virtualSourcePath, virtualTargetPath) {
-		c.Log(logger.LevelWarn, "cross folder symlink is not supported, src: %v dst: %v", virtualSourcePath, virtualTargetPath)
-		return c.GetOpUnsupportedError()
-	}
-	// we cannot have a cross folder request here so only one fs is enough
-	fs, fsSourcePath, err := c.GetFsAndResolvedPath(virtualSourcePath)
-	if err != nil {
-		return err
-	}
-	if !Config.IsSymlinkCreationAllowed(fs) {
-		c.Log(logger.LevelDebug, "symlink creation is disabled by configuration")
-		return c.GetOpUnsupportedError()
-	}
-	fsTargetPath, err := fs.ResolvePath(virtualTargetPath)
-	if err != nil {
-		return c.GetFsError(fs, err)
-	}
-	if fs.GetRelativePath(fsTargetPath) == "/" {
-		c.Log(logger.LevelError, "symlinking to root dir is not allowed")
-		return c.GetPermissionDeniedError()
-	}
-	if !c.User.HasPerm(dataprovider.PermCreateSymlinks, path.Dir(virtualTargetPath)) ||
-		!c.User.HasPerm(dataprovider.PermCreateSymlinks, path.Dir(virtualSourcePath)) {
-		return c.GetPermissionDeniedError()
-	}
-	if ok, policy := c.User.IsFileAllowed(virtualSourcePath); !ok {
-		c.Log(logger.LevelError, "symlink source path %q is not allowed", virtualSourcePath)
-		return c.GetErrorForDeniedFile(policy)
-	}
-	if ok, _ := c.User.IsFileAllowed(virtualTargetPath); !ok {
-		c.Log(logger.LevelError, "symlink target path %q is not allowed", virtualTargetPath)
-		return c.GetPermissionDeniedError()
-	}
-	if relativePath != "" {
-		fsSourcePath = relativePath
-	}
-	startTime := time.Now()
-	if err := fs.Symlink(fsSourcePath, fsTargetPath); err != nil {
-		c.Log(logger.LevelError, "failed to create symlink %q -> %q: %+v", fsSourcePath, fsTargetPath, err)
-		return c.GetFsError(fs, err)
-	}
-	elapsed := time.Since(startTime).Nanoseconds() / 1000000
-	logger.CommandLog(symlinkLogSender, fsSourcePath, fsTargetPath, virtualSourcePath, virtualTargetPath,
-		c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1, c.localAddr, c.remoteAddr, elapsed)
-	return nil
-}
-
 func (c *BaseConnection) doStatInternal(virtualPath string, mode int, checkFilePatterns,
 	convertResult bool,
 ) (os.FileInfo, error) {
@@ -1901,18 +1845,6 @@ func (c *BaseConnection) IsSameResource(virtualSourcePath, virtualTargetPath str
 		return sourceFolder.FsConfig.IsSameResource(c.User.FsConfig)
 	}
 	return dstFolder.FsConfig.IsSameResource(c.User.FsConfig)
-}
-
-func (c *BaseConnection) isCrossFoldersRequest(virtualSourcePath, virtualTargetPath string) bool {
-	sourceFolder, errSrc := c.User.GetVirtualFolderForPath(virtualSourcePath)
-	dstFolder, errDst := c.User.GetVirtualFolderForPath(virtualTargetPath)
-	if errSrc != nil && errDst != nil {
-		return false
-	}
-	if errSrc == nil && errDst == nil {
-		return sourceFolder.Name != dstFolder.Name
-	}
-	return true
 }
 
 func (c *BaseConnection) updateQuotaMoveBetweenVFolders(sourceFolder, dstFolder *vfs.VirtualFolder, initialSize,

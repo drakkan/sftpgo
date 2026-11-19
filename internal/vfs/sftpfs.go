@@ -67,6 +67,7 @@ type SFTPFsConfig struct {
 	Password               *kms.Secret `json:"password,omitempty"`
 	PrivateKey             *kms.Secret `json:"private_key,omitempty"`
 	KeyPassphrase          *kms.Secret `json:"key_passphrase,omitempty"`
+	RootAnchor             string      `json:"-"`
 	forbiddenSelfUsernames []string    `json:"-"`
 }
 
@@ -521,14 +522,6 @@ func (fs *SFTPFs) Mkdir(name string) error {
 	return client.Mkdir(name)
 }
 
-func (fs *SFTPFs) Symlink(source, target string) error {
-	client, err := fs.conn.getClient()
-	if err != nil {
-		return err
-	}
-	return client.Symlink(source, target)
-}
-
 // Readlink returns the destination of the named symbolic link. A link whose
 // target escapes the prefix is rejected earlier by ResolvePath (which follows the
 // leaf), so this is reached only for in-prefix links and reports the immediate
@@ -660,6 +653,12 @@ func (fs *SFTPFs) CheckRootPath(username string, uid int, gid int) bool {
 	if err != nil {
 		return false
 	}
+	if fs.config.RootAnchor != "" {
+		if _, err := fs.ResolvePath("/"); err != nil {
+			fsLog(fs, logger.LevelWarn, "unable to resolve root directory %q for user %q: %v", fs.config.Prefix, username, err)
+			return false
+		}
+	}
 	if err := client.MkdirAll(fs.config.Prefix); err != nil {
 		fsLog(fs, logger.LevelDebug, "error creating root directory %q for user %q: %v", fs.config.Prefix, username, err)
 		return false
@@ -668,8 +667,13 @@ func (fs *SFTPFs) CheckRootPath(username string, uid int, gid int) bool {
 }
 
 // ScanRootDirContents returns the number of files contained in a directory and
-// their size
+// their size. A sub-path root is resolved first, like any requested path.
 func (fs *SFTPFs) ScanRootDirContents() (int, int64, error) {
+	if fs.config.RootAnchor != "" {
+		if _, err := fs.ResolvePath("/"); err != nil {
+			return 0, 0, err
+		}
+	}
 	return fs.GetDirSize(fs.config.Prefix)
 }
 
@@ -795,12 +799,12 @@ func (fs *SFTPFs) canonicalRealPath(name string) (string, error) {
 	name = path.Clean("/" + name)
 	resolved := "/"
 	var rest []string
-	if prefix := fs.config.Prefix; prefix != "" && prefix != "/" {
-		if name == prefix {
-			return prefix, nil
+	if seed := fs.walkSeed(); seed != "/" {
+		if name == seed {
+			return seed, nil
 		}
-		if below, ok := strings.CutPrefix(name, prefix+"/"); ok {
-			resolved = prefix
+		if below, ok := strings.CutPrefix(name, seed+"/"); ok {
+			resolved = seed
 			rest = strings.Split(below, "/")
 		}
 	}
@@ -809,50 +813,100 @@ func (fs *SFTPFs) canonicalRealPath(name string) (string, error) {
 	}
 	linksWalked := 0
 	for len(rest) > 0 {
-		comp := rest[0]
-		rest = rest[1:]
-		switch comp {
+		switch rest[0] {
 		case "", ".":
+			rest = rest[1:]
 			continue
 		case "..":
 			resolved = path.Dir(resolved)
+			rest = rest[1:]
 			continue
 		}
-		candidate := path.Join(resolved, comp)
-		info, err := client.Lstat(candidate)
-		if err != nil {
-			if fs.IsNotExist(err) {
-				return path.Clean(path.Join(append([]string{candidate}, rest...)...)), nil
+		candidates := walkCandidates(resolved, rest)
+		infos, errs := lstatAll(client, candidates)
+		next := rest[len(candidates):]
+		for idx, candidate := range candidates {
+			if errs[idx] != nil {
+				if fs.IsNotExist(errs[idx]) {
+					return path.Clean(path.Join(append([]string{candidate}, rest[idx+1:]...)...)), nil
+				}
+				return "", errs[idx]
 			}
-			return "", err
+			if infos[idx].Mode()&os.ModeSymlink == 0 {
+				resolved = candidate
+				continue
+			}
+			linksWalked++
+			if linksWalked > maxResolvedSymlinks {
+				fsLog(fs, logger.LevelError, "unable to get real path, too many links: %d", linksWalked)
+				return "", &pathResolutionError{err: "too many links"}
+			}
+			target, err := client.ReadLink(candidate)
+			if err != nil {
+				return "", fmt.Errorf("unable to resolve link to %q: %w", candidate, err)
+			}
+			if strings.Contains(target, "\\") {
+				fsLog(fs, logger.LevelError, "unable to get real path, link %q has a target with a backslash: %q",
+					candidate, target)
+				return "", &pathResolutionError{err: "link target with a backslash"}
+			}
+			if path.IsAbs(target) {
+				resolved = "/"
+			}
+			next = append(strings.Split(strings.TrimPrefix(target, "/"), "/"), rest[idx+1:]...)
+			break
 		}
-		if info.Mode()&os.ModeSymlink == 0 {
-			resolved = candidate
-			continue
-		}
-		linksWalked++
-		if linksWalked > maxResolvedSymlinks {
-			fsLog(fs, logger.LevelError, "unable to get real path, too many links: %d", linksWalked)
-			return "", &pathResolutionError{err: "too many links"}
-		}
-		target, err := client.ReadLink(candidate)
-		if err != nil {
-			return "", fmt.Errorf("unable to resolve link to %q: %w", candidate, err)
-		}
-		if strings.Contains(target, "\\") {
-			fsLog(fs, logger.LevelError, "unable to get real path, link %q has a target with a backslash: %q",
-				candidate, target)
-			return "", &pathResolutionError{err: "link target with a backslash"}
-		}
-		// do not path.Clean the target: collapsing ".." lexically here would drop a
-		// preceding symlink component ("symlink/..") and let it escape the prefix;
-		// "." and ".." below are resolved by the walker against the resolved path
-		if path.IsAbs(target) {
-			resolved = "/"
-		}
-		rest = append(strings.Split(strings.TrimPrefix(target, "/"), "/"), rest...)
+		rest = next
 	}
 	return path.Clean(resolved), nil
+}
+
+func (fs *SFTPFs) walkSeed() string {
+	prefix := fs.config.Prefix
+	if prefix == "" {
+		prefix = "/"
+	}
+	anchor := fs.config.RootAnchor
+	switch {
+	case anchor == "" || anchor == "/" || anchor == prefix:
+		return prefix
+	case strings.HasPrefix(prefix, anchor+"/"):
+		return anchor
+	default:
+		return "/"
+	}
+}
+
+const maxParallelLstat = 5
+
+func walkCandidates(resolved string, rest []string) []string {
+	var candidates []string
+	current := resolved
+	for _, comp := range rest {
+		if comp == "" || comp == "." || comp == ".." || len(candidates) == maxParallelLstat {
+			break
+		}
+		current = path.Join(current, comp)
+		candidates = append(candidates, current)
+	}
+	return candidates
+}
+
+func lstatAll(client *sftp.Client, paths []string) ([]os.FileInfo, []error) {
+	infos := make([]os.FileInfo, len(paths))
+	errs := make([]error, len(paths))
+	if len(paths) == 1 {
+		infos[0], errs[0] = client.Lstat(paths[0])
+		return infos, errs
+	}
+	var wg sync.WaitGroup
+	for idx, p := range paths {
+		wg.Go(func() {
+			infos[idx], errs[idx] = client.Lstat(p)
+		})
+	}
+	wg.Wait()
+	return infos, errs
 }
 
 func (fs *SFTPFs) isSubDir(name string) error {

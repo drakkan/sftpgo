@@ -149,7 +149,6 @@ type Fs interface {
 	Rename(source, target string, checks int) (int, int64, error)
 	Remove(name string, isDir bool) error
 	Mkdir(name string) error
-	Symlink(source, target string) error
 	Chown(name string, uid int, gid int) error
 	Chmod(name string, mode os.FileMode) error
 	Chtimes(name string, atime, mtime time.Time, isUploading bool) error

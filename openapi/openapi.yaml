@@ -4869,7 +4869,7 @@ components:
           * `rename_files` - rename files is allowed
           * `rename_dirs` - rename directories is allowed
           * `create_dirs` - create directories is allowed
-          * `create_symlinks` - create links is allowed
+          * `create_symlinks` - accepted for compatibility, without effect: clients cannot create symbolic links
           * `chmod` changing file or directory permissions is allowed
           * `chown` changing file or directory owner and group is allowed
           * `chtimes` changing file or directory access and modification time is allowed

@@ -57,7 +57,6 @@ const (
 	renameLogSender        = "Rename"
 	rmdirLogSender         = "Rmdir"
 	mkdirLogSender         = "Mkdir"
-	symlinkLogSender       = "Symlink"
 	removeLogSender        = "Remove"
 	chownLogSender         = "Chown"
 	chmodLogSender         = "Chmod"
@@ -122,14 +121,6 @@ const (
 	UploadModeS3StoreOnError        = 4
 	UploadModeGCSStoreOnError       = 8
 	UploadModeAzureBlobStoreOnError = 16
-)
-
-const (
-	// SymlinkModeAllowLocal allows symbolic link creation on the local filesystem
-	// backend, including its encrypted variant.
-	SymlinkModeAllowLocal = 1
-	// SymlinkModeAllowSFTP allows symbolic link creation on the SFTP backend.
-	SymlinkModeAllowSFTP = 2
 )
 
 func init() {
@@ -203,6 +194,10 @@ func Initialize(c Configuration, isShared int) error {
 	Config.Actions.ExecuteOn = util.RemoveDuplicates(Config.Actions.ExecuteOn, true)
 	Config.Actions.ExecuteSync = util.RemoveDuplicates(Config.Actions.ExecuteSync, true)
 	Config.ProxyAllowed = util.RemoveDuplicates(Config.ProxyAllowed, true)
+	if Config.SymlinkMode != 0 {
+		logger.Warn(logSender, "", "symlink_mode %d is ignored: creating symbolic links is not supported", Config.SymlinkMode)
+		logger.WarnToConsole("symlink_mode %d is ignored: creating symbolic links is not supported", Config.SymlinkMode)
+	}
 	Config.idleLoginTimeout = 2 * time.Minute
 	Config.idleTimeoutAsDuration = time.Duration(Config.IdleTimeout) * time.Minute
 	startPeriodicChecks(periodicTimeoutCheckInterval, isShared)
@@ -593,10 +588,8 @@ type Configuration struct {
 	// renames for these providers, they may be slow, there is no atomic rename API like for local
 	// filesystem, so SFTPGo will recursively list the directory contents and do a rename for each entry
 	RenameMode int `json:"rename_mode" mapstructure:"rename_mode"`
-	// SymlinkMode is a bit mask that selects the backends on which clients holding the
-	// create_symlinks permission may create symbolic links. 0 (default) disables creation
-	// on every backend; add 1 to allow it on the local filesystem (including its encrypted
-	// variant), 2 to allow it on the SFTP backend, 3 for both.
+	// SymlinkMode is read for compatibility and has no effect: clients cannot create
+	// symbolic links. A value other than 0 logs a warning at startup.
 	SymlinkMode int `json:"symlink_mode" mapstructure:"symlink_mode"`
 	// ResumeMaxSize defines the maximum size allowed, in bytes, to resume uploads on storage backends
 	// with immutable objects. By default, resuming uploads is not allowed for cloud storage providers
@@ -681,19 +674,6 @@ type Configuration struct {
 // IsAtomicUploadEnabled returns true if atomic upload is enabled
 func (c *Configuration) IsAtomicUploadEnabled() bool {
 	return c.UploadMode&UploadModeAtomic != 0 || c.UploadMode&UploadModeAtomicWithResume != 0
-}
-
-// IsSymlinkCreationAllowed returns true if clients are allowed to create symbolic links
-// on the given filesystem backend.
-func (c *Configuration) IsSymlinkCreationAllowed(fs vfs.Fs) bool {
-	switch {
-	case vfs.IsLocalOrCryptoFs(fs):
-		return c.SymlinkMode&SymlinkModeAllowLocal != 0
-	case vfs.IsSFTPFs(fs):
-		return c.SymlinkMode&SymlinkModeAllowSFTP != 0
-	default:
-		return false
-	}
 }
 
 func (c *Configuration) initializeProxyProtocol() error {

@@ -427,11 +427,6 @@ func (fs *HTTPFs) Mkdir(name string) error {
 	return nil
 }
 
-// Symlink creates source as a symbolic link to target.
-func (*HTTPFs) Symlink(_, _ string) error {
-	return ErrVfsUnsupported
-}
-
 // Readlink returns the destination of the named symbolic link
 func (*HTTPFs) Readlink(_ string) (string, error) {
 	return "", ErrVfsUnsupported

@@ -292,15 +292,6 @@ func (c *Connection) RemoveDir(name string) error {
 	return c.BaseConnection.RemoveDir(name)
 }
 
-// Symlink implements ClientDriverExtensionSymlink
-func (c *Connection) Symlink(oldname, newname string) error {
-	c.UpdateLastActivity()
-	oldname = util.CleanPath(oldname)
-	newname = util.CleanPath(newname)
-
-	return c.CreateSymlink(oldname, newname)
-}
-
 // ReadDir implements ClientDriverExtensionFilelist
 func (c *Connection) ReadDir(name string) ([]os.FileInfo, error) {
 	c.UpdateLastActivity()

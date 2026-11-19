@@ -77,12 +77,25 @@ type OsFs struct {
 	writeBufferSize int
 	root            atomic.Pointer[os.Root]
 	rootMu          sync.Mutex
-	// closed is read and written only under rootMu
-	closed bool
+	// closed and rootErrLogged are read and written only under rootMu
+	closed        bool
+	rootErrLogged bool
+	mount         LocalMount
+}
+
+// LocalMount configures how the root directory of a local or encrypted mount is
+// opened.
+type LocalMount struct {
+	Anchor string
 }
 
 // NewOsFs returns an OsFs object that allows to interact with local Os filesystem
 func NewOsFs(connectionID, rootDir, mountPath string, config *sdk.OSFsConfig) Fs {
+	return NewOsFsForMount(connectionID, rootDir, mountPath, config, LocalMount{})
+}
+
+// NewOsFsForMount returns an OsFs whose root directory is opened as mount says.
+func NewOsFsForMount(connectionID, rootDir, mountPath string, config *sdk.OSFsConfig, mount LocalMount) Fs {
 	var readBufferSize, writeBufferSize int
 	if config != nil {
 		readBufferSize = config.ReadBufferSize * 1024 * 1024
@@ -95,36 +108,117 @@ func NewOsFs(connectionID, rootDir, mountPath string, config *sdk.OSFsConfig) Fs
 		mountPath:       getMountPath(mountPath),
 		readBufferSize:  readBufferSize,
 		writeBufferSize: writeBufferSize,
+		mount:           mount,
 	}
-	_, _ = fs.openRoot() // best-effort: a missing home is created by CheckRootPath
+	_, _ = fs.openRoot() // best-effort: a missing root is created by CheckRootPath
 	return fs
 }
 
-// openRoot returns the os.Root confinement, opening it on first use. A failed
-// open is retried on the next call and reports the real error (not-exist,
-// permission); a closed fs reports errNoRoot instead of reopening.
 func (fs *OsFs) openRoot() (*os.Root, error) {
+	return fs.openRootCreating(false, -1, -1)
+}
+
+func (fs *OsFs) openRootCreating(create bool, uid, gid int) (*os.Root, error) {
 	if root := fs.root.Load(); root != nil {
 		return root, nil
 	}
 	if !filepath.IsAbs(fs.rootDir) {
 		return nil, errNoRoot
 	}
+	root, created, err := fs.lockedOpenRoot(create)
+	if err != nil {
+		return nil, err
+	}
+	if created {
+		SetPathPermissions(fs, fs.rootDir, uid, gid)
+	}
+	return root, nil
+}
+
+func (fs *OsFs) lockedOpenRoot(create bool) (*os.Root, bool, error) {
 	fs.rootMu.Lock()
 	defer fs.rootMu.Unlock()
 
 	if root := fs.root.Load(); root != nil {
-		return root, nil
+		return root, false, nil
 	}
 	if fs.closed {
-		return nil, errNoRoot
+		return nil, false, errNoRoot
 	}
-	root, err := os.OpenRoot(fs.rootDir)
+	root, created, err := fs.openRootDir(create)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	fs.root.Store(root)
-	return root, nil
+	return root, created, nil
+}
+
+func (fs *OsFs) openRootDir(create bool) (*os.Root, bool, error) {
+	if fs.mount.Anchor == "" {
+		return openOrCreateRoot(fs.rootDir, create)
+	}
+	rel, err := relPath(fs.mount.Anchor, fs.rootDir)
+	if err != nil || !filepath.IsLocal(rel) {
+		err = &pathResolutionError{err: fmt.Sprintf("root %q is not inside its anchor %q", fs.rootDir,
+			fs.mount.Anchor)}
+		fs.logRootError(err)
+		return nil, false, err
+	}
+	if rel == "." {
+		return openOrCreateRoot(fs.rootDir, create)
+	}
+	root, created, err := openRootInRoot(fs.mount.Anchor, rel, create)
+	if isPathResolutionError(err) {
+		fs.logRootError(err)
+	}
+	return root, created, err
+}
+
+func (fs *OsFs) logRootError(err error) {
+	if !fs.rootErrLogged {
+		fs.rootErrLogged = true
+		fsLog(fs, logger.LevelWarn, "unable to open root %q inside %q: %v", fs.rootDir, fs.mount.Anchor, err)
+	}
+}
+
+func (fs *OsFs) sideDir() string {
+	if fs.mount.Anchor != "" {
+		return fs.mount.Anchor
+	}
+	return fs.rootDir
+}
+
+func openOrCreateRoot(dir string, create bool) (*os.Root, bool, error) {
+	root, err := os.OpenRoot(dir)
+	if err == nil || !create || !errors.Is(err, iofs.ErrNotExist) {
+		return root, false, err
+	}
+	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
+		return nil, false, err
+	}
+	root, err = os.OpenRoot(dir)
+	return root, err == nil, err
+}
+
+func openRootInRoot(anchor, rel string, create bool) (*os.Root, bool, error) {
+	parent, _, err := openOrCreateRoot(anchor, create)
+	if err != nil {
+		return nil, false, err
+	}
+	defer parent.Close()
+
+	var created bool
+	root, err := parent.OpenRoot(rel)
+	if create && errors.Is(err, iofs.ErrNotExist) {
+		if err = parent.MkdirAll(rel, os.ModePerm); err == nil {
+			created = true
+			root, err = parent.OpenRoot(rel)
+		}
+	}
+	if isRootEscapeError(err) {
+		return nil, false, &pathResolutionError{err: fmt.Sprintf("%q leads outside %q", rel, anchor)}
+	}
+	return root, created, err
 }
 
 // toRootRelative maps an absolute fsPath to the os.Root and a path relative to
@@ -200,7 +294,7 @@ func (fs *OsFs) Open(name string, offset int64) (File, PipeReader, func(), error
 	if fs.readBufferSize <= 0 {
 		return f, nil, nil, err
 	}
-	r, w, err := createPipeFn(fs.rootDir, 0)
+	r, w, err := createPipeFn(fs.sideDir(), 0)
 	if err != nil {
 		f.Close()
 		return nil, nil, nil, err
@@ -239,7 +333,7 @@ func (fs *OsFs) Create(name string, flag, _ int) (File, PipeWriter, func(), erro
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	r, w, err := createPipeFn(fs.rootDir, 0)
+	r, w, err := createPipeFn(fs.sideDir(), 0)
 	if err != nil {
 		f.Close()
 		return nil, nil, nil, err
@@ -271,6 +365,9 @@ func (fs *OsFs) Create(name string, flag, _ int) (File, PipeWriter, func(), erro
 func (fs *OsFs) Rename(source, target string, checks int) (int, int64, error) {
 	if source == target {
 		return -1, -1, nil
+	}
+	if _, err := fs.openRoot(); err != nil {
+		return -1, -1, err
 	}
 	// only a path resolution failure means the move crosses confinement roots
 	root, relSource, errSource := fs.toRootRelative(source)
@@ -313,44 +410,6 @@ func (fs *OsFs) Mkdir(name string) error {
 		return err
 	}
 	return root.Mkdir(rel, os.ModePerm)
-}
-
-func (fs *OsFs) Symlink(source, target string) error {
-	root, relTarget, err := fs.toRootRelative(target)
-	if err != nil {
-		return err
-	}
-	if filepath.IsAbs(source) {
-		rel, err := fs.relativeLinkSource(root, relTarget, source)
-		if err != nil {
-			return err
-		}
-		source = rel
-	} else if linkTargetEscapes(source) {
-		return &pathResolutionError{err: fmt.Sprintf("link target %q is not relative to the link directory", source)}
-	}
-	source = filepath.FromSlash(source)
-	return root.Symlink(source, relTarget)
-}
-
-func (fs *OsFs) relativeLinkSource(root *os.Root, relTarget, source string) (string, error) {
-	_, relSource, err := fs.toRootRelative(source)
-	if err != nil {
-		return "", err
-	}
-	linkDir, err := fs.resolveLinkTarget(root, relTarget, ".")
-	if err != nil {
-		return "", err
-	}
-	resolvedSource, err := fs.resolveLinkTarget(root, relSource, filepath.Base(relSource))
-	if err != nil {
-		return "", err
-	}
-	rel, err := relPath(linkDir, resolvedSource)
-	if err != nil {
-		return "", &pathResolutionError{err: fmt.Sprintf("cannot express %q relative to %q: %v", source, linkDir, err)}
-	}
-	return rel, nil
 }
 
 func (fs *OsFs) Readlink(name string) (string, error) {
@@ -554,18 +613,10 @@ func (*OsFs) IsNotSupported(err error) bool {
 	return errors.Is(err, ErrVfsUnsupported)
 }
 
-// CheckRootPath creates the root directory if it does not exist.
+// CheckRootPath creates the root directory if it does not exist: with MkdirAll
+// without an anchor, inside the anchor's os.Root with one.
 func (fs *OsFs) CheckRootPath(username string, uid int, gid int) bool {
-	_, err := fs.openRoot()
-	if fs.IsNotExist(err) {
-		if err := os.MkdirAll(fs.rootDir, os.ModePerm); err != nil {
-			fsLog(fs, logger.LevelError, "error creating root directory %q for user %q: %v", fs.rootDir, username, err)
-			return false
-		}
-		if _, err = fs.openRoot(); err == nil {
-			SetPathPermissions(fs, fs.rootDir, uid, gid)
-		}
-	}
+	_, err := fs.openRootCreating(true, uid, gid)
 	if err != nil {
 		fsLog(fs, logger.LevelError, "unable to open root directory %q for user %q: %v", fs.rootDir, username, err)
 		return false
@@ -743,7 +794,7 @@ func (fs *OsFs) GetAvailableDiskSize(dirName string) (*sftp.StatVFS, error) {
 		return nil, err
 	}
 	defer f.Close()
-	return getStatFS(f, fs.rootDir)
+	return getStatFS(f, fs.sideDir())
 }
 
 func (fs *OsFs) useWriteBuffering(flag int) bool {

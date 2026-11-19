@@ -340,11 +340,6 @@ func (fs *GCSFs) Mkdir(name string) error {
 	return fs.mkdirInternal(name)
 }
 
-// Symlink creates source as a symbolic link to target.
-func (*GCSFs) Symlink(_, _ string) error {
-	return ErrVfsUnsupported
-}
-
 // Readlink returns the destination of the named symbolic link
 func (*GCSFs) Readlink(_ string) (string, error) {
 	return "", ErrVfsUnsupported

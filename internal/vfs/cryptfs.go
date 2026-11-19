@@ -46,6 +46,11 @@ type CryptFs struct {
 
 // NewCryptFs returns a CryptFs object
 func NewCryptFs(connectionID, rootDir, mountPath string, config CryptFsConfig) (Fs, error) {
+	return NewCryptFsForMount(connectionID, rootDir, mountPath, config, LocalMount{})
+}
+
+// NewCryptFsForMount returns a CryptFs whose root directory is opened as mount says.
+func NewCryptFsForMount(connectionID, rootDir, mountPath string, config CryptFsConfig, mount LocalMount) (Fs, error) {
 	if err := config.validate(); err != nil {
 		return nil, err
 	}
@@ -60,6 +65,7 @@ func NewCryptFs(connectionID, rootDir, mountPath string, config CryptFsConfig) (
 			mountPath:       getMountPath(mountPath),
 			readBufferSize:  config.ReadBufferSize * 1024 * 1024,
 			writeBufferSize: config.WriteBufferSize * 1024 * 1024,
+			mount:           mount,
 		},
 		masterKey: []byte(config.Passphrase.GetPayload()),
 	}
@@ -83,7 +89,7 @@ func (fs *CryptFs) Open(name string, offset int64) (File, PipeReader, func(), er
 		f.Close()
 		return nil, nil, nil, err
 	}
-	r, w, err := createPipeFn(fs.rootDir, 0)
+	r, w, err := createPipeFn(fs.sideDir(), 0)
 	if err != nil {
 		f.Close()
 		return nil, nil, nil, err
@@ -177,7 +183,7 @@ func (fs *CryptFs) Create(name string, flag, _ int) (File, PipeWriter, func(), e
 		return nil, nil, nil, err
 	}
 	copy(key[:], keyMaterial)
-	r, w, err := createPipeFn(fs.rootDir, 0)
+	r, w, err := createPipeFn(fs.sideDir(), 0)
 	if err != nil {
 		f.Close()
 		return nil, nil, nil, err

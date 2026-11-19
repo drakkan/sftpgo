@@ -391,11 +391,6 @@ func (fs *AzureBlobFs) Mkdir(name string) error {
 	return fs.mkdirInternal(name)
 }
 
-// Symlink creates source as a symbolic link to target.
-func (*AzureBlobFs) Symlink(_, _ string) error {
-	return ErrVfsUnsupported
-}
-
 // Readlink returns the destination of the named symbolic link
 func (*AzureBlobFs) Readlink(_ string) (string, error) {
 	return "", ErrVfsUnsupported

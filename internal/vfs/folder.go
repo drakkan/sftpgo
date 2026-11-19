@@ -24,6 +24,8 @@ import (
 
 	"github.com/rs/xid"
 	"github.com/sftpgo/sdk"
+
+	"github.com/drakkan/sftpgo/v2/internal/util"
 )
 
 // BaseVirtualFolder defines the path for the virtual folder and the used quota limits.
@@ -145,6 +147,9 @@ type VirtualFolder struct {
 	// starting from this sub-path. Supported for local, encrypted, S3, GCS,
 	// Azure Blob and SFTP folders.
 	Subpath string `json:"subpath,omitempty"`
+	// LocalMount configures how a local or encrypted folder opens its root
+	// directory. Set at runtime, never serialized
+	LocalMount LocalMount `json:"-"`
 }
 
 // WithSubPath returns a copy of the folder re-rooted at the given canonical
@@ -164,8 +169,14 @@ func (v *VirtualFolder) WithSubPath(subPath, virtualPath string) VirtualFolder {
 	case sdk.AzureBlobFilesystemProvider:
 		result.FsConfig.AzBlobConfig.KeyPrefix += strings.TrimPrefix(subPath, "/") + "/"
 	case sdk.SFTPFilesystemProvider:
+		if result.FsConfig.SFTPConfig.RootAnchor == "" {
+			result.FsConfig.SFTPConfig.RootAnchor = util.CleanPath(result.FsConfig.SFTPConfig.Prefix)
+		}
 		result.FsConfig.SFTPConfig.Prefix = path.Join(result.FsConfig.SFTPConfig.Prefix, subPath)
 	default:
+		if result.LocalMount.Anchor == "" {
+			result.LocalMount.Anchor = result.MappedPath
+		}
 		result.MappedPath = filepath.Join(result.MappedPath, subPath)
 	}
 	return result
@@ -181,13 +192,13 @@ func (v *VirtualFolder) GetFilesystem(connectionID string, forbiddenSelfUsers []
 	case sdk.AzureBlobFilesystemProvider:
 		return NewAzBlobFs(connectionID, v.MappedPath, v.VirtualPath, v.FsConfig.AzBlobConfig)
 	case sdk.CryptedFilesystemProvider:
-		return NewCryptFs(connectionID, v.MappedPath, v.VirtualPath, v.FsConfig.CryptConfig)
+		return NewCryptFsForMount(connectionID, v.MappedPath, v.VirtualPath, v.FsConfig.CryptConfig, v.LocalMount)
 	case sdk.SFTPFilesystemProvider:
 		return NewSFTPFs(connectionID, v.VirtualPath, v.MappedPath, forbiddenSelfUsers, v.FsConfig.SFTPConfig)
 	case sdk.HTTPFilesystemProvider:
 		return NewHTTPFs(connectionID, v.MappedPath, v.VirtualPath, v.FsConfig.HTTPConfig)
 	default:
-		return NewOsFs(connectionID, v.MappedPath, v.VirtualPath, &v.FsConfig.OSConfig), nil
+		return NewOsFsForMount(connectionID, v.MappedPath, v.VirtualPath, &v.FsConfig.OSConfig, v.LocalMount), nil
 	}
 }
 

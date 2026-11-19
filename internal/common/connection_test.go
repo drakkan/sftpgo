@@ -157,39 +157,6 @@ func TestSetStatMode(t *testing.T) {
 	Config.SetstatMode = oldSetStatMode
 }
 
-func TestSymlinkCreationMode(t *testing.T) {
-	oldSymlinkMode := Config.SymlinkMode
-	defer func() { Config.SymlinkMode = oldSymlinkMode }()
-
-	localFs := vfs.NewOsFs("", filepath.Clean(os.TempDir()), "", nil)
-
-	// the zero value disables creation on every backend
-	Config.SymlinkMode = 0
-	assert.False(t, Config.IsSymlinkCreationAllowed(localFs))
-
-	// the local bit enables creation on the local filesystem only
-	Config.SymlinkMode = SymlinkModeAllowLocal
-	assert.True(t, Config.IsSymlinkCreationAllowed(localFs))
-
-	// the SFTP bit alone does not enable the local backend
-	Config.SymlinkMode = SymlinkModeAllowSFTP
-	assert.False(t, Config.IsSymlinkCreationAllowed(localFs))
-
-	// with creation disabled the local backend rejects it at the handler
-	Config.SymlinkMode = 0
-	user := dataprovider.User{
-		BaseUser: sdk.BaseUser{
-			HomeDir: filepath.Clean(os.TempDir()),
-		},
-	}
-	user.Permissions = map[string][]string{
-		"/": {dataprovider.PermAny},
-	}
-	conn := NewBaseConnection("", ProtocolWebDAV, "", "", user)
-	err := conn.CreateSymlink("/target.txt", "/link.txt")
-	assert.ErrorIs(t, err, ErrOpUnsupported)
-}
-
 func TestRenameEntryChecks(t *testing.T) {
 	conn := NewBaseConnection("", ProtocolWebDAV, "", "", dataprovider.User{
 		BaseUser: sdk.BaseUser{
@@ -1443,48 +1410,6 @@ func TestFilePatternsDirNameScope(t *testing.T) {
 	assert.True(t, ok)
 	ok, _ = user.IsFileAllowed("/docs/a.txt")
 	assert.False(t, ok)
-}
-
-func TestSymlinkDeniedSourcePolicy(t *testing.T) {
-	oldConfig := Config
-	Config.SymlinkMode = 1
-	defer func() {
-		Config = oldConfig
-	}()
-
-	homeDir := filepath.Join(os.TempDir(), "symlinkpolicy")
-	err := os.MkdirAll(homeDir, os.ModePerm)
-	assert.NoError(t, err)
-
-	for _, tc := range []struct {
-		name     string
-		policy   int
-		expected error
-	}{
-		{name: "default policy", policy: sdk.DenyPolicyDefault, expected: os.ErrPermission},
-		{name: "hide policy", policy: sdk.DenyPolicyHide, expected: os.ErrNotExist},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			user := dataprovider.User{
-				BaseUser: sdk.BaseUser{
-					Username:    userTestUsername,
-					HomeDir:     homeDir,
-					Permissions: map[string][]string{"/": {dataprovider.PermAny}},
-				},
-			}
-			user.Filters.FilePatterns = []sdk.PatternsFilter{
-				{Path: "/", DeniedPatterns: []string{"*.dat"}, DenyPolicy: tc.policy},
-			}
-			conn := NewBaseConnection("", ProtocolHTTP, "", "", user)
-			defer conn.CloseFS()
-			assert.ErrorIs(t, conn.CreateSymlink("/report.dat", "/link.txt"), tc.expected)
-			// a denied target is a path being written, it always reports permission denied
-			assert.ErrorIs(t, conn.CreateSymlink("/doc.txt", "/link.dat"), os.ErrPermission)
-		})
-	}
-
-	err = os.RemoveAll(homeDir)
-	assert.NoError(t, err)
 }
 
 func TestRenameFilePatternsScope(t *testing.T) {

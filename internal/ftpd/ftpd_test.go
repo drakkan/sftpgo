@@ -283,7 +283,6 @@ func TestMain(m *testing.M) {
 	os.Setenv("SFTPGO_COMMON__UPLOAD_MODE", "2")
 	os.Setenv("SFTPGO_DATA_PROVIDER__CREATE_DEFAULT_ADMIN", "1")
 	os.Setenv("SFTPGO_COMMON__ALLOW_SELF_CONNECTIONS", "1")
-	os.Setenv("SFTPGO_COMMON__SYMLINK_MODE", "3")
 	os.Setenv("SFTPGO_DEFAULT_ADMIN_USERNAME", "admin")
 	os.Setenv("SFTPGO_DEFAULT_ADMIN_PASSWORD", "password")
 	os.Setenv("SFTPGO_COMMON__SECRET_MIN_ENTROPY", "0")
@@ -2710,120 +2709,37 @@ func TestRename(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestSymlinkRelativeSourceUsesWorkingDir(t *testing.T) {
-	if runtime.GOOS == osWindows {
-		t.Skip("symlink creation needs privileges on Windows")
-	}
+func TestSymlinkCreationUnsupported(t *testing.T) {
 	oldMode := common.Config.SymlinkMode
-	common.Config.SymlinkMode = common.SymlinkModeAllowLocal
+	common.Config.SymlinkMode = 3
 	defer func() { common.Config.SymlinkMode = oldMode }()
 
-	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
-	assert.NoError(t, err)
-
-	client, err := getFTPClient(user, false, nil)
-	if assert.NoError(t, err) {
-		require.NoError(t, client.MakeDir("sub"))
-		require.NoError(t, os.WriteFile(filepath.Join(user.GetHomeDir(), "foo"), []byte("root-level"), 0o644))
-		require.NoError(t, os.WriteFile(filepath.Join(user.GetHomeDir(), "sub", "foo"), []byte("sub-level"), 0o644))
-
-		code, _, err := client.SendCommand("SITE SYMLINK %v %v", "foo", "sub/link1")
-		assert.NoError(t, err)
-		assert.Equal(t, ftp.StatusCommandOK, code)
-		content, err := os.ReadFile(filepath.Join(user.GetHomeDir(), "sub", "link1"))
-		if assert.NoError(t, err) {
-			assert.Equal(t, "root-level", string(content))
-		}
-
-		require.NoError(t, client.ChangeDir("/sub"))
-		code, _, err = client.SendCommand("SITE SYMLINK %v %v", "foo", "link2")
-		assert.NoError(t, err)
-		assert.Equal(t, ftp.StatusCommandOK, code)
-		target, err := os.Readlink(filepath.Join(user.GetHomeDir(), "sub", "link2"))
-		if assert.NoError(t, err) {
-			assert.Equal(t, "foo", target)
-		}
-		content, err = os.ReadFile(filepath.Join(user.GetHomeDir(), "sub", "link2"))
-		if assert.NoError(t, err) {
-			assert.Equal(t, "sub-level", string(content))
-		}
-
-		code, _, err = client.SendCommand("SITE SYMLINK %v %v", "..", "rootlink")
-		assert.NoError(t, err)
-		assert.Equal(t, ftp.StatusCommandOK, code)
-
-		err = client.Quit()
-		assert.NoError(t, err)
-	}
-
-	_, err = httpdtest.RemoveUser(user, http.StatusOK)
-	assert.NoError(t, err)
-	waitNoConnections()
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
-}
-
-func TestSymlink(t *testing.T) {
-	u := getTestUser()
-	localUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	localUser, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
 	sftpUser, _, err := httpdtest.AddUser(getTestSFTPUser(), http.StatusCreated)
 	assert.NoError(t, err)
 	testFilePath := filepath.Join(homeBasePath, testFileName)
 	testFileSize := int64(65535)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
 	for _, user := range []dataprovider.User{localUser, sftpUser} {
-		err = createTestFile(testFilePath, testFileSize)
-		assert.NoError(t, err)
 		client, err := getFTPClient(user, false, nil)
 		if assert.NoError(t, err) {
-			err = checkBasicFTP(client)
-			assert.NoError(t, err)
 			err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
 			assert.NoError(t, err)
 			code, _, err := client.SendCommand("SITE SYMLINK %v %v", testFileName, testFileName+".link")
 			assert.NoError(t, err)
-			assert.Equal(t, ftp.StatusCommandOK, code)
-
-			if runtime.GOOS != osWindows {
-				testDir := "adir"
-				otherDir := "dir"
-				err = client.MakeDir(otherDir)
-				assert.NoError(t, err)
-				err = client.MakeDir(path.Join(otherDir, testDir))
-				assert.NoError(t, err)
-				code, response, err := client.SendCommand("SITE CHMOD 0001 %v", otherDir)
-				assert.NoError(t, err)
-				assert.Equal(t, ftp.StatusCommandOK, code)
-				assert.Equal(t, "SITE CHMOD command successful", response)
-				code, _, err = client.SendCommand("SITE SYMLINK %v %v", testDir, path.Join(otherDir, testDir))
-				assert.NoError(t, err)
-				assert.Equal(t, ftp.StatusFileUnavailable, code)
-
-				code, response, err = client.SendCommand("SITE CHMOD 755 %v", otherDir)
-				assert.NoError(t, err)
-				assert.Equal(t, ftp.StatusCommandOK, code)
-				assert.Equal(t, "SITE CHMOD command successful", response)
-			}
+			assert.Equal(t, ftp.StatusNotImplemented, code)
+			_, err = client.FileSize(testFileName + ".link")
+			assert.Error(t, err)
+			_, err = os.Lstat(filepath.Join(localUser.GetHomeDir(), testFileName+".link"))
+			assert.True(t, os.IsNotExist(err))
 			err = client.Quit()
 			assert.NoError(t, err)
-			if user.Username == defaultUsername {
-				// remove the user before the home dir so the connection
-				// holding the fs root is closed
-				_, err = httpdtest.RemoveUser(user, http.StatusOK)
-				assert.NoError(t, err)
-				waitNoConnections()
-				err = os.RemoveAll(user.GetHomeDir())
-				assert.NoError(t, err)
-				user.Password = defaultPassword
-				user.ID = 0
-				user.CreatedAt = 0
-				_, resp, err := httpdtest.AddUser(user, http.StatusCreated)
-				assert.NoError(t, err, string(resp))
-			}
 		}
-		err = os.Remove(testFilePath)
-		assert.NoError(t, err)
 	}
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)

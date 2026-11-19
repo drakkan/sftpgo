@@ -20,7 +20,6 @@ import (
 	"net"
 	"os"
 	"path"
-	"strings"
 	"sync"
 	"time"
 
@@ -233,10 +232,6 @@ func (c *Connection) Filecmd(request *sftp.Request) error {
 	case "Mkdir":
 		err := c.CreateDir(request.Filepath)
 		if err != nil {
-			return err
-		}
-	case "Symlink":
-		if err := c.CreateSymlink(request.Filepath, request.Target); err != nil {
 			return err
 		}
 	case "Remove":
@@ -637,11 +632,7 @@ func getOSOpenFlags(requestFlags sftp.FileOpenFlags) (flags int) {
 }
 
 func updateRequestPaths(request *sftp.Request) {
-	if request.Method == "Symlink" {
-		request.Filepath = path.Clean(strings.ReplaceAll(request.Filepath, "\\", "/"))
-	} else {
-		request.Filepath = util.CleanPath(request.Filepath)
-	}
+	request.Filepath = util.CleanPath(request.Filepath)
 
 	if request.Target != "" {
 		request.Target = util.CleanPath(request.Target)

@@ -379,11 +379,6 @@ func (fs *S3Fs) Mkdir(name string) error {
 	return fs.mkdirInternal(name)
 }
 
-// Symlink creates source as a symbolic link to target.
-func (*S3Fs) Symlink(_, _ string) error {
-	return ErrVfsUnsupported
-}
-
 // Readlink returns the destination of the named symbolic link
 func (*S3Fs) Readlink(_ string) (string, error) {
 	return "", ErrVfsUnsupported

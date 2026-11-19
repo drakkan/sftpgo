@@ -143,6 +143,7 @@ func TestMain(m *testing.M) {
 
 	os.Setenv("SFTPGO_DATA_PROVIDER__CREATE_DEFAULT_ADMIN", "1")
 	os.Setenv("SFTPGO_COMMON__ALLOW_SELF_CONNECTIONS", "1")
+	// symlink_mode is ignored: a value other than 0 logs the startup warning
 	os.Setenv("SFTPGO_COMMON__SYMLINK_MODE", "3")
 	os.Setenv("SFTPGO_DEFAULT_ADMIN_USERNAME", "admin")
 	os.Setenv("SFTPGO_DEFAULT_ADMIN_PASSWORD", "password")
@@ -341,10 +342,8 @@ func TestBaseConnection(t *testing.T) {
 		if assert.Error(t, err) {
 			assert.Contains(t, err.Error(), "the rename source and target cannot be the same")
 		}
-		err = client.Symlink(testFileName, linkName)
+		err = os.Symlink(testFileName, filepath.Join(user.GetHomeDir(), linkName))
 		assert.NoError(t, err)
-		err = client.Symlink(testFileName, testFileName)
-		assert.Error(t, err)
 		info, err = client.Stat(testFileName)
 		if assert.NoError(t, err) {
 			assert.Equal(t, int64(len(testFileContent)), info.Size())
@@ -422,71 +421,6 @@ func TestRemoveAll(t *testing.T) {
 		assert.NoError(t, err)
 		_, err = client.Stat(testDir)
 		assert.Error(t, err)
-	}
-
-	_, err = httpdtest.RemoveUser(user, http.StatusOK)
-	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
-}
-
-func TestRelativeSymlinks(t *testing.T) {
-	u := getTestUser()
-	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
-	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
-	conn, client, err := getSftpClient(user)
-	if assert.NoError(t, err) {
-		defer conn.Close()
-		defer client.Close()
-
-		linkName := testFileName + "_link"
-		err = client.Symlink("non-existent-file", linkName)
-		assert.NoError(t, err)
-		err = client.Remove(linkName)
-		assert.NoError(t, err)
-		testDir := "sub"
-		err = client.Mkdir(testDir)
-		assert.NoError(t, err)
-		f, err := client.Create(path.Join(testDir, testFileName))
-		assert.NoError(t, err)
-		_, err = f.Write(testFileContent)
-		assert.NoError(t, err)
-		err = f.Close()
-		assert.NoError(t, err)
-		err = client.Symlink(path.Join(testDir, testFileName), linkName)
-		assert.NoError(t, err)
-		_, err = client.Stat(linkName)
-		assert.NoError(t, err)
-		p, err := client.ReadLink(linkName)
-		assert.NoError(t, err)
-		assert.Equal(t, path.Join("/", testDir, testFileName), p)
-		err = client.Remove(linkName)
-		assert.NoError(t, err)
-
-		err = client.Symlink(testFileName, path.Join(testDir, linkName))
-		assert.NoError(t, err)
-		_, err = client.Stat(path.Join(testDir, linkName))
-		assert.NoError(t, err)
-		p, err = client.ReadLink(path.Join(testDir, linkName))
-		assert.NoError(t, err)
-		assert.Equal(t, path.Join("/", testDir, testFileName), p)
-
-		f, err = client.Create(testFileName)
-		assert.NoError(t, err)
-		_, err = f.Write(testFileContent)
-		assert.NoError(t, err)
-		err = f.Close()
-		assert.NoError(t, err)
-
-		err = client.Symlink(testFileName, linkName)
-		assert.NoError(t, err)
-		_, err = client.Stat(linkName)
-		assert.NoError(t, err)
-		p, err = client.ReadLink(linkName)
-		assert.NoError(t, err)
-		assert.Equal(t, path.Join("/", testFileName), p)
 	}
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
@@ -923,8 +857,6 @@ func TestPermissionErrors(t *testing.T) {
 		assert.ErrorIs(t, err, os.ErrPermission)
 		err = client.RemoveDirectory(path.Join(subDir, subDir))
 		assert.ErrorIs(t, err, os.ErrPermission)
-		err = client.Symlink("test", path.Join(subDir, subDir))
-		assert.ErrorIs(t, err, os.ErrPermission)
 		err = client.Chmod(path.Join(subDir, subDir), os.ModePerm)
 		assert.ErrorIs(t, err, os.ErrPermission)
 		err = client.Chown(path.Join(subDir, subDir), os.Getuid(), os.Getgid())
@@ -1000,12 +932,8 @@ func TestHiddenPatternFilter(t *testing.T) {
 		assert.ErrorIs(t, err, os.ErrPermission)
 		_, err = client.Open(path.Join(deniedDir, dirName, subDirName, filepath.Base(testHiddenFile)))
 		assert.ErrorIs(t, err, os.ErrNotExist)
-		err = client.Symlink(path.Join(deniedDir, dirName), dirName)
-		assert.ErrorIs(t, err, os.ErrNotExist)
 		err = writeSFTPFile(path.Join(deniedDir, testFileName), 1024, client)
 		assert.NoError(t, err)
-		err = client.Symlink(path.Join(deniedDir, testFileName), path.Join(deniedDir, "symlink.txt"))
-		assert.ErrorIs(t, err, os.ErrPermission)
 		files, err = client.ReadDir(deniedDir)
 		assert.NoError(t, err)
 		assert.Len(t, files, 1)
@@ -1036,8 +964,6 @@ func TestHiddenPatternFilter(t *testing.T) {
 		err = client.Mkdir(path.Join(deniedDir, "beta2"))
 		assert.ErrorIs(t, err, os.ErrPermission)
 		err = writeSFTPFile(path.Join(deniedDir, "afile2.txt"), 1024, client)
-		assert.ErrorIs(t, err, os.ErrPermission)
-		err = client.Symlink(path.Join(deniedDir, testFileName), path.Join(deniedDir, "link.txt"))
 		assert.ErrorIs(t, err, os.ErrPermission)
 		err = writeSFTPFile(path.Join(deniedDir, dirName, subDirName, "afile.jpg"), 1024, client)
 		assert.NoError(t, err)
@@ -2799,61 +2725,40 @@ func TestVirtualFoldersLink(t *testing.T) {
 		assert.NoError(t, err)
 		err = client.Mkdir(path.Join(vdirPath2, testDir))
 		assert.NoError(t, err)
-		err = client.Symlink(testFileName, testFileName+".link")
-		assert.NoError(t, err)
-		err = client.Symlink(path.Join(vdirPath1, testFileName), path.Join(vdirPath1, testFileName+".link"))
-		assert.NoError(t, err)
-		err = client.Symlink(path.Join(vdirPath1, testFileName), path.Join(vdirPath1, testDir, testFileName+".link"))
-		assert.NoError(t, err)
-		err = client.Symlink(path.Join(vdirPath2, testFileName), path.Join(vdirPath2, testFileName+".link"))
-		assert.NoError(t, err)
-		err = client.Symlink(path.Join(vdirPath2, testFileName), path.Join(vdirPath2, testDir, testFileName+".link"))
-		assert.NoError(t, err)
-		err = client.Symlink(path.Join("/", testFileName), path.Join(vdirPath1, testFileName+".link1"))
-		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
+		// links stored inside a folder are followed within that folder
+		for _, tc := range []struct{ link, target, fsPath string }{
+			{path.Join("/", testFileName+".link"), testFileName, filepath.Join(user.GetHomeDir(), testFileName+".link")},
+			{path.Join(vdirPath1, testFileName+".link"), testFileName, filepath.Join(mappedPath1, testFileName+".link")},
+			{path.Join(vdirPath1, testDir, testFileName+".link"), path.Join("..", testFileName),
+				filepath.Join(mappedPath1, testDir, testFileName+".link")},
+			{path.Join(vdirPath2, testFileName+".link"), testFileName, filepath.Join(mappedPath2, testFileName+".link")},
+			{path.Join(vdirPath2, testDir, testFileName+".link"), path.Join("..", testFileName),
+				filepath.Join(mappedPath2, testDir, testFileName+".link")},
+		} {
+			err = os.Symlink(tc.target, tc.fsPath)
+			assert.NoError(t, err)
+			info, err := client.Stat(tc.link)
+			if assert.NoError(t, err, tc.link) {
+				assert.Equal(t, testFileSize, info.Size())
+			}
+			p, err := client.ReadLink(tc.link)
+			if assert.NoError(t, err, tc.link) {
+				assert.Equal(t, path.Join(path.Dir(tc.link), tc.target), p)
+			}
 		}
-		err = client.Symlink(path.Join("/", testFileName), path.Join(vdirPath1, testDir, testFileName+".link1"))
-		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
-		}
-		err = client.Symlink(path.Join("/", testFileName), path.Join(vdirPath2, testFileName+".link1"))
-		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
-		}
-		err = client.Symlink(path.Join("/", testFileName), path.Join(vdirPath2, testDir, testFileName+".link1"))
-		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
-		}
-		err = client.Symlink(path.Join(vdirPath1, testFileName), testFileName+".link1")
-		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
-		}
-		err = client.Symlink(path.Join(vdirPath2, testFileName), testFileName+".link1")
-		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
-		}
-		err = client.Symlink(path.Join(vdirPath1, testFileName), path.Join(vdirPath2, testDir, testFileName+".link1"))
-		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
-		}
-		err = client.Symlink(path.Join(vdirPath2, testFileName), path.Join(vdirPath1, testFileName+".link1"))
-		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
-		}
-		// a link naming the storage root is a link like any other, see
-		// TestSymlinkToStorageRoot; creating one at the root path stays refused
-		err = client.Symlink("/", "/roolink")
-		assert.NoError(t, err)
-		err = client.Symlink(testFileName, "/")
-		assert.ErrorIs(t, err, os.ErrPermission)
-		err = client.Symlink(testFileName, vdirPath1)
-		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
-		}
-		err = client.Symlink(vdirPath1, testFileName+".link2")
-		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
+		// a link resolving outside the folder it is stored in, into another
+		// folder or above the folder root, cannot be followed
+		for _, tc := range []struct{ link, target, fsPath string }{
+			{path.Join(vdirPath1, testFileName+".link1"), path.Join("..", folderName2, testFileName),
+				filepath.Join(mappedPath1, testFileName+".link1")},
+			{path.Join(vdirPath2, testDir, testFileName+".link1"), path.Join("..", "..", folderName1, testFileName),
+				filepath.Join(mappedPath2, testDir, testFileName+".link1")},
+			{path.Join(vdirPath2, testFileName+".link1"), "..", filepath.Join(mappedPath2, testFileName+".link1")},
+		} {
+			err = os.Symlink(tc.target, tc.fsPath)
+			assert.NoError(t, err)
+			_, err = client.Stat(tc.link)
+			assert.Error(t, err, tc.link)
 		}
 	}
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
@@ -3542,8 +3447,6 @@ func TestResolvePathError(t *testing.T) {
 	assert.Error(t, err)
 	err = conn.Rename(testPath, testPath+"1")
 	assert.Error(t, err)
-	err = conn.CreateSymlink(testPath, testPath+".sym")
-	assert.Error(t, err)
 	_, err = conn.DoStat(testPath, 0, false)
 	assert.Error(t, err)
 	err = conn.RemoveAll(testPath)
@@ -3567,21 +3470,9 @@ func TestResolvePathError(t *testing.T) {
 	err = conn.Rename(testPath, "/vpath/subpath")
 	assert.Error(t, err)
 
-	outHomePath := filepath.Join(os.TempDir(), testFileName)
-	err = os.WriteFile(outHomePath, testFileContent, os.ModePerm)
-	assert.NoError(t, err)
-	err = os.Symlink(outHomePath, filepath.Join(u.HomeDir, testFileName+".link"))
-	assert.NoError(t, err)
-	err = os.WriteFile(filepath.Join(u.HomeDir, testFileName), testFileContent, os.ModePerm)
-	assert.NoError(t, err)
-	err = conn.CreateSymlink(testFileName, testFileName+".link")
-	assert.Error(t, err)
-
 	err = conn.CloseFS()
 	assert.NoError(t, err)
 	err = os.RemoveAll(u.GetHomeDir())
-	assert.NoError(t, err)
-	err = os.Remove(outHomePath)
 	assert.NoError(t, err)
 }
 
@@ -6437,7 +6328,7 @@ func TestEventActionCompressQuotaErrors(t *testing.T) {
 		assert.NoError(t, err)
 		err = writeSFTPFile(path.Join(testDir, "2", testFileName), fileSize, client)
 		assert.NoError(t, err)
-		err = client.Symlink(path.Join(testDir, "2", testFileName), path.Join(testDir, "2", testFileName+"_link"))
+		err = os.Symlink(testFileName, filepath.Join(user.GetHomeDir(), testDir, "2", testFileName+"_link"))
 		assert.NoError(t, err)
 		// trigger the compress action
 		err = client.Mkdir("a")
@@ -6589,7 +6480,7 @@ func TestEventActionCompressQuotaFolder(t *testing.T) {
 		assert.NoError(t, err)
 		expectedQuotaSize := int64(len(testFileContent))
 		expectedQuotaFiles := 1
-		err = client.Symlink(path.Join(testDir, testFileName), path.Join(testDir, testFileName+"_link"))
+		err = os.Symlink(testFileName, filepath.Join(user.GetHomeDir(), testDir, testFileName+"_link"))
 		assert.NoError(t, err)
 		f, err := client.Create(path.Join(testDir, testFileName))
 		assert.NoError(t, err)
@@ -9127,7 +9018,7 @@ func TestRenameSymlink(t *testing.T) {
 		defer client.Close()
 		err = client.Mkdir(otherDir)
 		assert.NoError(t, err)
-		err = client.Symlink(otherDir, otherDir+".link")
+		err = os.Symlink(otherDir, filepath.Join(user.GetHomeDir(), otherDir+".link"))
 		assert.NoError(t, err)
 		err = client.Rename(otherDir+".link", path.Join(testDir, "symlink"))
 		assert.ErrorIs(t, err, os.ErrPermission)
@@ -9744,8 +9635,8 @@ func TestCopyAndRemoveSSHCommands(t *testing.T) {
 			err = writeSFTPFile(p, fileSize, client)
 			assert.NoError(t, err)
 		}
-		// create a symlink, copying a symlink is not supported
-		err = client.Symlink(path.Join("/", dir1, testFileName), path.Join("/", dir1, testFileName+"_link"))
+		// copying a symlink is not supported
+		err = os.Symlink(testFileName, filepath.Join(user.GetHomeDir(), dir1, testFileName+"_link"))
 		assert.NoError(t, err)
 		out, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %s %s", path.Join("/", dir1, testFileName+"_link"),
 			path.Join("/", testFileName+"_link")), user)
