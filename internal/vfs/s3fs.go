@@ -691,7 +691,7 @@ func (fs *S3Fs) copyFileInternal(source, target string, srcInfo os.FileInfo) err
 		metric.S3CopyObjectCompleted(err)
 		return err
 	}
-	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(2*fs.ctxTimeout))
 	defer cancelFn()
 
 	copyObject := &s3.CopyObjectInput{
