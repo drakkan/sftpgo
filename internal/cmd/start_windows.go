@@ -33,20 +33,21 @@ var (
 			checkServeParamsFromEnvFiles(configDir)
 			service.SetGraceTime(graceTime)
 			s := service.Service{
-				ConfigDir:         configDir,
-				ConfigFile:        configFile,
-				LogFilePath:       logFilePath,
-				LogMaxSize:        logMaxSize,
-				LogMaxBackups:     logMaxBackups,
-				LogMaxAge:         logMaxAge,
-				LogCompress:       logCompress,
-				LogLevel:          logLevel,
-				LogUTCTime:        logUTCTime,
-				LoadDataFrom:      loadDataFrom,
-				LoadDataMode:      loadDataMode,
-				LoadDataQuotaScan: loadDataQuotaScan,
-				LoadDataClean:     loadDataClean,
-				Shutdown:          make(chan bool),
+				ConfigDir:           configDir,
+				ConfigFile:          configFile,
+				LogFilePath:         logFilePath,
+				LogMaxSize:          logMaxSize,
+				LogMaxBackups:       logMaxBackups,
+				LogMaxAge:           logMaxAge,
+				LogCompress:         logCompress,
+				LogLevel:            logLevel,
+				LogUTCTime:          logUTCTime,
+				LoadDataFrom:        loadDataFrom,
+				LoadDataMode:        loadDataMode,
+				LoadDataQuotaScan:   loadDataQuotaScan,
+				LoadDataClean:       loadDataClean,
+				LoadDataFailOnError: loadDataFailOnError,
+				Shutdown:            make(chan bool),
 			}
 			winService := service.WindowsService{
 				Service: s,
@@ -65,4 +66,5 @@ var (
 func init() {
 	serviceCmd.AddCommand(startCmd)
 	addServeFlags(startCmd)
+	addServeLoadDataFlags(startCmd)
 }

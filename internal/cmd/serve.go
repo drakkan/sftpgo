@@ -46,20 +46,21 @@ Please take a look at the usage below to customize the startup options`,
 			checkServeParamsFromEnvFiles(configDir)
 			service.SetGraceTime(graceTime)
 			service := service.Service{
-				ConfigDir:         configDir,
-				ConfigFile:        configFile,
-				LogFilePath:       logFilePath,
-				LogMaxSize:        logMaxSize,
-				LogMaxBackups:     logMaxBackups,
-				LogMaxAge:         logMaxAge,
-				LogCompress:       logCompress,
-				LogLevel:          logLevel,
-				LogUTCTime:        logUTCTime,
-				LoadDataFrom:      loadDataFrom,
-				LoadDataMode:      loadDataMode,
-				LoadDataQuotaScan: loadDataQuotaScan,
-				LoadDataClean:     loadDataClean,
-				Shutdown:          make(chan bool),
+				ConfigDir:           configDir,
+				ConfigFile:          configFile,
+				LogFilePath:         logFilePath,
+				LogMaxSize:          logMaxSize,
+				LogMaxBackups:       logMaxBackups,
+				LogMaxAge:           logMaxAge,
+				LogCompress:         logCompress,
+				LogLevel:            logLevel,
+				LogUTCTime:          logUTCTime,
+				LoadDataFrom:        loadDataFrom,
+				LoadDataMode:        loadDataMode,
+				LoadDataQuotaScan:   loadDataQuotaScan,
+				LoadDataClean:       loadDataClean,
+				LoadDataFailOnError: loadDataFailOnError,
+				Shutdown:            make(chan bool),
 			}
 			if err := service.Start(disableAWSInstallationCode); err == nil {
 				service.Wait()
@@ -133,6 +134,8 @@ func checkServeParamsFromEnvFiles(configDir string) {
 					setBoolFromEnv(&loadDataClean, v)
 				case "SFTPGO_LOADDATA_QUOTA_SCAN":
 					setIntFromEnv(&loadDataQuotaScan, v)
+				case "SFTPGO_LOADDATA_FAIL_ON_ERROR":
+					setBoolFromEnv(&loadDataFailOnError, v)
 				case "SFTPGO_GRACE_TIME":
 					setIntFromEnv(&graceTime, v)
 				}
@@ -144,5 +147,6 @@ func checkServeParamsFromEnvFiles(configDir string) {
 func init() {
 	rootCmd.AddCommand(serveCmd)
 	addServeFlags(serveCmd)
+	addServeLoadDataFlags(serveCmd)
 	addAWSContainerFlags(serveCmd)
 }

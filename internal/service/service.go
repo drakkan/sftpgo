@@ -45,23 +45,24 @@ var (
 
 // Service defines the SFTPGo service
 type Service struct {
-	ConfigDir         string
-	ConfigFile        string
-	LogFilePath       string
-	LogMaxSize        int
-	LogMaxBackups     int
-	LogMaxAge         int
-	PortableMode      int
-	PortableUser      dataprovider.User
-	LogCompress       bool
-	LogLevel          string
-	LogUTCTime        bool
-	LoadDataClean     bool
-	LoadDataFrom      string
-	LoadDataMode      int
-	LoadDataQuotaScan int
-	Shutdown          chan bool
-	Error             error
+	ConfigDir           string
+	ConfigFile          string
+	LogFilePath         string
+	LogMaxSize          int
+	LogMaxBackups       int
+	LogMaxAge           int
+	PortableMode        int
+	PortableUser        dataprovider.User
+	LogCompress         bool
+	LogLevel            string
+	LogUTCTime          bool
+	LoadDataClean       bool
+	LoadDataFrom        string
+	LoadDataMode        int
+	LoadDataQuotaScan   int
+	LoadDataFailOnError bool
+	Shutdown            chan bool
+	Error               error
 }
 
 func (s *Service) initLogger() {
@@ -119,6 +120,11 @@ func (s *Service) Start(disableAWSInstallationCode bool) error {
 	}
 
 	if err := s.initializeServices(disableAWSInstallationCode); err != nil {
+		return err
+	}
+
+	if err := s.loadStartupData(); err != nil {
+		plugin.Handler.Cleanup()
 		return err
 	}
 
@@ -216,13 +222,20 @@ func (s *Service) initializeServices(disableAWSInstallationCode bool) error {
 	return nil
 }
 
-func (s *Service) startServices() {
+func (s *Service) loadStartupData() error {
 	err := s.LoadInitialData()
-	if err != nil {
-		logger.Error(logSender, "", "unable to load initial data: %v", err)
-		logger.ErrorToConsole("unable to load initial data: %v", err)
+	if err == nil {
+		return nil
 	}
+	logger.Error(logSender, "", "unable to load initial data: %v", err)
+	logger.ErrorToConsole("unable to load initial data: %v", err)
+	if s.LoadDataFailOnError {
+		return err
+	}
+	return nil
+}
 
+func (s *Service) startServices() {
 	sftpdConf := config.GetSFTPDConfig()
 	ftpdConf := config.GetFTPDConfig()
 	httpdConf := config.GetHTTPDConfig()

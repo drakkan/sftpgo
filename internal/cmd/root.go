@@ -26,65 +26,69 @@ import (
 )
 
 const (
-	configDirFlag            = "config-dir"
-	configDirKey             = "config_dir"
-	configFileFlag           = "config-file"
-	configFileKey            = "config_file"
-	logFilePathFlag          = "log-file-path"
-	logFilePathKey           = "log_file_path"
-	logMaxSizeFlag           = "log-max-size"
-	logMaxSizeKey            = "log_max_size"
-	logMaxBackupFlag         = "log-max-backups"
-	logMaxBackupKey          = "log_max_backups"
-	logMaxAgeFlag            = "log-max-age"
-	logMaxAgeKey             = "log_max_age"
-	logCompressFlag          = "log-compress"
-	logCompressKey           = "log_compress"
-	logLevelFlag             = "log-level"
-	logLevelKey              = "log_level"
-	logUTCTimeFlag           = "log-utc-time"
-	logUTCTimeKey            = "log_utc_time"
-	loadDataFromFlag         = "loaddata-from"
-	loadDataFromKey          = "loaddata_from"
-	loadDataModeFlag         = "loaddata-mode"
-	loadDataModeKey          = "loaddata_mode"
-	loadDataQuotaScanFlag    = "loaddata-scan"
-	loadDataQuotaScanKey     = "loaddata_scan"
-	loadDataCleanFlag        = "loaddata-clean"
-	loadDataCleanKey         = "loaddata_clean"
-	graceTimeFlag            = "grace-time"
-	graceTimeKey             = "grace_time"
-	defaultConfigDir         = "."
-	defaultConfigFile        = ""
-	defaultLogFile           = "sftpgo.log"
-	defaultLogMaxSize        = 10
-	defaultLogMaxBackup      = 5
-	defaultLogMaxAge         = 28
-	defaultLogCompress       = false
-	defaultLogLevel          = "debug"
-	defaultLogUTCTime        = false
-	defaultLoadDataFrom      = ""
-	defaultLoadDataMode      = 1
-	defaultLoadDataQuotaScan = 0
-	defaultLoadDataClean     = false
-	defaultGraceTime         = 0
+	configDirFlag              = "config-dir"
+	configDirKey               = "config_dir"
+	configFileFlag             = "config-file"
+	configFileKey              = "config_file"
+	logFilePathFlag            = "log-file-path"
+	logFilePathKey             = "log_file_path"
+	logMaxSizeFlag             = "log-max-size"
+	logMaxSizeKey              = "log_max_size"
+	logMaxBackupFlag           = "log-max-backups"
+	logMaxBackupKey            = "log_max_backups"
+	logMaxAgeFlag              = "log-max-age"
+	logMaxAgeKey               = "log_max_age"
+	logCompressFlag            = "log-compress"
+	logCompressKey             = "log_compress"
+	logLevelFlag               = "log-level"
+	logLevelKey                = "log_level"
+	logUTCTimeFlag             = "log-utc-time"
+	logUTCTimeKey              = "log_utc_time"
+	loadDataFromFlag           = "loaddata-from"
+	loadDataFromKey            = "loaddata_from"
+	loadDataModeFlag           = "loaddata-mode"
+	loadDataModeKey            = "loaddata_mode"
+	loadDataQuotaScanFlag      = "loaddata-scan"
+	loadDataQuotaScanKey       = "loaddata_scan"
+	loadDataCleanFlag          = "loaddata-clean"
+	loadDataCleanKey           = "loaddata_clean"
+	loadDataFailOnErrorFlag    = "loaddata-fail-on-error"
+	loadDataFailOnErrorKey     = "loaddata_fail_on_error"
+	graceTimeFlag              = "grace-time"
+	graceTimeKey               = "grace_time"
+	defaultConfigDir           = "."
+	defaultConfigFile          = ""
+	defaultLogFile             = "sftpgo.log"
+	defaultLogMaxSize          = 10
+	defaultLogMaxBackup        = 5
+	defaultLogMaxAge           = 28
+	defaultLogCompress         = false
+	defaultLogLevel            = "debug"
+	defaultLogUTCTime          = false
+	defaultLoadDataFrom        = ""
+	defaultLoadDataMode        = 1
+	defaultLoadDataQuotaScan   = 0
+	defaultLoadDataClean       = false
+	defaultLoadDataFailOnError = false
+	defaultGraceTime           = 0
 )
 
 var (
-	configDir         string
-	configFile        string
-	logFilePath       string
-	logMaxSize        int
-	logMaxBackups     int
-	logMaxAge         int
-	logCompress       bool
-	logLevel          string
-	logUTCTime        bool
-	loadDataFrom      string
-	loadDataMode      int
-	loadDataQuotaScan int
-	loadDataClean     bool
-	graceTime         int
+	configDir           string
+	configFile          string
+	logFilePath         string
+	logMaxSize          int
+	logMaxBackups       int
+	logMaxAge           int
+	logCompress         bool
+	logLevel            string
+	logUTCTime          bool
+	loadDataFrom        string
+	loadDataMode        int
+	loadDataQuotaScan   int
+	loadDataClean       bool
+	loadDataFailOnError bool
+	graceTime           int
 	// used if awscontainer build tag is enabled
 	disableAWSInstallationCode bool
 
@@ -183,6 +187,32 @@ too. (default "false")
 	_ = viper.BindPFlag(loadDataCleanKey, cmd.Flags().Lookup(loadDataCleanFlag))
 }
 
+func addServeLoadDataFlags(cmd *cobra.Command) {
+	addBaseLoadDataFlags(cmd)
+
+	viper.SetDefault(loadDataQuotaScanKey, defaultLoadDataQuotaScan)
+	_ = viper.BindEnv(loadDataQuotaScanKey, "SFTPGO_LOADDATA_QUOTA_SCAN")
+	cmd.Flags().IntVar(&loadDataQuotaScan, loadDataQuotaScanFlag, viper.GetInt(loadDataQuotaScanKey),
+		`Quota scan mode after data load:
+  0 - no quota scan
+  1 - scan quota
+  2 - scan quota if the user has quota restrictions
+This flag can be set using SFTPGO_LOADDATA_QUOTA_SCAN
+env var too.
+(default 0)`)
+	_ = viper.BindPFlag(loadDataQuotaScanKey, cmd.Flags().Lookup(loadDataQuotaScanFlag))
+
+	viper.SetDefault(loadDataFailOnErrorKey, defaultLoadDataFailOnError)
+	_ = viper.BindEnv(loadDataFailOnErrorKey, "SFTPGO_LOADDATA_FAIL_ON_ERROR")
+	cmd.Flags().BoolVar(&loadDataFailOnError, loadDataFailOnErrorFlag, viper.GetBool(loadDataFailOnErrorKey),
+		`Exit with an error if the loaddata-from file
+cannot be loaded, a missing file included.
+This flag can be set using
+SFTPGO_LOADDATA_FAIL_ON_ERROR env var too.
+(default false)`)
+	_ = viper.BindPFlag(loadDataFailOnErrorKey, cmd.Flags().Lookup(loadDataFailOnErrorFlag))
+}
+
 func addServeFlags(cmd *cobra.Command) {
 	addConfigFlags(cmd)
 
@@ -252,20 +282,6 @@ using SFTPGO_LOG_LEVEL env var too.
 using SFTPGO_LOG_UTC_TIME env var too.
 `)
 	_ = viper.BindPFlag(logUTCTimeKey, cmd.Flags().Lookup(logUTCTimeFlag))
-
-	addBaseLoadDataFlags(cmd)
-
-	viper.SetDefault(loadDataQuotaScanKey, defaultLoadDataQuotaScan)
-	_ = viper.BindEnv(loadDataQuotaScanKey, "SFTPGO_LOADDATA_QUOTA_SCAN")
-	cmd.Flags().IntVar(&loadDataQuotaScan, loadDataQuotaScanFlag, viper.GetInt(loadDataQuotaScanKey),
-		`Quota scan mode after data load:
-  0 - no quota scan
-  1 - scan quota
-  2 - scan quota if the user has quota restrictions
-This flag can be set using SFTPGO_LOADDATA_QUOTA_SCAN
-env var too.
-(default 0)`)
-	_ = viper.BindPFlag(loadDataQuotaScanKey, cmd.Flags().Lookup(loadDataQuotaScanFlag))
 
 	viper.SetDefault(graceTimeKey, defaultGraceTime)
 	_ = viper.BindEnv(graceTimeKey, "SFTPGO_GRACE_TIME")
