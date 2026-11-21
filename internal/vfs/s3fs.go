@@ -182,14 +182,7 @@ func (fs *S3Fs) Stat(name string) (os.FileInfo, error) {
 	}
 	obj, err := fs.headObject(name)
 	if err == nil {
-		// Some S3 providers (like SeaweedFS) remove the trailing '/' from object keys.
-		// So we check some common content types to detect if this is a "directory".
-		isDir := slices.Contains(s3DirMimeTypes, util.GetStringFromPointer(obj.ContentType))
-		if util.GetIntFromPointer(obj.ContentLength) == 0 && !isDir {
-			_, err = fs.headObject(name + "/")
-			isDir = err == nil
-		}
-		info := NewFileInfo(name, isDir, util.GetIntFromPointer(obj.ContentLength), util.GetTimeFromPointer(obj.LastModified), false)
+		info := NewFileInfo(name, isS3DirObject(obj), util.GetIntFromPointer(obj.ContentLength), util.GetTimeFromPointer(obj.LastModified), false)
 		return info, nil
 	}
 	if !fs.IsNotExist(err) {
@@ -830,8 +823,6 @@ func (fs *S3Fs) hasContents(name string) (bool, error) {
 		}
 		return false, nil
 	}
-
-	metric.S3ListObjectsCompleted(nil)
 	return false, nil
 }
 
