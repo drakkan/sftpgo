@@ -731,6 +731,7 @@ func TestCheckParentDirsErrors(t *testing.T) {
 					Bucket:    "buck",
 					Region:    "us-east-1",
 					AccessKey: "key",
+					Endpoint:  "http://127.0.0.1:1",
 				},
 				AccessSecret: kms.NewPlainSecret("s3secret"),
 			},
@@ -738,7 +739,7 @@ func TestCheckParentDirsErrors(t *testing.T) {
 	}
 	c = NewBaseConnection(xid.New().String(), ProtocolSFTP, "", "", user)
 	err = c.CheckParentDirs("/a/dir")
-	assert.NoError(t, err)
+	assert.Error(t, err)
 
 	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{

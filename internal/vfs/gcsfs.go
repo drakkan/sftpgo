@@ -126,6 +126,34 @@ func (fs *GCSFs) Stat(name string) (os.FileInfo, error) {
 	return fs.getObjectStat(name)
 }
 
+func (fs *GCSFs) classifyPath(name string) (pathKind, error) {
+	if name == "" || name == "/" || name == "." || fs.config.KeyPrefix == name+"/" {
+		return pathDir, nil
+	}
+	if _, err := fs.headObject(name + "/"); err == nil {
+		return pathDir, nil
+	} else if !fs.IsNotExist(err) {
+		return pathMissing, err
+	}
+	if attrs, err := fs.headObject(name); err == nil {
+		if attrs.ContentType == dirMimeType {
+			return pathDir, nil
+		}
+		return pathFile, nil
+	} else if !fs.IsNotExist(err) {
+		return pathMissing, err
+	}
+	// hasContents ignores the marker, checked above
+	hasContents, err := fs.hasContents(name)
+	if err != nil {
+		return pathMissing, err
+	}
+	if hasContents {
+		return pathDir, nil
+	}
+	return pathMissing, nil
+}
+
 // Lstat returns a FileInfo describing the named file
 func (fs *GCSFs) Lstat(name string) (os.FileInfo, error) {
 	return fs.Stat(name)
@@ -176,8 +204,7 @@ func (fs *GCSFs) Open(name string, offset int64) (File, PipeReader, func(), erro
 // Create creates or opens the named file for writing
 func (fs *GCSFs) Create(name string, flag, checks int) (File, PipeWriter, func(), error) {
 	if checks&CheckParentDir != 0 {
-		_, err := fs.Stat(path.Dir(name))
-		if err != nil {
+		if err := statParentDir(fs, name); err != nil {
 			return nil, nil, nil, err
 		}
 	}
@@ -281,8 +308,7 @@ func (fs *GCSFs) renameChecked(source, target string, checks int, onEntry EntryC
 		return -1, -1, nil
 	}
 	if checks&CheckParentDir != 0 {
-		_, err := fs.Stat(path.Dir(target))
-		if err != nil {
+		if err := statParentDir(fs, target); err != nil {
 			return -1, -1, err
 		}
 	}
@@ -445,7 +471,7 @@ func (*GCSFs) IsNotExist(err error) bool {
 			return true
 		}
 	}
-	return false
+	return errors.Is(err, os.ErrNotExist)
 }
 
 // IsPermission returns a boolean indicating whether the error is known to

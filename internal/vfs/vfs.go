@@ -1186,6 +1186,73 @@ func HasImplicitAtomicUploads(fs Fs) bool {
 	return false
 }
 
+// newNotDirError wraps os.ErrNotExist, as ENOTDIR does on local filesystems.
+func newNotDirError(name string) error {
+	return fmt.Errorf("%q is not a directory: %w", name, os.ErrNotExist)
+}
+
+func statParentDir(fs Fs, name string) error {
+	dir := path.Dir(strings.TrimSuffix(name, "/"))
+	info, err := fs.Stat(dir)
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return newNotDirError(dir)
+	}
+	return nil
+}
+
+type pathKind int
+
+const (
+	pathMissing pathKind = iota
+	pathDir
+	pathFile
+)
+
+type pathClassifier interface {
+	classifyPath(name string) (pathKind, error)
+}
+
+func classifyPath(fs Fs, name string) (pathKind, error) {
+	if c, ok := fs.(pathClassifier); ok {
+		return c.classifyPath(name)
+	}
+	info, err := fs.Stat(name)
+	if err != nil {
+		if fs.IsNotExist(err) {
+			return pathMissing, nil
+		}
+		return pathMissing, err
+	}
+	if info.IsDir() {
+		return pathDir, nil
+	}
+	return pathFile, nil
+}
+
+// CheckNearestExistingIsDir returns an error if the nearest existing path among dir and its ancestors is a file.
+func CheckNearestExistingIsDir(fs Fs, dir string) error {
+	dir = path.Clean(dir)
+	for {
+		kind, err := classifyPath(fs, dir)
+		if err != nil {
+			return err
+		}
+		switch kind {
+		case pathFile:
+			return newNotDirError(dir)
+		case pathDir:
+			return nil
+		}
+		if dir == "." || dir == "/" {
+			return nil
+		}
+		dir = path.Dir(dir)
+	}
+}
+
 // HasOpenRWSupport returns true if the fs can open a file
 // for reading and writing at the same time
 func HasOpenRWSupport(fs Fs) bool {

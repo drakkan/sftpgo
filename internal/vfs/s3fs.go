@@ -217,6 +217,39 @@ func (fs *S3Fs) getStatForDir(name string) (os.FileInfo, error) {
 	return NewFileInfo(name, true, util.GetIntFromPointer(obj.ContentLength), util.GetTimeFromPointer(obj.LastModified), false), nil
 }
 
+// isS3DirObject reports a directory marker returned without the trailing slash.
+func isS3DirObject(obj *s3.HeadObjectOutput) bool {
+	return slices.Contains(s3DirMimeTypes, util.GetStringFromPointer(obj.ContentType))
+}
+
+func (fs *S3Fs) classifyPath(name string) (pathKind, error) {
+	if name == "" || name == "/" || name == "." || fs.config.KeyPrefix == name+"/" {
+		return pathDir, nil
+	}
+	if _, err := fs.headObject(name + "/"); err == nil {
+		return pathDir, nil
+	} else if !fs.IsNotExist(err) {
+		return pathMissing, err
+	}
+	if obj, err := fs.headObject(name); err == nil {
+		if isS3DirObject(obj) {
+			return pathDir, nil
+		}
+		return pathFile, nil
+	} else if !fs.IsNotExist(err) {
+		return pathMissing, err
+	}
+	// hasContents ignores the marker, checked above
+	hasContents, err := fs.hasContents(name)
+	if err != nil {
+		return pathMissing, err
+	}
+	if hasContents {
+		return pathDir, nil
+	}
+	return pathMissing, nil
+}
+
 // Lstat returns a FileInfo describing the named file
 func (fs *S3Fs) Lstat(name string) (os.FileInfo, error) {
 	return fs.Stat(name)
@@ -253,8 +286,7 @@ func (fs *S3Fs) Open(name string, offset int64) (File, PipeReader, func(), error
 // Create creates or opens the named file for writing
 func (fs *S3Fs) Create(name string, flag, checks int) (File, PipeWriter, func(), error) {
 	if checks&CheckParentDir != 0 {
-		_, err := fs.Stat(path.Dir(name))
-		if err != nil {
+		if err := statParentDir(fs, name); err != nil {
 			return nil, nil, nil, err
 		}
 	}
@@ -333,8 +365,7 @@ func (fs *S3Fs) renameChecked(source, target string, checks int, onEntry EntryCh
 		return -1, -1, nil
 	}
 	if checks&CheckParentDir != 0 {
-		_, err := fs.Stat(path.Dir(target))
-		if err != nil {
+		if err := statParentDir(fs, target); err != nil {
 			return -1, -1, err
 		}
 	}
@@ -457,7 +488,7 @@ func (*S3Fs) IsNotExist(err error) bool {
 			return re.Response.StatusCode == http.StatusNotFound
 		}
 	}
-	return false
+	return errors.Is(err, os.ErrNotExist)
 }
 
 // IsPermission returns a boolean indicating whether the error is known to

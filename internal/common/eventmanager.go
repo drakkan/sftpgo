@@ -2063,7 +2063,9 @@ func executeCompressFsActionForUser(c dataprovider.EventActionFsCompress, replac
 	defer conn.CloseFS()
 
 	name := util.CleanPath(replaceWithReplacer(c.Name, replacer))
-	_ = conn.CheckParentDirs(path.Dir(name))
+	if err := conn.CheckParentDirs(path.Dir(name)); conn.IsNotExistError(err) {
+		return fmt.Errorf("unable to check parent dirs for %q, user %q: %w", name, user.Username, err)
+	}
 	paths := make([]string, 0, len(c.Paths))
 	for idx := range c.Paths {
 		p := util.CleanPath(replaceWithReplacer(c.Paths[idx], replacer))

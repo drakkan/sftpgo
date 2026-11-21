@@ -372,7 +372,7 @@ func (c *BaseConnection) CheckParentDirs(virtualPath string) error {
 		return err
 	}
 	if fs.HasVirtualFolders() {
-		return nil
+		return c.checkNearestExistingIsDir(virtualPath)
 	}
 	if _, err := c.DoStat(virtualPath, 0, false); !c.IsNotExistError(err) {
 		return err
@@ -390,6 +390,18 @@ func (c *BaseConnection) CheckParentDirs(virtualPath string) error {
 			return fmt.Errorf("unable to check/create missing parent dir %q for virtual path %q: %w",
 				dir, virtualPath, err)
 		}
+	}
+	return nil
+}
+
+func (c *BaseConnection) checkNearestExistingIsDir(virtualPath string) error {
+	fs, fsPath, err := c.GetFsAndResolvedPath(virtualPath)
+	if err != nil {
+		return err
+	}
+	if err := vfs.CheckNearestExistingIsDir(fs, fsPath); err != nil {
+		c.Log(logger.LevelDebug, "unable to use %q as directory: %v", virtualPath, err)
+		return c.GetFsError(fs, err)
 	}
 	return nil
 }
@@ -1138,7 +1150,9 @@ func (c *BaseConnection) renameInternal(virtualSourcePath, virtualTargetPath str
 		return c.GetGenericError(ErrQuotaExceeded)
 	}
 	if checkParentDestination {
-		_ = c.CheckParentDirs(path.Dir(virtualTargetPath))
+		if err := c.CheckParentDirs(path.Dir(virtualTargetPath)); c.IsNotExistError(err) {
+			return err
+		}
 	}
 	needsEntryChecks := c.renameNeedsEntryChecks(virtualSourcePath, virtualTargetPath)
 	if needsEntryChecks {

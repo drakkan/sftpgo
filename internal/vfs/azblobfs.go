@@ -216,6 +216,30 @@ func (fs *AzureBlobFs) Stat(name string) (os.FileInfo, error) {
 	return nil, os.ErrNotExist
 }
 
+func (fs *AzureBlobFs) classifyPath(name string) (pathKind, error) {
+	if name == "" || name == "/" || name == "." || fs.config.KeyPrefix == name+"/" {
+		return pathDir, nil
+	}
+	attrs, err := fs.headObject(name)
+	if err == nil {
+		if checkDirectoryMarkers(util.GetStringFromPointer(attrs.ContentType), attrs.Metadata) {
+			return pathDir, nil
+		}
+		return pathFile, nil
+	}
+	if !fs.IsNotExist(err) {
+		return pathMissing, err
+	}
+	hasContents, err := fs.hasContents(name)
+	if err != nil {
+		return pathMissing, err
+	}
+	if hasContents {
+		return pathDir, nil
+	}
+	return pathMissing, nil
+}
+
 // Lstat returns a FileInfo describing the named file
 func (fs *AzureBlobFs) Lstat(name string) (os.FileInfo, error) {
 	return fs.Stat(name)
@@ -246,8 +270,7 @@ func (fs *AzureBlobFs) Open(name string, offset int64) (File, PipeReader, func()
 // Create creates or opens the named file for writing
 func (fs *AzureBlobFs) Create(name string, flag, checks int) (File, PipeWriter, func(), error) {
 	if checks&CheckParentDir != 0 {
-		_, err := fs.Stat(path.Dir(name))
-		if err != nil {
+		if err := statParentDir(fs, name); err != nil {
 			return nil, nil, nil, err
 		}
 	}
@@ -335,8 +358,7 @@ func (fs *AzureBlobFs) renameChecked(source, target string, checks int, onEntry 
 		return -1, -1, nil
 	}
 	if checks&CheckParentDir != 0 {
-		_, err := fs.Stat(path.Dir(target))
-		if err != nil {
+		if err := statParentDir(fs, target); err != nil {
 			return -1, -1, err
 		}
 	}
