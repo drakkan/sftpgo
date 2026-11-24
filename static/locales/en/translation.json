@@ -81,7 +81,7 @@
         "forgot_password_msg": "Enter your account username below, you will receive a password reset code by email.",
         "send_reset_code": "Send Reset Code",
         "signin": "Sign in",
-        "signin_openid": "Sign in with OpenID",
+        "signin_with": "Sign in with",
         "signout": "Sign out",
         "auth_code": "Authentication code",
         "two_factor_help": "Open the two-factor authentication app on your device to view your authentication code and verify your identity.",
