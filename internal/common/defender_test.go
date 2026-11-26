@@ -470,6 +470,9 @@ func TestDefenderConfig(t *testing.T) {
 	c.ScoreInvalid = 10
 	err = c.validate()
 	require.Error(t, err)
+	// a score equal to the threshold must be rejected and the error must not
+	// claim the score is "greater than" a value it is actually equal to
+	assert.Contains(t, err.Error(), "score_invalid 10 must be lower than threshold 10")
 
 	c.ScoreInvalid = 2
 	c.ScoreLimitExceeded = 10
