@@ -144,6 +144,7 @@
     },
     "passive_port_multiplexing": false,
     "disable_active_mode": false,
+    "sort_listings": false,
     "enable_site": false,
     "hash_support": 0,
     "certificate_file": "",

@@ -20,6 +20,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"slices"
 	"strings"
 	"time"
 
@@ -43,6 +44,7 @@ type Connection struct {
 	*common.BaseConnection
 	clientContext     ftpserver.ClientContext
 	doWildcardListDir bool
+	sortListings      bool
 }
 
 func (c *Connection) getFTPMode() string {
@@ -316,14 +318,23 @@ func (c *Connection) ReadDir(name string) ([]os.FileInfo, error) {
 			dirName:        name,
 			connectionPath: util.CleanPath(c.clientContext.Path()),
 		}
-		return consumeDirLister(patternLister)
+		return c.sortDirEntries(consumeDirLister(patternLister))
 	}
 
 	lister, err := c.ListDir(name)
 	if err != nil {
 		return nil, err
 	}
-	return consumeDirLister(lister)
+	return c.sortDirEntries(consumeDirLister(lister))
+}
+
+func (c *Connection) sortDirEntries(files []os.FileInfo, err error) ([]os.FileInfo, error) {
+	if err == nil && c.sortListings {
+		slices.SortFunc(files, func(a, b os.FileInfo) int {
+			return strings.Compare(a.Name(), b.Name())
+		})
+	}
+	return files, err
 }
 
 // GetHandle implements ClientDriverExtentionFileTransfer
