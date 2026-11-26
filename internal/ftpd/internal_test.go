@@ -1327,3 +1327,54 @@ func TestPassivePortMultiplexingConfig(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, settings.PassiveTransferPortMultiplexing)
 }
+
+func TestReadDirSortListings(t *testing.T) {
+	homeDir := filepath.Join(os.TempDir(), "ftpd_sort_listings")
+	err := os.MkdirAll(homeDir, os.ModePerm)
+	require.NoError(t, err)
+	defer os.RemoveAll(homeDir)
+
+	names := []string{"c.csv", "a.csv", "B.csv", "b.csv", "sub"}
+	for _, name := range names[:4] {
+		err = os.WriteFile(filepath.Join(homeDir, name), []byte("data"), 0666)
+		require.NoError(t, err)
+	}
+	err = os.Mkdir(filepath.Join(homeDir, names[4]), os.ModePerm)
+	require.NoError(t, err)
+
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username: "sortuser",
+			HomeDir:  homeDir,
+		},
+	}
+	user.Permissions = make(map[string][]string)
+	user.Permissions["/"] = []string{dataprovider.PermAny}
+	connection := &Connection{
+		BaseConnection: common.NewBaseConnection("sort_listings", common.ProtocolFTP, "", "", user),
+		clientContext:  &mockFTPClientContext{},
+	}
+
+	getNames := func(files []os.FileInfo) []string {
+		var result []string
+		for _, f := range files {
+			result = append(result, f.Name())
+		}
+		return result
+	}
+
+	connection.sortListings = true
+	files, err := connection.ReadDir("/")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"B.csv", "a.csv", "b.csv", "c.csv", "sub"}, getNames(files))
+
+	connection.doWildcardListDir = true
+	files, err = connection.ReadDir("/*.csv")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"B.csv", "a.csv", "b.csv", "c.csv"}, getNames(files))
+
+	connection.sortListings = false
+	files, err = connection.ReadDir("/")
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"B.csv", "a.csv", "b.csv", "c.csv", "sub"}, getNames(files))
+}

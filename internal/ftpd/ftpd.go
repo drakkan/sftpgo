@@ -279,6 +279,10 @@ type Configuration struct {
 	ActiveTransfersPortNon20 bool `json:"active_transfers_port_non_20" mapstructure:"active_transfers_port_non_20"`
 	// Set to true to disable active FTP
 	DisableActiveMode bool `json:"disable_active_mode" mapstructure:"disable_active_mode"`
+	// Set to true to return directory listings (LIST, NLST, MLSD) sorted by name, as most traditional
+	// FTP servers do. Some legacy clients rely on this order. The whole directory has to be read before
+	// sending the listing, which is what already happens for FTP listings
+	SortListings bool `json:"sort_listings" mapstructure:"sort_listings"`
 	// Set to true to enable the FTP SITE command.
 	// We support chmod if SITE support is enabled
 	EnableSite bool `json:"enable_site" mapstructure:"enable_site"`

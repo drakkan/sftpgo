@@ -436,6 +436,7 @@ func (s *Server) validateUser(user dataprovider.User, cc ftpserver.ClientContext
 		BaseConnection: common.NewBaseConnection(fmt.Sprintf("%v_%v", s.ID, cc.ID()), common.ProtocolFTP,
 			cc.LocalAddr().String(), remoteAddr, user),
 		clientContext: cc,
+		sortListings:  s.config.SortListings,
 	}
 	err = common.Connections.Swap(connection)
 	if err != nil {
